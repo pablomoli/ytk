@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
-from pathlib import Path
-
 import logging
 import os
+import re
+from dataclasses import dataclass
+from pathlib import Path
 
 import chromadb
 from chromadb.utils import embedding_functions
@@ -78,12 +77,15 @@ def _memories_collection() -> chromadb.Collection:
     )
 
 
+_FM_RE = re.compile(r"^---\n.*?^---\n", re.DOTALL | re.MULTILINE)
+
+
 def strip_frontmatter(text: str) -> str:
     """Strip YAML frontmatter block from markdown so only body text is indexed."""
     if not text.startswith("---"):
         return text
-    end = text.find("---", 3)
-    return text[end + 3:].lstrip() if end != -1 else text
+    m = _FM_RE.match(text)
+    return text[m.end():].lstrip() if m else text
 
 
 def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
@@ -99,8 +101,8 @@ def delete_doc(doc_id: str) -> None:
     """Remove a document from the memories collection by ID."""
     try:
         _memories_collection().delete(ids=[doc_id])
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.getLogger(__name__).debug("delete_doc %s: %s", doc_id, exc)
 
 
 @dataclass
@@ -269,7 +271,10 @@ class UnifiedResult:
 
 
 def upsert_memory(doc_id: str, text: str, tags: list[str], source_path: str) -> None:
-    """Embed and store an arbitrary memory note in the ytk_memories collection."""
+    """Embed and store an arbitrary memory note in the ytk_memories collection.
+
+    Text is truncated to 8000 characters via upsert_doc.
+    """
     upsert_doc(doc_id, text, {
         "doc_id": doc_id,
         "tags": ", ".join(tags),
