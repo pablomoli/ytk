@@ -294,8 +294,12 @@ def reindex_vault() -> int:
                 continue
             seen_paths.add(str_path)
             rel = md_file.relative_to(vault_path)
-            doc_id = "note_" + str(rel).replace("/", "_").replace(".md", "").replace(" ", "_")
             content = md_file.read_text(encoding="utf-8")
+            id_match = re.search(r"^id:\s*(.+)$", content, re.MULTILINE)
+            if id_match:
+                doc_id = id_match.group(1).strip()
+            else:
+                doc_id = "note_" + str(rel).replace("/", "_").replace(".md", "").replace(" ", "_")
             body = strip_frontmatter(content)
             if not body.strip():
                 continue
