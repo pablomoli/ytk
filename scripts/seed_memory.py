@@ -151,6 +151,11 @@ def main() -> None:
     parser.add_argument("--max-sessions", type=int, default=3)
     parser.add_argument("--force", action="store_true", help="Re-generate existing memories")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--recent",
+        action="store_true",
+        help="Re-seed only the project whose JSONL was most recently modified (session-end use).",
+    )
     args = parser.parse_args()
 
     if not CLAUDE_DIR.exists():
@@ -176,6 +181,25 @@ def main() -> None:
         client = remember = upsert_memory = None
 
     projects = [d for d in CLAUDE_DIR.iterdir() if d.is_dir()]
+
+    if args.recent:
+        import time
+        all_jsonls = [
+            (jf.stat().st_mtime, proj_dir)
+            for proj_dir in projects
+            for jf in proj_dir.glob("*.jsonl")
+        ]
+        if not all_jsonls:
+            print("--recent: no JSONL files found.")
+            return
+        most_recent_mtime, most_recent_proj = max(all_jsonls, key=lambda x: x[0])
+        if time.time() - most_recent_mtime > 300:
+            print("--recent: last session > 5 minutes ago, skipping.")
+            return
+        projects = [most_recent_proj]
+        args.force = True
+        print(f"--recent: reseeding {project_name_from_dir(most_recent_proj.name)}")
+
     print(f"Found {len(projects)} project directories")
 
     for proj_dir in sorted(projects):
