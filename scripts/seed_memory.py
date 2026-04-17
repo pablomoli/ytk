@@ -184,9 +184,12 @@ def main() -> None:
     projects = [d for d in CLAUDE_DIR.iterdir() if d.is_dir()]
 
     if args.recent:
+        # Skip meta-directories (observer, config tools) — they have "--" in their
+        # name from empty path components, e.g. -Users-melocoton--claude-mem-observer
+        real_projects = [p for p in projects if "--" not in p.name]
         all_jsonls = [
             (jf.stat().st_mtime, proj_dir)
-            for proj_dir in projects
+            for proj_dir in real_projects
             for jf in proj_dir.glob("*.jsonl")
         ]
         if not all_jsonls:

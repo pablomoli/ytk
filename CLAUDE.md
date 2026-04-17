@@ -1,5 +1,17 @@
 # ytk — Architecture & Roadmap
 
+## Session start (do this first)
+
+The ytk MCP server is registered globally. At the start of every session:
+
+1. Call `vault_read("wiki/hot.md")` — latest project state and commands
+2. Call `vault_read("wiki/index.md")` — full vault index
+3. Drill into `projects/ytk/` as needed via `vault_read`
+
+Use `vault_search("query")` to retrieve any past decision, session brief, or memory.
+
+---
+
 ## Overview
 
 `ytk` is a personal YouTube knowledge system. It fetches transcripts and metadata from YouTube videos, enriches them with AI, stores them as atomic notes in an Obsidian vault, and indexes embeddings locally for semantic search.
