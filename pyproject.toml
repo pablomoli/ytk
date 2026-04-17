@@ -1,0 +1,27 @@
+[project]
+name = "ytk"
+version = "0.1.0"
+description = "Personal YouTube knowledge system"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1",
+    "yt-dlp>=2024.1.1",
+    "youtube-transcript-api>=0.6.2",
+    "python-dotenv>=1.0",
+    "rich>=13.0",
+    "anthropic>=0.40.0",
+    "pyyaml>=6.0",
+    "google-api-python-client>=2.100",
+    "google-auth-oauthlib>=1.0",
+    "chromadb>=0.5",
+    "sentence-transformers>=3.0",
+    "mcp>=1.0",
+]
+
+[project.scripts]
+ytk = "ytk.cli:cli"
+ytk-mcp = "ytk.mcp_server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
