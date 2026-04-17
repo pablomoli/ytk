@@ -110,6 +110,32 @@ ytk gc --dry-run           # show what --prune would do
 
 ---
 
+## Phase 5G — Stop hook: automatic post-session reseed
+
+**What:** A Claude Code Stop hook that re-seeds the current project's vault memory immediately after every session ends. No manual intervention, no judgment required.
+
+**Hook registration:** Added to `~/.claude/settings.json` under `hooks.Stop`:
+
+```json
+{
+  "type": "command",
+  "command": "cd /Users/melocoton/Developer/ytk && uv run scripts/seed_memory.py --recent --max-sessions 1 >> ~/.ytk/seed.log 2>&1"
+}
+```
+
+Runs in the background after Claude stops. Output logged to `~/.ytk/seed.log`.
+
+**`--recent` flag on `seed_memory.py`:** Finds the project directory whose `.jsonl` file was most recently modified (i.e., the session that just ended), re-seeds only that project. Skips all others. Exactly one Haiku call per session end.
+
+**Behavior:**
+- Session ends in epicmap → Stop hook fires → `--recent` finds epicmap's latest JSONL → Haiku re-summarizes → vault memory updated
+- If no JSONL modified in the last 5 minutes, no-op (avoids redundant calls on shell restarts or non-session stops)
+- `--force` is implied for the targeted project so the existing memory gets overwritten with fresh context
+
+**`seed_memory.py` change:** Add `--recent` flag. When set, scan all project dirs, find the one with `max(mtime)` across all `.jsonl` files, run seeding for that project only with `--force`.
+
+---
+
 ## Out of scope
 
 - Haiku-powered staleness detection (can't detect without current project context)
@@ -127,3 +153,4 @@ ytk gc --dry-run           # show what --prune would do
 4. 5C (`vault_write` fix + `vault_reindex`) — closes search gap
 5. 5E (`ytk ingest`) — new module, largest surface
 6. 5F (`ytk gc`) — depends on `id:` frontmatter from updated `vault.remember()`
+7. 5G (Stop hook + `--recent` flag) — wires automation, depends on seed script being stable
