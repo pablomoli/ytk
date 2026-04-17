@@ -16,6 +16,7 @@ import argparse
 import json
 import re
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -183,7 +184,6 @@ def main() -> None:
     projects = [d for d in CLAUDE_DIR.iterdir() if d.is_dir()]
 
     if args.recent:
-        import time
         all_jsonls = [
             (jf.stat().st_mtime, proj_dir)
             for proj_dir in projects
