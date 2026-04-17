@@ -48,11 +48,21 @@ def vault_list() -> str:
 
 @app.tool()
 def vault_write(path: str, content: str) -> str:
-    """Write or overwrite a note at a vault path (relative to vault root)."""
+    """Write or overwrite a note at a vault path and index it in ChromaDB for search."""
+    from .store import upsert_doc, strip_frontmatter
     from .vault import write_raw
 
     note_path = write_raw(path, content)
-    return f"Written: {note_path}"
+    doc_id = "note_" + path.replace("/", "_").replace(".md", "").replace(" ", "_")
+    body = strip_frontmatter(content)
+    parts = path.split("/")
+    tags = parts[:-1]
+    upsert_doc(doc_id, body, {
+        "doc_id": doc_id,
+        "tags": ", ".join(tags),
+        "source_path": str(note_path),
+    })
+    return f"Written and indexed: {note_path}"
 
 
 @app.tool()
@@ -73,6 +83,15 @@ def vault_update_index() -> str:
 
     rebuild_index()
     return "Index rebuilt."
+
+
+@app.tool()
+def vault_reindex() -> str:
+    """Scan and index all vault notes (projects, decisions, inbox, etc.) into ChromaDB."""
+    from .vault import reindex_vault
+
+    count = reindex_vault()
+    return f"Indexed {count} notes."
 
 
 def main() -> None:
