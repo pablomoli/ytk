@@ -366,7 +366,6 @@ def reindex_cmd():
 @click.option("--force", is_flag=True, default=False, help="Skip interest-tag filter.")
 def ingest(url: str, force: bool):
     """Fetch a web article, enrich with AI, and store in the vault."""
-    from .filter import check_post_enrichment
     from .ingest import enrich_web, fetch_web
     from .store import strip_frontmatter, upsert_doc
     from .vault import write_web_note
@@ -404,7 +403,7 @@ def ingest(url: str, force: bool):
     try:
         note_path = write_web_note(content.url, content.title, content.author, content.date, result)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
-        doc_id = "web_" + note_path.stem[:60].replace(" ", "_")
+        doc_id = "web_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(doc_id, body, {
             "doc_id": doc_id,
@@ -486,7 +485,10 @@ def gc(prune: int | None, refresh_projects: bool, dry_run: bool):
             console.print("[green]All project memories are fresh (< 30 days).[/]")
         else:
             console.print(f"[cyan]Refreshing {len(stale)} stale project memories...[/]")
-            if not dry_run:
+            if dry_run:
+                for p in stale:
+                    console.print(f"  [dim]would refresh:[/] {p.name}")
+            else:
                 seed_script = Path(__file__).parent.parent / "scripts" / "seed_memory.py"
                 result = subprocess.run(
                     ["uv", "run", str(seed_script), "--force", "--max-sessions", "5"],
