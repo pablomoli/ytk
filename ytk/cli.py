@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import re
+import sys
 import shutil
 import subprocess
 import textwrap
@@ -312,6 +314,188 @@ def search(query: str, n: int):
             title=f"[bold]{i}. {r.title}[/]",
             box=box.ROUNDED,
         ))
+
+
+@cli.command(name="remember")
+@click.argument("text", required=False, default="")
+@click.option("--tags", "-t", default="", help="Comma-separated tags.")
+def remember_cmd(text: str, tags: str):
+    """Store a memory note in the vault and index it for semantic search.
+
+    TEXT may be omitted to read from stdin: echo 'note' | ytk remember -t foo
+    """
+    from .store import upsert_memory
+    from .vault import remember as _remember
+
+    if not text:
+        text = sys.stdin.read().strip()
+    if not text:
+        console.print("[red]No text provided.[/]")
+        raise SystemExit(1)
+
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+
+    try:
+        note_path, doc_id = _remember(text, tag_list)
+        upsert_memory(doc_id, text, tag_list, str(note_path))
+        console.print(f"[bold green]Memory stored:[/] {note_path}")
+    except EnvironmentError as exc:
+        console.print(f"[red]Vault not configured:[/] {exc}")
+        raise SystemExit(1)
+
+
+@cli.command(name="reindex")
+def reindex_cmd():
+    """Index all vault notes into ChromaDB for semantic search."""
+    from .vault import _get_vault_path, reindex_vault
+
+    try:
+        _get_vault_path()
+    except EnvironmentError as exc:
+        console.print(f"[red]Vault not configured:[/] {exc}")
+        raise SystemExit(1)
+
+    with console.status("[bold cyan]Indexing vault notes...[/]"):
+        count = reindex_vault()
+
+    console.print(f"[bold green]Indexed:[/] {count} notes")
+
+
+@cli.command()
+@click.argument("url")
+@click.option("--force", is_flag=True, default=False, help="Skip interest-tag filter.")
+def ingest(url: str, force: bool):
+    """Fetch a web article, enrich with AI, and store in the vault."""
+    from .filter import check_post_enrichment
+    from .ingest import enrich_web, fetch_web
+    from .store import strip_frontmatter, upsert_doc
+    from .vault import write_web_note
+
+    cfg = load_config()
+
+    with console.status("[bold cyan]Fetching article...[/]"):
+        try:
+            content = fetch_web(url)
+        except ValueError as exc:
+            console.print(f"[red]Fetch failed:[/] {exc}")
+            raise SystemExit(1)
+
+    info = Table.grid(padding=(0, 2))
+    info.add_column(style="bold cyan", no_wrap=True)
+    info.add_column()
+    info.add_row("Title", content.title)
+    if content.author:
+        info.add_row("Author", content.author)
+    if content.date:
+        info.add_row("Date", content.date)
+    info.add_row("Words", f"{len(content.text.split()):,}")
+    console.print(Panel(info, title="[bold]Article[/]", box=box.ROUNDED))
+
+    with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
+        result = enrich_web(content)
+
+    post_result = check_post_enrichment(result, cfg)
+    if not _prompt_on_failures(post_result, force):
+        raise SystemExit(0)
+
+    console.print(Panel(f"[italic]{result.thesis}[/]", title="[bold]Thesis[/]", box=box.ROUNDED))
+    console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
+
+    try:
+        note_path = write_web_note(content.url, content.title, content.author, content.date, result)
+        console.print(f"\n[bold green]Note written:[/] {note_path}")
+        doc_id = "web_" + note_path.stem[:60].replace(" ", "_")
+        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
+        upsert_doc(doc_id, body, {
+            "doc_id": doc_id,
+            "tags": ", ".join(result.interest_tags),
+            "source_path": str(note_path),
+        })
+    except EnvironmentError as exc:
+        console.print(f"\n[yellow]Vault not configured:[/] {exc}")
+
+
+@cli.command()
+@click.option("--prune", type=int, default=None, metavar="DAYS",
+              help="Archive memories older than N days and remove from ChromaDB.")
+@click.option("--refresh-projects", is_flag=True, default=False,
+              help="Re-run seed for project memories older than 30 days.")
+@click.option("--dry-run", is_flag=True, default=False)
+def gc(prune: int | None, refresh_projects: bool, dry_run: bool):
+    """Manage vault memory lifecycle — list ages, prune stale entries, refresh projects."""
+    import subprocess
+    from .store import delete_doc
+    from .vault import _get_vault_path
+
+    try:
+        vault_path = _get_vault_path()
+    except EnvironmentError as exc:
+        console.print(f"[red]Vault not configured:[/] {exc}")
+        raise SystemExit(1)
+
+    mem_dir = vault_path / "inbox" / "memories"
+    if not mem_dir.exists() or not list(mem_dir.glob("*.md")):
+        console.print("[yellow]No memories found.[/]")
+        return
+
+    now = datetime.now()
+    notes = sorted(mem_dir.glob("*.md"), key=lambda p: p.stat().st_mtime)
+
+    table = Table("File", "Age", "Tags", box=box.SIMPLE, show_header=True)
+    for p in notes:
+        age_days = (now - datetime.fromtimestamp(p.stat().st_mtime)).days
+        content = p.read_text(encoding="utf-8")
+        tag_match = re.search(r"^tags:\s*\n((?:  - .+\n)*)", content, re.MULTILINE)
+        tags = ", ".join(re.findall(r"  - (.+)", tag_match.group(1))) if tag_match else ""
+        table.add_row(p.name[:55], f"{age_days}d", tags[:45])
+    console.print(Panel(table, title=f"[bold]Memories ({len(notes)})[/]", box=box.ROUNDED))
+
+    if prune is not None:
+        cutoff = now - timedelta(days=prune)
+        to_archive = [p for p in notes if datetime.fromtimestamp(p.stat().st_mtime) < cutoff]
+        if not to_archive:
+            console.print(f"[green]No memories older than {prune} days.[/]")
+        else:
+            console.print(f"\n[yellow]{len(to_archive)} memories older than {prune} days.[/]")
+            if dry_run:
+                for p in to_archive:
+                    console.print(f"  [dim]would archive:[/] {p.name}")
+            else:
+                archive_dir = mem_dir / "archived"
+                archive_dir.mkdir(exist_ok=True)
+                for p in to_archive:
+                    content = p.read_text(encoding="utf-8")
+                    id_match = re.search(r"^id:\s*(.+)$", content, re.MULTILINE)
+                    if id_match:
+                        try:
+                            delete_doc(id_match.group(1).strip())
+                        except Exception:
+                            pass
+                    p.rename(archive_dir / p.name)
+                    console.print(f"  [dim]archived:[/] {p.name}")
+                console.print(f"\n[bold green]Archived {len(to_archive)} memories.[/]")
+
+    if refresh_projects:
+        proj_mems = [
+            p for p in notes
+            if "project-context" in p.read_text(encoding="utf-8")
+        ]
+        cutoff = now - timedelta(days=30)
+        stale = [p for p in proj_mems if datetime.fromtimestamp(p.stat().st_mtime) < cutoff]
+        if not stale:
+            console.print("[green]All project memories are fresh (< 30 days).[/]")
+        else:
+            console.print(f"[cyan]Refreshing {len(stale)} stale project memories...[/]")
+            if not dry_run:
+                seed_script = Path(__file__).parent.parent / "scripts" / "seed_memory.py"
+                result = subprocess.run(
+                    ["uv", "run", str(seed_script), "--force", "--max-sessions", "5"],
+                    cwd=Path(__file__).parent.parent,
+                )
+                if result.returncode == 0:
+                    console.print("[bold green]Project memories refreshed.[/]")
+                else:
+                    console.print("[red]Seed script failed — check output above.[/]")
 
 
 @cli.command(name="index")
