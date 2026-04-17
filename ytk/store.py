@@ -78,6 +78,31 @@ def _memories_collection() -> chromadb.Collection:
     )
 
 
+def strip_frontmatter(text: str) -> str:
+    """Strip YAML frontmatter block from markdown so only body text is indexed."""
+    if not text.startswith("---"):
+        return text
+    end = text.find("---", 3)
+    return text[end + 3:].lstrip() if end != -1 else text
+
+
+def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
+    """Upsert arbitrary text into the memories collection."""
+    _memories_collection().upsert(
+        ids=[doc_id],
+        documents=[text[:8000]],
+        metadatas=[metadata],
+    )
+
+
+def delete_doc(doc_id: str) -> None:
+    """Remove a document from the memories collection by ID."""
+    try:
+        _memories_collection().delete(ids=[doc_id])
+    except Exception:
+        pass
+
+
 @dataclass
 class VideoResult:
     video_id: str
@@ -245,15 +270,11 @@ class UnifiedResult:
 
 def upsert_memory(doc_id: str, text: str, tags: list[str], source_path: str) -> None:
     """Embed and store an arbitrary memory note in the ytk_memories collection."""
-    _memories_collection().upsert(
-        ids=[doc_id],
-        documents=[text],
-        metadatas=[{
-            "doc_id": doc_id,
-            "tags": ", ".join(tags),
-            "source_path": source_path,
-        }],
-    )
+    upsert_doc(doc_id, text, {
+        "doc_id": doc_id,
+        "tags": ", ".join(tags),
+        "source_path": source_path,
+    })
 
 
 def search_all(query: str, n: int = 5) -> list[UnifiedResult]:
