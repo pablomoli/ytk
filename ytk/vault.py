@@ -235,12 +235,80 @@ def remember(text: str, tags: list[str] | None = None) -> tuple[Path, str]:
     note_path = note_dir / filename
 
     tags_yaml = "\n".join(f"  - {t}" for t in tags) if tags else ""
+    doc_id = f"memory_{date_str}_{slug}"
     note_path.write_text(
-        f"---\ndate: {date_str}\ntags:\n{tags_yaml}\ntype: memory\n---\n\n{text}\n",
+        f"---\nid: {doc_id}\ndate: {date_str}\ntags:\n{tags_yaml}\ntype: memory\n---\n\n{text}\n",
         encoding="utf-8",
     )
-    doc_id = f"memory_{date_str}_{slug}"
     return note_path, doc_id
+
+
+def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enrichment) -> Path:
+    """Write an Obsidian note for an ingested web article. Returns the path written."""
+    vault_path = _get_vault_path()
+    note_dir = vault_path / "sources" / "web"
+    note_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = _slug(title)
+    note_path = note_dir / f"{filename}.md"
+
+    def _normalize_tag(t: str) -> str:
+        return re.sub(r"\s+", "-", t.strip().lower())
+
+    tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
+    concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
+    insights = "\n".join(f"- {i}" for i in enrichment.insights)
+
+    note_path.write_text(
+        f"---\nurl: {url}\ntitle: {title}\nauthor: {author}\ndate: {date}\ntags:\n{tags_yaml}\ntype: web\n---\n\n"
+        f"## Thesis\n{enrichment.thesis}\n\n"
+        f"## Summary\n{enrichment.summary}\n\n"
+        f"## Key Concepts\n{concepts}\n\n"
+        f"## Insights\n{insights}\n",
+        encoding="utf-8",
+    )
+    return note_path
+
+
+def reindex_vault() -> int:
+    """
+    Scan vault directories and bulk-upsert all .md files into ChromaDB.
+    Skips sources/youtube/ (indexed separately by store.upsert).
+    Returns count of notes indexed.
+    """
+    from .store import upsert_doc, strip_frontmatter
+
+    vault_path = _get_vault_path()
+    scan_dirs = ["inbox/memories", "inbox", "projects", "decisions", "debugging", "tools"]
+    seen_paths: set[str] = set()
+    count = 0
+
+    for subdir in scan_dirs:
+        d = vault_path / subdir
+        if not d.exists():
+            continue
+        pattern = "*.md" if subdir == "inbox" else "**/*.md"
+        for md_file in d.glob(pattern):
+            str_path = str(md_file)
+            if str_path in seen_paths:
+                continue
+            seen_paths.add(str_path)
+            rel = md_file.relative_to(vault_path)
+            doc_id = "note_" + str(rel).replace("/", "_").replace(".md", "").replace(" ", "_")
+            content = md_file.read_text(encoding="utf-8")
+            body = strip_frontmatter(content)
+            if not body.strip():
+                continue
+            parts = str(rel).split("/")
+            tags = parts[:-1]
+            upsert_doc(doc_id, body, {
+                "doc_id": doc_id,
+                "tags": ", ".join(tags),
+                "source_path": str_path,
+            })
+            count += 1
+
+    return count
 
 
 def rebuild_index() -> None:
