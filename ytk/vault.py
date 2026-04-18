@@ -312,6 +312,7 @@ def reindex_vault(force: bool = False) -> int:
                 doc_id = "note_" + str(rel).replace("/", "_").replace(".md", "").replace(" ", "_")
             body = strip_frontmatter(content)
             if not body.strip():
+                update_cache_entry(md_file, cache)
                 continue
             parts = str(rel).split("/")
             tags = parts[:-1]
