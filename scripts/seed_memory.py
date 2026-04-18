@@ -94,7 +94,7 @@ def read_session(path: Path) -> list[dict]:
 
 def project_name_from_dir(dir_name: str) -> str:
     parts = dir_name.lstrip("-").split("-")
-    filtered = [p for p in parts if p and p.lower() not in ("users", "melocoton")]
+    filtered = [p for p in parts if p and p.lower() not in ("users", Path.home().name.lower())]
     if not filtered:
         return dir_name
     if len(filtered) == 1:
@@ -185,7 +185,7 @@ def main() -> None:
 
     if args.recent:
         # Skip meta-directories (observer, config tools) — they have "--" in their
-        # name from empty path components, e.g. -Users-melocoton--claude-mem-observer
+        # name from empty path components, e.g. -Users-<username>--claude-mem-observer
         real_projects = [p for p in projects if "--" not in p.name]
         all_jsonls = [
             (jf.stat().st_mtime, proj_dir)

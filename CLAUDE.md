@@ -60,7 +60,7 @@ ytk/
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
-OBSIDIAN_VAULT_PATH=/Users/melocoton/Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault
+OBSIDIAN_VAULT_PATH=/path/to/your/obsidian/vault
 CHROMA_PATH=~/.ytk/chroma
 ```
 
