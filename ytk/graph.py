@@ -164,11 +164,15 @@ def detect_communities(G: nx.Graph) -> dict:
     try:
         import graspologic
         from graspologic.partition import leiden
+        # leiden returns Dict[node, int] directly
         communities_list = leiden(G)
-        mapping: dict = {}
-        for i, community in enumerate(communities_list):
-            for node in community:
-                mapping[node] = i
+        mapping = dict(communities_list)
+        # Assign isolated nodes (omitted by leiden) their own community IDs
+        next_id = max(mapping.values(), default=-1) + 1
+        for node in G.nodes:
+            if node not in mapping:
+                mapping[node] = next_id
+                next_id += 1
         return mapping
     except (ImportError, Exception):
         from networkx.algorithms.community import greedy_modularity_communities
@@ -177,4 +181,10 @@ def detect_communities(G: nx.Graph) -> dict:
         for i, community in enumerate(communities_list):
             for node in community:
                 mapping[node] = i
+        # Assign isolated nodes (omitted by greedy_modularity_communities) their own community IDs
+        next_id = max(mapping.values(), default=-1) + 1
+        for node in G.nodes:
+            if node not in mapping:
+                mapping[node] = next_id
+                next_id += 1
         return mapping
