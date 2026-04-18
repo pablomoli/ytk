@@ -68,17 +68,32 @@ def test_build_graph_shared_tag_edge():
 
 
 def test_build_graph_semantic_edge_below_threshold():
-    """build_graph runs for both strict and loose thresholds without error."""
+    """Pairs below threshold get no semantic edge; pairs above threshold do."""
     from ytk.graph import build_graph
 
-    with patch("ytk.graph._memories_collection", return_value=_mock_collection(SAMPLE_DOCS)), \
+    no_tag_docs = [
+        {
+            "id": "note_a",
+            "document": "doc a",
+            "metadata": {"doc_id": "note_a", "tags": "tag-a", "source_path": "/vault/a.md"},
+        },
+        {
+            "id": "note_b",
+            "document": "doc b",
+            "metadata": {"doc_id": "note_b", "tags": "tag-b", "source_path": "/vault/b.md"},
+        },
+    ]
+
+    with patch("ytk.graph._memories_collection", return_value=_mock_collection(no_tag_docs)), \
          patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
          patch("ytk.graph._read_note_concepts", return_value=[]):
+        # distance=0.1 -> similarity=0.9. threshold=0.95 means 0.9 < 0.95 -> no edge
         G_strict = build_graph(threshold=0.95)
+        # threshold=0.5 means 0.9 >= 0.5 -> edge exists
         G_loose = build_graph(threshold=0.5)
 
-    assert len(G_strict.nodes) == 2
-    assert len(G_loose.nodes) == 2
+    assert not G_strict.has_edge("note_a", "note_b"), "similarity 0.9 should be below threshold 0.95"
+    assert G_loose.has_edge("note_a", "note_b"), "similarity 0.9 should be above threshold 0.5"
 
 
 def test_parse_key_concepts():
