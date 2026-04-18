@@ -1,12 +1,14 @@
-"""Fetch transcript with youtube-transcript-api primary, yt-dlp subtitles fallback."""
+"""Fetch transcript with youtube-transcript-api primary, faster-whisper fallback."""
 
 from __future__ import annotations
 
-import io
+import hashlib
 import re
+from pathlib import Path
 
-import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+
+_AUDIO_CACHE = Path.home() / ".ytk" / "audio"
 
 
 def _video_id(url: str) -> str:
@@ -20,7 +22,6 @@ def _video_id(url: str) -> str:
 def _fetch_via_api(video_id: str) -> tuple[list[dict], str]:
     """Try youtube-transcript-api. Returns (segments, source_label)."""
     transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-    # prefer manually created English, fall back to auto-generated
     try:
         transcript = transcript_list.find_manually_created_transcript(["en"])
     except NoTranscriptFound:
@@ -29,103 +30,66 @@ def _fetch_via_api(video_id: str) -> tuple[list[dict], str]:
     return [{"start": s["start"], "duration": s["duration"], "text": s["text"]} for s in segments], "youtube-transcript-api"
 
 
-def _fetch_via_ytdlp(url: str) -> tuple[list[dict], str]:
-    """Fallback: download auto-captions via yt-dlp and parse the VTT."""
-    buf = io.StringIO()
+def _download_audio(url: str) -> Path:
+    """Download audio-only stream from a YouTube URL via yt-dlp. Caches by URL hash."""
+    import yt_dlp
 
-    class _Sink(io.StringIO):
-        pass
+    _AUDIO_CACHE.mkdir(parents=True, exist_ok=True)
+    url_hash = hashlib.sha1(url.encode()).hexdigest()[:12]
 
+    for ext in (".m4a", ".opus", ".mp3", ".ogg", ".wav", ".webm"):
+        candidate = _AUDIO_CACHE / f"yt_{url_hash}{ext}"
+        if candidate.exists():
+            return candidate
+
+    out_template = str(_AUDIO_CACHE / f"yt_{url_hash}.%(ext)s")
     opts = {
+        "format": "bestaudio[ext=m4a]/bestaudio/best",
+        "outtmpl": out_template,
         "quiet": True,
         "no_warnings": True,
-        "skip_download": True,
-        "writesubtitles": True,
-        "writeautomaticsub": True,
-        "subtitleslangs": ["en"],
-        "subtitlesformat": "vtt",
-        "outtmpl": "-",          # write to stdout so yt-dlp doesn't create files
+        "noplaylist": True,
     }
-
-    # yt-dlp doesn't give an easy in-memory subtitle path, so write to a temp file
-    import tempfile, os
-    with tempfile.TemporaryDirectory() as tmpdir:
-        opts["outtmpl"] = os.path.join(tmpdir, "sub.%(ext)s")
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([url])
-
-        # find the .vtt file written
-        vtt_path = None
-        for fname in os.listdir(tmpdir):
-            if fname.endswith(".vtt"):
-                vtt_path = os.path.join(tmpdir, fname)
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=True)
+        ext = info.get("ext", "m4a")
+        downloaded = _AUDIO_CACHE / f"yt_{url_hash}.{ext}"
+        if not downloaded.exists():
+            for p in _AUDIO_CACHE.glob(f"yt_{url_hash}.*"):
+                downloaded = p
                 break
-
-        if vtt_path is None:
-            raise RuntimeError("yt-dlp could not retrieve subtitles for this video.")
-
-        with open(vtt_path, "r", encoding="utf-8") as f:
-            vtt_text = f.read()
-
-    return _parse_vtt(vtt_text), "yt-dlp"
+    return downloaded
 
 
-def _parse_vtt(vtt: str) -> list[dict]:
-    """Parse a WebVTT string into segments [{start, duration, text}]."""
-    segments = []
-    blocks = re.split(r"\n{2,}", vtt.strip())
-    for block in blocks:
-        lines = block.strip().splitlines()
-        # look for a timing line: 00:00:00.000 --> 00:00:05.000
-        timing_line = None
-        text_lines = []
-        for i, line in enumerate(lines):
-            if "-->" in line:
-                timing_line = line
-                text_lines = lines[i + 1 :]
-                break
-        if timing_line is None:
-            continue
-        m = re.match(
-            r"(\d+:\d+:\d+\.\d+|\d+:\d+\.\d+)\s*-->\s*(\d+:\d+:\d+\.\d+|\d+:\d+\.\d+)",
-            timing_line,
-        )
-        if not m:
-            continue
-        start = _vtt_time_to_seconds(m.group(1))
-        end = _vtt_time_to_seconds(m.group(2))
-        # strip VTT tags like <c>, <00:00:00.000>
-        text = " ".join(re.sub(r"<[^>]+>", "", l) for l in text_lines).strip()
-        if text:
-            segments.append({"start": start, "duration": round(end - start, 3), "text": text})
-
-    # VTT auto-captions use overlapping sliding windows — deduplicate consecutive identical text.
-    deduped = []
-    for seg in segments:
-        if not deduped or seg["text"] != deduped[-1]["text"]:
-            deduped.append(seg)
-    return deduped
+def WhisperModel(model_name: str, **kwargs):
+    """Lazy import of faster_whisper.WhisperModel."""
+    from faster_whisper import WhisperModel as _WM
+    return _WM(model_name, **kwargs)
 
 
-def _vtt_time_to_seconds(ts: str) -> float:
-    parts = ts.split(":")
-    if len(parts) == 3:
-        h, m, s = parts
-        return int(h) * 3600 + int(m) * 60 + float(s)
-    m, s = parts
-    return int(m) * 60 + float(s)
+def _fetch_via_whisper(url: str, whisper_model: str = "base") -> tuple[list[dict], str]:
+    """Download audio and transcribe locally with faster-whisper. Preserves timestamps."""
+    audio_path = _download_audio(url)
+    model = WhisperModel(whisper_model, device="cpu", compute_type="int8")
+    raw_segments, _ = model.transcribe(str(audio_path), beam_size=5)
+    segments = [
+        {"start": seg.start, "duration": round(seg.end - seg.start, 3), "text": seg.text.strip()}
+        for seg in raw_segments
+        if seg.text.strip()
+    ]
+    return segments, "whisper"
 
 
-def fetch_transcript(url: str) -> tuple[list[dict], str]:
+def fetch_transcript(url: str, whisper_model: str = "base") -> tuple[list[dict], str]:
     """
     Return (segments, source) where segments are [{start, duration, text}].
-    Tries youtube-transcript-api first, falls back to yt-dlp subtitles.
+    Tries youtube-transcript-api first, falls back to faster-whisper local ASR.
     """
     video_id = _video_id(url)
     try:
         return _fetch_via_api(video_id)
     except (NoTranscriptFound, TranscriptsDisabled, Exception):
-        return _fetch_via_ytdlp(url)
+        return _fetch_via_whisper(url, whisper_model=whisper_model)
 
 
 def segments_to_text(segments: list[dict]) -> str:
