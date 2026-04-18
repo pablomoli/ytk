@@ -31,10 +31,12 @@ def test_file_hash_changes_on_body_change(tmp_path):
 
 def test_file_hash_no_frontmatter(tmp_path):
     """Files without frontmatter hash the full content."""
+    import hashlib
+    content = "just a plain note"
     f = tmp_path / "plain.md"
-    _write(f, "just a plain note")
+    _write(f, content)
     h = file_hash(f)
-    assert len(h) == 64  # SHA256 hex
+    assert h == hashlib.sha256(content.encode()).hexdigest()
 
 
 def test_load_save_roundtrip(tmp_path, monkeypatch):
