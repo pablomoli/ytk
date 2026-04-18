@@ -21,13 +21,14 @@ def _video_id(url: str) -> str:
 
 def _fetch_via_api(video_id: str) -> tuple[list[dict], str]:
     """Try youtube-transcript-api. Returns (segments, source_label)."""
-    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+    api = YouTubeTranscriptApi()
+    transcript_list = api.list(video_id)
     try:
         transcript = transcript_list.find_manually_created_transcript(["en"])
     except NoTranscriptFound:
         transcript = transcript_list.find_generated_transcript(["en"])
     segments = transcript.fetch()
-    return [{"start": s["start"], "duration": s["duration"], "text": s["text"]} for s in segments], "youtube-transcript-api"
+    return [{"start": s.start, "duration": s.duration, "text": s.text} for s in segments], "youtube-transcript-api"
 
 
 def _download_audio(url: str) -> Path:
