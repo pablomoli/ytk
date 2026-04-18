@@ -10,6 +10,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from ytk.enrich import Enrichment
+from ytk.store import upsert_doc, strip_frontmatter
 
 load_dotenv()
 
@@ -270,18 +271,21 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
     return note_path
 
 
-def reindex_vault() -> int:
+def reindex_vault(force: bool = False) -> int:
     """
-    Scan vault directories and bulk-upsert all .md files into ChromaDB.
+    Scan vault directories and bulk-upsert changed .md files into ChromaDB.
     Skips sources/youtube/ (indexed separately by store.upsert).
+    Skips files whose SHA256 hash matches the cache unless force=True.
     Returns count of notes indexed.
     """
-    from .store import upsert_doc, strip_frontmatter
+    from .cache import file_hash, load_index_cache, save_index_cache, update_cache_entry
 
     vault_path = _get_vault_path()
     scan_dirs = ["inbox/memories", "inbox", "projects", "decisions", "debugging", "tools"]
     seen_paths: set[str] = set()
     count = 0
+
+    cache = {} if force else load_index_cache()
 
     for subdir in scan_dirs:
         d = vault_path / subdir
@@ -293,6 +297,12 @@ def reindex_vault() -> int:
             if str_path in seen_paths:
                 continue
             seen_paths.add(str_path)
+
+            if not force:
+                current_hash = file_hash(md_file)
+                if cache.get(str_path) == current_hash:
+                    continue
+
             rel = md_file.relative_to(vault_path)
             content = md_file.read_text(encoding="utf-8")
             id_match = re.search(r"^id:\s*(.+)$", content, re.MULTILINE)
@@ -310,8 +320,15 @@ def reindex_vault() -> int:
                 "tags": ", ".join(tags),
                 "source_path": str_path,
             })
+            update_cache_entry(md_file, cache)
             count += 1
 
+    # Remove stale entries for deleted files
+    stale = [p for p in list(cache) if not Path(p).exists()]
+    for p in stale:
+        del cache[p]
+
+    save_index_cache(cache)
     return count
 
 
