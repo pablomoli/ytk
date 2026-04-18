@@ -31,6 +31,13 @@ load_dotenv()  # project-local .env for dev use (won't override already-loaded v
 console = Console()
 
 
+from contextlib import contextmanager
+
+@contextmanager
+def _nullctx():
+    yield
+
+
 def _fmt_duration(seconds: int) -> str:
     h, rem = divmod(int(seconds), 3600)
     m, s = divmod(rem, 60)
@@ -259,7 +266,8 @@ def auth():
 
 @cli.command()
 @click.option("--dry-run", is_flag=True, default=False, help="Print what would be synced without running the pipeline.")
-def sync(dry_run: bool):
+@click.option("-v", "--verbose", is_flag=True, default=False, help="Print step-by-step progress for each video.")
+def sync(dry_run: bool, verbose: bool):
     """Poll the 'ytk' YouTube playlist and ingest new videos."""
     from .scheduler import authenticate, sync as _sync
     cfg = load_config()
@@ -268,8 +276,9 @@ def sync(dry_run: bool):
         service = authenticate()
 
     verb = "dry-run" if dry_run else "syncing"
-    with console.status(f"[bold cyan]{verb.capitalize()} ytk playlist...[/]"):
-        result = _sync(service, cfg, dry_run=dry_run)
+    status_cm = console.status(f"[bold cyan]{verb.capitalize()} ytk playlist...[/]") if not verbose else _nullctx()
+    with status_cm:
+        result = _sync(service, cfg, dry_run=dry_run, verbose=verbose)
 
     summary = Table.grid(padding=(0, 2))
     summary.add_column(style="bold cyan", no_wrap=True)
