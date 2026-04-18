@@ -154,6 +154,7 @@ def sync(
     cfg: Config,
     *,
     dry_run: bool = False,
+    verbose: bool = False,
 ) -> SyncResult:
     """
     Fetch the 'ytk' playlist, skip already-processed videos, and run the
@@ -169,9 +170,15 @@ def sync(
     from .transcript import fetch_transcript, segments_to_text
     from .enrich import enrich
 
+    def _log(msg: str) -> None:
+        if verbose:
+            print(f"[ytk] {msg}", file=sys.stderr)
+
     result = SyncResult()
+    _log("fetching playlist...")
     videos = fetch_playlist_videos(service)
     result.seen = len(videos)
+    _log(f"playlist: {len(videos)} videos")
 
     for entry in videos:
         video_id: str = entry["video_id"]
@@ -179,6 +186,7 @@ def sync(
         url = f"https://www.youtube.com/watch?v={video_id}"
 
         if db.is_processed(video_id):
+            _log(f"skip (already processed): {title!r}")
             result.already_processed += 1
             continue
 
@@ -186,8 +194,9 @@ def sync(
             print(f"[dry-run] would process: {title} ({video_id})", file=sys.stderr)
             continue
 
+        _log(f"processing: {title!r}")
         try:
-            # Metadata
+            _log(f"  metadata...")
             meta = fetch_metadata(url)
         except Exception as exc:
             reason = f"metadata fetch error: {exc}"
@@ -205,6 +214,7 @@ def sync(
             result.skipped += 1
             continue
 
+        _log(f"  transcript (model={cfg.whisper_model})...")
         try:
             segments, _source = fetch_transcript(url, whisper_model=cfg.whisper_model)
         except Exception as exc:
@@ -214,6 +224,8 @@ def sync(
             result.failed += 1
             continue
 
+        _log(f"  transcript: {len(segments)} segments via {_source!r}")
+        _log(f"  enrichment...")
         try:
             enrichment = enrich(segments_to_text(segments), meta)
         except Exception as exc:
@@ -223,6 +235,7 @@ def sync(
             result.failed += 1
             continue
 
+        _log(f"  enrichment: tags={enrichment.interest_tags}")
         # Post-enrichment filter
         post = check_post_enrichment(enrichment, cfg)
         if not post.passed:
@@ -246,6 +259,7 @@ def sync(
             result.failed += 1
             continue
 
+        _log(f"  writing vault note...")
         try:
             write_note(meta, enrichment, segments)
         except Exception as exc:
@@ -260,6 +274,7 @@ def sync(
             result.failed += 1
             continue
 
+        _log(f"  embedding...")
         try:
             from .store import upsert as _upsert
             _upsert(meta, enrichment, segments)
