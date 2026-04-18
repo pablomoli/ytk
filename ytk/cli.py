@@ -370,7 +370,7 @@ def reindex_cmd(force: bool):
 def graph_cmd(open_browser: bool, output: str | None, threshold: float):
     """Build a knowledge graph from all vault notes and export as interactive HTML."""
     import webbrowser
-    from .graph import build_graph, export_html, export_json
+    from .graph import build_graph, export_html, export_json, detect_communities
 
     default_html = Path.home() / ".ytk" / "graph.html"
     default_json = Path.home() / ".ytk" / "graph.json"
@@ -387,7 +387,8 @@ def graph_cmd(open_browser: bool, output: str | None, threshold: float):
         export_html(G, html_path)
         export_json(G, default_json)
 
-    console.print(f"[bold green]Graph built:[/] {len(G.nodes)} nodes, {len(G.edges)} edges")
+    n_communities = len(set(detect_communities(G).values()))
+    console.print(f"[bold green]Graph built:[/] {len(G.nodes)} nodes, {len(G.edges)} edges, {n_communities} communities")
     console.print(f"  HTML: {html_path}")
     console.print(f"  JSON: {default_json}")
 

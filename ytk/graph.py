@@ -133,7 +133,9 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
                 similarity = 1.0 - distance
                 if similarity >= threshold:
                     _add_or_upgrade_edge(G, doc["id"], neighbor_id, similarity, "INFERRED", "semantic")
-        except Exception:
+        except Exception as exc:
+            import sys
+            print(f"[ytk] semantic edge query failed for {doc['id']!r}: {exc}", file=sys.stderr)
             continue
 
     return G
@@ -234,6 +236,7 @@ _EDGE_COLORS = {"EXTRACTED": "#4e79a7", "INFERRED": "#888"}
 
 def export_html(G: nx.Graph, output: Path) -> None:
     """Render G as an interactive vis.js HTML file."""
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
     communities = detect_communities(G)
     nx.set_node_attributes(G, communities, "community")
 
@@ -277,6 +280,7 @@ def export_html(G: nx.Graph, output: Path) -> None:
 
 def export_json(G: nx.Graph, output: Path) -> None:
     """Write graph as JSON {nodes: [...], edges: [...]} for programmatic querying."""
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
     data = {
         "nodes": [
             {"id": n, **{k: v for k, v in attrs.items()}}
