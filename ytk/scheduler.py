@@ -206,7 +206,7 @@ def sync(
             continue
 
         try:
-            segments, _source = fetch_transcript(url)
+            segments, _source = fetch_transcript(url, whisper_model=cfg.whisper_model)
         except Exception as exc:
             reason = f"transcript fetch error: {exc}"
             print(f"[ytk] FAILED {title!r}: {reason}", file=sys.stderr)

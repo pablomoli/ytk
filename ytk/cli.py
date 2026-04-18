@@ -86,7 +86,7 @@ def add(url: str, force: bool):
 
     with console.status("[bold cyan]Fetching transcript...[/]"):
         try:
-            segments, source = fetch_transcript(url)
+            segments, source = fetch_transcript(url, whisper_model=cfg.whisper_model)
         except Exception as exc:
             if cfg.filters.require_captions:
                 console.print(f"\n[yellow]Filter:[/] No captions available ({exc})")
