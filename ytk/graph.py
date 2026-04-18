@@ -118,7 +118,9 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
             for j in range(i + 1, len(node_ids)):
                 _add_or_upgrade_edge(G, node_ids[i], node_ids[j], 0.9, "EXTRACTED", f"concept:{concept}")
 
-    # Semantic edges
+    # Semantic edges — queried within each collection only (cross-collection pairs
+    # are covered by tag/concept edges; cross-collection ChromaDB queries would
+    # require a combined collection or separate query+merge step)
     all_ids = {doc["id"] for doc in all_docs}
     for doc in all_docs:
         try:
