@@ -55,9 +55,12 @@ def _download_audio(url: str) -> Path:
         ext = info.get("ext", "m4a")
         downloaded = _AUDIO_CACHE / f"yt_{url_hash}.{ext}"
         if not downloaded.exists():
-            for p in _AUDIO_CACHE.glob(f"yt_{url_hash}.*"):
-                downloaded = p
-                break
+            candidates = list(_AUDIO_CACHE.glob(f"yt_{url_hash}.*"))
+            if not candidates:
+                raise FileNotFoundError(
+                    f"yt-dlp completed but no audio file found for hash {url_hash}"
+                )
+            downloaded = candidates[0]
     return downloaded
 
 
@@ -88,7 +91,7 @@ def fetch_transcript(url: str, whisper_model: str = "base") -> tuple[list[dict],
     video_id = _video_id(url)
     try:
         return _fetch_via_api(video_id)
-    except (NoTranscriptFound, TranscriptsDisabled, Exception):
+    except (NoTranscriptFound, TranscriptsDisabled):
         return _fetch_via_whisper(url, whisper_model=whisper_model)
 
 
