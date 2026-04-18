@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
@@ -54,7 +56,8 @@ def vault_write(path: str, content: str) -> str:
     from .cache import update_cache_entry, load_index_cache, save_index_cache
 
     note_path = write_raw(path, content)
-    doc_id = "note_" + path.replace("/", "_").replace(".md", "").replace(" ", "_")
+    _id_match = re.search(r"^id:\s*(.+)$", content, re.MULTILINE)
+    doc_id = _id_match.group(1).strip() if _id_match else "note_" + path.replace("/", "_").replace(".md", "").replace(" ", "_")
     body = strip_frontmatter(content)
     parts = path.split("/")
     tags = parts[:-1]

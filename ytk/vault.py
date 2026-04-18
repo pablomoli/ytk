@@ -285,7 +285,7 @@ def reindex_vault(force: bool = False) -> int:
     seen_paths: set[str] = set()
     count = 0
 
-    cache = {} if force else load_index_cache()
+    cache = load_index_cache()
 
     for subdir in scan_dirs:
         d = vault_path / subdir
