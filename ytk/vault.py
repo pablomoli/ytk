@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from ytk.enrich import Enrichment
 from ytk.store import upsert_doc, strip_frontmatter
 
+load_dotenv(Path.home() / ".ytk" / ".env")
 load_dotenv()
 
 
