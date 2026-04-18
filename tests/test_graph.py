@@ -61,10 +61,15 @@ def test_build_graph_shared_tag_edge():
     with patch("ytk.graph._memories_collection", return_value=_mock_collection(SAMPLE_DOCS)), \
          patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
          patch("ytk.graph._read_note_concepts", return_value=[]):
-        G = build_graph(threshold=0.5)
+        # threshold=0.95 excludes semantic edges (similarity=0.9 from distance=0.1)
+        G = build_graph(threshold=0.95)
 
     assert G.has_edge("note_projects_ytk", "note_projects_epicmap") or \
            G.has_edge("note_projects_epicmap", "note_projects_ytk")
+    edge_data = (G["note_projects_ytk"].get("note_projects_epicmap") or
+                 G["note_projects_epicmap"].get("note_projects_ytk") or {})
+    assert edge_data.get("type") == "EXTRACTED"
+    assert edge_data.get("weight") == 1.0
 
 
 def test_build_graph_semantic_edge_below_threshold():
@@ -126,3 +131,45 @@ def test_detect_communities_returns_mapping():
 
     assert set(communities.keys()) == {"a", "b", "c", "d", "e"}
     assert all(isinstance(v, int) for v in communities.values())
+
+
+def test_build_graph_concept_edge(tmp_path):
+    """Two notes sharing a key concept get an EXTRACTED edge with weight 0.9."""
+    import networkx as nx
+    from ytk.graph import build_graph
+
+    # Create real note files with a shared concept
+    note_a = tmp_path / "note_a.md"
+    note_b = tmp_path / "note_b.md"
+    note_a.write_text(
+        "---\ntitle: A\ntags: tag-a\n---\n## Key Concepts\n- chromadb: vector store\n",
+        encoding="utf-8",
+    )
+    note_b.write_text(
+        "---\ntitle: B\ntags: tag-b\n---\n## Key Concepts\n- chromadb: search backend\n",
+        encoding="utf-8",
+    )
+
+    docs = [
+        {
+            "id": "note_a",
+            "document": "doc a",
+            "metadata": {"doc_id": "note_a", "tags": "tag-a", "source_path": str(note_a)},
+        },
+        {
+            "id": "note_b",
+            "document": "doc b",
+            "metadata": {"doc_id": "note_b", "tags": "tag-b", "source_path": str(note_b)},
+        },
+    ]
+
+    with patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)), \
+         patch("ytk.graph._videos_collection", return_value=_mock_collection([])):
+        # threshold=0.95 to exclude semantic edges (distance=0.1 -> similarity=0.9 < 0.95)
+        G = build_graph(threshold=0.95)
+
+    assert G.has_edge("note_a", "note_b") or G.has_edge("note_b", "note_a"), \
+        "notes sharing 'chromadb' concept should have an edge"
+    edge_data = G["note_a"].get("note_b") or G["note_b"].get("note_a") or {}
+    assert edge_data.get("type") == "EXTRACTED"
+    assert abs(edge_data.get("weight", 0) - 0.9) < 0.01
