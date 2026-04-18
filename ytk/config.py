@@ -18,6 +18,7 @@ class FilterConfig(BaseModel):
 
 class Config(BaseModel):
     filters: FilterConfig = Field(default_factory=FilterConfig)
+    whisper_model: str = Field(default="base", description="faster-whisper model size: base | small | medium | large")
 
 
 _DEFAULT_CONFIG_PATH = Path.home() / ".ytk" / "config.yaml"
