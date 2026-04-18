@@ -100,7 +100,7 @@ Installs or removes a launchd plist at `~/Library/LaunchAgents/com.ytk.nightly.p
   "mcpServers": {
     "ytk": {
       "command": "uv",
-      "args": ["run", "--directory", "/Users/melocoton/Developer/ytk", "ytk-mcp"]
+      "args": ["run", "--directory", "/path/to/ytk", "ytk-mcp"]
     }
   }
 }

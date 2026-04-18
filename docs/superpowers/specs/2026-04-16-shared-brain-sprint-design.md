@@ -119,7 +119,7 @@ ytk gc --dry-run           # show what --prune would do
 ```json
 {
   "type": "command",
-  "command": "cd /Users/melocoton/Developer/ytk && uv run scripts/seed_memory.py --recent --max-sessions 1 >> ~/.ytk/seed.log 2>&1"
+  "command": "cd /path/to/ytk && uv run scripts/seed_memory.py --recent --max-sessions 1 >> ~/.ytk/seed.log 2>&1"
 }
 ```
 

@@ -1,0 +1,27 @@
+# environment
+.env
+.env.local
+
+# dependencies
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# uv
+.python-version
+
+# data (local only)
+~/.ytk/
+*.db
+
+# claude code session state
+.claude/
+
+# macOS
+.DS_Store
