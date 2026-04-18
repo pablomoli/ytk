@@ -33,6 +33,7 @@ Use `vault_search("query")` to retrieve any past decision, session brief, or mem
 | 5E | done | `ytk ingest <url>` — web article ingestion via trafilatura |
 | 5F | done | `ytk gc` — memory lifecycle: prune + refresh-projects |
 | 5G | done | Stop hook — auto-reseed active project after every session |
+| 5H | done | graphify integration — Whisper fallback, SHA256 incremental cache, HTML knowledge graph |
 | 6 | planned | Local UI (TanStack Start) — transcript viewer, vault browser |
 | 7 | planned | iMessage capture pipeline → ytk/GitHub/Obsidian routing |
 
