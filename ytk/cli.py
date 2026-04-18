@@ -363,6 +363,38 @@ def reindex_cmd(force: bool):
     console.print(f"[bold green]Indexed:[/] {count} notes")
 
 
+@cli.command(name="graph")
+@click.option("--open", "open_browser", is_flag=True, default=False, help="Open graph.html in browser after building.")
+@click.option("--output", default=None, help="Output path for graph.html (default: ~/.ytk/graph.html).")
+@click.option("--threshold", default=0.75, show_default=True, type=float, help="Semantic similarity cutoff for edges.")
+def graph_cmd(open_browser: bool, output: str | None, threshold: float):
+    """Build a knowledge graph from all vault notes and export as interactive HTML."""
+    import webbrowser
+    from .graph import build_graph, export_html, export_json
+
+    default_html = Path.home() / ".ytk" / "graph.html"
+    default_json = Path.home() / ".ytk" / "graph.json"
+    html_path = Path(output) if output else default_html
+
+    with console.status("[bold cyan]Building graph...[/]"):
+        G = build_graph(threshold=threshold)
+
+    if len(G.nodes) == 0:
+        console.print("[yellow]No indexed notes found.[/] Run [bold]ytk reindex[/] first.")
+        return
+
+    with console.status("[bold cyan]Exporting...[/]"):
+        export_html(G, html_path)
+        export_json(G, default_json)
+
+    console.print(f"[bold green]Graph built:[/] {len(G.nodes)} nodes, {len(G.edges)} edges")
+    console.print(f"  HTML: {html_path}")
+    console.print(f"  JSON: {default_json}")
+
+    if open_browser:
+        webbrowser.open(f"file://{html_path.resolve()}")
+
+
 @cli.command()
 @click.argument("url")
 @click.option("--force", is_flag=True, default=False, help="Skip interest-tag filter.")

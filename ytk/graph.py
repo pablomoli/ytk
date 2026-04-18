@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -188,3 +189,102 @@ def detect_communities(G: nx.Graph) -> dict:
                 mapping[node] = next_id
                 next_id += 1
         return mapping
+
+
+_VIS_CDN = "https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"
+
+_HTML_TEMPLATE = """<!DOCTYPE html>
+<html>
+<head>
+<title>ytk knowledge graph</title>
+<script src="{vis_cdn}"></script>
+<style>
+  body {{ margin: 0; background: #1a1a2e; font-family: monospace; }}
+  #graph {{ width: 100vw; height: 100vh; }}
+  #info {{ position: fixed; top: 12px; right: 16px; color: #aaa; font-size: 12px; }}
+</style>
+</head>
+<body>
+<div id="graph"></div>
+<div id="info">{node_count} nodes &middot; {edge_count} edges &middot; {community_count} communities</div>
+<script>
+var nodes = new vis.DataSet({nodes_json});
+var edges = new vis.DataSet({edges_json});
+var network = new vis.Network(
+  document.getElementById("graph"),
+  {{ nodes: nodes, edges: edges }},
+  {{
+    nodes: {{ shape: "dot", scaling: {{ min: 8, max: 30 }}, font: {{ color: "#eee" }} }},
+    edges: {{ smooth: false }},
+    physics: {{ stabilization: {{ iterations: 200 }} }}
+  }}
+);
+network.on("click", function(p) {{
+  if (p.nodes.length > 0) {{
+    var n = nodes.get(p.nodes[0]);
+    if (n && n.url) window.open(n.url, "_blank");
+  }}
+}});
+</script>
+</body>
+</html>"""
+
+_EDGE_COLORS = {"EXTRACTED": "#4e79a7", "INFERRED": "#888"}
+
+
+def export_html(G: nx.Graph, output: Path) -> None:
+    """Render G as an interactive vis.js HTML file."""
+    communities = detect_communities(G)
+    nx.set_node_attributes(G, communities, "community")
+
+    vis_nodes = []
+    for node_id, attrs in G.nodes(data=True):
+        community = attrs.get("community", 0)
+        color = _PALETTE[community % len(_PALETTE)]
+        degree = G.degree(node_id)
+        vis_nodes.append({
+            "id": node_id,
+            "label": attrs.get("title", node_id)[:40],
+            "title": attrs.get("title", node_id),
+            "value": degree,
+            "color": color,
+            "url": attrs.get("url", ""),
+        })
+
+    vis_edges = []
+    for i, (src, dst, attrs) in enumerate(G.edges(data=True)):
+        edge_type = attrs.get("type", "INFERRED")
+        opacity = min(1.0, max(0.2, attrs.get("weight", 0.5)))
+        vis_edges.append({
+            "id": i,
+            "from": src,
+            "to": dst,
+            "color": {"color": _EDGE_COLORS.get(edge_type, "#888"), "opacity": opacity},
+            "title": attrs.get("label", edge_type),
+        })
+
+    n_communities = len(set(communities.values())) if communities else 0
+    html = _HTML_TEMPLATE.format(
+        vis_cdn=_VIS_CDN,
+        node_count=len(vis_nodes),
+        edge_count=len(vis_edges),
+        community_count=n_communities,
+        nodes_json=json.dumps(vis_nodes),
+        edges_json=json.dumps(vis_edges),
+    )
+    Path(output).write_text(html, encoding="utf-8")
+
+
+def export_json(G: nx.Graph, output: Path) -> None:
+    """Write graph as JSON {nodes: [...], edges: [...]} for programmatic querying."""
+    data = {
+        "nodes": [
+            {"id": n, **{k: v for k, v in attrs.items()}}
+            for n, attrs in G.nodes(data=True)
+        ],
+        "edges": [
+            {"from": src, "to": dst, **attrs}
+            for src, dst, attrs in G.edges(data=True)
+        ],
+    }
+    Path(output).write_text(json.dumps(data, indent=2), encoding="utf-8")

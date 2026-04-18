@@ -173,3 +173,40 @@ def test_build_graph_concept_edge(tmp_path):
     edge_data = G["note_a"].get("note_b") or G["note_b"].get("note_a") or {}
     assert edge_data.get("type") == "EXTRACTED"
     assert abs(edge_data.get("weight", 0) - 0.9) < 0.01
+
+
+def test_export_json(tmp_path):
+    """export_json writes a valid JSON file with nodes and edges."""
+    import networkx as nx
+    from ytk.graph import export_json
+
+    G = nx.Graph()
+    G.add_node("a", title="Note A", url="https://example.com", note_type="memory", tags="ai", community=0)
+    G.add_node("b", title="Note B", url="https://youtube.com", note_type="video", tags="ai", community=0)
+    G.add_edge("a", "b", weight=0.9, type="EXTRACTED", label="tag:ai")
+
+    out = tmp_path / "graph.json"
+    export_json(G, out)
+
+    import json as _json
+    data = _json.loads(out.read_text())
+    assert len(data["nodes"]) == 2
+    assert len(data["edges"]) == 1
+    assert data["nodes"][0]["id"] in {"a", "b"}
+
+
+def test_export_html(tmp_path):
+    """export_html writes a self-contained HTML file with vis.js."""
+    import networkx as nx
+    from ytk.graph import export_html
+
+    G = nx.Graph()
+    G.add_node("a", title="Note A", url="https://example.com", note_type="memory", tags="ai", community=0)
+
+    out = tmp_path / "graph.html"
+    export_html(G, out)
+
+    html = out.read_text()
+    assert "vis-network" in html
+    assert "Note A" in html
+    assert "<script" in html
