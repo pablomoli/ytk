@@ -26,7 +26,8 @@ from .enrich import enrich
 from .vault import write_note, NoteAlreadyExists
 from .store import upsert, search_videos, search_segments
 
-load_dotenv()
+load_dotenv(Path.home() / ".ytk" / ".env")  # global install location
+load_dotenv()  # project-local .env for dev use (won't override already-loaded vars)
 console = Console()
 
 

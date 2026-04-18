@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import re
 
+from pathlib import Path
+
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
+load_dotenv(Path.home() / ".ytk" / ".env")
 load_dotenv()
 
 app = FastMCP("ytk")
