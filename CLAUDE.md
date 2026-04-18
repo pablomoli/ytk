@@ -75,7 +75,7 @@ uv run ytk add <url>
 # Bypass all filters
 uv run ytk add <url> --force
 
-# Or after `uv tool install .`
+# Or after `uv tool install --reinstall .`  (use --reinstall, not --force, to pick up code changes)
 ytk add https://www.youtube.com/watch?v=...
 ytk add <url> --force
 ```
