@@ -345,7 +345,8 @@ def remember_cmd(text: str, tags: str):
 
 
 @cli.command(name="reindex")
-def reindex_cmd():
+@click.option("--force", is_flag=True, default=False, help="Re-embed all files, ignoring cache.")
+def reindex_cmd(force: bool):
     """Index all vault notes into ChromaDB for semantic search."""
     from .vault import _get_vault_path, reindex_vault
 
@@ -355,8 +356,9 @@ def reindex_cmd():
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
 
-    with console.status("[bold cyan]Indexing vault notes...[/]"):
-        count = reindex_vault()
+    label = "Re-indexing all vault notes..." if force else "Indexing changed vault notes..."
+    with console.status(f"[bold cyan]{label}[/]"):
+        count = reindex_vault(force=force)
 
     console.print(f"[bold green]Indexed:[/] {count} notes")
 

@@ -51,6 +51,7 @@ def vault_write(path: str, content: str) -> str:
     """Write or overwrite a note at a vault path and index it in ChromaDB for search."""
     from .store import upsert_doc, strip_frontmatter
     from .vault import write_raw
+    from .cache import update_cache_entry, load_index_cache, save_index_cache
 
     note_path = write_raw(path, content)
     doc_id = "note_" + path.replace("/", "_").replace(".md", "").replace(" ", "_")
@@ -62,6 +63,9 @@ def vault_write(path: str, content: str) -> str:
         "tags": ", ".join(tags),
         "source_path": str(note_path),
     })
+    cache = load_index_cache()
+    update_cache_entry(note_path, cache)
+    save_index_cache(cache)
     return f"Written and indexed: {note_path}"
 
 
@@ -86,11 +90,11 @@ def vault_update_index() -> str:
 
 
 @app.tool()
-def vault_reindex() -> str:
-    """Scan and index all vault notes (projects, decisions, inbox, etc.) into ChromaDB."""
+def vault_reindex(force: bool = False) -> str:
+    """Scan and index all vault notes into ChromaDB. Set force=True to bypass cache and re-embed everything."""
     from .vault import reindex_vault
 
-    count = reindex_vault()
+    count = reindex_vault(force=force)
     return f"Indexed {count} notes."
 
 
