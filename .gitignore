@@ -23,5 +23,8 @@ build/
 # claude code session state
 .claude/
 
+# git worktrees
+.worktrees/
+
 # macOS
 .DS_Store
