@@ -282,6 +282,8 @@ def write_instagram_note(post: InstagramPost, enrichment: Enrichment) -> Path:
     slug_part = _slug(post.caption[:60]) if post.caption else "post"
     filename = f"{post.username}-{post.timestamp}-{shortcode}-{slug_part}.md"
     note_path = note_dir / filename
+    if note_path.exists():
+        raise NoteAlreadyExists(note_path)
 
     tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
     concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)

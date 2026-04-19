@@ -466,7 +466,7 @@ def add_instagram(url: str):
     from .instagram import fetch_instagram
     from .vision import extract_frames, image_blocks
     from .enrich import enrich
-    from .vault import write_instagram_note
+    from .vault import write_instagram_note, NoteAlreadyExists
     from .store import strip_frontmatter, upsert_doc
 
     with console.status("[bold cyan]Fetching Instagram post...[/]"):
@@ -490,21 +490,28 @@ def add_instagram(url: str):
     console.print(Panel(info, title="[bold]Instagram Post[/]", box=box.ROUNDED))
 
     with console.status("[bold cyan]Preparing visual content...[/]"):
-        blocks = image_blocks(urls=post.images or None)
-        if post.video_path:
-            frame_bytes = extract_frames(post.video_path, timestamps=[], baseline_n=4)
-            blocks += image_blocks(frame_bytes=frame_bytes)
-            post.video_path.unlink(missing_ok=True)
+        blocks = image_blocks(urls=post.images if post.images else None)
+        try:
+            if post.video_path:
+                frame_bytes = extract_frames(post.video_path, timestamps=[], baseline_n=4)
+                blocks += image_blocks(frame_bytes=frame_bytes)
+        finally:
+            if post.video_path:
+                post.video_path.unlink(missing_ok=True)
 
     meta = {
-        "title": post.caption[:120] if post.caption else f"@{post.username}",
+        "title": f"Instagram post by @{post.username} ({post.timestamp})",
         "uploader": post.username,
         "duration": 0,
         "tags": [],
     }
 
     with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
-        result = enrich(post.caption, meta, visual_blocks=blocks or None)
+        try:
+            result = enrich(post.caption, meta, visual_blocks=blocks if blocks else None)
+        except Exception as exc:
+            console.print(f"[red]Enrichment failed:[/] {exc}")
+            raise SystemExit(1)
 
     console.print(Panel(f"[italic]{result.thesis}[/]", title="[bold]Thesis[/]", box=box.ROUNDED))
     console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
@@ -530,6 +537,8 @@ def add_instagram(url: str):
             "tags": ", ".join(result.interest_tags),
             "source_path": str(note_path),
         })
+    except NoteAlreadyExists as exc:
+        console.print(f"\n[yellow]Note already exists:[/] {exc}")
     except EnvironmentError as exc:
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
 
