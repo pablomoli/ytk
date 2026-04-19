@@ -84,6 +84,7 @@ def enrich(
     text and image blocks for a single-pass multimodal enrichment call.
     """
     client = _get_client()
+    visual_blocks = visual_blocks or None
 
     chapters_text = ""
     if metadata.get("chapters"):
@@ -100,27 +101,29 @@ Transcript:
 {transcript}
 """
 
+    system_blocks: list[dict] = [
+        {
+            "type": "text",
+            "text": _SYSTEM,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
     if visual_blocks:
-        user_content: str | list = [{"type": "text", "text": text_block}] + visual_blocks
-        system_text = (
-            _SYSTEM
-            + "\nYou may also receive images or video frames — incorporate what you observe "
-            "in them into your analysis."
-        )
+        system_blocks.append({
+            "type": "text",
+            "text": "\nYou may also receive images or video frames — incorporate what you observe "
+            "in them into your analysis.",
+        })
+
+    if visual_blocks:
+        user_content: str | list[dict] = [{"type": "text", "text": text_block}] + visual_blocks
     else:
         user_content = text_block
-        system_text = _SYSTEM
 
     response = client.messages.parse(
         model="claude-haiku-4-5",
         max_tokens=2048,
-        system=[
-            {
-                "type": "text",
-                "text": system_text,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
+        system=system_blocks,
         messages=[{"role": "user", "content": user_content}],
         output_format=Enrichment,
     )
