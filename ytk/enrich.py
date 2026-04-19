@@ -72,10 +72,16 @@ def _get_client() -> anthropic.Anthropic:
     return _client
 
 
-def enrich(transcript: str, metadata: dict) -> Enrichment:
+def enrich(
+    transcript: str,
+    metadata: dict,
+    visual_blocks: list[dict] | None = None,
+) -> Enrichment:
     """
     Send transcript + metadata to Claude Haiku and return structured enrichment.
     Uses prompt caching on the system prompt (stable across all calls).
+    When visual_blocks are provided, user content becomes a list interleaving
+    text and image blocks for a single-pass multimodal enrichment call.
     """
     client = _get_client()
 
@@ -84,7 +90,7 @@ def enrich(transcript: str, metadata: dict) -> Enrichment:
         lines = [f"  {_fmt_ts(ch['start_time'])} — {ch['title']}" for ch in metadata["chapters"]]
         chapters_text = "\nChapters:\n" + "\n".join(lines)
 
-    user_content = f"""\
+    text_block = f"""\
 Title: {metadata.get("title", "")}
 Uploader: {metadata.get("uploader", "")}
 Duration: {metadata.get("duration", 0)}s
@@ -94,13 +100,24 @@ Transcript:
 {transcript}
 """
 
+    if visual_blocks:
+        user_content: str | list = [{"type": "text", "text": text_block}] + visual_blocks
+        system_text = (
+            _SYSTEM
+            + "\nYou may also receive images or video frames — incorporate what you observe "
+            "in them into your analysis."
+        )
+    else:
+        user_content = text_block
+        system_text = _SYSTEM
+
     response = client.messages.parse(
         model="claude-haiku-4-5",
         max_tokens=2048,
         system=[
             {
                 "type": "text",
-                "text": _SYSTEM,
+                "text": system_text,
                 "cache_control": {"type": "ephemeral"},
             }
         ],
