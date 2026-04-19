@@ -41,6 +41,10 @@ def test_fetch_instagram_single_image():
         mock_il.Post.from_shortcode.return_value = mock_post
         result = fetch_instagram("https://www.instagram.com/p/ABC123/")
 
+    mock_il.Post.from_shortcode.assert_called_once_with(
+        mock_il.Instaloader.return_value.context,
+        "ABC123",
+    )
     assert isinstance(result, InstagramPost)
     assert result.username == "testuser"
     assert result.timestamp == "2026-04-19"
@@ -95,6 +99,25 @@ def test_fetch_instagram_reel_downloads_video(tmp_path):
         result = fetch_instagram("https://www.instagram.com/reel/XYZ/")
 
     assert result.video_path == fake_video
+
+
+def test_fetch_instagram_none_caption_becomes_empty_string():
+    from ytk.instagram import fetch_instagram
+
+    mock_post = MagicMock()
+    mock_post.typename = "GraphImage"
+    mock_post.url = "https://cdn.instagram.com/image.jpg"
+    mock_post.is_video = False
+    mock_post.owner_username = "silentuser"
+    mock_post.date_utc.strftime.return_value = "2026-04-19"
+    mock_post.caption = None
+
+    with patch("ytk.instagram.instaloader") as mock_il:
+        mock_il.Instaloader.return_value = MagicMock()
+        mock_il.Post.from_shortcode.return_value = mock_post
+        result = fetch_instagram("https://www.instagram.com/p/NOCAPTION/")
+
+    assert result.caption == ""
 
 
 def test_fetch_instagram_instaloader_error_raises():

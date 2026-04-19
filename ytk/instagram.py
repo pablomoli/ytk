@@ -37,7 +37,7 @@ def fetch_instagram(url: str) -> InstagramPost:
         raise ValueError(f"Failed to fetch Instagram post {shortcode!r}: {exc}") from exc
 
     images: list[str] = []
-    if post.typename == "GraphSidecar":
+    if post.typename in ("GraphSidecar", "XDTGraphSidecar"):
         images = [node.display_url for node in post.get_sidecar_nodes()]
     elif post.typename in ("GraphImage", "XDTGraphImage"):
         images = [post.url]
@@ -78,7 +78,7 @@ def _download_reel(url: str) -> Path:
             capture_output=True,
             check=True,
         )
-    except Exception:
+    except Exception as exc:
         tmp_path.unlink(missing_ok=True)
-        raise
+        raise ValueError(f"yt-dlp failed to download reel {url!r}: {exc}") from exc
     return tmp_path
