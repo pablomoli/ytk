@@ -19,6 +19,7 @@ dependencies = [
     "trafilatura>=1.6",
     "faster-whisper>=1.0",
     "networkx>=3.0",
+    "instaloader>=4.10",
 ]
 
 [project.optional-dependencies]
