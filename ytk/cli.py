@@ -142,15 +142,17 @@ def add(url: str, force: bool):
     visual_blocks: list[dict] | None = None
     try:
         from .vision import download_video_temp, extract_frames, hint_detect, image_blocks
-        with console.status("[bold cyan]Extracting video frames...[/]"):
+        with console.status("[bold cyan]Scanning for visual content...[/]"):
             hint_ts = hint_detect(segments)
-            video_tmp = download_video_temp(url)
-        try:
-            with console.status("[bold cyan]Extracting frames...[/]"):
-                frame_bytes = extract_frames(video_tmp, hint_ts, baseline_n=4)
-            visual_blocks = image_blocks(frame_bytes=frame_bytes) if frame_bytes else None
-        finally:
-            video_tmp.unlink(missing_ok=True)
+        if hint_ts:
+            with console.status("[bold cyan]Downloading video for frame extraction...[/]"):
+                video_tmp = download_video_temp(url)
+            try:
+                with console.status("[bold cyan]Extracting frames...[/]"):
+                    frame_bytes = extract_frames(video_tmp, hint_ts, baseline_n=4)
+                visual_blocks = image_blocks(frame_bytes=frame_bytes) if frame_bytes else None
+            finally:
+                video_tmp.unlink(missing_ok=True)
     except Exception:
         visual_blocks = None
 
