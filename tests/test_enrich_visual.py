@@ -58,8 +58,22 @@ def test_enrich_visual_system_prompt_includes_image_note():
         )
 
     call_kwargs = mock_get.return_value.messages.parse.call_args.kwargs
-    system_text = call_kwargs["system"][0]["text"]
-    assert "images" in system_text or "frames" in system_text
+    # Two system blocks when visual — index 1 has the visual addendum
+    system_blocks = call_kwargs["system"]
+    assert len(system_blocks) == 2
+    assert "images" in system_blocks[1]["text"] or "frames" in system_blocks[1]["text"]
+
+
+def test_enrich_text_only_system_has_one_block():
+    from ytk.enrich import enrich
+
+    with patch("ytk.enrich._get_client") as mock_get:
+        mock_get.return_value.messages.parse.return_value.parsed_output = _mock_enrichment()
+        enrich("t", {"title": "T", "uploader": "U", "duration": 0, "tags": []})
+
+    call_kwargs = mock_get.return_value.messages.parse.call_args.kwargs
+    assert len(call_kwargs["system"]) == 1
+    assert call_kwargs["system"][0]["cache_control"] == {"type": "ephemeral"}
 
 
 def test_enrich_none_visual_blocks_behaves_identically_to_no_arg():
