@@ -8,9 +8,13 @@ from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 
+from typing import TYPE_CHECKING
+
 from ytk.enrich import Enrichment
-from ytk.instagram import InstagramPost
 from ytk.store import upsert_doc, strip_frontmatter
+
+if TYPE_CHECKING:
+    from ytk.instagram import InstagramPost
 
 load_dotenv(Path.home() / ".ytk" / ".env")
 load_dotenv()
@@ -271,7 +275,7 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
     return note_path
 
 
-def write_instagram_note(post: InstagramPost, enrichment: Enrichment) -> Path:
+def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
     """Write an Obsidian note for an ingested Instagram post. Returns the path written."""
     vault_path = _get_vault_path()
     note_dir = vault_path / "sources" / "instagram"
@@ -318,7 +322,7 @@ def reindex_vault(force: bool = False) -> int:
     from .cache import file_hash, load_index_cache, save_index_cache, update_cache_entry
 
     vault_path = _get_vault_path()
-    scan_dirs = ["inbox/memories", "inbox", "projects", "decisions", "debugging", "tools"]
+    scan_dirs = ["inbox/memories", "inbox", "projects", "decisions", "debugging", "tools", "sources/instagram", "sources/web"]
     seen_paths: set[str] = set()
     count = 0
 
@@ -415,6 +419,22 @@ def rebuild_index() -> None:
         if rows:
             table = "| Note | Title |\n|------|-------|\n" + "\n".join(rows)
             sections.append(f"## sources/youtube/\n{table}\n")
+
+    # sources/instagram/
+    instagram_dir = vault_path / "sources" / "instagram"
+    if instagram_dir.exists():
+        notes = sorted(instagram_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if notes:
+            rows_ig = "\n".join(f"- [[sources/instagram/{p.stem}]]" for p in notes)
+            sections.append(f"## sources/instagram/\n{rows_ig}\n")
+
+    # sources/web/
+    web_dir = vault_path / "sources" / "web"
+    if web_dir.exists():
+        notes = sorted(web_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if notes:
+            rows_web = "\n".join(f"- [[sources/web/{p.stem}]]" for p in notes)
+            sections.append(f"## sources/web/\n{rows_web}\n")
 
     # inbox/
     inbox_dir = vault_path / "inbox"
