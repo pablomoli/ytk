@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import re
-import subprocess
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -65,20 +63,9 @@ def _extract_shortcode(url: str) -> str:
 
 
 def _download_reel(url: str) -> Path:
-    """Download a reel to a temp .mp4 file via yt-dlp. Returns the path."""
-    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
-    tmp.close()
-    tmp_path = Path(tmp.name)
+    """Download a reel to a temp .mp4 via yt-dlp. Returns the path. Caller must unlink."""
+    from .vision import download_video_temp
     try:
-        subprocess.run(
-            [
-                "yt-dlp", "-f", "bestvideo[ext=mp4]/best[ext=mp4]/best",
-                "-o", str(tmp_path), "--no-playlist", url,
-            ],
-            capture_output=True,
-            check=True,
-        )
+        return download_video_temp(url)
     except Exception as exc:
-        tmp_path.unlink(missing_ok=True)
         raise ValueError(f"yt-dlp failed to download reel {url!r}: {exc}") from exc
-    return tmp_path
