@@ -10,6 +10,16 @@ from pathlib import Path
 
 import anthropic
 
+_client: anthropic.Anthropic | None = None
+
+
+def _get_client() -> anthropic.Anthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic()
+    return _client
+
+
 _VISUAL_CUE_PHRASES = [
     "as you can see", "on screen", "in this diagram", "let me show",
     "the code here", "look at this", "over here", "in the image",
@@ -31,7 +41,8 @@ def hint_detect(segments: list[dict]) -> list[float]:
     transcript_with_ts = "\n".join(
         f"[{s['start']:.1f}s] {s.get('text', '')}" for s in segments
     )
-    client = anthropic.Anthropic()
+    transcript_with_ts = transcript_with_ts[:30000]
+    client = _get_client()
     response = client.messages.create(
         model="claude-haiku-4-5",
         max_tokens=512,
@@ -101,6 +112,18 @@ def extract_frames(
     return frames
 
 
+def _media_type_from_content_type(ct: str) -> str:
+    """Map a Content-Type header value to an Anthropic-accepted image media type."""
+    ct = ct.lower().split(";")[0].strip()
+    return {
+        "image/jpeg": "image/jpeg",
+        "image/jpg": "image/jpeg",
+        "image/png": "image/png",
+        "image/gif": "image/gif",
+        "image/webp": "image/webp",
+    }.get(ct, "image/jpeg")
+
+
 def image_blocks(
     urls: list[str] | None = None,
     frame_bytes: list[bytes] | None = None,
@@ -124,10 +147,12 @@ def image_blocks(
             pass
         try:
             with urllib.request.urlopen(url, timeout=10) as resp:
+                ct = resp.headers.get("Content-Type", "image/jpeg")
+                media_type = _media_type_from_content_type(ct)
                 data = base64.standard_b64encode(resp.read()).decode()
             blocks.append({
                 "type": "image",
-                "source": {"type": "base64", "media_type": "image/jpeg", "data": data},
+                "source": {"type": "base64", "media_type": media_type, "data": data},
             })
         except Exception:
             pass
@@ -150,12 +175,16 @@ def download_video_temp(url: str) -> Path:
     tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
     tmp.close()
     tmp_path = Path(tmp.name)
-    subprocess.run(
-        [
-            "yt-dlp", "-f", "bestvideo[ext=mp4]/best[ext=mp4]/best",
-            "--no-audio", "-o", str(tmp_path), "--no-playlist", url,
-        ],
-        capture_output=True,
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                "yt-dlp", "-f", "bestvideo[ext=mp4]/best[ext=mp4]/best",
+                "--no-audio", "-o", str(tmp_path), "--no-playlist", url,
+            ],
+            capture_output=True,
+            check=True,
+        )
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
     return tmp_path

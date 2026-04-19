@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 from unittest.mock import MagicMock, patch
 
@@ -6,7 +8,8 @@ def test_hint_detect_no_cues_skips_haiku():
     from ytk.vision import hint_detect
 
     segments = [{"start": 0.0, "text": "Hello everyone welcome to this podcast episode today."}]
-    with patch("ytk.vision.anthropic.Anthropic") as mock_cls:
+    with patch("ytk.vision.anthropic.Anthropic") as mock_cls, \
+            patch("ytk.vision._client", None):
         result = hint_detect(segments)
     mock_cls.assert_not_called()
     assert result == []
@@ -21,7 +24,8 @@ def test_hint_detect_with_cues_calls_haiku():
     ]
     mock_resp = MagicMock()
     mock_resp.content = [MagicMock(text="[5.0, 10.0]")]
-    with patch("ytk.vision.anthropic.Anthropic") as mock_cls:
+    with patch("ytk.vision.anthropic.Anthropic") as mock_cls, \
+            patch("ytk.vision._client", None):
         mock_cls.return_value.messages.create.return_value = mock_resp
         result = hint_detect(segments)
     assert result == [5.0, 10.0]
@@ -33,7 +37,8 @@ def test_hint_detect_deduplicates_and_sorts():
     segments = [{"start": 3.0, "text": "As you can see the code here is straightforward."}]
     mock_resp = MagicMock()
     mock_resp.content = [MagicMock(text="[10.0, 3.0, 10.0]")]
-    with patch("ytk.vision.anthropic.Anthropic") as mock_cls:
+    with patch("ytk.vision.anthropic.Anthropic") as mock_cls, \
+            patch("ytk.vision._client", None):
         mock_cls.return_value.messages.create.return_value = mock_resp
         result = hint_detect(segments)
     assert result == [3.0, 10.0]
@@ -45,7 +50,8 @@ def test_hint_detect_haiku_bad_json_returns_empty():
     segments = [{"start": 0.0, "text": "look at this amazing result on screen"}]
     mock_resp = MagicMock()
     mock_resp.content = [MagicMock(text="Sorry, I cannot help with that.")]
-    with patch("ytk.vision.anthropic.Anthropic") as mock_cls:
+    with patch("ytk.vision.anthropic.Anthropic") as mock_cls, \
+            patch("ytk.vision._client", None):
         mock_cls.return_value.messages.create.return_value = mock_resp
         result = hint_detect(segments)
     assert result == []
@@ -91,6 +97,7 @@ def test_image_blocks_url_unreachable_falls_back_to_base64():
         mock_resp = MagicMock()
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_resp.headers.get.return_value = "image/jpeg"
         mock_resp.read.return_value = raw
         return mock_resp
 
