@@ -6,11 +6,15 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
 
 from ytk.enrich import Enrichment
 from ytk.store import upsert_doc, strip_frontmatter
+
+if TYPE_CHECKING:
+    from .instagram import InstagramPost
 
 load_dotenv(Path.home() / ".ytk" / ".env")
 load_dotenv()
@@ -269,6 +273,40 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
         f"## Insights\n{insights}\n",
         encoding="utf-8",
     )
+    return note_path
+
+
+def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
+    """Write an Obsidian note for an ingested Instagram post. Returns the path written."""
+    vault_path = _get_vault_path()
+    note_dir = vault_path / "sources" / "instagram"
+    note_dir.mkdir(parents=True, exist_ok=True)
+
+    caption_slug = _slug(post.caption[:80]) if post.caption else f"{post.username}-post"
+    note_path = note_dir / f"{post.username}-{post.timestamp}-{caption_slug}.md"
+
+    def _normalize_tag(t: str) -> str:
+        return re.sub(r"\s+", "-", t.strip().lower())
+
+    tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
+    concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
+    insights = "\n".join(f"- {i}" for i in enrichment.insights)
+
+    content = (
+        f"---\nurl: {post.url}\nusername: {post.username}\ndate: {post.timestamp}\n"
+        f"tags:\n{tags_yaml}\ntype: instagram\n---\n\n"
+        f"## Thesis\n{enrichment.thesis}\n\n"
+        f"## Summary\n{enrichment.summary}\n\n"
+        f"## Key Concepts\n{concepts}\n\n"
+        f"## Insights\n{insights}\n"
+    )
+    if enrichment.key_moments:
+        moments = "\n".join(
+            f"- **{m.timestamp}** — {m.description}" for m in enrichment.key_moments
+        )
+        content += f"\n## Key Moments\n{moments}\n"
+
+    note_path.write_text(content, encoding="utf-8")
     return note_path
 
 
