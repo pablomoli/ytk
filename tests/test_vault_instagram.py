@@ -63,7 +63,8 @@ def test_write_instagram_note_filename_uses_username_date_slug(tmp_path, monkeyp
     )
 
     path = write_instagram_note(post, enrichment)
-    assert path.stem.startswith("artaccount-2026-04-19-")
+    # New format: {username}-{timestamp}-{shortcode}-{slug}
+    assert path.stem.startswith("artaccount-2026-04-19-XYZ-")
 
 
 def test_write_instagram_note_no_moments_omits_section(tmp_path, monkeypatch):
@@ -109,3 +110,31 @@ def test_write_instagram_note_empty_caption_uses_username_fallback(tmp_path, mon
 
     path = write_instagram_note(post, enrichment)
     assert "reelaccount" in path.stem
+
+
+def test_write_instagram_note_shortcode_prevents_overwrite(tmp_path, monkeypatch):
+    from ytk.instagram import InstagramPost
+    from ytk.enrich import Enrichment
+    from ytk.vault import write_instagram_note
+
+    monkeypatch.setattr("ytk.vault._get_vault_path", lambda: tmp_path)
+
+    base = dict(
+        username="user",
+        timestamp="2026-04-19",
+        caption="same caption",
+        images=[],
+    )
+    enrichment = Enrichment(
+        thesis="t", summary="s", key_concepts=[], insights=[], interest_tags=[], key_moments=[]
+    )
+
+    post1 = InstagramPost(url="https://www.instagram.com/p/AAA111/", **base)
+    post2 = InstagramPost(url="https://www.instagram.com/p/BBB222/", **base)
+
+    path1 = write_instagram_note(post1, enrichment)
+    path2 = write_instagram_note(post2, enrichment)
+
+    assert path1 != path2
+    assert path1.exists()
+    assert path2.exists()

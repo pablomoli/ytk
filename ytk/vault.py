@@ -6,15 +6,11 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
-
 from dotenv import load_dotenv
 
 from ytk.enrich import Enrichment
+from ytk.instagram import InstagramPost
 from ytk.store import upsert_doc, strip_frontmatter
-
-if TYPE_CHECKING:
-    from .instagram import InstagramPost
 
 load_dotenv(Path.home() / ".ytk" / ".env")
 load_dotenv()
@@ -54,6 +50,11 @@ def _slug(title: str) -> str:
     return sanitized[:100]
 
 
+def _normalize_tag(t: str) -> str:
+    """Normalize a tag to lowercase-hyphenated form."""
+    return re.sub(r"\s+", "-", t.strip().lower())
+
+
 def _build_transcript(video_id: str, segments: list[dict]) -> str:
     """
     Format transcript segments into timestamped blocks grouped by ~60-second windows.
@@ -90,9 +91,6 @@ def _build_note(meta: dict, enrichment: Enrichment, segments: list[dict]) -> str
     date = _fmt_date(meta.get("upload_date", ""))
     duration = _fmt_duration(meta.get("duration", 0))
     video_id: str = meta.get("id", "")
-
-    def _normalize_tag(t: str) -> str:
-        return re.sub(r"\s+", "-", t.strip().lower())
 
     tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
 
@@ -258,9 +256,6 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
     filename = _slug(title)
     note_path = note_dir / f"{filename}.md"
 
-    def _normalize_tag(t: str) -> str:
-        return re.sub(r"\s+", "-", t.strip().lower())
-
     tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
     concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
     insights = "\n".join(f"- {i}" for i in enrichment.insights)
@@ -276,17 +271,17 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
     return note_path
 
 
-def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
+def write_instagram_note(post: InstagramPost, enrichment: Enrichment) -> Path:
     """Write an Obsidian note for an ingested Instagram post. Returns the path written."""
     vault_path = _get_vault_path()
     note_dir = vault_path / "sources" / "instagram"
     note_dir.mkdir(parents=True, exist_ok=True)
 
-    caption_slug = _slug(post.caption[:80]) if post.caption else f"{post.username}-post"
-    note_path = note_dir / f"{post.username}-{post.timestamp}-{caption_slug}.md"
-
-    def _normalize_tag(t: str) -> str:
-        return re.sub(r"\s+", "-", t.strip().lower())
+    sc_match = re.search(r"/(?:p|reel|tv)/([A-Za-z0-9_-]+)", post.url)
+    shortcode = sc_match.group(1) if sc_match else ""
+    slug_part = _slug(post.caption[:60]) if post.caption else "post"
+    filename = f"{post.username}-{post.timestamp}-{shortcode}-{slug_part}.md"
+    note_path = note_dir / filename
 
     tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
     concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
@@ -294,6 +289,7 @@ def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
 
     content = (
         f"---\nurl: {post.url}\nusername: {post.username}\ndate: {post.timestamp}\n"
+        f"title: {enrichment.thesis}\n"
         f"tags:\n{tags_yaml}\ntype: instagram\n---\n\n"
         f"## Thesis\n{enrichment.thesis}\n\n"
         f"## Summary\n{enrichment.summary}\n\n"
