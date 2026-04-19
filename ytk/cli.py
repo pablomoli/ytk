@@ -459,6 +459,81 @@ def ingest(url: str, force: bool):
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
 
 
+@cli.command(name="add-instagram")
+@click.argument("url")
+def add_instagram(url: str):
+    """Fetch an Instagram post, analyze visually with AI, and store in the vault."""
+    from .instagram import fetch_instagram
+    from .vision import extract_frames, image_blocks
+    from .enrich import enrich
+    from .vault import write_instagram_note
+    from .store import strip_frontmatter, upsert_doc
+
+    with console.status("[bold cyan]Fetching Instagram post...[/]"):
+        try:
+            post = fetch_instagram(url)
+        except ValueError as exc:
+            console.print(f"[red]Fetch failed:[/] {exc}")
+            raise SystemExit(1)
+
+    info = Table.grid(padding=(0, 2))
+    info.add_column(style="bold cyan", no_wrap=True)
+    info.add_column()
+    info.add_row("Username", f"@{post.username}")
+    info.add_row("Date", post.timestamp)
+    if post.images:
+        info.add_row("Images", str(len(post.images)))
+    if post.video_path:
+        info.add_row("Reel", "yes")
+    if post.caption:
+        info.add_row("Caption", post.caption[:120])
+    console.print(Panel(info, title="[bold]Instagram Post[/]", box=box.ROUNDED))
+
+    with console.status("[bold cyan]Preparing visual content...[/]"):
+        blocks = image_blocks(urls=post.images or None)
+        if post.video_path:
+            frame_bytes = extract_frames(post.video_path, timestamps=[], baseline_n=4)
+            blocks += image_blocks(frame_bytes=frame_bytes)
+            post.video_path.unlink(missing_ok=True)
+
+    meta = {
+        "title": post.caption[:120] if post.caption else f"@{post.username}",
+        "uploader": post.username,
+        "duration": 0,
+        "tags": [],
+    }
+
+    with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
+        result = enrich(post.caption, meta, visual_blocks=blocks or None)
+
+    console.print(Panel(f"[italic]{result.thesis}[/]", title="[bold]Thesis[/]", box=box.ROUNDED))
+    console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
+
+    grid = Table.grid(padding=(0, 4))
+    grid.add_column()
+    grid.add_column()
+    concepts = "\n".join(f"[cyan]•[/] {c}" for c in result.key_concepts)
+    tags = " ".join(f"[bold cyan]#{t}[/]" for t in result.interest_tags)
+    grid.add_row(concepts, tags)
+    console.print(Panel(grid, title="[bold]Key Concepts & Tags[/]", box=box.ROUNDED))
+
+    insights = "\n".join(f"[yellow]>[/] {i}" for i in result.insights)
+    console.print(Panel(insights, title="[bold]Insights[/]", box=box.ROUNDED))
+
+    try:
+        note_path = write_instagram_note(post, result)
+        console.print(f"\n[bold green]Note written:[/] {note_path}")
+        doc_id = "instagram_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
+        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
+        upsert_doc(doc_id, body, {
+            "doc_id": doc_id,
+            "tags": ", ".join(result.interest_tags),
+            "source_path": str(note_path),
+        })
+    except EnvironmentError as exc:
+        console.print(f"\n[yellow]Vault not configured:[/] {exc}")
+
+
 @cli.command()
 @click.option("--prune", type=int, default=None, metavar="DAYS",
               help="Archive memories older than N days and remove from ChromaDB.")
