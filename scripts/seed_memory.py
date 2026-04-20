@@ -36,6 +36,14 @@ _SKIP_PREFIXES = (
     "SessionStart hook",
 )
 
+ATOM_TEMPLATES = {
+    "purpose": 'One sentence: "{project} is a [what] that [does what] for [whom/why]."',
+    "tech": "One bullet per tool/library, max 8. Use [[wikilink]] for tool names.\n  Format: '- [[tool-name]] — [how used in this project specifically]'",
+    "state": "Three optional bullet types:\n  '- Working: [what functions correctly]'\n  '- In progress: [what is partially built]'\n  '- Blocked: [what is blocked and why]  (omit if nothing blocked)'",
+    "questions": "Bullet list of open decisions/blockers:\n  '- ? [unresolved question]'\n  Write `_no signal_` if none.",
+    "recent": "What happened this session (ALWAYS required):\n  '- [action taken]'\n  '- [decision or finding]'\n  '- [outcome or next step]'",
+}
+
 
 def _extract_text(content) -> str:
     if isinstance(content, str):
@@ -102,49 +110,124 @@ def project_name_from_dir(dir_name: str) -> str:
     return f"{filtered[-1]} ({'/'.join(filtered[:-1])})"
 
 
-def summarize_project(project_display: str, turns: list[dict], client) -> str:
+def update_project_atoms(
+    project_display: str,
+    existing: dict[str, str | None],
+    turns: list[dict],
+    client,
+) -> dict[str, dict]:
+    """
+    Call Haiku with existing atom content + session turns.
+    Returns { atom_name: { "changed": bool, "content": str | None } }.
+    """
     transcript_parts = []
-    budget = 4000
+    budget = 5000
     for turn in turns:
         snippet = f"[{turn['role'].upper()}]: {turn['text'][:600]}"
         if budget - len(snippet) < 0:
             break
         transcript_parts.append(snippet)
         budget -= len(snippet)
+    session_excerpt = "\n\n".join(transcript_parts)
 
-    transcript = "\n\n".join(transcript_parts)
+    existing_block = ""
+    for atom, content in existing.items():
+        existing_block += f"\n### {atom}\n{content if content else '_missing — treat as first run_'}\n"
 
-    prompt = f"""You are summarizing Claude Code session history for a project named '{project_display}'.
+    atom_template_block = ""
+    for atom, template in ATOM_TEMPLATES.items():
+        atom_template_block += f"\n{atom}:\n  {template}\n"
 
-Below are excerpts from recent Claude Code sessions. Write a 3-5 sentence summary covering:
-1. What this project is (purpose/domain)
-2. What has been actively worked on recently
-3. Current state or open questions (if evident)
+    prompt = f"""You are updating the knowledge base for the project '{project_display}'.
 
-Rules:
-- Plain prose, third person, past tense
-- No markdown headers, bullets, or code blocks
-- Start with the project name and purpose
-- Be specific about technologies and what was built
+Below are the EXISTING atomic notes and excerpts from the most recent Claude Code session.
+
+TASK: For each atom, decide whether the session introduces materially new information
+that warrants updating it. If yes, return the complete updated content following the
+template exactly. If no, mark it unchanged.
+
+RULES:
+- Follow each atom's template exactly. Do not add extra sections or prose.
+- Be specific: tool names, CLI commands, decision rationale. Never vague summaries.
+- Use [[wikilink]] syntax for tool names in tech.
+- `recent` MUST always be updated — it reflects what happened in this session.
+- For all other atoms: only update if the session introduces genuinely new information.
+  A session about an unrelated topic does not update purpose, tech, state, or questions.
+- If a section cannot be filled from actual session content, write `_no signal_`.
+  Do not infer. Do not hallucinate.
+
+ATOM TEMPLATES:
+{atom_template_block}
+
+EXISTING ATOM CONTENT:
+{existing_block}
 
 SESSION EXCERPTS:
-{transcript}
+{session_excerpt}
 
-SUMMARY:"""
+Respond with valid JSON only. No markdown wrapper. No explanation outside the JSON.
+{{
+  "purpose":   {{ "changed": false }} or {{ "changed": true, "content": "..." }},
+  "tech":      {{ "changed": false }} or {{ "changed": true, "content": "..." }},
+  "state":     {{ "changed": false }} or {{ "changed": true, "content": "..." }},
+  "questions": {{ "changed": false }} or {{ "changed": true, "content": "..." }},
+  "recent":    {{ "changed": true,  "content": "..." }}
+}}"""
 
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=300,
+        max_tokens=1200,
         messages=[{"role": "user", "content": prompt}],
     )
-    return response.content[0].text.strip()
+    raw = response.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
+    result = json.loads(raw)
+    # Enforce recent always updates regardless of model response
+    if not result.get("recent", {}).get("changed"):
+        result["recent"] = {"changed": True, "content": result.get("recent", {}).get("content", "_no signal_")}
+    return result
 
 
-def _memory_exists(vault_path: Path, project_key: str) -> bool:
-    """Check if a memory note already exists for this project key."""
-    mem_dir = vault_path / "inbox" / "memories"
-    slug = re.sub(r"[^a-z0-9]+", "-", project_key.lower()).strip("-")
-    return any(mem_dir.glob(f"*-project-{slug}*.md")) if mem_dir.exists() else False
+def _infer_status(most_recent_mtime: float) -> str:
+    age_days = (time.time() - most_recent_mtime) / 86400
+    if age_days < 14:
+        return "active"
+    if age_days < 90:
+        return "paused"
+    return "archived"
+
+
+def _session_refs(vault_path: Path, project_slug: str) -> list[tuple[str, str]]:
+    """Return list of (wikilink_path, stem) for session briefs of a single project, newest first."""
+    briefs_dir = vault_path / "second-brain" / "projects"
+    proj_dir = briefs_dir / project_slug
+    refs = []
+    if proj_dir.exists() and proj_dir.is_dir():
+        for brief in sorted(proj_dir.glob("session-*.md"), reverse=True)[:5]:
+            stem = brief.stem
+            refs.append((f"second-brain/projects/{project_slug}/{stem}", stem))
+    return refs
+
+
+def _memory_exists(vault_path: Path, project_slug: str) -> bool:
+    """Check if a memory atom folder already exists for this pre-slugified project key."""
+    atom_dir = vault_path / "second-brain" / "inbox" / "memories" / project_slug
+    return (atom_dir / "recent.md").exists()
+
+
+def _migrate_flat_memories(vault_path: Path) -> None:
+    """Delete old flat project-*.md files after new folder structure exists."""
+    mem_dir = vault_path / "second-brain" / "inbox" / "memories"
+    if not mem_dir.exists():
+        return
+    deleted = 0
+    for f in mem_dir.glob("project-*.md"):
+        if f.is_file():
+            f.unlink()
+            deleted += 1
+    if deleted:
+        print(f"Migrated: deleted {deleted} flat project-*.md files")
 
 
 def main() -> None:
@@ -175,11 +258,9 @@ def main() -> None:
 
     if not args.dry_run:
         import anthropic
-        from ytk.vault import remember
-        from ytk.store import upsert_memory
         client = anthropic.Anthropic()
     else:
-        client = remember = upsert_memory = None
+        client = None
 
     projects = [d for d in CLAUDE_DIR.iterdir() if d.is_dir()]
 
@@ -205,8 +286,11 @@ def main() -> None:
 
     print(f"Found {len(projects)} project directories")
 
+    processed_projects: list[dict] = []
+
     for proj_dir in sorted(projects):
         dir_name = proj_dir.name
+        dir_name_slug = re.sub(r"[^a-z0-9]+", "-", dir_name.lower()).strip("-")
         project_display = project_name_from_dir(dir_name)
 
         jsonl_files = sorted(
@@ -217,7 +301,7 @@ def main() -> None:
         if not jsonl_files:
             continue
 
-        if not args.force and _memory_exists(vault_path, dir_name):
+        if not args.force and _memory_exists(vault_path, dir_name_slug):
             print(f"  SKIP (exists): {project_display}")
             continue
 
@@ -237,14 +321,67 @@ def main() -> None:
             continue
 
         try:
-            summary = summarize_project(project_display, all_turns, client)
-            tags = ["project-context", re.sub(r"[^a-z0-9]+", "-", project_display.lower()).strip("-")]
-            note_path, doc_id = remember(summary, tags)
-            upsert_memory(doc_id, summary, tags, str(note_path))
-            print(f"    Written: {note_path.name}")
-            print(f"    Summary: {summary[:120]}...")
+            from ytk.vault import (
+                write_atom, read_atom, write_project_hub,
+                _get_vault_path,
+            )
+
+            existing = {
+                atom: read_atom(dir_name_slug, atom)
+                for atom in ("purpose", "tech", "state", "questions", "recent")
+            }
+
+            updates = update_project_atoms(project_display, existing, all_turns, client)
+
+            atoms_written = []
+            for atom, result in updates.items():
+                if result.get("changed") and result.get("content"):
+                    write_atom(dir_name_slug, atom, result["content"])
+                    atoms_written.append(atom)
+
+            most_recent_mtime = max(jf.stat().st_mtime for jf in jsonl_files[:args.max_sessions])
+            status = _infer_status(most_recent_mtime)
+            last_active = datetime.fromtimestamp(most_recent_mtime, tz=timezone.utc).strftime("%Y-%m-%d")
+
+            tech_content = updates.get("tech", {}).get("content") or existing.get("tech") or ""
+            tech_tags = re.findall(r"\[\[([^\]]+)\]\]", tech_content)
+
+            vault_path_obj = _get_vault_path()
+            refs = _session_refs(vault_path_obj, dir_name_slug)
+
+            write_project_hub(
+                dir_name_slug, project_display, status, tech_tags,
+                last_active, refs,
+            )
+
+            print(f"    Updated atoms: {', '.join(atoms_written) if atoms_written else 'none'}")
+            print(f"    Hub written: {status}, {len(tech_tags)} tech links")
+
+            purpose_line = (updates.get("purpose", {}).get("content") or existing.get("purpose") or "")
+            purpose_line = purpose_line.split("\n")[0][:80].rstrip(".")
+            processed_projects.append({
+                "slug": dir_name_slug,
+                "display": project_display,
+                "status": status,
+                "purpose_line": purpose_line,
+            })
+
         except Exception as exc:
             print(f"    ERROR: {exc}", file=sys.stderr)
+            import traceback; traceback.print_exc(file=sys.stderr)
+
+
+    if processed_projects and not args.dry_run:
+        try:
+            from ytk.vault import write_memories_moc
+            moc_path = write_memories_moc(processed_projects)
+            print(f"\nMOC written: {moc_path}")
+        except Exception as exc:
+            print(f"MOC ERROR: {exc}", file=sys.stderr)
+
+    if not args.dry_run:
+        from ytk.vault import _get_vault_path
+        _migrate_flat_memories(_get_vault_path())
 
 
 if __name__ == "__main__":
