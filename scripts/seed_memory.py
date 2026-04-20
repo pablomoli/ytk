@@ -36,6 +36,14 @@ _SKIP_PREFIXES = (
     "SessionStart hook",
 )
 
+ATOM_TEMPLATES = {
+    "purpose": 'One sentence: "{project} is a [what] that [does what] for [whom/why]."',
+    "tech": "One bullet per tool/library, max 8. Use [[wikilink]] for tool names.\n  Format: '- [[tool-name]] — [how used in this project specifically]'",
+    "state": "Three optional bullet types:\n  '- Working: [what functions correctly]'\n  '- In progress: [what is partially built]'\n  '- Blocked: [what is blocked and why]  (omit if nothing blocked)'",
+    "questions": "Bullet list of open decisions/blockers:\n  '- ? [unresolved question]'\n  Write `_no signal_` if none.",
+    "recent": "What happened this session (ALWAYS required):\n  '- [action taken]'\n  '- [decision or finding]'\n  '- [outcome or next step]'",
+}
+
 
 def _extract_text(content) -> str:
     if isinstance(content, str):
@@ -102,42 +110,81 @@ def project_name_from_dir(dir_name: str) -> str:
     return f"{filtered[-1]} ({'/'.join(filtered[:-1])})"
 
 
-def summarize_project(project_display: str, turns: list[dict], client) -> str:
+def update_project_atoms(
+    project_display: str,
+    existing: dict[str, str | None],
+    turns: list[dict],
+    client,
+) -> dict[str, dict]:
+    """
+    Call Haiku with existing atom content + session turns.
+    Returns { atom_name: { "changed": bool, "content": str | None } }.
+    """
+    import json as _json
+
     transcript_parts = []
-    budget = 4000
+    budget = 5000
     for turn in turns:
         snippet = f"[{turn['role'].upper()}]: {turn['text'][:600]}"
         if budget - len(snippet) < 0:
             break
         transcript_parts.append(snippet)
         budget -= len(snippet)
+    session_excerpt = "\n\n".join(transcript_parts)
 
-    transcript = "\n\n".join(transcript_parts)
+    existing_block = ""
+    for atom, content in existing.items():
+        existing_block += f"\n### {atom}\n{content if content else '_missing — treat as first run_'}\n"
 
-    prompt = f"""You are summarizing Claude Code session history for a project named '{project_display}'.
+    atom_template_block = ""
+    for atom, template in ATOM_TEMPLATES.items():
+        atom_template_block += f"\n{atom}:\n  {template}\n"
 
-Below are excerpts from recent Claude Code sessions. Write a 3-5 sentence summary covering:
-1. What this project is (purpose/domain)
-2. What has been actively worked on recently
-3. Current state or open questions (if evident)
+    prompt = f"""You are updating the knowledge base for the project '{project_display}'.
 
-Rules:
-- Plain prose, third person, past tense
-- No markdown headers, bullets, or code blocks
-- Start with the project name and purpose
-- Be specific about technologies and what was built
+Below are the EXISTING atomic notes and excerpts from the most recent Claude Code session.
+
+TASK: For each atom, decide whether the session introduces materially new information
+that warrants updating it. If yes, return the complete updated content following the
+template exactly. If no, mark it unchanged.
+
+RULES:
+- Follow each atom's template exactly. Do not add extra sections or prose.
+- Be specific: tool names, CLI commands, decision rationale. Never vague summaries.
+- Use [[wikilink]] syntax for tool names in tech.
+- `recent` MUST always be updated — it reflects what happened in this session.
+- For all other atoms: only update if the session introduces genuinely new information.
+  A session about an unrelated topic does not update purpose, tech, state, or questions.
+- If a section cannot be filled from actual session content, write `_no signal_`.
+  Do not infer. Do not hallucinate.
+
+ATOM TEMPLATES:
+{atom_template_block}
+
+EXISTING ATOM CONTENT:
+{existing_block}
 
 SESSION EXCERPTS:
-{transcript}
+{session_excerpt}
 
-SUMMARY:"""
+Respond with valid JSON only. No markdown wrapper. No explanation outside the JSON.
+{{
+  "purpose":   {{ "changed": false }} or {{ "changed": true, "content": "..." }},
+  "tech":      {{ "changed": false }} or {{ "changed": true, "content": "..." }},
+  "state":     {{ "changed": false }} or {{ "changed": true, "content": "..." }},
+  "questions": {{ "changed": false }} or {{ "changed": true, "content": "..." }},
+  "recent":    {{ "changed": true,  "content": "..." }}
+}}"""
 
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=300,
+        max_tokens=1200,
         messages=[{"role": "user", "content": prompt}],
     )
-    return response.content[0].text.strip()
+    raw = response.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
+    return _json.loads(raw)
 
 
 def _memory_exists(vault_path: Path, project_key: str) -> bool:
