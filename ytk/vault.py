@@ -260,6 +260,9 @@ def read_atom(project_slug: str, atom: str) -> str | None:
     """Read an atomic note. Returns content body (no frontmatter) or None if missing."""
     brain = _get_brain_path()
     path = brain / "inbox" / "memories" / project_slug / f"{atom}.md"
+    brain_resolved = str(brain.resolve())
+    if not str(path.resolve()).startswith(brain_resolved):
+        raise ValueError(f"Path escapes brain root: {project_slug}/{atom}")
     if not path.exists():
         return None
     text = path.read_text(encoding="utf-8")
@@ -274,9 +277,12 @@ def write_atom(project_slug: str, atom: str, content: str) -> Path:
     """Write an atomic note, creating the project folder if needed."""
     brain = _get_brain_path()
     atom_dir = brain / "inbox" / "memories" / project_slug
+    path = atom_dir / f"{atom}.md"
+    brain_resolved = str(brain.resolve())
+    if not str(path.resolve()).startswith(brain_resolved):
+        raise ValueError(f"Path escapes brain root: {project_slug}/{atom}")
     atom_dir.mkdir(parents=True, exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d")
-    path = atom_dir / f"{atom}.md"
     path.write_text(
         f"---\ntype: atom\natom: {atom}\nproject: {project_slug}\nupdated: {date_str}\n---\n\n{content}\n",
         encoding="utf-8",
@@ -322,6 +328,7 @@ def write_memories_moc(projects: list[dict]) -> Path:
     """
     brain = _get_brain_path()
     moc_path = brain / "inbox" / "memories" / "index.md"
+    moc_path.parent.mkdir(parents=True, exist_ok=True)
 
     by_status: dict[str, list[dict]] = {"active": [], "paused": [], "archived": []}
     for p in projects:
