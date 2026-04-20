@@ -802,6 +802,50 @@ def triage(note_path: str):
     console.print(f"\n[bold green]Done:[/] {', '.join(parts) or 'nothing routed'}")
 
 
+@cli.command(name="review")
+def review():
+    """Print pending investigate items from inbox/review.md."""
+    vault_raw = os.environ.get("OBSIDIAN_VAULT_PATH", "")
+    if not vault_raw:
+        console.print("[red]OBSIDIAN_VAULT_PATH not configured.[/]")
+        raise SystemExit(1)
+    vault = Path(vault_raw).expanduser()
+    review_path = vault / "second-brain" / "inbox" / "review.md"
+
+    if not review_path.exists():
+        console.print("[yellow]No review items yet. Run ytk triage to add some.[/]")
+        return
+
+    lines = review_path.read_text(encoding="utf-8").splitlines()
+
+    items: list[dict[str, str]] = []
+    current: dict[str, str] | None = None
+    for line in lines:
+        if line.startswith("- [ ] "):
+            if current:
+                items.append(current)
+            current = {"header": line[6:], "desc": ""}
+        elif line.startswith("- [x] "):
+            if current:
+                items.append(current)
+            current = None
+        elif current is not None and line.startswith("  ") and line.strip():
+            current["desc"] = line.strip()
+    if current:
+        items.append(current)
+
+    if not items:
+        console.print("[yellow]No pending review items.[/]")
+        return
+
+    t = Table("Item", "Description", box=box.SIMPLE, show_header=True)
+    t.add_column("Item", no_wrap=False, max_width=50)
+    t.add_column("Description", no_wrap=False)
+    for item in items:
+        t.add_row(item["header"], item["desc"])
+    console.print(Panel(t, title=f"[bold]Review Items ({len(items)} pending)[/]", box=box.ROUNDED))
+
+
 @cli.command()
 @click.option("--prune", type=int, default=None, metavar="DAYS",
               help="Archive memories older than N days and remove from ChromaDB.")
