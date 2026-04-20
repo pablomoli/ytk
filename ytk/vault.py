@@ -97,12 +97,21 @@ def _build_transcript(video_id: str, segments: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
-def _build_note(meta: dict, enrichment: Enrichment, segments: list[dict]) -> str:
+def _build_note(
+    meta: dict,
+    enrichment: Enrichment,
+    segments: list[dict],
+    saved_frames: list[Path] | None = None,
+) -> str:
     date = _fmt_date(meta.get("upload_date", ""))
     duration = _fmt_duration(meta.get("duration", 0))
     video_id: str = meta.get("id", "")
 
     tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
+    image_paths_yaml = (
+        "\n" + "\n".join(f"  - {p.relative_to(_get_brain_path())}" for p in saved_frames)
+        if saved_frames else " []"
+    )
 
     concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
     insights = "\n".join(f"- {i}" for i in enrichment.insights)
@@ -110,6 +119,11 @@ def _build_note(meta: dict, enrichment: Enrichment, segments: list[dict]) -> str
         f"- **{km.timestamp}** — {km.description}" for km in enrichment.key_moments
     )
     transcript_body = _build_transcript(video_id, segments)
+
+    frame_embeds = (
+        "\n".join(f"![[{p.name}]]" for p in saved_frames) + "\n\n"
+        if saved_frames else ""
+    )
 
     return f"""\
 ---
@@ -120,9 +134,10 @@ date: {date}
 tags:
 {tags_yaml}
 duration: {duration}
+image_paths:{image_paths_yaml}
 ---
 
-## Thesis
+{frame_embeds}## Thesis
 {enrichment.thesis}
 
 ## Commentary
@@ -603,16 +618,22 @@ def rebuild_index() -> None:
     index_path.write_text("\n".join(sections), encoding="utf-8")
 
 
-def write_note(meta: dict, enrichment: Enrichment, segments: list[dict]) -> Path:
+def write_note(
+    meta: dict,
+    enrichment: Enrichment,
+    segments: list[dict],
+    frame_bytes: list[bytes] | None = None,
+) -> Path:
     """
     Write an Obsidian note for a video. Returns the path written.
     Raises NoteAlreadyExists if the note already exists.
     segments: raw transcript segments [{start, duration, text}] for timestamped linking.
+    frame_bytes: optional raw JPEG frames to save alongside the note.
     """
-    vault_path = _get_brain_path()
+    brain = _get_brain_path()
     video_id: str = meta["id"]
     title: str = meta.get("title", video_id)
-    note_dir = vault_path / "sources" / "youtube"
+    note_dir = brain / "sources" / "youtube"
     note_dir.mkdir(parents=True, exist_ok=True)
 
     filename = _slug(title)
@@ -622,10 +643,26 @@ def write_note(meta: dict, enrichment: Enrichment, segments: list[dict]) -> Path
             f"Note already exists for '{title}': {note_path}"
         )
 
-    note_content = _build_note(meta, enrichment, segments)
+    # Save thumbnail + any extracted frames before building note
+    saved_frames: list[Path] = []
+    thumb_url = meta.get("thumbnail")
+    if thumb_url:
+        thumb_dest = note_dir / f"{video_id}-thumb"
+        saved = _save_image(thumb_url, thumb_dest)
+        if saved:
+            saved_frames.append(saved)
+    if frame_bytes:
+        frame_dir = note_dir / video_id
+        frame_dir.mkdir(parents=True, exist_ok=True)
+        for i, raw in enumerate(frame_bytes, start=1):
+            fp = frame_dir / f"frame-{i}.jpg"
+            fp.write_bytes(raw)
+            saved_frames.append(fp)
+
+    note_content = _build_note(meta, enrichment, segments, saved_frames or None)
     note_path.write_text(note_content, encoding="utf-8")
 
     date = _fmt_date(meta.get("upload_date", ""))
-    _update_index(vault_path, filename, title, date)
+    _update_index(brain, filename, title, date)
 
     return note_path
