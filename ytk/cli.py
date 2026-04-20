@@ -689,9 +689,9 @@ def triage(note_path: str):
     if note_path:
         target = Path(note_path) if Path(note_path).is_absolute() else vault / note_path
     else:
-        candidates = list((vault / "sources").rglob("*.md"))
+        candidates = list((vault / "second-brain" / "sources").rglob("*.md"))
         if not candidates:
-            console.print("[red]No notes found in vault/sources/.[/]")
+            console.print("[red]No notes found in vault/second-brain/sources/.[/]")
             raise SystemExit(1)
         target = max(candidates, key=lambda p: p.stat().st_mtime)
 
@@ -838,7 +838,7 @@ def review():
         console.print("[yellow]No pending review items.[/]")
         return
 
-    t = Table("Item", "Description", box=box.SIMPLE, show_header=True)
+    t = Table(box=box.SIMPLE, show_header=True)
     t.add_column("Item", no_wrap=False, max_width=50)
     t.add_column("Description", no_wrap=False)
     for item in items:

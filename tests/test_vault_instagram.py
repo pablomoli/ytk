@@ -6,7 +6,7 @@ def test_write_instagram_note_creates_file(tmp_path, monkeypatch):
     from ytk.enrich import Enrichment, KeyMoment
     from ytk.vault import write_instagram_note
 
-    monkeypatch.setattr("ytk.vault._get_vault_path", lambda: tmp_path)
+    monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
 
     post = InstagramPost(
         url="https://www.instagram.com/p/ABC123/",
@@ -44,7 +44,7 @@ def test_write_instagram_note_filename_uses_username_date_slug(tmp_path, monkeyp
     from ytk.enrich import Enrichment
     from ytk.vault import write_instagram_note
 
-    monkeypatch.setattr("ytk.vault._get_vault_path", lambda: tmp_path)
+    monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
 
     post = InstagramPost(
         url="https://www.instagram.com/p/XYZ/",
@@ -72,7 +72,7 @@ def test_write_instagram_note_no_moments_omits_section(tmp_path, monkeypatch):
     from ytk.enrich import Enrichment
     from ytk.vault import write_instagram_note
 
-    monkeypatch.setattr("ytk.vault._get_vault_path", lambda: tmp_path)
+    monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
 
     post = InstagramPost(
         url="https://www.instagram.com/p/NM/",
@@ -95,7 +95,7 @@ def test_write_instagram_note_empty_caption_uses_username_fallback(tmp_path, mon
     from ytk.enrich import Enrichment
     from ytk.vault import write_instagram_note
 
-    monkeypatch.setattr("ytk.vault._get_vault_path", lambda: tmp_path)
+    monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
 
     post = InstagramPost(
         url="https://www.instagram.com/reel/ABC/",
@@ -117,7 +117,7 @@ def test_write_instagram_note_shortcode_prevents_overwrite(tmp_path, monkeypatch
     from ytk.enrich import Enrichment
     from ytk.vault import write_instagram_note
 
-    monkeypatch.setattr("ytk.vault._get_vault_path", lambda: tmp_path)
+    monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
 
     base = dict(
         username="user",
