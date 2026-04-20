@@ -112,6 +112,96 @@ def test_write_instagram_note_empty_caption_uses_username_fallback(tmp_path, mon
     assert "reelaccount" in path.stem
 
 
+def test_write_instagram_note_downloads_images(tmp_path, monkeypatch):
+    from ytk.instagram import InstagramPost
+    from ytk.enrich import Enrichment
+    from ytk.vault import write_instagram_note
+
+    monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
+
+    downloaded = []
+
+    def fake_save(url, dest):
+        p = dest.with_suffix(".jpg")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(b"img")
+        downloaded.append(url)
+        return p
+
+    monkeypatch.setattr("ytk.vault._save_image", fake_save)
+
+    post = InstagramPost(
+        url="https://www.instagram.com/p/ABC123/",
+        username="testuser",
+        timestamp="2026-04-19",
+        caption="test post",
+        images=["https://cdn.instagram.com/img1.jpg", "https://cdn.instagram.com/img2.jpg"],
+    )
+    enrichment = Enrichment(
+        thesis="t", summary="s", key_concepts=[], insights=[], interest_tags=[], key_moments=[]
+    )
+
+    path = write_instagram_note(post, enrichment)
+    content = path.read_text(encoding="utf-8")
+
+    assert len(downloaded) == 2
+    assert "![[ABC123-img-1.jpg]]" in content
+    assert "![[ABC123-img-2.jpg]]" in content
+    assert "image_paths:" in content
+    assert "sources/instagram/ABC123-img-1.jpg" in content
+
+
+def test_write_instagram_note_no_images_empty_frontmatter(tmp_path, monkeypatch):
+    from ytk.instagram import InstagramPost
+    from ytk.enrich import Enrichment
+    from ytk.vault import write_instagram_note
+
+    monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
+
+    post = InstagramPost(
+        url="https://www.instagram.com/p/NIM/",
+        username="user",
+        timestamp="2026-04-19",
+        caption="no images here",
+        images=[],
+    )
+    enrichment = Enrichment(
+        thesis="t", summary="s", key_concepts=[], insights=[], interest_tags=[], key_moments=[]
+    )
+
+    path = write_instagram_note(post, enrichment)
+    content = path.read_text(encoding="utf-8")
+
+    assert "image_paths: []" in content
+    assert "![[" not in content
+
+
+def test_write_instagram_note_failed_download_skipped(tmp_path, monkeypatch):
+    from ytk.instagram import InstagramPost
+    from ytk.enrich import Enrichment
+    from ytk.vault import write_instagram_note
+
+    monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
+    monkeypatch.setattr("ytk.vault._save_image", lambda url, dest: None)
+
+    post = InstagramPost(
+        url="https://www.instagram.com/p/FAIL/",
+        username="user",
+        timestamp="2026-04-19",
+        caption="broken image",
+        images=["https://broken.cdn/img.jpg"],
+    )
+    enrichment = Enrichment(
+        thesis="t", summary="s", key_concepts=[], insights=[], interest_tags=[], key_moments=[]
+    )
+
+    path = write_instagram_note(post, enrichment)
+    content = path.read_text(encoding="utf-8")
+
+    assert "image_paths: []" in content
+    assert "![[" not in content
+
+
 def test_write_instagram_note_shortcode_prevents_overwrite(tmp_path, monkeypatch):
     from ytk.instagram import InstagramPost
     from ytk.enrich import Enrichment

@@ -186,6 +186,9 @@ second-brain/inbox/memories/{slug}/   — per-project atom folder
   questions.md                        — open questions and unknowns
   recent.md                           — most recent session summary (always overwritten)
 second-brain/sources/youtube/         — ingested video notes from ytk pipeline
+  thumbnails/                         — {video_id}-thumb.jpg for every ingested video
+  frames/{video_id}/                  — extracted frames (ytk add only, when visual cues found)
+second-brain/sources/instagram/       — ingested Instagram post notes + {shortcode}-img-N.jpg
 second-brain/decisions/               — architectural decision records
 second-brain/debugging/               — bug patterns and resolutions
 second-brain/tools/                   — notes on libraries and tools
