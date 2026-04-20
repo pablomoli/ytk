@@ -221,6 +221,20 @@ def _memory_exists(vault_path: Path, project_key: str) -> bool:
     return any(mem_dir.glob(f"*-project-{slug}*.md")) if mem_dir.exists() else False
 
 
+def _migrate_flat_memories(vault_path: Path) -> None:
+    """Delete old flat project-*.md files after new folder structure exists."""
+    mem_dir = vault_path / "second-brain" / "inbox" / "memories"
+    if not mem_dir.exists():
+        return
+    deleted = 0
+    for f in mem_dir.glob("project-*.md"):
+        if f.is_file():
+            f.unlink()
+            deleted += 1
+    if deleted:
+        print(f"Migrated: deleted {deleted} flat project-*.md files")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-sessions", type=int, default=3)
@@ -369,6 +383,10 @@ def main() -> None:
             print(f"\nMOC written: {moc_path}")
         except Exception as exc:
             print(f"MOC ERROR: {exc}", file=sys.stderr)
+
+    if not args.dry_run:
+        from ytk.vault import _get_vault_path
+        _migrate_flat_memories(_get_vault_path())
 
 
 if __name__ == "__main__":
