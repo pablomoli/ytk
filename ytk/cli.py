@@ -140,6 +140,7 @@ def add(url: str, force: bool):
 
     # --- visual frame extraction ---
     visual_blocks: list[dict] | None = None
+    frame_bytes: list[bytes] = []
     try:
         from .vision import download_video_temp, extract_frames, hint_detect, image_blocks
         with console.status("[bold cyan]Scanning for visual content...[/]"):
@@ -149,7 +150,7 @@ def add(url: str, force: bool):
                 video_tmp = download_video_temp(url)
             try:
                 with console.status("[bold cyan]Extracting frames...[/]"):
-                    frame_bytes = extract_frames(video_tmp, hint_ts, baseline_n=4)
+                    frame_bytes = extract_frames(video_tmp, hint_ts, baseline_n=4) or []
                 visual_blocks = image_blocks(frame_bytes=frame_bytes) if frame_bytes else None
             finally:
                 video_tmp.unlink(missing_ok=True)
@@ -194,7 +195,7 @@ def add(url: str, force: bool):
 
     # --- write vault note ---
     try:
-        note_path = write_note(meta, result, segments)
+        note_path = write_note(meta, result, segments, frame_bytes=frame_bytes or None)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
