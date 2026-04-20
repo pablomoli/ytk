@@ -19,7 +19,7 @@ def test_reindex_skips_cached_files(tmp_path, monkeypatch):
     monkeypatch.setattr("ytk.cache._CACHE_PATH", tmp_path / "cache.json")
     cache_mod.save_index_cache({str(note): cached_hash})
 
-    with patch("ytk.vault._get_vault_path", return_value=tmp_path), \
+    with patch("ytk.vault._get_brain_path", return_value=tmp_path), \
          patch("ytk.vault.upsert_doc") as mock_upsert:
         from ytk.vault import reindex_vault
         count = reindex_vault(force=False)
@@ -37,7 +37,7 @@ def test_reindex_embeds_changed_files(tmp_path, monkeypatch):
     monkeypatch.setattr("ytk.cache._CACHE_PATH", tmp_path / "cache.json")
     cache_mod.save_index_cache({str(note): "stale_hash_value"})
 
-    with patch("ytk.vault._get_vault_path", return_value=tmp_path), \
+    with patch("ytk.vault._get_brain_path", return_value=tmp_path), \
          patch("ytk.vault.upsert_doc") as mock_upsert:
         from ytk.vault import reindex_vault
         count = reindex_vault(force=False)
@@ -54,7 +54,7 @@ def test_reindex_force_skips_cache(tmp_path, monkeypatch):
     monkeypatch.setattr("ytk.cache._CACHE_PATH", tmp_path / "cache.json")
     cache_mod.save_index_cache({str(note): cache_mod.file_hash(note)})
 
-    with patch("ytk.vault._get_vault_path", return_value=tmp_path), \
+    with patch("ytk.vault._get_brain_path", return_value=tmp_path), \
          patch("ytk.vault.upsert_doc") as mock_upsert:
         from ytk.vault import reindex_vault
         count = reindex_vault(force=True)
