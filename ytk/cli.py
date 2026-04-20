@@ -1101,7 +1101,7 @@ def schedule_install(hour: int):
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>{ytk_bin} index &amp;&amp; {ytk_bin} dashboard</string>
+        <string>{ytk_bin} sync &amp;&amp; {ytk_bin} index &amp;&amp; {ytk_bin} dashboard</string>
     </array>
     <key>StartCalendarInterval</key>
     <dict>
