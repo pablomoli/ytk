@@ -301,6 +301,10 @@ def write_project_hub(
     """Write or overwrite the project hub index.md (links only, no prose)."""
     brain = _get_brain_path()
     hub_dir = brain / "inbox" / "memories" / project_slug
+    brain_resolved = str(brain.resolve())
+    hub_path = hub_dir / "index.md"
+    if not str(hub_path.resolve()).startswith(brain_resolved):
+        raise ValueError(f"Path escapes brain root: {project_slug}")
     hub_dir.mkdir(parents=True, exist_ok=True)
 
     tech_yaml = ", ".join(tech) if tech else ""
