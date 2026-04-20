@@ -33,6 +33,11 @@ def _get_vault_path() -> Path:
     return Path(raw).expanduser()
 
 
+def _get_brain_path() -> Path:
+    """Return the second-brain subtree root inside the Obsidian vault."""
+    return _get_vault_path() / "second-brain"
+
+
 def _fmt_duration(seconds: int) -> str:
     h, rem = divmod(int(seconds), 3600)
     m, s = divmod(rem, 60)
@@ -249,6 +254,103 @@ def remember(text: str, tags: list[str] | None = None) -> tuple[Path, str]:
         encoding="utf-8",
     )
     return note_path, doc_id
+
+
+def read_atom(project_slug: str, atom: str) -> str | None:
+    """Read an atomic note. Returns content body (no frontmatter) or None if missing."""
+    brain = _get_brain_path()
+    path = brain / "inbox" / "memories" / project_slug / f"{atom}.md"
+    brain_resolved = str(brain.resolve())
+    if not str(path.resolve()).startswith(brain_resolved):
+        raise ValueError(f"Path escapes brain root: {project_slug}/{atom}")
+    if not path.exists():
+        return None
+    text = path.read_text(encoding="utf-8")
+    if text.startswith("---"):
+        end = text.find("---", 3)
+        if end != -1:
+            return text[end + 3:].strip()
+    return text.strip()
+
+
+def write_atom(project_slug: str, atom: str, content: str) -> Path:
+    """Write an atomic note, creating the project folder if needed."""
+    brain = _get_brain_path()
+    atom_dir = brain / "inbox" / "memories" / project_slug
+    path = atom_dir / f"{atom}.md"
+    brain_resolved = str(brain.resolve())
+    if not str(path.resolve()).startswith(brain_resolved):
+        raise ValueError(f"Path escapes brain root: {project_slug}/{atom}")
+    atom_dir.mkdir(parents=True, exist_ok=True)
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    path.write_text(
+        f"---\ntype: atom\natom: {atom}\nproject: {project_slug}\nupdated: {date_str}\n---\n\n{content}\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def write_project_hub(
+    project_slug: str,
+    project_display: str,
+    status: str,
+    tech: list[str],
+    last_active: str,
+    session_refs: list[tuple[str, str]],
+) -> Path:
+    """Write or overwrite the project hub index.md (links only, no prose)."""
+    brain = _get_brain_path()
+    hub_dir = brain / "inbox" / "memories" / project_slug
+    brain_resolved = str(brain.resolve())
+    hub_path = hub_dir / "index.md"
+    if not str(hub_path.resolve()).startswith(brain_resolved):
+        raise ValueError(f"Path escapes brain root: {project_slug}")
+    hub_dir.mkdir(parents=True, exist_ok=True)
+
+    tech_yaml = ", ".join(tech) if tech else ""
+    session_log = "\n".join(
+        f"- [[{ref}]] — {date}" for ref, date in session_refs
+    ) or "_no sessions indexed yet_"
+
+    content = (
+        f"---\ntype: project-hub\nstatus: {status}\ntech: [{tech_yaml}]\n"
+        f"last_active: {last_active}\n---\n\n"
+        f"## Current Understanding\n"
+        f"[[purpose]] · [[tech]] · [[state]] · [[questions]]\n\n"
+        f"## This Session\n[[recent]]\n\n"
+        f"## Session Log\n{session_log}\n"
+    )
+    path = hub_dir / "index.md"
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def write_memories_moc(projects: list[dict]) -> Path:
+    """
+    Regenerate second-brain/inbox/memories/index.md.
+    projects: list of { slug, display, status, purpose_line }
+    """
+    brain = _get_brain_path()
+    moc_path = brain / "inbox" / "memories" / "index.md"
+    moc_path.parent.mkdir(parents=True, exist_ok=True)
+
+    by_status: dict[str, list[dict]] = {"active": [], "paused": [], "archived": []}
+    for p in projects:
+        by_status.get(p["status"], by_status["paused"]).append(p)
+
+    sections = ["# Projects\n"]
+    for status_label in ("active", "paused", "archived"):
+        group = by_status[status_label]
+        if not group:
+            continue
+        rows = "\n".join(
+            f"- [[{p['slug']}/index|{p['display']}]] — {p['purpose_line']}"
+            for p in group
+        )
+        sections.append(f"## {status_label.capitalize()}\n{rows}\n")
+
+    moc_path.write_text("\n".join(sections), encoding="utf-8")
+    return moc_path
 
 
 def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enrichment) -> Path:
