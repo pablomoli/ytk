@@ -5,17 +5,22 @@ from __future__ import annotations
 import logging
 import os
 import re
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
 import chromadb
 from chromadb.utils import embedding_functions
 
-# Suppress noisy model-load output from sentence-transformers / transformers / HF
+# Model is cached locally — no network calls needed. Suppresses the
+# "unauthenticated requests" warning from huggingface_hub.
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
-os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+warnings.filterwarnings("ignore", message=".*unauthenticated.*")
 os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
 os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 os.environ.setdefault("HF_HUB_DISABLE_IMPLICIT_TOKEN", "1")

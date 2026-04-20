@@ -68,3 +68,41 @@ def test_action_item_route_values():
             suggested_route=route,
         )
         assert item.suggested_route == route
+
+
+def test_action_item_suggested_repo_defaults_none():
+    item = ActionItem(title="T", description="D.", priority="low", suggested_route="gh-issue")
+    assert item.suggested_repo is None
+
+
+def test_action_item_suggested_repo_set():
+    item = ActionItem(
+        title="T", description="D.", priority="high",
+        suggested_route="gh-issue", suggested_repo="pablomoli/epicmap",
+    )
+    assert item.suggested_repo == "pablomoli/epicmap"
+
+
+def test_extract_passes_repos_to_system_prompt():
+    mock_result = MagicMock()
+    mock_result.parsed_output.items = []
+    mock_client = MagicMock()
+    mock_client.messages.parse.return_value = mock_result
+    with patch("ytk.triage._client", mock_client):
+        extract_action_items("note text", repos=["owner/repo-a", "owner/repo-b"])
+    call_kwargs = mock_client.messages.parse.call_args
+    system_text = call_kwargs[1]["system"][0]["text"]
+    assert "owner/repo-a" in system_text
+    assert "owner/repo-b" in system_text
+
+
+def test_extract_no_repos_omits_hint():
+    mock_result = MagicMock()
+    mock_result.parsed_output.items = []
+    mock_client = MagicMock()
+    mock_client.messages.parse.return_value = mock_result
+    with patch("ytk.triage._client", mock_client):
+        extract_action_items("note text", repos=None)
+    call_kwargs = mock_client.messages.parse.call_args
+    system_text = call_kwargs[1]["system"][0]["text"]
+    assert "Available GitHub repos" not in system_text
