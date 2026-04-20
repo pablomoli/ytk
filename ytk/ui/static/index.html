@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ytk vault</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3348;
+    --text: #e2e4ef;
+    --muted: #7c82a0;
+    --accent: #6ea8fe;
+    --accent-dim: #2d4a7a;
+    --tool-bg: #1c2a1c;
+    --tool-text: #6bcb6b;
+    --user-bg: #1e2433;
+    --ai-bg: #151820;
+    --radius: 8px;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 14px; }
+
+  #app {
+    display: grid;
+    grid-template-columns: 280px 1fr 340px;
+    grid-template-rows: 48px 1fr;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Header */
+  header {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+  }
+  header h1 { font-size: 15px; font-weight: 600; color: var(--accent); letter-spacing: 0.05em; }
+  header .model-select {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  /* Sidebar — search */
+  #sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #sidebar .search-box {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 6px;
+  }
+  #sidebar .search-box input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 13px;
+    outline: none;
+  }
+  #sidebar .search-box input:focus { border-color: var(--accent-dim); }
+  #sidebar .search-box button {
+    background: var(--accent-dim);
+    border: none;
+    border-radius: var(--radius);
+    color: var(--accent);
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  #sidebar .search-box button:hover { background: var(--accent); color: #000; }
+
+  #results {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .result-item {
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    margin-bottom: 4px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.1s;
+  }
+  .result-item:hover { background: var(--surface2); border-color: var(--border); }
+  .result-item.active { background: var(--accent-dim); border-color: var(--accent); }
+  .result-item .result-title { font-size: 13px; font-weight: 500; line-height: 1.3; }
+  .result-item .result-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Chat panel */
+  #chat-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--ai-bg);
+  }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .msg {
+    max-width: 100%;
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    line-height: 1.55;
+    font-size: 13.5px;
+  }
+  .msg.user { background: var(--user-bg); border: 1px solid var(--border); align-self: flex-end; max-width: 80%; }
+  .msg.assistant { background: var(--ai-bg); border: 1px solid var(--border); }
+  .msg.tool-event {
+    background: var(--tool-bg);
+    border: 1px solid #2a3d2a;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--tool-text);
+    padding: 6px 12px;
+  }
+  .msg.error { background: #2a1515; border-color: #5a2020; color: #ff8080; }
+  .msg p { margin-bottom: 8px; }
+  .msg p:last-child { margin-bottom: 0; }
+  .msg code { background: var(--surface2); padding: 1px 5px; border-radius: 3px; font-family: var(--font-mono); font-size: 12px; }
+  .msg pre { background: var(--surface2); padding: 10px; border-radius: var(--radius); overflow-x: auto; margin: 8px 0; }
+  .msg pre code { background: none; padding: 0; }
+  .msg h1, .msg h2, .msg h3 { margin: 10px 0 4px; }
+  .msg ul, .msg ol { padding-left: 20px; margin: 6px 0; }
+  .msg li { margin-bottom: 2px; }
+
+  .streaming-cursor::after {
+    content: '|';
+    animation: blink 0.8s step-end infinite;
+    color: var(--accent);
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  #input-area {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  #input-area textarea {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 13.5px;
+    font-family: var(--font-sans);
+    resize: none;
+    min-height: 40px;
+    max-height: 120px;
+    outline: none;
+    line-height: 1.4;
+  }
+  #input-area textarea:focus { border-color: var(--accent-dim); }
+  #input-area button {
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius);
+    color: #000;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    height: 40px;
+    white-space: nowrap;
+  }
+  #input-area button:hover { background: #88bbff; }
+  #input-area button:disabled { background: var(--accent-dim); color: var(--muted); cursor: not-allowed; }
+
+  /* Note viewer panel */
+  #note-panel {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #note-panel .note-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #note-panel .note-header .note-path { font-family: var(--font-mono); font-size: 11px; word-break: break-all; }
+  #note-panel .note-header button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
+  #note-panel .note-header button:hover { color: var(--text); }
+  #note-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    font-family: var(--font-mono);
+    color: var(--muted);
+  }
+  #note-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>ytk vault</h1>
+    <select class="model-select" id="model-select">
+      <option value="claude-haiku-4-5-20251001">Haiku 4.5 (fast)</option>
+      <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+    </select>
+  </header>
+
+  <!-- Sidebar: search -->
+  <aside id="sidebar">
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Search vault..." />
+      <button id="search-btn">Go</button>
+    </div>
+    <div id="results"></div>
+  </aside>
+
+  <!-- Chat panel -->
+  <section id="chat-panel">
+    <div id="messages"></div>
+    <div id="input-area">
+      <textarea id="user-input" rows="1" placeholder="Ask about your vault..."></textarea>
+      <button id="send-btn">Send</button>
+    </div>
+  </section>
+
+  <!-- Note viewer panel -->
+  <aside id="note-panel">
+    <div class="note-header">
+      <span class="note-path" id="note-path">No note selected</span>
+      <button id="close-note" title="Close">x</button>
+    </div>
+    <div id="note-placeholder">Click a search result or a vault link to read a note.</div>
+    <div id="note-content" style="display:none;"></div>
+  </aside>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+const conversationHistory = [];
+let isStreaming = false;
+
+// ---------------------------------------------------------------------------
+// Markdown-lite renderer (no deps)
+// ---------------------------------------------------------------------------
+function renderMarkdown(text) {
+  // Escape HTML first
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Code blocks
+  text = text.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) =>
+    `<pre><code>${esc(code.trim())}</code></pre>`
+  );
+  // Inline code
+  text = text.replace(/`([^`]+)`/g, (_, code) => `<code>${esc(code)}</code>`);
+  // Bold + italic
+  text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Headings
+  text = text.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  text = text.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  text = text.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Bullets
+  text = text.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+  text = text.replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
+  // Numbered lists
+  text = text.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  // Links
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+  // Paragraphs
+  text = text.replace(/\n\n+/g, '</p><p>');
+  return `<p>${text}</p>`;
+}
+
+// ---------------------------------------------------------------------------
+// Message display
+// ---------------------------------------------------------------------------
+const messagesEl = document.getElementById('messages');
+
+function appendMessage(role, html, extraClass = '') {
+  const div = document.createElement('div');
+  div.className = `msg ${role}${extraClass ? ' ' + extraClass : ''}`;
+  div.innerHTML = html;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+
+// ---------------------------------------------------------------------------
+// Chat
+// ---------------------------------------------------------------------------
+const sendBtn = document.getElementById('send-btn');
+const userInput = document.getElementById('user-input');
+const modelSelect = document.getElementById('model-select');
+
+userInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+userInput.addEventListener('input', () => {
+  userInput.style.height = 'auto';
+  userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
+});
+sendBtn.addEventListener('click', sendMessage);
+
+async function sendMessage() {
+  const text = userInput.value.trim();
+  if (!text || isStreaming) return;
+
+  isStreaming = true;
+  sendBtn.disabled = true;
+  userInput.value = '';
+  userInput.style.height = 'auto';
+
+  conversationHistory.push({ role: 'user', content: text });
+  appendMessage('user', renderMarkdown(text));
+
+  const aiDiv = appendMessage('assistant', '', 'streaming-cursor');
+  let aiText = '';
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: conversationHistory, model: modelSelect.value }),
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const event = JSON.parse(line.slice(6));
+          if (event.type === 'text') {
+            aiText += event.text;
+            aiDiv.innerHTML = renderMarkdown(aiText);
+            aiDiv.classList.add('streaming-cursor');
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          } else if (event.type === 'tool_call') {
+            appendMessage('tool-event', `→ ${event.name}(${JSON.stringify(event.inputs)})`);
+          } else if (event.type === 'tool_result') {
+            appendMessage('tool-event', `← ${event.name}: ${event.result}`);
+          } else if (event.type === 'done') {
+            aiDiv.classList.remove('streaming-cursor');
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (err) {
+    aiDiv.innerHTML = `Error: ${err.message}`;
+    aiDiv.classList.add('error');
+    aiDiv.classList.remove('streaming-cursor');
+  }
+
+  aiDiv.classList.remove('streaming-cursor');
+  if (aiText) conversationHistory.push({ role: 'assistant', content: aiText });
+
+  isStreaming = false;
+  sendBtn.disabled = false;
+  userInput.focus();
+}
+
+// ---------------------------------------------------------------------------
+// Vault search sidebar
+// ---------------------------------------------------------------------------
+const searchInput = document.getElementById('search-input');
+const searchBtn = document.getElementById('search-btn');
+const resultsEl = document.getElementById('results');
+
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') runSearch();
+});
+searchBtn.addEventListener('click', runSearch);
+
+async function runSearch() {
+  const q = searchInput.value.trim();
+  if (!q) return;
+  resultsEl.innerHTML = '<div style="padding:8px;color:var(--muted);font-size:12px;">Searching...</div>';
+  try {
+    const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&n=10`);
+    const results = await resp.json();
+    renderResults(results);
+  } catch (err) {
+    resultsEl.innerHTML = `<div style="padding:8px;color:#ff8080;font-size:12px;">Error: ${err.message}</div>`;
+  }
+}
+
+let activeResultIdx = -1;
+
+function renderResults(results) {
+  resultsEl.innerHTML = '';
+  if (!results.length) {
+    resultsEl.innerHTML = '<div style="padding:8px;color:var(--muted);font-size:12px;">No results.</div>';
+    return;
+  }
+  results.forEach((r, i) => {
+    const div = document.createElement('div');
+    div.className = 'result-item';
+    div.innerHTML = `
+      <div class="result-title">${escHtml(r.title)}</div>
+      <div class="result-meta">${(1 - r.distance).toFixed(0)}% match</div>
+    `;
+    div.addEventListener('click', () => {
+      document.querySelectorAll('.result-item').forEach(el => el.classList.remove('active'));
+      div.classList.add('active');
+      activeResultIdx = i;
+      // Ask the chat about this video
+      userInput.value = `Tell me about: ${r.title}`;
+    });
+    resultsEl.appendChild(div);
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ---------------------------------------------------------------------------
+// Note viewer
+// ---------------------------------------------------------------------------
+const notePath = document.getElementById('note-path');
+const noteContent = document.getElementById('note-content');
+const notePlaceholder = document.getElementById('note-placeholder');
+const closeNote = document.getElementById('close-note');
+
+closeNote.addEventListener('click', () => {
+  notePath.textContent = 'No note selected';
+  noteContent.style.display = 'none';
+  notePlaceholder.style.display = 'flex';
+});
+
+async function openNote(path) {
+  notePath.textContent = path;
+  noteContent.textContent = 'Loading...';
+  noteContent.style.display = 'block';
+  notePlaceholder.style.display = 'none';
+  try {
+    const resp = await fetch(`/api/note?path=${encodeURIComponent(path)}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    noteContent.textContent = data.content;
+  } catch (err) {
+    noteContent.textContent = `Error loading note: ${err.message}`;
+  }
+}
+</script>
+</body>
+</html>

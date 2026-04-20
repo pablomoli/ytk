@@ -1147,3 +1147,54 @@ def schedule_uninstall():
     subprocess.run(["launchctl", "unload", str(plist_path)], check=False)
     plist_path.unlink()
     console.print(f"[bold green]Uninstalled:[/] {plist_path}")
+
+
+@cli.command(name="ui")
+@click.option("--host", default="127.0.0.1", show_default=True, help="Bind address.")
+@click.option("--port", default=8765, show_default=True, help="Port.")
+@click.option("--reload", is_flag=True, default=False, help="Auto-reload on code changes (dev).")
+def ui(host: str, port: int, reload: bool):
+    """Start the local vault chat UI in your browser."""
+    import uvicorn
+    console.print(f"[bold cyan]ytk vault UI[/]  http://{host}:{port}")
+    console.print("[dim]Ctrl-C to stop[/]")
+    uvicorn.run(
+        "ytk.ui.server:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="warning",
+    )
+
+
+@cli.command(name="chat")
+@click.argument("prompt", nargs=-1, required=False)
+@click.option("--print", "print_mode", is_flag=True, default=False,
+              help="Non-interactive: print response and exit.")
+def chat(prompt: tuple[str, ...], print_mode: bool):
+    """Open a Claude Code session rooted in the ytk project directory.
+
+    Conversations started here are attributed to ytk's memory, so vault
+    queries and enrichment discussions don't pollute other project logs.
+
+    With a PROMPT argument, passes it directly to claude (--print mode by
+    default for one-shot queries; use --print explicitly for scripting).
+    """
+    claude_bin = shutil.which("claude")
+    if not claude_bin:
+        console.print("[red]claude not found in PATH.[/] Install Claude Code first.")
+        raise SystemExit(1)
+
+    # Resolve ytk project root: two levels up from this file (ytk/cli.py)
+    project_root = Path(__file__).resolve().parent.parent
+    os.chdir(project_root)
+
+    args = [claude_bin]
+    if prompt:
+        prompt_text = " ".join(prompt)
+        if print_mode:
+            args += ["--print", prompt_text]
+        else:
+            args += ["--print", prompt_text]
+    # exec replaces the current process — no subprocess overhead, signals propagate naturally
+    os.execv(claude_bin, args)

@@ -35,7 +35,10 @@ Use `vault_search("query")` to retrieve any past decision, session brief, or mem
 | 5F | done | `ytk gc` — memory lifecycle: prune + refresh-projects |
 | 5G | done | Stop hook — auto-reseed active project after every session |
 | 5H | done | graphify integration — Whisper fallback, SHA256 incremental cache, HTML knowledge graph |
-| 6 | planned | Local UI (TanStack Start) — transcript viewer, vault browser |
+| 5I | done | Visual/image saving — YouTube thumbnails + frames, Instagram images, Obsidian embeds |
+| 5J | done | Atomic memory LYT — folder-based atom notes per project with differential Haiku updates |
+| 5K | done | Triage + review commands — action extraction, GitHub routing, interactive/auto modes |
+| 6 | done | Local vault UI — `ytk ui` (FastAPI + SSE chat at :8765) + `ytk chat` (Claude in ytk context) |
 | 7 | planned | iMessage capture pipeline → ytk/GitHub/Obsidian routing |
 
 ## Project Structure
