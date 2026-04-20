@@ -670,13 +670,32 @@ _ROUTE_LABEL = {"gh-issue": "GH issue", "idea": "inbox/ideas", "investigate": "r
 _ROUTE_DEFAULT = {"gh-issue": "1", "idea": "2", "investigate": "3"}
 
 
+def _triage_create_gh(item, cfg, console) -> str | None:
+    """Create a GH issue for item. Returns issue URL or None on failure."""
+    repo = (
+        item.suggested_repo
+        if item.suggested_repo and item.suggested_repo in cfg.github_repos
+        else (cfg.github_repos[0] if cfg.github_repos else None)
+    )
+    if not repo:
+        return None
+    result = subprocess.run(
+        ["gh", "issue", "create", "--title", item.title, "--body", item.description, "--repo", repo],
+        capture_output=True, text=True,
+    )
+    if result.returncode == 0:
+        return f"{repo} → {result.stdout.strip()}"
+    return None
+
+
 @cli.command(name="triage")
 @click.argument("note_path", default="", required=False)
-def triage(note_path: str):
-    """Extract action items from a vault note and route them interactively.
+@click.option("--interactive", "-i", is_flag=True, help="Review and route each item manually.")
+def triage(note_path: str, interactive: bool):
+    """Extract action items from a vault note and auto-route them.
 
     NOTE_PATH is relative to the vault root. Defaults to the most recently
-    modified note under vault/sources/.
+    modified note under vault/sources/. Use --interactive to review each item.
     """
     from .triage import extract_action_items
 
@@ -702,8 +721,10 @@ def triage(note_path: str):
     note_text = target.read_text(encoding="utf-8")
     console.print(f"\n[bold]Triaging:[/] {target.name}\n")
 
+    cfg = load_config()
+
     with console.status("[bold cyan]Extracting action items...[/]"):
-        items = extract_action_items(note_text)
+        items = extract_action_items(note_text, repos=cfg.github_repos or None)
 
     if not items:
         console.print("[yellow]No actionable items found.[/]")
@@ -712,83 +733,114 @@ def triage(note_path: str):
     summary = Table("", "Title", "Priority", "Route", box=box.SIMPLE, show_header=True)
     for i, item in enumerate(items, 1):
         pc = _PRIORITY_COLOR[item.priority]
-        summary.add_row(str(i), item.title, f"[{pc}]{item.priority}[/]", _ROUTE_LABEL[item.suggested_route])
+        repo_hint = f" ({item.suggested_repo})" if item.suggested_repo else ""
+        summary.add_row(
+            str(i), item.title, f"[{pc}]{item.priority}[/]",
+            _ROUTE_LABEL[item.suggested_route] + repo_hint,
+        )
     console.print(Panel(summary, title=f"[bold]{len(items)} Action Items[/]", box=box.ROUNDED))
 
-    cfg = load_config()
     inbox = vault / "second-brain" / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)
     ideas_path = inbox / "ideas.md"
     review_path = inbox / "review.md"
     routed: dict[str, int] = {"gh": 0, "ideas": 0, "review": 0, "skip": 0}
 
-    for i, item in enumerate(items, 1):
-        pc = _PRIORITY_COLOR[item.priority]
-        rl = _ROUTE_LABEL[item.suggested_route]
-        default_choice = _ROUTE_DEFAULT[item.suggested_route]
-
-        console.print(Panel(
-            f"[bold]{item.title}[/]\n\n{item.description}\n\n"
-            f"Priority: [{pc}]{item.priority}[/]  Suggested: [cyan]{rl}[/]",
-            title=f"[bold]{i}/{len(items)}[/]",
-            box=box.ROUNDED,
-        ))
-        console.print("  [1] GH issue  [2] Inbox/ideas  [3] Review  [4] Skip")
-
-        while True:
-            choice = click.prompt(
-                "  Route", default=default_choice,
-                type=click.Choice(["1", "2", "3", "4"]), show_choices=False,
-            )
-
-            if choice == "1":
-                if not cfg.github_repos:
-                    console.print("  [yellow]No repos configured. Add github_repos to ~/.ytk/config.yaml[/]")
-                    continue
-                for j, repo in enumerate(cfg.github_repos, 1):
-                    console.print(f"    [{j}] {repo}")
-                repo_idx = click.prompt(
-                    "  Repo", type=click.IntRange(1, len(cfg.github_repos)), default=1,
-                ) - 1
-                repo = cfg.github_repos[repo_idx]
-                gh_result = subprocess.run(
-                    ["gh", "issue", "create", "--title", item.title, "--body", item.description, "--repo", repo],
-                    capture_output=True, text=True,
-                )
-                if gh_result.returncode == 0:
-                    console.print(f"  [green]Issue created:[/] {gh_result.stdout.strip()}")
+    if not interactive:
+        for item in items:
+            if item.suggested_route == "gh-issue":
+                url = _triage_create_gh(item, cfg, console)
+                if url:
+                    console.print(f"  [green]GH:[/] {item.title}  [dim]{url}[/]")
                     routed["gh"] += 1
-                    break
                 else:
-                    console.print(f"  [red]gh failed:[/] {gh_result.stderr.strip()}")
-                    continue
-
-            elif choice == "2":
-                due = click.prompt("  Due date (YYYY-MM-DD or blank)", default="")
-                entry = f"\n- [ ] {item.title}"
-                if due:
-                    entry += f" (due: {due})"
-                entry += f"\n  {item.description}\n"
+                    console.print(f"  [yellow]GH skipped (no repo):[/] {item.title}")
+                    routed["skip"] += 1
+            elif item.suggested_route == "idea":
+                entry = f"\n- [ ] {item.title}\n  {item.description}\n"
                 with ideas_path.open("a", encoding="utf-8") as f:
                     f.write(entry)
-                console.print("  [green]Added to inbox/ideas.md[/]")
+                console.print(f"  [cyan]Idea:[/] {item.title}")
                 routed["ideas"] += 1
-                break
-
-            elif choice == "3":
+            else:
                 date_str = datetime.now().strftime("%Y-%m-%d")
                 entry = f"\n- [ ] {item.title} — *{target.stem}* ({date_str})\n  {item.description}\n"
                 with review_path.open("a", encoding="utf-8") as f:
                     f.write(entry)
-                console.print("  [green]Added to inbox/review.md[/]")
+                console.print(f"  [magenta]Review:[/] {item.title}")
                 routed["review"] += 1
-                break
+    else:
+        for i, item in enumerate(items, 1):
+            pc = _PRIORITY_COLOR[item.priority]
+            rl = _ROUTE_LABEL[item.suggested_route]
+            default_choice = _ROUTE_DEFAULT[item.suggested_route]
 
-            else:
-                routed["skip"] += 1
-                break
+            console.print(Panel(
+                f"[bold]{item.title}[/]\n\n{item.description}\n\n"
+                f"Priority: [{pc}]{item.priority}[/]  Suggested: [cyan]{rl}[/]",
+                title=f"[bold]{i}/{len(items)}[/]",
+                box=box.ROUNDED,
+            ))
+            console.print("  [1] GH issue  [2] Inbox/ideas  [3] Review  [4] Skip")
 
-        console.print()
+            while True:
+                choice = click.prompt(
+                    "  Route", default=default_choice,
+                    type=click.Choice(["1", "2", "3", "4"]), show_choices=False,
+                )
+
+                if choice == "1":
+                    if not cfg.github_repos:
+                        console.print("  [yellow]No repos configured. Add github_repos to ~/.ytk/config.yaml[/]")
+                        continue
+                    if item.suggested_repo and item.suggested_repo in cfg.github_repos:
+                        repo = item.suggested_repo
+                        console.print(f"  [cyan]Auto-selected:[/] {repo}")
+                    else:
+                        for j, repo_opt in enumerate(cfg.github_repos, 1):
+                            console.print(f"    [{j}] {repo_opt}")
+                        repo_idx = click.prompt(
+                            "  Repo", type=click.IntRange(1, len(cfg.github_repos)), default=1,
+                        ) - 1
+                        repo = cfg.github_repos[repo_idx]
+                    gh_result = subprocess.run(
+                        ["gh", "issue", "create", "--title", item.title, "--body", item.description, "--repo", repo],
+                        capture_output=True, text=True,
+                    )
+                    if gh_result.returncode == 0:
+                        console.print(f"  [green]Issue created:[/] {gh_result.stdout.strip()}")
+                        routed["gh"] += 1
+                        break
+                    else:
+                        console.print(f"  [red]gh failed:[/] {gh_result.stderr.strip()}")
+                        continue
+
+                elif choice == "2":
+                    due = click.prompt("  Due date (YYYY-MM-DD or blank)", default="")
+                    entry = f"\n- [ ] {item.title}"
+                    if due:
+                        entry += f" (due: {due})"
+                    entry += f"\n  {item.description}\n"
+                    with ideas_path.open("a", encoding="utf-8") as f:
+                        f.write(entry)
+                    console.print("  [green]Added to inbox/ideas.md[/]")
+                    routed["ideas"] += 1
+                    break
+
+                elif choice == "3":
+                    date_str = datetime.now().strftime("%Y-%m-%d")
+                    entry = f"\n- [ ] {item.title} — *{target.stem}* ({date_str})\n  {item.description}\n"
+                    with review_path.open("a", encoding="utf-8") as f:
+                        f.write(entry)
+                    console.print("  [green]Added to inbox/review.md[/]")
+                    routed["review"] += 1
+                    break
+
+                else:
+                    routed["skip"] += 1
+                    break
+
+            console.print()
 
     parts = []
     if routed["gh"]:
