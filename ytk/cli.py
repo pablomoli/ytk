@@ -376,10 +376,10 @@ def remember_cmd(text: str, tags: str):
 @click.option("--force", is_flag=True, default=False, help="Re-embed all files, ignoring cache.")
 def reindex_cmd(force: bool):
     """Index all vault notes into ChromaDB for semantic search."""
-    from .vault import _get_vault_path, reindex_vault
+    from .vault import _get_brain_path, reindex_vault
 
     try:
-        _get_vault_path()
+        _get_brain_path()
     except EnvironmentError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
@@ -561,6 +561,247 @@ def add_instagram(url: str):
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
 
 
+def _parse_date(value: str) -> str:
+    """Convert natural date shorthands to YYYY-MM-DD. Passes through ISO dates unchanged."""
+    from datetime import date, timedelta
+    v = value.strip().lower()
+    if v == "today":
+        return date.today().isoformat()
+    if v == "yesterday":
+        return (date.today() - timedelta(days=1)).isoformat()
+    # "N days ago"
+    m = re.match(r"^(\d+)\s+days?\s+ago$", v)
+    if m:
+        return (date.today() - timedelta(days=int(m.group(1)))).isoformat()
+    return value  # assume already YYYY-MM-DD
+
+
+@cli.command(name="add-imessage")
+@click.argument("contact", default="", required=False)
+@click.option("--since", default=None, metavar="DATE", help="Start date: YYYY-MM-DD, 'today', 'yesterday', or 'N days ago'.")
+@click.option("--until", default=None, metavar="DATE", help="End date: YYYY-MM-DD, 'today', 'yesterday', or 'N days ago'.")
+def add_imessage(contact: str, since: str | None, until: str | None):
+    """Export an iMessage conversation and ingest it as a journal note.
+
+    CONTACT defaults to $IMESSAGE_SELF. Pass a phone number, Apple ID, or
+    contact name to ingest any conversation.
+    """
+    import shutil
+    contact = contact or os.environ.get("IMESSAGE_SELF", "")
+    if not contact:
+        console.print("[red]No contact specified and IMESSAGE_SELF is not set in ~/.ytk/.env[/]")
+        raise SystemExit(1)
+    if since:
+        since = _parse_date(since)
+    if until:
+        until = _parse_date(until)
+    from .imessage import export_conversation, find_exported_file, parse_txt, enrich_journal
+    from .vault import write_journal_note, NoteAlreadyExists
+    from .store import strip_frontmatter, upsert_doc
+
+    with console.status("[bold cyan]Exporting conversation...[/]"):
+        try:
+            export_dir = export_conversation(contact, start_date=since, end_date=until)
+        except ValueError as exc:
+            console.print(f"[red]Export failed:[/] {exc}")
+            raise SystemExit(1)
+
+    try:
+        txt_path = find_exported_file(export_dir, contact)
+    except ValueError as exc:
+        shutil.rmtree(export_dir, ignore_errors=True)
+        console.print(f"[red]{exc}[/]")
+        raise SystemExit(1)
+
+    thread = parse_txt(txt_path)
+    shutil.rmtree(export_dir, ignore_errors=True)
+
+    if not thread.messages:
+        console.print("[yellow]No messages found in export.[/]")
+        raise SystemExit(0)
+
+    info = Table.grid(padding=(0, 2))
+    info.add_column(style="bold cyan", no_wrap=True)
+    info.add_column()
+    info.add_row("Contact", thread.contact)
+    info.add_row("Date", thread.date)
+    info.add_row("Messages", str(len(thread.messages)))
+    console.print(Panel(info, title="[bold]iMessage Thread[/]", box=box.ROUNDED))
+
+    with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
+        try:
+            result = enrich_journal(thread)
+        except Exception as exc:
+            console.print(f"[red]Enrichment failed:[/] {exc}")
+            raise SystemExit(1)
+
+    console.print(Panel(f"[italic]{result.thesis}[/]", title="[bold]Thesis[/]", box=box.ROUNDED))
+    console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
+
+    grid = Table.grid(padding=(0, 4))
+    grid.add_column()
+    grid.add_column()
+    concepts = "\n".join(f"[cyan]•[/] {c}" for c in result.key_concepts)
+    tags = " ".join(f"[bold cyan]#{t}[/]" for t in result.interest_tags)
+    grid.add_row(concepts, tags)
+    console.print(Panel(grid, title="[bold]Key Concepts & Tags[/]", box=box.ROUNDED))
+
+    insights = "\n".join(f"[yellow]>[/] {i}" for i in result.insights)
+    console.print(Panel(insights, title="[bold]Insights[/]", box=box.ROUNDED))
+
+    try:
+        note_path = write_journal_note(thread, result)
+        console.print(f"\n[bold green]Note written:[/] {note_path}")
+        doc_id = "journal_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
+        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
+        upsert_doc(doc_id, body, {
+            "doc_id": doc_id,
+            "tags": ", ".join(result.interest_tags),
+            "source_path": str(note_path),
+        })
+    except NoteAlreadyExists as exc:
+        console.print(f"\n[yellow]Note already exists:[/] {exc}")
+    except EnvironmentError as exc:
+        console.print(f"\n[yellow]Vault not configured:[/] {exc}")
+
+
+_PRIORITY_COLOR = {"high": "red", "medium": "yellow", "low": "green"}
+_ROUTE_LABEL = {"gh-issue": "GH issue", "idea": "inbox/ideas", "investigate": "review"}
+_ROUTE_DEFAULT = {"gh-issue": "1", "idea": "2", "investigate": "3"}
+
+
+@cli.command(name="triage")
+@click.argument("note_path", default="", required=False)
+def triage(note_path: str):
+    """Extract action items from a vault note and route them interactively.
+
+    NOTE_PATH is relative to the vault root. Defaults to the most recently
+    modified note under vault/sources/.
+    """
+    from .triage import extract_action_items
+
+    vault_raw = os.environ.get("OBSIDIAN_VAULT_PATH", "")
+    if not vault_raw:
+        console.print("[red]OBSIDIAN_VAULT_PATH not configured.[/]")
+        raise SystemExit(1)
+    vault = Path(vault_raw).expanduser()
+
+    if note_path:
+        target = Path(note_path) if Path(note_path).is_absolute() else vault / note_path
+    else:
+        candidates = list((vault / "sources").rglob("*.md"))
+        if not candidates:
+            console.print("[red]No notes found in vault/sources/.[/]")
+            raise SystemExit(1)
+        target = max(candidates, key=lambda p: p.stat().st_mtime)
+
+    if not target.exists():
+        console.print(f"[red]Note not found:[/] {target}")
+        raise SystemExit(1)
+
+    note_text = target.read_text(encoding="utf-8")
+    console.print(f"\n[bold]Triaging:[/] {target.name}\n")
+
+    with console.status("[bold cyan]Extracting action items...[/]"):
+        items = extract_action_items(note_text)
+
+    if not items:
+        console.print("[yellow]No actionable items found.[/]")
+        return
+
+    summary = Table("", "Title", "Priority", "Route", box=box.SIMPLE, show_header=True)
+    for i, item in enumerate(items, 1):
+        pc = _PRIORITY_COLOR[item.priority]
+        summary.add_row(str(i), item.title, f"[{pc}]{item.priority}[/]", _ROUTE_LABEL[item.suggested_route])
+    console.print(Panel(summary, title=f"[bold]{len(items)} Action Items[/]", box=box.ROUNDED))
+
+    cfg = load_config()
+    inbox = vault / "second-brain" / "inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    ideas_path = inbox / "ideas.md"
+    review_path = inbox / "review.md"
+    routed: dict[str, int] = {"gh": 0, "ideas": 0, "review": 0, "skip": 0}
+
+    for i, item in enumerate(items, 1):
+        pc = _PRIORITY_COLOR[item.priority]
+        rl = _ROUTE_LABEL[item.suggested_route]
+        default_choice = _ROUTE_DEFAULT[item.suggested_route]
+
+        console.print(Panel(
+            f"[bold]{item.title}[/]\n\n{item.description}\n\n"
+            f"Priority: [{pc}]{item.priority}[/]  Suggested: [cyan]{rl}[/]",
+            title=f"[bold]{i}/{len(items)}[/]",
+            box=box.ROUNDED,
+        ))
+        console.print("  [1] GH issue  [2] Inbox/ideas  [3] Review  [4] Skip")
+
+        while True:
+            choice = click.prompt(
+                "  Route", default=default_choice,
+                type=click.Choice(["1", "2", "3", "4"]), show_choices=False,
+            )
+
+            if choice == "1":
+                if not cfg.github_repos:
+                    console.print("  [yellow]No repos configured. Add github_repos to ~/.ytk/config.yaml[/]")
+                    continue
+                for j, repo in enumerate(cfg.github_repos, 1):
+                    console.print(f"    [{j}] {repo}")
+                repo_idx = click.prompt(
+                    "  Repo", type=click.IntRange(1, len(cfg.github_repos)), default=1,
+                ) - 1
+                repo = cfg.github_repos[repo_idx]
+                gh_result = subprocess.run(
+                    ["gh", "issue", "create", "--title", item.title, "--body", item.description, "--repo", repo],
+                    capture_output=True, text=True,
+                )
+                if gh_result.returncode == 0:
+                    console.print(f"  [green]Issue created:[/] {gh_result.stdout.strip()}")
+                    routed["gh"] += 1
+                    break
+                else:
+                    console.print(f"  [red]gh failed:[/] {gh_result.stderr.strip()}")
+                    continue
+
+            elif choice == "2":
+                due = click.prompt("  Due date (YYYY-MM-DD or blank)", default="")
+                entry = f"\n- [ ] {item.title}"
+                if due:
+                    entry += f" (due: {due})"
+                entry += f"\n  {item.description}\n"
+                with ideas_path.open("a", encoding="utf-8") as f:
+                    f.write(entry)
+                console.print("  [green]Added to inbox/ideas.md[/]")
+                routed["ideas"] += 1
+                break
+
+            elif choice == "3":
+                date_str = datetime.now().strftime("%Y-%m-%d")
+                entry = f"\n- [ ] {item.title} — *{target.stem}* ({date_str})\n  {item.description}\n"
+                with review_path.open("a", encoding="utf-8") as f:
+                    f.write(entry)
+                console.print("  [green]Added to inbox/review.md[/]")
+                routed["review"] += 1
+                break
+
+            else:
+                routed["skip"] += 1
+                break
+
+        console.print()
+
+    parts = []
+    if routed["gh"]:
+        parts.append(f"{routed['gh']} GH issue(s)")
+    if routed["ideas"]:
+        parts.append(f"{routed['ideas']} idea(s)")
+    if routed["review"]:
+        parts.append(f"{routed['review']} review item(s)")
+    if routed["skip"]:
+        parts.append(f"{routed['skip']} skipped")
+    console.print(f"\n[bold green]Done:[/] {', '.join(parts) or 'nothing routed'}")
+
+
 @cli.command()
 @click.option("--prune", type=int, default=None, metavar="DAYS",
               help="Archive memories older than N days and remove from ChromaDB.")
@@ -571,10 +812,10 @@ def gc(prune: int | None, refresh_projects: bool, dry_run: bool):
     """Manage vault memory lifecycle — list ages, prune stale entries, refresh projects."""
     import subprocess
     from .store import delete_doc
-    from .vault import _get_vault_path
+    from .vault import _get_brain_path
 
     try:
-        vault_path = _get_vault_path()
+        vault_path = _get_brain_path()
     except EnvironmentError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
@@ -650,10 +891,10 @@ def gc(prune: int | None, refresh_projects: bool, dry_run: bool):
 @cli.command(name="index")
 def index_cmd():
     """Rebuild wiki/index.md by scanning the vault from scratch."""
-    from .vault import rebuild_index, _get_vault_path
+    from .vault import rebuild_index, _get_brain_path
 
     try:
-        vault_path = _get_vault_path()
+        vault_path = _get_brain_path()
     except EnvironmentError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
@@ -667,10 +908,10 @@ def index_cmd():
 @cli.command()
 def dashboard():
     """Generate today's inbox/review-YYYY-MM-DD.md vault snapshot."""
-    from .vault import _get_vault_path, write_raw
+    from .vault import _get_brain_path, write_raw
 
     try:
-        vault_path = _get_vault_path()
+        vault_path = _get_brain_path()
     except EnvironmentError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
@@ -689,7 +930,7 @@ def dashboard():
             if datetime.fromtimestamp(p.stat().st_mtime) >= cutoff
         ]
         if recent:
-            rows = "\n".join(f"- [[inbox/memories/{p.stem}]]" for p in recent)
+            rows = "\n".join(f"- [[second-brain/inbox/memories/{p.stem}]]" for p in recent)
             sections.append(f"## Recent Memories (last 7 days)\n{rows}\n")
 
     # Recent videos
@@ -697,7 +938,7 @@ def dashboard():
     if youtube_dir.exists():
         recent_videos = sorted(youtube_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:10]
         if recent_videos:
-            rows = "\n".join(f"- [[sources/youtube/{p.stem}]]" for p in recent_videos)
+            rows = "\n".join(f"- [[second-brain/sources/youtube/{p.stem}]]" for p in recent_videos)
             sections.append(f"## Recent Videos\n{rows}\n")
 
     # Active projects
@@ -708,7 +949,7 @@ def dashboard():
             if proj.is_dir():
                 briefs = sorted(proj.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
                 if briefs:
-                    proj_rows.append(f"- **{proj.name}** — [[projects/{proj.name}/{briefs[0].stem}]]")
+                    proj_rows.append(f"- **{proj.name}** — [[second-brain/projects/{proj.name}/{briefs[0].stem}]]")
         if proj_rows:
             sections.append("## Active Projects\n" + "\n".join(proj_rows) + "\n")
 
@@ -720,11 +961,11 @@ def dashboard():
             if not p.stem.startswith("review-")
         ]
         if inbox_items:
-            rows = "\n".join(f"- [[inbox/{p.stem}]]" for p in inbox_items)
+            rows = "\n".join(f"- [[second-brain/inbox/{p.stem}]]" for p in inbox_items)
             sections.append(f"## Inbox\n{rows}\n")
 
     content = "\n".join(sections)
-    rel_path = f"inbox/review-{today_str}.md"
+    rel_path = f"second-brain/inbox/review-{today_str}.md"
     with console.status("[bold cyan]Writing dashboard...[/]"):
         note_path = write_raw(rel_path, content)
 
