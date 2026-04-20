@@ -4,9 +4,10 @@
 
 The ytk MCP server is registered globally. At the start of every session:
 
-1. Call `vault_read("wiki/hot.md")` — latest project state and commands
-2. Call `vault_read("wiki/index.md")` — full vault index
-3. Drill into `projects/ytk/` as needed via `vault_read`
+1. Call `vault_read("second-brain/wiki/hot.md")` — latest project state and commands
+2. Call `vault_read("second-brain/wiki/index.md")` — full vault index
+3. Drill into `second-brain/projects/ytk/` as needed via `vault_read`
+4. Call `vault_read("second-brain/inbox/memories/index.md")` — project memory MOC. Drill into `second-brain/inbox/memories/{project}/` atoms as needed.
 
 Use `vault_search("query")` to retrieve any past decision, session brief, or memory.
 
@@ -161,25 +162,33 @@ ytk search "query"
 Path: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault`
 Configured in `.env` as `OBSIDIAN_VAULT_PATH`.
 
-**At session start:** read `wiki/hot.md` first, then `wiki/index.md`, then drill into `projects/ytk/` as needed.
+**At session start:** read `second-brain/wiki/hot.md` first, then `second-brain/wiki/index.md`, then drill into `second-brain/projects/ytk/` as needed. Also read `second-brain/inbox/memories/index.md` and drill into the relevant project atoms.
 
-**At session end (non-negotiable):** write a session brief to `projects/ytk/session-NNN-brief.md`. Include what was built, decisions and rationale, what's next, and exact commands to run the project. Mirror a copy to `docs/session-NNN-brief.md` in the repo.
+**At session end (non-negotiable):** write a session brief to `second-brain/projects/ytk/session-NNN-brief.md`. Include what was built, decisions and rationale, what's next, and exact commands to run the project. Mirror a copy to `docs/session-NNN-brief.md` in the repo.
 
 **At planning session end:** write a planning brief instead (goals, options considered, decision made, open questions).
 
-**When writing new vault files:** update `wiki/index.md` to keep it current.
+**When writing new vault files:** update `second-brain/wiki/index.md` to keep it current.
 
 ### Vault layout (claude-obsidian layer)
 ```
-wiki/hot.md              — hot cache, read first each session
-wiki/index.md            — lightweight index of all vault content
-projects/ytk/            — session briefs, specs, decisions
-inbox/ideas.md           — loose ideas and backlog items
-inbox/review-[date].md   — daily routing digest (phase 7)
-sources/youtube/         — ingested video notes from ytk pipeline
-decisions/               — architectural decision records
-debugging/               — bug patterns and resolutions
-tools/                   — notes on libraries and tools
+second-brain/wiki/hot.md              — hot cache, read first each session
+second-brain/wiki/index.md            — lightweight index of all vault content
+second-brain/projects/ytk/            — session briefs, specs, decisions
+second-brain/inbox/ideas.md           — loose ideas and backlog items
+second-brain/inbox/review-[date].md   — daily routing digest (phase 7)
+second-brain/inbox/memories/index.md  — project memory MOC (all projects)
+second-brain/inbox/memories/{slug}/   — per-project atom folder
+  index.md                            — project hub (wikilinks to atoms)
+  purpose.md                          — what this project is and why it exists
+  tech.md                             — stack, tools, key architectural decisions
+  state.md                            — current status, blockers, recent changes
+  questions.md                        — open questions and unknowns
+  recent.md                           — most recent session summary (always overwritten)
+second-brain/sources/youtube/         — ingested video notes from ytk pipeline
+second-brain/decisions/               — architectural decision records
+second-brain/debugging/               — bug patterns and resolutions
+second-brain/tools/                   — notes on libraries and tools
 ```
 
 <claude-mem-context>
