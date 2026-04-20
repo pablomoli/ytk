@@ -19,6 +19,7 @@ class FilterConfig(BaseModel):
 class Config(BaseModel):
     filters: FilterConfig = Field(default_factory=FilterConfig)
     whisper_model: str = Field(default="base", description="faster-whisper model size: base | small | medium | large")
+    github_repos: list[str] = Field(default_factory=list, description="GitHub repos (owner/name) available when creating issues via ytk triage.")
 
 
 _DEFAULT_CONFIG_PATH = Path.home() / ".ytk" / "config.yaml"
