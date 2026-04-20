@@ -235,6 +235,8 @@ def main() -> None:
     parser.add_argument("--max-sessions", type=int, default=3)
     parser.add_argument("--max-turns", type=int, default=0,
                         help="Cap turns sent to Haiku (0 = no cap). Use ~50 for stop-hook runs.")
+    parser.add_argument("--min-interval", type=int, default=0,
+                        help="Skip if recent.md was written less than N minutes ago (0 = no limit).")
     parser.add_argument("--force", action="store_true", help="Re-generate existing memories")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
@@ -284,6 +286,16 @@ def main() -> None:
             return
         projects = [most_recent_proj]
         args.force = True
+
+        if args.min_interval:
+            slug = re.sub(r"[^a-z0-9]+", "-", most_recent_proj.name.lower()).strip("-")
+            recent_atom = vault_path / "second-brain" / "inbox" / "memories" / slug / "recent.md"
+            if recent_atom.exists():
+                age_minutes = (time.time() - recent_atom.stat().st_mtime) / 60
+                if age_minutes < args.min_interval:
+                    print(f"--recent: seeded {age_minutes:.0f}m ago, skipping (min-interval={args.min_interval}m).")
+                    return
+
         print(f"--recent: reseeding {project_name_from_dir(most_recent_proj.name)}")
 
     print(f"Found {len(projects)} project directories")
