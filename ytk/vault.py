@@ -647,12 +647,13 @@ def write_note(
     saved_frames: list[Path] = []
     thumb_url = meta.get("thumbnail")
     if thumb_url:
-        thumb_dest = note_dir / f"{video_id}-thumb"
-        saved = _save_image(thumb_url, thumb_dest)
+        thumb_dir = note_dir / "thumbnails"
+        thumb_dir.mkdir(parents=True, exist_ok=True)
+        saved = _save_image(thumb_url, thumb_dir / f"{video_id}-thumb")
         if saved:
             saved_frames.append(saved)
     if frame_bytes:
-        frame_dir = note_dir / video_id
+        frame_dir = note_dir / "frames" / video_id
         frame_dir.mkdir(parents=True, exist_ok=True)
         for i, raw in enumerate(frame_bytes, start=1):
             fp = frame_dir / f"frame-{i}.jpg"
