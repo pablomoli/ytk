@@ -134,9 +134,12 @@ def image_blocks(
     Falls back to downloading and base64-encoding if the HEAD check fails.
     Silently skips images that cannot be loaded.
     """
+    from urllib.parse import urlparse
     blocks: list[dict] = []
 
     for url in (urls or []):
+        if urlparse(url).scheme not in ("http", "https"):
+            continue
         try:
             req = urllib.request.Request(url, method="HEAD")
             with urllib.request.urlopen(req, timeout=5) as resp:

@@ -221,7 +221,7 @@ def read_note(rel_path: str) -> str:
     """Read any vault note by relative path from vault root."""
     vault_path = _get_vault_path()
     note_path = (vault_path / rel_path).resolve()
-    if not str(note_path).startswith(str(vault_path.resolve())):
+    if not note_path.is_relative_to(vault_path.resolve()):
         raise ValueError(f"Path escapes vault root: {rel_path}")
     if not note_path.exists():
         raise FileNotFoundError(f"Note not found: {rel_path}")
@@ -240,7 +240,7 @@ def write_raw(rel_path: str, content: str) -> Path:
     """Write or overwrite any note at rel_path (relative to vault root)."""
     vault_path = _get_vault_path()
     note_path = (vault_path / rel_path).resolve()
-    if not str(note_path).startswith(str(vault_path.resolve())):
+    if not note_path.is_relative_to(vault_path.resolve()):
         raise ValueError(f"Path escapes vault root: {rel_path}")
     note_path.parent.mkdir(parents=True, exist_ok=True)
     note_path.write_text(content, encoding="utf-8")
@@ -274,8 +274,7 @@ def read_atom(project_slug: str, atom: str) -> str | None:
     """Read an atomic note. Returns content body (no frontmatter) or None if missing."""
     brain = _get_brain_path()
     path = brain / "inbox" / "memories" / project_slug / f"{atom}.md"
-    brain_resolved = str(brain.resolve())
-    if not str(path.resolve()).startswith(brain_resolved):
+    if not path.resolve().is_relative_to(brain.resolve()):
         raise ValueError(f"Path escapes brain root: {project_slug}/{atom}")
     if not path.exists():
         return None
@@ -292,8 +291,7 @@ def write_atom(project_slug: str, atom: str, content: str) -> Path:
     brain = _get_brain_path()
     atom_dir = brain / "inbox" / "memories" / project_slug
     path = atom_dir / f"{atom}.md"
-    brain_resolved = str(brain.resolve())
-    if not str(path.resolve()).startswith(brain_resolved):
+    if not path.resolve().is_relative_to(brain.resolve()):
         raise ValueError(f"Path escapes brain root: {project_slug}/{atom}")
     atom_dir.mkdir(parents=True, exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d")
@@ -315,9 +313,8 @@ def write_project_hub(
     """Write or overwrite the project hub index.md (links only, no prose)."""
     brain = _get_brain_path()
     hub_dir = brain / "inbox" / "memories" / project_slug
-    brain_resolved = str(brain.resolve())
     hub_path = hub_dir / "index.md"
-    if not str(hub_path.resolve()).startswith(brain_resolved):
+    if not hub_path.resolve().is_relative_to(brain.resolve()):
         raise ValueError(f"Path escapes brain root: {project_slug}")
     hub_dir.mkdir(parents=True, exist_ok=True)
 
@@ -401,6 +398,9 @@ _CT_TO_EXT = {
 
 def _save_image(url: str, dest: Path) -> Path | None:
     """Download an image URL to dest (no extension). Returns final path or None on failure."""
+    from urllib.parse import urlparse
+    if urlparse(url).scheme not in ("http", "https"):
+        return None
     try:
         with urllib.request.urlopen(url, timeout=15) as resp:
             ct = resp.headers.get("Content-Type", "image/jpeg").lower().split(";")[0].strip()
