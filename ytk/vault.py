@@ -214,8 +214,7 @@ def read_note(rel_path: str) -> str:
 
 def list_index() -> str:
     """Return the contents of wiki/index.md."""
-    vault_path = _get_vault_path()
-    index_path = vault_path / "wiki" / "index.md"
+    index_path = _get_brain_path() / "wiki" / "index.md"
     if not index_path.exists():
         return "_wiki/index.md not found._"
     return index_path.read_text(encoding="utf-8")
@@ -237,13 +236,12 @@ def remember(text: str, tags: list[str] | None = None) -> tuple[Path, str]:
     Create an atomic memory note in inbox/memories/ and return (path, doc_id).
     The caller is responsible for upserting the doc_id + text to ChromaDB.
     """
-    vault_path = _get_vault_path()
     tags = tags or []
     date_str = datetime.now().strftime("%Y-%m-%d")
     slug = re.sub(r"[^a-z0-9]+", "-", text[:50].lower()).strip("-")
     filename = f"{date_str}-{slug}.md"
 
-    note_dir = vault_path / "inbox" / "memories"
+    note_dir = _get_brain_path() / "inbox" / "memories"
     note_dir.mkdir(parents=True, exist_ok=True)
     note_path = note_dir / filename
 
@@ -355,8 +353,7 @@ def write_memories_moc(projects: list[dict]) -> Path:
 
 def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enrichment) -> Path:
     """Write an Obsidian note for an ingested web article. Returns the path written."""
-    vault_path = _get_vault_path()
-    note_dir = vault_path / "sources" / "web"
+    note_dir = _get_brain_path() / "sources" / "web"
     note_dir.mkdir(parents=True, exist_ok=True)
 
     filename = _slug(title)
@@ -379,8 +376,7 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
 
 def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
     """Write an Obsidian note for an ingested Instagram post. Returns the path written."""
-    vault_path = _get_vault_path()
-    note_dir = vault_path / "sources" / "instagram"
+    note_dir = _get_brain_path() / "sources" / "instagram"
     note_dir.mkdir(parents=True, exist_ok=True)
 
     sc_match = re.search(r"/(?:p|reel|tv)/([A-Za-z0-9_-]+)", post.url)
@@ -423,15 +419,15 @@ def reindex_vault(force: bool = False) -> int:
     """
     from .cache import file_hash, load_index_cache, save_index_cache, update_cache_entry
 
-    vault_path = _get_vault_path()
-    scan_dirs = ["inbox/memories", "inbox", "projects", "decisions", "debugging", "tools", "sources/instagram", "sources/web"]
+    brain = _get_brain_path()
+    scan_dirs = ["inbox/memories", "inbox", "projects", "decisions", "debugging", "tools", "sources/instagram", "sources/web", "sources/journal"]
     seen_paths: set[str] = set()
     count = 0
 
     cache = load_index_cache()
 
     for subdir in scan_dirs:
-        d = vault_path / subdir
+        d = brain / subdir
         if not d.exists():
             continue
         pattern = "*.md" if subdir == "inbox" else "**/*.md"
@@ -446,7 +442,7 @@ def reindex_vault(force: bool = False) -> int:
                 if cache.get(str_path) == current_hash:
                     continue
 
-            rel = md_file.relative_to(vault_path)
+            rel = md_file.relative_to(brain)
             content = md_file.read_text(encoding="utf-8")
             id_match = re.search(r"^id:\s*(.+)$", content, re.MULTILINE)
             if id_match:
@@ -478,7 +474,7 @@ def reindex_vault(force: bool = False) -> int:
 
 def rebuild_index() -> None:
     """Scan the vault and rewrite wiki/index.md from scratch."""
-    vault_path = _get_vault_path()
+    vault_path = _get_brain_path()
     index_path = vault_path / "wiki" / "index.md"
     index_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -569,7 +565,7 @@ def write_note(meta: dict, enrichment: Enrichment, segments: list[dict]) -> Path
     Raises NoteAlreadyExists if the note already exists.
     segments: raw transcript segments [{start, duration, text}] for timestamped linking.
     """
-    vault_path = _get_vault_path()
+    vault_path = _get_brain_path()
     video_id: str = meta["id"]
     title: str = meta.get("title", video_id)
     note_dir = vault_path / "sources" / "youtube"
