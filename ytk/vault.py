@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -374,6 +375,28 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
     return note_path
 
 
+_CT_TO_EXT = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+}
+
+
+def _save_image(url: str, dest: Path) -> Path | None:
+    """Download an image URL to dest (no extension). Returns final path or None on failure."""
+    try:
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            ct = resp.headers.get("Content-Type", "image/jpeg").lower().split(";")[0].strip()
+            ext = _CT_TO_EXT.get(ct, ".jpg")
+            final = dest.with_suffix(ext)
+            final.write_bytes(resp.read())
+            return final
+    except Exception:
+        return None
+
+
 def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
     """Write an Obsidian note for an ingested Instagram post. Returns the path written."""
     note_dir = _get_brain_path() / "sources" / "instagram"
@@ -387,14 +410,35 @@ def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
     if note_path.exists():
         raise NoteAlreadyExists(note_path)
 
+    # Download images before writing note so we know the saved filenames
+    saved_images: list[Path] = []
+    for i, img_url in enumerate(post.images or [], start=1):
+        img_dest = note_dir / f"{shortcode}-img-{i}"
+        saved = _save_image(img_url, img_dest)
+        if saved:
+            saved_images.append(saved)
+
     tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
     concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
     insights = "\n".join(f"- {i}" for i in enrichment.insights)
 
+    brain = _get_brain_path()
+    image_paths_yaml = (
+        "\n" + "\n".join(f"  - {p.relative_to(brain)}" for p in saved_images)
+        if saved_images else " []"
+    )
+
     content = (
         f"---\nurl: {post.url}\nusername: {post.username}\ndate: {post.timestamp}\n"
         f"title: {enrichment.thesis}\n"
-        f"tags:\n{tags_yaml}\ntype: instagram\n---\n\n"
+        f"tags:\n{tags_yaml}\ntype: instagram\n"
+        f"image_paths:{image_paths_yaml}\n---\n\n"
+    )
+    if saved_images:
+        embeds = "\n".join(f"![[{p.name}]]" for p in saved_images)
+        content += f"{embeds}\n\n"
+
+    content += (
         f"## Thesis\n{enrichment.thesis}\n\n"
         f"## Summary\n{enrichment.summary}\n\n"
         f"## Key Concepts\n{concepts}\n\n"
