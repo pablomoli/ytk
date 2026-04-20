@@ -54,8 +54,8 @@ ytk/
     metadata.py        — yt-dlp Python API wrapper
     transcript.py      — youtube-transcript-api + yt-dlp fallback
     enrich.py          — Claude Haiku enrichment
-    vault.py           — Obsidian note writer (phase 3, not yet built)
-    store.py           — ChromaDB upsert + search (phase 4, not yet built)
+    vault.py           — Obsidian note writer and MCP vault tools
+    store.py           — ChromaDB upsert + search
 ```
 
 ## Configuration (.env)

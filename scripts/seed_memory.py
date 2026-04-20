@@ -120,8 +120,6 @@ def update_project_atoms(
     Call Haiku with existing atom content + session turns.
     Returns { atom_name: { "changed": bool, "content": str | None } }.
     """
-    import json as _json
-
     transcript_parts = []
     budget = 5000
     for turn in turns:
@@ -184,7 +182,7 @@ Respond with valid JSON only. No markdown wrapper. No explanation outside the JS
     raw = response.content[0].text.strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
-    result = _json.loads(raw)
+    result = json.loads(raw)
     # Enforce recent always updates regardless of model response
     if not result.get("recent", {}).get("changed"):
         result["recent"] = {"changed": True, "content": result.get("recent", {}).get("content", "_no signal_")}
@@ -201,24 +199,21 @@ def _infer_status(most_recent_mtime: float) -> str:
 
 
 def _session_refs(vault_path: Path, project_slug: str) -> list[tuple[str, str]]:
-    """Return list of (wikilink_path, date_str) for session briefs, newest first."""
+    """Return list of (wikilink_path, stem) for session briefs of a single project, newest first."""
     briefs_dir = vault_path / "second-brain" / "projects"
+    proj_dir = briefs_dir / project_slug
     refs = []
-    for proj_dir in (sorted(briefs_dir.iterdir()) if briefs_dir.exists() else []):
-        if not proj_dir.is_dir():
-            continue
+    if proj_dir.exists() and proj_dir.is_dir():
         for brief in sorted(proj_dir.glob("session-*.md"), reverse=True)[:5]:
-            date_str = brief.stem[-10:] if len(brief.stem) >= 10 else ""
-            rel = f"../../../projects/{proj_dir.name}/{brief.stem}"
-            refs.append((rel, date_str))
-    return refs[:5]
+            stem = brief.stem
+            refs.append((f"second-brain/projects/{project_slug}/{stem}", stem))
+    return refs
 
 
-def _memory_exists(vault_path: Path, project_key: str) -> bool:
-    """Check if a memory note already exists for this project key."""
-    mem_dir = vault_path / "inbox" / "memories"
-    slug = re.sub(r"[^a-z0-9]+", "-", project_key.lower()).strip("-")
-    return any(mem_dir.glob(f"*-project-{slug}*.md")) if mem_dir.exists() else False
+def _memory_exists(vault_path: Path, project_slug: str) -> bool:
+    """Check if a memory atom folder already exists for this pre-slugified project key."""
+    atom_dir = vault_path / "second-brain" / "inbox" / "memories" / project_slug
+    return (atom_dir / "recent.md").exists()
 
 
 def _migrate_flat_memories(vault_path: Path) -> None:
@@ -306,7 +301,7 @@ def main() -> None:
         if not jsonl_files:
             continue
 
-        if not args.force and _memory_exists(vault_path, dir_name):
+        if not args.force and _memory_exists(vault_path, dir_name_slug):
             print(f"  SKIP (exists): {project_display}")
             continue
 
