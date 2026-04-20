@@ -184,7 +184,11 @@ Respond with valid JSON only. No markdown wrapper. No explanation outside the JS
     raw = response.content[0].text.strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("`").strip()
-    return _json.loads(raw)
+    result = _json.loads(raw)
+    # Enforce recent always updates regardless of model response
+    if not result.get("recent", {}).get("changed"):
+        result["recent"] = {"changed": True, "content": result.get("recent", {}).get("content", "_no signal_")}
+    return result
 
 
 def _memory_exists(vault_path: Path, project_key: str) -> bool:
