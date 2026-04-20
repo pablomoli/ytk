@@ -1086,6 +1086,14 @@ def schedule_install(hour: int):
     log_path = Path.home() / ".ytk" / "nightly.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Write a wrapper script so the plist never shell-interpolates the binary path
+    script_path = Path.home() / ".ytk" / "nightly.sh"
+    script_path.write_text(
+        f"#!/bin/sh\n{ytk_bin} sync && {ytk_bin} index && {ytk_bin} dashboard\n",
+        encoding="utf-8",
+    )
+    script_path.chmod(0o700)
+
     plist_label = "com.ytk.nightly"
     plist_path = Path.home() / "Library" / "LaunchAgents" / f"{plist_label}.plist"
     plist_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1101,8 +1109,7 @@ def schedule_install(hour: int):
     <key>ProgramArguments</key>
     <array>
         <string>/bin/sh</string>
-        <string>-c</string>
-        <string>{ytk_bin} sync &amp;&amp; {ytk_bin} index &amp;&amp; {ytk_bin} dashboard</string>
+        <string>{script_path}</string>
     </array>
     <key>StartCalendarInterval</key>
     <dict>

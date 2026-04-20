@@ -66,6 +66,7 @@ def authenticate() -> googleapiclient.discovery.Resource:
             creds = flow.run_local_server(port=80, open_browser=False)
 
         _TOKEN_FILE.write_text(creds.to_json(), encoding="utf-8")
+        _TOKEN_FILE.chmod(0o600)
 
     return googleapiclient.discovery.build("youtube", "v3", credentials=creds)
 
