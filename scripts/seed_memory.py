@@ -233,6 +233,8 @@ def _migrate_flat_memories(vault_path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-sessions", type=int, default=3)
+    parser.add_argument("--max-turns", type=int, default=0,
+                        help="Cap turns sent to Haiku (0 = no cap). Use ~50 for stop-hook runs.")
     parser.add_argument("--force", action="store_true", help="Re-generate existing memories")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
@@ -312,6 +314,9 @@ def main() -> None:
         if not all_turns:
             print(f"  SKIP (no content): {project_display}")
             continue
+
+        if args.max_turns and len(all_turns) > args.max_turns:
+            all_turns = all_turns[-args.max_turns:]
 
         print(f"  Processing: {project_display} ({len(all_turns)} turns from {min(len(jsonl_files), args.max_sessions)} sessions)")
 
