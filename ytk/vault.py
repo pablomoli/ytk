@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import urllib.request
@@ -16,6 +17,8 @@ from ytk.store import upsert_doc, strip_frontmatter
 
 if TYPE_CHECKING:
     from ytk.instagram import InstagramPost
+    from ytk.imessage import MessageThread
+    from ytk.tiktok import TikTokPost
 
 load_dotenv(Path.home() / ".ytk" / ".env")
 load_dotenv()
@@ -54,10 +57,14 @@ def _fmt_date(yyyymmdd: str) -> str:
 
 
 def _slug(title: str) -> str:
-    """Sanitize a video title into a safe filename (max 100 chars)."""
-    sanitized = re.sub(r'[\\/*?:"<>|]', "", title)
-    sanitized = re.sub(r"\s+", " ", sanitized).strip()
-    return sanitized[:100]
+    """Normalize a title into a lowercase-hyphenated filename slug (max 80 chars)."""
+    # strip non-ASCII (emoji, accented chars, etc.)
+    ascii_only = title.encode("ascii", "ignore").decode()
+    # drop chars that are illegal in filenames
+    cleaned = re.sub(r'[\\/*?:"<>|]', "", ascii_only)
+    # collapse whitespace/punctuation runs into hyphens
+    hyphenated = re.sub(r"[^a-zA-Z0-9]+", "-", cleaned).strip("-").lower()
+    return hyphenated[:80]
 
 
 def _normalize_tag(t: str) -> str:
@@ -255,14 +262,15 @@ def remember(text: str, tags: list[str] | None = None) -> tuple[Path, str]:
     tags = tags or []
     date_str = datetime.now().strftime("%Y-%m-%d")
     slug = re.sub(r"[^a-z0-9]+", "-", text[:50].lower()).strip("-")
-    filename = f"{date_str}-{slug}.md"
+    text_hash = hashlib.sha1(text.encode("utf-8")).hexdigest()[:6]
+    filename = f"{date_str}-{slug}-{text_hash}.md"
 
     note_dir = _get_brain_path() / "inbox" / "memories"
     note_dir.mkdir(parents=True, exist_ok=True)
     note_path = note_dir / filename
 
     tags_yaml = "\n".join(f"  - {t}" for t in tags) if tags else ""
-    doc_id = f"memory_{date_str}_{slug}"
+    doc_id = f"memory_{date_str}_{slug}_{text_hash}"
     note_path.write_text(
         f"---\nid: {doc_id}\ndate: {date_str}\ntags:\n{tags_yaml}\ntype: memory\n---\n\n{text}\n",
         encoding="utf-8",
@@ -387,6 +395,42 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
     return note_path
 
 
+def write_journal_note(thread: "MessageThread", enrichment: Enrichment) -> Path:
+    """Write an Obsidian note for an iMessage journal thread. Returns the path written."""
+    note_dir = _get_brain_path() / "sources" / "journal"
+    note_dir.mkdir(parents=True, exist_ok=True)
+
+    date_slug = re.sub(r"[,\s]+", "-", thread.date).strip("-").lower()
+    contact_slug = re.sub(r"[^a-z0-9]+", "-", thread.contact.lower()).strip("-")
+    note_path = note_dir / f"{date_slug}-{contact_slug}.md"
+    if note_path.exists():
+        raise NoteAlreadyExists(note_path)
+
+    tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
+    concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
+    insights = "\n".join(f"- {i}" for i in enrichment.insights)
+
+    content = (
+        f"---\ncontact: {thread.contact}\ndate: {thread.date}\n"
+        f"tags:\n{tags_yaml}\ntype: journal\n---\n\n"
+        f"## Thesis\n{enrichment.thesis}\n\n"
+        f"## Summary\n{enrichment.summary}\n\n"
+        f"## Key Concepts\n{concepts}\n\n"
+        f"## Insights\n{insights}\n"
+    )
+    if enrichment.key_moments:
+        moments = "\n".join(
+            f"- **{m.timestamp}** — {m.description}" for m in enrichment.key_moments
+        )
+        content += f"\n## Key Moments\n{moments}\n"
+
+    messages = "\n".join(f"[{m.timestamp}] {m.text}" for m in thread.messages)
+    content += f"\n## Messages\n{messages}\n"
+
+    note_path.write_text(content, encoding="utf-8")
+    return note_path
+
+
 _CT_TO_EXT = {
     "image/jpeg": ".jpg",
     "image/jpg": ".jpg",
@@ -418,9 +462,8 @@ def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
     note_dir.mkdir(parents=True, exist_ok=True)
 
     sc_match = re.search(r"/(?:p|reel|tv)/([A-Za-z0-9_-]+)", post.url)
-    shortcode = sc_match.group(1) if sc_match else ""
-    slug_part = _slug(post.caption[:60]) if post.caption else "post"
-    filename = f"{post.username}-{post.timestamp}-{shortcode}-{slug_part}.md"
+    shortcode = sc_match.group(1) if sc_match else "post"
+    filename = f"{post.username}-{post.timestamp}-{shortcode}.md"
     note_path = note_dir / filename
     if note_path.exists():
         raise NoteAlreadyExists(note_path)
@@ -454,6 +497,7 @@ def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
         content += f"{embeds}\n\n"
 
     content += (
+        f"## Caption\n{post.caption}\n\n"
         f"## Thesis\n{enrichment.thesis}\n\n"
         f"## Summary\n{enrichment.summary}\n\n"
         f"## Key Concepts\n{concepts}\n\n"
@@ -464,6 +508,79 @@ def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
             f"- **{m.timestamp}** — {m.description}" for m in enrichment.key_moments
         )
         content += f"\n## Key Moments\n{moments}\n"
+
+    note_path.write_text(content, encoding="utf-8")
+    return note_path
+
+
+def write_tiktok_note(
+    post: "TikTokPost",
+    enrichment: Enrichment,
+    transcript: str = "",
+    frame_bytes: list[bytes] | None = None,
+) -> Path:
+    """Write an Obsidian note for an ingested TikTok. Returns the path written."""
+    brain = _get_brain_path()
+    note_dir = brain / "sources" / "tiktok"
+    note_dir.mkdir(parents=True, exist_ok=True)
+
+    title_slug = _slug(post.title) if post.title else "tiktok"
+    filename = f"{post.username}-{post.timestamp}-{post.video_id}-{title_slug}"[:120]
+    note_path = note_dir / f"{filename}.md"
+    if note_path.exists():
+        raise NoteAlreadyExists(f"Note already exists for TikTok {post.video_id}: {note_path}")
+
+    saved_thumb: Path | None = None
+    if post.thumbnail_url:
+        thumb_dir = note_dir / "thumbnails"
+        thumb_dir.mkdir(parents=True, exist_ok=True)
+        saved_thumb = _save_image(post.thumbnail_url, thumb_dir / f"{post.video_id}-thumb")
+
+    saved_frames: list[Path] = []
+    if frame_bytes:
+        frame_dir = note_dir / "frames" / post.video_id
+        frame_dir.mkdir(parents=True, exist_ok=True)
+        for i, raw in enumerate(frame_bytes, start=1):
+            fp = frame_dir / f"frame-{i}.jpg"
+            fp.write_bytes(raw)
+            saved_frames.append(fp)
+
+    tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
+    concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
+    insights = "\n".join(f"- {i}" for i in enrichment.insights)
+
+    media_paths = [p for p in [saved_thumb, *saved_frames] if p]
+    media_yaml = (
+        "\n" + "\n".join(f"  - {p.relative_to(brain)}" for p in media_paths)
+        if media_paths else " []"
+    )
+
+    content = (
+        f"---\nurl: {post.url}\nusername: {post.username}\ndate: {post.timestamp}\n"
+        f"title: {enrichment.thesis}\nduration: {post.duration}\n"
+        f"tags:\n{tags_yaml}\ntype: tiktok\n"
+        f"image_paths:{media_yaml}\n---\n\n"
+    )
+    if saved_thumb:
+        content += f"![[{saved_thumb.name}]]\n\n"
+    if saved_frames:
+        content += "\n".join(f"![[{p.name}]]" for p in saved_frames) + "\n\n"
+
+    if post.music:
+        content += f"**Music:** {post.music}\n\n"
+
+    content += (
+        f"## Caption\n{post.description or '_(no caption)_'}\n\n"
+        f"## Thesis\n{enrichment.thesis}\n\n"
+        f"## Summary\n{enrichment.summary}\n\n"
+        f"## Key Concepts\n{concepts}\n\n"
+        f"## Insights\n{insights}\n"
+    )
+    if transcript.strip():
+        content += (
+            f"\n## Transcript\n<details>\n<summary>Whisper transcript</summary>\n\n"
+            f"{transcript}\n</details>\n"
+        )
 
     note_path.write_text(content, encoding="utf-8")
     return note_path

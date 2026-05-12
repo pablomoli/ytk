@@ -4,29 +4,24 @@ import base64
 from unittest.mock import MagicMock, patch
 
 
-def test_hint_detect_no_cues_skips_haiku():
+def test_hint_detect_no_cues_skips_sdk():
     from ytk.vision import hint_detect
 
     segments = [{"start": 0.0, "text": "Hello everyone welcome to this podcast episode today."}]
-    with patch("ytk.vision.anthropic.Anthropic") as mock_cls, \
-            patch("ytk.vision._client", None):
+    with patch("ytk.vision.run_structured") as mock_run:
         result = hint_detect(segments)
-    mock_cls.assert_not_called()
+    mock_run.assert_not_called()
     assert result == []
 
 
-def test_hint_detect_with_cues_calls_haiku():
+def test_hint_detect_with_cues_calls_sdk():
     from ytk.vision import hint_detect
 
     segments = [
         {"start": 5.0, "text": "As you can see on screen this is the main dashboard."},
         {"start": 10.0, "text": "Let me show you what happens when we click here."},
     ]
-    mock_resp = MagicMock()
-    mock_resp.content = [MagicMock(text="[5.0, 10.0]")]
-    with patch("ytk.vision.anthropic.Anthropic") as mock_cls, \
-            patch("ytk.vision._client", None):
-        mock_cls.return_value.messages.create.return_value = mock_resp
+    with patch("ytk.vision.run_structured", return_value={"timestamps": [5.0, 10.0]}):
         result = hint_detect(segments)
     assert result == [5.0, 10.0]
 
@@ -35,24 +30,16 @@ def test_hint_detect_deduplicates_and_sorts():
     from ytk.vision import hint_detect
 
     segments = [{"start": 3.0, "text": "As you can see the code here is straightforward."}]
-    mock_resp = MagicMock()
-    mock_resp.content = [MagicMock(text="[10.0, 3.0, 10.0]")]
-    with patch("ytk.vision.anthropic.Anthropic") as mock_cls, \
-            patch("ytk.vision._client", None):
-        mock_cls.return_value.messages.create.return_value = mock_resp
+    with patch("ytk.vision.run_structured", return_value={"timestamps": [10.0, 3.0, 10.0]}):
         result = hint_detect(segments)
     assert result == [3.0, 10.0]
 
 
-def test_hint_detect_haiku_bad_json_returns_empty():
+def test_hint_detect_sdk_error_returns_empty():
     from ytk.vision import hint_detect
 
     segments = [{"start": 0.0, "text": "look at this amazing result on screen"}]
-    mock_resp = MagicMock()
-    mock_resp.content = [MagicMock(text="Sorry, I cannot help with that.")]
-    with patch("ytk.vision.anthropic.Anthropic") as mock_cls, \
-            patch("ytk.vision._client", None):
-        mock_cls.return_value.messages.create.return_value = mock_resp
+    with patch("ytk.vision.run_structured", side_effect=RuntimeError("boom")):
         result = hint_detect(segments)
     assert result == []
 

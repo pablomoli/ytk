@@ -4,19 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import anthropic
 import trafilatura
 
 from .enrich import Enrichment
-
-_client: anthropic.Anthropic | None = None
-
-
-def _get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic()
-    return _client
+from .sdk import run_structured
 
 
 _SYSTEM_WEB = """\
@@ -71,21 +62,14 @@ def fetch_web(url: str) -> WebContent:
 
 
 def enrich_web(content: WebContent) -> Enrichment:
-    """Summarize web article content using Claude Haiku. key_moments is always []."""
-    client = _get_client()
-    user_content = (
+    """Summarize web article content via Claude Code. key_moments is always []."""
+    user_prompt = (
         f"Title: {content.title}\nAuthor: {content.author}\n"
         f"Date: {content.date}\nURL: {content.url}\n\n"
         f"Article:\n{content.text[:20_000]}"
     )
 
-    response = client.messages.parse(
-        model="claude-haiku-4-5",
-        max_tokens=2048,
-        system=[{"type": "text", "text": _SYSTEM_WEB, "cache_control": {"type": "ephemeral"}}],
-        messages=[{"role": "user", "content": user_content}],
-        output_format=Enrichment,
-    )
-    result = response.parsed_output
+    data = run_structured(_SYSTEM_WEB, user_prompt, Enrichment.model_json_schema())
+    result = Enrichment.model_validate(data)
     result.key_moments = []
     return result

@@ -1,9 +1,25 @@
-"""AI enrichment of YouTube video content via Claude Haiku."""
+"""AI enrichment of YouTube / Instagram content via the Claude Agent SDK.
+
+Runs enrichment through Claude Code (Agent SDK) instead of the Anthropic API
+directly. Uses the user's Claude Code subscription auth rather than API credits.
+
+Images are materialized to a temporary directory and referenced by path in the
+prompt; Claude Code reads them on demand via the Read tool. For YouTube videos,
+the model is instructed to read frames only when the surrounding transcript is
+ambiguous about a visual detail. For Instagram posts, every slide must be read.
+"""
 
 from __future__ import annotations
 
-import anthropic
+import base64
+import shutil
+import tempfile
+import uuid
+from pathlib import Path
+
 from pydantic import BaseModel
+
+from .sdk import run_structured
 
 
 class KeyMoment(BaseModel):
@@ -20,13 +36,14 @@ class Enrichment(BaseModel):
     key_moments: list[KeyMoment]
 
 
-_SYSTEM = """\
+_YT_SYSTEM = """\
 You are a detailed research assistant helping someone who already watches a lot of YouTube videos \
 build a personal reference library. The person watches the videos themselves — your job is to make \
 them retrievable and searchable later. Think: "six months from now, they remember something \
 specific happened in this video and want to find it fast."
 
-You will receive a transcript and metadata for a video. Return a JSON object with these fields:
+You will receive a transcript and metadata for a video, and optionally file paths to extracted \
+frames. Return a JSON object matching the provided schema.
 
 thesis
   One precise sentence capturing what the video actually does or argues. For tutorials and demos, \
@@ -59,17 +76,89 @@ key_moments
   Up to 8 moments a viewer might want to jump back to. Use MM:SS timestamps when inferable from \
 chapters or transcript position. Descriptions should be specific enough to find the moment from memory — \
 name the thing being done, not just the topic ("sets up the watcher goroutine with a done channel" \
-not "concurrency explanation").\
+not "concurrency explanation").
+
+If frame paths are provided, read a frame with the Read tool ONLY when the transcript around that \
+timestamp references something visual you cannot resolve from text alone (a diagram, a UI state, \
+code on screen, a specific tool being demonstrated). Skip frames that would only confirm what the \
+transcript already states clearly. Do not read every frame.\
 """
 
-_client: anthropic.Anthropic | None = None
+
+_INSTAGRAM_SYSTEM = """\
+You are a research assistant helping someone build a personal reference library from social media content.
+You will receive an Instagram post: a caption (the text of the post) and file paths to one or more \
+carousel slide images.
+
+IMPORTANT: The images are carousel slides — they contain text, screenshots, code, or design examples that \
+are the primary content of the post. Read EVERY slide with the Read tool. Read every word visible in every \
+slide carefully. Treat the slide content as at least as important as the caption.
+
+Return a JSON object matching the provided schema.
+
+thesis
+  One precise sentence capturing what this post teaches or argues. Name the specific subject, technique, \
+or framework being described. Never be vague.
+
+summary
+  3–5 sentences covering both the caption argument and the content of each slide. Be concrete: name tools, \
+commands, frameworks, and specific techniques mentioned anywhere in the post or slides.
+
+key_concepts
+  Terms, tools, commands, or techniques from the caption or slides worth remembering. For each: name, \
+colon, one sentence on how it appears in this post. Max 8 items.
+
+insights
+  2–3 specific things worth remembering: a non-obvious tip, a workflow described in the slides, \
+an approach worth trying. Each should be a complete, actionable sentence.
+
+interest_tags
+  Flat list of topic labels. Lowercase, hyphenated. 3–8 tags.
+
+key_moments
+  Leave empty ([]). Instagram posts have no timestamps.\
+"""
 
 
-def _get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic()
-    return _client
+_TIKTOK_SYSTEM = """\
+You are a research assistant helping someone build a personal reference library from short-form video.
+You will receive metadata, the post caption, an optional Whisper-derived transcript, and file paths to \
+several frames sampled from the video.
+
+IMPORTANT: TikToks are visual-first and very short (often under 60 seconds). The transcript may be sparse, \
+inaccurate, or mostly background music. Read EVERY provided frame with the Read tool — the on-screen text, \
+UI, code, app shown, hand gestures, or product demonstrated is usually the actual content. Treat the caption \
+and transcript as supplementary context, not the source of truth.
+
+Return a JSON object matching the provided schema.
+
+thesis
+  One precise sentence naming what is shown or argued. For demos and tutorials, name the specific thing \
+demonstrated (the app, technique, product, hack). Never be vague. Never use "explores".
+
+summary
+  3-5 sentences describing what actually happens in the video — what the creator does, shows, or says. \
+Name tools, apps, products, and techniques concretely. Mention any on-screen text or UI shown in the frames. \
+Never start with "The video" or "In this TikTok".
+
+key_concepts
+  Tools, apps, techniques, or products that appear in the video. For each: name, colon, one sentence on \
+how it appears here. Max 8.
+
+insights
+  2-3 specific takeaways: a non-obvious tip shown, a surprising technique, an unexpected detail. Each a \
+complete actionable sentence. Not trivia.
+
+interest_tags
+  Flat list of topic labels. Lowercase, hyphenated. 3-8 tags.
+
+key_moments
+  Leave empty ([]) unless the transcript provides clear timestamped beats worth jumping to. TikToks are \
+short enough that key_moments are usually unnecessary.\
+"""
+
+
+_SCHEMA = Enrichment.model_json_schema()
 
 
 def enrich(
@@ -77,15 +166,7 @@ def enrich(
     metadata: dict,
     visual_blocks: list[dict] | None = None,
 ) -> Enrichment:
-    """
-    Send transcript + metadata to Claude Haiku and return structured enrichment.
-    Uses prompt caching on the system prompt (stable across all calls).
-    When visual_blocks are provided, user content becomes a list interleaving
-    text and image blocks for a single-pass multimodal enrichment call.
-    """
-    client = _get_client()
-    visual_blocks = visual_blocks or None
-
+    """Enrich a YouTube transcript via Claude Code (Agent SDK)."""
     chapters_text = ""
     if metadata.get("chapters"):
         lines = [f"  {_fmt_ts(ch['start_time'])} — {ch['title']}" for ch in metadata["chapters"]]
@@ -101,34 +182,125 @@ Transcript:
 {transcript}
 """
 
-    system_blocks: list[dict] = [
-        {
-            "type": "text",
-            "text": _SYSTEM,
-            "cache_control": {"type": "ephemeral"},
-        }
-    ]
-    if visual_blocks:
-        system_blocks.append({
-            "type": "text",
-            "text": "\nYou may also receive images or video frames — incorporate what you observe "
-            "in them into your analysis.",
-        })
+    with _staged_images(visual_blocks) as (frame_dir, frame_paths):
+        if frame_paths:
+            frames_listing = "\n".join(f"  {p}" for p in frame_paths)
+            prompt = (
+                f"{text_block}\n\n"
+                f"Extracted frames (read selectively per the system prompt):\n{frames_listing}\n"
+            )
+        else:
+            prompt = text_block
 
-    if visual_blocks:
-        user_content: str | list[dict] = [{"type": "text", "text": text_block}] + visual_blocks
-    else:
-        user_content = text_block
+        add_dirs = [frame_dir] if frame_dir else []
+        data = run_structured(_YT_SYSTEM, prompt, _SCHEMA, add_dirs=add_dirs)
+        return Enrichment.model_validate(data)
 
-    response = client.messages.parse(
-        model="claude-haiku-4-5",
-        max_tokens=2048,
-        system=system_blocks,
-        messages=[{"role": "user", "content": user_content}],
-        output_format=Enrichment,
+
+def enrich_tiktok(
+    post: dict,
+    transcript: str,
+    visual_blocks: list[dict] | None = None,
+) -> Enrichment:
+    """Enrich a TikTok with a visual-first, short-form-aware prompt.
+
+    `post` is a dict with title, description, username, duration, music.
+    """
+    transcript_block = (
+        f"Whisper transcript (may be inaccurate or sparse):\n{transcript}"
+        if transcript.strip() else "Whisper transcript: (none — likely no speech or music-only)"
+    )
+    music_line = f"Music: {post['music']}\n" if post.get("music") else ""
+    text_block = (
+        f"Author: @{post.get('username', '')}\n"
+        f"Title: {post.get('title', '')}\n"
+        f"Duration: {post.get('duration', 0)}s\n"
+        f"{music_line}"
+        f"\nCaption / description:\n{post.get('description', '')}\n\n"
+        f"{transcript_block}\n"
     )
 
-    return response.parsed_output
+    with _staged_images(visual_blocks) as (frame_dir, frame_paths):
+        frames_listing = "\n".join(f"  {p}" for p in frame_paths) if frame_paths else "  (none)"
+        prompt = f"{text_block}\nExtracted frames (read EVERY one):\n{frames_listing}\n"
+        add_dirs = [frame_dir] if frame_dir else []
+        data = run_structured(_TIKTOK_SYSTEM, prompt, _SCHEMA, add_dirs=add_dirs)
+        return Enrichment.model_validate(data)
+
+
+def enrich_instagram(
+    caption: str,
+    username: str,
+    slide_count: int,
+    visual_blocks: list[dict],
+) -> Enrichment:
+    """Enrich an Instagram post with a carousel-aware prompt."""
+    text_block = f"""\
+Author: @{username}
+Slide count: {slide_count}
+
+Caption:
+{caption}
+"""
+
+    with _staged_images(visual_blocks) as (frame_dir, frame_paths):
+        frames_listing = "\n".join(f"  {p}" for p in frame_paths) if frame_paths else "  (none)"
+        prompt = (
+            f"{text_block}\n\n"
+            f"Carousel slides (read EVERY one):\n{frames_listing}\n"
+        )
+        add_dirs = [frame_dir] if frame_dir else []
+        data = run_structured(_INSTAGRAM_SYSTEM, prompt, _SCHEMA, add_dirs=add_dirs)
+        return Enrichment.model_validate(data)
+
+
+class _staged_images:
+    """Context manager — writes Anthropic-format image blocks to a temp dir."""
+
+    def __init__(self, visual_blocks: list[dict] | None):
+        self.visual_blocks = visual_blocks or []
+        self.dir: Path | None = None
+
+    def __enter__(self) -> tuple[Path | None, list[Path]]:
+        if not self.visual_blocks:
+            return None, []
+        self.dir = Path(tempfile.mkdtemp(prefix=f"ytk-enrich-{uuid.uuid4().hex[:8]}-"))
+        paths: list[Path] = []
+        for i, block in enumerate(self.visual_blocks):
+            path = _materialize_image(block, self.dir, i)
+            if path is not None:
+                paths.append(path)
+        return self.dir, paths
+
+    def __exit__(self, *exc_info) -> None:
+        if self.dir is not None:
+            shutil.rmtree(self.dir, ignore_errors=True)
+
+
+def _materialize_image(block: dict, out_dir: Path, index: int) -> Path | None:
+    """Write an Anthropic API image content block to a file. Returns the path.
+
+    Handles base64 source blocks (the common case from vision.image_blocks).
+    URL source blocks are skipped — Claude Code can't Read them locally.
+    """
+    if block.get("type") != "image":
+        return None
+    source = block.get("source", {})
+    if source.get("type") != "base64":
+        return None
+    media = source.get("media_type", "image/jpeg")
+    ext = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/gif": "gif",
+        "image/webp": "webp",
+    }.get(media, "jpg")
+    data = source.get("data")
+    if not data:
+        return None
+    path = out_dir / f"frame-{index:02d}.{ext}"
+    path.write_bytes(base64.b64decode(data))
+    return path
 
 
 def _fmt_ts(seconds: int | float) -> str:

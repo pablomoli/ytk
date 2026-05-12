@@ -80,8 +80,16 @@ def cli():
 @cli.command()
 @click.argument("url")
 @click.option("--force", is_flag=True, default=False, help="Skip all filter prompts.")
-def add(url: str, force: bool):
-    """Fetch transcript, enrich with AI, and ingest a YouTube video."""
+@click.pass_context
+def add(ctx: click.Context, url: str, force: bool):
+    """Fetch and ingest a URL — YouTube or Instagram auto-detected."""
+    if re.search(r"instagram\.com/", url):
+        ctx.invoke(add_instagram, url=url)
+        return
+    if re.search(r"tiktok\.com/", url):
+        ctx.invoke(add_tiktok, url=url)
+        return
+
     cfg = load_config()
 
     with console.status("[bold cyan]Fetching metadata...[/]"):
@@ -151,6 +159,9 @@ def add(url: str, force: bool):
             try:
                 with console.status("[bold cyan]Extracting frames...[/]"):
                     frame_bytes = extract_frames(video_tmp, hint_ts, baseline_n=4) or []
+                MAX_FRAMES = 8
+                if len(frame_bytes) > MAX_FRAMES:
+                    frame_bytes = frame_bytes[:MAX_FRAMES]
                 visual_blocks = image_blocks(frame_bytes=frame_bytes) if frame_bytes else None
             finally:
                 video_tmp.unlink(missing_ok=True)
@@ -158,7 +169,7 @@ def add(url: str, force: bool):
         visual_blocks = None
 
     # --- AI enrichment ---
-    with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
+    with console.status("[bold cyan]Enriching via Claude Code...[/]"):
         result = enrich(full_text, meta, visual_blocks=visual_blocks)
 
     # --- post-enrichment filter (interest tags) ---
@@ -484,7 +495,7 @@ def add_instagram(url: str):
     """Fetch an Instagram post, analyze visually with AI, and store in the vault."""
     from .instagram import fetch_instagram
     from .vision import extract_frames, image_blocks
-    from .enrich import enrich
+    from .enrich import enrich_instagram
     from .vault import write_instagram_note, NoteAlreadyExists
     from .store import strip_frontmatter, upsert_doc
 
@@ -509,7 +520,7 @@ def add_instagram(url: str):
     console.print(Panel(info, title="[bold]Instagram Post[/]", box=box.ROUNDED))
 
     with console.status("[bold cyan]Preparing visual content...[/]"):
-        blocks = image_blocks(urls=post.images if post.images else None)
+        blocks = image_blocks(urls=post.images if post.images else None, force_base64=True)
         try:
             if post.video_path:
                 frame_bytes = extract_frames(post.video_path, timestamps=[], baseline_n=4)
@@ -518,16 +529,14 @@ def add_instagram(url: str):
             if post.video_path:
                 post.video_path.unlink(missing_ok=True)
 
-    meta = {
-        "title": f"Instagram post by @{post.username} ({post.timestamp})",
-        "uploader": post.username,
-        "duration": 0,
-        "tags": [],
-    }
-
     with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
         try:
-            result = enrich(post.caption, meta, visual_blocks=blocks if blocks else None)
+            result = enrich_instagram(
+                caption=post.caption,
+                username=post.username,
+                slide_count=len(post.images),
+                visual_blocks=blocks if blocks else [],
+            )
         except Exception as exc:
             console.print(f"[red]Enrichment failed:[/] {exc}")
             raise SystemExit(1)
@@ -550,6 +559,112 @@ def add_instagram(url: str):
         note_path = write_instagram_note(post, result)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
         doc_id = "instagram_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
+        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
+        upsert_doc(doc_id, body, {
+            "doc_id": doc_id,
+            "tags": ", ".join(result.interest_tags),
+            "source_path": str(note_path),
+        })
+    except NoteAlreadyExists as exc:
+        console.print(f"\n[yellow]Note already exists:[/] {exc}")
+    except EnvironmentError as exc:
+        console.print(f"\n[yellow]Vault not configured:[/] {exc}")
+
+
+@cli.command(name="add-tiktok")
+@click.argument("url")
+def add_tiktok(url: str):
+    """Fetch a TikTok, transcribe + extract frames, and store in the vault."""
+    from .tiktok import fetch_tiktok, transcribe_tiktok
+    from .vision import download_video_temp, extract_frames, image_blocks
+    from .enrich import enrich_tiktok
+    from .vault import write_tiktok_note, NoteAlreadyExists
+    from .store import strip_frontmatter, upsert_doc
+
+    cfg = load_config()
+
+    with console.status("[bold cyan]Fetching TikTok metadata...[/]"):
+        try:
+            post = fetch_tiktok(url)
+        except ValueError as exc:
+            console.print(f"[red]Fetch failed:[/] {exc}")
+            raise SystemExit(1)
+
+    info = Table.grid(padding=(0, 2))
+    info.add_column(style="bold cyan", no_wrap=True)
+    info.add_column()
+    info.add_row("Author", f"@{post.username}")
+    info.add_row("Title", post.title or "[dim](none)[/]")
+    info.add_row("Date", post.timestamp or "[dim](unknown)[/]")
+    info.add_row("Duration", f"{post.duration}s")
+    if post.view_count is not None:
+        info.add_row("Views", f"{post.view_count:,}")
+    if post.like_count is not None:
+        info.add_row("Likes", f"{post.like_count:,}")
+    if post.music:
+        info.add_row("Music", post.music)
+    console.print(Panel(info, title="[bold]TikTok[/]", box=box.ROUNDED))
+
+    with console.status("[bold cyan]Transcribing audio with Whisper...[/]"):
+        segments = transcribe_tiktok(url, whisper_model=cfg.whisper_model)
+    transcript = " ".join(s["text"] for s in segments).strip()
+    if transcript:
+        preview = textwrap.fill(transcript[:600], width=80)
+        console.print(Panel(preview, title=f"[bold]Transcript[/] [dim]({len(segments)} segs)[/dim]", box=box.ROUNDED))
+    else:
+        console.print("[dim]No transcribable speech detected.[/]")
+
+    frame_bytes: list[bytes] = []
+    visual_blocks: list[dict] | None = None
+    video_tmp: Path | None = None
+    try:
+        with console.status("[bold cyan]Downloading video for frame extraction...[/]"):
+            video_tmp = download_video_temp(url)
+        with console.status("[bold cyan]Extracting frames...[/]"):
+            frame_bytes = extract_frames(video_tmp, timestamps=[], baseline_n=6) or []
+        if frame_bytes:
+            visual_blocks = image_blocks(frame_bytes=frame_bytes)
+    except Exception as exc:
+        console.print(f"[yellow]Frame extraction failed:[/] {exc}")
+    finally:
+        if video_tmp is not None:
+            video_tmp.unlink(missing_ok=True)
+
+    with console.status("[bold cyan]Enriching with Claude...[/]"):
+        try:
+            result = enrich_tiktok(
+                post={
+                    "title": post.title,
+                    "description": post.description,
+                    "username": post.username,
+                    "duration": post.duration,
+                    "music": post.music,
+                },
+                transcript=transcript,
+                visual_blocks=visual_blocks,
+            )
+        except Exception as exc:
+            console.print(f"[red]Enrichment failed:[/] {exc}")
+            raise SystemExit(1)
+
+    console.print(Panel(f"[italic]{result.thesis}[/]", title="[bold]Thesis[/]", box=box.ROUNDED))
+    console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
+
+    grid = Table.grid(padding=(0, 4))
+    grid.add_column()
+    grid.add_column()
+    concepts = "\n".join(f"[cyan]•[/] {c}" for c in result.key_concepts)
+    tags = " ".join(f"[bold cyan]#{t}[/]" for t in result.interest_tags)
+    grid.add_row(concepts, tags)
+    console.print(Panel(grid, title="[bold]Key Concepts & Tags[/]", box=box.ROUNDED))
+
+    insights = "\n".join(f"[yellow]>[/] {i}" for i in result.insights)
+    console.print(Panel(insights, title="[bold]Insights[/]", box=box.ROUNDED))
+
+    try:
+        note_path = write_tiktok_note(post, result, transcript=transcript, frame_bytes=frame_bytes or None)
+        console.print(f"\n[bold green]Note written:[/] {note_path}")
+        doc_id = "tiktok_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(doc_id, body, {
             "doc_id": doc_id,
@@ -650,20 +765,63 @@ def add_imessage(contact: str, since: str | None, until: str | None):
     insights = "\n".join(f"[yellow]>[/] {i}" for i in result.insights)
     console.print(Panel(insights, title="[bold]Insights[/]", box=box.ROUNDED))
 
+    written_path: Path | None = None
     try:
-        note_path = write_journal_note(thread, result)
-        console.print(f"\n[bold green]Note written:[/] {note_path}")
-        doc_id = "journal_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
-        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
+        written_path = write_journal_note(thread, result)
+        console.print(f"\n[bold green]Note written:[/] {written_path}")
+        doc_id = "journal_" + re.sub(r"[^a-zA-Z0-9_-]", "_", written_path.stem[:60])
+        body = strip_frontmatter(written_path.read_text(encoding="utf-8"))
         upsert_doc(doc_id, body, {
             "doc_id": doc_id,
             "tags": ", ".join(result.interest_tags),
-            "source_path": str(note_path),
+            "source_path": str(written_path),
         })
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
     except EnvironmentError as exc:
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
+
+    if written_path and written_path.exists():
+        from .triage import extract_action_items
+        cfg = load_config()
+        vault_raw = os.environ.get("OBSIDIAN_VAULT_PATH", "")
+        if vault_raw:
+            vault_p = Path(vault_raw).expanduser()
+            inbox = vault_p / "second-brain" / "inbox"
+            inbox.mkdir(parents=True, exist_ok=True)
+            ideas_path = inbox / "ideas.md"
+            review_path = inbox / "review.md"
+            note_text = written_path.read_text(encoding="utf-8")
+            with console.status("[bold cyan]Extracting action items...[/]"):
+                items = extract_action_items(note_text, repos=cfg.github_repos or None)
+            if not items:
+                console.print("[dim]No actionable items found.[/]")
+            else:
+                summary = Table("", "Title", "Priority", "Route", box=box.SIMPLE, show_header=True)
+                for idx, item in enumerate(items, 1):
+                    pc = _PRIORITY_COLOR[item.priority]
+                    repo_hint = f" ({item.suggested_repo})" if item.suggested_repo else ""
+                    summary.add_row(
+                        str(idx), item.title, f"[{pc}]{item.priority}[/]",
+                        _ROUTE_LABEL[item.suggested_route] + repo_hint,
+                    )
+                console.print(Panel(summary, title=f"[bold]{len(items)} Action Items[/]", box=box.ROUNDED))
+                for item in items:
+                    if item.suggested_route == "gh-issue":
+                        url = _triage_create_gh(item, cfg, console)
+                        if url:
+                            console.print(f"  [green]GH:[/] {item.title}  [dim]{url}[/]")
+                        else:
+                            console.print(f"  [yellow]GH skipped (no repo configured):[/] {item.title}")
+                    elif item.suggested_route == "idea":
+                        with ideas_path.open("a", encoding="utf-8") as f:
+                            f.write(f"\n- [ ] {item.title}\n  {item.description}\n")
+                        console.print(f"  [cyan]Idea:[/] {item.title}")
+                    else:
+                        date_str = datetime.now().strftime("%Y-%m-%d")
+                        with review_path.open("a", encoding="utf-8") as f:
+                            f.write(f"\n- [ ] {item.title} — *{written_path.stem}* ({date_str})\n  {item.description}\n")
+                        console.print(f"  [magenta]Review:[/] {item.title}")
 
 
 _PRIORITY_COLOR = {"high": "red", "medium": "yellow", "low": "green"}

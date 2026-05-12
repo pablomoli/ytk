@@ -8,16 +8,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-import anthropic
-
-_client: anthropic.Anthropic | None = None
-
-
-def _get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic()
-    return _client
+from .sdk import run_structured
 
 
 _VISUAL_CUE_PHRASES = [
@@ -42,28 +33,32 @@ def hint_detect(segments: list[dict]) -> list[float]:
         f"[{s['start']:.1f}s] {s.get('text', '')}" for s in segments
     )
     transcript_with_ts = transcript_with_ts[:30000]
-    client = _get_client()
-    response = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=512,
-        messages=[{
-            "role": "user",
-            "content": (
-                "Return a JSON array of timestamps (seconds, as floats) where visual content "
-                "is important in this transcript. Include on-screen references, code demos, "
-                "tool demonstrations, and 'let me show you' moments. "
-                "Return ONLY a JSON array like [12.5, 45.0]. No other text.\n\n"
-                f"Transcript:\n{transcript_with_ts}"
-            ),
-        }],
+
+    system = (
+        "Identify timestamps (in seconds) where visual content is important in a transcript. "
+        "Include on-screen references, code demos, tool demonstrations, and 'let me show you' "
+        "moments. Return a JSON object matching the provided schema."
     )
+    schema = {
+        "type": "object",
+        "properties": {
+            "timestamps": {
+                "type": "array",
+                "items": {"type": "number"},
+            }
+        },
+        "required": ["timestamps"],
+    }
+
     try:
-        timestamps = json.loads(response.content[0].text)
-        if not isinstance(timestamps, list):
-            return []
-        return sorted({float(t) for t in timestamps if isinstance(t, (int, float))})
-    except (json.JSONDecodeError, ValueError, IndexError):
+        data = run_structured(system, f"Transcript:\n{transcript_with_ts}", schema)
+    except Exception:
         return []
+
+    timestamps = data.get("timestamps", [])
+    if not isinstance(timestamps, list):
+        return []
+    return sorted({float(t) for t in timestamps if isinstance(t, (int, float))})
 
 
 def extract_frames(
@@ -127,11 +122,14 @@ def _media_type_from_content_type(ct: str) -> str:
 def image_blocks(
     urls: list[str] | None = None,
     frame_bytes: list[bytes] | None = None,
+    force_base64: bool = False,
 ) -> list[dict]:
     """Build Anthropic API content blocks from CDN image URLs or raw JPEG bytes.
 
     For URLs: tries a URL-type block first (CDN URLs are valid at ingest time).
     Falls back to downloading and base64-encoding if the HEAD check fails.
+    Pass force_base64=True to always download (e.g. Instagram CDN, which returns
+    200 on HEAD but is blocked by robots.txt when Claude fetches it directly).
     Silently skips images that cannot be loaded.
     """
     from urllib.parse import urlparse
@@ -140,14 +138,15 @@ def image_blocks(
     for url in (urls or []):
         if urlparse(url).scheme not in ("http", "https"):
             continue
-        try:
-            req = urllib.request.Request(url, method="HEAD")
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                if resp.status < 300:
-                    blocks.append({"type": "image", "source": {"type": "url", "url": url}})
-                    continue
-        except Exception:
-            pass
+        if not force_base64:
+            try:
+                req = urllib.request.Request(url, method="HEAD")
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    if resp.status < 300:
+                        blocks.append({"type": "image", "source": {"type": "url", "url": url}})
+                        continue
+            except Exception:
+                pass
         try:
             with urllib.request.urlopen(url, timeout=10) as resp:
                 ct = resp.headers.get("Content-Type", "image/jpeg")
@@ -174,15 +173,21 @@ def image_blocks(
 
 
 def download_video_temp(url: str) -> Path:
-    """Download a video-only stream to a temp .mp4 file via yt-dlp. Caller must unlink."""
-    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
-    tmp.close()
-    tmp_path = Path(tmp.name)
+    """Download a video stream to a temp .mp4 file via yt-dlp. Caller must unlink.
+
+    yt-dlp treats any pre-existing destination as already-downloaded, so we
+    reserve a unique path without creating the file.
+    """
+    fd, tmp_name = tempfile.mkstemp(suffix=".mp4")
+    import os as _os
+    _os.close(fd)
+    _os.unlink(tmp_name)
+    tmp_path = Path(tmp_name)
     try:
         subprocess.run(
             [
                 "yt-dlp", "-f", "bestvideo[ext=mp4]/best[ext=mp4]/best",
-                "--no-audio", "-o", str(tmp_path), "--no-playlist", url,
+                "-o", str(tmp_path), "--no-playlist", url,
             ],
             capture_output=True,
             check=True,

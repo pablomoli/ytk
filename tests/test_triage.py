@@ -1,25 +1,25 @@
-"""Tests for ytk/triage.py — action item extraction."""
+"""Tests for ytk/triage.py — action item extraction via Claude Agent SDK."""
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from ytk.triage import ActionItem, extract_action_items
 
 
 def test_extract_returns_items():
-    mock_result = MagicMock()
-    mock_result.parsed_output.items = [
-        ActionItem(
-            title="Fix settings page drawer layout",
-            description="Redesign as vertical drawer with right column.",
-            priority="high",
-            suggested_route="gh-issue",
-        )
-    ]
-    with patch("ytk.triage._client", None), \
-         patch("ytk.triage.anthropic.Anthropic") as mock_cls:
-        mock_cls.return_value.messages.parse.return_value = mock_result
+    fake = {
+        "items": [
+            {
+                "title": "Fix settings page drawer layout",
+                "description": "Redesign as vertical drawer with right column.",
+                "priority": "high",
+                "suggested_route": "gh-issue",
+                "suggested_repo": None,
+            }
+        ]
+    }
+    with patch("ytk.triage.run_structured", return_value=fake):
         items = extract_action_items("Fix the settings page drawer for Epic Map.")
     assert len(items) == 1
     assert items[0].title == "Fix settings page drawer layout"
@@ -28,24 +28,9 @@ def test_extract_returns_items():
 
 
 def test_extract_returns_empty_list():
-    mock_result = MagicMock()
-    mock_result.parsed_output.items = []
-    with patch("ytk.triage._client", None), \
-         patch("ytk.triage.anthropic.Anthropic") as mock_cls:
-        mock_cls.return_value.messages.parse.return_value = mock_result
+    with patch("ytk.triage.run_structured", return_value={"items": []}):
         items = extract_action_items("Had a nice walk today.")
     assert items == []
-
-
-def test_extract_reuses_client_singleton():
-    mock_result = MagicMock()
-    mock_result.parsed_output.items = []
-    mock_client = MagicMock()
-    mock_client.messages.parse.return_value = mock_result
-    with patch("ytk.triage._client", mock_client):
-        extract_action_items("first call")
-        extract_action_items("second call")
-    assert mock_client.messages.parse.call_count == 2
 
 
 def test_action_item_priority_values():
@@ -84,25 +69,15 @@ def test_action_item_suggested_repo_set():
 
 
 def test_extract_passes_repos_to_system_prompt():
-    mock_result = MagicMock()
-    mock_result.parsed_output.items = []
-    mock_client = MagicMock()
-    mock_client.messages.parse.return_value = mock_result
-    with patch("ytk.triage._client", mock_client):
+    with patch("ytk.triage.run_structured", return_value={"items": []}) as mock_run:
         extract_action_items("note text", repos=["owner/repo-a", "owner/repo-b"])
-    call_kwargs = mock_client.messages.parse.call_args
-    system_text = call_kwargs[1]["system"][0]["text"]
-    assert "owner/repo-a" in system_text
-    assert "owner/repo-b" in system_text
+    system_arg = mock_run.call_args.args[0]
+    assert "owner/repo-a" in system_arg
+    assert "owner/repo-b" in system_arg
 
 
 def test_extract_no_repos_omits_hint():
-    mock_result = MagicMock()
-    mock_result.parsed_output.items = []
-    mock_client = MagicMock()
-    mock_client.messages.parse.return_value = mock_result
-    with patch("ytk.triage._client", mock_client):
+    with patch("ytk.triage.run_structured", return_value={"items": []}) as mock_run:
         extract_action_items("note text", repos=None)
-    call_kwargs = mock_client.messages.parse.call_args
-    system_text = call_kwargs[1]["system"][0]["text"]
-    assert "Available GitHub repos" not in system_text
+    system_arg = mock_run.call_args.args[0]
+    assert "Available GitHub repos" not in system_arg

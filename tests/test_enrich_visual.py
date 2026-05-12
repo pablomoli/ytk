@@ -1,96 +1,97 @@
+"""Tests for ytk/enrich.py under the Claude Agent SDK path.
+
+The enrichment now routes through `run_structured`. When visual_blocks are
+present, image bytes are materialized into a temp dir and its path is added
+to `add_dirs`. When absent, `add_dirs` is empty and no temp dir is created.
+"""
 from __future__ import annotations
 
+import base64
+from pathlib import Path
 from unittest.mock import patch
 
 
-def _mock_enrichment():
-    from ytk.enrich import Enrichment
-    return Enrichment(
-        thesis="test thesis",
-        summary="test summary",
-        key_concepts=["tool: used here"],
-        insights=["non-obvious thing"],
-        interest_tags=["art"],
-        key_moments=[],
-    )
+def _fake_enrichment_dict() -> dict:
+    return {
+        "thesis": "test thesis",
+        "summary": "test summary",
+        "key_concepts": ["tool: used here"],
+        "insights": ["non-obvious thing"],
+        "interest_tags": ["art"],
+        "key_moments": [],
+    }
 
 
-def test_enrich_text_only_user_content_is_string():
+def _base64_image_block() -> dict:
+    data = base64.standard_b64encode(b"\xff\xd8\xff\xe0fake-jpeg").decode()
+    return {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": data}}
+
+
+def test_enrich_text_only_no_add_dirs():
     from ytk.enrich import enrich
 
-    with patch("ytk.enrich._get_client") as mock_get:
-        mock_get.return_value.messages.parse.return_value.parsed_output = _mock_enrichment()
+    with patch("ytk.enrich.run_structured", return_value=_fake_enrichment_dict()) as mock_run:
         enrich("transcript text", {"title": "T", "uploader": "U", "duration": 60, "tags": []})
 
-    call_kwargs = mock_get.return_value.messages.parse.call_args.kwargs
-    assert isinstance(call_kwargs["messages"][0]["content"], str)
+    kwargs = mock_run.call_args.kwargs
+    assert kwargs["add_dirs"] == []
 
 
-def test_enrich_with_visual_blocks_user_content_is_list():
+def test_enrich_with_visual_blocks_materializes_to_add_dirs():
     from ytk.enrich import enrich
 
-    visual = [{"type": "image", "source": {"type": "url", "url": "https://example.com/img.jpg"}}]
-    with patch("ytk.enrich._get_client") as mock_get:
-        mock_get.return_value.messages.parse.return_value.parsed_output = _mock_enrichment()
+    visual = [_base64_image_block(), _base64_image_block()]
+    seen_dirs: list[Path] = []
+
+    def fake_run(system, prompt, schema, add_dirs=None, max_turns=20):
+        assert add_dirs, "expected add_dirs populated when visual_blocks present"
+        for d in add_dirs:
+            p = Path(d)
+            assert p.exists(), f"staged image dir should exist during SDK call: {p}"
+            jpgs = sorted(p.glob("*.jpg"))
+            assert len(jpgs) == len(visual)
+            seen_dirs.append(p)
+        return _fake_enrichment_dict()
+
+    with patch("ytk.enrich.run_structured", side_effect=fake_run):
         enrich(
             "caption text",
             {"title": "T", "uploader": "U", "duration": 0, "tags": []},
             visual_blocks=visual,
         )
 
-    call_kwargs = mock_get.return_value.messages.parse.call_args.kwargs
-    content = call_kwargs["messages"][0]["content"]
-    assert isinstance(content, list)
-    assert any(b.get("type") == "image" for b in content)
-    assert any(b.get("type") == "text" for b in content)
+    # Temp dir should be cleaned up once enrich returns
+    for d in seen_dirs:
+        assert not d.exists()
 
 
-def test_enrich_visual_system_prompt_includes_image_note():
+def test_enrich_prompt_lists_frame_paths_when_visual():
     from ytk.enrich import enrich
 
-    visual = [{"type": "image", "source": {"type": "url", "url": "https://example.com/img.jpg"}}]
-    with patch("ytk.enrich._get_client") as mock_get:
-        mock_get.return_value.messages.parse.return_value.parsed_output = _mock_enrichment()
+    visual = [_base64_image_block()]
+    with patch("ytk.enrich.run_structured", return_value=_fake_enrichment_dict()) as mock_run:
         enrich(
             "caption",
             {"title": "T", "uploader": "U", "duration": 0, "tags": []},
             visual_blocks=visual,
         )
-
-    call_kwargs = mock_get.return_value.messages.parse.call_args.kwargs
-    # Two system blocks when visual — index 1 has the visual addendum
-    system_blocks = call_kwargs["system"]
-    assert len(system_blocks) == 2
-    assert "images" in system_blocks[1]["text"] or "frames" in system_blocks[1]["text"]
+    prompt = mock_run.call_args.args[1]
+    assert "Extracted frames" in prompt
+    assert "frame-00.jpg" in prompt
 
 
-def test_enrich_text_only_system_has_one_block():
+def test_enrich_none_visual_blocks_behaves_like_no_arg():
     from ytk.enrich import enrich
 
-    with patch("ytk.enrich._get_client") as mock_get:
-        mock_get.return_value.messages.parse.return_value.parsed_output = _mock_enrichment()
+    prompts: list[str] = []
+
+    def fake_run(system, prompt, schema, add_dirs=None, max_turns=20):
+        prompts.append(prompt)
+        return _fake_enrichment_dict()
+
+    with patch("ytk.enrich.run_structured", side_effect=fake_run):
         enrich("t", {"title": "T", "uploader": "U", "duration": 0, "tags": []})
-
-    call_kwargs = mock_get.return_value.messages.parse.call_args.kwargs
-    assert len(call_kwargs["system"]) == 1
-    assert call_kwargs["system"][0]["cache_control"] == {"type": "ephemeral"}
-
-
-def test_enrich_none_visual_blocks_behaves_identically_to_no_arg():
-    from ytk.enrich import enrich
-
-    enrichment = _mock_enrichment()
-    contents = []
-    with patch("ytk.enrich._get_client") as mock_get:
-        mock_get.return_value.messages.parse.return_value.parsed_output = enrichment
-        enrich("t", {"title": "T", "uploader": "U", "duration": 0, "tags": []})
-        contents.append(
-            mock_get.return_value.messages.parse.call_args.kwargs["messages"][0]["content"]
-        )
         enrich("t", {"title": "T", "uploader": "U", "duration": 0, "tags": []}, visual_blocks=None)
-        contents.append(
-            mock_get.return_value.messages.parse.call_args.kwargs["messages"][0]["content"]
-        )
 
-    assert isinstance(contents[0], str)
-    assert isinstance(contents[1], str)
+    assert prompts[0] == prompts[1]
+    assert "Extracted frames" not in prompts[0]

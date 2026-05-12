@@ -1,88 +1,123 @@
 """Local UI server for ytk vault chat and browsing.
 
-Exposes a streaming Anthropic chat endpoint with vault tools pre-wired,
-a vault search endpoint, and a note reader endpoint. Serves the single-page
-HTML shell from ytk/ui/static/index.html.
+Exposes a streaming Claude Agent SDK chat endpoint with vault tools pre-wired
+as in-process MCP tools, a vault search endpoint, and a note reader endpoint.
+Serves the single-page HTML shell from ytk/ui/static/index.html.
 """
 
 from __future__ import annotations
 
 import json
-import os
+import shutil
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
-import anthropic
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ClaudeSDKClient,
+    ResultMessage,
+    TextBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
+    create_sdk_mcp_server,
+    tool,
+)
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 _STATIC_DIR = Path(__file__).parent / "static"
-_MODEL = "claude-haiku-4-5-20251001"
 
 app = FastAPI(title="ytk vault chat", docs_url=None, redoc_url=None)
 
+
 # ---------------------------------------------------------------------------
-# Vault tools exposed to the LLM
+# Vault tools — exposed to the model as an in-process MCP server
 # ---------------------------------------------------------------------------
 
-_VAULT_TOOLS: list[dict] = [
-    {
-        "name": "vault_search",
-        "description": "Semantic search across all vault notes. Returns the most relevant notes.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Natural-language search query"},
-                "n": {"type": "integer", "description": "Max results (default 5)", "default": 5},
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "vault_read",
-        "description": "Read a vault note by its relative path (e.g. 'second-brain/sources/youtube/video-title.md').",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "Relative path from vault root"},
-            },
-            "required": ["path"],
-        },
-    },
-    {
-        "name": "vault_remember",
-        "description": "Save a memory note to the vault for future retrieval.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "content": {"type": "string", "description": "Memory content to save"},
-                "tags": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Optional tags (e.g. ['ytk', 'insight'])",
-                },
-            },
-            "required": ["content"],
-        },
-    },
-    {
-        "name": "vault_list",
-        "description": "List vault notes matching an optional glob pattern relative to vault root.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "pattern": {
-                    "type": "string",
-                    "description": "Glob pattern (default: '**/*.md')",
-                    "default": "**/*.md",
-                },
-                "limit": {"type": "integer", "description": "Max results (default 20)", "default": 20},
-            },
-        },
-    },
+
+def _text_result(text: str) -> dict[str, Any]:
+    return {"content": [{"type": "text", "text": text}]}
+
+
+@tool(
+    "vault_search",
+    "Semantic search across all vault notes. Returns the most relevant notes.",
+    {"query": str, "n": int},
+)
+async def vault_search_tool(args: dict[str, Any]) -> dict[str, Any]:
+    from ytk.store import search_videos
+
+    results = search_videos(args["query"], n=int(args.get("n") or 5))
+    if not results:
+        return _text_result("No results found.")
+    lines = [f"- [{r.title}] ({r.url}) — distance: {r.distance:.3f}" for r in results]
+    return _text_result("\n".join(lines))
+
+
+@tool(
+    "vault_read",
+    "Read a vault note by its relative path (e.g. 'second-brain/sources/youtube/video-title.md').",
+    {"path": str},
+)
+async def vault_read_tool(args: dict[str, Any]) -> dict[str, Any]:
+    from ytk.vault import read_note
+
+    content = read_note(args["path"])
+    if content is None:
+        return _text_result(f"Note not found: {args['path']}")
+    return _text_result(content[:8000])
+
+
+@tool(
+    "vault_remember",
+    "Save a memory note to the vault for future retrieval.",
+    {"content": str, "tags": list},
+)
+async def vault_remember_tool(args: dict[str, Any]) -> dict[str, Any]:
+    from ytk.vault import remember
+
+    path = remember(args["content"], tags=args.get("tags") or [])
+    return _text_result(f"Saved to vault: {path}")
+
+
+@tool(
+    "vault_list",
+    "List vault notes matching an optional glob pattern relative to vault root.",
+    {"pattern": str, "limit": int},
+)
+async def vault_list_tool(args: dict[str, Any]) -> dict[str, Any]:
+    from ytk.vault import _get_vault_path
+
+    vault = _get_vault_path()
+    pattern = args.get("pattern") or "**/*.md"
+    limit = int(args.get("limit") or 20)
+    matches = sorted(vault.glob(pattern))[:limit]
+    if not matches:
+        return _text_result("No notes matched.")
+    return _text_result("\n".join(str(p.relative_to(vault)) for p in matches))
+
+
+_VAULT_MCP = create_sdk_mcp_server(
+    name="vault",
+    version="1.0.0",
+    tools=[
+        vault_search_tool,
+        vault_read_tool,
+        vault_remember_tool,
+        vault_list_tool,
+    ],
+)
+
+_ALLOWED_TOOLS = [
+    "mcp__vault__vault_search",
+    "mcp__vault__vault_read",
+    "mcp__vault__vault_remember",
+    "mcp__vault__vault_list",
 ]
+
 
 _SYSTEM_PROMPT = """You are a personal knowledge assistant with access to the user's Obsidian vault.
 The vault contains YouTube video notes, web articles, memories, and project session briefs.
@@ -94,143 +129,133 @@ Be concise and specific. Reference exact tools, commands, and timestamps from th
 Never hallucinate content — if you cannot find it, say so and offer to search differently."""
 
 
-def _dispatch_tool(name: str, inputs: dict) -> str:
-    """Execute a vault tool call and return the result as a string."""
-    try:
-        if name == "vault_search":
-            from ytk.store import search_videos
-            results = search_videos(inputs["query"], n=inputs.get("n", 5))
-            if not results:
-                return "No results found."
-            lines = []
-            for r in results:
-                lines.append(f"- [{r.title}] ({r.url}) — distance: {r.distance:.3f}")
-            return "\n".join(lines)
-
-        elif name == "vault_read":
-            from ytk.vault import read_note
-            content = read_note(inputs["path"])
-            if content is None:
-                return f"Note not found: {inputs['path']}"
-            return content[:8000]  # cap to avoid huge context
-
-        elif name == "vault_remember":
-            from ytk.vault import remember
-            path = remember(inputs["content"], tags=inputs.get("tags") or [])
-            return f"Saved to vault: {path}"
-
-        elif name == "vault_list":
-            from ytk.vault import _get_vault_path
-            vault = _get_vault_path()
-            pattern = inputs.get("pattern", "**/*.md")
-            limit = inputs.get("limit", 20)
-            matches = sorted(vault.glob(pattern))[:limit]
-            if not matches:
-                return "No notes matched."
-            return "\n".join(str(p.relative_to(vault)) for p in matches)
-
-        else:
-            return f"Unknown tool: {name}"
-    except Exception as exc:
-        return f"Tool error: {exc}"
-
-
 # ---------------------------------------------------------------------------
 # Streaming chat endpoint
 # ---------------------------------------------------------------------------
 
+
 class ChatRequest(BaseModel):
     messages: list[dict]
-    model: str = _MODEL
+    # `model` retained for wire compatibility with the existing SPA, but the
+    # Agent SDK selects the model via Claude Code config, not per-request.
+    model: str | None = None
 
 
-async def _stream_chat(messages: list[dict], model: str) -> AsyncGenerator[str, None]:
+def _flatten_content(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return " ".join(parts)
+    return ""
+
+
+def _build_prompt(messages: list[dict]) -> str:
+    """Flatten the chat history into a single prompt.
+
+    The chat endpoint is stateless — the SPA sends full history every request —
+    so we replay prior turns as context and let the latest user message drive
+    the response.
     """
-    Agentic loop: send messages to Anthropic, handle tool_use blocks by
-    dispatching vault tools, then continue the stream. Yields SSE-formatted
-    text chunks.
-    """
-    client = anthropic.Anthropic()
-    conversation = list(messages)
+    if not messages:
+        return ""
+    if len(messages) == 1:
+        return _flatten_content(messages[0].get("content", ""))
 
-    while True:
-        # Collect a complete response before deciding whether to loop
-        full_text = ""
-        tool_calls: list[dict] = []
-        stop_reason = None
+    lines = ["Previous conversation:"]
+    for m in messages[:-1]:
+        role = (m.get("role") or "user").upper()
+        text = _flatten_content(m.get("content", ""))
+        if text:
+            lines.append(f"\n{role}: {text}")
+    latest = _flatten_content(messages[-1].get("content", ""))
+    lines.append(f"\n\nCurrent message:\n{latest}")
+    return "\n".join(lines)
 
-        with client.messages.stream(
-            model=model,
-            max_tokens=2048,
-            system=_SYSTEM_PROMPT,
-            tools=_VAULT_TOOLS,
-            messages=conversation,
-        ) as stream:
-            for event in stream:
-                if hasattr(event, "type"):
-                    if event.type == "content_block_start":
-                        if hasattr(event, "content_block") and event.content_block.type == "tool_use":
-                            tool_calls.append({
-                                "id": event.content_block.id,
-                                "name": event.content_block.name,
-                                "input_json": "",
-                            })
-                    elif event.type == "content_block_delta":
-                        delta = event.delta
-                        if delta.type == "text_delta":
-                            full_text += delta.text
-                            yield f"data: {json.dumps({'type': 'text', 'text': delta.text})}\n\n"
-                        elif delta.type == "input_json_delta":
-                            if tool_calls:
-                                tool_calls[-1]["input_json"] += delta.partial_json
-                    elif event.type == "message_delta":
-                        stop_reason = getattr(event.delta, "stop_reason", None)
 
-        if not tool_calls or stop_reason == "end_turn":
-            # No tool calls — done
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-            break
+def _sse(event: dict[str, Any]) -> str:
+    return f"data: {json.dumps(event)}\n\n"
 
-        # Execute tool calls and continue the loop
-        assistant_content = []
-        if full_text:
-            assistant_content.append({"type": "text", "text": full_text})
-        for tc in tool_calls:
-            try:
-                inputs = json.loads(tc["input_json"]) if tc["input_json"] else {}
-            except json.JSONDecodeError:
-                inputs = {}
-            assistant_content.append({
-                "type": "tool_use",
-                "id": tc["id"],
-                "name": tc["name"],
-                "input": inputs,
-            })
-        conversation.append({"role": "assistant", "content": assistant_content})
 
-        tool_results = []
-        for tc in tool_calls:
-            try:
-                inputs = json.loads(tc["input_json"]) if tc["input_json"] else {}
-            except json.JSONDecodeError:
-                inputs = {}
-            yield f"data: {json.dumps({'type': 'tool_call', 'name': tc['name'], 'inputs': inputs})}\n\n"
-            result = _dispatch_tool(tc["name"], inputs)
-            yield f"data: {json.dumps({'type': 'tool_result', 'name': tc['name'], 'result': result[:500]})}\n\n"
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": tc["id"],
-                "content": result,
-            })
+async def _stream_chat(messages: list[dict]) -> AsyncGenerator[str, None]:
+    """Stream a vault-grounded response via the Claude Agent SDK."""
+    prompt = _build_prompt(messages)
 
-        conversation.append({"role": "user", "content": tool_results})
-        # loop continues — model will process tool results and respond
+    options = ClaudeAgentOptions(
+        system_prompt=_SYSTEM_PROMPT,
+        mcp_servers={"vault": _VAULT_MCP},
+        allowed_tools=_ALLOWED_TOOLS,
+        permission_mode="bypassPermissions",
+        max_turns=10,
+        setting_sources=None,
+        env={"ANTHROPIC_API_KEY": ""},
+        cli_path=shutil.which("claude"),
+    )
+
+    pending_tool_names: dict[str, str] = {}
+
+    try:
+        async with ClaudeSDKClient(options=options) as client:
+            await client.query(prompt)
+            async for msg in client.receive_response():
+                if isinstance(msg, AssistantMessage):
+                    for block in msg.content:
+                        if isinstance(block, TextBlock):
+                            if block.text:
+                                yield _sse({"type": "text", "text": block.text})
+                        elif isinstance(block, ToolUseBlock):
+                            pending_tool_names[block.id] = block.name
+                            yield _sse(
+                                {
+                                    "type": "tool_call",
+                                    "name": block.name,
+                                    "inputs": block.input,
+                                }
+                            )
+                elif isinstance(msg, UserMessage):
+                    for block in msg.content:
+                        if isinstance(block, ToolResultBlock):
+                            tool_name = pending_tool_names.pop(
+                                block.tool_use_id, ""
+                            )
+                            content = block.content
+                            if isinstance(content, list):
+                                content = " ".join(
+                                    b.get("text", "")
+                                    for b in content
+                                    if isinstance(b, dict)
+                                )
+                            elif not isinstance(content, str):
+                                content = json.dumps(content)
+                            yield _sse(
+                                {
+                                    "type": "tool_result",
+                                    "name": tool_name,
+                                    "result": (content or "")[:500],
+                                }
+                            )
+                elif isinstance(msg, ResultMessage):
+                    if msg.is_error:
+                        yield _sse(
+                            {
+                                "type": "error",
+                                "error": str(msg.result) if msg.result else "Agent SDK error",
+                            }
+                        )
+                    yield _sse({"type": "done"})
+                    return
+    except Exception as exc:
+        yield _sse({"type": "error", "error": str(exc)})
+        yield _sse({"type": "done"})
 
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     return StreamingResponse(
-        _stream_chat(req.messages, req.model),
+        _stream_chat(req.messages),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -243,10 +268,12 @@ async def chat(req: ChatRequest):
 # Vault search endpoint (for sidebar)
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/search")
 async def search(q: str, n: int = 8):
     try:
         from ytk.store import search_videos
+
         results = search_videos(q, n=n)
         return [
             {
@@ -265,10 +292,12 @@ async def search(q: str, n: int = 8):
 # Vault note reader endpoint (for in-panel display)
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/note")
 async def read_note_api(path: str):
     try:
         from ytk.vault import read_note
+
         content = read_note(path)
         if content is None:
             raise HTTPException(status_code=404, detail="Note not found")
@@ -282,6 +311,7 @@ async def read_note_api(path: str):
 # ---------------------------------------------------------------------------
 # Serve the SPA shell
 # ---------------------------------------------------------------------------
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index():

@@ -1,21 +1,12 @@
-"""Action item extraction from vault notes using Claude Haiku."""
+"""Action item extraction from vault notes via Claude Code (Agent SDK)."""
 
 from __future__ import annotations
 
 from typing import Literal
 
-import anthropic
 from pydantic import BaseModel
 
-
-_client: anthropic.Anthropic | None = None
-
-
-def _get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic()
-    return _client
+from .sdk import run_structured
 
 
 _SYSTEM_TRIAGE_BASE = """\
@@ -53,18 +44,13 @@ class TriageResult(BaseModel):
 
 
 def extract_action_items(note_text: str, repos: list[str] | None = None) -> list[ActionItem]:
-    """Extract structured action items from a vault note using Claude Haiku."""
-    client = _get_client()
-    repo_hint = (
-        f"\nAvailable GitHub repos: {', '.join(repos)}\n"
-        if repos else ""
-    )
+    """Extract structured action items from a vault note via Claude Code."""
+    repo_hint = f"\nAvailable GitHub repos: {', '.join(repos)}\n" if repos else ""
     system = _SYSTEM_TRIAGE_BASE + repo_hint
-    response = client.messages.parse(
-        model="claude-haiku-4-5",
-        max_tokens=2048,
-        system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-        messages=[{"role": "user", "content": note_text[:20_000]}],
-        output_format=TriageResult,
+
+    data = run_structured(
+        system,
+        note_text[:20_000],
+        TriageResult.model_json_schema(),
     )
-    return response.parsed_output.items
+    return TriageResult.model_validate(data).items

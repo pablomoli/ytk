@@ -22,6 +22,8 @@ build/
 
 # claude code session state
 .claude/
+.superpowers/
+ytk/CLAUDE.md
 
 # git worktrees
 .worktrees/
