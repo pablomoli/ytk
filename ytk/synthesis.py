@@ -82,7 +82,8 @@ def build_synthesis_prompt(notes: list[dict], labels: list[int]) -> str:
     """Render the clustered notes into a compact prompt for the synthesis call."""
     blocks: list[str] = []
     for c, idxs in sorted(_group_by_cluster(labels).items()):
-        lines = [f"Cluster {c} ({len(idxs)} notes):"]
+        note_word = "note" if len(idxs) == 1 else "notes"
+        lines = [f"Cluster {c} ({len(idxs)} {note_word}):"]
         for i in idxs:
             n = notes[i]
             tags = ", ".join(n["tags"])
@@ -150,7 +151,8 @@ def render_profile_markdown(snapshot: InterestSnapshot) -> str:
     ]
     for t in snapshot.themes:
         pct = round(t.weight * 100)
-        lines.append(f"### {t.label}  ({pct}% · {len(t.note_ids)} notes)")
+        note_word = "note" if len(t.note_ids) == 1 else "notes"
+        lines.append(f"### {t.label} ({pct}% · {len(t.note_ids)} {note_word})")
         lines.append("")
         lines.append(t.summary.strip())
         lines.append("")

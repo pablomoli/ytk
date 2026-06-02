@@ -47,7 +47,7 @@ def _notes():
 def test_build_synthesis_prompt_groups_by_cluster():
     prompt = build_synthesis_prompt(_notes(), [0, 0, 1])
     assert "Cluster 0 (2 notes)" in prompt
-    assert "Cluster 1 (1 notes)" in prompt
+    assert "Cluster 1 (1 note)" in prompt
     assert "Shader Tricks" in prompt and "Cold Brew" in prompt
 
 
