@@ -180,6 +180,7 @@ second-brain/wiki/index.md            — lightweight index of all vault content
 second-brain/projects/ytk/            — session briefs, specs, decisions
 second-brain/inbox/ideas.md           — loose ideas and backlog items
 second-brain/inbox/review-[date].md   — daily routing digest (phase 7)
+second-brain/me/profile.md            — living interest profile (ytk profile, interest-model synthesis)
 second-brain/inbox/memories/index.md  — project memory MOC (all projects)
 second-brain/inbox/memories/{slug}/   — per-project atom folder
   index.md                            — project hub (wikilinks to atoms)
