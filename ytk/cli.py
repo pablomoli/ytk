@@ -296,7 +296,7 @@ def auth():
 
 @cli.command()
 @click.option("--dry-run", is_flag=True, default=False, help="Print what would be synced without running the pipeline.")
-@click.option("-v", "--verbose", is_flag=True, default=False, help="Print step-by-step progress for each video.")
+@click.option("-v/-q", "--verbose/--quiet", default=True, help="Step-by-step progress per video (default) vs. a spinner.")
 def sync(dry_run: bool, verbose: bool):
     """Poll the 'ytk' YouTube playlist and ingest new videos."""
     from .scheduler import authenticate, sync as _sync

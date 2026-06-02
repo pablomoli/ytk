@@ -6,7 +6,12 @@ import hashlib
 import re
 from pathlib import Path
 
-from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+from youtube_transcript_api import (
+    YouTubeTranscriptApi,
+    NoTranscriptFound,
+    TranscriptsDisabled,
+    RequestBlocked,
+)
 
 _AUDIO_CACHE = Path.home() / ".ytk" / "audio"
 
@@ -92,7 +97,7 @@ def fetch_transcript(url: str, whisper_model: str = "base") -> tuple[list[dict],
     video_id = _video_id(url)
     try:
         return _fetch_via_api(video_id)
-    except (NoTranscriptFound, TranscriptsDisabled):
+    except (NoTranscriptFound, TranscriptsDisabled, RequestBlocked):
         return _fetch_via_whisper(url, whisper_model=whisper_model)
 
 

@@ -46,6 +46,18 @@ def test_fetch_transcript_falls_back_to_whisper():
     assert source == "whisper"
 
 
+def test_fetch_transcript_falls_back_on_ip_block():
+    """When YouTube IP-blocks the transcript endpoint, fetch_transcript falls back to Whisper."""
+    from youtube_transcript_api import IpBlocked
+
+    with patch("ytk.transcript._fetch_via_api", side_effect=IpBlocked("abc12345678")), \
+         patch("ytk.transcript._fetch_via_whisper", return_value=([], "whisper")) as mock_whisper:
+        segments, source = fetch_transcript("https://youtu.be/abc12345678")
+
+    mock_whisper.assert_called_once()
+    assert source == "whisper"
+
+
 def test_fetch_transcript_no_ytdlp_subtitle_tier():
     """The old yt-dlp subtitle tier is gone — only two tiers exist."""
     import ytk.transcript as t

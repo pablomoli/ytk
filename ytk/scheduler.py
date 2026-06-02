@@ -179,17 +179,17 @@ def sync(
     _log("fetching playlist...")
     videos = fetch_playlist_videos(service)
     result.seen = len(videos)
-    _log(f"playlist: {len(videos)} videos")
+    new_videos = [v for v in videos if not db.is_processed(v["video_id"])]
+    result.already_processed = len(videos) - len(new_videos)
+    _log(f"{len(videos)} in playlist - {result.already_processed} already processed, {len(new_videos)} new")
+    if not dry_run:
+        for v in new_videos:
+            _log(f"  will process: {v['title']} ({v['video_id']})")
 
-    for entry in videos:
+    for entry in new_videos:
         video_id: str = entry["video_id"]
         title: str = entry["title"]
         url = f"https://www.youtube.com/watch?v={video_id}"
-
-        if db.is_processed(video_id):
-            _log(f"skip (already processed): {title!r}")
-            result.already_processed += 1
-            continue
 
         if dry_run:
             print(f"[dry-run] would process: {title} ({video_id})", file=sys.stderr)
