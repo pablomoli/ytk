@@ -343,3 +343,47 @@ def get_all_videos() -> list[dict]:
             "embedding": list(emb),
         })
     return out
+
+
+_THESIS_RE = re.compile(r"##\s*Thesis\s*\n(.+?)(?:\n##|\Z)", re.DOTALL)
+
+
+def _extract_thesis(document: str) -> str:
+    """Pull the text under a '## Thesis' heading from a stored note body, else a short prefix."""
+    m = _THESIS_RE.search(document or "")
+    if m:
+        return m.group(1).strip()
+    return (document or "").strip()[:200]
+
+
+def get_content_memories(prefixes: list[str]) -> list[dict]:
+    """Return memory docs whose doc_id starts with one of the given prefixes (+ '_').
+
+    Each item: {id, title, thesis, summary, tags(list[str]), embedding(list[float])}.
+    title is '' (memories have no separate title); thesis is extracted from the
+    stored note body's '## Thesis' section. Used by the synthesis engine so the
+    interest profile reflects ingested reels/TikToks/articles, not just YouTube.
+    Returns [] when empty.
+    """
+    col = _memories_collection()
+    if col.count() == 0:
+        return []
+    allow = tuple(f"{p}_" for p in prefixes)
+    res = col.get(include=["embeddings", "metadatas", "documents"])
+    out: list[dict] = []
+    for mid, emb, meta, doc in zip(
+        res["ids"], res["embeddings"], res["metadatas"], res["documents"]
+    ):
+        doc_id = meta.get("doc_id", mid)
+        if not doc_id.startswith(allow):
+            continue
+        tags = meta.get("tags", "")
+        out.append({
+            "id": mid,
+            "title": "",
+            "thesis": _extract_thesis(doc),
+            "summary": "",
+            "tags": tags.split(", ") if tags else [],
+            "embedding": list(emb),
+        })
+    return out
