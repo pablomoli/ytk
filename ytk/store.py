@@ -319,3 +319,27 @@ def search_all(query: str, n: int = 5) -> list[UnifiedResult]:
 
     out.sort(key=lambda r: r.distance)
     return out[:n]
+
+
+def get_all_videos() -> list[dict]:
+    """Return every video-level record with its embedding and enrichment metadata.
+
+    Each item: {id, title, thesis, summary, tags(list[str]), embedding(list[float])}.
+    Used by the synthesis engine for clustering. Returns [] when empty.
+    """
+    col = _videos_collection()
+    if col.count() == 0:
+        return []
+    res = col.get(include=["embeddings", "metadatas"])
+    out: list[dict] = []
+    for vid, emb, meta in zip(res["ids"], res["embeddings"], res["metadatas"]):
+        tags = meta.get("tags", "")
+        out.append({
+            "id": vid,
+            "title": meta.get("title", ""),
+            "thesis": meta.get("thesis", ""),
+            "summary": meta.get("summary", ""),
+            "tags": tags.split(", ") if tags else [],
+            "embedding": list(emb),
+        })
+    return out
