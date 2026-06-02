@@ -16,10 +16,18 @@ class FilterConfig(BaseModel):
     interest_tags: list[str] = Field(default_factory=list, description="At least one tag must match enrichment output. Empty list allows all.")
 
 
+class InterestConfig(BaseModel):
+    """Configuration for the interest-model synthesis engine."""
+
+    cluster_min: int = Field(default=3, description="Minimum number of theme clusters.")
+    cluster_max: int = Field(default=24, description="Maximum number of theme clusters.")
+
+
 class Config(BaseModel):
     filters: FilterConfig = Field(default_factory=FilterConfig)
     whisper_model: str = Field(default="base", description="faster-whisper model size: base | small | medium | large")
     github_repos: list[str] = Field(default_factory=list, description="GitHub repos (owner/name) available when creating issues via ytk triage.")
+    interest: InterestConfig = Field(default_factory=InterestConfig)
 
 
 _DEFAULT_CONFIG_PATH = Path.home() / ".ytk" / "config.yaml"
