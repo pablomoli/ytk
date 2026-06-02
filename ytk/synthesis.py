@@ -195,10 +195,15 @@ def _write_profile_note(snapshot: InterestSnapshot) -> Path:
 def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     """Gather -> cluster -> synthesize -> persist. Returns (snapshot, profile_path).
 
-    Raises SynthesisTooSparse if the vault has fewer than min_notes notes.
+    Notes without embeddings are filtered out before clustering so a malformed
+    record cannot cause a ragged-array ValueError in KMeans. The min_notes
+    sparse check runs against this filtered set, so a vault of embedding-less
+    records is correctly reported as sparse rather than crashing.
+
+    Raises SynthesisTooSparse if fewer than min_notes embeddable notes exist.
     """
     cfg = load_config()
-    notes = get_all_videos()
+    notes = [n for n in get_all_videos() if n.get("embedding")]
     if len(notes) < min_notes:
         raise SynthesisTooSparse(len(notes), min_notes)
 

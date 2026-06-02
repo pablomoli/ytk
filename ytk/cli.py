@@ -369,7 +369,10 @@ def profile_cmd():
             f"[yellow]Vault too sparse:[/] {exc.have} notes "
             f"(need {exc.need}). Run [bold]ytk feed[/] or [bold]ytk sync[/] first."
         )
-        return
+        raise SystemExit(1)
+    except Exception as exc:
+        console.print(f"[red]Profile failed:[/] {exc}")
+        raise SystemExit(1)
 
     console.print(f"[green]Profile written:[/] {path}")
     table = Table(box=box.SIMPLE, title=f"{len(snapshot.themes)} themes · {snapshot.note_count} notes")
