@@ -356,6 +356,31 @@ def search(query: str, n: int):
         ))
 
 
+@cli.command(name="profile")
+def profile_cmd():
+    """Synthesize a living interest profile from everything in the vault."""
+    from .synthesis import run_profile, SynthesisTooSparse
+
+    try:
+        with console.status("[bold cyan]Clustering and synthesizing...[/]"):
+            snapshot, path = run_profile()
+    except SynthesisTooSparse as exc:
+        console.print(
+            f"[yellow]Vault too sparse:[/] {exc.have} notes "
+            f"(need {exc.need}). Run [bold]ytk feed[/] or [bold]ytk sync[/] first."
+        )
+        return
+
+    console.print(f"[green]Profile written:[/] {path}")
+    table = Table(box=box.SIMPLE, title=f"{len(snapshot.themes)} themes · {snapshot.note_count} notes")
+    table.add_column("Theme", style="cyan")
+    table.add_column("Share", justify="right")
+    table.add_column("Notes", justify="right")
+    for t in snapshot.themes:
+        table.add_row(t.label, f"{round(t.weight * 100)}%", str(len(t.note_ids)))
+    console.print(table)
+
+
 @cli.command(name="remember")
 @click.argument("text", required=False, default="")
 @click.option("--tags", "-t", default="", help="Comma-separated tags.")

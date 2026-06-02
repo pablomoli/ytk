@@ -133,6 +133,30 @@ def assemble_snapshot(
     )
 
 
+_PROFILE_SYSTEM = """\
+You are building a portrait of a specific person from the content they save and \
+study. You will receive their saved items grouped into clusters by semantic \
+similarity.
+
+Return JSON matching the schema.
+
+themes
+  One entry per cluster you are shown. Use the exact cluster_index given. Give \
+each a short human label (2-4 words, e.g. "GPU & creative coding", "personal \
+finance") and a one-sentence summary of what ties the cluster together and what \
+it says about the person's interest in it.
+
+profile_markdown
+  A warm, specific, second-person portrait ("You are...") of 150-300 words. Name \
+concrete recurring interests, tools, and themes you see across the clusters. Call \
+out what they seem most drawn to, any throughline connecting disparate clusters, \
+and what is conspicuously emerging. Be specific and grounded in the items shown — \
+never generic. Do not list the clusters mechanically; synthesize.\
+"""
+
+_PROFILE_SCHEMA = ProfileSynthesis.model_json_schema()
+
+
 def render_profile_markdown(snapshot: InterestSnapshot) -> str:
     """Render a snapshot to the Obsidian note body written to second-brain/me/profile.md."""
     lines = [
@@ -157,3 +181,37 @@ def render_profile_markdown(snapshot: InterestSnapshot) -> str:
         lines.append(t.summary.strip())
         lines.append("")
     return "\n".join(lines)
+
+
+def _write_profile_note(snapshot: InterestSnapshot) -> Path:
+    """Write the rendered profile to second-brain/me/profile.md, creating dirs."""
+    me_dir = _get_brain_path() / "me"
+    me_dir.mkdir(parents=True, exist_ok=True)
+    path = me_dir / "profile.md"
+    path.write_text(render_profile_markdown(snapshot), encoding="utf-8")
+    return path
+
+
+def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
+    """Gather -> cluster -> synthesize -> persist. Returns (snapshot, profile_path).
+
+    Raises SynthesisTooSparse if the vault has fewer than min_notes notes.
+    """
+    cfg = load_config()
+    notes = get_all_videos()
+    if len(notes) < min_notes:
+        raise SynthesisTooSparse(len(notes), min_notes)
+
+    embeddings = np.array([n["embedding"] for n in notes], dtype=float)
+    k = choose_k(len(notes), cfg.interest)
+    labels = cluster_embeddings(embeddings, k)
+
+    prompt = build_synthesis_prompt(notes, labels)
+    data = run_structured(_PROFILE_SYSTEM, prompt, _PROFILE_SCHEMA)
+    synthesis = ProfileSynthesis.model_validate(data)
+
+    now = datetime.now(timezone.utc)
+    snapshot = assemble_snapshot(notes, labels, synthesis, now.isoformat())
+    save_snapshot(snapshot, now.strftime("%Y%m%dT%H%M%SZ"))
+    profile_path = _write_profile_note(snapshot)
+    return snapshot, profile_path
