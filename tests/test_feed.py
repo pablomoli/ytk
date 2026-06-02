@@ -22,3 +22,9 @@ def test_collect_merges_args_and_file_dedupes(tmp_path):
 
 def test_collect_empty():
     assert _collect_feed_urls(None, ()) == []
+
+
+def test_collect_file_only(tmp_path):
+    f = tmp_path / "urls.txt"
+    f.write_text("https://www.tiktok.com/@x/video/9\n", encoding="utf-8")
+    assert _collect_feed_urls(str(f), ()) == ["https://www.tiktok.com/@x/video/9"]

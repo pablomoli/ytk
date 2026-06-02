@@ -250,12 +250,20 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
         return
 
     ok = 0
+    skipped = 0
     failed = 0
     for i, url in enumerate(items, 1):
         console.rule(f"[bold]{i}/{len(items)}[/] {url}")
         try:
             ctx.invoke(add, url=url, force=force)
             ok += 1
+        except SystemExit as exc:
+            if exc.code in (0, None):
+                skipped += 1
+                console.print("[dim]skipped (filtered or already ingested)[/]")
+            else:
+                failed += 1
+                console.print(f"[red]failed:[/] exited {exc.code}")
         except Exception as exc:
             failed += 1
             console.print(f"[red]failed:[/] {exc}")
@@ -263,8 +271,9 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
     table = Table(box=box.SIMPLE, title="Feed Result")
     table.add_column("Total", justify="right")
     table.add_column("OK", justify="right", style="green")
+    table.add_column("Skipped", justify="right", style="yellow")
     table.add_column("Failed", justify="right", style="red")
-    table.add_row(str(len(items)), str(ok), str(failed))
+    table.add_row(str(len(items)), str(ok), str(skipped), str(failed))
     console.print(table)
 
 
