@@ -21,6 +21,10 @@ class InterestConfig(BaseModel):
 
     cluster_min: int = Field(default=3, description="Minimum number of theme clusters.")
     cluster_max: int = Field(default=24, description="Maximum number of theme clusters.")
+    content_sources: list[str] = Field(
+        default_factory=lambda: ["instagram", "tiktok", "web"],
+        description="doc_id prefixes from the memories collection to include in the interest profile (besides YouTube videos).",
+    )
 
 
 class Config(BaseModel):

@@ -9,3 +9,4 @@ def test_interest_config_defaults():
     cfg = Config()
     assert cfg.interest.cluster_min == 3
     assert cfg.interest.cluster_max == 24
+    assert cfg.interest.content_sources == ["instagram", "tiktok", "web"]
