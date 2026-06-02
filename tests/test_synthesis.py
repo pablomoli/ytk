@@ -51,6 +51,14 @@ def test_build_synthesis_prompt_groups_by_cluster():
     assert "Shader Tricks" in prompt and "Cold Brew" in prompt
 
 
+def test_build_synthesis_prompt_handles_empty_title():
+    notes = [{"id": "m", "title": "", "thesis": "A boxing footwork drill.",
+              "summary": "", "tags": ["boxing"], "embedding": [0.0]}]
+    prompt = build_synthesis_prompt(notes, [0])
+    assert "  - A boxing footwork drill. [tags: boxing]" in prompt
+    assert "  -  — " not in prompt
+
+
 def test_assemble_snapshot_maps_clusters_to_themes():
     synth = ProfileSynthesis(
         themes=[ThemeLabel(cluster_index=0, label="GPU Graphics", summary="gpu stuff"),

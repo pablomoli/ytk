@@ -20,7 +20,7 @@ from sklearn.cluster import KMeans
 from .config import InterestConfig, load_config
 from .interest import InterestSnapshot, Theme, save_snapshot
 from .sdk import run_structured
-from .store import get_all_videos
+from .store import get_all_videos, get_content_memories
 from .vault import _get_brain_path
 
 
@@ -87,7 +87,8 @@ def build_synthesis_prompt(notes: list[dict], labels: list[int]) -> str:
         for i in idxs:
             n = notes[i]
             tags = ", ".join(n["tags"])
-            lines.append(f"  - {n['title']} — {n['thesis']} [tags: {tags}]")
+            label = f"{n['title']} — {n['thesis']}" if n.get("title") else n["thesis"]
+            lines.append(f"  - {label} [tags: {tags}]")
         blocks.append("\n".join(lines))
     return (
         "Below are clusters of the user's saved content (videos, reels, TikToks, "
@@ -195,15 +196,19 @@ def _write_profile_note(snapshot: InterestSnapshot) -> Path:
 def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     """Gather -> cluster -> synthesize -> persist. Returns (snapshot, profile_path).
 
-    Notes without embeddings are filtered out before clustering so a malformed
-    record cannot cause a ragged-array ValueError in KMeans. The min_notes
-    sparse check runs against this filtered set, so a vault of embedding-less
-    records is correctly reported as sparse rather than crashing.
+    Gathers YouTube videos plus the ingested "media-diet" memory docs (reels,
+    TikToks, articles) named in cfg.interest.content_sources, so the profile
+    reflects all consumed content rather than YouTube alone. Notes without
+    embeddings are filtered out before clustering so a malformed record cannot
+    cause a ragged-array ValueError in KMeans. The min_notes sparse check runs
+    against this filtered set, so a vault of embedding-less records is correctly
+    reported as sparse rather than crashing.
 
     Raises SynthesisTooSparse if fewer than min_notes embeddable notes exist.
     """
     cfg = load_config()
-    notes = [n for n in get_all_videos() if n.get("embedding")]
+    gathered = get_all_videos() + get_content_memories(cfg.interest.content_sources)
+    notes = [n for n in gathered if n.get("embedding")]
     if len(notes) < min_notes:
         raise SynthesisTooSparse(len(notes), min_notes)
 
