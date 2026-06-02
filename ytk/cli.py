@@ -53,6 +53,24 @@ def _fmt_date(yyyymmdd: str) -> str:
         return yyyymmdd
 
 
+def _collect_feed_urls(file: str | None, urls: tuple[str, ...]) -> list[str]:
+    """Merge URLs from args and an optional file (one per line, # comments skipped),
+    preserving first-seen order and dropping duplicates."""
+    collected: list[str] = list(urls)
+    if file:
+        for line in Path(file).read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                collected.append(line)
+    seen: set[str] = set()
+    out: list[str] = []
+    for u in collected:
+        if u not in seen:
+            seen.add(u)
+            out.append(u)
+    return out
+
+
 def _prompt_on_failures(result: FilterResult, force: bool) -> bool:
     """
     If the filter result has failures, print each one and ask the user whether
@@ -216,6 +234,38 @@ def add(ctx: click.Context, url: str, force: bool):
     # --- upsert into vector store ---
     with console.status("[bold cyan]Indexing embeddings...[/]"):
         upsert(meta, result, segments)
+
+
+@cli.command(name="feed")
+@click.argument("urls", nargs=-1)
+@click.option("--file", "-f", "file", type=click.Path(exists=True), default=None,
+              help="Text file of URLs, one per line (# comments allowed).")
+@click.option("--force", is_flag=True, default=False, help="Skip all filter prompts.")
+@click.pass_context
+def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: bool):
+    """Batch-ingest a list of URLs (reels, TikToks, videos, articles)."""
+    items = _collect_feed_urls(file, urls)
+    if not items:
+        console.print("[yellow]No URLs provided.[/] Pass URLs or --file <path>.")
+        return
+
+    ok = 0
+    failed = 0
+    for i, url in enumerate(items, 1):
+        console.rule(f"[bold]{i}/{len(items)}[/] {url}")
+        try:
+            ctx.invoke(add, url=url, force=force)
+            ok += 1
+        except Exception as exc:
+            failed += 1
+            console.print(f"[red]failed:[/] {exc}")
+
+    table = Table(box=box.SIMPLE, title="Feed Result")
+    table.add_column("Total", justify="right")
+    table.add_column("OK", justify="right", style="green")
+    table.add_column("Failed", justify="right", style="red")
+    table.add_row(str(len(items)), str(ok), str(failed))
+    console.print(table)
 
 
 @cli.command()
