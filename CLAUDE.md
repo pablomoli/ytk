@@ -13,6 +13,12 @@ Use `vault_search("query")` to retrieve any past decision, session brief, or mem
 
 ---
 
+## Git hygiene (non-negotiable)
+
+Never leave anything uncommitted in this repo. Before ending a session, the working tree must be clean (`git status` shows nothing). Commit all changes in coherent logical commits with descriptive messages, then push.
+
+---
+
 ## Overview
 
 `ytk` is a personal YouTube knowledge system. It fetches transcripts and metadata from YouTube videos, enriches them with AI, stores them as atomic notes in an Obsidian vault, and indexes embeddings locally for semantic search.
