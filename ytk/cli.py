@@ -1249,7 +1249,7 @@ def index_cmd():
 
 @cli.command()
 def dashboard():
-    """Generate today's inbox/review-YYYY-MM-DD.md vault snapshot."""
+    """Generate the rolling inbox/dashboard.md vault snapshot."""
     from .vault import _get_brain_path, write_raw
 
     try:
@@ -1295,19 +1295,19 @@ def dashboard():
         if proj_rows:
             sections.append("## Active Projects\n" + "\n".join(proj_rows) + "\n")
 
-    # Inbox items (not dated review files)
+    # Inbox items (exclude old dated snapshots and the dashboard itself)
     inbox_dir = vault_path / "inbox"
     if inbox_dir.exists():
         inbox_items = [
             p for p in sorted(inbox_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
-            if not p.stem.startswith("review-")
+            if not p.stem.startswith("review-") and p.stem != "dashboard"
         ]
         if inbox_items:
             rows = "\n".join(f"- [[second-brain/inbox/{p.stem}]]" for p in inbox_items)
             sections.append(f"## Inbox\n{rows}\n")
 
     content = "\n".join(sections)
-    rel_path = f"second-brain/inbox/review-{today_str}.md"
+    rel_path = "second-brain/inbox/dashboard.md"
     with console.status("[bold cyan]Writing dashboard...[/]"):
         note_path = write_raw(rel_path, content)
 
