@@ -13,6 +13,17 @@ _PALETTE = [
     "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
 ]
 
+# Tags that describe where a note lives (its storage bucket), not what it is
+# about. Nearly every note carries these, so cliquing on them connects almost
+# every note to every other one — an O(n^2) edge explosion with no signal.
+_STRUCTURAL_TAGS = frozenset({
+    "inbox", "memories", "claude-mem", "summaries", "project-context",
+})
+
+# A tag or concept shared by more notes than this is not a meaningful link.
+# Cliquing on such a group costs n*(n-1)/2 edges, so we skip it entirely.
+_MAX_TAG_GROUP = 30
+
 
 def _memories_collection():
     from .store import _memories_collection as _mc
@@ -96,6 +107,8 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
         for tag in [t.strip() for t in doc["meta"].get("tags", "").split(",") if t.strip()]:
             by_tag.setdefault(tag, []).append(doc["id"])
     for tag, node_ids in by_tag.items():
+        if tag in _STRUCTURAL_TAGS or len(node_ids) > _MAX_TAG_GROUP:
+            continue
         for i in range(len(node_ids)):
             for j in range(i + 1, len(node_ids)):
                 _add_or_upgrade_edge(G, node_ids[i], node_ids[j], 1.0, "EXTRACTED", f"tag:{tag}")
@@ -114,6 +127,8 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
             key = concept.lower().strip()
             by_concept.setdefault(key, []).append(node_id)
     for concept, node_ids in by_concept.items():
+        if len(node_ids) > _MAX_TAG_GROUP:
+            continue
         for i in range(len(node_ids)):
             for j in range(i + 1, len(node_ids)):
                 _add_or_upgrade_edge(G, node_ids[i], node_ids[j], 0.9, "EXTRACTED", f"concept:{concept}")

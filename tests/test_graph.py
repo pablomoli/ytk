@@ -101,6 +101,89 @@ def test_build_graph_semantic_edge_below_threshold():
     assert G_loose.has_edge("note_a", "note_b"), "similarity 0.9 should be above threshold 0.5"
 
 
+def test_build_graph_skips_structural_tags():
+    """Notes sharing only a structural tag (e.g. inbox) get no tag edge.
+
+    Structural tags describe where a note lives, not what it is about, so
+    cliquing on them connects nearly every note to every other note.
+    """
+    from ytk.graph import build_graph
+
+    docs = [
+        {
+            "id": "note_1",
+            "document": "first memory",
+            "metadata": {"doc_id": "note_1", "tags": "inbox, claude-mem", "source_path": "/vault/1.md"},
+        },
+        {
+            "id": "note_2",
+            "document": "second memory",
+            "metadata": {"doc_id": "note_2", "tags": "inbox, claude-mem", "source_path": "/vault/2.md"},
+        },
+    ]
+
+    with patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)), \
+         patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
+         patch("ytk.graph._read_note_concepts", return_value=[]):
+        # threshold=0.95 excludes semantic edges (distance=0.1 -> similarity=0.9)
+        G = build_graph(threshold=0.95)
+
+    assert not G.has_edge("note_1", "note_2"), \
+        "structural tags (inbox, claude-mem) must not create tag edges"
+
+
+def test_build_graph_caps_large_tag_groups():
+    """A tag shared by more notes than the cap produces no tag edges.
+
+    A tag on hundreds of notes is not a meaningful link; cliquing on it is
+    O(n^2) and explodes the edge count. Such groups are skipped entirely.
+    """
+    from ytk.graph import build_graph, _MAX_TAG_GROUP
+
+    n = _MAX_TAG_GROUP + 5
+    docs = [
+        {
+            "id": f"note_{i}",
+            "document": f"doc {i}",
+            "metadata": {"doc_id": f"note_{i}", "tags": "go", "source_path": f"/vault/{i}.md"},
+        }
+        for i in range(n)
+    ]
+
+    with patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)), \
+         patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
+         patch("ytk.graph._read_note_concepts", return_value=[]):
+        # threshold=0.95 excludes semantic edges so only tag edges could appear
+        G = build_graph(threshold=0.95)
+
+    assert G.number_of_edges() == 0, \
+        f"a tag group of {n} (> cap {_MAX_TAG_GROUP}) must not create edges"
+
+
+def test_build_graph_keeps_small_meaningful_tag_groups():
+    """A small group sharing a real topic tag still gets connected."""
+    from ytk.graph import build_graph, _MAX_TAG_GROUP
+
+    n = min(5, _MAX_TAG_GROUP)
+    docs = [
+        {
+            "id": f"note_{i}",
+            "document": f"doc {i}",
+            "metadata": {"doc_id": f"note_{i}", "tags": "geospatial", "source_path": f"/vault/{i}.md"},
+        }
+        for i in range(n)
+    ]
+
+    with patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)), \
+         patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
+         patch("ytk.graph._read_note_concepts", return_value=[]):
+        G = build_graph(threshold=0.95)
+
+    # a clique of n nodes has n*(n-1)/2 edges
+    assert G.number_of_edges() == n * (n - 1) // 2, \
+        "small meaningful tag groups should still form a clique"
+
+
 def test_parse_key_concepts():
     """_read_note_concepts extracts concept names from ## Key Concepts section."""
     from ytk.graph import _read_note_concepts
