@@ -63,8 +63,8 @@ def test_write_instagram_note_filename_uses_username_date_slug(tmp_path, monkeyp
     )
 
     path = write_instagram_note(post, enrichment)
-    # New format: {username}-{timestamp}-{shortcode}-{slug}
-    assert path.stem.startswith("artaccount-2026-04-19-XYZ-")
+    # Format: {username}-{timestamp}-{shortcode} — the shortcode alone is unique
+    assert path.stem == "artaccount-2026-04-19-XYZ"
 
 
 def test_write_instagram_note_no_moments_omits_section(tmp_path, monkeypatch):
