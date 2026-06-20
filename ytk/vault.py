@@ -24,6 +24,9 @@ load_dotenv(Path.home() / ".ytk" / ".env")
 load_dotenv()
 
 
+LINK_REMINDER = "Add [[wikilinks]] in Obsidian to connect this note to related notes."
+
+
 class NoteAlreadyExists(Exception):
     """Raised when a note for the given video ID already exists in the vault."""
 

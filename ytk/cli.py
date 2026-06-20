@@ -23,7 +23,7 @@ from .filter import check_pre_transcript, check_post_enrichment, FilterResult
 from .metadata import fetch_metadata
 from .transcript import fetch_transcript, segments_to_text
 from .enrich import enrich
-from .vault import write_note, NoteAlreadyExists
+from .vault import write_note, NoteAlreadyExists, LINK_REMINDER
 from .store import upsert, search_videos, search_segments
 
 load_dotenv(Path.home() / ".ytk" / ".env")  # global install location
@@ -226,6 +226,7 @@ def add(ctx: click.Context, url: str, force: bool):
     try:
         note_path = write_note(meta, result, segments, frame_bytes=frame_bytes or None)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
+        console.print(LINK_REMINDER, style="dim", markup=False)
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
     except EnvironmentError as exc:
@@ -466,6 +467,7 @@ def remember_cmd(text: str, tags: str):
         note_path, doc_id = _remember(text, tag_list)
         upsert_memory(doc_id, text, tag_list, str(note_path))
         console.print(f"[bold green]Memory stored:[/] {note_path}")
+        console.print(LINK_REMINDER, style="dim", markup=False)
     except EnvironmentError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
@@ -565,6 +567,7 @@ def ingest(url: str, force: bool):
     try:
         note_path = write_web_note(content.url, content.title, content.author, content.date, result)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
+        console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "web_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(doc_id, body, {
@@ -645,6 +648,7 @@ def add_instagram(url: str):
     try:
         note_path = write_instagram_note(post, result)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
+        console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "instagram_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(doc_id, body, {
@@ -751,6 +755,7 @@ def add_tiktok(url: str):
     try:
         note_path = write_tiktok_note(post, result, transcript=transcript, frame_bytes=frame_bytes or None)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
+        console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "tiktok_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(doc_id, body, {
@@ -856,6 +861,7 @@ def add_imessage(contact: str, since: str | None, until: str | None):
     try:
         written_path = write_journal_note(thread, result)
         console.print(f"\n[bold green]Note written:[/] {written_path}")
+        console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "journal_" + re.sub(r"[^a-zA-Z0-9_-]", "_", written_path.stem[:60])
         body = strip_frontmatter(written_path.read_text(encoding="utf-8"))
         upsert_doc(doc_id, body, {
