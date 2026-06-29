@@ -45,7 +45,9 @@ Never leave anything uncommitted in this repo. Before ending a session, the work
 | 5J | done | Atomic memory LYT — folder-based atom notes per project with differential Haiku updates |
 | 5K | done | Triage + review commands — action extraction, GitHub routing, interactive/auto modes |
 | 6 | done | Local vault UI — `ytk ui` (FastAPI + SSE chat at :8765) + `ytk chat` (Claude in ytk context) |
-| 7 | planned | iMessage capture pipeline → ytk/GitHub/Obsidian routing |
+| 7 | done | iMessage + TikTok capture pipeline → ytk/GitHub/Obsidian routing |
+| 8 | done | Interest model — `ytk feed` batch ingest + `ytk profile` (embedding clustering → XML profile at `me/profile.md`) |
+| 8.5 | partial | Audiobook tracker — stdlib epub fuzzy text-position matcher (`books_match.py`); CLI not yet wired |
 
 ## Project Structure
 
@@ -65,7 +67,18 @@ ytk/
     enrich.py          — Claude Haiku enrichment
     vault.py           — Obsidian note writer and MCP vault tools
     store.py           — ChromaDB upsert + search
+    interest.py        — interest-model data types + snapshot persistence
+    synthesis.py       — embedding clustering → XML interest profile (me/profile.md)
+    graph.py           — HTML knowledge-graph builder
+    vision.py          — frame extraction + Claude vision image blocks
+    triage.py          — action-item extraction for `ytk triage`
+    books_match.py     — stdlib epub fuzzy text-position matcher (audiobook tracker)
 ```
+
+The interest profile at `second-brain/me/profile.md` is rendered as XML (frontmatter
++ `<interest-profile>` with ranked, weighted `<theme>` nodes and `<exemplar>` titles)
+so an agent can traverse it structurally. Re-render from the latest snapshot without
+an API call via `ytk profile --render-only`.
 
 ## Configuration (.env)
 
