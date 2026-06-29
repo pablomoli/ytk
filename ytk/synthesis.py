@@ -12,13 +12,14 @@ import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from xml.sax.saxutils import escape, quoteattr
 
 import numpy as np
 from pydantic import BaseModel
 from sklearn.cluster import KMeans
 
 from .config import InterestConfig, load_config
-from .interest import InterestSnapshot, Theme, save_snapshot
+from .interest import InterestSnapshot, Theme, load_latest, save_snapshot
 from .sdk import run_structured
 from .store import get_all_videos, get_content_memories
 from .vault import _get_brain_path
@@ -158,8 +159,15 @@ never generic. Do not list the clusters mechanically; synthesize.\
 _PROFILE_SCHEMA = ProfileSynthesis.model_json_schema()
 
 
-def render_profile_markdown(snapshot: InterestSnapshot) -> str:
-    """Render a snapshot to the Obsidian note body written to second-brain/me/profile.md."""
+def render_profile(snapshot: InterestSnapshot) -> str:
+    """Render a snapshot to second-brain/me/profile.md as an AI-traversable document.
+
+    The body is XML rather than prose-Markdown so an agent can walk the profile
+    structurally: themes carry their rank, weight, share and note count as
+    attributes and list concrete exemplar titles, while the synthesized portrait
+    is preserved verbatim inside <portrait>. YAML frontmatter is kept so the note
+    still behaves like a normal Obsidian file.
+    """
     lines = [
         "---",
         "type: interest-profile",
@@ -167,21 +175,38 @@ def render_profile_markdown(snapshot: InterestSnapshot) -> str:
         f"notes: {snapshot.note_count}",
         "---",
         "",
-        "# Interest Profile",
-        "",
-        snapshot.profile_markdown.strip(),
-        "",
-        "## Themes",
-        "",
+        f"<interest-profile generated={quoteattr(snapshot.generated_at)} "
+        f"notes=\"{snapshot.note_count}\" themes=\"{len(snapshot.themes)}\">",
+        "  <portrait>",
+        _indent(escape(snapshot.profile_markdown.strip()), 4),
+        "  </portrait>",
+        "  <themes>",
     ]
-    for t in snapshot.themes:
+    for rank, t in enumerate(snapshot.themes, start=1):
         pct = round(t.weight * 100)
-        note_word = "note" if len(t.note_ids) == 1 else "notes"
-        lines.append(f"### {t.label} ({pct}% · {len(t.note_ids)} {note_word})")
-        lines.append("")
-        lines.append(t.summary.strip())
-        lines.append("")
+        lines.append(
+            f"    <theme rank=\"{rank}\" id={quoteattr(t.id)} "
+            f"weight=\"{t.weight}\" share=\"{pct}%\" notes=\"{len(t.note_ids)}\">"
+        )
+        lines.append(f"      <label>{escape(t.label)}</label>")
+        lines.append(f"      <summary>{escape(t.summary.strip())}</summary>")
+        exemplars = [e.strip() for e in t.exemplar_titles if e.strip()]
+        if exemplars:
+            lines.append("      <exemplars>")
+            for e in exemplars:
+                lines.append(f"        <exemplar>{escape(e)}</exemplar>")
+            lines.append("      </exemplars>")
+        lines.append("    </theme>")
+    lines.append("  </themes>")
+    lines.append("</interest-profile>")
+    lines.append("")
     return "\n".join(lines)
+
+
+def _indent(text: str, spaces: int) -> str:
+    """Indent every line of ``text`` by ``spaces``, leaving blank lines empty."""
+    pad = " " * spaces
+    return "\n".join(pad + line if line else line for line in text.splitlines())
 
 
 def _write_profile_note(snapshot: InterestSnapshot) -> Path:
@@ -189,7 +214,7 @@ def _write_profile_note(snapshot: InterestSnapshot) -> Path:
     me_dir = _get_brain_path() / "me"
     me_dir.mkdir(parents=True, exist_ok=True)
     path = me_dir / "profile.md"
-    path.write_text(render_profile_markdown(snapshot), encoding="utf-8")
+    path.write_text(render_profile(snapshot), encoding="utf-8")
     return path
 
 
@@ -225,3 +250,16 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     save_snapshot(snapshot, now.strftime("%Y%m%dT%H%M%SZ"))
     profile_path = _write_profile_note(snapshot)
     return snapshot, profile_path
+
+
+def rerender_latest() -> tuple[InterestSnapshot, Path]:
+    """Rewrite profile.md from the most recent snapshot without a Claude call.
+
+    Used by ``ytk profile --render-only`` to refresh the note's format after a
+    renderer change, with no clustering or API cost. Raises FileNotFoundError if
+    no snapshot has been synthesized yet.
+    """
+    snapshot = load_latest()
+    if snapshot is None:
+        raise FileNotFoundError("no interest snapshot found; run `ytk profile` first")
+    return snapshot, _write_profile_note(snapshot)

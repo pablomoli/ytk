@@ -417,18 +417,29 @@ def search(query: str, n: int):
 
 
 @cli.command(name="profile")
-def profile_cmd():
+@click.option(
+    "--render-only",
+    is_flag=True,
+    help="Re-render profile.md from the latest snapshot, skipping clustering and the Claude call.",
+)
+def profile_cmd(render_only: bool):
     """Synthesize a living interest profile from everything in the vault."""
-    from .synthesis import run_profile, SynthesisTooSparse
+    from .synthesis import rerender_latest, run_profile, SynthesisTooSparse
 
     try:
-        with console.status("[bold cyan]Clustering and synthesizing...[/]"):
-            snapshot, path = run_profile()
+        if render_only:
+            snapshot, path = rerender_latest()
+        else:
+            with console.status("[bold cyan]Clustering and synthesizing...[/]"):
+                snapshot, path = run_profile()
     except SynthesisTooSparse as exc:
         console.print(
             f"[yellow]Vault too sparse:[/] {exc.have} notes "
             f"(need {exc.need}). Run [bold]ytk feed[/] or [bold]ytk sync[/] first."
         )
+        raise SystemExit(1)
+    except FileNotFoundError as exc:
+        console.print(f"[yellow]Nothing to render:[/] {exc}")
         raise SystemExit(1)
     except Exception as exc:
         console.print(f"[red]Profile failed:[/] {exc}")

@@ -3,7 +3,7 @@ import numpy as np
 from ytk.config import InterestConfig
 from ytk.synthesis import (
     ProfileSynthesis, ThemeLabel, assemble_snapshot,
-    build_synthesis_prompt, render_profile_markdown, _slug,
+    build_synthesis_prompt, render_profile, _slug,
     choose_k, cluster_embeddings,
 )
 
@@ -75,7 +75,7 @@ def test_assemble_snapshot_maps_clusters_to_themes():
     assert snap.profile_markdown == "You like GPUs and coffee."
 
 
-def test_render_profile_markdown_has_frontmatter_and_themes():
+def test_render_profile_has_frontmatter_and_xml_themes():
     snap = assemble_snapshot(
         _notes(), [0, 0, 1],
         ProfileSynthesis(
@@ -85,12 +85,30 @@ def test_render_profile_markdown_has_frontmatter_and_themes():
         ),
         "2026-06-02T00:00:00+00:00",
     )
-    md = render_profile_markdown(snap)
-    assert md.startswith("---")
-    assert "type: interest-profile" in md
-    assert "# Interest Profile" in md
-    assert "Profile prose." in md
-    assert "### GPU Graphics" in md
+    out = render_profile(snap)
+    assert out.startswith("---")
+    assert "type: interest-profile" in out
+    assert '<interest-profile generated="2026-06-02T00:00:00+00:00" notes="3" themes="2">' in out
+    assert "<portrait>" in out and "Profile prose." in out
+    assert '<theme rank="1" id="gpu-graphics"' in out  # heaviest theme first
+    assert "<label>GPU Graphics</label>" in out
+    assert "<exemplar>Shader Tricks</exemplar>" in out  # exemplar titles surfaced
+
+
+def test_render_profile_escapes_xml_special_chars():
+    snap = assemble_snapshot(
+        _notes(), [0, 0, 1],
+        ProfileSynthesis(
+            themes=[ThemeLabel(cluster_index=0, label="GPU & Shaders", summary="a < b"),
+                    ThemeLabel(cluster_index=1, label="Coffee", summary="c")],
+            profile_markdown="Tools & taste.",
+        ),
+        "2026-06-02T00:00:00+00:00",
+    )
+    out = render_profile(snap)
+    assert "<label>GPU &amp; Shaders</label>" in out
+    assert "a &lt; b" in out
+    assert "Tools &amp; taste." in out
 
 
 def test_slug():
