@@ -238,3 +238,66 @@ def test_get_client_requires_sessionid(tmp_path):
 
     with pytest.raises(ValueError, match="INSTAGRAM_SESSIONID"):
         get_client("", settings_path=tmp_path / "s.json")
+
+
+# --- find_peer_thread (two-account capture thread) -----------------------------
+
+
+def _thread_named(thread_id: str, users: list[tuple[str, str]]):
+    return SimpleNamespace(
+        id=thread_id,
+        users=[SimpleNamespace(pk=pk, username=name) for pk, name in users],
+    )
+
+
+def test_find_peer_thread_matches_username():
+    from ytk.reels import find_peer_thread
+
+    client = FakeClient(
+        [
+            _thread_named("t1", [("7", "somefriend")]),
+            _thread_named("t2", [("8", "integratederivate")]),
+        ]
+    )
+    assert find_peer_thread(client, "integratederivate").id == "t2"
+
+
+def test_find_peer_thread_is_case_insensitive():
+    from ytk.reels import find_peer_thread
+
+    client = FakeClient([_thread_named("t2", [("8", "IntegrateDerivate")])])
+    assert find_peer_thread(client, "integratederivate").id == "t2"
+
+
+def test_find_peer_thread_ignores_group_threads():
+    from ytk.reels import find_peer_thread
+
+    client = FakeClient(
+        [
+            _thread_named("g1", [("8", "integratederivate"), ("9", "other")]),
+            _thread_named("t2", [("8", "integratederivate")]),
+        ]
+    )
+    assert find_peer_thread(client, "integratederivate").id == "t2"
+
+
+def test_find_peer_thread_missing_raises():
+    from ytk.reels import find_peer_thread
+
+    client = FakeClient([_thread_named("t1", [("7", "somefriend")])])
+    with pytest.raises(ValueError, match="integratederivate"):
+        find_peer_thread(client, "integratederivate")
+
+
+def test_fetch_new_links_uses_peer_thread_when_given():
+    msgs = [_clip("2", "bbb"), _clip("1", "aaa")]
+    client = FakeClient(
+        [_thread_named("tp", [("8", "integratederivate")]), _thread("ts", [])],
+        {"tp": msgs, "ts": []},
+    )
+    links, state = fetch_new_links(client, ReelsState(), peer="integratederivate")
+    assert links == [
+        "https://www.instagram.com/reel/aaa/",
+        "https://www.instagram.com/reel/bbb/",
+    ]
+    assert state.thread_id == "tp"

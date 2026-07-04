@@ -91,12 +91,25 @@ def find_self_thread(client):
     )
 
 
-def fetch_new_links(client, state: ReelsState) -> tuple[list[str], ReelsState]:
+def find_peer_thread(client, peer: str):
+    """Return the one-on-one DM thread with the given username (e.g. a second account)."""
+    want = peer.lower()
+    for thread in client.direct_threads(amount=0):
+        if len(thread.users) == 1 and thread.users[0].username.lower() == want:
+            return thread
+    raise ValueError(f"No one-on-one thread found with @{peer}.")
+
+
+def fetch_new_links(
+    client, state: ReelsState, peer: str | None = None
+) -> tuple[list[str], ReelsState]:
     """Return (links oldest-first, advanced state) for messages newer than the cursor.
 
-    The API returns messages newest-first; an empty cursor drains the whole thread.
+    The capture thread is the one-on-one thread with `peer` when given (the
+    two-account pattern), else the note-to-self thread. The API returns messages
+    newest-first; an empty cursor drains the whole thread.
     """
-    thread = find_self_thread(client)
+    thread = find_peer_thread(client, peer) if peer else find_self_thread(client)
     messages = client.direct_messages(thread.id, amount=0)
 
     new = []

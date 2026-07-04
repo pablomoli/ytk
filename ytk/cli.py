@@ -311,9 +311,11 @@ def reels(ctx: click.Context, dry_run: bool, limit: int | None):
             )
         raise SystemExit(1)
 
+    peer = os.environ.get("INSTAGRAM_PEER") or None
+    thread_desc = f"@{peer} thread" if peer else "note-to-self thread"
     state = reels_mod.load_state()
-    with console.status("[bold cyan]Reading note-to-self thread...[/]"):
-        links, new_state = reels_mod.fetch_new_links(client, state)
+    with console.status(f"[bold cyan]Reading {thread_desc}...[/]"):
+        links, new_state = reels_mod.fetch_new_links(client, state, peer=peer)
 
     if not links:
         console.print("[dim]No new reels in the self-thread.[/]")

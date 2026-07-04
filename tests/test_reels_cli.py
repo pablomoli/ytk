@@ -16,19 +16,21 @@ LINKS = [
 @pytest.fixture
 def harness(monkeypatch):
     """Stub the discovery layer and the add pipeline; record what gets called."""
-    calls = {"added": [], "saved": []}
+    calls = {"added": [], "saved": [], "peer": "unset"}
 
     monkeypatch.setenv("INSTAGRAM_SESSIONID", "sess-123")
+    monkeypatch.delenv("INSTAGRAM_PEER", raising=False)
     monkeypatch.setattr(reels_mod, "get_client", lambda sessionid: object())
     monkeypatch.setattr(reels_mod, "load_state", lambda: reels_mod.ReelsState())
-    monkeypatch.setattr(
-        reels_mod,
-        "fetch_new_links",
-        lambda client, state: (
+
+    def fake_fetch(client, state, peer=None):
+        calls["peer"] = peer
+        return (
             list(LINKS),
             reels_mod.ReelsState(thread_id="ts", last_seen_message_id="9"),
-        ),
-    )
+        )
+
+    monkeypatch.setattr(reels_mod, "fetch_new_links", fake_fetch)
     monkeypatch.setattr(reels_mod, "save_state", lambda st: calls["saved"].append(st))
     monkeypatch.setattr(
         cli_mod.add, "callback", lambda url, force=False: calls["added"].append(url)
@@ -62,11 +64,24 @@ def test_reels_limit_truncates_and_keeps_cursor(harness):
     assert harness["saved"] == []
 
 
+def test_reels_forwards_peer_from_env(harness, monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_PEER", "integratederivate")
+    result = CliRunner().invoke(cli_mod.cli, ["reels", "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert harness["peer"] == "integratederivate"
+
+
+def test_reels_defaults_to_self_thread(harness):
+    result = CliRunner().invoke(cli_mod.cli, ["reels", "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert harness["peer"] is None
+
+
 def test_reels_no_new_links(harness, monkeypatch):
     monkeypatch.setattr(
         reels_mod,
         "fetch_new_links",
-        lambda client, state: (
+        lambda client, state, peer=None: (
             [],
             reels_mod.ReelsState(thread_id="ts", last_seen_message_id="9"),
         ),
