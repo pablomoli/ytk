@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 import sys
 import shutil
 import subprocess
@@ -276,6 +277,84 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
     table.add_column("Failed", justify="right", style="red")
     table.add_row(str(len(items)), str(ok), str(skipped), str(failed))
     console.print(table)
+
+
+@cli.command(name="reels")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="List new links without ingesting or advancing the cursor.")
+@click.option("--limit", type=int, default=None,
+              help="Ingest at most N links; the cursor stays put so the rest surface next run.")
+@click.pass_context
+def reels(ctx: click.Context, dry_run: bool, limit: int | None):
+    """Sync reels from your Instagram DM note-to-self thread."""
+    from . import reels as reels_mod
+
+    sessionid = os.environ.get("INSTAGRAM_SESSIONID", "")
+    try:
+        with console.status("[bold cyan]Logging in to Instagram...[/]"):
+            client = reels_mod.get_client(sessionid)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise SystemExit(1)
+    except Exception as exc:
+        if "challenge" in str(exc).lower():
+            console.print(
+                "[red]Instagram raised a login challenge.[/] Not retrying — resolve it "
+                "in the app/browser, then refresh INSTAGRAM_SESSIONID in .env and "
+                "delete ~/.ytk/instagram_session.json."
+            )
+        else:
+            console.print(
+                f"[red]Instagram login failed:[/] {exc}\n"
+                "The session cookie may have expired — refresh INSTAGRAM_SESSIONID in "
+                ".env and delete ~/.ytk/instagram_session.json."
+            )
+        raise SystemExit(1)
+
+    state = reels_mod.load_state()
+    with console.status("[bold cyan]Reading note-to-self thread...[/]"):
+        links, new_state = reels_mod.fetch_new_links(client, state)
+
+    if not links:
+        console.print("[dim]No new reels in the self-thread.[/]")
+        if not dry_run:
+            reels_mod.save_state(new_state)
+        return
+
+    if dry_run:
+        console.print(f"[bold]{len(links)}[/] new link(s) — dry run, nothing ingested:")
+        for url in links:
+            console.print(f"  {url}")
+        return
+
+    truncated = limit is not None and len(links) > limit
+    if truncated:
+        console.print(f"[yellow]Limiting to {limit} of {len(links)} new links.[/]")
+        links = links[:limit]
+
+    ok = 0
+    failed = 0
+    for i, url in enumerate(links, 1):
+        console.rule(f"[bold]{i}/{len(links)}[/] {url}")
+        try:
+            ctx.invoke(add, url=url)
+            ok += 1
+        except SystemExit as exc:
+            if exc.code in (0, None):
+                ok += 1
+            else:
+                failed += 1
+                console.print(f"[red]failed:[/] exited {exc.code}")
+        except Exception as exc:
+            failed += 1
+            console.print(f"[red]failed:[/] {exc}")
+        if i < len(links):
+            time.sleep(3)
+
+    # Advancing the cursor after a truncated run would silently drop the rest.
+    if not truncated:
+        reels_mod.save_state(new_state)
+    console.print(f"[green]{ok} ingested[/], [red]{failed} failed[/].")
 
 
 @cli.command()

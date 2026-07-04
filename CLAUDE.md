@@ -48,6 +48,7 @@ Never leave anything uncommitted in this repo. Before ending a session, the work
 | 7 | done | iMessage + TikTok capture pipeline → ytk/GitHub/Obsidian routing |
 | 8 | done | Interest model — `ytk feed` batch ingest + `ytk profile` (embedding clustering → XML profile at `me/profile.md`) |
 | 8.5 | partial | Audiobook tracker — stdlib epub fuzzy text-position matcher (`books_match.py`); CLI not yet wired |
+| 9 | done | `ytk reels` — Instagram DM note-to-self thread sync (instagrapi discovery → existing `add` pipeline) |
 
 ## Project Structure
 
@@ -73,6 +74,7 @@ ytk/
     vision.py          — frame extraction + Claude vision image blocks
     triage.py          — action-item extraction for `ytk triage`
     books_match.py     — stdlib epub fuzzy text-position matcher (audiobook tracker)
+    reels.py           — Instagram DM self-thread link discovery (`ytk reels`)
 ```
 
 The interest profile at `second-brain/me/profile.md` is rendered as XML (frontmatter
