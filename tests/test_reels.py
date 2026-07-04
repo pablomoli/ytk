@@ -301,3 +301,37 @@ def test_fetch_new_links_uses_peer_thread_when_given():
         "https://www.instagram.com/reel/bbb/",
     ]
     assert state.thread_id == "tp"
+
+
+# --- xma message shapes (current Instagram share format) -----------------------
+
+
+def _xma(msg_id: str, item_type: str, **fields):
+    return SimpleNamespace(
+        id=msg_id, item_type=item_type, xma_share=SimpleNamespace(**fields)
+    )
+
+
+def test_extract_xma_clip_video_url():
+    msg = _xma(
+        "1",
+        "xma_clip",
+        video_url="https://www.instagram.com/reel/DZr18tXD01B/?id=39214_735&is_sponsored=false",
+        target_url=None,
+    )
+    assert extract_links([msg]) == ["https://www.instagram.com/reel/DZr18tXD01B/"]
+
+
+def test_extract_xma_media_share_target_url():
+    msg = _xma(
+        "1",
+        "xma_media_share",
+        video_url=None,
+        target_url="https://www.instagram.com/p/Cpost123/?igsh=xyz",
+    )
+    assert extract_links([msg]) == ["https://www.instagram.com/p/Cpost123/"]
+
+
+def test_extract_xma_without_payload_ignored():
+    msg = SimpleNamespace(id="1", item_type="xma_clip", xma_share=None)
+    assert extract_links([msg]) == []

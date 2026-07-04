@@ -71,6 +71,13 @@ def extract_links(messages) -> list[str]:
             links.append(f"https://www.instagram.com/reel/{m.clip.code}/")
         elif m.item_type == "media_share" and getattr(m, "media_share", None):
             links.append(f"https://www.instagram.com/p/{m.media_share.code}/")
+        elif m.item_type.startswith("xma") and getattr(m, "xma_share", None):
+            for field in ("video_url", "target_url"):
+                url = getattr(m.xma_share, field, None) or ""
+                links.extend(
+                    f"https://www.instagram.com/{kind}/{code}/"
+                    for kind, code in _LINK_RE.findall(url)
+                )
         elif m.item_type == "text" and getattr(m, "text", None):
             links.extend(
                 f"https://www.instagram.com/{kind}/{code}/"

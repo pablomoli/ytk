@@ -318,7 +318,7 @@ def reels(ctx: click.Context, dry_run: bool, limit: int | None):
         links, new_state = reels_mod.fetch_new_links(client, state, peer=peer)
 
     if not links:
-        console.print("[dim]No new reels in the self-thread.[/]")
+        console.print(f"[dim]No new reels in the {thread_desc}.[/]")
         if not dry_run:
             reels_mod.save_state(new_state)
         return
