@@ -329,6 +329,18 @@ def _fire(backend: str, summary: str, kind: str) -> bool:
     if exe is None:
         return False
     cmd = [exe] + cmd[1:]
+
+    # For tmux notifications, hide cursor during display to avoid visual collision
+    # with the red margin and jumping cursor animation
+    if backend == "tmux":
+        try:
+            subprocess.run(["tput", "civis"], capture_output=True, timeout=1)  # Hide cursor
+            subprocess.run(cmd, capture_output=True, timeout=3)
+            subprocess.run(["tput", "cnorm"], capture_output=True, timeout=1)  # Show cursor
+            return True
+        except Exception:
+            return False
+
     try:
         subprocess.run(cmd, capture_output=True, timeout=3)
         return True
