@@ -18,6 +18,10 @@ _STATIC_DIR = Path(__file__).parent / "static"
 
 app = FastAPI(title="ytk ingest hub", docs_url=None, redoc_url=None)
 
+from fastapi.staticfiles import StaticFiles
+
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+
 
 # ---------------------------------------------------------------------------
 # Vault search + note reader
