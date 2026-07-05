@@ -320,6 +320,24 @@ def _serve_static(name: str) -> HTMLResponse:
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
 
+@app.get("/api/map")
+async def map_data_api():
+    map_path = _STATIC_DIR / "map.json"
+    if not map_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="No map built yet — run: uv run python scripts/build_map.py",
+        )
+    from fastapi.responses import FileResponse
+
+    return FileResponse(map_path, media_type="application/json")
+
+
+@app.get("/map", response_class=HTMLResponse)
+async def map_page():
+    return _serve_static("map.html")
+
+
 @app.get("/inbox", response_class=HTMLResponse)
 async def inbox_page():
     return _serve_static("inbox.html")

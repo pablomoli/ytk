@@ -53,6 +53,7 @@ Never leave anything uncommitted in this repo. Before ending a session, the work
 | 9 | done | `ytk reels` — Instagram DM capture-thread sync (instagrapi discovery → pending queue → interactive picker → existing `add` pipeline) |
 | 10 | done | Ingest hub — `ytk ui` reborn: / fresh feed, /inbox queue picker with buckets + thoughts (annotations embed into search + daily digest), paste-to-queue Add box; chat at /chat |
 | 11 | done | `ytk memo` — voice memo capture: ffmpeg record, faster-whisper STT, Claude routing, focus-aware notify, hub POST /api/memo |
+| 12 | done | Brain map — `scripts/build_map.py` (UMAP of all text embeddings, fitted params, theme-painted) + hub `/map` canvas page |
 
 ## Project Structure
 

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>second brain — map</title>
+<style>
+  :root {
+    --bg: #101012;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --hairline: rgba(255,255,255,0.10);
+    --s1:#3987e5; --s2:#199e70; --s3:#c98500; --s4:#008300;
+    --s5:#9085e9; --s6:#e66767; --s7:#d55181; --s8:#d95926;
+  }
+  * { margin: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  canvas { position: fixed; inset: 0; display: block; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 3;
+    display: flex; align-items: baseline; gap: 1.25rem;
+    padding: 1.4rem 1.75rem; pointer-events: none;
+  }
+  header h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400; font-size: 1.35rem; letter-spacing: -0.015em;
+  }
+  header .meta { color: var(--muted); font-size: 0.78rem; }
+  header a { color: var(--muted); text-decoration: none; pointer-events: auto; }
+  header a:hover { color: var(--ink-2); }
+
+  #legend {
+    position: fixed; left: 1.75rem; bottom: 1.4rem; z-index: 3;
+    display: flex; flex-direction: column; gap: 0.3rem;
+    font-size: 0.78rem; color: var(--ink-2);
+  }
+  #legend .row { display: flex; align-items: center; gap: 0.55rem; cursor: pointer; opacity: 0.9; }
+  #legend .row.off { opacity: 0.3; }
+  #legend .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  #legend .w { color: var(--muted); font-size: 0.7rem; }
+
+  #filters {
+    position: fixed; right: 1.75rem; bottom: 1.4rem; z-index: 3;
+    display: flex; gap: 0.5rem;
+  }
+  #filters button {
+    background: transparent; color: var(--muted); font: inherit; font-size: 0.75rem;
+    border: 1px solid var(--hairline); border-radius: 999px;
+    padding: 0.25rem 0.8rem; cursor: pointer;
+  }
+  #filters button.on { color: var(--ink); border-color: rgba(255,255,255,0.35); }
+
+  #tip {
+    position: fixed; z-index: 4; pointer-events: none; display: none;
+    max-width: 300px; padding: 0.6rem 0.75rem;
+    background: rgba(16,16,18,0.92); border: 1px solid var(--hairline);
+    border-radius: 8px; backdrop-filter: blur(6px);
+  }
+  #tip img { max-width: 100%; border-radius: 4px; margin-bottom: 0.45rem; display: block; }
+  #tip .t { font-size: 0.82rem; line-height: 1.35; }
+  #tip .m { color: var(--muted); font-size: 0.7rem; margin-top: 0.25rem; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<header>
+  <h1>second brain</h1>
+  <span class="meta" id="count"></span>
+  <span style="flex:1"></span>
+  <a href="/">fresh</a>&nbsp;&nbsp;<a href="/inbox">inbox</a>
+</header>
+<div id="legend"></div>
+<div id="filters">
+  <button data-f="video" class="on">videos</button>
+  <button data-f="memory" class="on">memories</button>
+  <button data-f="signal">signal only</button>
+</div>
+<div id="tip"></div>
+
+<script>
+const COLORS = ['#3987e5','#199e70','#c98500','#008300','#9085e9','#e66767','#d55181','#d95926'];
+const DUST = 'rgba(137,135,129,0.35)';
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const tip = document.getElementById('tip');
+
+let DATA = null;
+let view = { x: 0, y: 0, k: 1 };       // world-to-screen: s = (w - center)*scale*k + mid + pan
+let show = { video: true, memory: true, signal: false };
+let hiddenThemes = new Set();
+let hover = null;
+
+const dpr = window.devicePixelRatio || 1;
+function resize() {
+  canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+  canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
+  draw();
+}
+addEventListener('resize', resize);
+
+function baseScale() { return Math.min(innerWidth, innerHeight) * 0.42; }
+function sx(p) { return p.x * baseScale() * view.k + innerWidth / 2 + view.x; }
+function sy(p) { return p.y * baseScale() * view.k + innerHeight / 2 + view.y; }
+
+function visible(p) {
+  if (!show[p.k]) return false;
+  if (show.signal && p.r < 1) return false;
+  if (p.th >= 0 && hiddenThemes.has(p.th)) return false;
+  return true;
+}
+
+function draw() {
+  if (!DATA) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, innerWidth, innerHeight);
+  ctx.globalCompositeOperation = 'lighter';
+
+  for (const p of DATA.points) {
+    if (!visible(p)) continue;
+    const x = sx(p), y = sy(p);
+    if (x < -20 || y < -20 || x > innerWidth + 20 || y > innerHeight + 20) continue;
+    const r = (p.th < 0 ? 1.2 : 1.8) + p.r * 1.3 + (p.k === 'video' ? 0.6 : 0);
+    const col = p.th < 0 ? DUST : COLORS[p.th % 8];
+    if (p.th >= 0) {                       // soft glow halo
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+      g.addColorStop(0, col + '2e'); g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r * 3, 0, 7); ctx.fill();
+    }
+    ctx.fillStyle = col;
+    ctx.globalAlpha = p.th < 0 ? 0.5 : 0.8;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+  // theme labels, fading out as you zoom in
+  const la = Math.max(0, Math.min(1, 2.2 - view.k));
+  if (la > 0.02) {
+    ctx.font = '400 15px Georgia, serif';
+    ctx.textAlign = 'center';
+    // declutter: heaviest themes keep their spot, lighter ones get nudged down
+    const placed = [];
+    const order = DATA.themes.map((t, i) => [i, t]).sort((a, b) => b[1].weight - a[1].weight);
+    for (const [i, t] of order) {
+      if (hiddenThemes.has(i)) continue;
+      let x = sx(t), y = sy(t);
+      const w = ctx.measureText(t.label).width;
+      for (let tries = 0; tries < 12; tries++) {
+        if (!placed.some(q => Math.abs(q.y - y) < 20 && Math.abs(q.x - x) < (q.w + w) / 2 + 12)) break;
+        y += 20;
+      }
+      placed.push({ x, y, w });
+      ctx.fillStyle = `rgba(255,255,255,${0.75 * la})`;
+      ctx.fillText(t.label, x, y);
+    }
+  }
+  if (hover) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(sx(hover), sy(hover), 6, 0, 7); ctx.stroke();
+  }
+}
+
+// --- interaction ---------------------------------------------------------
+let drag = null;
+canvas.addEventListener('mousedown', e => { drag = { x: e.clientX, y: e.clientY }; canvas.classList.add('dragging'); });
+addEventListener('mouseup', () => { drag = null; canvas.classList.remove('dragging'); });
+addEventListener('mousemove', e => {
+  if (drag) {
+    view.x += e.clientX - drag.x; view.y += e.clientY - drag.y;
+    drag = { x: e.clientX, y: e.clientY };
+    tip.style.display = 'none'; hover = null; draw(); return;
+  }
+  pick(e.clientX, e.clientY);
+});
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = Math.exp(-e.deltaY * 0.0015);
+  const nx = e.clientX - innerWidth / 2, ny = e.clientY - innerHeight / 2;
+  view.x = nx - (nx - view.x) * f; view.y = ny - (ny - view.y) * f;
+  view.k *= f;
+  draw();
+}, { passive: false });
+
+function pick(mx, my) {
+  if (!DATA) return;
+  let best = null, bd = 12 * 12;
+  for (const p of DATA.points) {
+    if (!visible(p)) continue;
+    const dx = sx(p) - mx, dy = sy(p) - my, d = dx * dx + dy * dy;
+    if (d < bd) { bd = d; best = p; }
+  }
+  if (best !== hover) { hover = best; draw(); }
+  if (!best) { tip.style.display = 'none'; return; }
+  const img = best.img && best.u ? `<img src="/api/cover?u=${encodeURIComponent(best.u)}" loading="lazy">` : '';
+  const theme = best.th >= 0 ? DATA.themes[best.th].label : 'unthemed';
+  const sig = ['passive', 'saved', 'thought', 'directive'][best.r] || '';
+  tip.innerHTML = `${img}<div class="t">${best.t.replace(/</g, '&lt;')}</div>
+    <div class="m">${best.c} · ${theme}${best.r ? ' · ' + sig : ''}${best.d ? ' · ' + best.d : ''}</div>`;
+  tip.style.display = 'block';
+  tip.style.left = Math.min(mx + 16, innerWidth - 320) + 'px';
+  tip.style.top = Math.min(my + 16, innerHeight - tip.offsetHeight - 20) + 'px';
+}
+canvas.addEventListener('click', () => { if (hover && hover.u) window.open(hover.u, '_blank'); });
+
+// --- legend + filters -----------------------------------------------------
+function buildLegend() {
+  const el = document.getElementById('legend');
+  el.innerHTML = DATA.themes.map((t, i) =>
+    `<div class="row" data-i="${i}"><span class="dot" style="background:${COLORS[i % 8]}"></span>
+     ${t.label} <span class="w">${Math.round(t.weight * 100)}%</span></div>`).join('');
+  el.querySelectorAll('.row').forEach(row => row.addEventListener('click', () => {
+    const i = +row.dataset.i;
+    hiddenThemes.has(i) ? hiddenThemes.delete(i) : hiddenThemes.add(i);
+    row.classList.toggle('off');
+    draw();
+  }));
+}
+document.querySelectorAll('#filters button').forEach(b => b.addEventListener('click', () => {
+  show[b.dataset.f] = !show[b.dataset.f];
+  b.classList.toggle('on');
+  draw();
+}));
+
+fetch('/api/map').then(r => r.json()).then(d => {
+  DATA = d;
+  document.getElementById('count').textContent =
+    `${d.points.length} notes · umap nn=${d.params.n_neighbors} · trust ${d.params.trustworthiness.toFixed(2)}`;
+  buildLegend();
+  resize();
+});
+</script>
+</body>
+</html>
