@@ -12,15 +12,22 @@
   header a { color: #e2b04a; text-decoration: none; font-weight: 600; }
   header a.here { color: #4ade80; }
   header .hint { color: #888; margin-left: auto; }
-  #wrap { max-width: 760px; margin: 0 auto; padding: 1.2rem 1rem 5rem; }
-  section { background: #1c1c1c; border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
-  h2 { margin: .1rem 0 .8rem; font-size: 1.15rem; font-weight: 500; }
+  #wrap { max-width: 760px; margin: 0 auto; padding: 1.2rem 1rem 6.5rem; }
+  details { background: #1c1c1c; border-radius: 10px; margin-bottom: 1rem; }
+  summary { cursor: pointer; padding: .85rem 1.2rem; font-size: 1.15rem; font-weight: 500;
+    list-style: none; display: flex; align-items: center; gap: .6rem; user-select: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: ""; width: .45rem; height: .45rem; border-right: 1.5px solid #83817a;
+    border-bottom: 1.5px solid #83817a; transform: rotate(-45deg); transition: transform .12s; }
+  details[open] summary::before { transform: rotate(45deg); }
+  summary:hover { color: #e2b04a; }
+  .body { padding: .2rem 1.2rem 1rem; }
   .row { display: flex; align-items: center; gap: .8rem; margin-bottom: .55rem; flex-wrap: wrap; }
   .row label { width: 11rem; color: #b7b5aa; flex-shrink: 0; }
   input[type=text], input[type=number] { background: #26262a; color: #eee; border: 1px solid #333;
     border-radius: 8px; padding: .35rem .6rem; width: 14rem; transition: border-color .12s; }
   input:focus { border-color: #e2b04a; outline: none; }
-  input.err { border-color: #e0785a; }
+  input.err, .chips.err { border-color: #e0785a; }
   input[type=number] { width: 6rem; }
   input[type=color] { background: none; border: 0; width: 2.2rem; height: 1.8rem; padding: 0; cursor: pointer; }
   input[type=checkbox] { accent-color: #e2b04a; width: 1rem; height: 1rem; }
@@ -32,6 +39,17 @@
   .emsg { color: #e0785a; margin-left: .3rem; }
   .note { color: #888; }
   .pill { color: #888; }
+  /* chip editor: list values are individual pills, destruction is per-item */
+  .chips { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; flex: 1; min-width: 16rem;
+    background: #26262a; border: 1px solid #333; border-radius: 8px; padding: .3rem .45rem;
+    transition: border-color .12s; cursor: text; }
+  .chips:focus-within { border-color: #e2b04a; }
+  .chip { display: inline-flex; align-items: center; gap: .35rem; background: #333;
+    border-radius: 999px; padding: .1rem .3rem .1rem .65rem; white-space: nowrap; }
+  .chip button { background: none; border: 0; color: #888; cursor: pointer; padding: 0 .25rem;
+    border-radius: 999px; line-height: 1; }
+  .chip button:hover { color: #e0785a; }
+  .chips input { background: none; border: 0; outline: none; color: #eee; flex: 1; min-width: 6rem; padding: .15rem; }
   .rule { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; }
   .rule input[type=text] { flex: 1; }
   #savebar { position: fixed; bottom: 0; left: 0; right: 0; background: #181818ee; border-top: 1px solid #2a2a2a;
@@ -55,66 +73,80 @@
 </header>
 
 <div id="wrap">
-  <section id="s-hub">
-    <h2>Hub</h2>
-    <div class="row"><label>host</label><input type="text" data-path="hub.host"><span class="pill">restart required</span></div>
-    <div class="row"><label>port</label><input type="number" data-path="hub.port"><span class="pill">restart required</span></div>
-    <div class="row"><label>tags</label><input type="text" data-path="hub.tags" data-list style="width:100%;max-width:34rem"></div>
-    <div class="row"><label>pinterest feeds</label><input type="text" data-path="hub.pinterest_feeds" data-list style="width:100%;max-width:34rem"></div>
-  </section>
-
-  <section id="s-fetch">
-    <h2>Fetch cadence</h2>
-    <div id="cadence"></div>
-    <div class="row" style="margin-top:.5rem">
-      <button class="btn" id="pullnow">Pull all sources now</button>
-      <span class="note" id="pullmsg"></span>
+  <details data-sec="hub" open>
+    <summary>Hub</summary>
+    <div class="body">
+      <div class="row"><label>host</label><input type="text" data-path="hub.host"><span class="pill">restart required</span></div>
+      <div class="row"><label>port</label><input type="number" data-path="hub.port"><span class="pill">restart required</span></div>
+      <div class="row"><label>tags</label><div class="chips" data-path="hub.tags"></div></div>
+      <div class="row"><label>pinterest feeds</label><div class="chips" data-path="hub.pinterest_feeds"></div></div>
     </div>
-  </section>
+  </details>
 
-  <section id="s-interest">
-    <h2>Interest model</h2>
-    <div class="row"><label>alpha</label><input type="number" step="0.5" data-path="interest.alpha">
-      <span class="note">signal weighting slope; fitted optimum 7</span></div>
-    <div class="row"><label>explicit_min</label><input type="number" data-path="interest.explicit_min">
-      <span class="note">thoughts needed before the explicit channel activates</span></div>
-    <div class="row"><label>cluster range</label>
-      <input type="number" data-path="interest.cluster_min">
-      <input type="number" data-path="interest.cluster_max"></div>
-    <div class="row"><label>content sources</label><input type="text" data-path="interest.content_sources" data-list></div>
-  </section>
-
-  <section id="s-colors">
-    <h2>Map color rules</h2>
-    <p class="note" style="margin-top:0">Ordered, first match wins. A rule paints every note whose path, title, or tags contain the query.</p>
-    <div id="rules"></div>
-    <div class="row">
-      <button class="btn small" id="addrule">+ rule</button>
+  <details data-sec="fetch" open>
+    <summary>Fetch cadence</summary>
+    <div class="body">
+      <div id="cadence"></div>
+      <div class="row" style="margin-top:.5rem">
+        <button class="btn" id="pullnow">Pull all sources now</button>
+        <span class="note" id="pullmsg"></span>
+      </div>
     </div>
-    <div class="row" style="margin-top:.6rem">
-      <label>presets</label>
-      <select id="presetsel" class="btn"></select>
-      <button class="btn small" id="presetload">Load</button>
-      <button class="btn small" id="presetdel">Delete</button>
-      <input type="text" id="presetname" placeholder="save as…" style="width:9rem">
-      <button class="btn small" id="presetsave">Save preset</button>
+  </details>
+
+  <details data-sec="interest" open>
+    <summary>Interest model</summary>
+    <div class="body">
+      <div class="row"><label>alpha</label><input type="number" step="0.5" data-path="interest.alpha">
+        <span class="note">signal weighting slope; fitted optimum 7</span></div>
+      <div class="row"><label>explicit_min</label><input type="number" data-path="interest.explicit_min">
+        <span class="note">thoughts needed before the explicit channel activates</span></div>
+      <div class="row"><label>cluster range</label>
+        <input type="number" data-path="interest.cluster_min">
+        <input type="number" data-path="interest.cluster_max"></div>
+      <div class="row"><label>content sources</label><div class="chips" data-path="interest.content_sources"></div></div>
     </div>
-  </section>
+  </details>
 
-  <section id="s-filters">
-    <h2>Ingest filters</h2>
-    <div class="row"><label>min duration (s)</label><input type="number" data-path="filters.min_duration"></div>
-    <div class="row"><label>max duration (s)</label><input type="number" data-path="filters.max_duration" data-nullable></div>
-    <div class="row"><label>require captions</label><input type="checkbox" data-path="filters.require_captions"></div>
-    <div class="row"><label>interest tags</label><input type="text" data-path="filters.interest_tags" data-list style="width:100%;max-width:34rem"></div>
-  </section>
+  <details data-sec="colors" open>
+    <summary>Map color rules</summary>
+    <div class="body">
+      <p class="note" style="margin-top:0">Ordered, first match wins. A rule paints every note whose path, title, or tags contain the query.</p>
+      <div id="rules"></div>
+      <div class="row">
+        <button class="btn small" id="addrule">+ rule</button>
+      </div>
+      <div class="row" style="margin-top:.6rem">
+        <label>presets</label>
+        <select id="presetsel" class="btn"></select>
+        <button class="btn small" id="presetload" title="replaces the current rules">Load</button>
+        <button class="btn small" id="presetdel">Delete</button>
+        <input type="text" id="presetname" placeholder="save as…" style="width:9rem">
+        <button class="btn small" id="presetsave">Save preset</button>
+      </div>
+    </div>
+  </details>
 
-  <section id="s-misc">
-    <h2>Misc</h2>
-    <div class="row"><label>whisper model</label><input type="text" data-path="whisper_model"><span class="note">base | small | medium | large</span></div>
-    <div class="row"><label>github repos</label><input type="text" data-path="github_repos" data-list style="width:100%;max-width:34rem"></div>
-    <div class="row"><label>memo notify</label><input type="text" data-path="memo_notify" data-list><span class="note">tmux, macos, sketchybar; empty = auto</span></div>
-  </section>
+  <details data-sec="filters" open>
+    <summary>Ingest filters</summary>
+    <div class="body">
+      <div class="row"><label>min duration (s)</label><input type="number" data-path="filters.min_duration"></div>
+      <div class="row"><label>max duration (s)</label><input type="number" data-path="filters.max_duration" data-nullable></div>
+      <div class="row"><label>require captions</label><input type="checkbox" data-path="filters.require_captions"></div>
+      <div class="row"><label>interest tags</label><div class="chips" data-path="filters.interest_tags"></div></div>
+      <p class="note" style="margin:.1rem 0 0">empty interest tags = allow all; each chip gates future ingests</p>
+    </div>
+  </details>
+
+  <details data-sec="misc" open>
+    <summary>Misc</summary>
+    <div class="body">
+      <div class="row"><label>whisper model</label><input type="text" data-path="whisper_model"><span class="note">base | small | medium | large</span></div>
+      <div class="row"><label>github repos</label><div class="chips" data-path="github_repos"></div></div>
+      <div class="row"><label>memo notify</label><div class="chips" data-path="memo_notify"></div>
+        <span class="note">tmux, macos, sketchybar; empty = auto</span></div>
+    </div>
+  </details>
 </div>
 
 <div id="savebar">
@@ -140,26 +172,67 @@ function markDirty() {
 
 function say(msg, cls) { const el = $("#savemsg"); el.textContent = msg; el.className = cls || ""; }
 
+function clearErrors() {
+  $$(".err").forEach(el => el.classList.remove("err"));
+  $$(".emsg").forEach(el => el.remove());
+}
+
+// --- collapsible sections, state remembered per section --------------------
+$$("details[data-sec]").forEach(d => {
+  const key = "ytk-settings-open-" + d.dataset.sec;
+  if (localStorage.getItem(key) === "0") d.open = false;
+  d.addEventListener("toggle", () => localStorage.setItem(key, d.open ? "1" : "0"));
+});
+
+// --- chip editor: per-item add/remove, no whole-list rewrites ---------------
+function renderChips(box) {
+  const p = box.dataset.path, items = get(cfg, p) || [];
+  box.innerHTML = items.map((v, i) =>
+    `<span class="chip">${v}<button data-i="${i}" title="remove">&times;</button></span>`).join("")
+    + `<input type="text" placeholder="${items.length ? "" : "add…"}">`;
+  const inp = box.querySelector("input");
+  box.onclick = e => { if (e.target === box) inp.focus(); };
+  box.querySelectorAll(".chip button").forEach(b => b.onclick = () => {
+    items.splice(+b.dataset.i, 1); renderChips(box); markDirty();
+    box.querySelector("input").focus();
+  });
+  const commit = () => {
+    const v = inp.value.trim().replace(/,$/, "");
+    if (!v) return;
+    items.push(v); renderChips(box); markDirty();
+    box.querySelector("input").focus();
+  };
+  inp.onkeydown = e => {
+    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); commit(); }
+    else if (e.key === "Backspace" && !inp.value && items.length) {
+      items.pop(); renderChips(box); markDirty(); box.querySelector("input").focus();
+    }
+  };
+  inp.onblur = commit;
+}
+
 function bindInputs() {
-  $$("[data-path]").forEach(el => {
+  $$("input[data-path]").forEach(el => {
     const p = el.dataset.path, v = get(cfg, p);
     if (el.type === "checkbox") el.checked = !!v;
-    else if (el.dataset.list !== undefined) el.value = (v || []).join(", ");
     else el.value = v ?? "";
     el.oninput = () => {
       el.classList.remove("err");
       el.parentElement.querySelector(".emsg")?.remove();
       let val;
       if (el.type === "checkbox") val = el.checked;
-      else if (el.dataset.list !== undefined)
-        val = el.value.split(",").map(s => s.trim()).filter(Boolean);
-      else if (el.type === "number")
-        val = el.value === "" ? (el.dataset.nullable !== undefined ? null : 0) : +el.value;
+      else if (el.type === "number") {
+        // empty non-nullable stays as-is client-side; the server 422s with
+        // a message instead of us silently coercing to 0
+        if (el.value === "") val = el.dataset.nullable !== undefined ? null : "";
+        else val = +el.value;
+      }
       else val = el.value;
       set(cfg, p, val);
       markDirty();
     };
   });
+  $$(".chips[data-path]").forEach(renderChips);
 }
 
 function ago(t) {
@@ -227,28 +300,42 @@ $("#presetdel").onclick = () => {
 
 $("#pullnow").onclick = async () => {
   $("#pullmsg").textContent = "pulling…";
-  const r = await fetch("/api/queue/refresh?force=true", { method: "POST" }).then(r => r.json());
-  $("#pullmsg").textContent = `instagram ${r.instagram} · youtube ${r.youtube} · pinterest ${r.pinterest}`
-    + (r.errors.length ? ` · ${r.errors.length} error(s)` : "");
-  const s = await fetch("/api/settings").then(r => r.json());
-  meta = s.meta; renderCadence();
+  try {
+    const r = await fetch("/api/queue/refresh?force=true", { method: "POST" }).then(r => r.json());
+    $("#pullmsg").textContent = `instagram ${r.instagram} · youtube ${r.youtube} · pinterest ${r.pinterest}`
+      + (r.errors.length ? ` · ${r.errors.length} error(s)` : "");
+    const s = await fetch("/api/settings").then(r => r.json());
+    meta = s.meta; renderCadence();
+  } catch (e) {
+    $("#pullmsg").textContent = "pull failed: " + e.message;
+  }
 };
 
 $("#save").onclick = async () => {
   say("saving…");
-  const res = await fetch("/api/settings", {
-    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cfg),
-  });
+  clearErrors();
+  let res;
+  try {
+    res = await fetch("/api/settings", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cfg),
+    });
+  } catch (e) {
+    return say("save failed: " + e.message, "err");
+  }
   if (res.status === 422) {
     const { detail } = await res.json();
     say("validation failed", "err");
     for (const e of detail) {
-      const el = document.querySelector(`[data-path="${e.loc}"]`);
+      // exact input match, else the nearest list/chip container by prefix
+      const el = document.querySelector(`[data-path="${e.loc}"]`)
+        || $$("[data-path]").find(c => e.loc.startsWith(c.dataset.path + "."));
       if (el) { el.classList.add("err");
-        el.insertAdjacentHTML("afterend", `<span class="emsg">${e.msg}</span>`); }
+        el.insertAdjacentHTML("afterend", `<span class="emsg">${e.msg}</span>`);
+        el.closest("details").open = true; }
     }
     return;
   }
+  if (!res.ok) return say(`save failed: HTTP ${res.status}`, "err");
   const r = await res.json();
   saved = JSON.stringify(cfg);
   $("#savebar").classList.remove("on");
@@ -257,7 +344,8 @@ $("#save").onclick = async () => {
   $("#savebar").classList.add("on");
   setTimeout(() => { if (JSON.stringify(cfg) === saved) $("#savebar").classList.remove("on"); }, 2500);
 };
-$("#revert").onclick = () => { cfg = JSON.parse(saved); bindInputs(); renderCadence(); renderRules(); renderPresets(); $("#savebar").classList.remove("on"); };
+$("#revert").onclick = () => { cfg = JSON.parse(saved); clearErrors();
+  bindInputs(); renderCadence(); renderRules(); renderPresets(); $("#savebar").classList.remove("on"); };
 
 (async () => {
   const s = await fetch("/api/settings").then(r => r.json());

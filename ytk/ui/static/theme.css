@@ -43,11 +43,11 @@ body {
 
 h1, h2, h3, .title { font-family: var(--serif); letter-spacing: -0.02em; font-weight: 500; }
 
-/* data wears tracked small caps + tabular numerals, not a second family */
+/* data wears lowercase tracked serif + tabular numerals, not a second family */
 .tags, .sub, .badge, .n, .count, .meta-line, code, pre, .hint, .fchip,
 .stat, .m, time { font-family: var(--data); font-size: 12.5px;
-  letter-spacing: .04em; font-variant-numeric: tabular-nums; }
-.badge, .n, .count, .stat, .fchip, time { font-variant-caps: all-small-caps; }
+  letter-spacing: .04em; font-variant-numeric: tabular-nums;
+  text-transform: lowercase; }
 
 header {
   background: var(--bg1);
@@ -55,7 +55,7 @@ header {
   font-family: var(--data);
   font-size: 14px;
   letter-spacing: .03em;
-  font-variant-caps: all-small-caps;
+  text-transform: lowercase;
 }
 header a { color: var(--ink2); text-decoration: none; font-weight: 500;
   transition: color .18s var(--ease); }
