@@ -75,6 +75,7 @@
 </header>
 <div id="stage">
   <canvas id="gl"></canvas>
+  <svg id="leaders" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></svg>
   <div id="labels"></div>
 </div>
 <aside id="panel">
@@ -300,8 +301,21 @@ function buildBuffers() {
       p.g < 0 ? -1 : p.g,
     ], i * F);
   });
-  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  mainBuf = mainBuf || gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, mainBuf);
   gl.bufferData(gl.ARRAY_BUFFER, buf, gl.STATIC_DRAW);
+  // a_group1 in a second buffer to stay under the main stride
+  const g2 = new Float32Array(N);
+  pts.forEach((p, i) => g2[i] = p.c3 !== undefined && p.th >= 0 ? p.th : -1);
+  grpBuf = grpBuf || gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, grpBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, g2, gl.STATIC_DRAW);
+}
+
+const F = 20;
+let mainBuf = null, grpBuf = null, orbBuf = null, orbGrpBuf = null;
+function bindSet(buf, gbuf) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   const stride = F * 4;
   const attr = (name, size, off) => {
     const a = A(name);
@@ -314,11 +328,7 @@ function buildBuffers() {
   attr('a_col0', 3, 11); attr('a_col1', 3, 14);
   attr('a_alpha0', 1, 17); attr('a_alpha1', 1, 18);
   attr('a_group0', 1, 19);
-  // a_group1 packed in a second tiny buffer to stay under stride
-  const g2 = new Float32Array(N);
-  pts.forEach((p, i) => g2[i] = p.c3 !== undefined && p.th >= 0 ? p.th : -1);
-  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-  gl.bufferData(gl.ARRAY_BUFFER, g2, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gbuf);
   const a1 = A('a_group1');
   gl.enableVertexAttribArray(a1);
   gl.vertexAttribPointer(a1, 1, gl.FLOAT, false, 4, 0);
@@ -382,18 +392,61 @@ function frame(now) {
     gl.uniform1f(U('u_sizek'), fpp * innerHeight * 0.5 * 0.02);
     gl.uniform1f(U('u_dpr'), dpr);
     const eff = new Float32Array(groupAlpha);
+    const base = view === 'content' ? 32 : 0;
+    const nG = view === 'content' ? 8 : 32;
     if (hoverGroup >= 0) {
-      const base = view === 'content' ? 32 : 0;
-      const hi = base + (view === 'content' ? 8 : 32);
-      for (let i = base; i < hi; i++) if (i !== base + hoverGroup) eff[i] *= 0.08;
+      for (let i = base; i < base + nG; i++)
+        if (i !== base + hoverGroup) eff[i] *= 0.08;
     }
-    gl.uniform1fv(U('u_galpha[0]'), eff);
+    // adaptive clustering: while a cluster is small on screen it condenses
+    // into one orb; zooming in dissolves the orb into its points
+    const stats = groupStats();
+    const aggT = stats.map(g => {
+      if (!g.n) return 1;
+      const [x0] = projectPt(g.c);
+      const [xr] = projectPt([g.c[0] + g.rad * camRight[0], g.c[1] + g.rad * camRight[1], g.c[2] + g.rad * camRight[2]]);
+      g.spread = Math.abs(xr - x0);
+      return Math.max(0, Math.min(1, (g.spread - 45) / 70));
+    });
+    const effPts = new Float32Array(eff);
+    for (let i = 0; i < nG; i++) effPts[base + i] *= aggT[i] ?? 1;
+    bindSet(mainBuf, grpBuf);
+    gl.uniform1fv(U('u_galpha[0]'), effPts);
     gl.drawArrays(gl.POINTS, 0, N);
+    drawOrbs(stats, aggT, eff, base);
     cacheProjections();
-    placeLabels();
+    placeLabels(stats);
     dirty = false;
   }
   requestAnimationFrame(frame);
+}
+
+function drawOrbs(stats, aggT, eff, base) {
+  const rows = [];
+  stats.forEach((g, i) => {
+    const orbA = (1 - (aggT[i] ?? 1)) * (eff[base + i] ?? 1);
+    if (!g.n || orbA < 0.02) return;
+    const col = colorOf(groupColor(i));
+    rows.push([
+      g.c[0], g.c[1], g.c[2],  g.c[0], g.c[1], g.c[2],
+      g.c[0], g.c[1],          g.c[0], g.c[1],
+      10 + Math.sqrt(g.n) * 1.1,
+      ...col, ...col,
+      orbA * 0.95, orbA * 0.95,
+      -1,
+    ]);
+  });
+  if (!rows.length) return;
+  orbBuf = orbBuf || gl.createBuffer();
+  orbGrpBuf = orbGrpBuf || gl.createBuffer();
+  const flat = new Float32Array(rows.length * F);
+  rows.forEach((r, i) => flat.set(r, i * F));
+  gl.bindBuffer(gl.ARRAY_BUFFER, orbBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, flat, gl.DYNAMIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, orbGrpBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rows.length).fill(-1), gl.DYNAMIC_DRAW);
+  bindSet(orbBuf, orbGrpBuf);
+  gl.drawArrays(gl.POINTS, 0, rows.length);
 }
 
 function cacheProjections() {
@@ -406,11 +459,12 @@ function cacheProjections() {
 }
 
 // --- labels ---------------------------------------------------------------
-function placeLabels() {
+function placeLabels(stats) {
   const el = document.getElementById('labels');
-  const stats = groupStats();
+  const svg = document.getElementById('leaders');
   const base = view === 'content' ? 32 : 0;
   el.innerHTML = '';
+  let lines = '';
   const placed = [];
   const order = stats.map((g, i) => [i, g]).sort((a, b) => b[1].n - a[1].n);
   const edge = document.getElementById('panel').classList.contains('slim') ? 70 : 290;
@@ -418,25 +472,29 @@ function placeLabels() {
     if (!g.n || groupAlpha[base + i] < 0.5) return;
     const [x0, y0, w] = projectPt(g.c);
     if (w <= 0) return;
-    let x = x0, y = y0;
-    if (x < 0 || y < 40 || x > innerWidth - edge || y > innerHeight) return;
-    const [xr] = projectPt([g.c[0] + g.rad * camRight[0], g.c[1] + g.rad * camRight[1], g.c[2] + g.rad * camRight[2]]);
-    const spread = Math.abs(xr - x0);
+    if (x0 < 0 || y0 < 40 || x0 > innerWidth - edge || y0 > innerHeight) return;
+    const spread = g.spread ?? 0;
     if (rank >= 6 && spread < 70) return;
     const alpha = rank < 6 ? 0.9 : Math.min(0.9, (spread - 70) / 120 + 0.35);
     const size = Math.max(10, Math.min(14, 9 + Math.sqrt(g.n) * 0.25));
     const wpx = g.label.length * size * 0.72;
+    // offset the label above the cluster's edge, out of the data's way
+    let x = x0, y = y0 - spread - 22;
     for (let k = 0; k < 10; k++) {
       if (!placed.some(q => Math.abs(q.y - y) < size + 8 && Math.abs(q.x - x) < (q.w + wpx) / 2 + 10)) break;
-      y += size + 8;
+      y -= size + 8;
     }
+    if (y < 46) y = 46;
     placed.push({ x, y, w: wpx });
     const d = document.createElement('div');
     d.className = 'lb';
     d.style.cssText = `left:${x}px;top:${y}px;font-size:${size}px;opacity:${alpha}`;
     d.textContent = g.label;
     el.appendChild(d);
+    const gap = y0 - y - size;                 // leader only if there is distance
+    if (gap > 14) lines += `<line x1="${x0}" y1="${y0 - Math.min(spread * 0.7, gap - 6)}" x2="${x0}" y2="${y + size * 0.8}" stroke="rgba(255,255,255,${0.16 * alpha})" stroke-width="1"/>`;
   });
+  svg.innerHTML = lines;
 }
 
 // --- picking + tooltip -------------------------------------------------------
@@ -504,7 +562,31 @@ canvas.addEventListener('wheel', e => {
   tgt.dist = Math.max(0.3, Math.min(12, tgt.dist * Math.exp(e.deltaY * 0.0012)));
 }, { passive: false });
 canvas.addEventListener('click', () => {
-  if (hover >= 0 && pts[hover].u && moved < 4) window.open(pts[hover].u, '_blank');
+  if (moved >= 4) return;
+  if (hover < 0) {                         // click empty space: release focus
+    if (soloGroup >= 0) {
+      soloGroup = -1;
+      groupAlpha.fill(1);
+      buildLegend(); dirty = true;
+    }
+    return;
+  }
+  const p = pts[hover];
+  const w = worldOf(p);                     // fly to the node, focus its cluster
+  tgt.tx = w[0]; tgt.ty = w[1]; tgt.tz = w[2];
+  tgt.dist = Math.min(tgt.dist, 0.9);
+  const gi = view === 'content' ? p.th : p.g;
+  if (gi >= 0) {
+    const base = view === 'content' ? 32 : 0;
+    const nG = view === 'content' ? 8 : 32;
+    soloGroup = gi;
+    for (let k = 0; k < nG; k++) groupAlpha[base + k] = k === gi ? 1 : 0;
+    buildLegend();
+  }
+  dirty = true;
+});
+canvas.addEventListener('dblclick', () => {
+  if (hover >= 0 && pts[hover].u) window.open(pts[hover].u, '_blank');
 });
 
 // --- panel ----------------------------------------------------------------
