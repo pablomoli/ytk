@@ -80,6 +80,7 @@ class ReelsState:
     last_seen_message_id: str | None = None
     pending: list = field(default_factory=list)  # list[ReelItem]
     last_pull_at: float | None = None            # ingest-hub auto-pull throttle
+    last_pulls: dict = field(default_factory=dict)  # per-source last pull, {source: epoch}
     custom_tags: list[str] = field(default_factory=list)  # UI-created tags
 
 
@@ -123,6 +124,7 @@ def load_state(path: Path = STATE_PATH) -> ReelsState:
         last_seen_message_id=raw.get("last_seen_message_id"),
         pending=[_as_item(e) for e in raw.get("pending", [])],
         last_pull_at=raw.get("last_pull_at"),
+        last_pulls=raw.get("last_pulls", {}),
         custom_tags=raw.get("custom_tags", raw.get("custom_buckets", [])),
     )
 

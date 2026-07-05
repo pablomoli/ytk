@@ -324,6 +324,53 @@ def _serve_static(name: str) -> HTMLResponse:
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
 
+# ---------------------------------------------------------------------------
+# Settings
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/settings")
+async def settings_get():
+    from ytk.config import load_config
+    from ytk.ui import hub
+    from ytk import reels
+
+    cfg = load_config()
+    state = reels.load_state(hub.STATE_PATH)
+    return {
+        "config": cfg.model_dump(mode="json"),
+        "meta": {
+            "restart_required_fields": ["hub.host", "hub.port"],
+            "last_pulls": state.last_pulls,
+            "last_pull_at": state.last_pull_at,
+        },
+    }
+
+
+@app.put("/api/settings")
+async def settings_put(request: Request):
+    from pydantic import ValidationError
+
+    from ytk.config import Config, load_config, save_config
+
+    raw = await request.json()
+    before = load_config()
+    try:
+        cfg = Config.model_validate(raw)
+    except ValidationError as exc:
+        # field-path -> message, so the page can render errors inline
+        errors = [
+            {"loc": ".".join(str(p) for p in e["loc"]), "msg": e["msg"]}
+            for e in exc.errors()
+        ]
+        raise HTTPException(status_code=422, detail=errors)
+    save_config(cfg)
+    restart_required = (
+        cfg.hub.host != before.hub.host or cfg.hub.port != before.hub.port
+    )
+    return {"saved": True, "restart_required": restart_required}
+
+
 @app.get("/api/map")
 async def map_data_api():
     map_path = _STATIC_DIR / "map.json"
@@ -345,6 +392,11 @@ async def map_page():
 @app.get("/inbox", response_class=HTMLResponse)
 async def inbox_page():
     return _serve_static("inbox.html")
+
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page():
+    return _serve_static("settings.html")
 
 
 @app.get("/tags", response_class=HTMLResponse)

@@ -1,0 +1,269 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ytk settings</title>
+<style>
+  :root { color-scheme: dark; }
+  * { font-size: 14px; }
+  body { font-family: system-ui; background: #111; color: #eee; margin: 0; }
+  header { display: flex; gap: 1rem; align-items: center; padding: .8rem 1rem; background: #181818; position: sticky; top: 0; z-index: 5; }
+  header a { color: #e2b04a; text-decoration: none; font-weight: 600; }
+  header a.here { color: #4ade80; }
+  header .hint { color: #888; margin-left: auto; }
+  #wrap { max-width: 760px; margin: 0 auto; padding: 1.2rem 1rem 5rem; }
+  section { background: #1c1c1c; border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
+  h2 { margin: .1rem 0 .8rem; font-size: 1.15rem; font-weight: 500; }
+  .row { display: flex; align-items: center; gap: .8rem; margin-bottom: .55rem; flex-wrap: wrap; }
+  .row label { width: 11rem; color: #b7b5aa; flex-shrink: 0; }
+  input[type=text], input[type=number] { background: #26262a; color: #eee; border: 1px solid #333;
+    border-radius: 8px; padding: .35rem .6rem; width: 14rem; transition: border-color .12s; }
+  input:focus { border-color: #e2b04a; outline: none; }
+  input.err { border-color: #e0785a; }
+  input[type=number] { width: 6rem; }
+  input[type=color] { background: none; border: 0; width: 2.2rem; height: 1.8rem; padding: 0; cursor: pointer; }
+  input[type=checkbox] { accent-color: #e2b04a; width: 1rem; height: 1rem; }
+  .btn { background: #2a2a2a; color: #eee; border: 0; border-radius: 8px; padding: .45rem .9rem; cursor: pointer;
+    transition: background .12s, transform .08s; }
+  .btn:active { transform: scale(.97); }
+  .btn.primary { background: #e2b04a; color: #241a05; font-weight: 600; }
+  .btn.small { padding: .2rem .55rem; }
+  .emsg { color: #e0785a; margin-left: .3rem; }
+  .note { color: #888; }
+  .pill { color: #888; }
+  .rule { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; }
+  .rule input[type=text] { flex: 1; }
+  #savebar { position: fixed; bottom: 0; left: 0; right: 0; background: #181818ee; border-top: 1px solid #2a2a2a;
+    display: flex; gap: 1rem; align-items: center; padding: .7rem 1.2rem; z-index: 6;
+    transform: translateY(100%); transition: transform .15s ease; }
+  #savebar.on { transform: none; }
+  #savemsg { color: #4ade80; }
+  #savemsg.warn { color: #e2b04a; }
+  #savemsg.err { color: #e0785a; }
+</style>
+<link rel="stylesheet" href="/static/theme.css">
+</head>
+<body>
+<header>
+  <a href="/">fresh</a>
+  <a href="/inbox">inbox</a>
+  <a href="/tags">tags</a>
+  <a href="/map">map</a>
+  <a href="/settings" class="here">settings</a>
+  <span class="hint">~/.ytk/config.yaml</span>
+</header>
+
+<div id="wrap">
+  <section id="s-hub">
+    <h2>Hub</h2>
+    <div class="row"><label>host</label><input type="text" data-path="hub.host"><span class="pill">restart required</span></div>
+    <div class="row"><label>port</label><input type="number" data-path="hub.port"><span class="pill">restart required</span></div>
+    <div class="row"><label>tags</label><input type="text" data-path="hub.tags" data-list style="width:100%;max-width:34rem"></div>
+    <div class="row"><label>pinterest feeds</label><input type="text" data-path="hub.pinterest_feeds" data-list style="width:100%;max-width:34rem"></div>
+  </section>
+
+  <section id="s-fetch">
+    <h2>Fetch cadence</h2>
+    <div id="cadence"></div>
+    <div class="row" style="margin-top:.5rem">
+      <button class="btn" id="pullnow">Pull all sources now</button>
+      <span class="note" id="pullmsg"></span>
+    </div>
+  </section>
+
+  <section id="s-interest">
+    <h2>Interest model</h2>
+    <div class="row"><label>alpha</label><input type="number" step="0.5" data-path="interest.alpha">
+      <span class="note">signal weighting slope; fitted optimum 7</span></div>
+    <div class="row"><label>explicit_min</label><input type="number" data-path="interest.explicit_min">
+      <span class="note">thoughts needed before the explicit channel activates</span></div>
+    <div class="row"><label>cluster range</label>
+      <input type="number" data-path="interest.cluster_min">
+      <input type="number" data-path="interest.cluster_max"></div>
+    <div class="row"><label>content sources</label><input type="text" data-path="interest.content_sources" data-list></div>
+  </section>
+
+  <section id="s-colors">
+    <h2>Map color rules</h2>
+    <p class="note" style="margin-top:0">Ordered, first match wins. A rule paints every note whose path, title, or tags contain the query.</p>
+    <div id="rules"></div>
+    <div class="row">
+      <button class="btn small" id="addrule">+ rule</button>
+    </div>
+    <div class="row" style="margin-top:.6rem">
+      <label>presets</label>
+      <select id="presetsel" class="btn"></select>
+      <button class="btn small" id="presetload">Load</button>
+      <button class="btn small" id="presetdel">Delete</button>
+      <input type="text" id="presetname" placeholder="save as…" style="width:9rem">
+      <button class="btn small" id="presetsave">Save preset</button>
+    </div>
+  </section>
+
+  <section id="s-filters">
+    <h2>Ingest filters</h2>
+    <div class="row"><label>min duration (s)</label><input type="number" data-path="filters.min_duration"></div>
+    <div class="row"><label>max duration (s)</label><input type="number" data-path="filters.max_duration" data-nullable></div>
+    <div class="row"><label>require captions</label><input type="checkbox" data-path="filters.require_captions"></div>
+    <div class="row"><label>interest tags</label><input type="text" data-path="filters.interest_tags" data-list style="width:100%;max-width:34rem"></div>
+  </section>
+
+  <section id="s-misc">
+    <h2>Misc</h2>
+    <div class="row"><label>whisper model</label><input type="text" data-path="whisper_model"><span class="note">base | small | medium | large</span></div>
+    <div class="row"><label>github repos</label><input type="text" data-path="github_repos" data-list style="width:100%;max-width:34rem"></div>
+    <div class="row"><label>memo notify</label><input type="text" data-path="memo_notify" data-list><span class="note">tmux, macos, sketchybar; empty = auto</span></div>
+  </section>
+</div>
+
+<div id="savebar">
+  <button class="btn primary" id="save">Save</button>
+  <button class="btn" id="revert">Revert</button>
+  <span id="savemsg"></span>
+</div>
+
+<script>
+let cfg = null, meta = null, saved = null;
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+const get = (o, p) => p.split(".").reduce((a, k) => a?.[k], o);
+const set = (o, p, v) => { const ks = p.split("."); const last = ks.pop();
+  ks.reduce((a, k) => a[k], o)[last] = v; };
+
+function markDirty() {
+  const dirty = JSON.stringify(cfg) !== saved;
+  $("#savebar").classList.toggle("on", dirty);
+  if (dirty) say("");
+}
+
+function say(msg, cls) { const el = $("#savemsg"); el.textContent = msg; el.className = cls || ""; }
+
+function bindInputs() {
+  $$("[data-path]").forEach(el => {
+    const p = el.dataset.path, v = get(cfg, p);
+    if (el.type === "checkbox") el.checked = !!v;
+    else if (el.dataset.list !== undefined) el.value = (v || []).join(", ");
+    else el.value = v ?? "";
+    el.oninput = () => {
+      el.classList.remove("err");
+      el.parentElement.querySelector(".emsg")?.remove();
+      let val;
+      if (el.type === "checkbox") val = el.checked;
+      else if (el.dataset.list !== undefined)
+        val = el.value.split(",").map(s => s.trim()).filter(Boolean);
+      else if (el.type === "number")
+        val = el.value === "" ? (el.dataset.nullable !== undefined ? null : 0) : +el.value;
+      else val = el.value;
+      set(cfg, p, val);
+      markDirty();
+    };
+  });
+}
+
+function ago(t) {
+  if (!t) return "never";
+  const m = Math.round((Date.now() / 1000 - t) / 60);
+  return m < 1 ? "just now" : m < 60 ? m + "m ago" : Math.round(m / 60) + "h ago";
+}
+
+function renderCadence() {
+  $("#cadence").innerHTML = Object.keys(cfg.hub.cadence_minutes).map(src => `
+    <div class="row"><label>${src}</label>
+      <input type="number" data-src="${src}" value="${cfg.hub.cadence_minutes[src]}">
+      <span class="note">min · last pulled ${ago(meta.last_pulls[src] ?? meta.last_pull_at)}</span></div>`).join("");
+  $$("#cadence input").forEach(el => el.oninput = () => {
+    cfg.hub.cadence_minutes[el.dataset.src] = +el.value || 0; markDirty();
+  });
+}
+
+function renderRules() {
+  const rules = cfg.map.color_rules;
+  $("#rules").innerHTML = rules.map((r, i) => `
+    <div class="rule" data-i="${i}">
+      <input type="color" value="${r.color}">
+      <input type="text" value="${r.query}" placeholder="query — tag, path or title fragment">
+      <button class="btn small" data-mv="-1" ${i === 0 ? "disabled" : ""}>&uarr;</button>
+      <button class="btn small" data-mv="1" ${i === rules.length - 1 ? "disabled" : ""}>&darr;</button>
+      <button class="btn small" data-del>&times;</button>
+    </div>`).join("");
+  $$("#rules .rule").forEach(row => {
+    const i = +row.dataset.i;
+    row.querySelector("[type=color]").oninput = e => { rules[i].color = e.target.value; markDirty(); };
+    row.querySelector("[type=text]").oninput = e => { rules[i].query = e.target.value; markDirty(); };
+    row.querySelectorAll("[data-mv]").forEach(b => b.onclick = () => {
+      const j = i + +b.dataset.mv;
+      [rules[i], rules[j]] = [rules[j], rules[i]];
+      renderRules(); markDirty();
+    });
+    row.querySelector("[data-del]").onclick = () => { rules.splice(i, 1); renderRules(); markDirty(); };
+  });
+}
+
+function renderPresets() {
+  const names = Object.keys(cfg.map.presets);
+  $("#presetsel").innerHTML = names.length
+    ? names.map(n => `<option>${n}</option>`).join("")
+    : '<option value="" disabled selected>no presets</option>';
+}
+
+$("#addrule").onclick = () => { cfg.map.color_rules.push({ query: "", color: "#e2b04a" }); renderRules(); markDirty(); };
+$("#presetsave").onclick = () => {
+  const name = $("#presetname").value.trim();
+  if (!name) return $("#presetname").focus();
+  cfg.map.presets[name] = JSON.parse(JSON.stringify(cfg.map.color_rules));
+  $("#presetname").value = ""; renderPresets(); $("#presetsel").value = name; markDirty();
+};
+$("#presetload").onclick = () => {
+  const name = $("#presetsel").value; if (!name) return;
+  cfg.map.color_rules = JSON.parse(JSON.stringify(cfg.map.presets[name]));
+  renderRules(); markDirty();
+};
+$("#presetdel").onclick = () => {
+  const name = $("#presetsel").value; if (!name) return;
+  delete cfg.map.presets[name]; renderPresets(); markDirty();
+};
+
+$("#pullnow").onclick = async () => {
+  $("#pullmsg").textContent = "pulling…";
+  const r = await fetch("/api/queue/refresh?force=true", { method: "POST" }).then(r => r.json());
+  $("#pullmsg").textContent = `instagram ${r.instagram} · youtube ${r.youtube} · pinterest ${r.pinterest}`
+    + (r.errors.length ? ` · ${r.errors.length} error(s)` : "");
+  const s = await fetch("/api/settings").then(r => r.json());
+  meta = s.meta; renderCadence();
+};
+
+$("#save").onclick = async () => {
+  say("saving…");
+  const res = await fetch("/api/settings", {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cfg),
+  });
+  if (res.status === 422) {
+    const { detail } = await res.json();
+    say("validation failed", "err");
+    for (const e of detail) {
+      const el = document.querySelector(`[data-path="${e.loc}"]`);
+      if (el) { el.classList.add("err");
+        el.insertAdjacentHTML("afterend", `<span class="emsg">${e.msg}</span>`); }
+    }
+    return;
+  }
+  const r = await res.json();
+  saved = JSON.stringify(cfg);
+  $("#savebar").classList.remove("on");
+  say(r.restart_required ? "saved — run `ytk ui restart` to apply host/port" : "saved",
+      r.restart_required ? "warn" : "");
+  $("#savebar").classList.add("on");
+  setTimeout(() => { if (JSON.stringify(cfg) === saved) $("#savebar").classList.remove("on"); }, 2500);
+};
+$("#revert").onclick = () => { cfg = JSON.parse(saved); bindInputs(); renderCadence(); renderRules(); renderPresets(); $("#savebar").classList.remove("on"); };
+
+(async () => {
+  const s = await fetch("/api/settings").then(r => r.json());
+  cfg = s.config; meta = s.meta; saved = JSON.stringify(cfg);
+  bindInputs(); renderCadence(); renderRules(); renderPresets();
+})();
+</script>
+</body>
+</html>

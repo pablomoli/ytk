@@ -35,11 +35,38 @@ class InterestConfig(BaseModel):
     )
 
 
+class ColorRule(BaseModel):
+    """One map color rule: notes matching `query` paint `color`.
+
+    Rules are ordered; the first matching rule wins (Obsidian Groups model).
+    """
+
+    query: str = Field(description="Substring/tag query matched against a note's path, title, and tags.")
+    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$", description="Hex color, e.g. #e2b04a.")
+
+
+class MapConfig(BaseModel):
+    """Configuration for the brain map (/map)."""
+
+    color_rules: list[ColorRule] = Field(
+        default_factory=list,
+        description="Ordered first-match-wins color rules consumed by the map.",
+    )
+    presets: dict[str, list[ColorRule]] = Field(
+        default_factory=dict,
+        description="Saved color-rule presets by name.",
+    )
+
+
 class HubConfig(BaseModel):
     """Configuration for the ingest hub UI."""
 
     host: str = Field(default="127.0.0.1", description="Hub bind address.")
     port: int = Field(default=6969, description="Hub port (memorable on purpose).")
+    cadence_minutes: dict[str, int] = Field(
+        default_factory=lambda: {"instagram": 15, "youtube": 15, "pinterest": 15},
+        description="Auto-pull throttle per discovery source, in minutes.",
+    )
     tags: list[str] = Field(
         default_factory=lambda: [
             "design", "music", "build-idea", "dev-tools",
@@ -63,6 +90,7 @@ class Config(BaseModel):
     )
     github_repos: list[str] = Field(default_factory=list, description="GitHub repos (owner/name) available when creating issues via ytk triage.")
     interest: InterestConfig = Field(default_factory=InterestConfig)
+    map: MapConfig = Field(default_factory=MapConfig)
 
 
 _DEFAULT_CONFIG_PATH = Path.home() / ".ytk" / "config.yaml"
@@ -112,3 +140,14 @@ def load_config(path: Path | None = None) -> Config:
         raw = yaml.safe_load(f) or {}
 
     return Config.model_validate(raw)
+
+
+def save_config(config: Config, path: Path | None = None) -> Path:
+    """Persist the full config to YAML (default: ~/.ytk/config.yaml)."""
+    config_path = path or Path(os.environ.get("YTK_CONFIG", str(_DEFAULT_CONFIG_PATH)))
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        yaml.safe_dump(config.model_dump(mode="json"), sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    return config_path

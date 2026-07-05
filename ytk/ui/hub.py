@@ -147,74 +147,91 @@ YT_IS_PROCESSED = _yt_is_processed
 PIN_FETCH = _pin_fetch
 
 
-PULL_TTL_SECONDS = 15 * 60
+def _pull_due(state: reels.ReelsState, source: str, cadence_minutes: dict, force: bool) -> bool:
+    """Whether a source's per-source throttle window has elapsed."""
+    if force:
+        return True
+    last = state.last_pulls.get(source, state.last_pull_at)
+    if last is None:
+        return True
+    return time.time() - last >= cadence_minutes.get(source, 15) * 60
 
 
 def refresh_sources(force: bool = False) -> dict:
     """Pull new items from all discovery sources into the queue.
 
-    Auto-pull is throttled: within PULL_TTL_SECONDS of the last pull the call
-    is a no-op (a source hit on every page load is bot-shaped traffic).
-    Each source fails independently; errors are reported, not raised.
+    Auto-pull is throttled per source by hub.cadence_minutes (a source hit on
+    every page load is bot-shaped traffic); `skipped` is True when every
+    source was inside its window. Each source fails independently; errors are
+    reported, not raised.
     """
+    from ytk.config import load_config
+
+    cadence = load_config().hub.cadence_minutes
     result: dict = {
         "instagram": 0, "youtube": 0, "pinterest": 0,
-        "errors": [], "skipped": False,
+        "errors": [], "skipped": False, "skipped_sources": [],
     }
     with _LOCK:
         state = reels.load_state(STATE_PATH)
+        now = time.time()
 
-        if (
-            not force
-            and state.last_pull_at is not None
-            and time.time() - state.last_pull_at < PULL_TTL_SECONDS
-        ):
+        due = {s: _pull_due(state, s, cadence, force) for s in ("instagram", "youtube", "pinterest")}
+        if not any(due.values()):
             result["skipped"] = True
+            result["skipped_sources"] = list(due)
             return result
+        result["skipped_sources"] = [s for s, d in due.items() if not d]
 
-        try:
-            result["instagram"] = IG_PULL(state)
-        except Exception as exc:
-            result["errors"].append(f"instagram: {exc}")
+        if due["instagram"]:
+            try:
+                result["instagram"] = IG_PULL(state)
+                state.last_pulls["instagram"] = now
+            except Exception as exc:
+                result["errors"].append(f"instagram: {exc}")
 
-        try:
-            known = {i.url for i in state.pending}
-            for v in YT_FETCH():
-                url = f"https://www.youtube.com/watch?v={v['video_id']}"
-                if url in known or YT_IS_PROCESSED(v["video_id"]):
-                    continue
-                state.pending.append(
-                    reels.ReelItem(
-                        url=url,
-                        author=v.get("title") or None,
-                        shared_at=(v.get("added_at") or "")[:10] or None,
-                        preview_url=f"https://i.ytimg.com/vi/{v['video_id']}/hqdefault.jpg",
-                        source="youtube",
+        if due["youtube"]:
+            try:
+                known = {i.url for i in state.pending}
+                for v in YT_FETCH():
+                    url = f"https://www.youtube.com/watch?v={v['video_id']}"
+                    if url in known or YT_IS_PROCESSED(v["video_id"]):
+                        continue
+                    state.pending.append(
+                        reels.ReelItem(
+                            url=url,
+                            author=v.get("title") or None,
+                            shared_at=(v.get("added_at") or "")[:10] or None,
+                            preview_url=f"https://i.ytimg.com/vi/{v['video_id']}/hqdefault.jpg",
+                            source="youtube",
+                        )
                     )
-                )
-                result["youtube"] += 1
-        except Exception as exc:
-            result["errors"].append(f"youtube: {exc}")
+                    result["youtube"] += 1
+                state.last_pulls["youtube"] = now
+            except Exception as exc:
+                result["errors"].append(f"youtube: {exc}")
 
-        try:
-            known = {i.url for i in state.pending}
-            for pin in PIN_FETCH():
-                if pin["url"] in known:
-                    continue
-                state.pending.append(
-                    reels.ReelItem(
-                        url=pin["url"],
-                        author=pin.get("title"),
-                        shared_at=pin.get("date"),
-                        preview_url=pin.get("image"),
-                        source="pinterest",
+        if due["pinterest"]:
+            try:
+                known = {i.url for i in state.pending}
+                for pin in PIN_FETCH():
+                    if pin["url"] in known:
+                        continue
+                    state.pending.append(
+                        reels.ReelItem(
+                            url=pin["url"],
+                            author=pin.get("title"),
+                            shared_at=pin.get("date"),
+                            preview_url=pin.get("image"),
+                            source="pinterest",
+                        )
                     )
-                )
-                result["pinterest"] += 1
-        except Exception as exc:
-            result["errors"].append(f"pinterest: {exc}")
+                    result["pinterest"] += 1
+                state.last_pulls["pinterest"] = now
+            except Exception as exc:
+                result["errors"].append(f"pinterest: {exc}")
 
-        state.last_pull_at = time.time()
+        state.last_pull_at = now
         reels.save_state(state, STATE_PATH)
     return result
 
