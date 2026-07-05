@@ -188,7 +188,7 @@ def fetch_new_items(
     newest-first; an empty cursor drains the whole thread.
     """
     thread = find_peer_thread(client, peer) if peer else find_self_thread(client)
-    messages = client.direct_messages(thread.id, amount=0)
+    messages = _messages_until_cursor(client, thread.id, state.last_seen_message_id)
 
     new = []
     for m in messages:
@@ -203,6 +203,28 @@ def fetch_new_items(
         last_seen_message_id=newest_id,
         pending=list(state.pending),
     )
+
+
+def _messages_until_cursor(client, thread_id, cursor_id: str | None):
+    """Fetch messages newest-first, but only as many pages as needed.
+
+    With no cursor (first run) the whole thread is drained. With a cursor,
+    request small batches and grow until the cursor message appears — a normal
+    sync usually needs a single page instead of re-reading hundreds of messages.
+    """
+    if cursor_id is None:
+        return client.direct_messages(thread_id, amount=0)
+
+    amount = 20
+    while True:
+        messages = client.direct_messages(thread_id, amount=amount)
+        if any(str(m.id) == str(cursor_id) for m in messages):
+            return messages
+        if len(messages) < amount:
+            # cursor message was deleted or thread is shorter than requested;
+            # everything fetched is everything there is
+            return messages
+        amount *= 2
 
 
 def fetch_new_links(

@@ -531,3 +531,60 @@ def test_gallery_html_shows_numbered_covers():
     assert "hancept_japan" in html
     assert ">1<" in html and ">2<" in html  # picker numbers
     assert "https://www.instagram.com/p/bbb/" in html
+
+
+# --- incremental paging (stop at the cursor, don't refetch the whole thread) ----
+
+
+class CountingClient(FakeClient):
+    def __init__(self, threads, messages_by_thread=None, user_id="42"):
+        super().__init__(threads, messages_by_thread, user_id)
+        self.requested_amounts = []
+
+    def direct_messages(self, thread_id, amount=0):
+        self.requested_amounts.append(amount)
+        msgs = self._messages[thread_id]
+        return list(msgs) if amount == 0 else list(msgs[:amount])
+
+
+def test_cursor_hit_in_first_page_avoids_full_fetch():
+    from ytk.reels import fetch_new_items
+
+    # 100 messages newest-first; cursor is the 3rd newest
+    msgs = [_clip(str(100 - i), f"c{100 - i}") for i in range(100)]
+    client = CountingClient([_thread("ts", [])], {"ts": msgs})
+    state = ReelsState(thread_id="ts", last_seen_message_id="98")
+
+    items, new_state = fetch_new_items(client, state)
+
+    assert [i.url for i in items] == [
+        "https://www.instagram.com/reel/c99/",
+        "https://www.instagram.com/reel/c100/",
+    ]
+    assert new_state.last_seen_message_id == "100"
+    assert client.requested_amounts == [20]  # single small page, no full fetch
+
+
+def test_cursor_deep_in_thread_grows_pages_until_found():
+    from ytk.reels import fetch_new_items
+
+    msgs = [_clip(str(100 - i), f"c{100 - i}") for i in range(100)]
+    client = CountingClient([_thread("ts", [])], {"ts": msgs})
+    state = ReelsState(thread_id="ts", last_seen_message_id="50")
+
+    items, new_state = fetch_new_items(client, state)
+
+    assert len(items) == 50
+    assert all(a != 0 for a in client.requested_amounts)  # never the full-thread fetch
+
+
+def test_first_run_still_fetches_everything():
+    from ytk.reels import fetch_new_items
+
+    msgs = [_clip("2", "bbb"), _clip("1", "aaa")]
+    client = CountingClient([_thread("ts", [])], {"ts": msgs})
+
+    items, _ = fetch_new_items(client, ReelsState())
+
+    assert len(items) == 2
+    assert client.requested_amounts == [0]
