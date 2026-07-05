@@ -655,9 +655,13 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str):
         transcript, audio_path = text, None
     else:
         try:
-            audio_path = memo_record(AUDIO_DIR / f"{_dt.now().strftime('%Y%m%d-%H%M%S')}.wav")
-            console.print(f"[dim]transcribing ({cfg.whisper_model})...[/dim]")
-            transcript = memo_transcribe(audio_path, cfg.whisper_model)
+            console.print("[bold red]\u25cf rec[/bold red]  [dim]speak, then press Enter[/dim]")
+            audio_path = memo_record(
+                AUDIO_DIR / f"{_dt.now().strftime('%Y%m%d-%H%M%S')}.wav",
+                wait=lambda _prompt: input(""),
+            )
+            with console.status(f"[cyan]transcribing[/] [dim]({cfg.whisper_model})[/dim]", spinner="dots"):
+                transcript = memo_transcribe(audio_path, cfg.whisper_model)
         except RuntimeError as exc:
             console.print(f"[red]{exc}[/]")
             raise SystemExit(1)
@@ -665,12 +669,12 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str):
             console.print("[red]Empty transcription; audio kept at[/] " f"{audio_path}")
             raise SystemExit(1)
 
-    console.print(Panel(transcript, title="transcript", border_style="dim"))
+    console.print(Panel(transcript, title="[bold]transcript[/bold]", border_style="cyan", padding=(0, 1)))
     note_path = memo_write_note(transcript, audio_path)
 
     try:
-        console.print("[dim]routing via Claude...[/dim]")
-        result = memo_route(transcript, repos=cfg.github_repos or [])
+        with console.status("[magenta]routing via Claude[/]", spinner="moon"):
+            result = memo_route(transcript, repos=cfg.github_repos or [])
     except Exception as exc:
         memo_finalize(note_path, "failed", [])
         memo_index(note_path, transcript, "failed")
@@ -686,12 +690,13 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str):
         memo_finalize(note_path, f"dry-run:{result.kind}", [])
         return
 
-    console.print("[dim]executing routes...[/dim]")
-    routed_lines = memo_execute(result, transcript, cfg.github_repos or [])
+    with console.status("[yellow]executing routes[/]", spinner="dots"):
+        routed_lines = memo_execute(result, transcript, cfg.github_repos or [])
     memo_finalize(note_path, result.kind, routed_lines)
     memo_index(note_path, transcript, result.kind)
     memo_notify(result.summary, result.kind, cfg.memo_notify or None)
-    console.print(f"[green]{result.kind}[/] {result.summary}")
+    console.print(Panel(f"[bold]{result.summary}[/bold]", title=f"[green]\u2713 {result.kind}[/green]",
+                        border_style="green", padding=(0, 1)))
     time.sleep(3)
     console.print(f"[bold green]{result.kind}:[/] {result.summary}")
     for line in routed_lines:
@@ -1846,12 +1851,14 @@ def snap(note: tuple[str, ...], tags: str, file_path: str | None, speak: bool):
 
         cfg = load_config()
         with _tf.TemporaryDirectory() as td:
-            audio = record(Path(td) / "snap-note.wav")
-            console.print("[dim]transcribing...[/dim]")
-            text = memo_transcribe(ensure_wav(audio), cfg.whisper_model).strip()
+            console.print("[bold red]\u25cf rec[/bold red]  [dim]speak your note, then press Enter[/dim]")
+            audio = record(Path(td) / "snap-note.wav", wait=lambda _prompt: input(""))
+            with console.status(f"[cyan]transcribing[/] [dim]({cfg.whisper_model})[/dim]", spinner="dots"):
+                text = memo_transcribe(ensure_wav(audio), cfg.whisper_model).strip()
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     note_path = save_snap(data, text, tag_list)
     console.print(f"[green]Saved[/] {note_path.name}")
     if speak:
-        console.print(Panel(text or "[dim](empty transcript)[/dim]", title="transcript", border_style="dim"))
+        console.print(Panel(text or "[dim](empty transcript)[/dim]", title="[bold]transcript[/bold]",
+                            border_style="cyan", padding=(0, 1)))
         time.sleep(4)
