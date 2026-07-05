@@ -25,6 +25,14 @@ class InterestConfig(BaseModel):
         default_factory=lambda: ["instagram", "tiktok", "web"],
         description="doc_id prefixes from the memories collection to include in the interest profile (besides YouTube videos).",
     )
+    alpha: float = Field(
+        default=7.0,
+        description="Confidence weighting slope: sample weight = 1 + alpha * signal level r. 0 disables weighting. Fitted 2026-07-05 via 5-fold held-out-save retrieval (plateau alpha 7-31; 7 keeps passive items meaningful).",
+    )
+    explicit_min: int = Field(
+        default=5,
+        description="Minimum thought-carrying items (r >= 2) before the explicit interest channel activates.",
+    )
 
 
 class HubConfig(BaseModel):

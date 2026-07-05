@@ -23,7 +23,12 @@ class Connection(BaseModel):
 
 
 class Theme(BaseModel):
-    """A named cluster of notes that share a coherent topic or interest area."""
+    """A named cluster of notes that share a coherent topic or interest area.
+
+    ``centroid`` (v2) is the theme's weighted mean embedding — one of the
+    profile's multiple query vectors. Retrieval goes per-theme then merges;
+    never query with a single all-taste centroid.
+    """
 
     id: str
     label: str
@@ -31,6 +36,21 @@ class Theme(BaseModel):
     weight: float
     note_ids: list[str]
     exemplar_titles: list[str]
+    centroid: list[float] | None = None
+
+
+class ExplicitChannel(BaseModel):
+    """Explicit interests: items the user wrote a thought about (r >= 2).
+
+    A separate retrieval channel (Pinterest: explicit interests retrieve
+    almost disjoint content from behavioral clusters). Gated on
+    interest.explicit_min members; None in snapshots until the vault has
+    enough thought-carrying saves.
+    """
+
+    note_ids: list[str]
+    exemplar_titles: list[str]
+    centroid: list[float]
 
 
 class InterestSnapshot(BaseModel):
@@ -38,6 +58,8 @@ class InterestSnapshot(BaseModel):
 
     Persisted as JSON under ``~/.ytk/interest/``. The ``connections`` field is
     intentionally empty in Phase 0 and populated by later synthesis phases.
+    v2 fields record the run's parameters so their evolution across snapshots
+    is itself a time series (alpha, signal distribution).
     """
 
     generated_at: str
@@ -45,6 +67,9 @@ class InterestSnapshot(BaseModel):
     themes: list[Theme]
     connections: list[Connection] = Field(default_factory=list)
     profile_markdown: str
+    alpha: float | None = None
+    signal_counts: dict[int, int] = Field(default_factory=dict)
+    explicit: ExplicitChannel | None = None
 
 
 _INTEREST_DIR = Path.home() / ".ytk" / "interest"

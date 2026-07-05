@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from sklearn.cluster import KMeans
 
 from .config import InterestConfig, load_config
-from .interest import InterestSnapshot, Theme, load_latest, save_snapshot
+from .interest import ExplicitChannel, InterestSnapshot, Theme, load_latest, save_snapshot
 from .sdk import run_structured
 from .store import get_all_videos, get_content_memories
 from .vault import _get_brain_path
@@ -44,10 +44,24 @@ def choose_k(n: int, cfg: InterestConfig) -> int:
     return max(cfg.cluster_min, min(cfg.cluster_max, k, n))
 
 
-def cluster_embeddings(embeddings: np.ndarray, k: int) -> list[int]:
-    """Assign each embedding row to one of k clusters. Deterministic (seeded)."""
+def cluster_embeddings(
+    embeddings: np.ndarray, k: int, sample_weight: list[float] | None = None
+) -> list[int]:
+    """Assign each embedding row to one of k clusters. Deterministic (seeded).
+
+    sample_weight (v2) carries confidence weights w = 1 + alpha*r: a
+    save-with-thought pulls centroids harder than a passively synced video.
+    """
     km = KMeans(n_clusters=k, random_state=0, n_init=10)
-    return [int(label) for label in km.fit_predict(embeddings)]
+    return [int(label) for label in km.fit_predict(embeddings, sample_weight=sample_weight)]
+
+
+def weighted_centroid(embeddings: np.ndarray, weights: list[float]) -> list[float]:
+    """Confidence-weighted mean embedding, L2-normalized (cosine space)."""
+    w = np.asarray(weights, dtype=float)[:, None]
+    c = (embeddings * w).sum(axis=0) / w.sum()
+    norm = np.linalg.norm(c)
+    return list(c / norm if norm else c)
 
 
 class ThemeLabel(BaseModel):
@@ -103,35 +117,65 @@ def assemble_snapshot(
     labels: list[int],
     synthesis: ProfileSynthesis,
     generated_at: str,
+    embeddings: np.ndarray | None = None,
+    weights: list[float] | None = None,
+    levels: list[int] | None = None,
+    alpha: float | None = None,
+    explicit_min: int = 5,
 ) -> InterestSnapshot:
     """Combine clustering (authoritative note->theme mapping) with the LLM labels.
 
     Clustering determines which note belongs to which theme; the LLM only supplies
     the human-readable label and summary per cluster_index. Themes are sorted by
     weight (share of notes) descending.
+
+    v2: when embeddings/weights are given, each theme also stores its
+    confidence-weighted centroid (the profile's per-theme query vectors), theme
+    weight becomes signal-weighted share, and thought-carrying items (r >= 2)
+    form the explicit channel once at least ``explicit_min`` of them exist.
     """
     n = len(notes)
     label_by_index = {t.cluster_index: t for t in synthesis.themes}
+    total_w = sum(weights) if weights else n
     themes: list[Theme] = []
     for c, idxs in sorted(_group_by_cluster(labels).items()):
         tl = label_by_index.get(c)
         label = tl.label if tl else f"Theme {c}"
         summary = tl.summary if tl else ""
+        cluster_w = sum(weights[i] for i in idxs) if weights else len(idxs)
         themes.append(Theme(
             id=_slug(label),
             label=label,
             summary=summary,
-            weight=round(len(idxs) / n, 4),
+            weight=round(cluster_w / total_w, 4),
             note_ids=[notes[i]["id"] for i in idxs],
             exemplar_titles=[notes[i]["title"] for i in idxs[:3]],
+            centroid=weighted_centroid(embeddings[idxs], [weights[i] for i in idxs])
+            if embeddings is not None and weights else None,
         ))
     themes.sort(key=lambda t: t.weight, reverse=True)
+
+    explicit = None
+    if embeddings is not None and levels:
+        exp_idx = [i for i, r in enumerate(levels) if r >= 2]
+        if len(exp_idx) >= explicit_min:
+            explicit = ExplicitChannel(
+                note_ids=[notes[i]["id"] for i in exp_idx],
+                exemplar_titles=[notes[i]["title"] for i in exp_idx[:5]],
+                centroid=weighted_centroid(embeddings[exp_idx], [1.0] * len(exp_idx)),
+            )
+
+    from collections import Counter
+
     return InterestSnapshot(
         generated_at=generated_at,
         note_count=n,
         themes=themes,
         connections=[],
         profile_markdown=synthesis.profile_markdown,
+        alpha=alpha,
+        signal_counts=dict(Counter(levels)) if levels else {},
+        explicit=explicit,
     )
 
 
@@ -237,16 +281,24 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     if len(notes) < min_notes:
         raise SynthesisTooSparse(len(notes), min_notes)
 
+    from . import signals
+
     embeddings = np.array([n["embedding"] for n in notes], dtype=float)
+    levels = signals.signal_levels(notes)
+    weights = signals.weights(levels, cfg.interest.alpha)
     k = choose_k(len(notes), cfg.interest)
-    labels = cluster_embeddings(embeddings, k)
+    labels = cluster_embeddings(embeddings, k, sample_weight=weights)
 
     prompt = build_synthesis_prompt(notes, labels)
     data = run_structured(_PROFILE_SYSTEM, prompt, _PROFILE_SCHEMA)
     synthesis = ProfileSynthesis.model_validate(data)
 
     now = datetime.now(timezone.utc)
-    snapshot = assemble_snapshot(notes, labels, synthesis, now.isoformat())
+    snapshot = assemble_snapshot(
+        notes, labels, synthesis, now.isoformat(),
+        embeddings=embeddings, weights=weights, levels=levels,
+        alpha=cfg.interest.alpha, explicit_min=cfg.interest.explicit_min,
+    )
     save_snapshot(snapshot, now.strftime("%Y%m%dT%H%M%SZ"))
     profile_path = _write_profile_note(snapshot)
     return snapshot, profile_path

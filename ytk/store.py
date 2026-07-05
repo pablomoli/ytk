@@ -500,5 +500,6 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
             "summary": "",
             "tags": tags.split(", ") if tags else [],
             "embedding": list(emb),
+            "source_path": meta.get("source_path", ""),
         })
     return out
