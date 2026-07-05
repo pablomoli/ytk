@@ -641,8 +641,10 @@ def remember_cmd(text: str, tags: str):
 @click.option("--dry-run", is_flag=True, default=False,
               help="Record + transcribe + print proposed routing; execute nothing.")
 @click.option("--text", default="", help="Skip recording/STT and route this text.")
+@click.option("--quick", is_flag=True, default=False,
+              help="Popup mode: close right after the transcript; route in the background.")
 @click.pass_context
-def memo_cmd(ctx: click.Context, dry_run: bool, text: str):
+def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool):
     """Voice memo: record, transcribe locally, route, notify.
 
     Exit codes: 0 routed; 2 transcript saved but routing failed; 1 capture/STT failure.
@@ -655,6 +657,9 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str):
         transcript, audio_path = text, None
     else:
         try:
+            from .memo import preload_model
+
+            preload_model(cfg.whisper_model)
             console.print("[bold red]\u25cf rec[/bold red]  [dim]speak, then press Enter[/dim]")
             audio_path = memo_record(
                 AUDIO_DIR / f"{_dt.now().strftime('%Y%m%d-%H%M%S')}.wav",
@@ -670,6 +675,17 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str):
             raise SystemExit(1)
 
     console.print(Panel(transcript, title="[bold]transcript[/bold]", border_style="cyan", padding=(0, 1)))
+
+    if quick and not dry_run:
+        subprocess.Popen(
+            [sys.argv[0], "memo", "--text", transcript],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, start_new_session=True,
+        )
+        console.print("[dim]routing in background — notification will follow[/dim]")
+        time.sleep(1.2)
+        return
+
     note_path = memo_write_note(transcript, audio_path)
 
     try:
@@ -1851,6 +1867,9 @@ def snap(note: tuple[str, ...], tags: str, file_path: str | None, speak: bool):
 
         cfg = load_config()
         with _tf.TemporaryDirectory() as td:
+            from .memo import preload_model
+
+            preload_model(cfg.whisper_model)
             console.print("[bold red]\u25cf rec[/bold red]  [dim]speak your note, then press Enter[/dim]")
             audio = record(Path(td) / "snap-note.wav", wait=lambda _prompt: input(""))
             with console.status(f"[cyan]transcribing[/] [dim]({cfg.whisper_model})[/dim]", spinner="dots"):

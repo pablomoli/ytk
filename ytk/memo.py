@@ -189,10 +189,23 @@ def ensure_wav(path: Path) -> Path:
     return out
 
 
+_MODEL_CACHE: dict = {}
+
+
 def _whisper_model(model_name: str):
     from faster_whisper import WhisperModel
 
-    return WhisperModel(model_name, device="cpu", compute_type="int8")
+    if model_name not in _MODEL_CACHE:
+        _MODEL_CACHE[model_name] = WhisperModel(model_name, device="cpu", compute_type="int8")
+    return _MODEL_CACHE[model_name]
+
+
+def preload_model(model_name: str) -> None:
+    """Warm the whisper model in a daemon thread (call before recording so the
+    load overlaps with the user speaking)."""
+    import threading
+
+    threading.Thread(target=_whisper_model, args=(model_name,), daemon=True).start()
 
 
 def transcribe(wav_path: Path, model_name: str) -> str:
