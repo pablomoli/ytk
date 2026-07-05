@@ -242,13 +242,15 @@ async function pollStatus() {
   const p = document.getElementById("progress");
   const fails = s.failures.length
     ? ` <span class="fail">${s.failures.length} failed</span>` : "";
+  const linked = (s.linked || []).length
+    ? `<br>${s.linked.map(esc).join("<br>")}` : "";
   if (s.running) {
-    p.innerHTML = `ingesting ${s.done + 1}/${s.total}${fails}`;
+    p.innerHTML = `ingesting ${s.done + 1}/${s.total}${fails}${linked}`;
   } else {
     clearInterval(pollTimer);
     pollTimer = null;
     p.innerHTML = s.total
-      ? `done: ${s.done - s.failures.length}/${s.total} ingested${fails}` : "";
+      ? `done: ${s.done - s.failures.length}/${s.total} ingested${fails}${linked}` : "";
     sel.clear();
     await loadQueue();
   }

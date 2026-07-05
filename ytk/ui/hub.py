@@ -13,7 +13,7 @@ import threading
 import time
 from pathlib import Path
 
-from ytk import reels, vault
+from ytk import directives, reels, vault
 from ytk.config import load_config
 from ytk.memo import (
     AUDIO_DIR as MEMO_AUDIO_DIR,
@@ -38,6 +38,7 @@ _JOB: dict = {
     "current": None,
     "failures": [],
     "annotated": 0,
+    "linked": [],
 }
 
 
@@ -332,7 +333,7 @@ def find_note_by_url(url: str, since: float) -> Path | None:
 
 def job_status() -> dict:
     with _LOCK:
-        return dict(_JOB, failures=list(_JOB["failures"]))
+        return dict(_JOB, failures=list(_JOB["failures"]), linked=list(_JOB["linked"]))
 
 
 _memo_job: dict = {"state": "idle", "detail": ""}
@@ -410,7 +411,7 @@ def start_ingest(indices: list[int], tags: list[str], thought: str) -> int:
         items = [pending[i - 1] for i in sorted(set(indices))]
         _JOB.update(
             running=True, total=len(items), done=0, current=None,
-            failures=[], annotated=0,
+            failures=[], annotated=0, linked=[],
         )
 
     threading.Thread(target=_worker, args=(items, tags, thought), daemon=True).start()
@@ -428,8 +429,10 @@ def _worker(items: list[reels.ReelItem], tags: list[str], thought: str) -> None:
             if note and (tags or thought.strip()):
                 vault.annotate_note(note, tags, thought)
                 vault.append_daily_digest(note, tags, thought)
+                applied = directives.process(note, thought)
                 with _LOCK:
                     _JOB["annotated"] += 1
+                    _JOB["linked"].extend(applied)
             _remove_from_queue(item.url)
         except Exception as exc:
             with _LOCK:
