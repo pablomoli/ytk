@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ytk — inbox</title>
+<title>ytk inbox</title>
 <style>
   :root { color-scheme: dark; }
   * { font-size: 14px; }
@@ -15,10 +15,12 @@
 
   #layout { display: flex; align-items: flex-start; }
   #gridwrap { flex: 1; padding: 1rem; }
-  main#grid { columns: 200px; column-gap: .75rem; }
-  .card { position: relative; background: #1c1c1c; border-radius: 10px; overflow: hidden; cursor: pointer; outline: 3px solid transparent; break-inside: avoid; margin-bottom: .75rem; display: block; }
+  main#grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); grid-auto-rows: 8px; grid-auto-flow: row dense; gap: .75rem; }
+  .card { position: relative; background: #1c1c1c; border-radius: 10px; overflow: hidden; cursor: pointer; outline: 3px solid transparent; }
+  .card.wide { grid-column: span 2; }
   .card.sel { outline-color: #4ade80; }
-  .card img { width: 100%; display: block; }
+  .card img { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; }
+  .card.wide img { aspect-ratio: 16/9; }
   .noimg { width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; color: #777; }
   .badge { position: absolute; top: .45rem; right: .45rem; background: #000b; border-radius: 999px; width: 1.7rem; height: 1.7rem; display: flex; align-items: center; justify-content: center; }
   .badge svg { width: 1rem; height: 1rem; }
@@ -59,7 +61,7 @@
   <aside id="side">
     <div id="pullmsg"></div>
     <h2>Add to queue</h2>
-    <textarea id="addurls" rows="2" placeholder="Paste URLs — one per line"></textarea>
+    <textarea id="addurls" rows="2"></textarea>
     <button id="addbtn" class="btn">Add</button>
 
     <h2>Ingest</h2>
@@ -69,7 +71,7 @@
       <input id="newbucket" placeholder="new bucket">
       <button id="newbucketbtn" class="btn">Create</button>
     </div>
-    <textarea id="thought" placeholder="your take — why did you save this?"></textarea>
+    <textarea id="thought"></textarea>
     <button id="ingest" class="btn primary" disabled>Ingest</button>
     <div id="progress"></div>
   </aside>
@@ -139,7 +141,7 @@ async function loadQueue() {
   const sorted = [...items].sort((a, b) =>
     (b.shared_at || "").localeCompare(a.shared_at || "") || b.n - a.n);
   document.getElementById("grid").innerHTML = sorted.map(it => `
-    <div class="card${sel.has(it.n) ? " sel" : ""}" data-n="${it.n}">
+    <div class="card${sel.has(it.n) ? " sel" : ""}${it.source === "youtube" ? " wide" : ""}" data-n="${it.n}">
       <span class="check">ok</span>
       <span class="badge">${ICONS[it.source] || ICONS.web}</span>
       ${it.preview_url
@@ -156,12 +158,29 @@ async function loadQueue() {
       renderBar();
     });
   });
+  layoutGrid();
   renderBar();
 }
 
+function layoutGrid() {
+  const rowH = 8, gap = 12;
+  document.querySelectorAll(".card").forEach(card => {
+    const w = card.getBoundingClientRect().width;
+    let h;
+    if (card.querySelector("img")) {
+      h = card.classList.contains("wide") ? w * 9 / 16 : w * 16 / 9;
+    } else {
+      h = 200;
+    }
+    card.style.gridRowEnd = "span " + Math.ceil((h + gap) / (rowH + gap));
+  });
+}
+
+window.addEventListener("resize", layoutGrid);
+
 document.getElementById("addbtn").addEventListener("click", async () => {
   const box = document.getElementById("addurls");
-  const urls = box.value.split("\n").map(s => s.trim()).filter(Boolean);
+  const urls = box.value.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
   if (!urls.length) return;
   await fetch("/api/queue/add", {
     method: "POST",

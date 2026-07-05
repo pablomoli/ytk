@@ -217,6 +217,12 @@ def test_inbox_page_served(client):
     assert "selstr" not in r.text          # no index-string UI
     assert "monospace" not in r.text       # normalized typography
     assert "Pull sources" not in r.text    # auto-pull replaced the button
+    assert "\u2014" not in r.text            # no em dashes in UI copy
+
+
+def test_fresh_page_has_no_em_dashes(client):
+    r = client.get("/")
+    assert "\u2014" not in r.text
 
 
 def test_fresh_page_is_main(client):
