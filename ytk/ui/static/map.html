@@ -16,9 +16,8 @@
   .fchip.on { background: #7dd3fc; border-color: #7dd3fc; color: #000; font-weight: 600; }
   header .hint { color: #888; margin-left: auto; }
 
-  #stage { position: fixed; inset: 0; }
-  #stage::before { content: ""; position: absolute; inset: 0;
-    background: radial-gradient(ellipse at 50% 40%, #14161c 0%, #111 70%); }
+  body { background: #000; }
+  #stage { position: fixed; inset: 0; background: #000; }
   canvas { position: absolute; inset: 0; cursor: grab; }
   canvas.dragging { cursor: grabbing; }
   #labels { position: absolute; inset: 0; pointer-events: none; }
@@ -64,6 +63,7 @@
   #tip .m { color: #888; margin-top: .2rem; }
 </style>
 <link rel="stylesheet" href="/static/theme.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23000'/%3E%3Ccircle cx='10' cy='20' r='4' fill='%235b7cfa'/%3E%3Ccircle cx='21' cy='10' r='3' fill='%23d9a520'/%3E%3Ccircle cx='23' cy='22' r='2.4' fill='%23e0507e'/%3E%3C/svg%3E">
 </head>
 <body>
 <header>
@@ -93,13 +93,17 @@
 <div id="tip"></div>
 
 <script>
-const PALETTE = ['#3987e5','#199e70','#c98500','#008300','#9085e9','#e66767','#d55181','#d95926'];
-const GRAY = '#898781';
-// clusters beyond the validated top-8 get generated hues: golden-angle ring
-// at a fixed dark-band lightness, offset to avoid the palette's anchors
-function genColor(i) {
-  const h = (i * 137.508 + 70) % 360;
-  return `hsl(${h.toFixed(1)}, 58%, 62%)`;
+const GRAY = '#6f6d66';
+// one multi-hue ramp colors every group: clusters sample it by size rank,
+// so the legend reads as a deliberate gradient instead of assorted hues
+const RAMP = ['#5b7cfa','#2fb7c9','#43c26a','#d9a520','#e8703a','#e0507e','#9d6bf0'];
+function rampColor(t) {
+  const x = Math.max(0, Math.min(0.9999, t)) * (RAMP.length - 1);
+  const i = Math.floor(x), f = x - i;
+  const a = RAMP[i], b = RAMP[i + 1];
+  const ch = (s, o) => parseInt(s.slice(o, o + 2), 16);
+  const mix = o => Math.round(ch(a, o) + (ch(b, o) - ch(a, o)) * f);
+  return `rgb(${mix(1)}, ${mix(3)}, ${mix(5)})`;
 }
 function cssToRgb(c) {
   const el = document.createElement('div');
@@ -150,9 +154,16 @@ precision mediump float;
 varying vec3 v_col; varying float v_alpha;
 void main() {
   vec2 p = gl_PointCoord * 2.0 - 1.0;
-  float d = length(p);
-  float a = smoothstep(1.0, 0.75, d) * v_alpha;
-  gl_FragColor = vec4(v_col * a, a);
+  float d2 = dot(p, p);
+  float a = smoothstep(1.0, 0.82, sqrt(d2)) * v_alpha;
+  // shade each disc as a lit sphere: normal from the sprite footprint
+  float z = sqrt(max(0.0, 1.0 - d2));
+  vec3 n = vec3(p.x, -p.y, z);
+  vec3 L = normalize(vec3(-0.45, 0.55, 0.72));
+  float diff = 0.5 + 0.5 * max(dot(n, L), 0.0);
+  float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 28.0) * 0.45;
+  vec3 c = v_col * diff + vec3(spec);
+  gl_FragColor = vec4(c * a, a);
 }`;
 
 function compile(type, src) {
@@ -186,7 +197,7 @@ let dim = 1, dimTgt = 1;              // flat <-> volume (3D default)
 let cam  = { theta: 0.5, phi: 0.3, dist: 2.3, tx: 0, ty: 0, tz: 0 };
 let tgt  = { ...cam };
 let groupAlpha = new Float32Array(40).fill(1);
-let hoverGroup = -1, hover = -1;
+let hoverGroup = -1, hover = -1, soloGroup = -1;
 let dirty = true, last = performance.now();
 let mvp = new Float32Array(16);
 let sxy = null;                       // cached screen positions for picking
@@ -258,9 +269,10 @@ function projectPt(w) {
 // --- buffers -----------------------------------------------------------------
 function buildBuffers() {
   const order = DATA.all.groups.map((g, i) => ({ i, n: g.n })).sort((a, b) => b.n - a.n);
-  const slot = {};
-  order.forEach((g, rank) => slot[g.i] = rank < 8 ? rank : -1);
-  DATA.slot = slot;
+  const rank = {};
+  order.forEach((g, r) => rank[g.i] = r);
+  DATA.rank = rank;
+  DATA.nGroups = order.length;
 
   N = pts.length;
   const F = 20;
@@ -272,9 +284,9 @@ function buildBuffers() {
   pts.forEach((p, i) => {
     const isC = p.c3 !== undefined;
     const a0 = p.g < 0 ? 0.4 : 1;
-    const s = slot[p.g] ?? -1;
-    const col0 = p.g < 0 ? hex(GRAY) : s >= 0 ? hex(PALETTE[s]) : colorOf(genColor(p.g));
-    const col1 = isC && p.th >= 0 ? hex(PALETTE[p.th % 8]) : hex(GRAY);
+    const col0 = p.g < 0 ? hex(GRAY)
+      : colorOf(rampColor(rank[p.g] / Math.max(1, DATA.nGroups - 1)));
+    const col1 = isC && p.th >= 0 ? colorOf(rampColor(p.th / 7)) : hex(GRAY);
     const rec = recency ? ageFade(p) : 1;
     const sigA = a => (signalOnly && p.r < 1 ? 0.04 : a * rec);
     buf.set([
@@ -450,9 +462,10 @@ function pick(mx, my) {
 }
 
 let drag = null, moved = 0, panMode = false;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('mousedown', e => {
   drag = { x: e.clientX, y: e.clientY }; moved = 0;
-  panMode = e.shiftKey || dimTgt < 0.5;
+  panMode = e.button === 2 || e.shiftKey || dimTgt < 0.5;
   canvas.classList.add('dragging');
 });
 addEventListener('mouseup', () => { drag = null; canvas.classList.remove('dragging'); });
@@ -497,9 +510,8 @@ canvas.addEventListener('click', () => {
 // --- panel ----------------------------------------------------------------
 let legendOpen = false;
 function groupColor(i) {
-  if (view === 'content') return PALETTE[i % 8];
-  const s = DATA.slot[i] ?? -1;
-  return s >= 0 ? PALETTE[s] : genColor(i);
+  if (view === 'content') return rampColor(i / 7);
+  return rampColor((DATA.rank[i] ?? 0) / Math.max(1, DATA.nGroups - 1));
 }
 function buildLegend() {
   const el = document.getElementById('rows');
@@ -510,14 +522,23 @@ function buildLegend() {
   el.innerHTML = `<div class="rhead"><span>cluster</span><span>notes</span></div>`
     + order.map(([i, g]) =>
     `<div class="row${groupAlpha[base + i] < 0.5 ? ' off' : ''}" data-i="${i}"
-      title="${g.n} notes in this cluster — click to hide, hover to spotlight">
+      title="${g.n} notes — click to focus, click again to restore, alt-click to hide">
       <span class="dot" style="background:${groupColor(i)}"></span>${esc(g.label)}
       <span class="n">${g.n}</span></div>`).join('');
   el.querySelectorAll('.row').forEach(r => {
     const i = +r.dataset.i;
-    r.addEventListener('click', () => {
-      groupAlpha[base + i] = groupAlpha[base + i] < 0.5 ? 1 : 0;
-      r.classList.toggle('off');
+    r.addEventListener('click', e => {
+      const nG = view === 'content' ? 8 : 32;
+      if (e.altKey) {                       // alt-click: hide just this one
+        groupAlpha[base + i] = groupAlpha[base + i] < 0.5 ? 1 : 0;
+      } else if (soloGroup === i) {          // click again: restore all
+        soloGroup = -1;
+        for (let k = 0; k < nG; k++) groupAlpha[base + k] = 1;
+      } else {                               // click: focus only this cluster
+        soloGroup = i;
+        for (let k = 0; k < nG; k++) groupAlpha[base + k] = k === i ? 1 : 0;
+      }
+      buildLegend();
       dirty = true;
     });
     r.addEventListener('mouseenter', () => { hoverGroup = i; dirty = true; });
@@ -536,13 +557,15 @@ document.getElementById('ptoggle').addEventListener('click', () => {
 
 function setView(v) {
   view = v;
+  soloGroup = -1;
+  groupAlpha.fill(1);
   morphTgt = v === 'content' ? 1 : 0;
   document.querySelectorAll('#views [data-v]').forEach(b =>
     b.classList.toggle('on', b.dataset.v === v));
   buildLegend();
   const p = DATA[v].params;
-  document.getElementById('pstats').textContent =
-    `${v === 'content' ? pts.filter(x => x.c3 !== undefined).length : pts.length} notes · trust ${(p.trustworthiness_3d ?? p.trustworthiness).toFixed(2)} · sil ${p.silhouette.toFixed(2)}`;
+  document.getElementById('pstats').innerHTML =
+    `${v === 'content' ? pts.filter(x => x.c3 !== undefined).length : pts.length} notes · trust ${(p.trustworthiness_3d ?? p.trustworthiness).toFixed(2)} · sil ${p.silhouette.toFixed(2)}<br>drag orbit · right-drag pan · scroll zoom`;
   dirty = true;
 }
 document.querySelectorAll('#views [data-v]').forEach(b =>
