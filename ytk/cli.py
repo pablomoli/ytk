@@ -1895,14 +1895,22 @@ def snap(note: tuple[str, ...], tags: str, file_path: str | None, speak: bool, n
 
     text = " ".join(note).strip()
     if note_audio:
-        from .memo import ensure_wav, notify as memo_notify, transcribe as memo_transcribe
+        from .memo import StageLog, ensure_wav, notify as memo_notify, transcribe as memo_transcribe
 
+        slog = StageLog(datetime.now().strftime("%H%M%S"))
         cfg = load_config()
-        text = memo_transcribe(ensure_wav(Path(note_audio)), cfg.whisper_model).strip()
-        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-        note_path = save_snap(data, text, tag_list)
-        snippet = text if len(text) <= 90 else text[:87] + "..."
-        memo_notify(snippet or note_path.name, "snap saved", cfg.memo_notify or None)
+        try:
+            text = memo_transcribe(ensure_wav(Path(note_audio)), cfg.whisper_model).strip()
+            slog.mark("SNAP_TRANSCRIBED", f"{len(text)} chars")
+            tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+            note_path = save_snap(data, text, tag_list)
+            slog.mark("SNAP_SAVED", note_path.name)
+            snippet = text if len(text) <= 90 else text[:87] + "..."
+            memo_notify(snippet or note_path.name, "snap saved", cfg.memo_notify or None)
+        except Exception as exc:
+            slog.mark("SNAP_FAILED", repr(exc))
+            memo_notify(f"snap failed: {exc}", "failed", cfg.memo_notify or None)
+            raise
         return
     if speak and not text:
         import tempfile as _tf
