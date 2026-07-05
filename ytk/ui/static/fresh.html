@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ytk — fresh</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui; background: #111; color: #eee; margin: 0; }
+  header { display: flex; gap: 1rem; align-items: center; padding: .8rem 1rem; background: #181818; position: sticky; top: 0; z-index: 5; }
+  header a { color: #7dd3fc; text-decoration: none; font-weight: 600; }
+  header a.here { color: #4ade80; }
+  header .hint { color: #888; margin-left: auto; font-size: .85rem; }
+  main#fresh { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; padding: 1rem; }
+  .card { background: #1c1c1c; border-radius: 8px; overflow: hidden; cursor: pointer; }
+  .card img { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; }
+  .noimg { width: 100%; aspect-ratio: 16/10; display: flex; align-items: center; justify-content: center; color: #777; }
+  .meta { padding: .5rem .6rem; }
+  .title { font-size: .9rem; line-height: 1.25; max-height: 3.4em; overflow: hidden; }
+  .sub { display: flex; gap: .5rem; margin-top: .35rem; font-size: .75rem; color: #999; }
+  .sub .src { background: #262626; border-radius: 999px; padding: 0 .5rem; }
+  .sub a { color: #7dd3fc; text-decoration: none; margin-left: auto; }
+  #viewer { position: fixed; inset: 0; background: #000d; display: none; padding: 2rem; z-index: 10; }
+  #viewer.on { display: block; }
+  #viewer pre { background: #181818; color: #ddd; border-radius: 8px; height: 100%; margin: 0; padding: 1.2rem; overflow: auto; white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: .85rem; }
+  #close { position: absolute; top: 2.6rem; right: 2.8rem; background: #333; color: #eee; border: 0; border-radius: 6px; padding: .3rem .8rem; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" class="here">fresh</a>
+  <a href="/inbox">inbox</a>
+  <a href="/chat">chat</a>
+  <span class="hint">recently ingested</span>
+</header>
+
+<main id="fresh"></main>
+
+<div id="viewer"><button id="close">close</button><pre id="note"></pre></div>
+
+<script>
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s ?? "";
+  return d.innerHTML;
+}
+
+async function openNote(path) {
+  const res = await fetch("/api/note?path=" + encodeURIComponent(path));
+  if (!res.ok) return;
+  document.getElementById("note").textContent = (await res.json()).content;
+  document.getElementById("viewer").classList.add("on");
+}
+
+document.getElementById("close").addEventListener("click", () =>
+  document.getElementById("viewer").classList.remove("on"));
+document.getElementById("viewer").addEventListener("click", e => {
+  if (e.target.id === "viewer")
+    document.getElementById("viewer").classList.remove("on");
+});
+
+async function load() {
+  const notes = await (await fetch("/api/fresh?n=40")).json();
+  document.getElementById("fresh").innerHTML = notes.map(n => `
+    <div class="card" data-path="${esc(n.path)}">
+      ${n.thumbnail
+        ? `<img src="/vault-media/${esc(n.thumbnail)}" loading="lazy">`
+        : `<div class="noimg">${esc(n.source)}</div>`}
+      <div class="meta">
+        <div class="title">${esc(n.title)}</div>
+        <div class="sub">
+          <span class="src">${esc(n.source)}</span>
+          <span>${esc(n.date || "")}</span>
+          ${n.url ? `<a href="${esc(n.url)}" target="_blank">open</a>` : ""}
+        </div>
+      </div>
+    </div>`).join("");
+  document.querySelectorAll("#fresh .card").forEach(card => {
+    card.addEventListener("click", e => {
+      if (e.target.closest("a")) return;
+      openNote(card.dataset.path);
+    });
+  });
+}
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ytk — inbox</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui; background: #111; color: #eee; margin: 0; padding-bottom: 7rem; }
+  header { display: flex; gap: 1rem; align-items: center; padding: .8rem 1rem; background: #181818; position: sticky; top: 0; z-index: 5; }
+  header a { color: #7dd3fc; text-decoration: none; font-weight: 600; }
+  header a.here { color: #4ade80; }
+  header .count { color: #888; margin-left: auto; }
+  #addwrap { padding: .8rem 1rem; display: flex; gap: .6rem; }
+  #addurls { flex: 1; background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 6px; padding: .5rem; font-family: ui-monospace, monospace; min-height: 2.4rem; resize: vertical; }
+  #addbtn { background: #333; color: #eee; border: 0; border-radius: 6px; padding: 0 1rem; cursor: pointer; }
+  main#grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .75rem; padding: 0 1rem; }
+  .card { position: relative; background: #1c1c1c; border-radius: 8px; overflow: hidden; cursor: pointer; outline: 3px solid transparent; }
+  .card.sel { outline-color: #4ade80; }
+  .card.sel .n { background: #4ade80; color: #000; }
+  .card img { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; }
+  .noimg { width: 100%; aspect-ratio: 9/16; display: flex; align-items: center; justify-content: center; color: #777; font-size: .9rem; }
+  .n { position: absolute; top: .4rem; left: .4rem; background: #000c; padding: .1rem .5rem; border-radius: 999px; font-weight: 700; }
+  .src { position: absolute; top: .4rem; right: .4rem; background: #000c; padding: .1rem .5rem; border-radius: 999px; font-size: .7rem; color: #bbb; }
+  .meta { display: block; padding: .4rem .5rem; font-size: .8rem; color: #bbb; }
+  .meta a { color: #7dd3fc; text-decoration: none; }
+  #selbar { position: fixed; left: 0; right: 0; bottom: 0; background: #000e; padding: .6rem 1rem; display: grid; grid-template-columns: auto 1fr auto; gap: .6rem .75rem; align-items: center; font-size: .9rem; }
+  #selbar input, #selbar textarea { background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 6px; padding: .4rem .6rem; }
+  #selstr { font-family: ui-monospace, monospace; width: 100%; }
+  #bucket { width: 100%; }
+  #thought { grid-column: 1 / -1; width: 100%; box-sizing: border-box; resize: vertical; min-height: 2.2rem; font-family: inherit; }
+  #ingest { background: #4ade80; color: #000; border: 0; border-radius: 6px; padding: .5rem 1.1rem; font-weight: 700; cursor: pointer; }
+  #ingest:disabled { background: #333; color: #777; cursor: default; }
+  #progress { grid-column: 1 / -1; color: #bbb; min-height: 1.1rem; }
+  #progress .fail { color: #f87171; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/">fresh</a>
+  <a href="/inbox" class="here">inbox</a>
+  <a href="/chat">chat</a>
+  <span class="count" id="count"></span>
+</header>
+
+<div id="addwrap">
+  <textarea id="addurls" placeholder="Paste URLs to queue (one per line) — reels, TikToks, videos, articles"></textarea>
+  <button id="addbtn">Add</button>
+</div>
+
+<main id="grid"></main>
+
+<div id="selbar">
+  <span id="selcount">0 selected</span>
+  <input id="selstr" readonly value="none">
+  <button id="ingest" disabled>Ingest</button>
+  <input id="bucket" list="buckets" placeholder="bucket (design, music, build-idea...)">
+  <datalist id="buckets"></datalist>
+  <textarea id="thought" placeholder="your take — why did you save this?"></textarea>
+  <div id="progress"></div>
+</div>
+
+<script>
+const sel = new Set();
+let items = [];
+
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s ?? "";
+  return d.innerHTML;
+}
+
+function compact(nums) {
+  nums = [...nums].sort((a, b) => a - b);
+  const parts = [];
+  for (let i = 0; i < nums.length;) {
+    let j = i;
+    while (j + 1 < nums.length && nums[j + 1] === nums[j] + 1) j++;
+    parts.push(j > i ? nums[i] + "-" + nums[j] : String(nums[i]));
+    i = j + 1;
+  }
+  return parts.join(",");
+}
+
+function renderBar() {
+  document.getElementById("selcount").textContent = sel.size + " selected";
+  document.getElementById("selstr").value = sel.size ? compact(sel) : "none";
+  document.getElementById("ingest").disabled = sel.size === 0;
+}
+
+function loadBuckets() {
+  const dl = document.getElementById("buckets");
+  const buckets = JSON.parse(localStorage.getItem("ytk-buckets") || "[]");
+  dl.innerHTML = buckets.map(b => `<option value="${esc(b)}">`).join("");
+}
+
+function rememberBucket(b) {
+  if (!b) return;
+  const buckets = new Set(JSON.parse(localStorage.getItem("ytk-buckets") || "[]"));
+  buckets.add(b);
+  localStorage.setItem("ytk-buckets", JSON.stringify([...buckets]));
+}
+
+async function loadQueue() {
+  const res = await fetch("/api/queue");
+  items = (await res.json()).items;
+  document.getElementById("count").textContent = items.length + " pending";
+  const sorted = [...items].sort((a, b) =>
+    (b.shared_at || "").localeCompare(a.shared_at || "") || b.n - a.n);
+  document.getElementById("grid").innerHTML = sorted.map(it => `
+    <div class="card${sel.has(it.n) ? " sel" : ""}" data-n="${it.n}">
+      <span class="n">${it.n}</span>
+      <span class="src">${esc(it.source)}</span>
+      ${it.preview_url
+        ? `<img src="${esc(it.preview_url)}" loading="lazy">`
+        : `<div class="noimg">${esc(it.source)}</div>`}
+      <span class="meta">@${esc(it.author || "?")} · ${esc(it.shared_at || "")}
+        <a href="${esc(it.url)}" target="_blank">open</a></span>
+    </div>`).join("");
+  document.querySelectorAll(".card").forEach(card => {
+    card.addEventListener("click", e => {
+      if (e.target.closest("a")) return;
+      const n = Number(card.dataset.n);
+      if (sel.has(n)) { sel.delete(n); } else { sel.add(n); }
+      card.classList.toggle("sel");
+      renderBar();
+    });
+  });
+  renderBar();
+}
+
+document.getElementById("addbtn").addEventListener("click", async () => {
+  const box = document.getElementById("addurls");
+  const urls = box.value.split("\n").map(s => s.trim()).filter(Boolean);
+  if (!urls.length) return;
+  await fetch("/api/queue/add", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ urls }),
+  });
+  box.value = "";
+  await loadQueue();
+});
+
+let pollTimer = null;
+
+async function pollStatus() {
+  const s = await (await fetch("/api/ingest/status")).json();
+  const p = document.getElementById("progress");
+  const fails = s.failures.length
+    ? ` <span class="fail">${s.failures.length} failed</span>` : "";
+  if (s.running) {
+    p.innerHTML = `ingesting ${s.done + 1}/${s.total} — ${esc(s.current || "")}${fails}`;
+  } else {
+    clearInterval(pollTimer);
+    pollTimer = null;
+    p.innerHTML = s.total
+      ? `done: ${s.done - s.failures.length}/${s.total} ingested${fails}` : "";
+    sel.clear();
+    await loadQueue();
+  }
+}
+
+document.getElementById("ingest").addEventListener("click", async () => {
+  const bucket = document.getElementById("bucket").value.trim();
+  const thought = document.getElementById("thought").value;
+  const res = await fetch("/api/ingest", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ indices: [...sel], bucket, thought }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    document.getElementById("progress").innerHTML =
+      `<span class="fail">${esc(err.detail || res.status)}</span>`;
+    return;
+  }
+  rememberBucket(bucket);
+  loadBuckets();
+  document.getElementById("thought").value = "";
+  document.getElementById("ingest").disabled = true;
+  pollTimer = setInterval(pollStatus, 1500);
+  pollStatus();
+});
+
+loadBuckets();
+loadQueue();
+</script>
+</body>
+</html>

@@ -202,3 +202,17 @@ def test_vault_media_serves_images_and_blocks_traversal(client, hub):
     assert r.status_code == 200
     r = client.get("/vault-media/../../etc/passwd")
     assert r.status_code in (400, 404)
+
+
+def test_inbox_page_served(client):
+    r = client.get("/inbox")
+    assert r.status_code == 200
+    for marker in ('id="grid"', 'id="bucket"', 'id="thought"', 'id="addurls"', "/api/queue"):
+        assert marker in r.text
+
+
+def test_fresh_page_is_main(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'id="fresh"' in r.text
+    assert "/api/fresh" in r.text

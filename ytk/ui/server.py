@@ -386,17 +386,23 @@ async def vault_media(rel_path: str):
 # ---------------------------------------------------------------------------
 
 
-@app.get("/chat", response_class=HTMLResponse)
-async def chat_page():
-    html_path = _STATIC_DIR / "index.html"
+def _serve_static(name: str) -> HTMLResponse:
+    html_path = _STATIC_DIR / name
     if not html_path.exists():
         return HTMLResponse("<h1>UI not found</h1>", status_code=404)
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
+
+
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_page():
+    return _serve_static("index.html")
+
+
+@app.get("/inbox", response_class=HTMLResponse)
+async def inbox_page():
+    return _serve_static("inbox.html")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    html_path = _STATIC_DIR / "index.html"
-    if not html_path.exists():
-        return HTMLResponse("<h1>UI not found</h1>", status_code=404)
-    return HTMLResponse(html_path.read_text(encoding="utf-8"))
+    return _serve_static("fresh.html")
