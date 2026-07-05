@@ -228,3 +228,33 @@ def test_write_instagram_note_shortcode_prevents_overwrite(tmp_path, monkeypatch
     assert path1 != path2
     assert path1.exists()
     assert path2.exists()
+
+
+def test_write_instagram_note_saves_reel_thumbnail(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from ytk.enrich import Enrichment
+    from ytk.instagram import InstagramPost
+    from ytk.vault import write_instagram_note
+
+    monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
+    monkeypatch.setattr(
+        "ytk.vault._save_image", lambda url, dest: Path(str(dest) + ".jpg")
+    )
+
+    post = InstagramPost(
+        url="https://www.instagram.com/reel/abc123/",
+        username="reeluser",
+        timestamp="2026-07-04",
+        caption="",
+        images=[],
+        video_path=None,
+        thumbnail_url="https://cdn.example/cover.jpg",
+    )
+    enrichment = Enrichment(
+        thesis="t", summary="s", key_concepts=[], insights=[],
+        interest_tags=["x"], key_moments=[],
+    )
+    path = write_instagram_note(post, enrichment)
+    text = path.read_text(encoding="utf-8")
+    assert "thumbnails/abc123-thumb.jpg" in text  # in image_paths for Fresh

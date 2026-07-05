@@ -94,3 +94,15 @@ def test_fetch_instagram_dispatches_to_auth_when_sessionid(monkeypatch):
     post = instagram_mod.fetch_instagram("https://www.instagram.com/p/abc/")
     assert post.username == "quirkypobs"
     assert client.requested_urls == ["https://www.instagram.com/p/abc/"]
+
+
+def test_auth_fetch_reel_captures_thumbnail(monkeypatch, tmp_path):
+    monkeypatch.setattr(instagram_mod, "_download_url_to_temp", lambda url: tmp_path / "v.mp4")
+    media = _media(
+        media_type=2,
+        thumbnail_url="https://cdn.example/cover.jpg",
+        video_url="https://cdn.example/reel.mp4",
+    )
+    post = fetch_instagram_auth("https://www.instagram.com/reel/abc/", FakeMediaClient(media))
+    assert post.thumbnail_url == "https://cdn.example/cover.jpg"
+    assert post.images == []

@@ -147,6 +147,19 @@ async def fresh_api(n: int = 30):
     return hub.fresh_notes(n=n)
 
 
+@app.get("/api/cover")
+def cover_api(u: str):
+    # sync def: first request per item downloads from the source CDN
+    from fastapi.responses import FileResponse
+
+    from ytk.ui import hub
+
+    path = hub.cover_for(u)
+    if path is None:
+        raise HTTPException(status_code=404, detail="No cover")
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=31536000"})
+
+
 @app.get("/vault-media/{rel_path:path}")
 async def vault_media(rel_path: str):
     from fastapi.responses import FileResponse

@@ -114,7 +114,6 @@ function render() {
         <div class="title">${esc(n.title)}</div>
         ${n.tags && n.tags.length ? `<div class="tags">${esc(n.tags.map(t => "#" + t).join(" "))}</div>` : ""}
         <div class="sub">
-          <span>${esc(n.added || "")}</span>
           ${n.url ? `<a href="${esc(n.url)}" target="_blank">open</a>` : ""}
         </div>
       </div>

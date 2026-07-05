@@ -161,10 +161,27 @@ short enough that key_moments are usually unnecessary.\
 _SCHEMA = Enrichment.model_json_schema()
 
 
+def _note_block(user_note: str) -> str:
+    """Steering section injected when the user attached a thought at ingest.
+
+    The user's note is top-down attention: it biases what the summary, key
+    concepts, and tags emphasize, without replacing the content analysis.
+    """
+    if not user_note.strip():
+        return ""
+    return (
+        "\nThe user saved this with their own note. Treat it as the reason this "
+        "content matters to them; steer the summary, key concepts, insights, and "
+        "tags toward that angle:\n"
+        f"{user_note.strip()}\n"
+    )
+
+
 def enrich(
     transcript: str,
     metadata: dict,
     visual_blocks: list[dict] | None = None,
+    user_note: str = "",
 ) -> Enrichment:
     """Enrich a YouTube transcript via Claude Code (Agent SDK)."""
     chapters_text = ""
@@ -181,6 +198,7 @@ Tags: {", ".join(metadata.get("tags", [])[:10])}{chapters_text}
 Transcript:
 {transcript}
 """
+    text_block += _note_block(user_note)
 
     with _staged_images(visual_blocks) as (frame_dir, frame_paths):
         if frame_paths:
@@ -201,6 +219,7 @@ def enrich_tiktok(
     post: dict,
     transcript: str,
     visual_blocks: list[dict] | None = None,
+    user_note: str = "",
 ) -> Enrichment:
     """Enrich a TikTok with a visual-first, short-form-aware prompt.
 
@@ -219,6 +238,7 @@ def enrich_tiktok(
         f"\nCaption / description:\n{post.get('description', '')}\n\n"
         f"{transcript_block}\n"
     )
+    text_block += _note_block(user_note)
 
     with _staged_images(visual_blocks) as (frame_dir, frame_paths):
         frames_listing = "\n".join(f"  {p}" for p in frame_paths) if frame_paths else "  (none)"
@@ -233,6 +253,7 @@ def enrich_instagram(
     username: str,
     slide_count: int,
     visual_blocks: list[dict],
+    user_note: str = "",
 ) -> Enrichment:
     """Enrich an Instagram post with a carousel-aware prompt."""
     text_block = f"""\
@@ -242,6 +263,7 @@ Slide count: {slide_count}
 Caption:
 {caption}
 """
+    text_block += _note_block(user_note)
 
     with _staged_images(visual_blocks) as (frame_dir, frame_paths):
         frames_listing = "\n".join(f"  {p}" for p in frame_paths) if frame_paths else "  (none)"

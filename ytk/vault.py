@@ -479,6 +479,14 @@ def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
         if saved:
             saved_images.append(saved)
 
+    # video-only reels have no slides; keep the cover so Fresh has a thumbnail
+    if not saved_images and getattr(post, "thumbnail_url", None):
+        thumb_dir = note_dir / "thumbnails"
+        thumb_dir.mkdir(parents=True, exist_ok=True)
+        saved_thumb = _save_image(post.thumbnail_url, thumb_dir / f"{shortcode}-thumb")
+        if saved_thumb:
+            saved_images.append(saved_thumb)
+
     tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
     concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
     insights = "\n".join(f"- {i}" for i in enrichment.insights)

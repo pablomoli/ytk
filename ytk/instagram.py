@@ -19,6 +19,7 @@ class InstagramPost:
     caption: str
     images: list[str] = field(default_factory=list)  # CDN URLs; empty for video-only reels
     video_path: Path | None = None                   # temp .mp4; caller must unlink
+    thumbnail_url: str | None = None                 # cover image for video reels
 
 
 def fetch_instagram(url: str) -> InstagramPost:
@@ -57,8 +58,11 @@ def fetch_instagram_auth(url: str, client) -> InstagramPost:
         images = [str(media.thumbnail_url)]
 
     video_path: Path | None = None
+    thumbnail_url: str | None = None
     if media.media_type == 2 and media.video_url:  # video / reel
         video_path = _download_url_to_temp(str(media.video_url))
+        if media.thumbnail_url:
+            thumbnail_url = str(media.thumbnail_url)
 
     return InstagramPost(
         url=url,
@@ -67,6 +71,7 @@ def fetch_instagram_auth(url: str, client) -> InstagramPost:
         caption=media.caption_text or "",
         images=images,
         video_path=video_path,
+        thumbnail_url=thumbnail_url,
     )
 
 

@@ -99,17 +99,21 @@ def cli():
 @cli.command()
 @click.argument("url")
 @click.option("--force", is_flag=True, default=False, help="Skip all filter prompts.")
+@click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 @click.pass_context
-def add(ctx: click.Context, url: str, force: bool):
-    """Fetch and ingest a URL — YouTube or Instagram auto-detected."""
+def add(ctx: click.Context, url: str, force: bool, note: str):
+    """Fetch and ingest a URL, dispatched by source."""
     if re.search(r"instagram\.com/", url):
-        ctx.invoke(add_instagram, url=url)
+        ctx.invoke(add_instagram, url=url, note=note)
         return
     if re.search(r"tiktok\.com/", url):
-        ctx.invoke(add_tiktok, url=url)
+        ctx.invoke(add_tiktok, url=url, note=note)
         return
     if re.search(r"pinterest\.com/", url):
-        ctx.invoke(add_pinterest, url=url)
+        ctx.invoke(add_pinterest, url=url, note=note)
+        return
+    if not re.search(r"(?:youtube\.com/|youtu\.be/)", url):
+        ctx.invoke(ingest, url=url, force=force, note=note)
         return
 
     cfg = load_config()
@@ -192,7 +196,7 @@ def add(ctx: click.Context, url: str, force: bool):
 
     # --- AI enrichment ---
     with console.status("[bold cyan]Enriching via Claude Code...[/]"):
-        result = enrich(full_text, meta, visual_blocks=visual_blocks)
+        result = enrich(full_text, meta, visual_blocks=visual_blocks, user_note=note)
 
     # --- post-enrichment filter (interest tags) ---
     post_result = check_post_enrichment(result, cfg)
@@ -677,7 +681,8 @@ def graph_cmd(open_browser: bool, output: str | None, threshold: float):
 @cli.command()
 @click.argument("url")
 @click.option("--force", is_flag=True, default=False, help="Skip interest-tag filter.")
-def ingest(url: str, force: bool):
+@click.option("--note", default="", help="Your thought about this save; steers enrichment.")
+def ingest(url: str, force: bool, note: str):
     """Fetch a web article, enrich with AI, and store in the vault."""
     from .ingest import enrich_web, fetch_web
     from .store import strip_frontmatter, upsert_doc
@@ -704,7 +709,7 @@ def ingest(url: str, force: bool):
     console.print(Panel(info, title="[bold]Article[/]", box=box.ROUNDED))
 
     with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
-        result = enrich_web(content)
+        result = enrich_web(content, user_note=note)
 
     post_result = check_post_enrichment(result, cfg)
     if not _prompt_on_failures(post_result, force):
@@ -730,7 +735,8 @@ def ingest(url: str, force: bool):
 
 @cli.command(name="add-instagram")
 @click.argument("url")
-def add_instagram(url: str):
+@click.option("--note", default="", help="Your thought about this save; steers enrichment.")
+def add_instagram(url: str, note: str = ""):
     """Fetch an Instagram post, analyze visually with AI, and store in the vault."""
     from .instagram import fetch_instagram
     from .vision import extract_frames, image_blocks
@@ -775,6 +781,7 @@ def add_instagram(url: str):
                 username=post.username,
                 slide_count=len(post.images),
                 visual_blocks=blocks if blocks else [],
+                user_note=note,
             )
         except Exception as exc:
             console.print(f"[red]Enrichment failed:[/] {exc}")
@@ -813,7 +820,8 @@ def add_instagram(url: str):
 
 @cli.command(name="add-pinterest")
 @click.argument("url")
-def add_pinterest(url: str):
+@click.option("--note", default="", help="Your thought about this save; steers enrichment.")
+def add_pinterest(url: str, note: str = ""):
     """Fetch a Pinterest pin, analyze the image with AI, and store in the vault."""
     from .enrich import enrich_instagram
     from .pinterest import fetch_pinterest
@@ -844,6 +852,7 @@ def add_pinterest(url: str):
                 username="pinterest",
                 slide_count=1,
                 visual_blocks=blocks,
+                user_note=note,
             )
         except Exception as exc:
             console.print(f"[red]Enrichment failed:[/] {exc}")
@@ -870,7 +879,8 @@ def add_pinterest(url: str):
 
 @cli.command(name="add-tiktok")
 @click.argument("url")
-def add_tiktok(url: str):
+@click.option("--note", default="", help="Your thought about this save; steers enrichment.")
+def add_tiktok(url: str, note: str = ""):
     """Fetch a TikTok, transcribe + extract frames, and store in the vault."""
     from .tiktok import fetch_tiktok, transcribe_tiktok
     from .vision import download_video_temp, extract_frames, image_blocks
@@ -939,6 +949,7 @@ def add_tiktok(url: str):
                 },
                 transcript=transcript,
                 visual_blocks=visual_blocks,
+                user_note=note,
             )
         except Exception as exc:
             console.print(f"[red]Enrichment failed:[/] {exc}")

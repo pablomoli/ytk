@@ -63,9 +63,9 @@ def test_ingest_annotates_digests_and_dequeues(hub):
     url = "https://www.instagram.com/reel/abc/"
     hub.queue_add([url])
 
-    def fake_ingest(u):
-        note = hub.brain / "sources" / "instagram" / "someone-abc.md"
-        note.write_text(NOTE_TEMPLATE.format(url=u), encoding="utf-8")
+    def fake_ingest(u, note=""):
+        p = hub.brain / "sources" / "instagram" / "someone-abc.md"
+        p.write_text(NOTE_TEMPLATE.format(url=u), encoding="utf-8")
 
     hub.INGEST = fake_ingest
     started = hub.start_ingest([1], tags=["build-idea"], thought="I want one.")
@@ -89,7 +89,7 @@ def test_ingest_failure_keeps_item_queued(hub):
     url = "https://www.instagram.com/reel/bad/"
     hub.queue_add([url])
 
-    def exploding(u):
+    def exploding(u, note=""):
         raise RuntimeError("fetch failed")
 
     hub.INGEST = exploding
@@ -111,7 +111,7 @@ def test_ingest_rejects_bad_indices_and_busy(hub):
 
     gate = threading.Event()
 
-    def slow(u):
+    def slow(u, note=""):
         gate.wait(timeout=5)
 
     hub.INGEST = slow
@@ -174,9 +174,9 @@ def test_api_ingest_flow_and_status(client, hub):
     url = "https://www.instagram.com/reel/abc/"
     hub.queue_add([url])
 
-    def fake_ingest(u):
-        note = hub.brain / "sources" / "instagram" / "someone-abc.md"
-        note.write_text(NOTE_TEMPLATE.format(url=u), encoding="utf-8")
+    def fake_ingest(u, note=""):
+        p = hub.brain / "sources" / "instagram" / "someone-abc.md"
+        p.write_text(NOTE_TEMPLATE.format(url=u), encoding="utf-8")
 
     hub.INGEST = fake_ingest
     r = client.post(
@@ -373,3 +373,68 @@ def test_refresh_sources_pulls_pinterest_feeds(hub, monkeypatch):
     pin = [i for i in hub.queue_items() if i.source == "pinterest"][0]
     assert pin.author == "A cool pin"
     assert pin.preview_url == "https://i.pinimg.com/x.jpg"
+
+
+def test_ingest_forwards_thought_to_pipeline(hub):
+    url = "https://www.instagram.com/reel/steer/"
+    hub.queue_add([url])
+    received = {}
+
+    def fake_ingest(u, note=""):
+        received["note"] = note
+        (hub.brain / "sources" / "instagram" / "steer.md").write_text(
+            NOTE_TEMPLATE.format(url=u), encoding="utf-8"
+        )
+
+    hub.INGEST = fake_ingest
+    hub.start_ingest([1], tags=[], thought="make this about touchdesigner")
+    _wait_done(hub)
+    assert received["note"] == "make this about touchdesigner"
+
+
+# --- local cover cache (Instagram CDN is hostile to hotlinking) -------------------
+
+
+def test_cover_for_downloads_once_then_serves_cache(hub, monkeypatch, tmp_path):
+    covers = tmp_path / "covers"
+    monkeypatch.setattr(hub, "COVERS_DIR", covers)
+    downloads = []
+
+    def fake_download(url, dest):
+        downloads.append(url)
+        dest.write_bytes(b"jpegbytes")
+
+    monkeypatch.setattr(hub, "DOWNLOAD_COVER", fake_download)
+    hub.queue_add(["https://www.instagram.com/reel/abc/"])
+    state = reels.load_state(hub.STATE_PATH)
+    state.pending[0].preview_url = "https://scontent.cdninstagram.com/x.jpg"
+    reels.save_state(state, hub.STATE_PATH)
+
+    p1 = hub.cover_for("https://www.instagram.com/reel/abc/")
+    p2 = hub.cover_for("https://www.instagram.com/reel/abc/")
+    assert p1 is not None and p1 == p2
+    assert p1.read_bytes() == b"jpegbytes"
+    assert downloads == ["https://scontent.cdninstagram.com/x.jpg"]
+
+
+def test_cover_for_unknown_url_returns_none(hub, monkeypatch, tmp_path):
+    monkeypatch.setattr(hub, "COVERS_DIR", tmp_path / "covers")
+    assert hub.cover_for("https://www.instagram.com/reel/nope/") is None
+
+
+def test_api_cover_serves_and_404s(client, hub, monkeypatch, tmp_path):
+    covers = tmp_path / "covers"
+    monkeypatch.setattr(hub, "COVERS_DIR", covers)
+    monkeypatch.setattr(hub, "DOWNLOAD_COVER", lambda url, dest: dest.write_bytes(b"img"))
+    hub.queue_add(["https://www.instagram.com/reel/abc/"])
+    state = reels.load_state(hub.STATE_PATH)
+    state.pending[0].preview_url = "https://scontent.cdninstagram.com/x.jpg"
+    reels.save_state(state, hub.STATE_PATH)
+
+    r = client.get("/api/cover", params={"u": "https://www.instagram.com/reel/abc/"})
+    assert r.status_code == 200
+    assert r.content == b"img"
+    assert "max-age" in r.headers.get("cache-control", "")
+
+    r = client.get("/api/cover", params={"u": "https://x/unknown"})
+    assert r.status_code == 404

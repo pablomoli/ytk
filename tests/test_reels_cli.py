@@ -48,7 +48,7 @@ def harness(monkeypatch, tmp_path):
         lambda st: calls["saved"].append([i.url for i in st.pending]),
     )
     monkeypatch.setattr(
-        cli_mod.add, "callback", lambda url, force=False: calls["added"].append(url)
+        cli_mod.add, "callback", lambda url, force=False, note="": calls["added"].append(url)
     )
     monkeypatch.setattr(cli_mod.time, "sleep", lambda s: None)
     return calls

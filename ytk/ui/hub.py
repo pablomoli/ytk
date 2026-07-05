@@ -207,6 +207,50 @@ def refresh_sources(force: bool = False) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Cover cache: Instagram's signed CDN slow-walks hotlinking and defeats the
+# browser cache (unique query strings, expiring signatures). Download each
+# cover once, keyed by the stable item URL, and serve the local copy.
+# ---------------------------------------------------------------------------
+
+COVERS_DIR = Path.home() / ".ytk" / "covers"
+
+
+def _download_cover(preview_url: str, dest: Path) -> None:
+    import urllib.request
+
+    req = urllib.request.Request(preview_url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        data = resp.read()
+    dest.write_bytes(data)
+
+
+DOWNLOAD_COVER = _download_cover
+
+
+def cover_for(item_url: str) -> Path | None:
+    """Local cover path for a queue item, downloading on first request."""
+    import hashlib
+
+    key = hashlib.sha1(item_url.encode()).hexdigest()[:20] + ".jpg"
+    dest = COVERS_DIR / key
+    if dest.exists():
+        return dest
+
+    item = next(
+        (i for i in queue_items() if i.url == item_url and i.preview_url), None
+    )
+    if item is None:
+        return None
+    COVERS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        DOWNLOAD_COVER(item.preview_url, dest)
+    except Exception:
+        dest.unlink(missing_ok=True)
+        return None
+    return dest if dest.exists() else None
+
+
+# ---------------------------------------------------------------------------
 # Tags
 # ---------------------------------------------------------------------------
 
@@ -238,12 +282,18 @@ def add_tag(name: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def ingest_via_cli(url: str) -> None:
-    """Run the existing `ytk add` pipeline in-process for one URL."""
+def ingest_via_cli(url: str, note: str = "") -> None:
+    """Run the existing `ytk add` pipeline in-process for one URL.
+
+    The user's thought rides along so enrichment can steer toward it.
+    """
     from ytk.cli import cli as click_cli
 
+    args = ["add", url]
+    if note.strip():
+        args += ["--note", note]
     try:
-        click_cli.main(args=["add", url], standalone_mode=False)
+        click_cli.main(args=args, standalone_mode=False)
     except SystemExit as exc:
         if exc.code not in (0, None):
             raise RuntimeError(f"add exited with code {exc.code}")
@@ -303,7 +353,7 @@ def _worker(items: list[reels.ReelItem], tags: list[str], thought: str) -> None:
         with _LOCK:
             _JOB["current"] = item.url
         try:
-            INGEST(item.url)
+            INGEST(item.url, thought)
             note = find_note_by_url(item.url, since=started - 5)
             if note and (tags or thought.strip()):
                 vault.annotate_note(note, tags, thought)

@@ -169,7 +169,8 @@ function renderGrid() {
       <span class="check">ok</span>
       <span class="badge">${ICONS[it.source] || ICONS.web}</span>
       ${it.preview_url
-        ? `<img src="${esc(it.preview_url)}" loading="lazy">`
+        ? `<img src="/api/cover?u=${encodeURIComponent(it.url)}" loading="lazy"
+             onerror="this.onerror=null;this.src='${esc(it.preview_url)}'">`
         : `<div class="noimg">${esc(it.source)}</div>`}
       <a class="openlink" href="${esc(it.url)}" target="_blank">open</a>
     </div>`).join("");
@@ -188,15 +189,18 @@ function renderGrid() {
 
 function layoutGrid() {
   const rowH = 8, gap = 12;
-  document.querySelectorAll(".card").forEach(card => {
-    const w = card.getBoundingClientRect().width;
-    let h;
-    if (card.querySelector("img")) {
-      h = card.classList.contains("wide") ? w * 9 / 16 : w * 16 / 9;
-    } else {
-      h = 200;
-    }
-    card.style.gridRowEnd = "span " + Math.ceil((h + gap) / (rowH + gap));
+  const cards = [...document.querySelectorAll(".card")];
+  if (!cards.length) return;
+  const base = cards.find(c => !c.classList.contains("wide")) || cards[0];
+  const w = base.getBoundingClientRect().width;
+  const spanFor = h => "span " + Math.ceil((h + gap) / (rowH + gap));
+  const tall = spanFor(w * 16 / 9);
+  const wideSpan = spanFor((2 * w + gap) * 9 / 16);
+  const bare = spanFor(200);
+  cards.forEach(c => {
+    c.style.gridRowEnd = c.querySelector("img")
+      ? (c.classList.contains("wide") ? wideSpan : tall)
+      : bare;
   });
 }
 
