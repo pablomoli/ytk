@@ -363,7 +363,7 @@ def test_state_pending_round_trip(tmp_path):
         ReelsState(thread_id="ts", last_seen_message_id="9", pending=["u1", "u2"]),
         path,
     )
-    assert load_state(path).pending == ["u1", "u2"]
+    assert [i.url for i in load_state(path).pending] == ["u1", "u2"]
 
 
 def test_load_state_legacy_file_defaults_pending(tmp_path):
@@ -382,7 +382,7 @@ def test_refresh_appends_new_links_to_pending_and_advances_cursor():
         pending=["https://www.instagram.com/reel/old1/"],
     )
     new_state = refresh(_client_with_thread(msgs), state)
-    assert new_state.pending == [
+    assert [i.url for i in new_state.pending] == [
         "https://www.instagram.com/reel/old1/",
         "https://www.instagram.com/reel/ccc/",
     ]
@@ -399,7 +399,7 @@ def test_refresh_dedupes_against_existing_pending():
         pending=["https://www.instagram.com/reel/ccc/"],
     )
     new_state = refresh(_client_with_thread(msgs), state)
-    assert new_state.pending == ["https://www.instagram.com/reel/ccc/"]
+    assert [i.url for i in new_state.pending] == ["https://www.instagram.com/reel/ccc/"]
 
 
 def test_parse_selection_forms():
@@ -423,3 +423,111 @@ def test_parse_selection_rejects_out_of_range_and_garbage():
         parse_selection("0", 5)
     with pytest.raises(ValueError):
         parse_selection("banana", 5)
+
+
+# --- rich pending items (metadata from the DM payload) --------------------------
+
+
+def _xma_full(msg_id: str, code: str, author: str, preview: str, ts):
+    from datetime import datetime
+
+    return SimpleNamespace(
+        id=msg_id,
+        item_type="xma_clip",
+        timestamp=ts,
+        xma_share=SimpleNamespace(
+            video_url=f"https://www.instagram.com/reel/{code}/?id=123",
+            target_url=None,
+            preview_url=preview,
+            header_title_text=author,
+        ),
+    )
+
+
+def test_extract_items_captures_xma_metadata():
+    from datetime import datetime
+
+    from ytk.reels import extract_items
+
+    msg = _xma_full(
+        "1", "DZr18tXD01B", "hancept_japan",
+        "https://cdn.example/cover.jpg", datetime(2026, 7, 4, 16, 45),
+    )
+    items = extract_items([msg])
+    assert len(items) == 1
+    item = items[0]
+    assert item.url == "https://www.instagram.com/reel/DZr18tXD01B/"
+    assert item.author == "hancept_japan"
+    assert item.preview_url == "https://cdn.example/cover.jpg"
+    assert item.shared_at == "2026-07-04"
+
+
+def test_extract_items_bare_text_has_url_only():
+    from ytk.reels import extract_items
+
+    msg = _text("1", "https://www.instagram.com/reel/aaa/")
+    items = extract_items([msg])
+    assert items[0].url == "https://www.instagram.com/reel/aaa/"
+    assert items[0].author is None
+    assert items[0].preview_url is None
+
+
+def test_state_round_trip_with_items(tmp_path):
+    from ytk.reels import ReelItem
+
+    path = tmp_path / "reels_state.json"
+    item = ReelItem(
+        url="https://www.instagram.com/reel/aaa/",
+        author="someone",
+        shared_at="2026-07-04",
+        preview_url="https://cdn.example/c.jpg",
+    )
+    save_state(ReelsState(thread_id="ts", pending=[item]), path)
+    loaded = load_state(path)
+    assert loaded.pending == [item]
+
+
+def test_load_state_migrates_bare_url_strings(tmp_path):
+    path = tmp_path / "reels_state.json"
+    path.write_text(
+        '{"thread_id": "ts", "last_seen_message_id": "9",'
+        ' "pending": ["https://www.instagram.com/reel/aaa/"]}'
+    )
+    loaded = load_state(path)
+    assert loaded.pending[0].url == "https://www.instagram.com/reel/aaa/"
+    assert loaded.pending[0].author is None
+
+
+def test_refresh_merges_items_by_url_keeping_metadata():
+    from datetime import datetime
+
+    from ytk.reels import ReelItem, refresh
+
+    msgs = [
+        _xma_full("3", "ccc", "author3", "https://cdn.example/3.jpg",
+                  datetime(2026, 7, 4)),
+    ]
+    old = ReelItem(url="https://www.instagram.com/reel/ccc/", author="known")
+    state = ReelsState(thread_id="ts", last_seen_message_id="1", pending=[old])
+    new_state = refresh(_client_with_thread(msgs), state)
+    assert len(new_state.pending) == 1
+    assert new_state.pending[0].author == "known"  # existing entry wins
+
+
+def test_gallery_html_shows_numbered_covers():
+    from ytk.reels import ReelItem, gallery_html
+
+    items = [
+        ReelItem(
+            url="https://www.instagram.com/reel/aaa/",
+            author="hancept_japan",
+            shared_at="2026-07-04",
+            preview_url="https://cdn.example/cover.jpg",
+        ),
+        ReelItem(url="https://www.instagram.com/p/bbb/"),
+    ]
+    html = gallery_html(items)
+    assert "https://cdn.example/cover.jpg" in html
+    assert "hancept_japan" in html
+    assert ">1<" in html and ">2<" in html  # picker numbers
+    assert "https://www.instagram.com/p/bbb/" in html

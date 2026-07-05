@@ -286,8 +286,13 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
               help="Ingest every pending link without the interactive picker.")
 @click.option("--limit", type=int, default=None,
               help="Cap how many links get ingested; the rest stay pending.")
+@click.option("--gallery", is_flag=True, default=False,
+              help="Open a browser gallery of cover images before picking.")
+@click.option("--rebuild", is_flag=True, default=False,
+              help="Re-read the whole thread to rebuild pending with metadata.")
 @click.pass_context
-def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None):
+def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None,
+          gallery: bool, rebuild: bool):
     """Sync reels from your Instagram DM capture thread — pick which to ingest."""
     from . import reels as reels_mod
 
@@ -315,18 +320,24 @@ def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None
 
     peer = os.environ.get("INSTAGRAM_PEER") or None
     thread_desc = f"@{peer} thread" if peer else "note-to-self thread"
-    state = reels_mod.load_state()
+    state = reels_mod.ReelsState() if rebuild else reels_mod.load_state()
     with console.status(f"[bold cyan]Reading {thread_desc}...[/]"):
         new_state = reels_mod.refresh(client, state, peer=peer)
 
     pending = new_state.pending
+
+    def _describe(item) -> str:
+        date = item.shared_at or "----------"
+        author = f"@{item.author}" if item.author else "?"
+        return f"{date}  {author:<24}  {item.url}"
+
     if dry_run:
         if not pending:
             console.print(f"[dim]Nothing pending from the {thread_desc}.[/]")
             return
         console.print(f"[bold]{len(pending)}[/] pending link(s) — dry run, nothing ingested:")
-        for url in pending:
-            console.print(f"  {url}")
+        for item in pending:
+            console.print(f"  {_describe(item)}")
         return
 
     # Persist discovery immediately: the cursor has advanced, pending is the record.
@@ -336,14 +347,24 @@ def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None
         console.print(f"[dim]Nothing pending from the {thread_desc}.[/]")
         return
 
+    if gallery:
+        import webbrowser
+
+        reels_mod.GALLERY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        reels_mod.GALLERY_PATH.write_text(
+            reels_mod.gallery_html(pending), encoding="utf-8"
+        )
+        webbrowser.open(reels_mod.GALLERY_PATH.as_uri())
+        console.print(f"[cyan]Gallery opened:[/] {reels_mod.GALLERY_PATH}")
+
     if ingest_all:
         selected = pending[:limit] if limit is not None else list(pending)
         if len(selected) < len(pending):
             console.print(f"[yellow]Limiting to {len(selected)} of {len(pending)} pending links.[/]")
     else:
         console.print(f"[bold]{len(pending)}[/] pending link(s):")
-        for i, url in enumerate(pending, 1):
-            console.print(f"  [bold cyan]{i:>3}[/]  {url}")
+        for i, item in enumerate(pending, 1):
+            console.print(f"  [bold cyan]{i:>3}[/]  {_describe(item)}")
         while True:
             raw = click.prompt("Ingest which? (e.g. 1,3,5-9 / all / none)", default="none")
             try:
@@ -361,11 +382,11 @@ def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None
 
     ok = 0
     failed = 0
-    for i, url in enumerate(selected, 1):
-        console.rule(f"[bold]{i}/{len(selected)}[/] {url}")
+    for i, item in enumerate(selected, 1):
+        console.rule(f"[bold]{i}/{len(selected)}[/] {item.url}")
         succeeded = False
         try:
-            ctx.invoke(add, url=url)
+            ctx.invoke(add, url=item.url)
             succeeded = True
         except SystemExit as exc:
             if exc.code in (0, None):
@@ -379,7 +400,7 @@ def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None
             ok += 1
             # drop from the queue and persist right away, so a crash mid-batch
             # never re-ingests; failures stay pending for a later retry
-            new_state.pending.remove(url)
+            new_state.pending.remove(item)
             reels_mod.save_state(new_state)
         else:
             failed += 1

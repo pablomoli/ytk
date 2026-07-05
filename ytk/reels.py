@@ -17,10 +17,34 @@ SETTINGS_PATH = Path.home() / ".ytk" / "instagram_session.json"
 
 
 @dataclass
+class ReelItem:
+    """A discovered link plus whatever metadata the DM share payload carried."""
+
+    url: str
+    author: str | None = None       # reel author's username, not the sender
+    shared_at: str | None = None    # YYYY-MM-DD the message was sent
+    preview_url: str | None = None  # cover image (signed CDN URL, expires)
+
+
+def _as_item(entry) -> ReelItem:
+    """Normalize a pending entry: legacy bare-URL strings become ReelItems."""
+    if isinstance(entry, ReelItem):
+        return entry
+    if isinstance(entry, str):
+        return ReelItem(url=entry)
+    return ReelItem(
+        url=entry["url"],
+        author=entry.get("author"),
+        shared_at=entry.get("shared_at"),
+        preview_url=entry.get("preview_url"),
+    )
+
+
+@dataclass
 class ReelsState:
     thread_id: str | None = None
     last_seen_message_id: str | None = None
-    pending: list[str] = field(default_factory=list)
+    pending: list = field(default_factory=list)  # list[ReelItem]
 
 
 _client_cache: dict[tuple[str, str], object] = {}
@@ -61,7 +85,7 @@ def load_state(path: Path = STATE_PATH) -> ReelsState:
     return ReelsState(
         thread_id=raw.get("thread_id"),
         last_seen_message_id=raw.get("last_seen_message_id"),
-        pending=raw.get("pending", []),
+        pending=[_as_item(e) for e in raw.get("pending", [])],
     )
 
 
@@ -70,31 +94,67 @@ def save_state(state: ReelsState, path: Path = STATE_PATH) -> None:
     path.write_text(json.dumps(asdict(state), indent=2), encoding="utf-8")
 
 
-def extract_links(messages) -> list[str]:
-    """Extract reel/post URLs from DM messages, deduped, message order preserved.
+def extract_items(messages) -> list[ReelItem]:
+    """Extract reel/post items from DM messages, deduped by URL, order preserved.
 
-    Handles shared reels (clip), shared posts (media_share), and bare
-    instagram.com links pasted as text.
+    Handles shared reels (clip and current xma_clip), shared posts, and bare
+    instagram.com links pasted as text. Metadata comes straight from the share
+    payload — no extra API calls.
     """
-    links: list[str] = []
+    items: list[ReelItem] = []
+    seen: set[str] = set()
+
+    def add(url: str, message, author=None, preview=None) -> None:
+        if url in seen:
+            return
+        seen.add(url)
+        ts = getattr(message, "timestamp", None)
+        items.append(
+            ReelItem(
+                url=url,
+                author=author,
+                shared_at=ts.strftime("%Y-%m-%d") if ts else None,
+                preview_url=str(preview) if preview else None,
+            )
+        )
+
     for m in messages:
         if m.item_type == "clip" and getattr(m, "clip", None):
-            links.append(f"https://www.instagram.com/reel/{m.clip.code}/")
-        elif m.item_type == "media_share" and getattr(m, "media_share", None):
-            links.append(f"https://www.instagram.com/p/{m.media_share.code}/")
-        elif m.item_type.startswith("xma") and getattr(m, "xma_share", None):
-            for field in ("video_url", "target_url"):
-                url = getattr(m.xma_share, field, None) or ""
-                links.extend(
-                    f"https://www.instagram.com/{kind}/{code}/"
-                    for kind, code in _LINK_RE.findall(url)
-                )
-        elif m.item_type == "text" and getattr(m, "text", None):
-            links.extend(
-                f"https://www.instagram.com/{kind}/{code}/"
-                for kind, code in _LINK_RE.findall(m.text)
+            clip = m.clip
+            add(
+                f"https://www.instagram.com/reel/{clip.code}/",
+                m,
+                author=getattr(getattr(clip, "user", None), "username", None),
+                preview=getattr(clip, "thumbnail_url", None),
             )
-    return list(dict.fromkeys(links))
+        elif m.item_type == "media_share" and getattr(m, "media_share", None):
+            share = m.media_share
+            add(
+                f"https://www.instagram.com/p/{share.code}/",
+                m,
+                author=getattr(getattr(share, "user", None), "username", None),
+                preview=getattr(share, "thumbnail_url", None),
+            )
+        elif m.item_type.startswith("xma") and getattr(m, "xma_share", None):
+            xma = m.xma_share
+            for url_field in ("video_url", "target_url"):
+                url = getattr(xma, url_field, None) or ""
+                for kind, code in _LINK_RE.findall(str(url)):
+                    add(
+                        f"https://www.instagram.com/{kind}/{code}/",
+                        m,
+                        author=getattr(xma, "header_title_text", None),
+                        preview=getattr(xma, "preview_url", None),
+                    )
+        elif m.item_type == "text" and getattr(m, "text", None):
+            for kind, code in _LINK_RE.findall(m.text):
+                add(f"https://www.instagram.com/{kind}/{code}/", m)
+    return items
+
+
+def extract_links(messages) -> list[str]:
+    """Extract just the canonical URLs (see extract_items)."""
+    return [item.url for item in extract_items(messages)]
 
 
 def find_self_thread(client):
@@ -118,10 +178,10 @@ def find_peer_thread(client, peer: str):
     raise ValueError(f"No one-on-one thread found with @{peer}.")
 
 
-def fetch_new_links(
+def fetch_new_items(
     client, state: ReelsState, peer: str | None = None
-) -> tuple[list[str], ReelsState]:
-    """Return (links oldest-first, advanced state) for messages newer than the cursor.
+) -> tuple[list[ReelItem], ReelsState]:
+    """Return (items oldest-first, advanced state) for messages newer than the cursor.
 
     The capture thread is the one-on-one thread with `peer` when given (the
     two-account pattern), else the note-to-self thread. The API returns messages
@@ -136,24 +196,75 @@ def fetch_new_links(
             break
         new.append(m)
 
-    links = extract_links(reversed(new))
+    items = extract_items(reversed(new))
     newest_id = str(messages[0].id) if messages else state.last_seen_message_id
-    return links, ReelsState(
+    return items, ReelsState(
         thread_id=str(thread.id),
         last_seen_message_id=newest_id,
         pending=list(state.pending),
     )
 
 
+def fetch_new_links(
+    client, state: ReelsState, peer: str | None = None
+) -> tuple[list[str], ReelsState]:
+    """URL-only variant of fetch_new_items."""
+    items, new_state = fetch_new_items(client, state, peer=peer)
+    return [i.url for i in items], new_state
+
+
 def refresh(client, state: ReelsState, peer: str | None = None) -> ReelsState:
     """Drain new DM messages into the pending queue and advance the cursor.
 
-    Advancing the cursor here is safe because the links are persisted in
-    `pending` until each one is ingested.
+    Advancing the cursor here is safe because the items are persisted in
+    `pending` until each one is ingested. Existing pending entries win over
+    rediscovered duplicates so metadata is never clobbered.
     """
-    links, new_state = fetch_new_links(client, state, peer=peer)
-    new_state.pending = list(dict.fromkeys([*state.pending, *links]))
+    items, new_state = fetch_new_items(client, state, peer=peer)
+    existing = [_as_item(e) for e in state.pending]
+    known = {i.url for i in existing}
+    new_state.pending = [*existing, *[i for i in items if i.url not in known]]
     return new_state
+
+
+GALLERY_PATH = Path.home() / ".ytk" / "reels_gallery.html"
+
+
+def gallery_html(items: list[ReelItem]) -> str:
+    """Render pending items as a numbered cover-image grid for browser review."""
+    import html as _html
+
+    cards = []
+    for i, item in enumerate(items, 1):
+        url = _html.escape(item.url, quote=True)
+        author = _html.escape(item.author) if item.author else "unknown"
+        date = _html.escape(item.shared_at) if item.shared_at else ""
+        if item.preview_url:
+            cover = f'<img src="{_html.escape(item.preview_url, quote=True)}" loading="lazy">'
+        else:
+            cover = '<div class="noimg">no cover</div>'
+        cards.append(
+            f'<a class="card" href="{url}" target="_blank">'
+            f'<span class="n">{i}</span>{cover}'
+            f'<span class="meta">@{author} · {date}</span></a>'
+        )
+    style = (
+        "body{font-family:system-ui;background:#111;color:#eee;margin:1rem}"
+        "main{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.75rem}"
+        ".card{position:relative;display:block;text-decoration:none;color:#eee;"
+        "background:#1c1c1c;border-radius:8px;overflow:hidden}"
+        ".card img{width:100%;aspect-ratio:9/16;object-fit:cover;display:block}"
+        ".noimg{width:100%;aspect-ratio:9/16;display:flex;align-items:center;"
+        "justify-content:center;color:#777}"
+        ".n{position:absolute;top:.4rem;left:.4rem;background:#000c;padding:.1rem .5rem;"
+        "border-radius:999px;font-weight:700}"
+        ".meta{display:block;padding:.4rem .5rem;font-size:.8rem;color:#bbb}"
+    )
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        f"<title>ytk reels — {len(items)} pending</title><style>{style}</style></head>"
+        f"<body><main>{''.join(cards)}</main></body></html>"
+    )
 
 
 def parse_selection(raw: str, count: int) -> list[int]:

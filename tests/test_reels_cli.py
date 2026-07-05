@@ -13,24 +13,39 @@ LINKS = [
 ]
 
 
+def _items():
+    return [
+        reels_mod.ReelItem(url=LINKS[0], author="author_a", shared_at="2026-07-01",
+                           preview_url="https://cdn.example/a.jpg"),
+        reels_mod.ReelItem(url=LINKS[1], author="author_b", shared_at="2026-07-02"),
+        reels_mod.ReelItem(url=LINKS[2]),
+    ]
+
+
 @pytest.fixture
-def harness(monkeypatch):
+def harness(monkeypatch, tmp_path):
     """Stub the discovery layer and the add pipeline; record what gets called."""
-    calls = {"added": [], "saved": [], "peer": "unset"}
+    calls = {"added": [], "saved": [], "peer": "unset", "refresh_state": None}
 
     monkeypatch.setenv("INSTAGRAM_SESSIONID", "sess-123")
     monkeypatch.setattr(reels_mod, "get_client", lambda sessionid: object())
-    monkeypatch.setattr(reels_mod, "load_state", lambda: reels_mod.ReelsState())
+    monkeypatch.setattr(reels_mod, "load_state", lambda: reels_mod.ReelsState(
+        thread_id="ts", last_seen_message_id="5"
+    ))
+    monkeypatch.setattr(reels_mod, "GALLERY_PATH", tmp_path / "gallery.html")
 
     def fake_refresh(client, state, peer=None):
         calls["peer"] = peer
+        calls["refresh_state"] = state
         return reels_mod.ReelsState(
-            thread_id="ts", last_seen_message_id="9", pending=list(LINKS)
+            thread_id="ts", last_seen_message_id="9", pending=_items()
         )
 
     monkeypatch.setattr(reels_mod, "refresh", fake_refresh)
     monkeypatch.setattr(
-        reels_mod, "save_state", lambda st: calls["saved"].append(list(st.pending))
+        reels_mod,
+        "save_state",
+        lambda st: calls["saved"].append([i.url for i in st.pending]),
     )
     monkeypatch.setattr(
         cli_mod.add, "callback", lambda url, force=False: calls["added"].append(url)
@@ -88,6 +103,30 @@ def test_reels_forwards_peer_from_env(harness, monkeypatch):
     result = CliRunner().invoke(cli_mod.cli, ["reels", "--dry-run"])
     assert result.exit_code == 0, result.output
     assert harness["peer"] == "integratederivate"
+
+
+def test_reels_interactive_shows_author_and_date(harness):
+    result = CliRunner().invoke(cli_mod.cli, ["reels"], input="none\n")
+    assert result.exit_code == 0, result.output
+    assert "author_a" in result.output
+    assert "2026-07-01" in result.output
+
+
+def test_reels_gallery_writes_html_and_opens_browser(harness, monkeypatch):
+    opened = []
+    monkeypatch.setattr("webbrowser.open", lambda target: opened.append(target))
+    result = CliRunner().invoke(cli_mod.cli, ["reels", "--gallery"], input="none\n")
+    assert result.exit_code == 0, result.output
+    html = reels_mod.GALLERY_PATH.read_text(encoding="utf-8")
+    assert "https://cdn.example/a.jpg" in html
+    assert len(opened) == 1
+
+
+def test_reels_rebuild_starts_from_blank_state(harness):
+    result = CliRunner().invoke(cli_mod.cli, ["reels", "--rebuild"], input="none\n")
+    assert result.exit_code == 0, result.output
+    assert harness["refresh_state"].last_seen_message_id is None
+    assert harness["refresh_state"].pending == []
 
 
 def test_reels_no_pending(harness, monkeypatch):
