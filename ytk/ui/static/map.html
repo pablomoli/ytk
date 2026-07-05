@@ -43,6 +43,11 @@
     padding-top: 2.6rem; }
   #panel.slim #dots { display: flex; }
   #rows { flex: 1; overflow-y: auto; padding: .2rem .7rem; }
+  #rows .rhead { display: flex; justify-content: space-between; color: #83817a;
+    font-family: "IBM Plex Mono", monospace; font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: .07em;
+    padding: .2rem .35rem .35rem; border-bottom: 1px solid rgba(255,255,255,.07);
+    margin-bottom: .25rem; }
   #rows .row { display: flex; align-items: center; gap: .55rem; cursor: pointer;
     color: #b7b5aa; padding: .28rem .35rem; border-radius: 6px; }
   #rows .row:hover { background: rgba(255,255,255,.05); color: #f0eee7; }
@@ -79,6 +84,7 @@
     <button class="fchip on" data-v="all">everything</button>
     <button class="fchip" data-v="content">content</button>
     <button class="fchip" id="sigchip">signal</button>
+    <button class="fchip" id="recchip">recent</button>
     <button class="fchip" id="dimchip">3d</button>
   </div>
   <div id="rows"></div>
@@ -89,6 +95,21 @@
 <script>
 const PALETTE = ['#3987e5','#199e70','#c98500','#008300','#9085e9','#e66767','#d55181','#d95926'];
 const GRAY = '#898781';
+// clusters beyond the validated top-8 get generated hues: golden-angle ring
+// at a fixed dark-band lightness, offset to avoid the palette's anchors
+function genColor(i) {
+  const h = (i * 137.508 + 70) % 360;
+  return `hsl(${h.toFixed(1)}, 58%, 62%)`;
+}
+function cssToRgb(c) {
+  const el = document.createElement('div');
+  el.style.color = c; document.body.appendChild(el);
+  const m = getComputedStyle(el).color.match(/\d+/g);
+  el.remove();
+  return m.slice(0, 3).map(v => v / 255);
+}
+const _rgbCache = {};
+const colorOf = c => _rgbCache[c] || (_rgbCache[c] = cssToRgb(c));
 
 const canvas = document.getElementById('gl');
 const gl = canvas.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true });
@@ -118,7 +139,7 @@ void main() {
   vec3 w = mix(vec3(p2, 0.0), p3, u_dim);
   gl_Position = u_mvp * vec4(w, 1.0);
   float att = u_sizek / max(gl_Position.w, 0.15);
-  gl_PointSize = clamp(a_size * att * u_dpr * 0.11, 1.8, 30.0 * u_dpr);
+  gl_PointSize = clamp(a_size * att * u_dpr * 0.075, 1.8, 26.0 * u_dpr);
   v_col = mix(a_col0, a_col1, u_t);
   float g0 = a_group0 < 0.0 ? 1.0 : u_galpha[int(a_group0)];
   float g1 = a_group1 < 0.0 ? 1.0 : u_galpha[int(a_group1) + 32];
@@ -130,9 +151,7 @@ varying vec3 v_col; varying float v_alpha;
 void main() {
   vec2 p = gl_PointCoord * 2.0 - 1.0;
   float d = length(p);
-  float core = smoothstep(0.5, 0.3, d);
-  float halo = exp(-d * d * 3.0) * 0.55;
-  float a = (core + halo) * v_alpha;
+  float a = smoothstep(1.0, 0.75, d) * v_alpha;
   gl_FragColor = vec4(v_col * a, a);
 }`;
 
@@ -154,7 +173,14 @@ const A = n => gl.getAttribLocation(prog, n);
 
 // --- state -----------------------------------------------------------------
 let DATA = null, N = 0, pts = [];
-let view = 'all', signalOnly = false;
+let view = 'all', signalOnly = false, recency = false;
+const NOW = Date.parse(document.lastModified) || 1751750000000;
+function ageFade(p) {
+  // 90-day half-life on note age; undated notes read as old
+  if (!p.d) return 0.12;
+  const days = (NOW - Date.parse(p.d)) / 86400000;
+  return Math.max(0.12, Math.pow(0.5, Math.max(0, days) / 90));
+}
 let morph = 0, morphTgt = 0;          // all <-> content
 let dim = 1, dimTgt = 1;              // flat <-> volume (3D default)
 let cam  = { theta: 0.5, phi: 0.3, dist: 2.3, tx: 0, ty: 0, tz: 0 };
@@ -247,9 +273,10 @@ function buildBuffers() {
     const isC = p.c3 !== undefined;
     const a0 = Math.max(0.55, Math.min(1, 2.2 / Math.sqrt(dens[cell(p)]))) * (p.g < 0 ? 0.4 : 1);
     const s = slot[p.g] ?? -1;
-    const col0 = p.g < 0 || s < 0 ? hex(GRAY) : hex(PALETTE[s]);
+    const col0 = p.g < 0 ? hex(GRAY) : s >= 0 ? hex(PALETTE[s]) : colorOf(genColor(p.g));
     const col1 = isC && p.th >= 0 ? hex(PALETTE[p.th % 8]) : hex(GRAY);
-    const sigA = a => (signalOnly && p.r < 1 ? 0.04 : a);
+    const rec = recency ? ageFade(p) : 1;
+    const sigA = a => (signalOnly && p.r < 1 ? 0.04 : a * rec);
     buf.set([
       ...p.z3,
       ...(isC ? p.c3 : p.z3),
@@ -470,9 +497,9 @@ canvas.addEventListener('click', () => {
 // --- panel ----------------------------------------------------------------
 let legendOpen = false;
 function groupColor(i) {
-  return view === 'content'
-    ? PALETTE[i % 8]
-    : (DATA.slot[i] ?? -1) >= 0 ? PALETTE[DATA.slot[i]] : GRAY;
+  if (view === 'content') return PALETTE[i % 8];
+  const s = DATA.slot[i] ?? -1;
+  return s >= 0 ? PALETTE[s] : genColor(i);
 }
 function buildLegend() {
   const el = document.getElementById('rows');
@@ -480,8 +507,10 @@ function buildLegend() {
   const base = view === 'content' ? 32 : 0;
   const order = groups.map((g, i) => [i, g]).filter(([, g]) => g.n)
     .sort((a, b) => b[1].n - a[1].n);
-  el.innerHTML = order.map(([i, g]) =>
-    `<div class="row${groupAlpha[base + i] < 0.5 ? ' off' : ''}" data-i="${i}">
+  el.innerHTML = `<div class="rhead"><span>cluster</span><span>notes</span></div>`
+    + order.map(([i, g]) =>
+    `<div class="row${groupAlpha[base + i] < 0.5 ? ' off' : ''}" data-i="${i}"
+      title="${g.n} notes in this cluster — click to hide, hover to spotlight">
       <span class="dot" style="background:${groupColor(i)}"></span>${esc(g.label)}
       <span class="n">${g.n}</span></div>`).join('');
   el.querySelectorAll('.row').forEach(r => {
@@ -520,6 +549,12 @@ document.querySelectorAll('#views [data-v]').forEach(b =>
   b.addEventListener('click', () => setView(b.dataset.v)));
 document.getElementById('sigchip').addEventListener('click', function () {
   signalOnly = !signalOnly;
+  this.classList.toggle('on');
+  buildBuffers();
+  dirty = true;
+});
+document.getElementById('recchip').addEventListener('click', function () {
+  recency = !recency;
   this.classList.toggle('on');
   buildBuffers();
   dirty = true;
