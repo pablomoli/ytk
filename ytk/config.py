@@ -27,8 +27,21 @@ class InterestConfig(BaseModel):
     )
 
 
+class HubConfig(BaseModel):
+    """Configuration for the ingest hub UI."""
+
+    buckets: list[str] = Field(
+        default_factory=lambda: [
+            "design", "music", "build-idea", "dev-tools",
+            "movies", "anime", "fitness", "reference",
+        ],
+        description="Predefined annotation buckets shown as chips in /inbox.",
+    )
+
+
 class Config(BaseModel):
     filters: FilterConfig = Field(default_factory=FilterConfig)
+    hub: HubConfig = Field(default_factory=HubConfig)
     whisper_model: str = Field(default="base", description="faster-whisper model size: base | small | medium | large")
     github_repos: list[str] = Field(default_factory=list, description="GitHub repos (owner/name) available when creating issues via ytk triage.")
     interest: InterestConfig = Field(default_factory=InterestConfig)

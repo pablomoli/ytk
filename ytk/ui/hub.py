@@ -59,6 +59,81 @@ def _remove_from_queue(url: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Source pulls: Instagram DM thread + YouTube ytk playlist
+# ---------------------------------------------------------------------------
+
+
+def _ig_pull(state: reels.ReelsState) -> int:
+    """Drain new Instagram DM links into the state's pending queue in place."""
+    import os
+
+    sessionid = os.environ.get("INSTAGRAM_SESSIONID", "")
+    client = reels.get_client(sessionid)
+    peer = os.environ.get("INSTAGRAM_PEER") or None
+    refreshed = reels.refresh(client, state, peer=peer)
+    added = len(refreshed.pending) - len(state.pending)
+    state.pending = refreshed.pending
+    state.thread_id = refreshed.thread_id
+    state.last_seen_message_id = refreshed.last_seen_message_id
+    return added
+
+
+def _yt_fetch() -> list[dict]:
+    from ytk.scheduler import authenticate, fetch_playlist_videos
+
+    return fetch_playlist_videos(authenticate())
+
+
+def _yt_is_processed(video_id: str) -> bool:
+    from ytk import db
+
+    return db.is_processed(video_id)
+
+
+# test seams
+IG_PULL = _ig_pull
+YT_FETCH = _yt_fetch
+YT_IS_PROCESSED = _yt_is_processed
+
+
+def refresh_sources() -> dict:
+    """Pull new items from all discovery sources into the queue.
+
+    Each source fails independently; errors are reported, not raised.
+    """
+    result: dict = {"instagram": 0, "youtube": 0, "errors": []}
+    with _LOCK:
+        state = reels.load_state(STATE_PATH)
+
+        try:
+            result["instagram"] = IG_PULL(state)
+        except Exception as exc:
+            result["errors"].append(f"instagram: {exc}")
+
+        try:
+            known = {i.url for i in state.pending}
+            for v in YT_FETCH():
+                url = f"https://www.youtube.com/watch?v={v['video_id']}"
+                if url in known or YT_IS_PROCESSED(v["video_id"]):
+                    continue
+                state.pending.append(
+                    reels.ReelItem(
+                        url=url,
+                        author=v.get("title") or None,
+                        shared_at=(v.get("added_at") or "")[:10] or None,
+                        preview_url=f"https://i.ytimg.com/vi/{v['video_id']}/hqdefault.jpg",
+                        source="youtube",
+                    )
+                )
+                result["youtube"] += 1
+        except Exception as exc:
+            result["errors"].append(f"youtube: {exc}")
+
+        reels.save_state(state, STATE_PATH)
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Ingest job
 # ---------------------------------------------------------------------------
 

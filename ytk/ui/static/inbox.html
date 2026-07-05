@@ -6,32 +6,39 @@
 <title>ytk — inbox</title>
 <style>
   :root { color-scheme: dark; }
-  body { font-family: system-ui; background: #111; color: #eee; margin: 0; padding-bottom: 7rem; }
+  * { font-size: 14px; }
+  body { font-family: system-ui; background: #111; color: #eee; margin: 0; padding-bottom: 10rem; }
   header { display: flex; gap: 1rem; align-items: center; padding: .8rem 1rem; background: #181818; position: sticky; top: 0; z-index: 5; }
   header a { color: #7dd3fc; text-decoration: none; font-weight: 600; }
   header a.here { color: #4ade80; }
   header .count { color: #888; margin-left: auto; }
-  #addwrap { padding: .8rem 1rem; display: flex; gap: .6rem; }
-  #addurls { flex: 1; background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 6px; padding: .5rem; font-family: ui-monospace, monospace; min-height: 2.4rem; resize: vertical; }
-  #addbtn { background: #333; color: #eee; border: 0; border-radius: 6px; padding: 0 1rem; cursor: pointer; }
+  #addwrap { padding: .8rem 1rem 0; display: flex; gap: .6rem; }
+  #addurls { flex: 1; background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 8px; padding: .55rem .7rem; font-family: inherit; min-height: 1.4rem; resize: vertical; }
+  .btn { background: #2a2a2a; color: #eee; border: 0; border-radius: 8px; padding: .55rem 1rem; cursor: pointer; font-family: inherit; font-weight: 600; }
+  .btn:hover { background: #333; }
+  .btn.primary { background: #4ade80; color: #000; }
+  .btn.primary:disabled { background: #2a2a2a; color: #666; cursor: default; }
+  #pullmsg { color: #888; padding: .35rem 1rem .5rem; min-height: 1.1rem; }
   main#grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .75rem; padding: 0 1rem; }
   .card { position: relative; background: #1c1c1c; border-radius: 8px; overflow: hidden; cursor: pointer; outline: 3px solid transparent; }
   .card.sel { outline-color: #4ade80; }
-  .card.sel .n { background: #4ade80; color: #000; }
   .card img { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; }
-  .noimg { width: 100%; aspect-ratio: 9/16; display: flex; align-items: center; justify-content: center; color: #777; font-size: .9rem; }
-  .n { position: absolute; top: .4rem; left: .4rem; background: #000c; padding: .1rem .5rem; border-radius: 999px; font-weight: 700; }
-  .src { position: absolute; top: .4rem; right: .4rem; background: #000c; padding: .1rem .5rem; border-radius: 999px; font-size: .7rem; color: #bbb; }
-  .meta { display: block; padding: .4rem .5rem; font-size: .8rem; color: #bbb; }
+  .card.yt img { aspect-ratio: 16/9; }
+  .noimg { width: 100%; aspect-ratio: 9/16; display: flex; align-items: center; justify-content: center; color: #777; }
+  .badge { position: absolute; top: .45rem; right: .45rem; background: #000c; border-radius: 999px; width: 1.7rem; height: 1.7rem; display: flex; align-items: center; justify-content: center; }
+  .badge svg { width: 1rem; height: 1rem; fill: #eee; }
+  .check { position: absolute; top: .45rem; left: .45rem; background: #4ade80; color: #000; border-radius: 999px; width: 1.7rem; height: 1.7rem; display: none; align-items: center; justify-content: center; font-weight: 700; }
+  .card.sel .check { display: flex; }
+  .meta { display: block; padding: .45rem .55rem; color: #bbb; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meta a { color: #7dd3fc; text-decoration: none; }
-  #selbar { position: fixed; left: 0; right: 0; bottom: 0; background: #000e; padding: .6rem 1rem; display: grid; grid-template-columns: auto 1fr auto; gap: .6rem .75rem; align-items: center; font-size: .9rem; }
-  #selbar input, #selbar textarea { background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 6px; padding: .4rem .6rem; }
-  #selstr { font-family: ui-monospace, monospace; width: 100%; }
-  #bucket { width: 100%; }
-  #thought { grid-column: 1 / -1; width: 100%; box-sizing: border-box; resize: vertical; min-height: 2.2rem; font-family: inherit; }
-  #ingest { background: #4ade80; color: #000; border: 0; border-radius: 6px; padding: .5rem 1.1rem; font-weight: 700; cursor: pointer; }
-  #ingest:disabled { background: #333; color: #777; cursor: default; }
-  #progress { grid-column: 1 / -1; color: #bbb; min-height: 1.1rem; }
+  #selbar { position: fixed; left: 0; right: 0; bottom: 0; background: #000e; padding: .7rem 1rem; display: flex; flex-direction: column; gap: .55rem; }
+  #selrow { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  #selcount { color: #bbb; min-width: 6.5rem; }
+  .chip { background: #262626; color: #ddd; border: 1px solid #333; border-radius: 999px; padding: .3rem .8rem; cursor: pointer; font-family: inherit; }
+  .chip.on { background: #4ade80; border-color: #4ade80; color: #000; font-weight: 600; }
+  #ingest { margin-left: auto; }
+  #thought { width: 100%; box-sizing: border-box; background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 8px; padding: .55rem .7rem; resize: vertical; min-height: 2.1rem; font-family: inherit; }
+  #progress { color: #bbb; min-height: 1.1rem; }
   #progress .fail { color: #f87171; }
 </style>
 </head>
@@ -43,25 +50,35 @@
 </header>
 
 <div id="addwrap">
-  <textarea id="addurls" placeholder="Paste URLs to queue (one per line) — reels, TikToks, videos, articles"></textarea>
-  <button id="addbtn">Add</button>
+  <textarea id="addurls" rows="1" placeholder="Paste URLs to queue — reels, TikToks, videos, articles"></textarea>
+  <button id="addbtn" class="btn">Add</button>
+  <button id="pull" class="btn">Pull sources</button>
 </div>
+<div id="pullmsg"></div>
 
 <main id="grid"></main>
 
 <div id="selbar">
-  <span id="selcount">0 selected</span>
-  <input id="selstr" readonly value="none">
-  <button id="ingest" disabled>Ingest</button>
-  <input id="bucket" list="buckets" placeholder="bucket (design, music, build-idea...)">
-  <datalist id="buckets"></datalist>
+  <div id="selrow">
+    <span id="selcount">0 selected</span>
+    <span id="buckets"></span>
+    <button id="ingest" class="btn primary" disabled>Ingest</button>
+  </div>
   <textarea id="thought" placeholder="your take — why did you save this?"></textarea>
   <div id="progress"></div>
 </div>
 
 <script>
+const ICONS = {
+  instagram: '<svg viewBox="0 0 24 24"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zM17.6 5.4a1 1 0 1 1-1 1 1 1 0 0 1 1-1z"/></svg>',
+  tiktok: '<svg viewBox="0 0 24 24"><path d="M16.5 3a4.8 4.8 0 0 0 3.6 3.5V9a7.9 7.9 0 0 1-3.7-1.1v5.7a5.6 5.6 0 1 1-5.6-5.6 5 5 0 0 1 .8.06v2.6a3 3 0 1 0 2.2 2.94V3h2.7z"/></svg>',
+  youtube: '<svg viewBox="0 0 24 24"><path d="M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.5 2.5 0 0 0 2.4 7.2 26.3 26.3 0 0 0 2 12a26.3 26.3 0 0 0 .4 4.8 2.5 2.5 0 0 0 1.8 1.8c1.6.4 7.8.4 7.8.4s6.2 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8A26.3 26.3 0 0 0 22 12a26.3 26.3 0 0 0-.4-4.8zM10 15V9l5.2 3z"/></svg>',
+  web: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm7.9 9h-3a15.6 15.6 0 0 0-1.2-5.2A8 8 0 0 1 19.9 11zM12 4a13.8 13.8 0 0 1 1.9 7h-3.8A13.8 13.8 0 0 1 12 4zM8.3 5.8A15.6 15.6 0 0 0 7.1 11h-3a8 8 0 0 1 4.2-5.2zM4.1 13h3a15.6 15.6 0 0 0 1.2 5.2A8 8 0 0 1 4.1 13zM12 20a13.8 13.8 0 0 1-1.9-7h3.8A13.8 13.8 0 0 1 12 20zm3.7-1.8a15.6 15.6 0 0 0 1.2-5.2h3a8 8 0 0 1-4.2 5.2z"/></svg>',
+};
+
 const sel = new Set();
 let items = [];
+let bucket = "";
 
 function esc(s) {
   const d = document.createElement("div");
@@ -69,35 +86,23 @@ function esc(s) {
   return d.innerHTML;
 }
 
-function compact(nums) {
-  nums = [...nums].sort((a, b) => a - b);
-  const parts = [];
-  for (let i = 0; i < nums.length;) {
-    let j = i;
-    while (j + 1 < nums.length && nums[j + 1] === nums[j] + 1) j++;
-    parts.push(j > i ? nums[i] + "-" + nums[j] : String(nums[i]));
-    i = j + 1;
-  }
-  return parts.join(",");
-}
-
 function renderBar() {
   document.getElementById("selcount").textContent = sel.size + " selected";
-  document.getElementById("selstr").value = sel.size ? compact(sel) : "none";
   document.getElementById("ingest").disabled = sel.size === 0;
 }
 
-function loadBuckets() {
-  const dl = document.getElementById("buckets");
-  const buckets = JSON.parse(localStorage.getItem("ytk-buckets") || "[]");
-  dl.innerHTML = buckets.map(b => `<option value="${esc(b)}">`).join("");
-}
-
-function rememberBucket(b) {
-  if (!b) return;
-  const buckets = new Set(JSON.parse(localStorage.getItem("ytk-buckets") || "[]"));
-  buckets.add(b);
-  localStorage.setItem("ytk-buckets", JSON.stringify([...buckets]));
+async function loadBuckets() {
+  const data = await (await fetch("/api/buckets")).json();
+  document.getElementById("buckets").innerHTML = data.buckets.map(b =>
+    `<button class="chip" data-b="${esc(b)}">${esc(b)}</button>`).join(" ");
+  document.querySelectorAll(".chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const b = chip.dataset.b;
+      bucket = bucket === b ? "" : b;
+      document.querySelectorAll(".chip").forEach(c =>
+        c.classList.toggle("on", c.dataset.b === bucket));
+    });
+  });
 }
 
 async function loadQueue() {
@@ -107,13 +112,13 @@ async function loadQueue() {
   const sorted = [...items].sort((a, b) =>
     (b.shared_at || "").localeCompare(a.shared_at || "") || b.n - a.n);
   document.getElementById("grid").innerHTML = sorted.map(it => `
-    <div class="card${sel.has(it.n) ? " sel" : ""}" data-n="${it.n}">
-      <span class="n">${it.n}</span>
-      <span class="src">${esc(it.source)}</span>
+    <div class="card${sel.has(it.n) ? " sel" : ""}${it.source === "youtube" ? " yt" : ""}" data-n="${it.n}">
+      <span class="check">ok</span>
+      <span class="badge">${ICONS[it.source] || ICONS.web}</span>
       ${it.preview_url
         ? `<img src="${esc(it.preview_url)}" loading="lazy">`
         : `<div class="noimg">${esc(it.source)}</div>`}
-      <span class="meta">@${esc(it.author || "?")} · ${esc(it.shared_at || "")}
+      <span class="meta">${esc(it.author || it.url)} · ${esc(it.shared_at || "")}
         <a href="${esc(it.url)}" target="_blank">open</a></span>
     </div>`).join("");
   document.querySelectorAll(".card").forEach(card => {
@@ -141,6 +146,16 @@ document.getElementById("addbtn").addEventListener("click", async () => {
   await loadQueue();
 });
 
+document.getElementById("pull").addEventListener("click", async () => {
+  const msg = document.getElementById("pullmsg");
+  msg.textContent = "pulling Instagram DMs and the ytk playlist...";
+  const r = await (await fetch("/api/queue/refresh", { method: "POST" })).json();
+  const errs = r.errors.length ? ` — ${r.errors.join("; ")}` : "";
+  msg.textContent =
+    `pulled ${r.instagram} from Instagram, ${r.youtube} from the playlist${errs}`;
+  await loadQueue();
+});
+
 let pollTimer = null;
 
 async function pollStatus() {
@@ -161,7 +176,6 @@ async function pollStatus() {
 }
 
 document.getElementById("ingest").addEventListener("click", async () => {
-  const bucket = document.getElementById("bucket").value.trim();
   const thought = document.getElementById("thought").value;
   const res = await fetch("/api/ingest", {
     method: "POST",
@@ -174,8 +188,6 @@ document.getElementById("ingest").addEventListener("click", async () => {
       `<span class="fail">${esc(err.detail || res.status)}</span>`;
     return;
   }
-  rememberBucket(bucket);
-  loadBuckets();
   document.getElementById("thought").value = "";
   document.getElementById("ingest").disabled = true;
   pollTimer = setInterval(pollStatus, 1500);

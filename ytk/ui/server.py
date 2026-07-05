@@ -80,6 +80,22 @@ async def queue_add_api(req: QueueAddRequest):
     return {"added": added, "pending": len(hub.queue_items())}
 
 
+@app.post("/api/queue/refresh")
+def queue_refresh_api():
+    # sync def on purpose: FastAPI runs it in a threadpool, and the source
+    # pulls (Instagram private API + YouTube Data API) block for seconds
+    from ytk.ui import hub
+
+    return hub.refresh_sources()
+
+
+@app.get("/api/buckets")
+async def buckets_api():
+    from ytk.config import load_config
+
+    return {"buckets": load_config().hub.buckets}
+
+
 @app.get("/api/queue")
 async def queue_api():
     from dataclasses import asdict

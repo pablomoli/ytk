@@ -211,8 +211,11 @@ def test_vault_media_serves_images_and_blocks_traversal(client, hub):
 def test_inbox_page_served(client):
     r = client.get("/inbox")
     assert r.status_code == 200
-    for marker in ('id="grid"', 'id="bucket"', 'id="thought"', 'id="addurls"', "/api/queue"):
+    for marker in ('id="grid"', 'id="buckets"', 'id="thought"', 'id="addurls"',
+                   'id="pull"', "/api/queue", "/api/buckets"):
         assert marker in r.text
+    assert "selstr" not in r.text          # no index-string UI
+    assert "monospace" not in r.text       # normalized typography
 
 
 def test_fresh_page_is_main(client):
@@ -220,3 +223,65 @@ def test_fresh_page_is_main(client):
     assert r.status_code == 200
     assert 'id="fresh"' in r.text
     assert "/api/fresh" in r.text
+
+
+# --- source pulls + buckets -------------------------------------------------------
+
+
+def test_refresh_sources_pulls_instagram_and_youtube(hub, monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_SESSIONID", "sess")
+    ig_item = reels.ReelItem(url="https://www.instagram.com/reel/x/", source="instagram")
+
+    def fake_ig_pull(state):
+        state.pending.append(ig_item)
+        return 1
+
+    monkeypatch.setattr(hub, "IG_PULL", fake_ig_pull)
+    monkeypatch.setattr(
+        hub, "YT_FETCH",
+        lambda: [
+            {"video_id": "new1", "title": "A new video", "added_at": "2026-07-04T01:00:00Z"},
+            {"video_id": "old1", "title": "Old", "added_at": "2026-07-01T01:00:00Z"},
+        ],
+    )
+    monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: vid == "old1")
+
+    result = hub.refresh_sources()
+
+    assert result["instagram"] == 1
+    assert result["youtube"] == 1
+    urls = [i.url for i in hub.queue_items()]
+    assert "https://www.youtube.com/watch?v=new1" in urls
+    yt = [i for i in hub.queue_items() if i.source == "youtube"][0]
+    assert yt.author == "A new video"
+    assert yt.preview_url == "https://i.ytimg.com/vi/new1/hqdefault.jpg"
+    assert yt.shared_at == "2026-07-04"
+
+
+def test_refresh_sources_survives_one_source_failing(hub, monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_SESSIONID", "sess")
+
+    def broken(state):
+        raise RuntimeError("login dead")
+
+    monkeypatch.setattr(hub, "IG_PULL", broken)
+    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
+
+    result = hub.refresh_sources()
+    assert result["youtube"] == 0
+    assert "instagram" in result["errors"][0].lower() or "login" in result["errors"][0]
+
+
+def test_api_refresh_and_buckets(client, hub, monkeypatch):
+    monkeypatch.setattr(hub, "IG_PULL", lambda state: 0)
+    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
+    monkeypatch.delenv("INSTAGRAM_SESSIONID", raising=False)
+
+    r = client.post("/api/queue/refresh")
+    assert r.status_code == 200
+
+    r = client.get("/api/buckets")
+    assert r.status_code == 200
+    assert "design" in r.json()["buckets"]

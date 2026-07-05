@@ -28,3 +28,15 @@ def test_github_repos_from_yaml(tmp_path):
     )
     cfg = load_config(cfg_file)
     assert cfg.github_repos == ["melocoton/ytk", "melocoton/epic-map"]
+
+
+def test_hub_buckets_default_and_override(tmp_path, monkeypatch):
+    from ytk.config import load_config
+
+    cfg = load_config(tmp_path / "missing.yaml")
+    assert "design" in cfg.hub.buckets and "music" in cfg.hub.buckets
+
+    p = tmp_path / "config.yaml"
+    p.write_text("hub:\n  buckets:\n    - lifting\n    - recipes\n")
+    cfg = load_config(p)
+    assert cfg.hub.buckets == ["lifting", "recipes"]
