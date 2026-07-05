@@ -672,6 +672,9 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool, from_aud
         if not transcript:
             memo_notify("empty transcription; audio kept", "failed", cfg.memo_notify or None)
             raise SystemExit(1)
+        snippet = transcript if len(transcript) <= 90 else transcript[:87] + "..."
+        memo_notify(snippet, "transcribed", cfg.memo_notify or None)
+        log.mark("NOTIFY_TRANSCRIBED")
     elif text:
         transcript, audio_path = text, None
         log.mark("TEXT_MODE")
@@ -696,8 +699,7 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool, from_aud
                     stderr=subprocess.DEVNULL, start_new_session=True,
                 )
                 log.mark("BG_WORKER_SPAWNED")
-                console.print("[green]\u2713 captured[/green] [dim]transcribing + routing in background[/dim]")
-                time.sleep(0.6)
+                memo_notify("captured — transcribing...", "captured", cfg.memo_notify or None)
                 log.mark("POPUP_CLOSED")
                 return
             with console.status(f"[cyan]transcribing[/] [dim]({cfg.whisper_model})[/dim]", spinner="dots"):
