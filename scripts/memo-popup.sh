@@ -1,0 +1,37 @@
+#!/bin/sh
+# Keybind entry point for voice memos. Pure shell so the mic opens in ~0.2s;
+# python (ytk memo --from-audio) only ever runs detached in the background.
+# State marks go to the same log as ytk's StageLog.
+
+YTK="$HOME/.local/bin/ytk"
+LOG="$HOME/.ytk/logs/memo.log"
+OUT="$HOME/.ytk/audio/memos/$(date +%Y%m%d-%H%M%S).wav"
+mkdir -p "$HOME/.ytk/audio/memos" "$HOME/.ytk/logs"
+
+mark() { echo "$(date '+%H:%M:%S.000') [sh]    +  0.00s $1" >> "$LOG"; }
+
+mark SH_START
+ffmpeg -hide_banner -loglevel error -y \
+  -f avfoundation -i ":default" \
+  -t 300 -ar 16000 -ac 1 "$OUT" </dev/null &
+FFPID=$!
+mark RECORDING
+printf '\033[1;31m* rec\033[0m  speak, Enter to stop\n'
+read -r _
+kill -INT "$FFPID" 2>/dev/null
+( sleep 3; kill -9 "$FFPID" 2>/dev/null ) &
+WATCHDOG=$!
+wait "$FFPID" 2>/dev/null
+kill "$WATCHDOG" 2>/dev/null
+wait "$WATCHDOG" 2>/dev/null
+mark "RECORDED $(basename "$OUT")"
+
+if [ ! -s "$OUT" ]; then
+  echo "capture failed - no audio written. check mic permission."
+  echo "[press Enter to close]"
+  read -r _
+  exit 1
+fi
+
+nohup "$YTK" memo --from-audio "$OUT" >/dev/null 2>&1 &
+mark BG_WORKER_SPAWNED
