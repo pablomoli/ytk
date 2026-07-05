@@ -411,6 +411,24 @@ async def inbox_page():
     return _serve_static("inbox.html")
 
 
+@app.get("/docs/settings", response_class=HTMLResponse)
+async def settings_docs():
+    md = (_STATIC_DIR / "docs-settings.md").read_text(encoding="utf-8")
+    # served as readable plain text in the hub theme; no markdown pipeline
+    body = md.replace("&", "&amp;").replace("<", "&lt;")
+    return HTMLResponse(
+        '<!doctype html><html><head><meta charset="utf-8"><title>ytk settings docs</title>'
+        '<link rel="stylesheet" href="/static/theme.css">'
+        '<link rel="icon" href="/favicon.svg">'
+        '<style>body{margin:0} header{display:flex;gap:1rem;padding:.8rem 1rem} '
+        "header a{color:#e2b04a;text-decoration:none} "
+        "pre{max-width:820px;margin:1.2rem auto;padding:0 1rem;white-space:pre-wrap;"
+        "font-family:var(--serif);font-size:15px;line-height:1.55;letter-spacing:0}</style>"
+        '</head><body><header><a href="/settings">&larr; settings</a></header>'
+        f"<pre>{body}</pre></body></html>"
+    )
+
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page():
     return _serve_static("settings.html")
