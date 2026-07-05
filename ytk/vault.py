@@ -589,6 +589,60 @@ def write_tiktok_note(
     return note_path
 
 
+def annotate_note(note_path: Path, bucket: str, thought: str) -> None:
+    """Attach the user's ingest-hub annotation to a written note.
+
+    The bucket joins the frontmatter tags (so it embeds and filters like any
+    interest tag); the thought lands in a `## My take` section. Idempotent on
+    the tag; repeated thoughts append under the same section.
+    """
+    text = note_path.read_text(encoding="utf-8")
+    bucket = _normalize_tag(bucket) if bucket else ""
+
+    if bucket:
+        fm_end = text.index("---", 4) if text.startswith("---") else 0
+        frontmatter = text[:fm_end]
+        if f"- {bucket}\n" not in frontmatter:
+            if re.search(r"^tags:", frontmatter, re.MULTILINE):
+                text = text.replace("tags:\n", f"tags:\n  - {bucket}\n", 1)
+            else:
+                text = text[:fm_end] + f"tags:\n  - {bucket}\n" + text[fm_end:]
+
+    if thought.strip():
+        if "## My take" in text:
+            text = text.rstrip("\n") + f"\n\n{thought.strip()}\n"
+        else:
+            text = text.rstrip("\n") + f"\n\n## My take\n\n{thought.strip()}\n"
+
+    note_path.write_text(text, encoding="utf-8")
+
+
+def append_daily_digest(note_path: Path, bucket: str, thought: str) -> Path:
+    """Append one wikilinked line for an annotated ingest to today's digest.
+
+    Returns the digest path (inbox/review-YYYY-MM-DD.md, created on first use)
+    so the daily journal flow has a single hub to glance at.
+    """
+    from datetime import date
+
+    inbox = _get_brain_path() / "inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    today = date.today().isoformat()
+    digest = inbox / f"review-{today}.md"
+    if not digest.exists():
+        digest.write_text(f"# Ingest digest — {today}\n\n", encoding="utf-8")
+
+    snippet = " ".join(thought.split())
+    if len(snippet) > 80:
+        snippet = snippet[:80].rstrip() + "..."
+    line = f"- [[{note_path.stem}]] (#{_normalize_tag(bucket)})" if bucket else f"- [[{note_path.stem}]]"
+    if snippet:
+        line += f" — {snippet}"
+    with digest.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+    return digest
+
+
 def reindex_vault(force: bool = False) -> int:
     """
     Scan vault directories and bulk-upsert changed .md files into ChromaDB.
