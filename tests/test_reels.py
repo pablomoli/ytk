@@ -588,3 +588,28 @@ def test_first_run_still_fetches_everything():
 
     assert len(items) == 2
     assert client.requested_amounts == [0]
+
+
+# --- gallery v2: newest-first, click-to-select ----------------------------------
+
+
+def test_gallery_orders_newest_first_keeping_picker_numbers():
+    from ytk.reels import ReelItem, gallery_html
+
+    items = [
+        ReelItem(url="https://www.instagram.com/reel/old/", shared_at="2025-04-01"),
+        ReelItem(url="https://www.instagram.com/reel/new/", shared_at="2026-03-20"),
+    ]
+    html = gallery_html(items)
+    # newest card renders first, but badges keep the pending-list numbering
+    assert html.index('data-index="2"') < html.index('data-index="1"')
+
+
+def test_gallery_cards_select_and_link_separately():
+    from ytk.reels import ReelItem, gallery_html
+
+    html = gallery_html([ReelItem(url="https://www.instagram.com/reel/aaa/")])
+    assert 'data-index="1"' in html
+    assert 'class="open"' in html            # explicit open-reel link per card
+    assert "navigator.clipboard" in html     # copy-selection support
+    assert 'id="selbar"' in html             # sticky selection bar

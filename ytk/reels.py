@@ -253,11 +253,19 @@ GALLERY_PATH = Path.home() / ".ytk" / "reels_gallery.html"
 
 
 def gallery_html(items: list[ReelItem]) -> str:
-    """Render pending items as a numbered cover-image grid for browser review."""
+    """Render pending items as a click-to-select cover grid, newest first.
+
+    Card numbers match the terminal picker's numbering (position in the pending
+    list). Clicking a card toggles selection; a sticky bar builds the compact
+    selection string (e.g. 1,5,12-14) to paste back into `ytk reels`.
+    """
     import html as _html
 
+    numbered = list(enumerate(items, 1))
+    numbered.sort(key=lambda pair: (pair[1].shared_at or "", pair[0]), reverse=True)
+
     cards = []
-    for i, item in enumerate(items, 1):
+    for i, item in numbered:
         url = _html.escape(item.url, quote=True)
         author = _html.escape(item.author) if item.author else "unknown"
         date = _html.escape(item.shared_at) if item.shared_at else ""
@@ -266,26 +274,77 @@ def gallery_html(items: list[ReelItem]) -> str:
         else:
             cover = '<div class="noimg">no cover</div>'
         cards.append(
-            f'<a class="card" href="{url}" target="_blank">'
+            f'<div class="card" data-index="{i}">'
             f'<span class="n">{i}</span>{cover}'
-            f'<span class="meta">@{author} · {date}</span></a>'
+            f'<span class="meta">@{author} · {date} '
+            f'<a class="open" href="{url}" target="_blank">open</a></span></div>'
         )
+
     style = (
-        "body{font-family:system-ui;background:#111;color:#eee;margin:1rem}"
+        "body{font-family:system-ui;background:#111;color:#eee;margin:1rem;"
+        "padding-bottom:4.5rem}"
         "main{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.75rem}"
-        ".card{position:relative;display:block;text-decoration:none;color:#eee;"
-        "background:#1c1c1c;border-radius:8px;overflow:hidden}"
+        ".card{position:relative;background:#1c1c1c;border-radius:8px;overflow:hidden;"
+        "cursor:pointer;outline:3px solid transparent}"
+        ".card.sel{outline-color:#4ade80}"
+        ".card.sel .n{background:#4ade80;color:#000}"
         ".card img{width:100%;aspect-ratio:9/16;object-fit:cover;display:block}"
         ".noimg{width:100%;aspect-ratio:9/16;display:flex;align-items:center;"
         "justify-content:center;color:#777}"
         ".n{position:absolute;top:.4rem;left:.4rem;background:#000c;padding:.1rem .5rem;"
         "border-radius:999px;font-weight:700}"
         ".meta{display:block;padding:.4rem .5rem;font-size:.8rem;color:#bbb}"
+        ".meta a{color:#7dd3fc;text-decoration:none}"
+        "#selbar{position:fixed;left:0;right:0;bottom:0;background:#000e;"
+        "display:flex;gap:.75rem;align-items:center;padding:.6rem 1rem;font-size:.9rem}"
+        "#selstr{flex:1;background:#1c1c1c;color:#eee;border:1px solid #333;"
+        "border-radius:6px;padding:.4rem .6rem;font-family:ui-monospace,monospace}"
+        "#copy{background:#4ade80;color:#000;border:0;border-radius:6px;"
+        "padding:.45rem .9rem;font-weight:700;cursor:pointer}"
     )
+    script = """
+const sel = new Set();
+function compact(nums) {
+  nums = [...nums].sort((a, b) => a - b);
+  const parts = [];
+  for (let i = 0; i < nums.length;) {
+    let j = i;
+    while (j + 1 < nums.length && nums[j + 1] === nums[j] + 1) j++;
+    parts.push(j > i ? nums[i] + "-" + nums[j] : String(nums[i]));
+    i = j + 1;
+  }
+  return parts.join(",");
+}
+function render() {
+  document.getElementById("selcount").textContent = sel.size + " selected";
+  document.getElementById("selstr").value = sel.size ? compact(sel) : "none";
+}
+document.querySelectorAll(".card").forEach(card => {
+  card.addEventListener("click", e => {
+    if (e.target.closest("a")) return;
+    const i = Number(card.dataset.index);
+    if (sel.has(i)) { sel.delete(i); } else { sel.add(i); }
+    card.classList.toggle("sel");
+    render();
+  });
+});
+document.getElementById("copy").addEventListener("click", () => {
+  const box = document.getElementById("selstr");
+  box.select();
+  if (navigator.clipboard) navigator.clipboard.writeText(box.value);
+  else document.execCommand("copy");
+});
+render();
+"""
     return (
         "<!doctype html><html><head><meta charset='utf-8'>"
         f"<title>ytk reels — {len(items)} pending</title><style>{style}</style></head>"
-        f"<body><main>{''.join(cards)}</main></body></html>"
+        f"<body><main>{''.join(cards)}</main>"
+        '<div id="selbar"><span id="selcount">0 selected</span>'
+        '<input id="selstr" readonly value="none">'
+        '<button id="copy">copy</button>'
+        "<span>paste into: Ingest which?</span></div>"
+        f"<script>{script}</script></body></html>"
     )
 
 
