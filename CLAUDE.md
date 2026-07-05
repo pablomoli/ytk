@@ -50,6 +50,7 @@ Never leave anything uncommitted in this repo. Before ending a session, the work
 | 8.5 | partial | Audiobook tracker — stdlib epub fuzzy text-position matcher (`books_match.py`); CLI not yet wired |
 | 9 | done | `ytk reels` — Instagram DM capture-thread sync (instagrapi discovery → pending queue → interactive picker → existing `add` pipeline) |
 | 10 | done | Ingest hub — `ytk ui` reborn: / fresh feed, /inbox queue picker with buckets + thoughts (annotations embed into search + daily digest), paste-to-queue Add box; chat at /chat |
+| 11 | done | `ytk memo` — voice memo capture: ffmpeg record, faster-whisper STT, Claude routing, focus-aware notify, hub POST /api/memo |
 
 ## Project Structure
 
@@ -76,6 +77,7 @@ ytk/
     triage.py          — action-item extraction for `ytk triage`
     books_match.py     — stdlib epub fuzzy text-position matcher (audiobook tracker)
     reels.py           — Instagram DM link discovery + source-agnostic pending queue (`ytk reels`)
+    memo.py            — voice memo pipeline: record, transcribe, route, notify (`ytk memo`)
     ui/hub.py          — ingest-hub backend: queue ops, background ingest job, fresh feed
     ui/static/         — hub pages: fresh.html (/), inbox.html (/inbox), index.html (/chat)
 ```

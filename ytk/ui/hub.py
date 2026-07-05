@@ -14,6 +14,18 @@ import time
 from pathlib import Path
 
 from ytk import reels, vault
+from ytk.config import load_config
+from ytk.memo import (
+    AUDIO_DIR as MEMO_AUDIO_DIR,
+    ensure_wav as memo_ensure_wav,
+    execute_route as memo_execute,
+    finalize_memo_note as memo_finalize,
+    index_memo_note as memo_index,
+    notify as memo_notify,
+    route as memo_route,
+    transcribe as memo_transcribe,
+    write_memo_note as memo_write_note,
+)
 
 STATE_PATH = reels.STATE_PATH
 PACING_SECONDS = 3.0
@@ -321,6 +333,64 @@ def find_note_by_url(url: str, since: float) -> Path | None:
 def job_status() -> dict:
     with _LOCK:
         return dict(_JOB, failures=list(_JOB["failures"]))
+
+
+_memo_job: dict = {"state": "idle", "detail": ""}
+
+
+def memo_status() -> dict:
+    with _LOCK:
+        return dict(_memo_job)
+
+
+def start_memo(audio_bytes: bytes, filename: str, text: str) -> bool:
+    """Run the memo pipeline in a background thread. False if one is running."""
+    with _LOCK:
+        if _memo_job["state"] == "running":
+            return False
+        _memo_job.update(state="running", detail="")
+    threading.Thread(
+        target=_memo_worker, args=(audio_bytes, filename, text), daemon=True
+    ).start()
+    return True
+
+
+def _memo_worker(audio_bytes: bytes, filename: str, text: str) -> None:
+    from datetime import datetime
+
+    try:
+        cfg = load_config()
+        audio_path = None
+        if text:
+            transcript = text
+        else:
+            MEMO_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+            suffix = Path(filename).suffix or ".m4a"
+            raw = MEMO_AUDIO_DIR / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}{suffix}"
+            raw.write_bytes(audio_bytes)
+            audio_path = memo_ensure_wav(raw)
+            transcript = memo_transcribe(audio_path, cfg.whisper_model)
+        if not transcript:
+            _memo_job.update(state="error", detail="empty transcription")
+            return
+
+        note_path = memo_write_note(transcript, audio_path)
+        try:
+            result = memo_route(transcript, repos=cfg.github_repos or [])
+        except Exception as exc:
+            memo_finalize(note_path, "failed", [])
+            memo_index(note_path, transcript, "failed")
+            memo_notify("saved raw, routing failed", "failed", cfg.memo_notify or None)
+            _memo_job.update(state="error", detail=f"saved raw, routing failed: {exc}")
+            return
+
+        routed = memo_execute(result, transcript, cfg.github_repos or [])
+        memo_finalize(note_path, result.kind, routed)
+        memo_index(note_path, transcript, result.kind)
+        memo_notify(result.summary, result.kind, cfg.memo_notify or None)
+        _memo_job.update(state="done", detail=f"{result.kind}: {result.summary}")
+    except Exception as exc:
+        _memo_job.update(state="error", detail=str(exc))
 
 
 def start_ingest(indices: list[int], tags: list[str], thought: str) -> int:

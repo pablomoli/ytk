@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -139,6 +139,29 @@ async def ingest_status_api():
     from ytk.ui import hub
 
     return hub.job_status()
+
+
+@app.post("/api/memo")
+async def memo_api(
+    file: UploadFile | None = File(default=None),
+    text: str = Form(default=""),
+):
+    from ytk.ui import hub
+
+    if file is None and not text:
+        raise HTTPException(status_code=422, detail="file or text required")
+    audio = await file.read() if file is not None else b""
+    filename = file.filename if file is not None else ""
+    if not hub.start_memo(audio, filename or "memo.m4a", text):
+        raise HTTPException(status_code=409, detail="memo job already running")
+    return {"status": "accepted"}
+
+
+@app.get("/api/memo/status")
+async def memo_status_api():
+    from ytk.ui import hub
+
+    return hub.memo_status()
 
 
 @app.get("/api/fresh")

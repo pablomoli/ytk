@@ -26,6 +26,17 @@ from .transcript import fetch_transcript, segments_to_text
 from .enrich import enrich
 from .vault import write_note, NoteAlreadyExists, LINK_REMINDER
 from .store import upsert, search_videos, search_segments
+from .memo import (
+    AUDIO_DIR,
+    execute_route as memo_execute,
+    finalize_memo_note as memo_finalize,
+    index_memo_note as memo_index,
+    notify as memo_notify,
+    record as memo_record,
+    route as memo_route,
+    transcribe as memo_transcribe,
+    write_memo_note as memo_write_note,
+)
 
 load_dotenv(Path.home() / ".ytk" / ".env")  # global install location
 load_dotenv()  # project-local .env for dev use (won't override already-loaded vars)
@@ -624,6 +635,62 @@ def remember_cmd(text: str, tags: str):
     except EnvironmentError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
+
+
+@cli.command(name="memo")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Record + transcribe + print proposed routing; execute nothing.")
+@click.option("--text", default="", help="Skip recording/STT and route this text.")
+@click.pass_context
+def memo_cmd(ctx: click.Context, dry_run: bool, text: str):
+    """Voice memo: record, transcribe locally, route, notify.
+
+    Exit codes: 0 routed; 2 transcript saved but routing failed; 1 capture/STT failure.
+    """
+    from datetime import datetime as _dt
+
+    cfg = load_config()
+
+    if text:
+        transcript, audio_path = text, None
+    else:
+        try:
+            audio_path = memo_record(AUDIO_DIR / f"{_dt.now().strftime('%Y%m%d-%H%M%S')}.wav")
+            transcript = memo_transcribe(audio_path, cfg.whisper_model)
+        except RuntimeError as exc:
+            console.print(f"[red]{exc}[/]")
+            raise SystemExit(1)
+        if not transcript:
+            console.print("[red]Empty transcription; audio kept at[/] " f"{audio_path}")
+            raise SystemExit(1)
+
+    console.print(f"[dim]{transcript}[/]")
+    note_path = memo_write_note(transcript, audio_path)
+
+    try:
+        result = memo_route(transcript, repos=cfg.github_repos or [])
+    except Exception as exc:
+        memo_finalize(note_path, "failed", [])
+        memo_index(note_path, transcript, "failed")
+        console.print(f"[yellow]Saved raw ({note_path.name}); routing failed:[/] {exc}")
+        if not dry_run:
+            memo_notify("saved raw, routing failed", "failed", cfg.memo_notify or None)
+        raise SystemExit(2)
+
+    if dry_run:
+        console.print(f"[cyan]Would route as:[/] {result.kind} — {result.summary}")
+        for item in result.items:
+            console.print(f"  {item.suggested_route}: {item.title}")
+        memo_finalize(note_path, f"dry-run:{result.kind}", [])
+        return
+
+    routed_lines = memo_execute(result, transcript, cfg.github_repos or [])
+    memo_finalize(note_path, result.kind, routed_lines)
+    memo_index(note_path, transcript, result.kind)
+    memo_notify(result.summary, result.kind, cfg.memo_notify or None)
+    console.print(f"[bold green]{result.kind}:[/] {result.summary}")
+    for line in routed_lines:
+        console.print(f"  {line}")
 
 
 @cli.command(name="reindex")

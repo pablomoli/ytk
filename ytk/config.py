@@ -47,6 +47,10 @@ class Config(BaseModel):
     filters: FilterConfig = Field(default_factory=FilterConfig)
     hub: HubConfig = Field(default_factory=HubConfig)
     whisper_model: str = Field(default="base", description="faster-whisper model size: base | small | medium | large")
+    memo_notify: list[str] = Field(
+        default_factory=list,
+        description="Memo notification backends (tmux|macos|sketchybar); empty = focus-aware auto",
+    )
     github_repos: list[str] = Field(default_factory=list, description="GitHub repos (owner/name) available when creating issues via ytk triage.")
     interest: InterestConfig = Field(default_factory=InterestConfig)
 
