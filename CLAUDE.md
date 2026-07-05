@@ -49,6 +49,7 @@ Never leave anything uncommitted in this repo. Before ending a session, the work
 | 8 | done | Interest model — `ytk feed` batch ingest + `ytk profile` (embedding clustering → XML profile at `me/profile.md`) |
 | 8.5 | partial | Audiobook tracker — stdlib epub fuzzy text-position matcher (`books_match.py`); CLI not yet wired |
 | 9 | done | `ytk reels` — Instagram DM capture-thread sync (instagrapi discovery → pending queue → interactive picker → existing `add` pipeline) |
+| 10 | done | Ingest hub — `ytk ui` reborn: / fresh feed, /inbox queue picker with buckets + thoughts (annotations embed into search + daily digest), paste-to-queue Add box; chat at /chat |
 
 ## Project Structure
 
@@ -74,7 +75,9 @@ ytk/
     vision.py          — frame extraction + Claude vision image blocks
     triage.py          — action-item extraction for `ytk triage`
     books_match.py     — stdlib epub fuzzy text-position matcher (audiobook tracker)
-    reels.py           — Instagram DM self-thread link discovery (`ytk reels`)
+    reels.py           — Instagram DM link discovery + source-agnostic pending queue (`ytk reels`)
+    ui/hub.py          — ingest-hub backend: queue ops, background ingest job, fresh feed
+    ui/static/         — hub pages: fresh.html (/), inbox.html (/inbox), index.html (/chat)
 ```
 
 The interest profile at `second-brain/me/profile.md` is rendered as XML (frontmatter
