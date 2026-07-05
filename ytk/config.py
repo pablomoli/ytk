@@ -56,6 +56,36 @@ class Config(BaseModel):
 
 
 _DEFAULT_CONFIG_PATH = Path.home() / ".ytk" / "config.yaml"
+_ALIAS_PATH = Path.home() / ".ytk" / "tag-aliases.yaml"
+_alias_cache: tuple[float, dict[str, str]] | None = None
+
+
+def tag_aliases() -> dict[str, str]:
+    """Tag merge decisions from the hub /tags review, as {variant: canonical}.
+
+    Consulted wherever tags are normalized, so an accepted merge holds
+    forever: if enrichment re-coins a retired variant it lands as the
+    canonical tag. Cached on file mtime so long-running processes see edits.
+    """
+    global _alias_cache
+    path = Path(os.environ.get("YTK_TAG_ALIASES", str(_ALIAS_PATH)))
+    if not path.exists():
+        return {}
+    mtime = path.stat().st_mtime
+    if _alias_cache is None or _alias_cache[0] != mtime:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        _alias_cache = (mtime, {str(k): str(v) for k, v in raw.items()})
+    return _alias_cache[1]
+
+
+def save_tag_aliases(new: dict[str, str]) -> None:
+    """Merge accepted variant->canonical pairs into the alias map."""
+    merged = {**tag_aliases(), **new}
+    # collapse chains (a->b then b->c must resolve a->c) so lookups stay 1-hop
+    merged = {k: merged.get(v, v) for k, v in merged.items() if k != merged.get(v, v)}
+    path = Path(os.environ.get("YTK_TAG_ALIASES", str(_ALIAS_PATH)))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump(merged, sort_keys=True), encoding="utf-8")
 
 
 def load_config(path: Path | None = None) -> Config:

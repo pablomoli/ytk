@@ -71,8 +71,11 @@ def _slug(title: str) -> str:
 
 
 def _normalize_tag(t: str) -> str:
-    """Normalize a tag to lowercase-hyphenated form."""
-    return re.sub(r"\s+", "-", t.strip().lower())
+    """Normalize a tag to lowercase-hyphenated form, then resolve aliases."""
+    from .config import tag_aliases
+
+    t = re.sub(r"\s+", "-", t.strip().lower())
+    return tag_aliases().get(t, t)
 
 
 def _build_transcript(video_id: str, segments: list[dict]) -> str:

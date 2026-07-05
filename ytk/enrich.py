@@ -17,7 +17,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from .sdk import run_structured
 
@@ -34,6 +34,24 @@ class Enrichment(BaseModel):
     insights: list[str]
     interest_tags: list[str]
     key_moments: list[KeyMoment]
+
+    @field_validator("interest_tags")
+    @classmethod
+    def _canonical_tags(cls, tags: list[str]) -> list[str]:
+        """Normalize and alias-resolve at birth so every downstream consumer
+        (note frontmatter, Chroma metadata, filters) sees canonical tags."""
+        import re
+
+        from .config import tag_aliases
+
+        aliases = tag_aliases()
+        out: list[str] = []
+        for t in tags:
+            t = re.sub(r"\s+", "-", t.strip().lower())
+            t = aliases.get(t, t)
+            if t and t not in out:
+                out.append(t)
+        return out
 
 
 _YT_SYSTEM = """\

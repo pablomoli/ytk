@@ -337,6 +337,45 @@ def job_status() -> dict:
 
 
 _memo_job: dict = {"state": "idle", "detail": ""}
+_tags_job: dict = {"state": "idle", "detail": "", "proposals": []}
+
+
+def tags_merge_status() -> dict:
+    with _LOCK:
+        return dict(_tags_job, proposals=list(_tags_job["proposals"]))
+
+
+def start_tag_proposals() -> bool:
+    """Run the merge proposer in a background thread. False if one is running."""
+    with _LOCK:
+        if _tags_job["state"] == "running":
+            return False
+        _tags_job.update(state="running", detail="", proposals=[])
+
+    def _run():
+        from ytk import tags as ytags
+        try:
+            proposals = [g.model_dump() for g in ytags.propose_merges()]
+            with _LOCK:
+                _tags_job.update(state="done", proposals=proposals)
+        except Exception as exc:
+            with _LOCK:
+                _tags_job.update(state="error", detail=str(exc))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
+
+
+def apply_tag_merges(mapping: dict[str, str]) -> dict:
+    """Apply accepted merges and invalidate the enrichment vocabulary cache."""
+    from ytk import enrich
+    from ytk import tags as ytags
+
+    summary = ytags.apply_merges(mapping)
+    enrich._VOCAB_CACHE = None
+    with _LOCK:
+        _tags_job.update(state="idle", proposals=[])
+    return summary
 
 
 def memo_status() -> dict:

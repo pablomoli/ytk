@@ -111,6 +111,32 @@ async def tag_add_api(req: TagRequest):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.post("/api/tags/merge/propose")
+async def tag_merge_propose_api():
+    from ytk.ui import hub
+
+    return {"started": hub.start_tag_proposals()}
+
+
+@app.get("/api/tags/merge/status")
+async def tag_merge_status_api():
+    from ytk.ui import hub
+
+    return hub.tags_merge_status()
+
+
+class TagMergeRequest(BaseModel):
+    mapping: dict[str, str]
+
+
+@app.post("/api/tags/merge/apply")
+def tag_merge_apply_api(req: TagMergeRequest):
+    # sync def on purpose: frontmatter + Chroma rewrites run in the threadpool
+    from ytk.ui import hub
+
+    return hub.apply_tag_merges(req.mapping)
+
+
 @app.get("/api/queue")
 async def queue_api():
     from dataclasses import asdict
@@ -297,6 +323,11 @@ def _serve_static(name: str) -> HTMLResponse:
 @app.get("/inbox", response_class=HTMLResponse)
 async def inbox_page():
     return _serve_static("inbox.html")
+
+
+@app.get("/tags", response_class=HTMLResponse)
+async def tags_page():
+    return _serve_static("tags.html")
 
 
 @app.get("/", response_class=HTMLResponse)
