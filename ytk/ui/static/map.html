@@ -79,6 +79,7 @@
     <button class="fchip on" data-v="all">everything</button>
     <button class="fchip" data-v="content">content</button>
     <button class="fchip" id="sigchip">signal</button>
+    <button class="fchip" id="dimchip">3d</button>
   </div>
   <div id="rows"></div>
   <div class="pfoot" id="pstats"></div>
@@ -93,26 +94,31 @@ const canvas = document.getElementById('gl');
 const gl = canvas.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true });
 
 const VS = `
-attribute vec2 a_pos0;      // everything layout
-attribute vec2 a_pos1;      // content layout (== pos0 for non-members)
+attribute vec3 a_p0_3;      // everything layout, 3D
+attribute vec3 a_p1_3;      // content layout, 3D
+attribute vec2 a_p0_2;      // everything layout, 2D
+attribute vec2 a_p1_2;      // content layout, 2D
 attribute float a_size;
-attribute vec3 a_col0;      // color in everything view
-attribute vec3 a_col1;      // color in content view
-attribute float a_alpha0;   // density-scaled alpha, everything view
-attribute float a_alpha1;   // content view (fades non-members out)
-attribute float a_group0;   // cluster index (for legend toggles)
+attribute vec3 a_col0;
+attribute vec3 a_col1;
+attribute float a_alpha0;
+attribute float a_alpha1;
+attribute float a_group0;   // cluster index
 attribute float a_group1;   // theme index
-uniform vec2 u_cam; uniform float u_scale; uniform vec2 u_res;
+uniform mat4 u_mvp;
 uniform float u_t;          // 0 = everything, 1 = content
+uniform float u_dim;        // 0 = flat, 1 = volume
+uniform float u_sizek;      // pixels-per-world at dist 1
 uniform float u_dpr;
-uniform float u_galpha[40]; // legend toggle alphas, [0..31]=clusters, [32..39]=themes
+uniform float u_galpha[40];
 varying vec3 v_col; varying float v_alpha;
 void main() {
-  vec2 w = mix(a_pos0, a_pos1, u_t);
-  vec2 clip = (w - u_cam) * u_scale;
-  clip.x *= u_res.y / u_res.x;
-  gl_Position = vec4(clip, 0.0, 1.0);
-  gl_PointSize = clamp(a_size * sqrt(u_scale) * u_dpr, 2.0, 28.0 * u_dpr);
+  vec3 p3 = mix(a_p0_3, a_p1_3, u_t);
+  vec2 p2 = mix(a_p0_2, a_p1_2, u_t);
+  vec3 w = mix(vec3(p2, 0.0), p3, u_dim);
+  gl_Position = u_mvp * vec4(w, 1.0);
+  float att = u_sizek / max(gl_Position.w, 0.15);
+  gl_PointSize = clamp(a_size * att * u_dpr * 0.11, 1.8, 30.0 * u_dpr);
   v_col = mix(a_col0, a_col1, u_t);
   float g0 = a_group0 < 0.0 ? 1.0 : u_galpha[int(a_group0)];
   float g1 = a_group1 < 0.0 ? 1.0 : u_galpha[int(a_group1) + 32];
@@ -127,7 +133,7 @@ void main() {
   float core = smoothstep(0.5, 0.3, d);
   float halo = exp(-d * d * 3.0) * 0.55;
   float a = (core + halo) * v_alpha;
-  gl_FragColor = vec4(v_col * a, a);   // premultiplied
+  gl_FragColor = vec4(v_col * a, a);
 }`;
 
 function compile(type, src) {
@@ -143,51 +149,116 @@ gl.linkProgram(prog);
 gl.useProgram(prog);
 gl.enable(gl.BLEND);
 gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
 const U = n => gl.getUniformLocation(prog, n);
 const A = n => gl.getAttribLocation(prog, n);
 
-let DATA = null, N = 0;
-let pts = [];                       // CPU copy for picking/labels
-let cam = { x: 0, y: 0, s: 1.6 };   // current camera
-let tgt = { x: 0, y: 0, s: 1.6 };
-let morph = 0, morphTgt = 0;        // u_t
-let view = 'all';
-let signalOnly = false;
+// --- state -----------------------------------------------------------------
+let DATA = null, N = 0, pts = [];
+let view = 'all', signalOnly = false;
+let morph = 0, morphTgt = 0;          // all <-> content
+let dim = 1, dimTgt = 1;              // flat <-> volume (3D default)
+let cam  = { theta: 0.5, phi: 0.3, dist: 2.3, tx: 0, ty: 0, tz: 0 };
+let tgt  = { ...cam };
 let groupAlpha = new Float32Array(40).fill(1);
-let dirty = true, hover = null, last = performance.now();
+let hoverGroup = -1, hover = -1;
+let dirty = true, last = performance.now();
+let mvp = new Float32Array(16);
+let sxy = null;                       // cached screen positions for picking
 
 const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+const dpr = Math.min(devicePixelRatio || 1, 2);
 
+// --- matrices ---------------------------------------------------------------
+function mat4mul(a, b) {
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++)
+    o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+  return o;
+}
+function buildMvp() {
+  const eye = [
+    cam.tx + cam.dist * Math.cos(cam.phi) * Math.sin(cam.theta),
+    cam.ty + cam.dist * Math.sin(cam.phi),
+    cam.tz + cam.dist * Math.cos(cam.phi) * Math.cos(cam.theta),
+  ];
+  const t = [cam.tx, cam.ty, cam.tz];
+  let f = [t[0] - eye[0], t[1] - eye[1], t[2] - eye[2]];
+  const fl = Math.hypot(...f); f = f.map(v => v / fl);
+  let r = [f[2], 0, -f[0]];
+  const rl = Math.hypot(...r) || 1; r = r.map(v => v / rl);
+  const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+  const viewM = new Float32Array([
+    r[0], u[0], -f[0], 0,
+    r[1], u[1], -f[1], 0,
+    r[2], u[2], -f[2], 0,
+    -(r[0] * eye[0] + r[1] * eye[1] + r[2] * eye[2]),
+    -(u[0] * eye[0] + u[1] * eye[1] + u[2] * eye[2]),
+    f[0] * eye[0] + f[1] * eye[1] + f[2] * eye[2], 1,
+  ]);
+  const fov = 0.6, aspect = innerWidth / innerHeight;
+  const fpp = 1 / Math.tan(fov / 2), near = 0.05, far = 50;
+  const proj = new Float32Array([
+    fpp / aspect, 0, 0, 0,
+    0, fpp, 0, 0,
+    0, 0, (far + near) / (near - far), -1,
+    0, 0, 2 * far * near / (near - far), 0,
+  ]);
+  mvp = mat4mul(proj, viewM);
+  camRight = r;
+  return fpp;
+}
+let camRight = [1, 0, 0];
+
+function worldOf(p) {
+  const t = morph, d3 = dim;
+  const has = p.c3 !== undefined;
+  const x2 = has ? p.x + (p.cx - p.x) * t : p.x;
+  const y2 = has ? p.y + (p.cy - p.y) * t : p.y;
+  const p3 = p.z3, c3 = has ? p.c3 : p.z3;
+  return [
+    (1 - d3) * x2 + d3 * (p3[0] + (c3[0] - p3[0]) * t),
+    (1 - d3) * y2 + d3 * (p3[1] + (c3[1] - p3[1]) * t),
+    d3 * (p3[2] + (c3[2] - p3[2]) * t),
+  ];
+}
+function projectPt(w) {
+  const m = mvp;
+  const cw = m[3] * w[0] + m[7] * w[1] + m[11] * w[2] + m[15];
+  const cx = (m[0] * w[0] + m[4] * w[1] + m[8] * w[2] + m[12]) / cw;
+  const cy = (m[1] * w[0] + m[5] * w[1] + m[9] * w[2] + m[13]) / cw;
+  return [(cx * 0.5 + 0.5) * innerWidth, (0.5 - cy * 0.5) * innerHeight, cw];
+}
+
+// --- buffers -----------------------------------------------------------------
 function buildBuffers() {
-  const gs = DATA.all.groups.map((g, i) => ({ i, n: g.n }))
-    .sort((a, b) => b.n - a.n);
-  const slot = {};                   // top 8 clusters get palette slots
-  gs.forEach((g, rank) => slot[g.i] = rank < 8 ? rank : -1);
+  const order = DATA.all.groups.map((g, i) => ({ i, n: g.n })).sort((a, b) => b.n - a.n);
+  const slot = {};
+  order.forEach((g, rank) => slot[g.i] = rank < 8 ? rank : -1);
   DATA.slot = slot;
 
   N = pts.length;
-  const F = 13;
+  const F = 20;
   const buf = new Float32Array(N * F);
-  // density per grid cell of the everything layout -> alpha ~ 1/sqrt(n)
   const cell = p => (Math.floor((p.x + 1) * 24) * 64 + Math.floor((p.y + 1) * 24));
   const dens = {};
   for (const p of pts) dens[cell(p)] = (dens[cell(p)] || 0) + 1;
 
   pts.forEach((p, i) => {
-    const isC = p.cx !== undefined;
+    const isC = p.c3 !== undefined;
     const a0 = Math.max(0.55, Math.min(1, 2.2 / Math.sqrt(dens[cell(p)]))) * (p.g < 0 ? 0.4 : 1);
     const s = slot[p.g] ?? -1;
     const col0 = p.g < 0 || s < 0 ? hex(GRAY) : hex(PALETTE[s]);
     const col1 = isC && p.th >= 0 ? hex(PALETTE[p.th % 8]) : hex(GRAY);
     const sigA = a => (signalOnly && p.r < 1 ? 0.04 : a);
     buf.set([
+      ...p.z3,
+      ...(isC ? p.c3 : p.z3),
       p.x, p.y,
       isC ? p.cx : p.x, isC ? p.cy : p.y,
       3.2 + p.r * 1.8 + (isC ? 0.8 : 0),
       ...col0, ...col1,
-      sigA(a0),
-      sigA(isC ? 0.95 : 0.0),
+      sigA(a0), sigA(isC ? 0.95 : 0.0),
+      p.g < 0 ? -1 : p.g,
     ], i * F);
   });
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
@@ -198,29 +269,48 @@ function buildBuffers() {
     gl.enableVertexAttribArray(a);
     gl.vertexAttribPointer(a, size, gl.FLOAT, false, stride, off * 4);
   };
-  attr('a_pos0', 2, 0); attr('a_pos1', 2, 2); attr('a_size', 1, 4);
-  attr('a_col0', 3, 5); attr('a_col1', 3, 8);
-  attr('a_alpha0', 1, 11); attr('a_alpha1', 1, 12);
-  // group indices ride in alpha lanes? no — two more attributes:
-}
-
-// group attributes packed separately (kept simple: second buffer)
-function buildGroupBuffer() {
-  const g = new Float32Array(N * 2);
-  pts.forEach((p, i) => {
-    g[i * 2] = p.g < 0 ? -1 : p.g;
-    g[i * 2 + 1] = p.cx !== undefined && p.th >= 0 ? p.th : -1;
-  });
+  attr('a_p0_3', 3, 0); attr('a_p1_3', 3, 3);
+  attr('a_p0_2', 2, 6); attr('a_p1_2', 2, 8);
+  attr('a_size', 1, 10);
+  attr('a_col0', 3, 11); attr('a_col1', 3, 14);
+  attr('a_alpha0', 1, 17); attr('a_alpha1', 1, 18);
+  attr('a_group0', 1, 19);
+  // a_group1 packed in a second tiny buffer to stay under stride
+  const g2 = new Float32Array(N);
+  pts.forEach((p, i) => g2[i] = p.c3 !== undefined && p.th >= 0 ? p.th : -1);
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-  gl.bufferData(gl.ARRAY_BUFFER, g, gl.STATIC_DRAW);
-  const a0 = A('a_group0'), a1 = A('a_group1');
-  gl.enableVertexAttribArray(a0);
-  gl.vertexAttribPointer(a0, 1, gl.FLOAT, false, 8, 0);
+  gl.bufferData(gl.ARRAY_BUFFER, g2, gl.STATIC_DRAW);
+  const a1 = A('a_group1');
   gl.enableVertexAttribArray(a1);
-  gl.vertexAttribPointer(a1, 1, gl.FLOAT, false, 8, 4);
+  gl.vertexAttribPointer(a1, 1, gl.FLOAT, false, 4, 0);
 }
 
-const dpr = Math.min(devicePixelRatio || 1, 2);
+// --- group centroids/spreads (per view+dim, computed client-side) -----------
+function groupStats() {
+  const groups = view === 'content' ? DATA.content.groups : DATA.all.groups;
+  const idx = view === 'content' ? (p => p.c3 !== undefined ? p.th : -1) : (p => p.g);
+  const acc = groups.map(() => ({ n: 0, x: 0, y: 0, z: 0, d: 0 }));
+  for (const p of pts) {
+    const i = idx(p);
+    if (i === undefined || i < 0 || !acc[i]) continue;
+    const w = worldOf(p);
+    acc[i].n++; acc[i].x += w[0]; acc[i].y += w[1]; acc[i].z += w[2];
+  }
+  acc.forEach(a => { if (a.n) { a.x /= a.n; a.y /= a.n; a.z /= a.n; } });
+  for (const p of pts) {
+    const i = idx(p);
+    if (i === undefined || i < 0 || !acc[i]) continue;
+    const w = worldOf(p);
+    acc[i].d += (w[0] - acc[i].x) ** 2 + (w[1] - acc[i].y) ** 2 + (w[2] - acc[i].z) ** 2;
+  }
+  return groups.map((g, i) => ({
+    label: g.label, n: g.n,
+    c: [acc[i].x, acc[i].y, acc[i].z],
+    rad: acc[i].n ? Math.sqrt(acc[i].d / acc[i].n) : 0,
+  }));
+}
+
+// --- render loop --------------------------------------------------------------
 function resize() {
   canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
   canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
@@ -229,79 +319,79 @@ function resize() {
 }
 addEventListener('resize', resize);
 
-function worldToScreen(x, y) {
-  const t = morph;
-  return [
-    ((x - cam.x) * cam.s * (innerHeight / innerWidth) / 2 + 0.5) * innerWidth,
-    (0.5 - (y - cam.y) * cam.s / 2) * innerHeight,
-  ];
-}
-function screenToWorld(px, py) {
-  return [
-    (px / innerWidth - 0.5) * 2 / (cam.s * innerHeight / innerWidth) + cam.x,
-    (0.5 - py / innerHeight) * 2 / cam.s + cam.y,
-  ];
-}
-
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.1); last = now;
   const e = 1 - Math.exp(-8 * dt);
   let moving = false;
-  for (const k of ['x', 'y', 's']) {
+  for (const k of ['theta', 'phi', 'dist', 'tx', 'ty', 'tz']) {
     const d = tgt[k] - cam[k];
-    if (Math.abs(d) > 1e-4 * (k === 's' ? cam.s : 1)) { cam[k] += d * e; moving = true; }
-    else cam[k] = tgt[k];
+    if (Math.abs(d) > 1e-4) { cam[k] += d * e; moving = true; } else cam[k] = tgt[k];
   }
   const dm = morphTgt - morph;
-  if (Math.abs(dm) > 1e-3) { morph += dm * (1 - Math.exp(-5 * dt)); moving = true; }
-  else morph = morphTgt;
+  if (Math.abs(dm) > 1e-3) { morph += dm * (1 - Math.exp(-5 * dt)); moving = true; } else morph = morphTgt;
+  const dd = dimTgt - dim;
+  if (Math.abs(dd) > 1e-3) { dim += dd * (1 - Math.exp(-5 * dt)); moving = true; } else dim = dimTgt;
+  if (dim !== dimTgt || morph !== morphTgt) moving = true;
 
   if (dirty || moving) {
+    const fpp = buildMvp();
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.uniform2f(U('u_cam'), cam.x, cam.y);
-    gl.uniform1f(U('u_scale'), cam.s);
-    gl.uniform2f(U('u_res'), innerWidth, innerHeight);
+    gl.uniformMatrix4fv(U('u_mvp'), false, mvp);
     gl.uniform1f(U('u_t'), morph);
+    gl.uniform1f(U('u_dim'), dim);
+    gl.uniform1f(U('u_sizek'), fpp * innerHeight * 0.5 * 0.02);
     gl.uniform1f(U('u_dpr'), dpr);
     const eff = new Float32Array(groupAlpha);
     if (hoverGroup >= 0) {
       const base = view === 'content' ? 32 : 0;
-      const lo = base, hi = base + (view === 'content' ? 8 : 32);
-      for (let i = lo; i < hi; i++) if (i !== base + hoverGroup) eff[i] *= 0.08;
+      const hi = base + (view === 'content' ? 8 : 32);
+      for (let i = base; i < hi; i++) if (i !== base + hoverGroup) eff[i] *= 0.08;
     }
     gl.uniform1fv(U('u_galpha[0]'), eff);
     gl.drawArrays(gl.POINTS, 0, N);
+    cacheProjections();
     placeLabels();
     dirty = false;
   }
   requestAnimationFrame(frame);
 }
 
+function cacheProjections() {
+  if (!sxy || sxy.length < N * 2) sxy = new Float32Array(N * 2);
+  for (let i = 0; i < N; i++) {
+    const [x, y, w] = projectPt(worldOf(pts[i]));
+    sxy[i * 2] = w > 0 ? x : -9999;
+    sxy[i * 2 + 1] = y;
+  }
+}
+
+// --- labels ---------------------------------------------------------------
 function placeLabels() {
   const el = document.getElementById('labels');
-  const groups = view === 'content' ? DATA.content.groups : DATA.all.groups;
+  const stats = groupStats();
   const base = view === 'content' ? 32 : 0;
   el.innerHTML = '';
   const placed = [];
-  const order = groups.map((g, i) => [i, g]).sort((a, b) => b[1].n - a[1].n);
+  const order = stats.map((g, i) => [i, g]).sort((a, b) => b[1].n - a[1].n);
+  const edge = document.getElementById('panel').classList.contains('slim') ? 70 : 290;
   order.forEach(([i, g], rank) => {
     if (!g.n || groupAlpha[base + i] < 0.5) return;
-    let [x, y] = worldToScreen(g.x, g.y);
-    const edge = document.getElementById('panel').classList.contains('slim') ? 70 : 290;
+    const [x0, y0, w] = projectPt(g.c);
+    if (w <= 0) return;
+    let x = x0, y = y0;
     if (x < 0 || y < 40 || x > innerWidth - edge || y > innerHeight) return;
-    // a label earns its place: cluster must occupy real screen space,
-    // unless it is one of the few largest groups
-    const spread = (g.rad || 0.05) * cam.s * innerHeight / 2;
+    const [xr] = projectPt([g.c[0] + g.rad * camRight[0], g.c[1] + g.rad * camRight[1], g.c[2] + g.rad * camRight[2]]);
+    const spread = Math.abs(xr - x0);
     if (rank >= 6 && spread < 70) return;
     const alpha = rank < 6 ? 0.9 : Math.min(0.9, (spread - 70) / 120 + 0.35);
     const size = Math.max(10, Math.min(14, 9 + Math.sqrt(g.n) * 0.25));
-    const w = g.label.length * size * 0.72;
+    const wpx = g.label.length * size * 0.72;
     for (let k = 0; k < 10; k++) {
-      if (!placed.some(q => Math.abs(q.y - y) < size + 8 && Math.abs(q.x - x) < (q.w + w) / 2 + 10)) break;
+      if (!placed.some(q => Math.abs(q.y - y) < size + 8 && Math.abs(q.x - x) < (q.w + wpx) / 2 + 10)) break;
       y += size + 8;
     }
-    placed.push({ x, y, w });
+    placed.push({ x, y, w: wpx });
     const d = document.createElement('div');
     d.className = 'lb';
     d.style.cssText = `left:${x}px;top:${y}px;font-size:${size}px;opacity:${alpha}`;
@@ -310,56 +400,54 @@ function placeLabels() {
   });
 }
 
-// --- picking (uniform grid over the active layout) -------------------------
-let grid = null;
-function buildGrid() {
-  grid = new Map();
-  const key = (x, y) => ((x + 2) * 50 | 0) * 1000 + ((y + 2) * 50 | 0);
-  pts.forEach((p, i) => {
-    const [x, y] = view === 'content' && p.cx !== undefined ? [p.cx, p.cy] : [p.x, p.y];
-    const k = key(x, y);
-    if (!grid.has(k)) grid.set(k, []);
-    grid.get(k).push(i);
-  });
-  grid.key = key;
+// --- picking + tooltip -------------------------------------------------------
+const tip = document.getElementById('tip');
+const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+function visible(p) {
+  if (signalOnly && p.r < 1) return false;
+  if (view === 'content') {
+    if (p.c3 === undefined) return false;
+    if (p.th >= 0 && groupAlpha[32 + p.th] < 0.5) return false;
+  } else if (p.g >= 0 && groupAlpha[p.g] < 0.5) return false;
+  return true;
 }
-function pick(px, py) {
-  const [wx, wy] = screenToWorld(px, py);
-  const rad = 10 / (cam.s * innerHeight / 2);
-  let best = null, bd = rad * rad;
-  const cx = (wx + 2) * 50 | 0, cy = (wy + 2) * 50 | 0;
-  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
-    for (const i of grid.get((cx + dx) * 1000 + cy + dy) || []) {
-      const p = pts[i];
-      if (view === 'content' && p.cx === undefined) continue;
-      if (signalOnly && p.r < 1) continue;
-      const g = view === 'content' ? p.th : DATA.slot[p.g] ?? -1;
-      if (g >= 0 && groupAlpha[(view === 'content' ? 32 : 0) + (view === 'content' ? p.th : g)] < 0.5) continue;
-      const [x, y] = view === 'content' ? [p.cx, p.cy] : [p.x, p.y];
-      const d = (x - wx) ** 2 + (y - wy) ** 2;
-      if (d < bd) { bd = d; best = p; }
-    }
+function pick(mx, my) {
+  if (!sxy) return -1;
+  let best = -1, bd = 12 * 12;
+  for (let i = 0; i < N; i++) {
+    const dx = sxy[i * 2] - mx, dy = sxy[i * 2 + 1] - my;
+    const d = dx * dx + dy * dy;
+    if (d < bd && visible(pts[i])) { bd = d; best = i; }
   }
   return best;
 }
 
-const tip = document.getElementById('tip');
-const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
-let drag = null, moved = 0;
-canvas.addEventListener('mousedown', e => { drag = { x: e.clientX, y: e.clientY }; moved = 0; canvas.classList.add('dragging'); });
+let drag = null, moved = 0, panMode = false;
+canvas.addEventListener('mousedown', e => {
+  drag = { x: e.clientX, y: e.clientY }; moved = 0;
+  panMode = e.shiftKey || dimTgt < 0.5;
+  canvas.classList.add('dragging');
+});
 addEventListener('mouseup', () => { drag = null; canvas.classList.remove('dragging'); });
 addEventListener('mousemove', e => {
   if (drag) {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     moved += Math.abs(dx) + Math.abs(dy);
-    tgt.x -= dx * 2 / (cam.s * innerHeight); cam.x = tgt.x;
-    tgt.y += dy * 2 / (cam.s * innerHeight); cam.y = tgt.y;
+    if (panMode) {
+      const k = cam.dist / (innerHeight * 0.9);
+      tgt.tx -= (dx * camRight[0]) * k; tgt.tz -= (dx * camRight[2]) * k;
+      tgt.ty += dy * k;
+    } else {
+      tgt.theta -= dx * 0.005;
+      tgt.phi = Math.max(-1.35, Math.min(1.35, tgt.phi + dy * 0.005));
+    }
     drag = { x: e.clientX, y: e.clientY };
     tip.style.display = 'none'; dirty = true; return;
   }
-  const p = pick(e.clientX, e.clientY);
-  if (p !== hover) { hover = p; dirty = true; }
-  if (!p) { tip.style.display = 'none'; return; }
+  const i = pick(e.clientX, e.clientY);
+  if (i !== hover) { hover = i; }
+  if (i < 0) { tip.style.display = 'none'; return; }
+  const p = pts[i];
   const groups = view === 'content' ? DATA.content.groups : DATA.all.groups;
   const gi = view === 'content' ? p.th : p.g;
   const gname = gi >= 0 && groups[gi] ? groups[gi].label : 'dust';
@@ -373,28 +461,14 @@ addEventListener('mousemove', e => {
 });
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
-  const f = Math.exp(-e.deltaY * 0.0016);
-  const [wx, wy] = screenToWorld(e.clientX, e.clientY);
-  tgt.s = Math.max(0.4, Math.min(40, tgt.s * f));
-  tgt.x = wx - (wx - tgt.x) / f;
-  tgt.y = wy - (wy - tgt.y) / f;
+  tgt.dist = Math.max(0.3, Math.min(12, tgt.dist * Math.exp(e.deltaY * 0.0012)));
 }, { passive: false });
-canvas.addEventListener('click', () => { if (hover && hover.u && moved < 4) window.open(hover.u, '_blank'); });
+canvas.addEventListener('click', () => {
+  if (hover >= 0 && pts[hover].u && moved < 4) window.open(pts[hover].u, '_blank');
+});
 
-// --- view + legend ---------------------------------------------------------
-function setView(v) {
-  view = v;
-  morphTgt = v === 'content' ? 1 : 0;
-  document.querySelectorAll('#views [data-v]').forEach(b =>
-    b.classList.toggle('on', b.dataset.v === v));
-  buildGrid();
-  buildLegend();
-  const p = DATA[v].params;
-  document.getElementById('pstats').textContent =
-    `${v === 'content' ? pts.filter(x => x.cx !== undefined).length : pts.length} notes · trust ${p.trustworthiness.toFixed(2)} · sil ${p.silhouette.toFixed(2)}`;
-  dirty = true;
-}
-let hoverGroup = -1;   // panel-row hover: spotlight this group, dim the rest
+// --- panel ----------------------------------------------------------------
+let legendOpen = false;
 function groupColor(i) {
   return view === 'content'
     ? PALETTE[i % 8]
@@ -428,43 +502,40 @@ document.getElementById('ptoggle').addEventListener('click', () => {
   p.classList.toggle('slim');
   document.getElementById('ptoggle').innerHTML =
     p.classList.contains('slim') ? '&#9666;' : '&#9656;';
+  dirty = true;
 });
+
+function setView(v) {
+  view = v;
+  morphTgt = v === 'content' ? 1 : 0;
+  document.querySelectorAll('#views [data-v]').forEach(b =>
+    b.classList.toggle('on', b.dataset.v === v));
+  buildLegend();
+  const p = DATA[v].params;
+  document.getElementById('pstats').textContent =
+    `${v === 'content' ? pts.filter(x => x.c3 !== undefined).length : pts.length} notes · trust ${(p.trustworthiness_3d ?? p.trustworthiness).toFixed(2)} · sil ${p.silhouette.toFixed(2)}`;
+  dirty = true;
+}
 document.querySelectorAll('#views [data-v]').forEach(b =>
   b.addEventListener('click', () => setView(b.dataset.v)));
 document.getElementById('sigchip').addEventListener('click', function () {
   signalOnly = !signalOnly;
   this.classList.toggle('on');
-  buildBuffers(); buildGroupBuffer();
+  buildBuffers();
+  dirty = true;
+});
+document.getElementById('dimchip').addEventListener('click', function () {
+  dimTgt = dimTgt > 0.5 ? 0 : 1;
+  this.textContent = dimTgt > 0.5 ? '2d' : '3d';
+  if (dimTgt < 0.5) { tgt.theta = 0; tgt.phi = 0; }
   dirty = true;
 });
 
-function computeSpreads() {
-  const acc = (groups, pos, idx) => {
-    const s = groups.map(() => ({ n: 0, d: 0 }));
-    for (const p of pts) {
-      const i = idx(p);
-      if (i === undefined || i < 0 || !groups[i]) continue;
-      const [x, y] = pos(p);
-      s[i].n++; s[i].d += (x - groups[i].x) ** 2 + (y - groups[i].y) ** 2;
-    }
-    groups.forEach((g, i) => g.rad = s[i].n ? Math.sqrt(s[i].d / s[i].n) : 0);
-  };
-  acc(DATA.all.groups, p => [p.x, p.y], p => p.g);
-  acc(DATA.content.groups, p => [p.cx, p.cy], p => p.cx !== undefined ? p.th : -1);
-}
-
 fetch('/api/map').then(r => r.json()).then(d => {
   DATA = d; pts = d.points;
-  computeSpreads();
-  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-  tgt.x = cam.x = (Math.min(...xs) + Math.max(...xs)) / 2;
-  tgt.y = cam.y = (Math.min(...ys) + Math.max(...ys)) / 2;
-  const ex = (Math.max(...xs) - Math.min(...xs)) / 2;
-  const ey = (Math.max(...ys) - Math.min(...ys)) / 2;
-  tgt.s = cam.s = 0.92 * Math.min((innerWidth / innerHeight) / ex, 1 / ey);
   buildBuffers();
-  buildGroupBuffer();
   resize();
+  if (location.hash === '#2d') { dim = dimTgt = 0; document.getElementById('dimchip').textContent = '2d'; }
   setView(location.hash === '#content' ? 'content' : 'all');
   morph = morphTgt;
   requestAnimationFrame(frame);

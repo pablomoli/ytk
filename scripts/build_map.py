@@ -208,12 +208,25 @@ def score_layout(xy: np.ndarray, vecs: np.ndarray, labels: list[int]) -> dict:
     }
 
 
-def project(vecs: np.ndarray, n_neighbors: int, min_dist: float) -> np.ndarray:
+def project(
+    vecs: np.ndarray, n_neighbors: int, min_dist: float, dims: int = 2
+) -> np.ndarray:
     import umap
 
     return umap.UMAP(
-        n_neighbors=n_neighbors, min_dist=min_dist, metric="cosine", random_state=42
+        n_neighbors=n_neighbors,
+        min_dist=min_dist,
+        n_components=dims,
+        metric="cosine",
+        random_state=42,
     ).fit_transform(vecs)
+
+
+def project3(vecs: np.ndarray, nn: int, md: float) -> np.ndarray:
+    xyz = project(vecs, nn, md, dims=3)
+    xyz -= xyz.mean(axis=0)
+    xyz /= np.abs(xyz).max()
+    return xyz
 
 
 def fit_params(vecs: np.ndarray, labels: list[int], grid_nn: tuple) -> tuple[int, float]:
@@ -275,6 +288,7 @@ def main() -> None:
         fit_params(cvecs, cthemes, (5, 10, 15, 30)) if args.sweep else (30, 0.05)
     )
     cxy, cparams = layout(cvecs, cthemes, cnn, cmd)
+    cxyz = project3(cvecs, cnn, cmd)
     theme_meta = [
         {"label": t["label"], "weight": t["weight"]} for t in snapshot["themes"]
     ]
@@ -291,6 +305,15 @@ def main() -> None:
         fit_params(vecs, clabels, (10, 30, 50)) if args.sweep else (50, 0.05)
     )
     axy, aparams = layout(vecs, clabels, ann, amd)
+    axyz = project3(vecs, ann, amd)
+    from sklearn.manifold import trustworthiness as _trust
+
+    aparams["trustworthiness_3d"] = float(
+        _trust(vecs, axyz, n_neighbors=15, metric="cosine")
+    )
+    cparams["trustworthiness_3d"] = float(
+        _trust(cvecs, cxyz, n_neighbors=15, metric="cosine")
+    )
     weights = [
         float((np.array(clabels) == k).sum()) / len(clabels) for k in range(len(names))
     ]
@@ -308,6 +331,7 @@ def main() -> None:
         p = {
             "x": round(float(axy[i][0]), 4),
             "y": round(float(axy[i][1]), 4),
+            "z3": [round(float(v), 4) for v in axyz[i]],
             "t": m["title"],
             "c": m["cat"],
             "u": m["url"],
@@ -320,6 +344,7 @@ def main() -> None:
             k = cpos[i]
             p["cx"] = round(float(cxy[k][0]), 4)
             p["cy"] = round(float(cxy[k][1]), 4)
+            p["c3"] = [round(float(v), 4) for v in cxyz[k]]
             p["th"] = cthemes[k]
         points.append(p)
 
