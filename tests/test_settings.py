@@ -75,6 +75,16 @@ def test_per_source_cadence(hub):
     assert sorted(second["skipped_sources"]) == ["pinterest", "youtube"]
 
 
+def test_favicon_renders_configured_glyph(client):
+    cfg = Config()
+    cfg.hub.favicon = "Y"
+    save_config(cfg)
+    r = client.get("/favicon.svg")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("image/svg+xml")
+    assert ">Y</text>" in r.text
+
+
 def test_settings_get_shape(client):
     r = client.get("/api/settings")
     assert r.status_code == 200

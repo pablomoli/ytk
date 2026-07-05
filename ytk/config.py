@@ -63,6 +63,7 @@ class HubConfig(BaseModel):
 
     host: str = Field(default="127.0.0.1", description="Hub bind address.")
     port: int = Field(default=6969, description="Hub port (memorable on purpose).")
+    favicon: str = Field(default="✦", description="Character or emoji rendered as the hub tab icon.")
     cadence_minutes: dict[str, int] = Field(
         default_factory=lambda: {"instagram": 15, "youtube": 15, "pinterest": 15},
         description="Auto-pull throttle per discovery source, in minutes.",

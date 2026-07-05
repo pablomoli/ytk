@@ -51,6 +51,8 @@
     border-radius: 999px; line-height: 1; }
   .chip button:hover { color: #e0785a; }
   .chips input { background: none; border: 0; outline: none; color: #eee; flex: 1; min-width: 6rem; padding: .15rem; }
+  .checks { display: flex; gap: 1.1rem; align-items: center; flex-wrap: wrap; }
+  .checks label { display: inline-flex; gap: .4rem; align-items: center; width: auto; color: #eee; cursor: pointer; }
   .rule { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; }
   .rule input[type=text] { flex: 1; }
   #savebar { position: fixed; bottom: 0; left: 0; right: 0; background: #181818ee; border-top: 1px solid #2a2a2a;
@@ -62,6 +64,7 @@
   #savemsg.err { color: #e0785a; }
 </style>
 <link rel="stylesheet" href="/static/theme.css">
+<link rel="icon" href="/favicon.svg">
 </head>
 <body>
 <header>
@@ -79,7 +82,10 @@
     <div class="body">
       <div class="row"><label>host</label><input type="text" data-path="hub.host"><span class="pill">restart required</span></div>
       <div class="row"><label>port</label><input type="number" data-path="hub.port"><span class="pill">restart required</span></div>
+      <div class="row"><label>tab icon</label><input type="text" data-path="hub.favicon" maxlength="2" style="width:3rem;text-align:center">
+        <img id="favprev" src="/favicon.svg" width="20" height="20" alt=""><span class="note">any character or emoji</span></div>
       <div class="row"><label>tags</label><div class="chips" data-path="hub.tags"></div></div>
+      <p class="note" style="margin:.1rem 0 .55rem">annotation chips you tap in /inbox when queueing — not the enrichment vocabulary that /tags consolidates</p>
       <div class="row"><label>pinterest feeds</label><div class="chips" data-path="hub.pinterest_feeds"></div></div>
     </div>
   </details>
@@ -105,7 +111,9 @@
       <div class="row"><label>cluster range</label>
         <input type="number" data-path="interest.cluster_min">
         <input type="number" data-path="interest.cluster_max"></div>
-      <div class="row"><label>content sources</label><div class="chips" data-path="interest.content_sources"></div></div>
+      <div class="row"><label>content sources</label>
+        <div class="checks" data-path="interest.content_sources" data-options="instagram,tiktok,web,pinterest,imessage"></div></div>
+      <p class="note" style="margin:.1rem 0 0">which non-YouTube sources feed the interest profile</p>
     </div>
   </details>
 
@@ -144,8 +152,9 @@
     <div class="body">
       <div class="row"><label>whisper model</label><input type="text" data-path="whisper_model"><span class="note">base | small | medium | large</span></div>
       <div class="row"><label>github repos</label><div class="chips" data-path="github_repos"></div></div>
-      <div class="row"><label>memo notify</label><div class="chips" data-path="memo_notify"></div>
-        <span class="note">tmux, macos, sketchybar; empty = auto</span></div>
+      <div class="row"><label>memo notify</label>
+        <div class="checks" data-path="memo_notify" data-options="tmux,macos,sketchybar"></div>
+        <span class="note">none checked = focus-aware auto</span></div>
     </div>
   </details>
 </div>
@@ -225,6 +234,21 @@ function renderChips(box) {
   inp.onblur = commit;
 }
 
+// checkbox group for closed sets — chips invite typos where only known
+// values mean anything
+function renderChecks(box) {
+  const p = box.dataset.path, values = get(cfg, p) || [];
+  const options = [...new Set([...box.dataset.options.split(","), ...values])];
+  box.innerHTML = options.map(o =>
+    `<label><input type="checkbox" value="${o}" ${values.includes(o) ? "checked" : ""}>${o}</label>`).join("");
+  box.querySelectorAll("input").forEach(el => el.onchange = () => {
+    const cur = get(cfg, p);
+    if (el.checked) cur.push(el.value);
+    else cur.splice(cur.indexOf(el.value), 1);
+    markDirty();
+  });
+}
+
 function bindInputs() {
   $$("input[data-path]").forEach(el => {
     const p = el.dataset.path, v = get(cfg, p);
@@ -247,6 +271,13 @@ function bindInputs() {
     };
   });
   $$(".chips[data-path]").forEach(renderChips);
+  $$(".checks[data-path]").forEach(renderChecks);
+  const fav = document.querySelector('[data-path="hub.favicon"]');
+  fav.addEventListener("input", () => {
+    // live preview without saving: draw the candidate glyph client-side
+    $("#favprev").src = "data:image/svg+xml," + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#000"/><text x="16" y="17" font-size="20" fill="#e2b04a" text-anchor="middle" dominant-baseline="central">${fav.value}</text></svg>`);
+  });
 }
 
 function ago(t) {

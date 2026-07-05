@@ -324,6 +324,23 @@ def _serve_static(name: str) -> HTMLResponse:
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
 
+@app.get("/favicon.svg")
+async def favicon():
+    from fastapi.responses import Response
+
+    from ytk.config import load_config
+
+    glyph = load_config().hub.favicon or "✦"
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+        '<rect width="32" height="32" rx="7" fill="#000"/>'
+        '<text x="16" y="17" font-size="20" fill="#e2b04a" '
+        'text-anchor="middle" dominant-baseline="central">'
+        f"{glyph}</text></svg>"
+    )
+    return Response(svg, media_type="image/svg+xml")
+
+
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
