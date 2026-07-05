@@ -1,6 +1,7 @@
 # environment
 .env
-.env.local
+.env.*
+!.env.example
 
 # dependencies
 .venv/
@@ -16,9 +17,24 @@ build/
 # uv
 .python-version
 
-# data (local only)
+# data (local only) — anything generated from or about the owner's vault
 ~/.ytk/
 *.db
+ytk/ui/static/map.json
+chroma/
+.chroma/
+covers/
+frames/
+screenshots/
+*.log
+
+# credentials and session artifacts (never stage, wherever they land)
+*.session
+*_session.json
+*_state.json
+client_secret*.json
+token.json
+*credentials*.json
 
 # claude code session state
 .claude/
