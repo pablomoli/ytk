@@ -642,9 +642,11 @@ def remember_cmd(text: str, tags: str):
               help="Record + transcribe + print proposed routing; execute nothing.")
 @click.option("--text", default="", help="Skip recording/STT and route this text.")
 @click.option("--quick", is_flag=True, default=False,
-              help="Popup mode: close right after the transcript; route in the background.")
+              help="Popup mode: close as soon as audio is captured; transcribe and route in the background.")
+@click.option("--from-audio", "from_audio", type=click.Path(exists=True), default=None, hidden=True,
+              help="Background worker: transcribe this wav, then route.")
 @click.pass_context
-def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool):
+def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool, from_audio: str | None):
     """Voice memo: record, transcribe locally, route, notify.
 
     Exit codes: 0 routed; 2 transcript saved but routing failed; 1 capture/STT failure.
@@ -658,15 +660,28 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool):
     cfg = load_config()
     log.mark("CONFIG_LOADED")
 
-    if text:
+    if from_audio:
+        audio_path = Path(from_audio)
+        log.mark("FROM_AUDIO", audio_path.name)
+        try:
+            transcript = memo_transcribe(audio_path, cfg.whisper_model)
+        except RuntimeError as exc:
+            console.print(f"[red]{exc}[/]")
+            raise SystemExit(1)
+        log.mark("TRANSCRIBED", f"{len(transcript)} chars")
+        if not transcript:
+            memo_notify("empty transcription; audio kept", "failed", cfg.memo_notify or None)
+            raise SystemExit(1)
+    elif text:
         transcript, audio_path = text, None
         log.mark("TEXT_MODE")
     else:
         try:
             from .memo import preload_model
 
-            preload_model(cfg.whisper_model)
-            log.mark("PRELOAD_SPAWNED")
+            if not quick:
+                preload_model(cfg.whisper_model)
+                log.mark("PRELOAD_SPAWNED")
             console.print("[bold red]\u25cf rec[/bold red]  [dim]speak, then press Enter[/dim]")
             log.mark("RECORDING")
             audio_path = memo_record(
@@ -674,6 +689,17 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool):
                 wait=lambda _prompt: input(""),
             )
             log.mark("RECORDED", audio_path.name)
+            if quick and not dry_run:
+                subprocess.Popen(
+                    [sys.argv[0], "memo", "--from-audio", str(audio_path)],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL, start_new_session=True,
+                )
+                log.mark("BG_WORKER_SPAWNED")
+                console.print("[green]\u2713 captured[/green] [dim]transcribing + routing in background[/dim]")
+                time.sleep(0.6)
+                log.mark("POPUP_CLOSED")
+                return
             with console.status(f"[cyan]transcribing[/] [dim]({cfg.whisper_model})[/dim]", spinner="dots"):
                 transcript = memo_transcribe(audio_path, cfg.whisper_model)
             log.mark("TRANSCRIBED", f"{len(transcript)} chars")
@@ -685,19 +711,6 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool):
             raise SystemExit(1)
 
     console.print(Panel(transcript, title="[bold]transcript[/bold]", border_style="cyan", padding=(0, 1)))
-
-    if quick and not dry_run:
-        subprocess.Popen(
-            [sys.argv[0], "memo", "--text", transcript],
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, start_new_session=True,
-        )
-        log.mark("BG_ROUTER_SPAWNED")
-        console.print("[dim]routing in background — notification will follow[/dim]")
-        time.sleep(1.2)
-        log.mark("POPUP_CLOSED")
-        return
-
     note_path = memo_write_note(transcript, audio_path)
 
     try:
