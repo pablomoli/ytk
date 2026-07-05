@@ -18,6 +18,18 @@ if ! /opt/homebrew/bin/pngpaste "$IMG" 2>/dev/null || [ ! -s "$IMG" ]; then
   sleep 1.2
   exit 1
 fi
+
+# Each clipboard image may be ingested exactly once; a stale screenshot left
+# on the clipboard must not silently attach itself to a new spoken note.
+SHA_FILE="$TMPDIR_SNAP/.last-clip-sha"
+SHA="$(shasum -a 256 "$IMG" | cut -d' ' -f1)"
+if [ -f "$SHA_FILE" ] && [ "$SHA" = "$(cat "$SHA_FILE")" ]; then
+  rm -f "$IMG"
+  printf '\n \033[2mclipboard image was already snapped - copy a fresh one\033[0m'
+  sleep 1.6
+  mark STALE_CLIPBOARD
+  exit 1
+fi
 mark IMAGE_SAVED
 
 ffmpeg -hide_banner -loglevel error -y \
@@ -51,6 +63,7 @@ kill "$WATCHDOG" 2>/dev/null
 wait "$WATCHDOG" 2>/dev/null
 mark "RECORDED $STAMP.wav"
 
+echo "$SHA" > "$SHA_FILE"
 set -m
 env -u TMUX nohup "$YTK" snap --file "$IMG" --note-audio "$WAV" <"/dev/null" >>"$HOME/.ytk/logs/worker.err" 2>&1 &
 disown
