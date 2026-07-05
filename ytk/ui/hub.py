@@ -362,12 +362,15 @@ def fresh_notes(n: int = 30) -> list[dict]:
 
     out = []
     for md in files:
-        text = md.read_text(encoding="utf-8")[:3000]
+        full = md.read_text(encoding="utf-8")
+        text = full[:3000]
         meta = {k: v.strip() for k, v in _FM_LINE.findall(text)}
         thumb = None
         m = re.search(r"^image_paths:\n\s+- (.+)$", text, re.MULTILINE)
         if m and (brain / m.group(1).strip()).exists():
             thumb = m.group(1).strip()
+        tags_m = re.search(r"^tags:\n((?:\s+- .+\n)+)", text, re.MULTILINE)
+        tags = re.findall(r"- (.+)", tags_m.group(1)) if tags_m else []
         out.append(
             {
                 "path": str(md.relative_to(brain.parent)),
@@ -378,6 +381,8 @@ def fresh_notes(n: int = 30) -> list[dict]:
                 "date": meta.get("date"),
                 "added": date.fromtimestamp(_ingested_at(md)).isoformat(),
                 "thumbnail": thumb,
+                "tags": tags,
+                "has_take": "## My take" in full,
             }
         )
     return out

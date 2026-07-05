@@ -11,16 +11,22 @@
   header { display: flex; gap: 1rem; align-items: center; padding: .8rem 1rem; background: #181818; position: sticky; top: 0; z-index: 5; }
   header a { color: #7dd3fc; text-decoration: none; font-weight: 600; }
   header a.here { color: #4ade80; }
+  #filters { display: flex; gap: .35rem; margin-left: .5rem; }
+  .fchip { background: #262626; color: #ddd; border: 1px solid #333; border-radius: 999px; padding: .2rem .7rem; cursor: pointer; font-family: inherit; }
+  .fchip.on { background: #7dd3fc; border-color: #7dd3fc; color: #000; font-weight: 600; }
   header .hint { color: #888; margin-left: auto; }
-  main#fresh { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; padding: 1rem; }
-  .card { position: relative; background: #1c1c1c; border-radius: 8px; overflow: hidden; cursor: pointer; }
-  .card img { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; }
-  .noimg { width: 100%; aspect-ratio: 16/10; display: flex; align-items: center; justify-content: center; color: #777; }
-  .badge { position: absolute; top: .45rem; right: .45rem; background: #000c; border-radius: 999px; width: 1.7rem; height: 1.7rem; display: flex; align-items: center; justify-content: center; }
+  #wrap { padding: 1rem; }
+  main#fresh { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); grid-auto-rows: 8px; grid-auto-flow: row dense; gap: .75rem; }
+  .card { position: relative; background: #1c1c1c; border-radius: 10px; overflow: hidden; cursor: pointer; }
+  .card img { width: 100%; display: block; }
+  .noimg { width: 100%; height: 110px; display: flex; align-items: center; justify-content: center; color: #777; }
+  .badge { position: absolute; top: .45rem; right: .45rem; background: #000b; border-radius: 999px; width: 1.7rem; height: 1.7rem; display: flex; align-items: center; justify-content: center; }
   .badge svg { width: 1rem; height: 1rem; }
-  .meta { padding: .5rem .6rem; }
+  .take { position: absolute; top: .55rem; left: .55rem; width: .7rem; height: .7rem; border-radius: 999px; background: #4ade80; }
+  .meta { padding: .5rem .6rem .6rem; }
   .title { line-height: 1.3; max-height: 3.6em; overflow: hidden; }
-  .sub { display: flex; gap: .5rem; margin-top: .35rem; color: #999; }
+  .tags { margin-top: .35rem; color: #7dd3fc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub { display: flex; gap: .5rem; margin-top: .3rem; color: #888; }
   .sub a { color: #7dd3fc; text-decoration: none; margin-left: auto; }
   #viewer { position: fixed; inset: 0; background: #000d; display: none; padding: 2rem; z-index: 10; }
   #viewer.on { display: block; }
@@ -32,10 +38,11 @@
 <header>
   <a href="/" class="here">fresh</a>
   <a href="/inbox">inbox</a>
-  <span class="hint">recently ingested</span>
+  <span id="filters"></span>
+  <span class="hint" id="hint">recently ingested</span>
 </header>
 
-<main id="fresh"></main>
+<div id="wrap"><main id="fresh"></main></div>
 
 <div id="viewer"><button id="close">close</button><pre id="note"></pre></div>
 
@@ -47,12 +54,28 @@ const ICONS = {
   pinterest: '<svg viewBox="0 0 24 24" fill="#e60023"><path d="M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 .04-2.9l1.2-5s-.3-.6-.3-1.5c0-1.4.8-2.4 1.8-2.4.9 0 1.3.6 1.3 1.4 0 .9-.6 2.2-.9 3.4-.2 1 .5 1.9 1.5 1.9 1.9 0 3.3-2 3.3-4.8 0-2.5-1.8-4.3-4.4-4.3a4.6 4.6 0 0 0-4.8 4.6c0 .9.4 1.9.8 2.4a.3.3 0 0 1 .07.3l-.3 1.2c-.05.2-.2.25-.4.15-1.3-.6-2.1-2.5-2.1-4.1 0-3.3 2.4-6.4 7-6.4 3.7 0 6.5 2.6 6.5 6.1 0 3.7-2.3 6.6-5.5 6.6-1.1 0-2.1-.6-2.4-1.2l-.7 2.5c-.2.9-.9 2-1.3 2.7A10 10 0 1 0 12 2z"/></svg>',
   web: '<svg viewBox="0 0 24 24" fill="#9ca3af"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm7.9 9h-3a15.6 15.6 0 0 0-1.2-5.2A8 8 0 0 1 19.9 11zM12 4a13.8 13.8 0 0 1 1.9 7h-3.8A13.8 13.8 0 0 1 12 4zM8.3 5.8A15.6 15.6 0 0 0 7.1 11h-3a8 8 0 0 1 4.2-5.2zM4.1 13h3a15.6 15.6 0 0 0 1.2 5.2A8 8 0 0 1 4.1 13zM12 20a13.8 13.8 0 0 1-1.9-7h3.8A13.8 13.8 0 0 1 12 20zm3.7-1.8a15.6 15.6 0 0 0 1.2-5.2h3a8 8 0 0 1-4.2 5.2z"/></svg>',
 };
-const ICON_ALIASES = { "instagram-reel": "instagram", "journal": "web", "youtube": "youtube" };
+const ICON_ALIASES = { "instagram-reel": "instagram", "journal": "web" };
+
+let notes = [];
+let sourceFilter = "";
+const SOURCES = ["instagram", "youtube", "pinterest", "tiktok", "web"];
 
 function esc(s) {
   const d = document.createElement("div");
   d.textContent = s ?? "";
   return d.innerHTML;
+}
+
+function renderFilters() {
+  document.getElementById("filters").innerHTML = SOURCES.map(sname =>
+    `<button class="fchip${sourceFilter === sname ? " on" : ""}" data-s="${sname}">${sname}</button>`).join("");
+  document.querySelectorAll(".fchip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      sourceFilter = sourceFilter === chip.dataset.s ? "" : chip.dataset.s;
+      renderFilters();
+      render();
+    });
+  });
 }
 
 async function openNote(path) {
@@ -69,18 +92,29 @@ document.getElementById("viewer").addEventListener("click", e => {
     document.getElementById("viewer").classList.remove("on");
 });
 
-async function load() {
-  const notes = await (await fetch("/api/fresh?n=40")).json();
-  document.getElementById("fresh").innerHTML = notes.map(n => `
+function spanCard(card) {
+  const rowH = 8, gap = 12;
+  card.style.gridRowEnd = "span " + Math.ceil((card.scrollHeight + gap) / (rowH + gap));
+}
+
+function render() {
+  const visible = sourceFilter
+    ? notes.filter(n => (ICON_ALIASES[n.source] || n.source) === sourceFilter)
+    : notes;
+  document.getElementById("hint").textContent =
+    `${visible.length} recently ingested`;
+  document.getElementById("fresh").innerHTML = visible.map(n => `
     <div class="card" data-path="${esc(n.path)}">
       <span class="badge">${ICONS[ICON_ALIASES[n.source] || n.source] || ICONS.web}</span>
+      ${n.has_take ? '<span class="take" title="has a take"></span>' : ""}
       ${n.thumbnail
         ? `<img src="/vault-media/${esc(n.thumbnail)}" loading="lazy">`
         : `<div class="noimg">${esc(n.source)}</div>`}
       <div class="meta">
         <div class="title">${esc(n.title)}</div>
+        ${n.tags && n.tags.length ? `<div class="tags">${esc(n.tags.map(t => "#" + t).join(" "))}</div>` : ""}
         <div class="sub">
-          <span>added ${esc(n.added || "")}</span>
+          <span>${esc(n.added || "")}</span>
           ${n.url ? `<a href="${esc(n.url)}" target="_blank">open</a>` : ""}
         </div>
       </div>
@@ -90,8 +124,20 @@ async function load() {
       if (e.target.closest("a")) return;
       openNote(card.dataset.path);
     });
+    spanCard(card);
+    const img = card.querySelector("img");
+    if (img) img.addEventListener("load", () => spanCard(card));
   });
 }
+
+window.addEventListener("resize", () =>
+  document.querySelectorAll("#fresh .card").forEach(spanCard));
+
+async function load() {
+  notes = await (await fetch("/api/fresh?n=60")).json();
+  render();
+}
+renderFilters();
 load();
 </script>
 </body>

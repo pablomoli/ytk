@@ -138,6 +138,8 @@ def test_fresh_notes_lists_recent_with_thumbnails(hub):
     assert notes[0]["stem"] == "someone-abc"
     assert notes[0]["source"] == "instagram"
     assert notes[0]["thumbnail"] == "sources/instagram/cover.jpg"
+    assert notes[0]["tags"] == ["existing"]
+    assert notes[0]["has_take"] is False
     assert notes[-1]["stem"] == "older"
     # 'added' reflects ingestion time (mtime) — the ordering key shown on cards
     import datetime
@@ -223,6 +225,21 @@ def test_inbox_page_served(client):
 def test_fresh_page_has_no_em_dashes(client):
     r = client.get("/")
     assert "\u2014" not in r.text
+
+
+def test_fresh_notes_flags_my_take(hub):
+    note = hub.brain / "sources" / "instagram" / "taken.md"
+    note.write_text(
+        NOTE_TEMPLATE.format(url="https://x/") + "\n## My take\n\nmine\n",
+        encoding="utf-8",
+    )
+    assert hub.fresh_notes(n=5)[0]["has_take"] is True
+
+
+def test_both_pages_have_source_filters(client):
+    for path in ("/", "/inbox"):
+        r = client.get(path)
+        assert 'id="filters"' in r.text, path
 
 
 def test_fresh_page_is_main(client):

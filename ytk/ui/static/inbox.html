@@ -12,6 +12,9 @@
   header a { color: #7dd3fc; text-decoration: none; font-weight: 600; }
   header a.here { color: #4ade80; }
   header .count { color: #888; margin-left: auto; }
+  #filters { display: flex; gap: .35rem; margin-left: .5rem; }
+  .fchip { background: #262626; color: #ddd; border: 1px solid #333; border-radius: 999px; padding: .2rem .7rem; cursor: pointer; font-family: inherit; }
+  .fchip.on { background: #7dd3fc; border-color: #7dd3fc; color: #000; font-weight: 600; }
 
   #layout { display: flex; align-items: flex-start; }
   #gridwrap { flex: 1; padding: 1rem; }
@@ -52,6 +55,7 @@
 <header>
   <a href="/">fresh</a>
   <a href="/inbox" class="here">inbox</a>
+  <span id="filters"></span>
   <span class="count" id="count"></span>
 </header>
 
@@ -89,6 +93,20 @@ const ICONS = {
 const sel = new Set();
 let items = [];
 const tags = new Set();
+let sourceFilter = "";
+const SOURCES = ["instagram", "youtube", "pinterest", "tiktok", "web"];
+
+function renderFilters() {
+  document.getElementById("filters").innerHTML = SOURCES.map(sname =>
+    `<button class="fchip${sourceFilter === sname ? " on" : ""}" data-s="${sname}">${sname}</button>`).join("");
+  document.querySelectorAll(".fchip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      sourceFilter = sourceFilter === chip.dataset.s ? "" : chip.dataset.s;
+      renderFilters();
+      renderGrid();
+    });
+  });
+}
 
 function esc(s) {
   const d = document.createElement("div");
@@ -137,8 +155,14 @@ document.getElementById("newtagbtn").addEventListener("click", async () => {
 async function loadQueue() {
   const res = await fetch("/api/queue");
   items = (await res.json()).items;
-  document.getElementById("count").textContent = items.length + " pending";
-  const sorted = [...items].sort((a, b) =>
+  renderGrid();
+}
+
+function renderGrid() {
+  const visible = sourceFilter ? items.filter(i => i.source === sourceFilter) : items;
+  document.getElementById("count").textContent =
+    (sourceFilter ? `${visible.length} of ${items.length}` : items.length) + " pending";
+  const sorted = [...visible].sort((a, b) =>
     (b.shared_at || "").localeCompare(a.shared_at || "") || b.n - a.n);
   document.getElementById("grid").innerHTML = sorted.map(it => `
     <div class="card${sel.has(it.n) ? " sel" : ""}${it.source === "youtube" ? " wide" : ""}" data-n="${it.n}">
@@ -245,6 +269,7 @@ document.getElementById("ingest").addEventListener("click", async () => {
   pollStatus();
 });
 
+renderFilters();
 loadTags();
 loadQueue();
 autoPull();
