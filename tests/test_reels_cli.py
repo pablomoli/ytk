@@ -1,4 +1,4 @@
-"""Tests for the `ytk reels` CLI command (discovery wiring, no network)."""
+"""Tests for the `ytk reels` CLI command (picker wiring, no network)."""
 
 import pytest
 from click.testing import CliRunner
@@ -19,19 +19,19 @@ def harness(monkeypatch):
     calls = {"added": [], "saved": [], "peer": "unset"}
 
     monkeypatch.setenv("INSTAGRAM_SESSIONID", "sess-123")
-    monkeypatch.delenv("INSTAGRAM_PEER", raising=False)
     monkeypatch.setattr(reels_mod, "get_client", lambda sessionid: object())
     monkeypatch.setattr(reels_mod, "load_state", lambda: reels_mod.ReelsState())
 
-    def fake_fetch(client, state, peer=None):
+    def fake_refresh(client, state, peer=None):
         calls["peer"] = peer
-        return (
-            list(LINKS),
-            reels_mod.ReelsState(thread_id="ts", last_seen_message_id="9"),
+        return reels_mod.ReelsState(
+            thread_id="ts", last_seen_message_id="9", pending=list(LINKS)
         )
 
-    monkeypatch.setattr(reels_mod, "fetch_new_links", fake_fetch)
-    monkeypatch.setattr(reels_mod, "save_state", lambda st: calls["saved"].append(st))
+    monkeypatch.setattr(reels_mod, "refresh", fake_refresh)
+    monkeypatch.setattr(
+        reels_mod, "save_state", lambda st: calls["saved"].append(list(st.pending))
+    )
     monkeypatch.setattr(
         cli_mod.add, "callback", lambda url, force=False: calls["added"].append(url)
     )
@@ -39,15 +39,14 @@ def harness(monkeypatch):
     return calls
 
 
-def test_reels_ingests_all_links_and_saves_cursor(harness):
-    result = CliRunner().invoke(cli_mod.cli, ["reels"])
+def test_reels_all_ingests_everything_and_empties_pending(harness):
+    result = CliRunner().invoke(cli_mod.cli, ["reels", "--all"])
     assert result.exit_code == 0, result.output
     assert harness["added"] == LINKS
-    assert len(harness["saved"]) == 1
-    assert harness["saved"][0].last_seen_message_id == "9"
+    assert harness["saved"][-1] == []
 
 
-def test_reels_dry_run_lists_without_ingesting(harness):
+def test_reels_dry_run_lists_without_ingesting_or_saving(harness):
     result = CliRunner().invoke(cli_mod.cli, ["reels", "--dry-run"])
     assert result.exit_code == 0, result.output
     for link in LINKS:
@@ -56,12 +55,32 @@ def test_reels_dry_run_lists_without_ingesting(harness):
     assert harness["saved"] == []
 
 
-def test_reels_limit_truncates_and_keeps_cursor(harness):
-    result = CliRunner().invoke(cli_mod.cli, ["reels", "--limit", "2"])
+def test_reels_all_with_limit_keeps_rest_pending(harness):
+    result = CliRunner().invoke(cli_mod.cli, ["reels", "--all", "--limit", "2"])
     assert result.exit_code == 0, result.output
     assert harness["added"] == LINKS[:2]
-    # cursor must not advance past unprocessed messages
-    assert harness["saved"] == []
+    assert harness["saved"][-1] == [LINKS[2]]
+
+
+def test_reels_interactive_pick_ingests_selection(harness):
+    result = CliRunner().invoke(cli_mod.cli, ["reels"], input="2\n")
+    assert result.exit_code == 0, result.output
+    assert harness["added"] == [LINKS[1]]
+    assert harness["saved"][-1] == [LINKS[0], LINKS[2]]
+
+
+def test_reels_interactive_none_keeps_everything_pending(harness):
+    result = CliRunner().invoke(cli_mod.cli, ["reels"], input="none\n")
+    assert result.exit_code == 0, result.output
+    assert harness["added"] == []
+    # discovery is still persisted
+    assert harness["saved"][-1] == LINKS
+
+
+def test_reels_interactive_reprompts_on_bad_selection(harness):
+    result = CliRunner().invoke(cli_mod.cli, ["reels"], input="banana\n1\n")
+    assert result.exit_code == 0, result.output
+    assert harness["added"] == [LINKS[0]]
 
 
 def test_reels_forwards_peer_from_env(harness, monkeypatch):
@@ -71,19 +90,12 @@ def test_reels_forwards_peer_from_env(harness, monkeypatch):
     assert harness["peer"] == "integratederivate"
 
 
-def test_reels_defaults_to_self_thread(harness):
-    result = CliRunner().invoke(cli_mod.cli, ["reels", "--dry-run"])
-    assert result.exit_code == 0, result.output
-    assert harness["peer"] is None
-
-
-def test_reels_no_new_links(harness, monkeypatch):
+def test_reels_no_pending(harness, monkeypatch):
     monkeypatch.setattr(
         reels_mod,
-        "fetch_new_links",
-        lambda client, state, peer=None: (
-            [],
-            reels_mod.ReelsState(thread_id="ts", last_seen_message_id="9"),
+        "refresh",
+        lambda client, state, peer=None: reels_mod.ReelsState(
+            thread_id="ts", last_seen_message_id="9"
         ),
     )
     result = CliRunner().invoke(cli_mod.cli, ["reels"])

@@ -48,7 +48,7 @@ Never leave anything uncommitted in this repo. Before ending a session, the work
 | 7 | done | iMessage + TikTok capture pipeline → ytk/GitHub/Obsidian routing |
 | 8 | done | Interest model — `ytk feed` batch ingest + `ytk profile` (embedding clustering → XML profile at `me/profile.md`) |
 | 8.5 | partial | Audiobook tracker — stdlib epub fuzzy text-position matcher (`books_match.py`); CLI not yet wired |
-| 9 | done | `ytk reels` — Instagram DM note-to-self thread sync (instagrapi discovery → existing `add` pipeline) |
+| 9 | done | `ytk reels` — Instagram DM capture-thread sync (instagrapi discovery → pending queue → interactive picker → existing `add` pipeline) |
 
 ## Project Structure
 

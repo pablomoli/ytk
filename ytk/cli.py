@@ -281,12 +281,14 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
 
 @cli.command(name="reels")
 @click.option("--dry-run", is_flag=True, default=False,
-              help="List new links without ingesting or advancing the cursor.")
+              help="List pending links without ingesting or saving anything.")
+@click.option("--all", "ingest_all", is_flag=True, default=False,
+              help="Ingest every pending link without the interactive picker.")
 @click.option("--limit", type=int, default=None,
-              help="Ingest at most N links; the cursor stays put so the rest surface next run.")
+              help="Cap how many links get ingested; the rest stay pending.")
 @click.pass_context
-def reels(ctx: click.Context, dry_run: bool, limit: int | None):
-    """Sync reels from your Instagram DM note-to-self thread."""
+def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None):
+    """Sync reels from your Instagram DM capture thread — pick which to ingest."""
     from . import reels as reels_mod
 
     sessionid = os.environ.get("INSTAGRAM_SESSIONID", "")
@@ -315,48 +317,79 @@ def reels(ctx: click.Context, dry_run: bool, limit: int | None):
     thread_desc = f"@{peer} thread" if peer else "note-to-self thread"
     state = reels_mod.load_state()
     with console.status(f"[bold cyan]Reading {thread_desc}...[/]"):
-        links, new_state = reels_mod.fetch_new_links(client, state, peer=peer)
+        new_state = reels_mod.refresh(client, state, peer=peer)
 
-    if not links:
-        console.print(f"[dim]No new reels in the {thread_desc}.[/]")
-        if not dry_run:
-            reels_mod.save_state(new_state)
-        return
-
+    pending = new_state.pending
     if dry_run:
-        console.print(f"[bold]{len(links)}[/] new link(s) — dry run, nothing ingested:")
-        for url in links:
+        if not pending:
+            console.print(f"[dim]Nothing pending from the {thread_desc}.[/]")
+            return
+        console.print(f"[bold]{len(pending)}[/] pending link(s) — dry run, nothing ingested:")
+        for url in pending:
             console.print(f"  {url}")
         return
 
-    truncated = limit is not None and len(links) > limit
-    if truncated:
-        console.print(f"[yellow]Limiting to {limit} of {len(links)} new links.[/]")
-        links = links[:limit]
+    # Persist discovery immediately: the cursor has advanced, pending is the record.
+    reels_mod.save_state(new_state)
+
+    if not pending:
+        console.print(f"[dim]Nothing pending from the {thread_desc}.[/]")
+        return
+
+    if ingest_all:
+        selected = pending[:limit] if limit is not None else list(pending)
+        if len(selected) < len(pending):
+            console.print(f"[yellow]Limiting to {len(selected)} of {len(pending)} pending links.[/]")
+    else:
+        console.print(f"[bold]{len(pending)}[/] pending link(s):")
+        for i, url in enumerate(pending, 1):
+            console.print(f"  [bold cyan]{i:>3}[/]  {url}")
+        while True:
+            raw = click.prompt("Ingest which? (e.g. 1,3,5-9 / all / none)", default="none")
+            try:
+                indices = reels_mod.parse_selection(raw, len(pending))
+                break
+            except ValueError as exc:
+                console.print(f"[red]{exc}[/]")
+        selected = [pending[i] for i in indices]
+        if limit is not None:
+            selected = selected[:limit]
+
+    if not selected:
+        console.print(f"[dim]Nothing selected — {len(pending)} link(s) remain pending.[/]")
+        return
 
     ok = 0
     failed = 0
-    for i, url in enumerate(links, 1):
-        console.rule(f"[bold]{i}/{len(links)}[/] {url}")
+    for i, url in enumerate(selected, 1):
+        console.rule(f"[bold]{i}/{len(selected)}[/] {url}")
+        succeeded = False
         try:
             ctx.invoke(add, url=url)
-            ok += 1
+            succeeded = True
         except SystemExit as exc:
             if exc.code in (0, None):
-                ok += 1
+                succeeded = True
             else:
-                failed += 1
                 console.print(f"[red]failed:[/] exited {exc.code}")
         except Exception as exc:
-            failed += 1
             console.print(f"[red]failed:[/] {exc}")
-        if i < len(links):
+
+        if succeeded:
+            ok += 1
+            # drop from the queue and persist right away, so a crash mid-batch
+            # never re-ingests; failures stay pending for a later retry
+            new_state.pending.remove(url)
+            reels_mod.save_state(new_state)
+        else:
+            failed += 1
+        if i < len(selected):
             time.sleep(3)
 
-    # Advancing the cursor after a truncated run would silently drop the rest.
-    if not truncated:
-        reels_mod.save_state(new_state)
-    console.print(f"[green]{ok} ingested[/], [red]{failed} failed[/].")
+    console.print(
+        f"[green]{ok} ingested[/], [red]{failed} failed[/], "
+        f"[dim]{len(new_state.pending)} pending[/]."
+    )
 
 
 @cli.command()

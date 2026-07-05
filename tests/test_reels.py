@@ -352,3 +352,74 @@ def test_get_client_is_cached_per_session(monkeypatch, tmp_path):
     assert [c for c in fake.calls if c[0] == "login_by_sessionid"] == [
         ("login_by_sessionid", "sess-123")
     ]
+
+
+# --- pending queue + selection -------------------------------------------------
+
+
+def test_state_pending_round_trip(tmp_path):
+    path = tmp_path / "reels_state.json"
+    save_state(
+        ReelsState(thread_id="ts", last_seen_message_id="9", pending=["u1", "u2"]),
+        path,
+    )
+    assert load_state(path).pending == ["u1", "u2"]
+
+
+def test_load_state_legacy_file_defaults_pending(tmp_path):
+    path = tmp_path / "reels_state.json"
+    path.write_text('{"thread_id": "ts", "last_seen_message_id": "9"}')
+    assert load_state(path).pending == []
+
+
+def test_refresh_appends_new_links_to_pending_and_advances_cursor():
+    from ytk.reels import refresh
+
+    msgs = [_clip("3", "ccc"), _clip("2", "bbb")]
+    state = ReelsState(
+        thread_id="ts",
+        last_seen_message_id="2",
+        pending=["https://www.instagram.com/reel/old1/"],
+    )
+    new_state = refresh(_client_with_thread(msgs), state)
+    assert new_state.pending == [
+        "https://www.instagram.com/reel/old1/",
+        "https://www.instagram.com/reel/ccc/",
+    ]
+    assert new_state.last_seen_message_id == "3"
+
+
+def test_refresh_dedupes_against_existing_pending():
+    from ytk.reels import refresh
+
+    msgs = [_clip("3", "ccc")]
+    state = ReelsState(
+        thread_id="ts",
+        last_seen_message_id="1",
+        pending=["https://www.instagram.com/reel/ccc/"],
+    )
+    new_state = refresh(_client_with_thread(msgs), state)
+    assert new_state.pending == ["https://www.instagram.com/reel/ccc/"]
+
+
+def test_parse_selection_forms():
+    from ytk.reels import parse_selection
+
+    assert parse_selection("all", 5) == [0, 1, 2, 3, 4]
+    assert parse_selection("none", 5) == []
+    assert parse_selection("", 5) == []
+    assert parse_selection("1,3", 5) == [0, 2]
+    assert parse_selection("2-4", 5) == [1, 2, 3]
+    assert parse_selection("1, 3-4", 5) == [0, 2, 3]
+    assert parse_selection("3,1,3", 5) == [0, 2]  # sorted, deduped
+
+
+def test_parse_selection_rejects_out_of_range_and_garbage():
+    from ytk.reels import parse_selection
+
+    with pytest.raises(ValueError):
+        parse_selection("6", 5)
+    with pytest.raises(ValueError):
+        parse_selection("0", 5)
+    with pytest.raises(ValueError):
+        parse_selection("banana", 5)

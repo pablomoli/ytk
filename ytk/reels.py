@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 _LINK_RE = re.compile(r"https?://www\.instagram\.com/(reel|p)/([\w-]+)")
@@ -20,6 +20,7 @@ SETTINGS_PATH = Path.home() / ".ytk" / "instagram_session.json"
 class ReelsState:
     thread_id: str | None = None
     last_seen_message_id: str | None = None
+    pending: list[str] = field(default_factory=list)
 
 
 _client_cache: dict[tuple[str, str], object] = {}
@@ -60,6 +61,7 @@ def load_state(path: Path = STATE_PATH) -> ReelsState:
     return ReelsState(
         thread_id=raw.get("thread_id"),
         last_seen_message_id=raw.get("last_seen_message_id"),
+        pending=raw.get("pending", []),
     )
 
 
@@ -136,4 +138,41 @@ def fetch_new_links(
 
     links = extract_links(reversed(new))
     newest_id = str(messages[0].id) if messages else state.last_seen_message_id
-    return links, ReelsState(thread_id=str(thread.id), last_seen_message_id=newest_id)
+    return links, ReelsState(
+        thread_id=str(thread.id),
+        last_seen_message_id=newest_id,
+        pending=list(state.pending),
+    )
+
+
+def refresh(client, state: ReelsState, peer: str | None = None) -> ReelsState:
+    """Drain new DM messages into the pending queue and advance the cursor.
+
+    Advancing the cursor here is safe because the links are persisted in
+    `pending` until each one is ingested.
+    """
+    links, new_state = fetch_new_links(client, state, peer=peer)
+    new_state.pending = list(dict.fromkeys([*state.pending, *links]))
+    return new_state
+
+
+def parse_selection(raw: str, count: int) -> list[int]:
+    """Parse a picker selection ('all', 'none', '1,3,5-9') into 0-based indices."""
+    text = raw.strip().lower()
+    if text in ("", "none"):
+        return []
+    if text == "all":
+        return list(range(count))
+
+    indices: set[int] = set()
+    for part in text.split(","):
+        part = part.strip()
+        m = re.fullmatch(r"(\d+)(?:-(\d+))?", part)
+        if not m:
+            raise ValueError(f"Cannot parse selection part: {part!r}")
+        lo = int(m.group(1))
+        hi = int(m.group(2)) if m.group(2) else lo
+        if lo < 1 or hi > count or lo > hi:
+            raise ValueError(f"Selection {part!r} out of range 1-{count}.")
+        indices.update(range(lo - 1, hi))
+    return sorted(indices)
