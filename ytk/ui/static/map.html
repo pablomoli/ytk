@@ -271,7 +271,7 @@ function buildBuffers() {
 
   pts.forEach((p, i) => {
     const isC = p.c3 !== undefined;
-    const a0 = Math.max(0.55, Math.min(1, 2.2 / Math.sqrt(dens[cell(p)]))) * (p.g < 0 ? 0.4 : 1);
+    const a0 = p.g < 0 ? 0.4 : 1;
     const s = slot[p.g] ?? -1;
     const col0 = p.g < 0 ? hex(GRAY) : s >= 0 ? hex(PALETTE[s]) : colorOf(genColor(p.g));
     const col1 = isC && p.th >= 0 ? hex(PALETTE[p.th % 8]) : hex(GRAY);
