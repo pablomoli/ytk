@@ -22,17 +22,25 @@ class ReelsState:
     last_seen_message_id: str | None = None
 
 
+_client_cache: dict[tuple[str, str], object] = {}
+
+
 def get_client(sessionid: str, settings_path: Path = SETTINGS_PATH):
     """Logged-in instagrapi client, presenting a stable device across runs.
 
     A fresh random device UUID on every login is Instagram's main automation
     flag, so device settings are persisted and reloaded before each login.
+    The client is cached per process so a batch drain logs in exactly once.
     """
     if not sessionid:
         raise ValueError(
             "INSTAGRAM_SESSIONID is not set. Copy the 'sessionid' cookie from an "
             "instagram.com browser session into .env (or ~/.ytk/.env)."
         )
+    cache_key = (sessionid, str(settings_path))
+    if cache_key in _client_cache:
+        return _client_cache[cache_key]
+
     from instagrapi import Client
 
     client = Client()
@@ -40,6 +48,7 @@ def get_client(sessionid: str, settings_path: Path = SETTINGS_PATH):
         client.load_settings(settings_path)
     client.login_by_sessionid(sessionid)
     client.dump_settings(settings_path)
+    _client_cache[cache_key] = client
     return client
 
 

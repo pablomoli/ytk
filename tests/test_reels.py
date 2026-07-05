@@ -335,3 +335,20 @@ def test_extract_xma_media_share_target_url():
 def test_extract_xma_without_payload_ignored():
     msg = SimpleNamespace(id="1", item_type="xma_clip", xma_share=None)
     assert extract_links([msg]) == []
+
+
+def test_get_client_is_cached_per_session(monkeypatch, tmp_path):
+    from ytk.reels import get_client
+
+    fake = FakeInstagrapiClient()
+    _patch_instagrapi(monkeypatch, fake)
+    settings = tmp_path / "instagram_session.json"
+
+    first = get_client("sess-123", settings_path=settings)
+    second = get_client("sess-123", settings_path=settings)
+
+    assert first is second
+    # exactly one login, not one per call
+    assert [c for c in fake.calls if c[0] == "login_by_sessionid"] == [
+        ("login_by_sessionid", "sess-123")
+    ]
