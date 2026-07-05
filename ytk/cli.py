@@ -1666,3 +1666,71 @@ def chat(prompt: tuple[str, ...], print_mode: bool):
             args += ["--print", prompt_text]
     # exec replaces the current process — no subprocess overhead, signals propagate naturally
     os.execv(claude_bin, args)
+
+
+@cli.group()
+def visual():
+    """SigLIP-2 visual embedding commands (issue #12)."""
+
+
+@visual.command(name="index")
+@click.option("--limit", type=int, default=None, help="Index only the first N covers (smoke test).")
+def visual_index(limit: int | None):
+    """Backfill the ytk_visual collection: one cover per save."""
+    from .visual import index_covers
+    from .store import visual_count
+
+    console.print("[dim]Loading SigLIP-2 (first run downloads ~2.3GB)...[/dim]")
+    done = index_covers(
+        limit=limit,
+        progress=lambda d, t: console.print(f"  [dim]{d}/{t}[/dim]"),
+    )
+    console.print(f"[green]Indexed {done} covers.[/] Collection size: {visual_count()}")
+
+
+@cli.command(name="similar")
+@click.argument("query", nargs=-1, required=True)
+@click.option("--text", "is_text", is_flag=True, default=False,
+              help="Treat QUERY as a text description instead of a save/image.")
+@click.option("-n", type=int, default=8, help="Number of results.")
+@click.option("--json", "as_json", is_flag=True, default=False,
+              help="Machine-readable output (for vtk and scripts).")
+def similar(query: tuple[str, ...], is_text: bool, n: int, as_json: bool):
+    """Visually similar saves for a save id, image path, URL, or --text description."""
+    import json as _json
+
+    from . import visual as vis
+    from .store import get_visual_embedding, visual_similar
+
+    q = " ".join(query)
+    embedding = None
+    item_id = None
+
+    if is_text:
+        embedding = vis.embed_text(q)
+    elif get_visual_embedding(q) is not None:
+        item_id = q
+    elif Path(q).expanduser().exists():
+        embedding = vis.embed_images([Path(q).expanduser()])[0]
+    elif m := re.search(r"[?&]v=([\w-]{11})|youtu\.be/([\w-]{11})", q):
+        item_id = f"yt:{m.group(1) or m.group(2)}"
+    elif m := re.search(r"instagram\.com/(?:p|reel)/([\w-]+)", q):
+        item_id = f"ig:{m.group(1)}"
+    else:
+        embedding = vis.embed_text(q)
+
+    results = visual_similar(item_id=item_id, embedding=embedding, n=n)
+    if as_json:
+        click.echo(_json.dumps([r.__dict__ for r in results], indent=2))
+        return
+    if not results:
+        console.print("[yellow]No matches — run `ytk visual index` first?[/]")
+        return
+    table = Table(box=box.SIMPLE)
+    table.add_column("dist", justify="right")
+    table.add_column("source")
+    table.add_column("title / id")
+    table.add_column("url", overflow="fold")
+    for r in results:
+        table.add_row(f"{r.distance:.3f}", r.source, r.title or r.item_id, r.url)
+    console.print(table)

@@ -7,6 +7,7 @@ reader endpoints.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -158,6 +159,77 @@ def cover_api(u: str):
     if path is None:
         raise HTTPException(status_code=404, detail="No cover")
     return FileResponse(path, headers={"Cache-Control": "public, max-age=31536000"})
+
+
+def _item_id_for_note(note_path: str) -> str | None:
+    """Map a vault note to its ytk_visual id via the url in its frontmatter."""
+    import re
+
+    p = Path(note_path).expanduser()
+    if not p.is_file():
+        return None
+    head = p.read_text(errors="ignore")[:2000]
+    if m := re.search(r"[?&]v=([\w-]{11})|youtu\.be/([\w-]{11})", head):
+        return f"yt:{m.group(1) or m.group(2)}"
+    if m := re.search(r"instagram\.com/(?:p|reel)/([\w-]+)", head):
+        return f"ig:{m.group(1)}"
+    return None
+
+
+@app.get("/api/similar")
+def similar_api(q: str = "", note: str = "", n: int = 8):
+    # sync def: SigLIP inference runs in FastAPI's threadpool
+    from ytk import visual as vis
+    from ytk.store import get_visual_embedding, visual_similar
+
+    item_id = None
+    embedding = None
+    if note:
+        item_id = _item_id_for_note(note)
+        if item_id is None or get_visual_embedding(item_id) is None:
+            return []
+    elif get_visual_embedding(q) is not None:
+        item_id = q
+    elif q:
+        embedding = vis.embed_text(q)
+    else:
+        raise HTTPException(status_code=422, detail="q or note required")
+    results = visual_similar(item_id=item_id, embedding=embedding, n=n)
+    return [
+        {
+            "item_id": r.item_id,
+            "source": r.source,
+            "title": r.title,
+            "url": r.url,
+            "image_path": r.image_path,
+            "note_path": r.note_path,
+            "distance": r.distance,
+        }
+        for r in results
+    ]
+
+
+@app.get("/api/visual-image")
+def visual_image_api(id: str):
+    from fastapi.responses import FileResponse
+    from pathlib import Path as _P
+
+    from ytk.store import _visual_collection
+
+    res = _visual_collection().get(ids=[id])
+    if not res["ids"]:
+        raise HTTPException(status_code=404, detail="Unknown item")
+    p = _P(res["metadatas"][0].get("image_path", ""))
+    allowed = (
+        _P.home() / ".ytk" / "covers",
+        _P(os.environ.get("OBSIDIAN_VAULT_PATH", "")).expanduser(),
+    )
+    rp = p.resolve()
+    if not p.is_file() or not any(
+        str(a) and rp.is_relative_to(a.resolve()) for a in allowed if str(a)
+    ):
+        raise HTTPException(status_code=404, detail="No image")
+    return FileResponse(p, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/vault-media/{rel_path:path}")

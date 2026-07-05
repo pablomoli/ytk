@@ -104,5 +104,36 @@ def vault_reindex(force: bool = False) -> str:
     return f"Indexed {count} notes."
 
 
+@app.tool()
+def visual_similar(query: str, n: int = 8) -> str:
+    """Visually similar saves via SigLIP-2. QUERY may be a stored item id
+    (yt:<video_id>, ig:<shortcode>, tt:<id>, cover:<hash>), an absolute image
+    path, or a free-text description (uses the text tower)."""
+    import os
+
+    from . import visual as vis
+    from .store import get_visual_embedding, visual_similar as _similar
+
+    item_id = None
+    embedding = None
+    if get_visual_embedding(query) is not None:
+        item_id = query
+    elif os.path.isabs(query) and os.path.exists(query):
+        from pathlib import Path
+
+        embedding = vis.embed_images([Path(query)])[0]
+    else:
+        embedding = vis.embed_text(query)
+
+    results = _similar(item_id=item_id, embedding=embedding, n=n)
+    if not results:
+        return "No matches. Has `ytk visual index` been run?"
+    lines = []
+    for r in results:
+        label = r.title or r.item_id
+        lines.append(f"[{r.distance:.3f}] {label} ({r.source}) {r.url or r.image_path}")
+    return "\n".join(lines)
+
+
 def main() -> None:
     app.run()

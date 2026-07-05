@@ -32,6 +32,7 @@ _CHROMA_PATH = Path(os.environ.get("CHROMA_PATH", str(Path.home() / ".ytk" / "ch
 _COLLECTION_VIDEOS = "ytk_videos"
 _COLLECTION_SEGMENTS = "ytk_segments"
 _COLLECTION_MEMORIES = "ytk_memories"
+_COLLECTION_VISUAL = "ytk_visual"
 
 _client: chromadb.PersistentClient | None = None
 _ef: embedding_functions.SentenceTransformerEmbeddingFunction | None = None
@@ -80,6 +81,84 @@ def _memories_collection() -> chromadb.Collection:
         embedding_function=_get_ef(),
         metadata={"hnsw:space": "cosine"},
     )
+
+
+def _visual_collection() -> chromadb.Collection:
+    """SigLIP-2 image embeddings — vectors are precomputed by ytk.visual, so no
+    embedding function is attached; querying by text here would be a bug."""
+    return _get_client().get_or_create_collection(
+        name=_COLLECTION_VISUAL,
+        metadata={"hnsw:space": "cosine"},
+    )
+
+
+@dataclass
+class VisualResult:
+    item_id: str
+    source: str
+    title: str
+    url: str
+    image_path: str
+    note_path: str
+    distance: float
+
+
+def upsert_visual(item_id: str, embedding: list[float], metadata: dict) -> None:
+    """Store one precomputed SigLIP-2 vector for a saved item's cover."""
+    _visual_collection().upsert(
+        ids=[item_id],
+        embeddings=[embedding],
+        metadatas=[metadata],
+    )
+
+
+def visual_count() -> int:
+    return _visual_collection().count()
+
+
+def get_visual_embedding(item_id: str) -> list[float] | None:
+    res = _visual_collection().get(ids=[item_id], include=["embeddings"])
+    if not res["ids"]:
+        return None
+    return list(res["embeddings"][0])
+
+
+def visual_similar(
+    item_id: str | None = None,
+    embedding: list[float] | None = None,
+    n: int = 10,
+) -> list[VisualResult]:
+    """Nearest covers by SigLIP-2 cosine distance. Query by stored id or raw
+    vector (image or text-tower — same space). Excludes the query item."""
+    col = _visual_collection()
+    if col.count() == 0:
+        return []
+    if embedding is None:
+        if item_id is None:
+            raise ValueError("visual_similar needs item_id or embedding")
+        embedding = get_visual_embedding(item_id)
+        if embedding is None:
+            return []
+    res = col.query(
+        query_embeddings=[embedding],
+        n_results=min(n + 1, col.count()),
+    )
+    out: list[VisualResult] = []
+    for rid, meta, dist in zip(
+        res["ids"][0], res["metadatas"][0], res["distances"][0]
+    ):
+        if rid == item_id:
+            continue
+        out.append(VisualResult(
+            item_id=rid,
+            source=meta.get("source", ""),
+            title=meta.get("title", ""),
+            url=meta.get("url", ""),
+            image_path=meta.get("image_path", ""),
+            note_path=meta.get("note_path", ""),
+            distance=dist,
+        ))
+    return out[:n]
 
 
 _FM_RE = re.compile(r"^---\n.*?^---\n", re.DOTALL | re.MULTILINE)

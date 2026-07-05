@@ -30,6 +30,9 @@
   .sub a { color: #7dd3fc; text-decoration: none; margin-left: auto; }
   #viewer { position: fixed; inset: 0; background: #000d; display: none; padding: 2rem; z-index: 10; }
   #viewer.on { display: block; }
+#similar { display: flex; gap: 8px; align-items: center; margin-top: 10px; overflow-x: auto; }
+#similar img { height: 88px; border-radius: 6px; display: block; }
+.sim-label { color: #888; font-size: 12px; flex-shrink: 0; }
   #viewer pre { background: #181818; color: #ddd; border-radius: 8px; height: 100%; margin: 0; padding: 1.2rem; overflow: auto; white-space: pre-wrap; font-family: inherit; }
   #close { position: absolute; top: 2.6rem; right: 2.8rem; background: #333; color: #eee; border: 0; border-radius: 8px; padding: .35rem .9rem; cursor: pointer; font-family: inherit; }
 </style>
@@ -44,7 +47,7 @@
 
 <div id="wrap"><main id="fresh"></main></div>
 
-<div id="viewer"><button id="close">close</button><pre id="note"></pre></div>
+<div id="viewer"><button id="close">close</button><pre id="note"></pre><div id="similar"></div></div>
 
 <script>
 const ICONS = {
@@ -83,6 +86,20 @@ async function openNote(path) {
   if (!res.ok) return;
   document.getElementById("note").textContent = (await res.json()).content;
   document.getElementById("viewer").classList.add("on");
+  loadSimilar(path);
+}
+
+async function loadSimilar(path) {
+  const box = document.getElementById("similar");
+  box.innerHTML = "";
+  const res = await fetch("/api/similar?n=8&note=" + encodeURIComponent(path));
+  if (!res.ok) return;
+  const items = await res.json();
+  if (!items.length) return;
+  box.innerHTML = "<span class='sim-label'>visually similar</span>" + items.map(r =>
+    `<a href="${esc(r.url || "#")}" target="_blank" title="${esc(r.title || r.item_id)}">` +
+    `<img src="/api/visual-image?id=${encodeURIComponent(r.item_id)}" loading="lazy"></a>`
+  ).join("");
 }
 
 document.getElementById("close").addEventListener("click", () =>
