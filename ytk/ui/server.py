@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -207,6 +207,20 @@ def similar_api(q: str = "", note: str = "", n: int = 8):
         }
         for r in results
     ]
+
+
+@app.post("/api/snap")
+async def snap_api(request: Request, note: str = "", tags: str = ""):
+    """Accept a raw image body (phone screenshot via Tailscale + iOS Shortcut).
+    The note travels as a query param: POST /api/snap?note=...&tags=a,b"""
+    from ytk.snap import save_snap
+
+    body = await request.body()
+    if len(body) < 100:
+        raise HTTPException(status_code=422, detail="No image body")
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+    note_path = save_snap(body, note.strip(), tag_list)
+    return {"saved": note_path.name, "note": note.strip()}
 
 
 @app.get("/api/visual-image")

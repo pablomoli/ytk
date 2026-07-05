@@ -1734,3 +1734,37 @@ def similar(query: tuple[str, ...], is_text: bool, n: int, as_json: bool):
     for r in results:
         table.add_row(f"{r.distance:.3f}", r.source, r.title or r.item_id, r.url)
     console.print(table)
+
+
+@cli.command(name="snap")
+@click.argument("note", nargs=-1, required=False)
+@click.option("--tags", default="", help="Comma-separated tags.")
+@click.option("--file", "file_path", type=click.Path(exists=True), default=None,
+              help="Ingest this image file instead of the clipboard.")
+def snap(note: tuple[str, ...], tags: str, file_path: str | None):
+    """Save the clipboard image (e.g. a Shottr screenshot) as a vault memory.
+
+    Writes the PNG + a note to second-brain/sources/screenshots/, indexes the
+    text into ytk_memories and the image into ytk_visual.
+    """
+    import tempfile
+
+    from .snap import save_snap
+
+    if file_path:
+        data = Path(file_path).read_bytes()
+    else:
+        if not shutil.which("pngpaste"):
+            console.print("[red]pngpaste not found.[/] brew install pngpaste")
+            raise SystemExit(1)
+        with tempfile.NamedTemporaryFile(suffix=".png") as tmp:
+            result = subprocess.run(["pngpaste", tmp.name], capture_output=True, text=True)
+            data = Path(tmp.name).read_bytes() if result.returncode == 0 else b""
+        if not data:
+            console.print("[red]No image on the clipboard.[/]")
+            raise SystemExit(1)
+
+    text = " ".join(note).strip()
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+    note_path = save_snap(data, text, tag_list)
+    console.print(f"[green]Saved[/] {note_path.name}")

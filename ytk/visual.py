@@ -174,6 +174,15 @@ def iter_covers() -> list[CoverItem]:
                     item_id=f"tt:{p.stem}", image_path=p, source="tiktok",
                 ))
 
+    shots = sources / "screenshots"
+    if shots.exists():
+        for p in sorted(shots.glob("*.png")):
+            note = p.with_suffix(".md")
+            items.append(CoverItem(
+                item_id=f"shot:{p.stem}", image_path=p, source="screenshot",
+                note_path=str(note) if note.exists() else "",
+            ))
+
     covers_dir = Path.home() / ".ytk" / "covers"
     if covers_dir.exists():
         for p in sorted(covers_dir.glob("*.jpg")):
