@@ -50,7 +50,7 @@ confidence; no naive recency decay.**
      valuable for long-tail interests and low-activity users (a single-user corpus IS the
      low-activity regime). [3-0]
   2. **Higher confidence, not higher preference** — Hu/Koren/Volinsky (ICDM 2008):
-     decompose implicit feedback into binary preference + confidence, c = 1 + alpha*r.
+     decompose implicit feedback into binary preference + confidence, c = 1 + alpha\*r.
      For ytk: saved = liked (preference); an attached thought raises r, boosting the item's
      weight in centroids and profile ranking. alpha=40 is a dataset-specific constant —
      treat as a shape, not a number. [3-0 x4 merged]
@@ -97,13 +97,13 @@ production paper.
 
 ## Key sources
 
-- Pinterest multi-embedding retrieval (KDD 2025): https://arxiv.org/pdf/2506.23060
-- ComiRec (KDD 2020): https://arxiv.org/pdf/2005.09347
-- MIND (CIKM 2019): https://arxiv.org/pdf/1904.08030
-- Hu/Koren/Volinsky implicit feedback (ICDM 2008): http://yifanhu.net/PUB/cf.pdf
+- Pinterest multi-embedding retrieval (KDD 2025): <https://arxiv.org/pdf/2506.23060>
+- ComiRec (KDD 2020): <https://arxiv.org/pdf/2005.09347>
+- MIND (CIKM 2019): <https://arxiv.org/pdf/1904.08030>
+- Hu/Koren/Volinsky implicit feedback (ICDM 2008): <http://yifanhu.net/PUB/cf.pdf>
 - Okura et al., embedding-based news rec (KDD 2017): Yahoo Japan decay/GRU results
-- SigLIP 2 (Feb 2025): https://arxiv.org/abs/2502.14786
-- mlx-embeddings: https://github.com/Blaizzy/mlx-embeddings
-- mlx-image: https://github.com/riccardomusmeci/mlx-image
-- Anthropic eval guidance: https://github.com/anthropics/anthropic-cookbook/blob/main/misc/building_evals.ipynb
-- LLM-judge biases: https://www.promptfoo.dev/docs/guides/llm-as-a-judge/ + arXiv:2306.05685
+- SigLIP 2 (Feb 2025): <https://arxiv.org/abs/2502.14786>
+- mlx-embeddings: <https://github.com/Blaizzy/mlx-embeddings>
+- mlx-image: <https://github.com/riccardomusmeci/mlx-image>
+- Anthropic eval guidance: <https://github.com/anthropics/anthropic-cookbook/blob/main/misc/building_evals.ipynb>
+- LLM-judge biases: <https://www.promptfoo.dev/docs/guides/llm-as-a-judge/> + arXiv:2306.05685

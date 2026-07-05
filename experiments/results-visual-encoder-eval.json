@@ -1,0 +1,19 @@
+{
+  "corpus": 218,
+  "siglip2": {
+    "dim": 1152,
+    "same_group_recall@1": 0.916,
+    "same_group_recall@5": 0.991,
+    "same_group_n": 107,
+    "tag_precision@5": 0.376,
+    "tagged_thumbs_n": 68
+  },
+  "dinov2": {
+    "dim": 768,
+    "same_group_recall@1": 0.682,
+    "same_group_recall@5": 0.757,
+    "same_group_n": 107,
+    "tag_precision@5": 0.132,
+    "tagged_thumbs_n": 68
+  }
+}
