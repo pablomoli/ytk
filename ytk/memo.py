@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 from datetime import datetime
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -187,6 +188,29 @@ def ensure_wav(path: Path) -> Path:
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg conversion failed: {result.stderr.strip()}")
     return out
+
+
+LOG_PATH = Path.home() / ".ytk" / "logs" / "memo.log"
+
+
+class StageLog:
+    """Append-only state machine trace: one line per transition with the
+    delta since the previous state. Correlate runs by run_id."""
+
+    def __init__(self, run_id: str):
+        self.run_id = run_id
+        self.prev = time.monotonic()
+        LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        self.mark("START")
+
+    def mark(self, state: str, detail: str = "") -> None:
+        now = time.monotonic()
+        delta = now - self.prev
+        self.prev = now
+        stamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        with LOG_PATH.open("a") as f:
+            f.write(f"{stamp} [{self.run_id}] +{delta:6.2f}s {state}"
+                    + (f" {detail}" if detail else "") + "\n")
 
 
 _MODEL_CACHE: dict = {}

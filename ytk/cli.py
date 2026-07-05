@@ -651,22 +651,32 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool):
     """
     from datetime import datetime as _dt
 
+    from .memo import StageLog
+
+    run_id = _dt.now().strftime("%H%M%S")
+    log = StageLog(run_id)
     cfg = load_config()
+    log.mark("CONFIG_LOADED")
 
     if text:
         transcript, audio_path = text, None
+        log.mark("TEXT_MODE")
     else:
         try:
             from .memo import preload_model
 
             preload_model(cfg.whisper_model)
+            log.mark("PRELOAD_SPAWNED")
             console.print("[bold red]\u25cf rec[/bold red]  [dim]speak, then press Enter[/dim]")
+            log.mark("RECORDING")
             audio_path = memo_record(
                 AUDIO_DIR / f"{_dt.now().strftime('%Y%m%d-%H%M%S')}.wav",
                 wait=lambda _prompt: input(""),
             )
+            log.mark("RECORDED", audio_path.name)
             with console.status(f"[cyan]transcribing[/] [dim]({cfg.whisper_model})[/dim]", spinner="dots"):
                 transcript = memo_transcribe(audio_path, cfg.whisper_model)
+            log.mark("TRANSCRIBED", f"{len(transcript)} chars")
         except RuntimeError as exc:
             console.print(f"[red]{exc}[/]")
             raise SystemExit(1)
@@ -682,15 +692,19 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool):
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL, start_new_session=True,
         )
+        log.mark("BG_ROUTER_SPAWNED")
         console.print("[dim]routing in background — notification will follow[/dim]")
         time.sleep(1.2)
+        log.mark("POPUP_CLOSED")
         return
 
     note_path = memo_write_note(transcript, audio_path)
 
     try:
         with console.status("[magenta]routing via Claude[/]", spinner="moon"):
+            log.mark("ROUTING")
             result = memo_route(transcript, repos=cfg.github_repos or [])
+        log.mark("ROUTED", result.kind)
     except Exception as exc:
         memo_finalize(note_path, "failed", [])
         memo_index(note_path, transcript, "failed")
@@ -708,9 +722,12 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool):
 
     with console.status("[yellow]executing routes[/]", spinner="dots"):
         routed_lines = memo_execute(result, transcript, cfg.github_repos or [])
+    log.mark("EXECUTED", f"{len(routed_lines)} routes")
     memo_finalize(note_path, result.kind, routed_lines)
     memo_index(note_path, transcript, result.kind)
+    log.mark("INDEXED")
     memo_notify(result.summary, result.kind, cfg.memo_notify or None)
+    log.mark("NOTIFIED")
     console.print(Panel(f"[bold]{result.summary}[/bold]", title=f"[green]\u2713 {result.kind}[/green]",
                         border_style="green", padding=(0, 1)))
     time.sleep(3)
