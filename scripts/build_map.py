@@ -1,16 +1,18 @@
-"""Build the second-brain embedding map (issue #20).
+"""Build the second-brain embedding map (issue #20), v2.
 
-Pulls every text-space embedding (ytk_videos + ytk_memories, shared gte-small
-384-dim space), assigns each point to the nearest interest-profile theme
-centroid, joins signal levels r from disk, projects to 2D with UMAP, and
-writes map.json for the /map hub page.
+Two views over the shared gte-small text space:
 
-UMAP parameters are fitted, not eyeballed: --sweep scores every
-(n_neighbors, min_dist) combo on trustworthiness (does the 2D layout preserve
-local neighborhoods?) and theme silhouette (do the profile's themes appear as
-visible structure?), then the chosen combo is passed explicitly for the final
-build. Visual embeddings (1152-dim SigLIP space) are geometrically
-incompatible and stay out per the E5 verdict; thumbnails join as hover
+- content: consumed media only (videos + sources/ notes). Painted with the
+  interest profile's theme centroids — the territory they were fitted on.
+- all: every embedding in the vault. The profile's themes do NOT describe
+  this space (session-scraper atoms dominate it), so groups are derived from
+  the data itself: HDBSCAN over a UMAP-reduced space, each cluster named by
+  its c-TF-IDF terms, optionally polished into a human label by one batched
+  Haiku call. Noise points render as dust.
+
+UMAP parameters are fitted per view with --sweep (trustworthiness + group
+silhouette), never eyeballed. Visual embeddings (1152-dim SigLIP) are a
+different geometry and stay out per the E5 verdict; thumbnails join as hover
 imagery only.
 """
 
@@ -19,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 
 import chromadb
@@ -30,31 +33,68 @@ SNAPSHOT = Path(os.path.expanduser("~/.ytk/interest/latest.json"))
 CHROMA = os.path.expanduser("~/.ytk/chroma")
 OUT = Path(__file__).resolve().parent.parent / "ytk" / "ui" / "static" / "map.json"
 
-UNTHEMED_PERCENTILE = 25  # bottom quartile by centroid affinity renders as dust
+CONTENT_CATS = {"youtube", "instagram", "tiktok", "pinterest", "web", "screenshots"}
+UNTHEMED_PERCENTILE = 25
+DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def _normalize(m: np.ndarray) -> np.ndarray:
     return m / np.linalg.norm(m, axis=1, keepdims=True)
 
 
-def load_points() -> tuple[np.ndarray, list[dict]]:
+def _category(source_path: str) -> str:
+    """Note category from its real vault location (both the second-brain tree
+    and the pre-migration Vault/inbox/memories seed)."""
+    parts = Path(source_path).parts
+    if "sources" in parts:
+        i = parts.index("sources")
+        return parts[i + 1] if i + 1 < len(parts) - 1 else "web"
+    if "memories" in parts:
+        return "memory"
+    if "memos" in parts:
+        return "memo"
+    if "projects" in parts:
+        return "project-note"
+    if "journal" in parts:
+        return "journal"
+    return "vault"
+
+
+def _title(doc: str, fallback: str) -> str:
+    """First real line of the note body, frontmatter and heading marks stripped."""
+    text = doc or ""
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end != -1:
+            text = text[end + 4 :]
+    for line in text.strip().splitlines():
+        line = line.strip().lstrip("#").strip()
+        if line:
+            return line[:120]
+    return fallback
+
+
+def load_points() -> tuple[np.ndarray, list[dict], list[str]]:
     client = chromadb.PersistentClient(path=CHROMA)
-    vecs: list[np.ndarray] = []
+    vecs: list = []
     meta: list[dict] = []
+    docs: list[str] = []
 
     videos = client.get_collection("ytk_videos").get(
         include=["embeddings", "metadatas", "documents"]
     )
-    for emb, m in zip(videos["embeddings"], videos["metadatas"]):
+    for emb, m, doc in zip(videos["embeddings"], videos["metadatas"], videos["documents"]):
         vecs.append(np.asarray(emb))
+        docs.append(doc or "")
+        d = m.get("date", "")
         meta.append(
             {
-                "kind": "video",
                 "cat": "youtube",
                 "title": m.get("title", ""),
                 "url": m.get("url", ""),
-                "date": m.get("date", ""),
+                "date": f"{d[:4]}-{d[4:6]}-{d[6:8]}" if len(d) == 8 else "",
                 "video_id": m.get("video_id", ""),
+                "path": "",
             }
         )
 
@@ -64,47 +104,106 @@ def load_points() -> tuple[np.ndarray, list[dict]]:
     for emb, m, doc in zip(
         memories["embeddings"], memories["metadatas"], memories["documents"]
     ):
-        # memories tags metadata is folder path segments (operating guide
-        # exhibit B) — the first segment is the note's source category
-        segs = [t.strip() for t in (m.get("tags") or "").split(",") if t.strip()]
-        cat = segs[0] if segs else "memory"
-        title = doc.strip().splitlines()[0][:120] if doc else m.get("doc_id", "")
+        sp = m.get("source_path", "")
+        dm = DATE_RE.search(m.get("doc_id", "") + " " + sp)
+        url_m = re.search(r"^url: *(\S+)", (doc or "")[:600], re.MULTILINE)
+        vecs.append(np.asarray(emb))
+        docs.append(doc or "")
         meta.append(
             {
-                "kind": "memory",
-                "cat": cat,
-                "title": title,
-                "url": "",
-                "date": (m.get("doc_id") or "")[7:17],
-                "path": m.get("source_path", ""),
+                "cat": _category(sp),
+                "title": _title(doc, m.get("doc_id", "")),
+                "url": url_m.group(1) if url_m else "",
+                "date": dm.group(0) if dm else "",
+                "video_id": "",
+                "path": sp,
             }
         )
-        vecs.append(np.asarray(emb))
 
-    return np.vstack(vecs), meta
+    return np.vstack(vecs), meta, docs
 
 
-def assign_themes(vecs: np.ndarray, snapshot: dict) -> tuple[list[int], np.ndarray]:
+def assign_themes(vecs: np.ndarray, snapshot: dict) -> list[int]:
     cents = _normalize(np.array([t["centroid"] for t in snapshot["themes"]]))
     sims = _normalize(vecs) @ cents.T
-    best = sims.argmax(axis=1)
-    conf = sims.max(axis=1)
+    best, conf = sims.argmax(axis=1), sims.max(axis=1)
     floor = np.percentile(conf, UNTHEMED_PERCENTILE)
-    labels = [int(b) if c >= floor else -1 for b, c in zip(best, conf)]
-    return labels, conf
+    return [int(b) if c >= floor else -1 for b, c in zip(best, conf)]
+
+
+def derive_clusters(vecs: np.ndarray, docs: list[str]) -> tuple[list[int], list[str]]:
+    """HDBSCAN over a 15-dim UMAP reduction, clusters named by c-TF-IDF."""
+    import umap
+    from sklearn.cluster import HDBSCAN
+    from sklearn.feature_extraction.text import CountVectorizer
+
+    reduced = umap.UMAP(
+        n_neighbors=30, n_components=15, min_dist=0.0, metric="cosine", random_state=42
+    ).fit_transform(vecs)
+    labels = HDBSCAN(min_cluster_size=40, min_samples=10).fit_predict(reduced)
+    n = labels.max() + 1
+    print(f"HDBSCAN: {n} clusters, {int((labels == -1).sum())} noise points")
+
+    cluster_docs = [
+        " ".join(docs[i] for i in np.flatnonzero(labels == k))[:400_000]
+        for k in range(n)
+    ]
+    vec = CountVectorizer(stop_words="english", max_features=20_000, min_df=2)
+    tf = vec.fit_transform(cluster_docs).toarray().astype(float)
+    # c-TF-IDF: term freq within the cluster, discounted by cross-cluster presence
+    tf = tf / tf.sum(axis=1, keepdims=True).clip(1)
+    idf = np.log(1 + n / (1 + (tf > 0).sum(axis=0)))
+    scores = tf * idf
+    terms = np.array(vec.get_feature_names_out())
+    names = [", ".join(terms[np.argsort(scores[k])[::-1][:5]]) for k in range(n)]
+    return labels.tolist(), names
+
+
+def polish_names(term_names: list[str], exemplars: list[list[str]]) -> list[str]:
+    """One batched Haiku call turning c-TF-IDF term lists into short labels."""
+    try:
+        from pydantic import BaseModel
+
+        from ytk import sdk
+
+        class ClusterNames(BaseModel):
+            names: list[str]
+
+        listing = "\n".join(
+            f"{i}. terms: {t} | examples: {'; '.join(e[:3])}"
+            for i, (t, e) in enumerate(zip(term_names, exemplars))
+        )
+        result = sdk.structured(
+            "Name each numbered cluster of personal knowledge-base notes with "
+            "a short 2-4 word label capturing its topic. Ground each label in "
+            "the terms and example titles given; do not invent topics. Return "
+            f"exactly {len(term_names)} names, in order.",
+            listing,
+            ClusterNames,
+            max_input_chars=40_000,
+        )
+        if len(result.names) != len(term_names):
+            raise ValueError(f"expected {len(term_names)} names, got {len(result.names)}")
+        return [n.strip() for n in result.names]
+    except Exception as exc:
+        print(f"name polish skipped ({exc}); using term labels")
+        return term_names
 
 
 def score_layout(xy: np.ndarray, vecs: np.ndarray, labels: list[int]) -> dict:
     from sklearn.manifold import trustworthiness
     from sklearn.metrics import silhouette_score
 
-    themed = np.array(labels) >= 0
+    grouped = np.array(labels) >= 0
+    uniq = set(np.array(labels)[grouped].tolist())
     return {
         "trustworthiness": float(
             trustworthiness(vecs, xy, n_neighbors=15, metric="cosine")
         ),
-        "silhouette": float(
-            silhouette_score(xy[themed], np.array(labels)[themed])
+        "silhouette": (
+            float(silhouette_score(xy[grouped], np.array(labels)[grouped]))
+            if len(uniq) > 1
+            else 0.0
         ),
     }
 
@@ -113,96 +212,128 @@ def project(vecs: np.ndarray, n_neighbors: int, min_dist: float) -> np.ndarray:
     import umap
 
     return umap.UMAP(
-        n_neighbors=n_neighbors,
-        min_dist=min_dist,
-        metric="cosine",
-        random_state=42,
+        n_neighbors=n_neighbors, min_dist=min_dist, metric="cosine", random_state=42
     ).fit_transform(vecs)
+
+
+def fit_params(vecs: np.ndarray, labels: list[int], grid_nn: tuple) -> tuple[int, float]:
+    results = []
+    for nn in grid_nn:
+        for md in (0.05, 0.1, 0.3):
+            s = score_layout(project(vecs, nn, md), vecs, labels)
+            results.append((nn, md, s))
+            print(f"  nn={nn:>3} min_dist={md:.2f}  trust={s['trustworthiness']:.4f}  sil={s['silhouette']:.4f}")
+    best_trust = max(s["trustworthiness"] for _, _, s in results)
+    ok = [r for r in results if r[2]["trustworthiness"] >= best_trust - 0.01]
+    nn, md, s = max(ok, key=lambda r: r[2]["silhouette"])
+    print(f"  chosen: nn={nn} min_dist={md} {s}")
+    return nn, md
+
+
+def layout(vecs: np.ndarray, labels: list[int], nn: int, md: float) -> tuple[np.ndarray, dict]:
+    xy = project(vecs, nn, md)
+    scores = score_layout(xy, vecs, labels)
+    xy -= xy.mean(axis=0)
+    xy /= np.abs(xy).max()
+    return xy, {"n_neighbors": nn, "min_dist": md, **scores}
+
+
+def group_positions(xy: np.ndarray, labels: list[int], group_meta: list[dict]) -> list[dict]:
+    arr = np.array(labels)
+    out = []
+    for i, g in enumerate(group_meta):
+        mask = arr == i
+        cx, cy = (xy[mask].mean(axis=0) if mask.any() else (0.0, 0.0))
+        out.append(
+            {**g, "n": int(mask.sum()), "x": round(float(cx), 4), "y": round(float(cy), 4)}
+        )
+    return out
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sweep", action="store_true", help="fit UMAP params first")
-    ap.add_argument("--n-neighbors", type=int, default=30)
-    ap.add_argument("--min-dist", type=float, default=0.1)
+    ap.add_argument("--sweep", action="store_true", help="fit UMAP params per view")
+    ap.add_argument("--no-llm", action="store_true", help="skip Haiku label polish")
     args = ap.parse_args()
 
     snapshot = json.loads(SNAPSHOT.read_text())
-    vecs, meta = load_points()
-    labels, conf = assign_themes(vecs, snapshot)
-    print(f"{len(meta)} points | themed: {sum(1 for l in labels if l >= 0)}")
-
-    if args.sweep:
-        results = []
-        for nn in (10, 15, 30, 50, 100):
-            for md in (0.05, 0.1, 0.3):
-                xy = project(vecs, nn, md)
-                s = score_layout(xy, vecs, labels)
-                results.append((nn, md, s))
-                print(f"nn={nn:>3} min_dist={md:.2f}  trust={s['trustworthiness']:.4f}  sil={s['silhouette']:.4f}")
-        # pick: highest silhouette among combos within 0.01 trust of the best
-        best_trust = max(s["trustworthiness"] for _, _, s in results)
-        ok = [r for r in results if r[2]["trustworthiness"] >= best_trust - 0.01]
-        nn, md, s = max(ok, key=lambda r: r[2]["silhouette"])
-        print(f"\nchosen: n_neighbors={nn} min_dist={md} ({s})")
-        args.n_neighbors, args.min_dist = nn, md
-
-    xy = project(vecs, args.n_neighbors, args.min_dist)
-    scores = score_layout(xy, vecs, labels)
-    print(f"final layout: {scores}")
-
+    vecs, meta, docs = load_points()
     smap = signals.signal_map()
-    thumbs: dict[str, str] = {}
     client = chromadb.PersistentClient(path=CHROMA)
-    for m in client.get_collection("ytk_visual").get(include=["metadatas"])["metadatas"]:
-        if m.get("url") and m.get("image_path"):
-            thumbs[m["url"]] = m["image_path"]
+    thumbs = {
+        m["url"]: m["image_path"]
+        for m in client.get_collection("ytk_visual").get(include=["metadatas"])["metadatas"]
+        if m.get("url") and m.get("image_path")
+    }
 
-    xy -= xy.mean(axis=0)
-    xy /= np.abs(xy).max()
+    # --- content view: consumed media, theme-painted -----------------------
+    cidx = [i for i, m in enumerate(meta) if m["cat"] in CONTENT_CATS]
+    cvecs = vecs[cidx]
+    cthemes = assign_themes(cvecs, snapshot)
+    print(f"content view: {len(cidx)} points")
+    cnn, cmd = (
+        fit_params(cvecs, cthemes, (5, 10, 15, 30)) if args.sweep else (30, 0.05)
+    )
+    cxy, cparams = layout(cvecs, cthemes, cnn, cmd)
+    theme_meta = [
+        {"label": t["label"], "weight": t["weight"]} for t in snapshot["themes"]
+    ]
 
+    # --- all view: whole vault, data-derived clusters ----------------------
+    print(f"all view: {len(meta)} points")
+    clabels, term_names = derive_clusters(vecs, docs)
+    exemplars = [
+        [meta[i]["title"] for i in np.flatnonzero(np.array(clabels) == k)[:5]]
+        for k in range(len(term_names))
+    ]
+    names = term_names if args.no_llm else polish_names(term_names, exemplars)
+    ann, amd = (
+        fit_params(vecs, clabels, (10, 30, 50)) if args.sweep else (50, 0.05)
+    )
+    axy, aparams = layout(vecs, clabels, ann, amd)
+    weights = [
+        float((np.array(clabels) == k).sum()) / len(clabels) for k in range(len(names))
+    ]
+    group_meta = [
+        {"label": nm, "weight": w, "terms": tn}
+        for nm, w, tn in zip(names, weights, term_names)
+    ]
+
+    # --- unified point list: all-view position on every point; content
+    # members additionally carry their content-view position and theme,
+    # so the renderer can morph between layouts in the vertex shader
+    cpos = {g: k for k, g in enumerate(cidx)}
     points = []
-    for (x, y), m, lab, cf in zip(xy, meta, labels, conf):
-        r = smap.get(m.get("video_id") or "", smap.get(m.get("path") or "", 0))
-        points.append(
-            {
-                "x": round(float(x), 4),
-                "y": round(float(y), 4),
-                "t": m["title"],
-                "k": m["kind"],
-                "c": m["cat"],
-                "u": m["url"],
-                "d": m["date"],
-                "th": lab,
-                "r": r,
-                "img": bool(thumbs.get(m["url"])),
-            }
-        )
-
-    theme_pos = []
-    arr = np.array(labels)
-    for i, t in enumerate(snapshot["themes"]):
-        mask = arr == i
-        cx, cy = (xy[mask].mean(axis=0) if mask.any() else (0.0, 0.0))
-        theme_pos.append(
-            {"label": t["label"], "weight": t["weight"], "x": round(float(cx), 4), "y": round(float(cy), 4)}
-        )
+    for i, m in enumerate(meta):
+        p = {
+            "x": round(float(axy[i][0]), 4),
+            "y": round(float(axy[i][1]), 4),
+            "t": m["title"],
+            "c": m["cat"],
+            "u": m["url"],
+            "d": m["date"],
+            "g": clabels[i],
+            "r": smap.get(m["video_id"], smap.get(m["path"], 0)),
+            "img": bool(thumbs.get(m["url"])),
+        }
+        if i in cpos:
+            k = cpos[i]
+            p["cx"] = round(float(cxy[k][0]), 4)
+            p["cy"] = round(float(cxy[k][1]), 4)
+            p["th"] = cthemes[k]
+        points.append(p)
 
     OUT.write_text(
         json.dumps(
             {
                 "generated": snapshot["generated_at"],
-                "params": {
-                    "n_neighbors": args.n_neighbors,
-                    "min_dist": args.min_dist,
-                    **scores,
-                },
-                "themes": theme_pos,
+                "content": {"params": cparams, "groups": group_positions(cxy, cthemes, theme_meta)},
+                "all": {"params": aparams, "groups": group_positions(axy, clabels, group_meta)},
                 "points": points,
             }
         )
     )
-    print(f"wrote {OUT} ({len(points)} points)")
+    print(f"wrote {OUT}: {len(points)} points, {len(cidx)} content members")
 
 
 if __name__ == "__main__":

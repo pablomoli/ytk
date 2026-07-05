@@ -1,241 +1,403 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>second brain — map</title>
+<title>ytk map</title>
 <style>
-  :root {
-    --bg: #101012;
-    --ink: #ffffff;
-    --ink-2: #c3c2b7;
-    --muted: #898781;
-    --hairline: rgba(255,255,255,0.10);
-    --s1:#3987e5; --s2:#199e70; --s3:#c98500; --s4:#008300;
-    --s5:#9085e9; --s6:#e66767; --s7:#d55181; --s8:#d95926;
-  }
-  * { margin: 0; box-sizing: border-box; }
-  html, body { height: 100%; overflow: hidden; }
-  body {
-    background: var(--bg); color: var(--ink);
-    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  canvas { position: fixed; inset: 0; display: block; cursor: grab; }
+  :root { color-scheme: dark; }
+  * { font-size: 14px; box-sizing: border-box; }
+  body { font-family: system-ui; background: #111; color: #eee; margin: 0; overflow: hidden; }
+  header { display: flex; gap: 1rem; align-items: center; padding: .8rem 1rem; background: #181818; position: fixed; top: 0; left: 0; right: 0; z-index: 5; }
+  header a { color: #7dd3fc; text-decoration: none; font-weight: 600; }
+  header a.here { color: #4ade80; }
+  #views { display: flex; gap: .35rem; margin-left: .5rem; }
+  .fchip { background: #262626; color: #ddd; border: 1px solid #333; border-radius: 999px; padding: .2rem .7rem; cursor: pointer; font-family: inherit; }
+  .fchip.on { background: #7dd3fc; border-color: #7dd3fc; color: #000; font-weight: 600; }
+  header .hint { color: #888; margin-left: auto; }
+
+  #stage { position: fixed; inset: 0; }
+  #stage::before { content: ""; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 40%, #14161c 0%, #111 70%); }
+  canvas { position: absolute; inset: 0; cursor: grab; }
   canvas.dragging { cursor: grabbing; }
+  #labels { position: absolute; inset: 0; pointer-events: none; }
+  #labels .lb { position: absolute; transform: translate(-50%, -50%); color: #ddd;
+    text-shadow: 0 1px 6px #000; white-space: nowrap; transition: opacity .25s; }
 
-  header {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 3;
-    display: flex; align-items: baseline; gap: 1.25rem;
-    padding: 1.4rem 1.75rem; pointer-events: none;
-  }
-  header h1 {
-    font-family: Georgia, "Times New Roman", serif;
-    font-weight: 400; font-size: 1.35rem; letter-spacing: -0.015em;
-  }
-  header .meta { color: var(--muted); font-size: 0.78rem; }
-  header a { color: var(--muted); text-decoration: none; pointer-events: auto; }
-  header a:hover { color: var(--ink-2); }
+  #legend { position: fixed; left: 1rem; bottom: 1rem; z-index: 4;
+    display: flex; flex-direction: column; gap: .25rem; max-height: 45vh; overflow-y: auto; }
+  #legend .row { display: flex; align-items: center; gap: .5rem; cursor: pointer; color: #ddd; }
+  #legend .row.off { opacity: .3; }
+  #legend .dot { width: 8px; height: 8px; border-radius: 999px; flex: none; }
+  #legend .n { color: #888; }
 
-  #legend {
-    position: fixed; left: 1.75rem; bottom: 1.4rem; z-index: 3;
-    display: flex; flex-direction: column; gap: 0.3rem;
-    font-size: 0.78rem; color: var(--ink-2);
-  }
-  #legend .row { display: flex; align-items: center; gap: 0.55rem; cursor: pointer; opacity: 0.9; }
-  #legend .row.off { opacity: 0.3; }
-  #legend .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  #legend .w { color: var(--muted); font-size: 0.7rem; }
-
-  #filters {
-    position: fixed; right: 1.75rem; bottom: 1.4rem; z-index: 3;
-    display: flex; gap: 0.5rem;
-  }
-  #filters button {
-    background: transparent; color: var(--muted); font: inherit; font-size: 0.75rem;
-    border: 1px solid var(--hairline); border-radius: 999px;
-    padding: 0.25rem 0.8rem; cursor: pointer;
-  }
-  #filters button.on { color: var(--ink); border-color: rgba(255,255,255,0.35); }
-
-  #tip {
-    position: fixed; z-index: 4; pointer-events: none; display: none;
-    max-width: 300px; padding: 0.6rem 0.75rem;
-    background: rgba(16,16,18,0.92); border: 1px solid var(--hairline);
-    border-radius: 8px; backdrop-filter: blur(6px);
-  }
-  #tip img { max-width: 100%; border-radius: 4px; margin-bottom: 0.45rem; display: block; }
-  #tip .t { font-size: 0.82rem; line-height: 1.35; }
-  #tip .m { color: var(--muted); font-size: 0.7rem; margin-top: 0.25rem; }
+  #tip { position: fixed; z-index: 6; pointer-events: none; display: none;
+    max-width: 300px; padding: .55rem .7rem; background: #1c1c1cee;
+    border: 1px solid #333; border-radius: 10px; }
+  #tip img { max-width: 100%; border-radius: 6px; margin-bottom: .4rem; display: block; }
+  #tip .m { color: #888; margin-top: .2rem; }
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
 <header>
-  <h1>second brain</h1>
-  <span class="meta" id="count"></span>
-  <span style="flex:1"></span>
-  <a href="/">fresh</a>&nbsp;&nbsp;<a href="/inbox">inbox</a>
+  <a href="/">fresh</a>
+  <a href="/inbox">inbox</a>
+  <a href="/tags">tags</a>
+  <a href="/map" class="here">map</a>
+  <span id="views">
+    <button class="fchip on" data-v="all">everything</button>
+    <button class="fchip" data-v="content">content</button>
+    <button class="fchip" id="sigchip">signal only</button>
+  </span>
+  <span class="hint" id="hint"></span>
 </header>
-<div id="legend"></div>
-<div id="filters">
-  <button data-f="video" class="on">videos</button>
-  <button data-f="memory" class="on">memories</button>
-  <button data-f="signal">signal only</button>
+<div id="stage">
+  <canvas id="gl"></canvas>
+  <div id="labels"></div>
 </div>
+<div id="legend"></div>
 <div id="tip"></div>
 
 <script>
-const COLORS = ['#3987e5','#199e70','#c98500','#008300','#9085e9','#e66767','#d55181','#d95926'];
-const DUST = 'rgba(137,135,129,0.35)';
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-const tip = document.getElementById('tip');
+const PALETTE = ['#3987e5','#199e70','#c98500','#008300','#9085e9','#e66767','#d55181','#d95926'];
+const GRAY = '#898781';
 
-let DATA = null;
-let view = { x: 0, y: 0, k: 1 };       // world-to-screen: s = (w - center)*scale*k + mid + pan
-let show = { video: true, memory: true, signal: false };
-let hiddenThemes = new Set();
-let hover = null;
+const canvas = document.getElementById('gl');
+const gl = canvas.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true });
 
-const dpr = window.devicePixelRatio || 1;
+const VS = `
+attribute vec2 a_pos0;      // everything layout
+attribute vec2 a_pos1;      // content layout (== pos0 for non-members)
+attribute float a_size;
+attribute vec3 a_col0;      // color in everything view
+attribute vec3 a_col1;      // color in content view
+attribute float a_alpha0;   // density-scaled alpha, everything view
+attribute float a_alpha1;   // content view (fades non-members out)
+attribute float a_group0;   // cluster index (for legend toggles)
+attribute float a_group1;   // theme index
+uniform vec2 u_cam; uniform float u_scale; uniform vec2 u_res;
+uniform float u_t;          // 0 = everything, 1 = content
+uniform float u_dpr;
+uniform float u_galpha[40]; // legend toggle alphas, [0..31]=clusters, [32..39]=themes
+varying vec3 v_col; varying float v_alpha;
+void main() {
+  vec2 w = mix(a_pos0, a_pos1, u_t);
+  vec2 clip = (w - u_cam) * u_scale;
+  clip.x *= u_res.y / u_res.x;
+  gl_Position = vec4(clip, 0.0, 1.0);
+  gl_PointSize = clamp(a_size * sqrt(u_scale) * u_dpr, 2.0, 28.0 * u_dpr);
+  v_col = mix(a_col0, a_col1, u_t);
+  float g0 = a_group0 < 0.0 ? 1.0 : u_galpha[int(a_group0)];
+  float g1 = a_group1 < 0.0 ? 1.0 : u_galpha[int(a_group1) + 32];
+  v_alpha = mix(a_alpha0 * g0, a_alpha1 * g1, u_t);
+}`;
+const FS = `
+precision mediump float;
+varying vec3 v_col; varying float v_alpha;
+void main() {
+  vec2 p = gl_PointCoord * 2.0 - 1.0;
+  float d = length(p);
+  float core = smoothstep(0.5, 0.3, d);
+  float halo = exp(-d * d * 3.0) * 0.55;
+  float a = (core + halo) * v_alpha;
+  gl_FragColor = vec4(v_col * a, a);   // premultiplied
+}`;
+
+function compile(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(s);
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+const U = n => gl.getUniformLocation(prog, n);
+const A = n => gl.getAttribLocation(prog, n);
+
+let DATA = null, N = 0;
+let pts = [];                       // CPU copy for picking/labels
+let cam = { x: 0, y: 0, s: 1.6 };   // current camera
+let tgt = { x: 0, y: 0, s: 1.6 };
+let morph = 0, morphTgt = 0;        // u_t
+let view = 'all';
+let signalOnly = false;
+let groupAlpha = new Float32Array(40).fill(1);
+let dirty = true, hover = null, last = performance.now();
+
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+
+function buildBuffers() {
+  const gs = DATA.all.groups.map((g, i) => ({ i, n: g.n }))
+    .sort((a, b) => b.n - a.n);
+  const slot = {};                   // top 8 clusters get palette slots
+  gs.forEach((g, rank) => slot[g.i] = rank < 8 ? rank : -1);
+  DATA.slot = slot;
+
+  N = pts.length;
+  const F = 13;
+  const buf = new Float32Array(N * F);
+  // density per grid cell of the everything layout -> alpha ~ 1/sqrt(n)
+  const cell = p => (Math.floor((p.x + 1) * 24) * 64 + Math.floor((p.y + 1) * 24));
+  const dens = {};
+  for (const p of pts) dens[cell(p)] = (dens[cell(p)] || 0) + 1;
+
+  pts.forEach((p, i) => {
+    const isC = p.cx !== undefined;
+    const a0 = Math.min(1, 1.6 / Math.sqrt(dens[cell(p)])) * (p.g < 0 ? 0.35 : 0.9);
+    const s = slot[p.g] ?? -1;
+    const col0 = p.g < 0 || s < 0 ? hex(GRAY) : hex(PALETTE[s]);
+    const col1 = isC && p.th >= 0 ? hex(PALETTE[p.th % 8]) : hex(GRAY);
+    const sigA = a => (signalOnly && p.r < 1 ? 0.04 : a);
+    buf.set([
+      p.x, p.y,
+      isC ? p.cx : p.x, isC ? p.cy : p.y,
+      3.2 + p.r * 1.8 + (isC ? 0.8 : 0),
+      ...col0, ...col1,
+      sigA(a0),
+      sigA(isC ? 0.95 : 0.0),
+    ], i * F);
+  });
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, buf, gl.STATIC_DRAW);
+  const stride = F * 4;
+  const attr = (name, size, off) => {
+    const a = A(name);
+    gl.enableVertexAttribArray(a);
+    gl.vertexAttribPointer(a, size, gl.FLOAT, false, stride, off * 4);
+  };
+  attr('a_pos0', 2, 0); attr('a_pos1', 2, 2); attr('a_size', 1, 4);
+  attr('a_col0', 3, 5); attr('a_col1', 3, 8);
+  attr('a_alpha0', 1, 11); attr('a_alpha1', 1, 12);
+  // group indices ride in alpha lanes? no — two more attributes:
+}
+
+// group attributes packed separately (kept simple: second buffer)
+function buildGroupBuffer() {
+  const g = new Float32Array(N * 2);
+  pts.forEach((p, i) => {
+    const s = DATA.slot[p.g] ?? -1;
+    g[i * 2] = p.g < 0 || s < 0 ? -1 : s;
+    g[i * 2 + 1] = p.cx !== undefined && p.th >= 0 ? p.th : -1;
+  });
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, g, gl.STATIC_DRAW);
+  const a0 = A('a_group0'), a1 = A('a_group1');
+  gl.enableVertexAttribArray(a0);
+  gl.vertexAttribPointer(a0, 1, gl.FLOAT, false, 8, 0);
+  gl.enableVertexAttribArray(a1);
+  gl.vertexAttribPointer(a1, 1, gl.FLOAT, false, 8, 4);
+}
+
+const dpr = Math.min(devicePixelRatio || 1, 2);
 function resize() {
   canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
   canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
-  draw();
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  dirty = true;
 }
 addEventListener('resize', resize);
 
-function baseScale() { return Math.min(innerWidth, innerHeight) * 0.42; }
-function sx(p) { return p.x * baseScale() * view.k + innerWidth / 2 + view.x; }
-function sy(p) { return p.y * baseScale() * view.k + innerHeight / 2 + view.y; }
-
-function visible(p) {
-  if (!show[p.k]) return false;
-  if (show.signal && p.r < 1) return false;
-  if (p.th >= 0 && hiddenThemes.has(p.th)) return false;
-  return true;
+function worldToScreen(x, y) {
+  const t = morph;
+  return [
+    ((x - cam.x) * cam.s * (innerHeight / innerWidth) / 2 + 0.5) * innerWidth,
+    (0.5 - (y - cam.y) * cam.s / 2) * innerHeight,
+  ];
+}
+function screenToWorld(px, py) {
+  return [
+    (px / innerWidth - 0.5) * 2 / (cam.s * innerHeight / innerWidth) + cam.x,
+    (0.5 - py / innerHeight) * 2 / cam.s + cam.y,
+  ];
 }
 
-function draw() {
-  if (!DATA) return;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, innerWidth, innerHeight);
-  ctx.globalCompositeOperation = 'lighter';
-
-  for (const p of DATA.points) {
-    if (!visible(p)) continue;
-    const x = sx(p), y = sy(p);
-    if (x < -20 || y < -20 || x > innerWidth + 20 || y > innerHeight + 20) continue;
-    const r = (p.th < 0 ? 1.2 : 1.8) + p.r * 1.3 + (p.k === 'video' ? 0.6 : 0);
-    const col = p.th < 0 ? DUST : COLORS[p.th % 8];
-    if (p.th >= 0) {                       // soft glow halo
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
-      g.addColorStop(0, col + '2e'); g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(x, y, r * 3, 0, 7); ctx.fill();
-    }
-    ctx.fillStyle = col;
-    ctx.globalAlpha = p.th < 0 ? 0.5 : 0.8;
-    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-    ctx.globalAlpha = 1;
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 0.1); last = now;
+  const e = 1 - Math.exp(-8 * dt);
+  let moving = false;
+  for (const k of ['x', 'y', 's']) {
+    const d = tgt[k] - cam[k];
+    if (Math.abs(d) > 1e-4 * (k === 's' ? cam.s : 1)) { cam[k] += d * e; moving = true; }
+    else cam[k] = tgt[k];
   }
+  const dm = morphTgt - morph;
+  if (Math.abs(dm) > 1e-3) { morph += dm * (1 - Math.exp(-5 * dt)); moving = true; }
+  else morph = morphTgt;
 
-  ctx.globalCompositeOperation = 'source-over';
-  // theme labels, fading out as you zoom in
-  const la = Math.max(0, Math.min(1, 2.2 - view.k));
-  if (la > 0.02) {
-    ctx.font = '400 15px Georgia, serif';
-    ctx.textAlign = 'center';
-    // declutter: heaviest themes keep their spot, lighter ones get nudged down
-    const placed = [];
-    const order = DATA.themes.map((t, i) => [i, t]).sort((a, b) => b[1].weight - a[1].weight);
-    for (const [i, t] of order) {
-      if (hiddenThemes.has(i)) continue;
-      let x = sx(t), y = sy(t);
-      const w = ctx.measureText(t.label).width;
-      for (let tries = 0; tries < 12; tries++) {
-        if (!placed.some(q => Math.abs(q.y - y) < 20 && Math.abs(q.x - x) < (q.w + w) / 2 + 12)) break;
-        y += 20;
-      }
-      placed.push({ x, y, w });
-      ctx.fillStyle = `rgba(255,255,255,${0.75 * la})`;
-      ctx.fillText(t.label, x, y);
-    }
+  if (dirty || moving) {
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform2f(U('u_cam'), cam.x, cam.y);
+    gl.uniform1f(U('u_scale'), cam.s);
+    gl.uniform2f(U('u_res'), innerWidth, innerHeight);
+    gl.uniform1f(U('u_t'), morph);
+    gl.uniform1f(U('u_dpr'), dpr);
+    gl.uniform1fv(U('u_galpha[0]'), groupAlpha);
+    gl.drawArrays(gl.POINTS, 0, N);
+    placeLabels();
+    dirty = false;
   }
-  if (hover) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(sx(hover), sy(hover), 6, 0, 7); ctx.stroke();
+  requestAnimationFrame(frame);
+}
+
+function placeLabels() {
+  const el = document.getElementById('labels');
+  const groups = view === 'content' ? DATA.content.groups : DATA.all.groups;
+  const base = view === 'content' ? 32 : 0;
+  el.innerHTML = '';
+  const placed = [];
+  const order = groups.map((g, i) => [i, g]).sort((a, b) => b[1].n - a[1].n);
+  for (const [i, g] of order) {
+    if (!g.n || groupAlpha[base + i] < 0.5) continue;
+    let [x, y] = worldToScreen(g.x, g.y);
+    if (x < 0 || y < 40 || x > innerWidth || y > innerHeight) continue;
+    const size = Math.max(12, Math.min(19, 11 + Math.sqrt(g.n) * 0.5));
+    const w = g.label.length * size * 0.55;
+    for (let k = 0; k < 10; k++) {
+      if (!placed.some(q => Math.abs(q.y - y) < size + 8 && Math.abs(q.x - x) < (q.w + w) / 2 + 10)) break;
+      y += size + 8;
+    }
+    placed.push({ x, y, w });
+    const d = document.createElement('div');
+    d.className = 'lb';
+    d.style.cssText = `left:${x}px;top:${y}px;font-size:${size}px;opacity:${Math.min(1, 2 - cam.s * 0.35)}`;
+    d.textContent = g.label;
+    el.appendChild(d);
   }
 }
 
-// --- interaction ---------------------------------------------------------
-let drag = null;
-canvas.addEventListener('mousedown', e => { drag = { x: e.clientX, y: e.clientY }; canvas.classList.add('dragging'); });
+// --- picking (uniform grid over the active layout) -------------------------
+let grid = null;
+function buildGrid() {
+  grid = new Map();
+  const key = (x, y) => ((x + 2) * 50 | 0) * 1000 + ((y + 2) * 50 | 0);
+  pts.forEach((p, i) => {
+    const [x, y] = view === 'content' && p.cx !== undefined ? [p.cx, p.cy] : [p.x, p.y];
+    const k = key(x, y);
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(i);
+  });
+  grid.key = key;
+}
+function pick(px, py) {
+  const [wx, wy] = screenToWorld(px, py);
+  const rad = 10 / (cam.s * innerHeight / 2);
+  let best = null, bd = rad * rad;
+  const cx = (wx + 2) * 50 | 0, cy = (wy + 2) * 50 | 0;
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+    for (const i of grid.get((cx + dx) * 1000 + cy + dy) || []) {
+      const p = pts[i];
+      if (view === 'content' && p.cx === undefined) continue;
+      if (signalOnly && p.r < 1) continue;
+      const g = view === 'content' ? p.th : DATA.slot[p.g] ?? -1;
+      if (g >= 0 && groupAlpha[(view === 'content' ? 32 : 0) + (view === 'content' ? p.th : g)] < 0.5) continue;
+      const [x, y] = view === 'content' ? [p.cx, p.cy] : [p.x, p.y];
+      const d = (x - wx) ** 2 + (y - wy) ** 2;
+      if (d < bd) { bd = d; best = p; }
+    }
+  }
+  return best;
+}
+
+const tip = document.getElementById('tip');
+const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+let drag = null, moved = 0;
+canvas.addEventListener('mousedown', e => { drag = { x: e.clientX, y: e.clientY }; moved = 0; canvas.classList.add('dragging'); });
 addEventListener('mouseup', () => { drag = null; canvas.classList.remove('dragging'); });
 addEventListener('mousemove', e => {
   if (drag) {
-    view.x += e.clientX - drag.x; view.y += e.clientY - drag.y;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    moved += Math.abs(dx) + Math.abs(dy);
+    tgt.x -= dx * 2 / (cam.s * innerHeight); cam.x = tgt.x;
+    tgt.y += dy * 2 / (cam.s * innerHeight); cam.y = tgt.y;
     drag = { x: e.clientX, y: e.clientY };
-    tip.style.display = 'none'; hover = null; draw(); return;
+    tip.style.display = 'none'; dirty = true; return;
   }
-  pick(e.clientX, e.clientY);
+  const p = pick(e.clientX, e.clientY);
+  if (p !== hover) { hover = p; dirty = true; }
+  if (!p) { tip.style.display = 'none'; return; }
+  const groups = view === 'content' ? DATA.content.groups : DATA.all.groups;
+  const gi = view === 'content' ? p.th : p.g;
+  const gname = gi >= 0 && groups[gi] ? groups[gi].label : 'dust';
+  const sig = ['', 'saved', 'thought', 'directive'][p.r] || '';
+  const img = p.img && p.u ? `<img src="/api/cover?u=${encodeURIComponent(p.u)}" loading="lazy">` : '';
+  tip.innerHTML = `${img}<div>${esc(p.t)}</div>
+    <div class="m">${esc(p.c)} · ${esc(gname)}${sig ? ' · ' + sig : ''}${p.d ? ' · ' + p.d : ''}</div>`;
+  tip.style.display = 'block';
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - 320) + 'px';
+  tip.style.top = Math.min(e.clientY + 14, innerHeight - tip.offsetHeight - 16) + 'px';
 });
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
-  const f = Math.exp(-e.deltaY * 0.0015);
-  const nx = e.clientX - innerWidth / 2, ny = e.clientY - innerHeight / 2;
-  view.x = nx - (nx - view.x) * f; view.y = ny - (ny - view.y) * f;
-  view.k *= f;
-  draw();
+  const f = Math.exp(-e.deltaY * 0.0016);
+  const [wx, wy] = screenToWorld(e.clientX, e.clientY);
+  tgt.s = Math.max(0.4, Math.min(40, tgt.s * f));
+  tgt.x = wx - (wx - tgt.x) / f;
+  tgt.y = wy - (wy - tgt.y) / f;
 }, { passive: false });
+canvas.addEventListener('click', () => { if (hover && hover.u && moved < 4) window.open(hover.u, '_blank'); });
 
-function pick(mx, my) {
-  if (!DATA) return;
-  let best = null, bd = 12 * 12;
-  for (const p of DATA.points) {
-    if (!visible(p)) continue;
-    const dx = sx(p) - mx, dy = sy(p) - my, d = dx * dx + dy * dy;
-    if (d < bd) { bd = d; best = p; }
-  }
-  if (best !== hover) { hover = best; draw(); }
-  if (!best) { tip.style.display = 'none'; return; }
-  const img = best.img && best.u ? `<img src="/api/cover?u=${encodeURIComponent(best.u)}" loading="lazy">` : '';
-  const theme = best.th >= 0 ? DATA.themes[best.th].label : 'unthemed';
-  const sig = ['passive', 'saved', 'thought', 'directive'][best.r] || '';
-  tip.innerHTML = `${img}<div class="t">${best.t.replace(/</g, '&lt;')}</div>
-    <div class="m">${best.c} · ${theme}${best.r ? ' · ' + sig : ''}${best.d ? ' · ' + best.d : ''}</div>`;
-  tip.style.display = 'block';
-  tip.style.left = Math.min(mx + 16, innerWidth - 320) + 'px';
-  tip.style.top = Math.min(my + 16, innerHeight - tip.offsetHeight - 20) + 'px';
+// --- view + legend ---------------------------------------------------------
+function setView(v) {
+  view = v;
+  morphTgt = v === 'content' ? 1 : 0;
+  document.querySelectorAll('#views [data-v]').forEach(b =>
+    b.classList.toggle('on', b.dataset.v === v));
+  buildGrid();
+  buildLegend();
+  const p = DATA[v].params;
+  document.getElementById('hint').textContent =
+    `${v === 'content' ? pts.filter(x => x.cx !== undefined).length : pts.length} notes · trust ${p.trustworthiness.toFixed(2)} · sil ${p.silhouette.toFixed(2)}`;
+  dirty = true;
 }
-canvas.addEventListener('click', () => { if (hover && hover.u) window.open(hover.u, '_blank'); });
-
-// --- legend + filters -----------------------------------------------------
 function buildLegend() {
   const el = document.getElementById('legend');
-  el.innerHTML = DATA.themes.map((t, i) =>
-    `<div class="row" data-i="${i}"><span class="dot" style="background:${COLORS[i % 8]}"></span>
-     ${t.label} <span class="w">${Math.round(t.weight * 100)}%</span></div>`).join('');
-  el.querySelectorAll('.row').forEach(row => row.addEventListener('click', () => {
-    const i = +row.dataset.i;
-    hiddenThemes.has(i) ? hiddenThemes.delete(i) : hiddenThemes.add(i);
-    row.classList.toggle('off');
-    draw();
+  const groups = view === 'content' ? DATA.content.groups : DATA.all.groups;
+  const base = view === 'content' ? 32 : 0;
+  const color = i => view === 'content'
+    ? PALETTE[i % 8]
+    : (DATA.slot[i] ?? -1) >= 0 ? PALETTE[DATA.slot[i]] : GRAY;
+  el.innerHTML = groups.map((g, i) => g.n
+    ? `<div class="row${groupAlpha[base + i] < 0.5 ? ' off' : ''}" data-i="${i}">
+        <span class="dot" style="background:${color(i)}"></span>${esc(g.label)}
+        <span class="n">${g.n}</span></div>` : '').join('');
+  el.querySelectorAll('.row').forEach(r => r.addEventListener('click', () => {
+    const i = base + +r.dataset.i;
+    groupAlpha[i] = groupAlpha[i] < 0.5 ? 1 : 0;
+    r.classList.toggle('off');
+    dirty = true;
   }));
 }
-document.querySelectorAll('#filters button').forEach(b => b.addEventListener('click', () => {
-  show[b.dataset.f] = !show[b.dataset.f];
-  b.classList.toggle('on');
-  draw();
-}));
+document.querySelectorAll('#views [data-v]').forEach(b =>
+  b.addEventListener('click', () => setView(b.dataset.v)));
+document.getElementById('sigchip').addEventListener('click', function () {
+  signalOnly = !signalOnly;
+  this.classList.toggle('on');
+  buildBuffers(); buildGroupBuffer();
+  dirty = true;
+});
 
 fetch('/api/map').then(r => r.json()).then(d => {
-  DATA = d;
-  document.getElementById('count').textContent =
-    `${d.points.length} notes · umap nn=${d.params.n_neighbors} · trust ${d.params.trustworthiness.toFixed(2)}`;
-  buildLegend();
+  DATA = d; pts = d.points;
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  tgt.x = cam.x = (Math.min(...xs) + Math.max(...xs)) / 2;
+  tgt.y = cam.y = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const ex = (Math.max(...xs) - Math.min(...xs)) / 2;
+  const ey = (Math.max(...ys) - Math.min(...ys)) / 2;
+  tgt.s = cam.s = 0.92 * Math.min((innerWidth / innerHeight) / ex, 1 / ey);
+  buildBuffers();
+  buildGroupBuffer();
   resize();
+  setView(location.hash === '#content' ? 'content' : 'all');
+  morph = morphTgt;
+  requestAnimationFrame(frame);
 });
 </script>
 </body>
