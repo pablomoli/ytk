@@ -406,6 +406,36 @@ def search_all(query: str, n: int = 5) -> list[UnifiedResult]:
     return out[:n]
 
 
+def top_tags(n: int = 40) -> list[str]:
+    """Existing tag vocabulary, most-used first, from indexed metadata.
+
+    Frequency ranking makes the canonical spelling win: the common variant of
+    a drifting pair (3d-printing vs 3dprint) reaches the vocabulary, the rare
+    one does not, so enrichment converges on the winner.
+    """
+    return [t for t, _ in tag_counts().most_common(n)]
+
+
+def tag_counts() -> "Counter[str]":
+    """Tag -> usage count over enrichment-produced interest_tags.
+
+    Videos collection only: the memories collection's tags metadata holds
+    folder path segments (vault_write / reindex derive tags from the note's
+    directory), which are structural labels, not interest tags. Feeding those
+    into the enrichment vocabulary would teach it to tag content "inbox".
+    """
+    from collections import Counter
+
+    counts: Counter[str] = Counter()
+    col = _videos_collection()
+    if col.count():
+        for meta in col.get(include=["metadatas"])["metadatas"]:
+            for tag in (meta.get("tags") or "").split(", "):
+                if tag:
+                    counts[tag] += 1
+    return counts
+
+
 def get_all_videos() -> list[dict]:
     """Return every video-level record with its embedding and enrichment metadata.
 

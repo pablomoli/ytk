@@ -63,13 +63,13 @@ def fetch_web(url: str) -> WebContent:
 
 def enrich_web(content: WebContent, user_note: str = "") -> Enrichment:
     """Summarize web article content via Claude Code. key_moments is always []."""
-    from .enrich import _note_block
+    from .enrich import _note_block, _vocab_block
 
     user_prompt = (
         f"Title: {content.title}\nAuthor: {content.author}\n"
         f"Date: {content.date}\nURL: {content.url}\n\n"
         f"Article:\n{content.text[:20_000]}"
-        f"{_note_block(user_note)}"
+        f"{_note_block(user_note)}{_vocab_block()}"
     )
 
     data = run_structured(_SYSTEM_WEB, user_prompt, Enrichment.model_json_schema())

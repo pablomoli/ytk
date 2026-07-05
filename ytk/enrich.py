@@ -177,6 +177,46 @@ def _note_block(user_note: str) -> str:
     )
 
 
+_VOCAB_CACHE: list[str] | None = None
+
+
+def tag_vocabulary() -> list[str]:
+    """Canonical tag vocabulary: curated tags (config hub.tags + UI-created
+    custom tags) followed by the most-used tags already indexed in Chroma.
+    Cached per process so batch ingests do not rescan Chroma per item."""
+    global _VOCAB_CACHE
+    if _VOCAB_CACHE is None:
+        from . import reels, store
+        from .config import load_config
+
+        curated = list(load_config().hub.tags)
+        try:
+            curated += reels.load_state(reels.STATE_PATH).custom_tags
+        except Exception:
+            pass
+        _VOCAB_CACHE = list(dict.fromkeys([*curated, *store.top_tags(40)]))
+    return _VOCAB_CACHE
+
+
+def _vocab_block() -> str:
+    """Vocabulary section injected into every enrichment prompt (issue #15).
+
+    A prompt nudge, not a schema constraint: hard-constraining interest_tags
+    to an enum would make genuinely new topics untaggable, which is worse
+    than the spelling drift this prevents. Must never break an ingest."""
+    try:
+        vocab = tag_vocabulary()
+    except Exception:
+        return ""
+    if not vocab:
+        return ""
+    return (
+        "\nExisting tag vocabulary. Reuse an existing tag whenever one fits; "
+        "coin a new tag only when none does:\n"
+        f"{', '.join(vocab)}\n"
+    )
+
+
 def enrich(
     transcript: str,
     metadata: dict,
@@ -198,7 +238,7 @@ Tags: {", ".join(metadata.get("tags", [])[:10])}{chapters_text}
 Transcript:
 {transcript}
 """
-    text_block += _note_block(user_note)
+    text_block += _note_block(user_note) + _vocab_block()
 
     with _staged_images(visual_blocks) as (frame_dir, frame_paths):
         if frame_paths:
@@ -238,7 +278,7 @@ def enrich_tiktok(
         f"\nCaption / description:\n{post.get('description', '')}\n\n"
         f"{transcript_block}\n"
     )
-    text_block += _note_block(user_note)
+    text_block += _note_block(user_note) + _vocab_block()
 
     with _staged_images(visual_blocks) as (frame_dir, frame_paths):
         frames_listing = "\n".join(f"  {p}" for p in frame_paths) if frame_paths else "  (none)"
@@ -263,7 +303,7 @@ Slide count: {slide_count}
 Caption:
 {caption}
 """
-    text_block += _note_block(user_note)
+    text_block += _note_block(user_note) + _vocab_block()
 
     with _staged_images(visual_blocks) as (frame_dir, frame_paths):
         frames_listing = "\n".join(f"  {p}" for p in frame_paths) if frame_paths else "  (none)"

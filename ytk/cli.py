@@ -536,6 +536,30 @@ def sync(dry_run: bool, verbose: bool):
 
 
 @cli.command()
+@click.option("-n", default=25, show_default=True, help="Top tags to show.")
+def tags(n: int):
+    """Tag vocabulary health: distinct count + usage distribution.
+
+    Watch the distinct count over time — vault-aware enrichment (issue #15)
+    should flatten its growth as tags converge on canonical spellings.
+    """
+    from .store import tag_counts
+
+    counts = tag_counts()
+    if not counts:
+        console.print("[yellow]No tags indexed yet.[/]")
+        return
+    total_uses = sum(counts.values())
+    singletons = sum(1 for c in counts.values() if c == 1)
+    console.print(
+        f"[bold]{len(counts)}[/] distinct tags, {total_uses} uses, "
+        f"{singletons} used only once\n"
+    )
+    for tag, count in counts.most_common(n):
+        console.print(f"  {count:>4}  [bold cyan]#{tag}[/]")
+
+
+@cli.command()
 @click.argument("query")
 @click.option("-n", default=5, show_default=True, help="Number of results.")
 def search(query: str, n: int):
