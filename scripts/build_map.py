@@ -74,6 +74,38 @@ def _title(doc: str, fallback: str) -> str:
     return fallback
 
 
+def _vault_root() -> Path:
+    from ytk.vault import _get_vault_path
+
+    return _get_vault_path().resolve()
+
+
+def _rel_path(source_path: str) -> str:
+    """Vault-relative form of a note path (absolute paths stripped of the root)."""
+    if not source_path:
+        return ""
+    p = Path(source_path)
+    if p.is_absolute():
+        try:
+            return str(p.resolve().relative_to(_vault_root()))
+        except ValueError:
+            return ""
+    return source_path
+
+
+def _video_note_path(title: str) -> str:
+    """Vault-relative path of a video's note. Filenames are title-derived and
+    the convention shifted over time (raw title vs slug), so probe candidates
+    on disk instead of trusting one scheme."""
+    from ytk.vault import _slug
+
+    base = _vault_root() / "second-brain" / "sources" / "youtube"
+    for name in (_slug(title), title):
+        if name and (base / f"{name}.md").exists():
+            return f"second-brain/sources/youtube/{name}.md"
+    return ""
+
+
 def load_points() -> tuple[np.ndarray, list[dict], list[str]]:
     client = chromadb.PersistentClient(path=CHROMA)
     vecs: list = []
@@ -159,7 +191,69 @@ def derive_clusters(vecs: np.ndarray, docs: list[str]) -> tuple[list[int], list[
     return labels.tolist(), names
 
 
-def polish_names(term_names: list[str], exemplars: list[list[str]]) -> list[str]:
+def _point_key(m: dict) -> str:
+    """Stable cross-build identity for a point (url, else title). Accepts both
+    emitted point dicts (u/t) and load_points meta dicts (url/title)."""
+    return m.get("u") or m.get("url") or m.get("t") or m.get("title") or ""
+
+
+def load_previous_clusters() -> list[tuple[str, set[str]]]:
+    """Cluster (name, member-key set) pairs from the previous map.json, if any."""
+    if not OUT.exists():
+        return []
+    try:
+        prev = json.loads(OUT.read_text())
+        groups = prev["all"]["groups"]
+        members: list[set[str]] = [set() for _ in groups]
+        for p in prev["points"]:
+            g = p.get("g", -1)
+            if 0 <= g < len(members):
+                members[g].add(_point_key(p))
+        return [(g["label"], mem) for g, mem in zip(groups, members)]
+    except Exception as exc:
+        print(f"previous map unreadable ({exc}); no name anchoring")
+        return []
+
+
+def anchor_names(
+    clabels: list[int],
+    meta: list[dict],
+    n_clusters: int,
+    prev: list[tuple[str, set[str]]],
+    min_jaccard: float = 0.3,
+) -> dict[int, str]:
+    """Match new clusters to previous ones by member Jaccard overlap.
+
+    Greedy best-first assignment; each old name is reused at most once.
+    Returns {new_cluster_index: kept_name} for matches above threshold.
+    """
+    if not prev:
+        return {}
+    arr = np.array(clabels)
+    new_members = [
+        {_point_key(meta[i]) for i in np.flatnonzero(arr == k)} for k in range(n_clusters)
+    ]
+    candidates = []
+    for k, nm in enumerate(new_members):
+        for j, (_, om) in enumerate(prev):
+            union = len(nm | om)
+            if union:
+                candidates.append((len(nm & om) / union, k, j))
+    anchored: dict[int, str] = {}
+    used_old: set[int] = set()
+    for jac, k, j in sorted(candidates, reverse=True):
+        if jac < min_jaccard:
+            break
+        if k in anchored or j in used_old:
+            continue
+        anchored[k] = prev[j][0]
+        used_old.add(j)
+    return anchored
+
+
+def polish_names(
+    term_names: list[str], exemplars: list[list[str]], taken: list[str] | None = None
+) -> list[str]:
     """One batched Haiku call turning c-TF-IDF term lists into short labels."""
     try:
         from pydantic import BaseModel
@@ -173,11 +267,18 @@ def polish_names(term_names: list[str], exemplars: list[list[str]]) -> list[str]
             f"{i}. terms: {t} | examples: {'; '.join(e[:3])}"
             for i, (t, e) in enumerate(zip(term_names, exemplars))
         )
+        avoid = (
+            " These labels are already used by other clusters, do not reuse them: "
+            + "; ".join(taken)
+            + "."
+            if taken
+            else ""
+        )
         result = sdk.structured(
             "Name each numbered cluster of personal knowledge-base notes with "
             "a short 2-4 word label capturing its topic. Ground each label in "
             "the terms and example titles given; do not invent topics. Return "
-            f"exactly {len(term_names)} names, in order.",
+            f"exactly {len(term_names)} names, in order.{avoid}",
             listing,
             ClusterNames,
             max_input_chars=40_000,
@@ -300,7 +401,20 @@ def main() -> None:
         [meta[i]["title"] for i in np.flatnonzero(np.array(clabels) == k)[:5]]
         for k in range(len(term_names))
     ]
-    names = term_names if args.no_llm else polish_names(term_names, exemplars)
+    # Anchor names deterministically to the previous build so labels stay
+    # stable across rebuilds; Haiku only names genuinely new clusters.
+    anchored = anchor_names(clabels, meta, len(term_names), load_previous_clusters())
+    fresh = [k for k in range(len(term_names)) if k not in anchored]
+    print(f"name anchoring: {len(anchored)} kept, {len(fresh)} new")
+    if fresh and not args.no_llm:
+        fresh_names = polish_names(
+            [term_names[k] for k in fresh],
+            [exemplars[k] for k in fresh],
+            taken=sorted(set(anchored.values())),
+        )
+        for k, nm in zip(fresh, fresh_names):
+            anchored[k] = nm
+    names = [anchored.get(k, term_names[k]) for k in range(len(term_names))]
     ann, amd = (
         fit_params(vecs, clabels, (10, 30, 50)) if args.sweep else (50, 0.05)
     )
@@ -337,6 +451,8 @@ def main() -> None:
             "u": m["url"],
             "d": m["date"],
             "g": clabels[i],
+            "p": _rel_path(m["path"])
+            or (_video_note_path(m["title"]) if m["cat"] == "youtube" else ""),
             "r": smap.get(m["video_id"], smap.get(m["path"], 0)),
             "img": bool(thumbs.get(m["url"])),
         }
