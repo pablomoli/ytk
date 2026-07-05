@@ -1,183 +1,154 @@
 # ytk
 
-Personal YouTube knowledge system. Ingests videos into an Obsidian vault with AI enrichment and semantic search.
+A personal knowledge system for the things you watch and read. ytk fetches
+transcripts and metadata from YouTube videos (plus Instagram, TikTok,
+Pinterest, and web articles), enriches them with Claude Haiku, writes atomic
+notes into an Obsidian vault, and indexes embeddings locally in ChromaDB so
+everything is semantically searchable — from the CLI, from a local web hub,
+or from inside a Claude Code session via MCP.
 
-## How it works
+## Philosophy
+
+ytk is a complement to watching, not a replacement. The premise is that you
+still watch the video — ytk exists so that three weeks later, when you think
+"how did that guy drive the television from the CLI?", you can find the exact
+moment. Enrichment is tuned for density of named specifics (tools, commands,
+techniques, timestamps), not vague summaries.
+
+The second premise: your own words carry the signal. Every capture path lets
+you attach a note — a thought typed at queue time, a voice memo, an
+annotation in the inbox — and those annotations are embedded and searched
+alongside the source content. Over time the system synthesizes an interest
+profile from what you actually save and say about it.
+
+## Architecture
 
 ```
-ytk add <url>
-  -> fetch metadata (yt-dlp)
-  -> fetch transcript (youtube-transcript-api, yt-dlp fallback)
-  -> filter (duration, captions, interest tags)
-  -> enrich (Claude Haiku: thesis, summary, key concepts, insights, key moments)
-  -> write Obsidian note (sources/youtube/<title>.md)
-  -> index embeddings (ChromaDB, all-MiniLM-L6-v2)
-
-ytk sync
-  -> poll YouTube "ytk" playlist via Data API v3
-  -> run full pipeline on each new video (silent, no prompts)
-
-ytk search "query"
-  -> cosine similarity over video-level embeddings
-
-ytk dive <video_id> "query"
-  -> cosine similarity over 60s segment embeddings within a specific video
+capture                 enrich                store                 retrieve
+-------                 ------                -----                 --------
+ytk add (YouTube)   ->  Claude Haiku      ->  Obsidian vault    ->  ytk search / dive
+ytk ingest (web)        (thesis, summary,     (markdown notes,      hub pages (:6969)
+ytk reels (IG DMs)      key concepts,         thumbnails,           MCP server
+ytk add-tiktok          insights, tags,       frames)               interest profile
+ytk memo (voice)        key moments)          ChromaDB
+hub inbox queue                               (embeddings)
 ```
+
+- Transcripts come from `youtube-transcript-api` first, with a `yt-dlp`
+  subtitle fallback and a local faster-whisper fallback for audio-only cases.
+- Notes are plain markdown with frontmatter — the vault stays a normal
+  Obsidian vault, usable without ytk.
+- Embeddings are computed locally with sentence-transformers; nothing leaves
+  your machine except the enrichment call to the Anthropic API.
 
 ## Install
 
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+
 ```bash
+git clone https://github.com/pablomoli/ytk
+cd ytk
 uv sync
+uv run ytk --help
+
+# or install the CLI globally
 uv tool install .
+# after pulling changes: uv tool install --reinstall .
 ```
 
-Or run without installing:
-
-```bash
-uv run ytk <command>
-```
+`ffmpeg` is needed for voice memos and frame extraction.
 
 ## Configuration
 
-### `.env` (project root or home directory)
+Copy `.env.example` to `.env`:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
-OBSIDIAN_VAULT_PATH=/path/to/your/vault
-CHROMA_PATH=~/.ytk/chroma        # optional, default shown
+OBSIDIAN_VAULT_PATH=/path/to/your/obsidian/vault
+CHROMA_PATH=~/.ytk/chroma
+INSTAGRAM_SESSIONID=        # only for ytk reels; see caveats
+INSTAGRAM_PEER=             # optional two-account capture thread
 ```
 
-### `~/.ytk/config.yaml` (auto-created with defaults on first run)
+Runtime settings live in `~/.ytk/config.yaml` (auto-created with defaults).
+It holds ingest filters (min/max duration, caption requirement, optional
+interest-tag gate), hub host/port, inbox annotation chips, fetch cadence per
+source, and interest-model parameters. The hub's `/settings` page is a
+validated editor over this file, with inline documentation of every field.
 
-```yaml
-filters:
-  min_duration: 60        # seconds — skip videos shorter than this
-  max_duration: null      # no upper limit
-  require_captions: true  # skip videos with no captions
-  interest_tags: []       # if non-empty, skip videos whose tags don't match
-                          # e.g. [go, geospatial, creative-coding, ai]
-```
-
-## Commands
-
-### `ytk add <url>`
-
-Fetch, enrich, and ingest a single YouTube video.
+## Quickstart
 
 ```bash
-ytk add https://www.youtube.com/watch?v=dQw4w9WgXcQ
-ytk add <url> --force    # skip all filter prompts
+ytk add https://www.youtube.com/watch?v=VIDEO_ID     # ingest one video
+ytk add <url> --force                                # bypass filters
+ytk add <url> --note "why I saved this"              # steer enrichment
+ytk ingest <article-url>                             # web article
+ytk feed urls.txt                                    # batch ingest
+
+ytk search "query"                                   # semantic search, whole vault
+ytk dive VIDEO_ID "query"                            # segment-level, timestamped
+ytk memo                                             # record a voice memo, auto-route
+ytk profile                                          # synthesize interest profile
+ytk ui                                               # start the hub at :6969
 ```
 
-Displays metadata, transcript preview, AI enrichment panels, then writes the vault note and indexes embeddings.
+Other commands: `add-instagram`, `add-tiktok`, `add-pinterest`, `reels`
+(Instagram DM capture-thread sync), `triage` / `review` (action extraction
+and GitHub routing), `graph` (HTML knowledge graph), `tags`, `remember`,
+`reindex`, `gc`, `snap`, `chat`, `dashboard`, `visual index` / `visual
+similar`. Run `ytk --help` for the full list.
 
-### `ytk sync`
+## The hub
 
-Poll the YouTube playlist named "ytk" and ingest any new videos. Runs the full pipeline silently (no interactive prompts — filter failures are skipped, not prompted).
+`ytk ui` serves a local web app:
+
+- `/` — fresh feed of recent ingests
+- `/inbox` — queue picker with buckets and annotation chips; a paste box adds
+  anything to the queue; your thoughts are embedded into search and the daily
+  digest
+- `/tags` — tag gardening: merge enrichment-coined tag variants; accepted
+  merges persist via an alias map
+- `/map` — 3D brain map, a UMAP projection of every text embedding
+- `/settings` — validated editor over `~/.ytk/config.yaml`
+
+On macOS, `ytk ui install` registers the hub as a launchd daemon
+(`ytk ui status` / `ytk ui restart` / `ytk ui uninstall`).
+
+## MCP server for Claude Code
+
+ytk ships an MCP server (`ytk-mcp` entry point) exposing the vault to Claude
+sessions: `vault_read`, `vault_write`, `vault_search`, `vault_list`,
+`vault_remember`, `vault_reindex`, `vault_update_index`, `visual_similar`.
 
 ```bash
-ytk sync
-ytk sync --dry-run    # show what would be processed without running the pipeline
+# with the CLI installed globally (uv tool install .):
+claude mcp add --scope user ytk -- ytk-mcp
+# or straight from a checkout:
+claude mcp add --scope user ytk -- uv run --directory /path/to/ytk ytk-mcp
 ```
 
-Requires OAuth setup (`ytk auth`) and a playlist named "ytk" in your YouTube account.
+This is the primary interface in practice — a Claude Code session can search
+everything you have ever saved, and capture decisions back into the vault.
 
-### `ytk auth`
+## What's personal, what's portable
 
-One-time OAuth flow for the YouTube Data API v3.
+This started as a single-user tool and some edges show:
 
-```bash
-ytk auth
-```
+- **Instagram (`ytk reels`, `add-instagram`)** needs a `sessionid` cookie
+  from a logged-in browser session, and works best with a dedicated
+  second account as the capture thread. Instagram may flag bot-shaped
+  traffic; the hub throttles pulls per source for this reason.
+- **macOS-flavored bits**: the launchd daemon (`ytk ui install`), the
+  `ytk schedule` nightly launchd job (index + dashboard), voice-memo capture via ffmpeg with
+  macOS notifications, and iMessage ingestion (`add-imessage`) all assume
+  macOS. Core ingest/search works anywhere Python and ffmpeg do.
+- **Vault layout**: the enrichment prompts and vault conventions (a
+  `second-brain/` tree with wiki, memories, sources) reflect one person's
+  system. The note format is plain markdown; adapt the paths and it is
+  yours.
+- **Costs**: enrichment uses `claude-haiku-4-5` per ingest; everything else
+  (embeddings, transcription, search) runs locally.
 
-Prints an auth URL, opens it in your browser, then asks you to paste the redirect URL from the address bar after authorizing. Saves a token to `~/.ytk/token.json`.
+## License
 
-Requires `~/.ytk/client_secrets.json` — download from Google Cloud Console (YouTube Data API v3, OAuth 2.0 client ID, Desktop app type).
-
-### `ytk search "query"`
-
-Semantic search across all ingested videos.
-
-```bash
-ytk search "how do you implement a ring buffer in go"
-ytk search "television TUI framework" -n 10
-```
-
-Results are ranked by cosine similarity and show thesis, commentary, match %, tags, and URL.
-
-Options:
-- `-n N` — number of results (default: 5)
-
-### `ytk dive <video_id> "query"`
-
-Segment-level semantic search within a specific video. Returns timestamped 60-second blocks ranked by relevance, with direct YouTube timestamp links.
-
-```bash
-ytk dive dQw4w9WgXcQ "how did he set up the model update loop"
-ytk dive dQw4w9WgXcQ "error handling" -n 10
-```
-
-The `video_id` is the 11-character ID from the YouTube URL (the `v=` parameter).
-
-Options:
-- `-n N` — number of results (default: 5)
-
-## Scripts
-
-See [`scripts/README.md`](scripts/README.md).
-
-## Storage layout
-
-```
-~/.ytk/
-  config.yaml       — filter configuration
-  ytk.db            — SQLite ingestion log (video_id, title, status, timestamps)
-  token.json        — YouTube OAuth token
-  client_secrets.json — Google OAuth client credentials
-  chroma/           — ChromaDB persistent vector store
-    ytk_videos/     — one document per video (thesis + summary + insights + concepts)
-    ytk_segments/   — one document per 60s transcript block
-```
-
-## Vault layout
-
-Notes are written to `$OBSIDIAN_VAULT_PATH/sources/youtube/<title>.md`.
-
-```markdown
----
-url: https://www.youtube.com/watch?v=...
-title: ...
-uploader: ...
-date: YYYY-MM-DD
-tags:
-  - go
-  - creative-coding
-duration: 00:45:12
----
-
-## Thesis
-One sentence: what the video actually argues or demonstrates.
-
-## Commentary
-3-5 sentences with named specifics — tools, commands, techniques.
-
-## Key Concepts
-- concept name: how it was used in this specific video
-
-## Insights
-- non-obvious technique or gotcha worth remembering
-
-## Key Moments
-- **12:34** — specific description of what happens at this timestamp
-
-## Transcript
-<details>
-<summary>Raw transcript</summary>
-[0:00](https://youtu.be/...?t=0) ...
-</details>
-```
-
-## See also
-
-- [`CLAUDE.md`](CLAUDE.md) — architecture, phase roadmap, vault conventions
-- [`scripts/README.md`](scripts/README.md) — utility scripts
+MIT — see [LICENSE](LICENSE).
