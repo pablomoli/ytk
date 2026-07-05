@@ -137,6 +137,7 @@ uniform float u_dim;        // 0 = flat, 1 = volume
 uniform float u_sizek;      // pixels-per-world at dist 1
 uniform float u_dpr;
 uniform float u_galpha[40];
+uniform float u_dust;       // dust visibility: drops to ~0 while focusing
 varying vec3 v_col; varying float v_alpha;
 void main() {
   vec3 p3 = mix(a_p0_3, a_p1_3, u_t);
@@ -146,8 +147,8 @@ void main() {
   float att = u_sizek / max(gl_Position.w, 0.15);
   gl_PointSize = clamp(a_size * att * u_dpr * 0.075, 1.8, 26.0 * u_dpr);
   v_col = mix(a_col0, a_col1, u_t);
-  float g0 = a_group0 < 0.0 ? 1.0 : u_galpha[int(a_group0)];
-  float g1 = a_group1 < 0.0 ? 1.0 : u_galpha[int(a_group1) + 32];
+  float g0 = a_group0 < 0.0 ? u_dust : u_galpha[int(a_group0)];
+  float g1 = a_group1 < 0.0 ? u_dust : u_galpha[int(a_group1) + 32];
   v_alpha = mix(a_alpha0 * g0, a_alpha1 * g1, u_t);
 }`;
 const FS = `
@@ -392,6 +393,7 @@ function frame(now) {
     gl.uniform1f(U('u_dim'), dim);
     gl.uniform1f(U('u_sizek'), fpp * innerHeight * 0.5 * 0.02);
     gl.uniform1f(U('u_dpr'), dpr);
+    gl.uniform1f(U('u_dust'), (soloGroup >= 0 || hoverGroup >= 0) ? 0.04 : 1.0);
     const eff = new Float32Array(groupAlpha);
     const base = view === 'content' ? 32 : 0;
     const nG = view === 'content' ? 8 : 32;
@@ -529,11 +531,11 @@ const tip = document.getElementById('tip');
 const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
 function visible(p) {
   if (signalOnly && p.r < 1) return false;
-  if (view === 'content') {
-    if (p.c3 === undefined) return false;
-    if (p.th >= 0 && groupAlpha[32 + p.th] < 0.5) return false;
-  } else if (p.g >= 0 && groupAlpha[p.g] < 0.5) return false;
-  return true;
+  const gi = view === 'content' ? (p.c3 !== undefined ? p.th : -2) : p.g;
+  if (gi === -2) return false;
+  if (soloGroup >= 0 && gi !== soloGroup) return false;   // focus owns picking
+  if (gi < 0) return soloGroup < 0;                       // dust unpickable while focused
+  return groupAlpha[(view === 'content' ? 32 : 0) + gi] >= 0.5;
 }
 function pick(mx, my) {
   if (!sxy) return -1;
