@@ -72,6 +72,30 @@ class InterestSnapshot(BaseModel):
     explicit: ExplicitChannel | None = None
 
 
+class ThemeMatch(BaseModel):
+    """A theme paired across two snapshots by centroid similarity."""
+
+    old_label: str
+    new_label: str
+    old_weight: float
+    new_weight: float
+    similarity: float
+
+
+class SnapshotDiff(BaseModel):
+    """Taste drift between two profile runs (issue #16, E4).
+
+    The research-sanctioned alternative to recency decay: interest evolution
+    as discrete cluster birth/death plus weight movement on matched themes.
+    """
+
+    old_generated_at: str
+    new_generated_at: str
+    matched: list[ThemeMatch]
+    born: list[str]
+    died: list[str]
+
+
 _INTEREST_DIR = Path.home() / ".ytk" / "interest"
 
 

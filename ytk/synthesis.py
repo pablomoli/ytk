@@ -19,7 +19,15 @@ from pydantic import BaseModel
 from sklearn.cluster import KMeans
 
 from .config import InterestConfig, load_config
-from .interest import ExplicitChannel, InterestSnapshot, Theme, load_latest, save_snapshot
+from .interest import (
+    ExplicitChannel,
+    InterestSnapshot,
+    SnapshotDiff,
+    Theme,
+    ThemeMatch,
+    load_latest,
+    save_snapshot,
+)
 from .sdk import run_structured
 from .store import get_all_videos, get_content_memories
 from .vault import _get_brain_path
@@ -253,6 +261,97 @@ def _indent(text: str, spaces: int) -> str:
     return "\n".join(pad + line if line else line for line in text.splitlines())
 
 
+def _embeddings_by_id() -> dict[str, list[float]]:
+    """Current embedding for every profile-eligible record, keyed by id."""
+    cfg = load_config()
+    return {n["id"]: n["embedding"]
+            for n in get_all_videos() + get_content_memories(cfg.interest.content_sources)
+            if n.get("embedding")}
+
+
+def _theme_centroids(snapshot: InterestSnapshot, emb_by_id: dict | None = None) -> list[np.ndarray | None]:
+    """Centroid per theme, backfilling pre-v2 snapshots from note_ids.
+
+    Backfill uses the CURRENT embedder for old snapshots — required anyway,
+    since cross-snapshot cosine only means something in one embedding space
+    (the vault re-embedded MiniLM -> gte-small on 2026-07-05).
+    """
+    out: list[np.ndarray | None] = []
+    for t in snapshot.themes:
+        if t.centroid:
+            out.append(np.asarray(t.centroid, dtype=float))
+            continue
+        if emb_by_id is None:
+            emb_by_id = _embeddings_by_id()
+        vecs = [emb_by_id[i] for i in t.note_ids if i in emb_by_id]
+        if not vecs:
+            out.append(None)
+            continue
+        c = np.asarray(vecs, dtype=float).mean(axis=0)
+        n = np.linalg.norm(c)
+        out.append(c / n if n else c)
+    return out
+
+
+def diff_snapshots(old: InterestSnapshot, new: InterestSnapshot, floor: float = 0.75) -> SnapshotDiff:
+    """Match themes across two runs by centroid cosine; the rest is drift.
+
+    Greedy one-to-one matching, highest similarity first, cut off at ``floor``
+    so a genuinely new theme is never force-married to a fading old one.
+    Unmatched new themes are births; unmatched old ones are deaths.
+    """
+    emb_by_id = _embeddings_by_id()
+    oc = _theme_centroids(old, emb_by_id)
+    nc = _theme_centroids(new, emb_by_id)
+    pairs = []
+    for i, a in enumerate(oc):
+        for j, b in enumerate(nc):
+            if a is not None and b is not None:
+                pairs.append((float(a @ b), i, j))
+    pairs.sort(reverse=True)
+
+    used_old: set[int] = set()
+    used_new: set[int] = set()
+    matched: list[ThemeMatch] = []
+    for sim, i, j in pairs:
+        if sim < floor or i in used_old or j in used_new:
+            continue
+        used_old.add(i)
+        used_new.add(j)
+        matched.append(ThemeMatch(
+            old_label=old.themes[i].label, new_label=new.themes[j].label,
+            old_weight=old.themes[i].weight, new_weight=new.themes[j].weight,
+            similarity=round(sim, 3),
+        ))
+    return SnapshotDiff(
+        old_generated_at=old.generated_at,
+        new_generated_at=new.generated_at,
+        matched=matched,
+        born=[t.label for j, t in enumerate(new.themes) if j not in used_new],
+        died=[t.label for i, t in enumerate(old.themes) if i not in used_old],
+    )
+
+
+def render_drift(diff: SnapshotDiff) -> str:
+    """Markdown drift section for profile.md: births, deaths, biggest movers."""
+    lines = [f"\n## Taste drift (since {diff.old_generated_at[:10]})\n"]
+    for label in diff.born:
+        lines.append(f"- **emerging:** {label}")
+    for label in diff.died:
+        lines.append(f"- **faded out:** {label}")
+    movers = sorted(diff.matched, key=lambda m: abs(m.new_weight - m.old_weight), reverse=True)
+    for m in movers[:5]:
+        d = m.new_weight - m.old_weight
+        if abs(d) < 0.01:
+            continue
+        arrow = "growing" if d > 0 else "fading"
+        name = m.new_label if m.new_label == m.old_label else f"{m.old_label} -> {m.new_label}"
+        lines.append(f"- **{arrow}:** {name} ({m.old_weight:.0%} -> {m.new_weight:.0%})")
+    if len(lines) == 1:
+        lines.append("- stable: no meaningful movement between runs")
+    return "\n".join(lines) + "\n"
+
+
 def _write_profile_note(snapshot: InterestSnapshot) -> Path:
     """Write the rendered profile to second-brain/me/profile.md, creating dirs."""
     me_dir = _get_brain_path() / "me"
@@ -299,8 +398,17 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
         embeddings=embeddings, weights=weights, levels=levels,
         alpha=cfg.interest.alpha, explicit_min=cfg.interest.explicit_min,
     )
+    previous = load_latest()
     save_snapshot(snapshot, now.strftime("%Y%m%dT%H%M%SZ"))
     profile_path = _write_profile_note(snapshot)
+    if previous is not None:
+        try:
+            drift = render_drift(diff_snapshots(previous, snapshot))
+            profile_path.write_text(
+                profile_path.read_text(encoding="utf-8") + drift, encoding="utf-8"
+            )
+        except Exception:
+            pass  # drift is a bonus; it must never fail a profile run
     return snapshot, profile_path
 
 
