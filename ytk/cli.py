@@ -1844,7 +1844,9 @@ def snap(note: tuple[str, ...], tags: str, file_path: str | None, speak: bool):
             audio = record(Path(td) / "snap-note.wav")
             console.print("[dim]transcribing...[/dim]")
             text = memo_transcribe(ensure_wav(audio), cfg.whisper_model).strip()
-        console.print(f"[dim]note:[/dim] {text}")
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     note_path = save_snap(data, text, tag_list)
     console.print(f"[green]Saved[/] {note_path.name}")
+    if speak:
+        console.print(Panel(text or "[dim](empty transcript)[/dim]", title="transcript", border_style="dim"))
+        time.sleep(4)
