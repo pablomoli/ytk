@@ -81,19 +81,33 @@ async def queue_add_api(req: QueueAddRequest):
 
 
 @app.post("/api/queue/refresh")
-def queue_refresh_api():
+def queue_refresh_api(force: bool = False):
     # sync def on purpose: FastAPI runs it in a threadpool, and the source
     # pulls (Instagram private API + YouTube Data API) block for seconds
     from ytk.ui import hub
 
-    return hub.refresh_sources()
+    return hub.refresh_sources(force=force)
+
+
+class BucketRequest(BaseModel):
+    name: str
 
 
 @app.get("/api/buckets")
 async def buckets_api():
-    from ytk.config import load_config
+    from ytk.ui import hub
 
-    return {"buckets": load_config().hub.buckets}
+    return {"buckets": hub.bucket_list()}
+
+
+@app.post("/api/buckets")
+async def bucket_add_api(req: BucketRequest):
+    from ytk.ui import hub
+
+    try:
+        return {"buckets": hub.add_bucket(req.name)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/queue")

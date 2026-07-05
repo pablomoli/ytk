@@ -77,6 +77,8 @@ class ReelsState:
     thread_id: str | None = None
     last_seen_message_id: str | None = None
     pending: list = field(default_factory=list)  # list[ReelItem]
+    last_pull_at: float | None = None            # ingest-hub auto-pull throttle
+    custom_buckets: list[str] = field(default_factory=list)  # UI-created buckets
 
 
 _client_cache: dict[tuple[str, str], object] = {}
@@ -118,6 +120,8 @@ def load_state(path: Path = STATE_PATH) -> ReelsState:
         thread_id=raw.get("thread_id"),
         last_seen_message_id=raw.get("last_seen_message_id"),
         pending=[_as_item(e) for e in raw.get("pending", [])],
+        last_pull_at=raw.get("last_pull_at"),
+        custom_buckets=raw.get("custom_buckets", []),
     )
 
 

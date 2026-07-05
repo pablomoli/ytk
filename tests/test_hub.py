@@ -212,10 +212,11 @@ def test_inbox_page_served(client):
     r = client.get("/inbox")
     assert r.status_code == 200
     for marker in ('id="grid"', 'id="buckets"', 'id="thought"', 'id="addurls"',
-                   'id="pull"', "/api/queue", "/api/buckets"):
+                   'id="side"', 'id="newbucket"', "/api/queue", "/api/buckets"):
         assert marker in r.text
     assert "selstr" not in r.text          # no index-string UI
     assert "monospace" not in r.text       # normalized typography
+    assert "Pull sources" not in r.text    # auto-pull replaced the button
 
 
 def test_fresh_page_is_main(client):
@@ -285,3 +286,43 @@ def test_api_refresh_and_buckets(client, hub, monkeypatch):
     r = client.get("/api/buckets")
     assert r.status_code == 200
     assert "design" in r.json()["buckets"]
+
+
+# --- auto-pull throttle + custom buckets ------------------------------------------
+
+
+def test_refresh_sources_throttled_by_ttl(hub, monkeypatch):
+    import time as _time
+
+    monkeypatch.setattr(hub, "IG_PULL", lambda state: 1)
+    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
+
+    first = hub.refresh_sources()
+    assert first.get("skipped") is not True
+
+    second = hub.refresh_sources()          # immediately after: throttled
+    assert second["skipped"] is True
+    assert second["instagram"] == 0
+
+    third = hub.refresh_sources(force=True) # force bypasses the TTL
+    assert third.get("skipped") is not True
+
+    st = reels.load_state(hub.STATE_PATH)
+    assert st.last_pull_at is not None
+    assert _time.time() - st.last_pull_at < 10
+
+
+def test_custom_buckets_persist_and_merge(client, hub):
+    r = client.post("/api/buckets", json={"name": "Anime Recs"})
+    assert r.status_code == 200
+    st = reels.load_state(hub.STATE_PATH)
+    assert "anime-recs" in st.custom_buckets
+
+    r = client.get("/api/buckets")
+    buckets = r.json()["buckets"]
+    assert "design" in buckets           # config-defined
+    assert "anime-recs" in buckets       # UI-created
+    # re-adding is a no-op, not a duplicate
+    client.post("/api/buckets", json={"name": "anime-recs"})
+    assert reels.load_state(hub.STATE_PATH).custom_buckets.count("anime-recs") == 1

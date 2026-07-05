@@ -96,14 +96,27 @@ YT_FETCH = _yt_fetch
 YT_IS_PROCESSED = _yt_is_processed
 
 
-def refresh_sources() -> dict:
+PULL_TTL_SECONDS = 15 * 60
+
+
+def refresh_sources(force: bool = False) -> dict:
     """Pull new items from all discovery sources into the queue.
 
+    Auto-pull is throttled: within PULL_TTL_SECONDS of the last pull the call
+    is a no-op (a source hit on every page load is bot-shaped traffic).
     Each source fails independently; errors are reported, not raised.
     """
-    result: dict = {"instagram": 0, "youtube": 0, "errors": []}
+    result: dict = {"instagram": 0, "youtube": 0, "errors": [], "skipped": False}
     with _LOCK:
         state = reels.load_state(STATE_PATH)
+
+        if (
+            not force
+            and state.last_pull_at is not None
+            and time.time() - state.last_pull_at < PULL_TTL_SECONDS
+        ):
+            result["skipped"] = True
+            return result
 
         try:
             result["instagram"] = IG_PULL(state)
@@ -129,8 +142,36 @@ def refresh_sources() -> dict:
         except Exception as exc:
             result["errors"].append(f"youtube: {exc}")
 
+        state.last_pull_at = time.time()
         reels.save_state(state, STATE_PATH)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Buckets
+# ---------------------------------------------------------------------------
+
+
+def bucket_list() -> list[str]:
+    """Config-defined buckets merged with UI-created ones, order preserved."""
+    from ytk.config import load_config
+
+    configured = load_config().hub.buckets
+    custom = reels.load_state(STATE_PATH).custom_buckets
+    return list(dict.fromkeys([*configured, *custom]))
+
+
+def add_bucket(name: str) -> list[str]:
+    """Persist a new UI-created bucket (normalized); returns the merged list."""
+    normalized = vault._normalize_tag(name)
+    if not normalized:
+        raise ValueError("Bucket name is empty.")
+    with _LOCK:
+        state = reels.load_state(STATE_PATH)
+        if normalized not in state.custom_buckets:
+            state.custom_buckets.append(normalized)
+            reels.save_state(state, STATE_PATH)
+    return bucket_list()
 
 
 # ---------------------------------------------------------------------------
