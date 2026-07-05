@@ -38,6 +38,8 @@ class InterestConfig(BaseModel):
 class HubConfig(BaseModel):
     """Configuration for the ingest hub UI."""
 
+    host: str = Field(default="127.0.0.1", description="Hub bind address.")
+    port: int = Field(default=6969, description="Hub port (memorable on purpose).")
     tags: list[str] = Field(
         default_factory=lambda: [
             "design", "music", "build-idea", "dev-tools",

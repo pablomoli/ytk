@@ -1766,14 +1766,29 @@ def schedule_uninstall():
     console.print(f"[bold green]Uninstalled:[/] {plist_path}")
 
 
-@cli.command(name="ui")
-@click.option("--host", default="127.0.0.1", show_default=True, help="Bind address.")
-@click.option("--port", default=8765, show_default=True, help="Port.")
+_HUB_LABEL = "com.ytk.hub"
+_HUB_PLIST = Path.home() / "Library" / "LaunchAgents" / f"{_HUB_LABEL}.plist"
+
+
+def _hub_addr() -> tuple[str, int]:
+    cfg = load_config()
+    return cfg.hub.host, cfg.hub.port
+
+
+@cli.group(name="ui", invoke_without_command=True)
+@click.option("--host", default=None, help="Bind address (default: hub.host from config).")
+@click.option("--port", default=None, type=int, help="Port (default: hub.port from config).")
 @click.option("--reload", is_flag=True, default=False, help="Auto-reload on code changes (dev).")
-def ui(host: str, port: int, reload: bool):
-    """Start the local vault chat UI in your browser."""
+@click.pass_context
+def ui(ctx, host: str | None, port: int | None, reload: bool):
+    """Run the hub in the foreground, or manage the background daemon."""
+    if ctx.invoked_subcommand is not None:
+        return
     import uvicorn
-    console.print(f"[bold cyan]ytk vault UI[/]  http://{host}:{port}")
+
+    chost, cport = _hub_addr()
+    host, port = host or chost, port or cport
+    console.print(f"[bold cyan]ytk hub[/]  http://{host}:{port}")
     console.print("[dim]Ctrl-C to stop[/]")
     uvicorn.run(
         "ytk.ui.server:app",
@@ -1782,6 +1797,91 @@ def ui(host: str, port: int, reload: bool):
         reload=reload,
         log_level="warning",
     )
+
+
+@ui.command(name="install")
+def ui_install():
+    """Install the hub as an always-on launchd agent (KeepAlive, boots with you)."""
+    ytk_bin = shutil.which("ytk")
+    if not ytk_bin:
+        console.print("[red]ytk binary not found in PATH.[/] Run [bold]uv tool install .[/] first.")
+        raise SystemExit(1)
+    host, port = _hub_addr()
+    log_path = Path.home() / ".ytk" / "logs" / "hub.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    _HUB_PLIST.parent.mkdir(parents=True, exist_ok=True)
+    _HUB_PLIST.write_text(f"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{_HUB_LABEL}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{ytk_bin}</string>
+        <string>ui</string>
+    </array>
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{log_path}</string>
+    <key>StandardErrorPath</key>
+    <string>{log_path}</string>
+</dict>
+</plist>
+""", encoding="utf-8")
+    subprocess.run(["launchctl", "unload", str(_HUB_PLIST)], check=False,
+                   capture_output=True)
+    subprocess.run(["launchctl", "load", str(_HUB_PLIST)], check=True)
+    console.print(f"[bold green]Installed:[/] {_HUB_PLIST}")
+    console.print(f"Hub always on at [bold]http://{host}:{port}[/]  Logs: {log_path}")
+
+
+@ui.command(name="uninstall")
+def ui_uninstall():
+    """Remove the hub launchd agent."""
+    if not _HUB_PLIST.exists():
+        console.print("[yellow]No hub plist found.[/] Nothing to uninstall.")
+        return
+    subprocess.run(["launchctl", "unload", str(_HUB_PLIST)], check=False)
+    _HUB_PLIST.unlink()
+    console.print(f"[bold green]Uninstalled:[/] {_HUB_PLIST}")
+
+
+@ui.command(name="restart")
+def ui_restart():
+    """Restart the hub daemon (picks up code and config changes)."""
+    r = subprocess.run(
+        ["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{_HUB_LABEL}"],
+        capture_output=True, text=True,
+    )
+    if r.returncode:
+        console.print(f"[red]kickstart failed:[/] {r.stderr.strip() or 'agent not loaded?'} "
+                      "Run [bold]ytk ui install[/] first.")
+        raise SystemExit(1)
+    host, port = _hub_addr()
+    console.print(f"[bold green]Hub restarted[/] at http://{host}:{port}")
+
+
+@ui.command(name="status")
+def ui_status():
+    """Show whether the hub daemon is loaded and responding."""
+    import urllib.request
+
+    host, port = _hub_addr()
+    loaded = subprocess.run(
+        ["launchctl", "list", _HUB_LABEL], capture_output=True
+    ).returncode == 0
+    console.print(f"launchd agent: {'[green]loaded[/]' if loaded else '[red]not loaded[/]'}")
+    try:
+        urllib.request.urlopen(f"http://{host}:{port}/api/tags", timeout=3)
+        console.print(f"hub: [green]responding[/] at http://{host}:{port}")
+    except Exception as exc:
+        console.print(f"hub: [red]not responding[/] on port {port} ({exc})")
 
 
 @cli.command(name="chat")

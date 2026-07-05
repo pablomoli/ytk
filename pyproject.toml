@@ -25,12 +25,11 @@ dependencies = [
     "uvicorn[standard]>=0.44.0",
     "scikit-learn>=1.8.0",
     "numpy>=1.26.4",
-    "umap-learn>=0.5.12",
 ]
 
 [project.optional-dependencies]
 graph = ["graspologic"]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "umap-learn>=0.5.12"]
 
 [project.scripts]
 ytk = "ytk.cli:cli"
