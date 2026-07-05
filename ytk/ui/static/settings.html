@@ -36,6 +36,7 @@
   .btn:active { transform: scale(.97); }
   .btn.primary { background: #e2b04a; color: #241a05; font-weight: 600; }
   .btn.small { padding: .2rem .55rem; }
+  .btn.armed { background: #e2b04a; color: #241a05; font-weight: 600; }
   .emsg { color: #e0785a; margin-left: .3rem; }
   .note { color: #888; }
   .pill { color: #888; }
@@ -172,6 +173,19 @@ function markDirty() {
 
 function say(msg, cls) { const el = $("#savemsg"); el.textContent = msg; el.className = cls || ""; }
 
+// two-step confirm: first click arms the button ("sure?"), second executes,
+// 2.5s of nothing disarms — a modal would be overkill here
+function armed(btn, fn) {
+  btn.onclick = () => {
+    if (btn.dataset.armed) { delete btn.dataset.armed; clearTimeout(btn._t);
+      btn.classList.remove("armed"); btn.innerHTML = btn._label; fn(); return; }
+    btn._label = btn.innerHTML; btn.dataset.armed = "1";
+    btn.classList.add("armed"); btn.textContent = "sure?";
+    btn._t = setTimeout(() => { delete btn.dataset.armed;
+      btn.classList.remove("armed"); btn.innerHTML = btn._label; }, 2500);
+  };
+}
+
 function clearErrors() {
   $$(".err").forEach(el => el.classList.remove("err"));
   $$(".emsg").forEach(el => el.remove());
@@ -270,7 +284,7 @@ function renderRules() {
       [rules[i], rules[j]] = [rules[j], rules[i]];
       renderRules(); markDirty();
     });
-    row.querySelector("[data-del]").onclick = () => { rules.splice(i, 1); renderRules(); markDirty(); };
+    armed(row.querySelector("[data-del]"), () => { rules.splice(i, 1); renderRules(); markDirty(); });
   });
 }
 
@@ -288,15 +302,15 @@ $("#presetsave").onclick = () => {
   cfg.map.presets[name] = JSON.parse(JSON.stringify(cfg.map.color_rules));
   $("#presetname").value = ""; renderPresets(); $("#presetsel").value = name; markDirty();
 };
-$("#presetload").onclick = () => {
+armed($("#presetload"), () => {
   const name = $("#presetsel").value; if (!name) return;
   cfg.map.color_rules = JSON.parse(JSON.stringify(cfg.map.presets[name]));
   renderRules(); markDirty();
-};
-$("#presetdel").onclick = () => {
+});
+armed($("#presetdel"), () => {
   const name = $("#presetsel").value; if (!name) return;
   delete cfg.map.presets[name]; renderPresets(); markDirty();
-};
+});
 
 $("#pullnow").onclick = async () => {
   $("#pullmsg").textContent = "pulling…";
@@ -344,8 +358,8 @@ $("#save").onclick = async () => {
   $("#savebar").classList.add("on");
   setTimeout(() => { if (JSON.stringify(cfg) === saved) $("#savebar").classList.remove("on"); }, 2500);
 };
-$("#revert").onclick = () => { cfg = JSON.parse(saved); clearErrors();
-  bindInputs(); renderCadence(); renderRules(); renderPresets(); $("#savebar").classList.remove("on"); };
+armed($("#revert"), () => { cfg = JSON.parse(saved); clearErrors();
+  bindInputs(); renderCadence(); renderRules(); renderPresets(); $("#savebar").classList.remove("on"); });
 
 (async () => {
   const s = await fetch("/api/settings").then(r => r.json());
