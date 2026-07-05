@@ -238,13 +238,24 @@ def transcribe(wav_path: Path, model_name: str) -> str:
     return " ".join(s.text.strip() for s in segments).strip()
 
 
+def _which(name: str) -> str | None:
+    """shutil.which with a homebrew fallback — background workers spawned from
+    tmux popups can carry a PATH without /opt/homebrew/bin."""
+    found = shutil.which(name)
+    if found:
+        return found
+    brew = Path("/opt/homebrew/bin") / name
+    return str(brew) if brew.exists() else None
+
+
 def _terminal_visible() -> bool | None:
     """True/False via AeroSpace; None if aerospace is unavailable."""
-    if shutil.which("aerospace") is None:
+    aerospace = _which("aerospace")
+    if aerospace is None:
         return None
     try:
         out = subprocess.run(
-            ["aerospace", "list-windows", "--workspace", "visible",
+            [aerospace, "list-windows", "--workspace", "visible",
              "--format", "%{app-name}"],
             capture_output=True, text=True, timeout=2,
         )
@@ -265,8 +276,12 @@ def _fire(backend: str, summary: str, kind: str) -> bool:
                        f"RESULT={summary}", f"ROUTE={kind}"],
     }
     cmd = cmds.get(backend)
-    if cmd is None or shutil.which(cmd[0]) is None:
+    if cmd is None:
         return False
+    exe = _which(cmd[0])
+    if exe is None:
+        return False
+    cmd = [exe] + cmd[1:]
     try:
         subprocess.run(cmd, capture_output=True, timeout=3)
         return True

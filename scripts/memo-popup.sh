@@ -49,5 +49,5 @@ if [ ! -s "$OUT" ]; then
   exit 1
 fi
 
-nohup "$YTK" memo --from-audio "$OUT" >/dev/null 2>&1 &
+env -u TMUX nohup "$YTK" memo --from-audio "$OUT" >/dev/null 2>&1 &
 mark BG_WORKER_SPAWNED
