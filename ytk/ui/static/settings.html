@@ -77,6 +77,20 @@
 </header>
 
 <div id="wrap">
+  <details data-sec="help">
+    <summary>How this fits together</summary>
+    <div class="body">
+      <p class="note" style="margin-top:0">Full doc with example setups: <code>docs/settings.md</code> in the repo.</p>
+      <p>There is <strong>one tag namespace</strong> — the <code>tags:</code> frontmatter on every note. Three settings touch it in different ways:</p>
+      <ul style="line-height:1.55; margin:.3rem 0 .6rem; padding-left:1.2rem">
+        <li><strong>hub tags</strong> — the chips you tap in /inbox at queue time. An input shortcut: tapped chips are written into the note's tags, same field as everything else. Vocabulary of intent (<em>build-idea</em>, <em>reference</em>), not topics.</li>
+        <li><strong>enrichment tags</strong> — the ~400-strong open vocabulary Haiku coins per note. Not configured here; gardened after the fact in /tags, whose merge decisions hold forever via the alias map.</li>
+        <li><strong>interest tags</strong> (Ingest filters) — the only one that can <em>reject content</em>: non-empty means a video is refused unless enrichment tagged one of these. Empty = allow all, curate in the queue instead.</li>
+      </ul>
+      <p class="note">Interest model settings shape <code>ytk profile</code> synthesis; map color rules are consumed by /map; fetch cadence throttles the auto-pull that runs on page loads.</p>
+    </div>
+  </details>
+
   <details data-sec="hub" open>
     <summary>Hub</summary>
     <div class="body">
@@ -203,7 +217,9 @@ function clearErrors() {
 // --- collapsible sections, state remembered per section --------------------
 $$("details[data-sec]").forEach(d => {
   const key = "ytk-settings-open-" + d.dataset.sec;
-  if (localStorage.getItem(key) === "0") d.open = false;
+  const stored = localStorage.getItem(key);
+  if (stored === "0") d.open = false;
+  else if (stored === "1") d.open = true;
   d.addEventListener("toggle", () => localStorage.setItem(key, d.open ? "1" : "0"));
 });
 
