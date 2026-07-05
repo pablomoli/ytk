@@ -22,11 +22,14 @@
   canvas { position: absolute; inset: 0; cursor: grab; }
   canvas.dragging { cursor: grabbing; }
   #labels { position: absolute; inset: 0; pointer-events: none; }
-  #labels .lb { position: absolute; transform: translate(-50%, -50%); color: #ddd;
-    text-shadow: 0 1px 6px #000; white-space: nowrap; transition: opacity .25s; }
+  #labels .lb { position: absolute; transform: translate(-50%, -50%); color: #9b9b93;
+    text-shadow: 0 1px 6px #000; white-space: nowrap; transition: opacity .25s;
+    text-transform: uppercase; letter-spacing: .08em; font-weight: 500; }
 
   #legend { position: fixed; left: 1rem; bottom: 1rem; z-index: 4;
-    display: flex; flex-direction: column; gap: .25rem; max-height: 45vh; overflow-y: auto; }
+    display: flex; flex-direction: column; gap: .25rem; max-height: 40vh; overflow-y: auto; }
+  #legend .row, #legend .more { font-size: 12.5px; }
+  #legend .more { color: #7dd3fc; cursor: pointer; padding-top: .15rem; }
   #legend .row { display: flex; align-items: center; gap: .5rem; cursor: pointer; color: #ddd; }
   #legend .row.off { opacity: .3; }
   #legend .dot { width: 8px; height: 8px; border-radius: 999px; flex: none; }
@@ -150,7 +153,7 @@ function buildBuffers() {
 
   pts.forEach((p, i) => {
     const isC = p.cx !== undefined;
-    const a0 = Math.min(1, 1.6 / Math.sqrt(dens[cell(p)])) * (p.g < 0 ? 0.35 : 0.9);
+    const a0 = Math.max(0.55, Math.min(1, 2.2 / Math.sqrt(dens[cell(p)]))) * (p.g < 0 ? 0.4 : 1);
     const s = slot[p.g] ?? -1;
     const col0 = p.g < 0 || s < 0 ? hex(GRAY) : hex(PALETTE[s]);
     const col1 = isC && p.th >= 0 ? hex(PALETTE[p.th % 8]) : hex(GRAY);
@@ -254,12 +257,17 @@ function placeLabels() {
   el.innerHTML = '';
   const placed = [];
   const order = groups.map((g, i) => [i, g]).sort((a, b) => b[1].n - a[1].n);
-  for (const [i, g] of order) {
-    if (!g.n || groupAlpha[base + i] < 0.5) continue;
+  order.forEach(([i, g], rank) => {
+    if (!g.n || groupAlpha[base + i] < 0.5) return;
     let [x, y] = worldToScreen(g.x, g.y);
-    if (x < 0 || y < 40 || x > innerWidth || y > innerHeight) continue;
-    const size = Math.max(12, Math.min(19, 11 + Math.sqrt(g.n) * 0.5));
-    const w = g.label.length * size * 0.55;
+    if (x < 0 || y < 40 || x > innerWidth || y > innerHeight) return;
+    // a label earns its place: cluster must occupy real screen space,
+    // unless it is one of the few largest groups
+    const spread = (g.rad || 0.05) * cam.s * innerHeight / 2;
+    if (rank >= 6 && spread < 70) return;
+    const alpha = rank < 6 ? 0.9 : Math.min(0.9, (spread - 70) / 120 + 0.35);
+    const size = Math.max(10, Math.min(14, 9 + Math.sqrt(g.n) * 0.25));
+    const w = g.label.length * size * 0.72;
     for (let k = 0; k < 10; k++) {
       if (!placed.some(q => Math.abs(q.y - y) < size + 8 && Math.abs(q.x - x) < (q.w + w) / 2 + 10)) break;
       y += size + 8;
@@ -267,10 +275,10 @@ function placeLabels() {
     placed.push({ x, y, w });
     const d = document.createElement('div');
     d.className = 'lb';
-    d.style.cssText = `left:${x}px;top:${y}px;font-size:${size}px;opacity:${Math.min(1, 2 - cam.s * 0.35)}`;
+    d.style.cssText = `left:${x}px;top:${y}px;font-size:${size}px;opacity:${alpha}`;
     d.textContent = g.label;
     el.appendChild(d);
-  }
+  });
 }
 
 // --- picking (uniform grid over the active layout) -------------------------
@@ -357,6 +365,7 @@ function setView(v) {
     `${v === 'content' ? pts.filter(x => x.cx !== undefined).length : pts.length} notes · trust ${p.trustworthiness.toFixed(2)} · sil ${p.silhouette.toFixed(2)}`;
   dirty = true;
 }
+let legendOpen = false;
 function buildLegend() {
   const el = document.getElementById('legend');
   const groups = view === 'content' ? DATA.content.groups : DATA.all.groups;
@@ -364,16 +373,23 @@ function buildLegend() {
   const color = i => view === 'content'
     ? PALETTE[i % 8]
     : (DATA.slot[i] ?? -1) >= 0 ? PALETTE[DATA.slot[i]] : GRAY;
-  el.innerHTML = groups.map((g, i) => g.n
-    ? `<div class="row${groupAlpha[base + i] < 0.5 ? ' off' : ''}" data-i="${i}">
-        <span class="dot" style="background:${color(i)}"></span>${esc(g.label)}
-        <span class="n">${g.n}</span></div>` : '').join('');
+  const order = groups.map((g, i) => [i, g]).filter(([, g]) => g.n)
+    .sort((a, b) => b[1].n - a[1].n);
+  const shown = legendOpen ? order : order.slice(0, 8);
+  el.innerHTML = shown.map(([i, g]) =>
+    `<div class="row${groupAlpha[base + i] < 0.5 ? ' off' : ''}" data-i="${i}">
+      <span class="dot" style="background:${color(i)}"></span>${esc(g.label)}
+      <span class="n">${g.n}</span></div>`).join('')
+    + (order.length > 8
+      ? `<div class="more">${legendOpen ? 'less' : '+ ' + (order.length - 8) + ' more'}</div>` : '');
   el.querySelectorAll('.row').forEach(r => r.addEventListener('click', () => {
     const i = base + +r.dataset.i;
     groupAlpha[i] = groupAlpha[i] < 0.5 ? 1 : 0;
     r.classList.toggle('off');
     dirty = true;
   }));
+  const more = el.querySelector('.more');
+  if (more) more.addEventListener('click', () => { legendOpen = !legendOpen; buildLegend(); });
 }
 document.querySelectorAll('#views [data-v]').forEach(b =>
   b.addEventListener('click', () => setView(b.dataset.v)));
@@ -384,8 +400,24 @@ document.getElementById('sigchip').addEventListener('click', function () {
   dirty = true;
 });
 
+function computeSpreads() {
+  const acc = (groups, pos, idx) => {
+    const s = groups.map(() => ({ n: 0, d: 0 }));
+    for (const p of pts) {
+      const i = idx(p);
+      if (i === undefined || i < 0 || !groups[i]) continue;
+      const [x, y] = pos(p);
+      s[i].n++; s[i].d += (x - groups[i].x) ** 2 + (y - groups[i].y) ** 2;
+    }
+    groups.forEach((g, i) => g.rad = s[i].n ? Math.sqrt(s[i].d / s[i].n) : 0);
+  };
+  acc(DATA.all.groups, p => [p.x, p.y], p => p.g);
+  acc(DATA.content.groups, p => [p.cx, p.cy], p => p.cx !== undefined ? p.th : -1);
+}
+
 fetch('/api/map').then(r => r.json()).then(d => {
   DATA = d; pts = d.points;
+  computeSpreads();
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
   tgt.x = cam.x = (Math.min(...xs) + Math.max(...xs)) / 2;
   tgt.y = cam.y = (Math.min(...ys) + Math.max(...ys)) / 2;
