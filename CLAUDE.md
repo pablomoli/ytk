@@ -11,6 +11,8 @@ The ytk MCP server is registered globally. At the start of every session:
 
 Use `vault_search("query")` to retrieve any past decision, session brief, or memory.
 
+Then read `docs/llm-operating-guide.md` — the vault contract: what goes where, which MCP tool for which job, when NOT to write a note, and session rituals. It overrides habit.
+
 ---
 
 ## Git hygiene (non-negotiable)
