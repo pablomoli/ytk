@@ -18,12 +18,24 @@ SETTINGS_PATH = Path.home() / ".ytk" / "instagram_session.json"
 
 @dataclass
 class ReelItem:
-    """A discovered link plus whatever metadata the DM share payload carried."""
+    """A queued link plus whatever metadata its discovery source carried."""
 
     url: str
-    author: str | None = None       # reel author's username, not the sender
-    shared_at: str | None = None    # YYYY-MM-DD the message was sent
+    author: str | None = None       # content author's username, not the sender
+    shared_at: str | None = None    # YYYY-MM-DD the item entered the queue
     preview_url: str | None = None  # cover image (signed CDN URL, expires)
+    source: str = "instagram"       # instagram | tiktok | youtube | web
+
+
+def classify_url(url: str) -> str:
+    """Classify a URL into an ingest source (mirrors the `add` CLI dispatch)."""
+    if re.search(r"instagram\.com/", url):
+        return "instagram"
+    if re.search(r"tiktok\.com/", url):
+        return "tiktok"
+    if re.search(r"(?:youtube\.com/|youtu\.be/)", url):
+        return "youtube"
+    return "web"
 
 
 def _as_item(entry) -> ReelItem:
@@ -31,13 +43,33 @@ def _as_item(entry) -> ReelItem:
     if isinstance(entry, ReelItem):
         return entry
     if isinstance(entry, str):
-        return ReelItem(url=entry)
+        return ReelItem(url=entry, source=classify_url(entry))
     return ReelItem(
         url=entry["url"],
         author=entry.get("author"),
         shared_at=entry.get("shared_at"),
         preview_url=entry.get("preview_url"),
+        source=entry.get("source") or classify_url(entry["url"]),
     )
+
+
+def add_urls(state: "ReelsState", urls: list[str]) -> list[ReelItem]:
+    """Append pasted URLs to the pending queue, classified and deduped.
+
+    Returns the items actually added (dupes against the queue and within the
+    input are dropped).
+    """
+    known = {_as_item(e).url for e in state.pending}
+    added: list[ReelItem] = []
+    for url in urls:
+        url = url.strip()
+        if not url or url in known:
+            continue
+        known.add(url)
+        item = ReelItem(url=url, source=classify_url(url))
+        added.append(item)
+        state.pending.append(item)
+    return added
 
 
 @dataclass

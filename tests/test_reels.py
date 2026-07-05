@@ -613,3 +613,58 @@ def test_gallery_cards_select_and_link_separately():
     assert 'class="open"' in html            # explicit open-reel link per card
     assert "navigator.clipboard" in html     # copy-selection support
     assert 'id="selbar"' in html             # sticky selection bar
+
+
+# --- source-agnostic queue (ingest hub) -----------------------------------------
+
+
+def test_classify_url_sources():
+    from ytk.reels import classify_url
+
+    assert classify_url("https://www.instagram.com/reel/abc/") == "instagram"
+    assert classify_url("https://www.instagram.com/p/abc/") == "instagram"
+    assert classify_url("https://www.tiktok.com/@user/video/123") == "tiktok"
+    assert classify_url("https://vm.tiktok.com/ZMabc/") == "tiktok"
+    assert classify_url("https://www.youtube.com/watch?v=abc") == "youtube"
+    assert classify_url("https://youtu.be/abc") == "youtube"
+    assert classify_url("https://www.youtube.com/shorts/abc") == "youtube"
+    assert classify_url("https://example.com/article") == "web"
+
+
+def test_add_urls_appends_classified_items_with_dedupe():
+    from ytk.reels import ReelItem, add_urls
+
+    state = ReelsState(pending=[ReelItem(url="https://youtu.be/abc", source="youtube")])
+    added = add_urls(
+        state,
+        [
+            "https://youtu.be/abc",                      # dup vs pending
+            "https://www.tiktok.com/@u/video/1",
+            "https://www.tiktok.com/@u/video/1",         # dup within input
+            "https://example.com/post",
+        ],
+    )
+    assert [i.url for i in added] == [
+        "https://www.tiktok.com/@u/video/1",
+        "https://example.com/post",
+    ]
+    assert [i.source for i in added] == ["tiktok", "web"]
+    assert len(state.pending) == 3
+
+
+def test_item_source_round_trip_and_legacy_classification(tmp_path):
+    from ytk.reels import ReelItem
+
+    path = tmp_path / "reels_state.json"
+    save_state(
+        ReelsState(
+            pending=[
+                ReelItem(url="https://youtu.be/abc", source="youtube"),
+                "https://www.tiktok.com/@u/video/1",     # legacy bare string
+            ]
+        ),
+        path,
+    )
+    loaded = load_state(path)
+    assert loaded.pending[0].source == "youtube"
+    assert loaded.pending[1].source == "tiktok"          # classified on migration
