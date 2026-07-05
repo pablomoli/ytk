@@ -32,12 +32,11 @@ def test_interpret_clamps_to_candidates(monkeypatch, brain):
     """Hallucinated stems/slugs are dropped; links capped at MAX_LINKS."""
     (brain / "inbox" / "memories" / "proj-a").mkdir(parents=True)
     monkeypatch.setattr(directives, "_candidate_stems", lambda t, n=8: ["real-note"])
-    monkeypatch.setattr(directives, "_route_via_api", lambda *a: {
+    monkeypatch.setattr("ytk.sdk.run_structured", lambda *a, **k: {
         "is_directive": True,
         "wikilinks": ["real-note", "made-up-note", "another-fake"],
         "project": "made-up-project",
     })
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
     d = directives.interpret("link this to proj-a")
     assert d.wikilinks == ["real-note"]
@@ -47,10 +46,9 @@ def test_interpret_clamps_to_candidates(monkeypatch, brain):
 def test_interpret_all_hallucinated_means_no_directive(monkeypatch, brain):
     (brain / "inbox" / "memories" / "proj-a").mkdir(parents=True)
     monkeypatch.setattr(directives, "_candidate_stems", lambda t, n=8: ["real-note"])
-    monkeypatch.setattr(directives, "_route_via_api", lambda *a: {
+    monkeypatch.setattr("ytk.sdk.run_structured", lambda *a, **k: {
         "is_directive": True, "wikilinks": ["fake"], "project": "also-fake",
     })
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
     assert directives.interpret("link this to nothing").is_directive is False
 

@@ -1,15 +1,26 @@
-"""Thin wrapper around the Claude Agent SDK for structured one-shot enrichment.
+"""All ytk LLM transport lives here.
 
-All ytk LLM calls go through `run_structured`. It uses the user's Claude Code
-subscription auth (via the Agent SDK) rather than direct Anthropic API credits.
+Two entry points:
 
-The helper is synchronous from the caller's perspective — each call spins up its
-own event loop via `asyncio.run`. That's fine for ytk's click-CLI call sites.
+- `structured(system, user, Result)` — schema-forced classification returning a
+  validated Pydantic instance. This is the front door for every cheap Haiku
+  pass (memo routing, triage, directive interpretation, future classifiers).
+  Dual-path: direct Anthropic API (~1.5s) when ANTHROPIC_API_KEY is set,
+  otherwise the Agent SDK subprocess (~10s) on Claude Code subscription auth.
+- `run_structured(...)` — the raw Agent SDK call. Enrichment uses it directly
+  because `add_dirs` (mounting frame/slide folders) only exists on the SDK
+  path; everything else should prefer `structured`.
+
+The helpers are synchronous from the caller's perspective — each call spins up
+its own event loop via `asyncio.run`. That's fine for ytk's click-CLI call
+sites.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
+import os
 import shutil
 from pathlib import Path
 
@@ -18,6 +29,70 @@ from claude_agent_sdk import (
     ClaudeSDKClient,
     ResultMessage,
 )
+from pydantic import BaseModel
+
+log = logging.getLogger(__name__)
+
+_FAST_MODEL = "claude-haiku-4-5"
+
+
+def structured[R: BaseModel](
+    system_prompt: str,
+    user_prompt: str,
+    result: type[R],
+    *,
+    model: str = _FAST_MODEL,
+    max_input_chars: int = 20_000,
+) -> R:
+    """Schema-forced one-shot classification; returns a validated `result`.
+
+    Fast path: direct API when ANTHROPIC_API_KEY is set. Fallback (and the
+    normal path on subscription-only auth): Agent SDK subprocess.
+    """
+    schema = result.model_json_schema()
+    user_prompt = user_prompt[:max_input_chars]
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if api_key:
+        try:
+            data = _structured_via_api(system_prompt, user_prompt, schema, api_key, model)
+            return result.model_validate(data)
+        except Exception:
+            log.warning("direct API call failed; falling back to Agent SDK", exc_info=True)
+    data = run_structured(system_prompt, user_prompt, schema, model=model)
+    return result.model_validate(data)
+
+
+def _structured_via_api(
+    system: str, user: str, schema: dict, api_key: str, model: str
+) -> dict:
+    """Direct Anthropic API call with forced tool-use for structured output.
+    ~1.5s round-trip vs ~11s for a Claude Code CLI subprocess; classification
+    payloads are small, so the credit cost is negligible unlike enrichment."""
+    import json
+    import urllib.request
+
+    body = json.dumps({
+        "model": model,
+        "max_tokens": 1024,
+        "system": system,
+        "messages": [{"role": "user", "content": user}],
+        "tools": [{"name": "emit_result", "description": "Emit the classification.",
+                   "input_schema": schema}],
+        "tool_choice": {"type": "tool", "name": "emit_result"},
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=body,
+        headers={"content-type": "application/json",
+                 "x-api-key": api_key,
+                 "anthropic-version": "2023-06-01"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        payload = json.loads(resp.read())
+    for block in payload.get("content", []):
+        if block.get("type") == "tool_use":
+            return block["input"]
+    raise RuntimeError(f"no tool_use block in response: {payload.get('stop_reason')}")
 
 # The Agent SDK's _find_cli() prefers its own bundled `claude` binary over the
 # system one. The bundled binary does not share the user's OAuth credentials,

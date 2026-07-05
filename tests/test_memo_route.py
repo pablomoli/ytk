@@ -1,4 +1,4 @@
-"""route() classifies a transcript via run_structured (mocked here)."""
+"""route() classifies a transcript via sdk.structured (SDK path mocked here)."""
 
 from unittest.mock import patch
 
@@ -6,7 +6,7 @@ from ytk.memo import MemoResult, route
 
 
 def _fake_structured(payload):
-    return patch("ytk.memo.run_structured", return_value=payload)
+    return patch("ytk.sdk.run_structured", return_value=payload)
 
 
 def test_route_memory_kind():

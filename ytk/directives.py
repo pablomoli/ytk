@@ -19,15 +19,13 @@ user text is never rewritten or deleted.
 from __future__ import annotations
 
 import logging
-import os
 import re
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from . import store, vault
-from .memo import _route_via_api
-from .sdk import run_structured
+from .sdk import structured
 
 log = logging.getLogger(__name__)
 
@@ -101,17 +99,7 @@ def interpret(thought: str) -> Directive:
         "CANDIDATE NOTES:\n" + "\n".join(f"- {s}" for s in candidates)
         + "\n\nPROJECT SLUGS:\n" + "\n".join(f"- {s}" for s in slugs)
     )
-    schema = Directive.model_json_schema()
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    data = None
-    if api_key:
-        try:
-            data = _route_via_api(system, prompt, schema, api_key)
-        except Exception:
-            log.warning("directive API pass failed; falling back to SDK", exc_info=True)
-    if data is None:
-        data = run_structured(system, prompt, schema, model="claude-haiku-4-5")
-    d = Directive.model_validate(data)
+    d = structured(system, prompt, Directive)
 
     # trust nothing outside the candidate lists
     d.wikilinks = [w for w in d.wikilinks if w in candidates][:MAX_LINKS]

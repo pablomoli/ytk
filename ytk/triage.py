@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from .sdk import run_structured
+from .sdk import structured
 
 
 _SYSTEM_TRIAGE_BASE = """\
@@ -46,11 +46,4 @@ class TriageResult(BaseModel):
 def extract_action_items(note_text: str, repos: list[str] | None = None) -> list[ActionItem]:
     """Extract structured action items from a vault note via Claude Code."""
     repo_hint = f"\nAvailable GitHub repos: {', '.join(repos)}\n" if repos else ""
-    system = _SYSTEM_TRIAGE_BASE + repo_hint
-
-    data = run_structured(
-        system,
-        note_text[:20_000],
-        TriageResult.model_json_schema(),
-    )
-    return TriageResult.model_validate(data).items
+    return structured(_SYSTEM_TRIAGE_BASE + repo_hint, note_text, TriageResult).items

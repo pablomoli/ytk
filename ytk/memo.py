@@ -12,14 +12,13 @@ import re
 import shutil
 import subprocess
 from datetime import datetime
-import logging
 import time
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from .sdk import run_structured
+from .sdk import structured
 from .store import upsert_memory
 from .triage import ActionItem
 from .vault import _get_brain_path, remember
@@ -60,61 +59,10 @@ class MemoResult(BaseModel):
     items: list[ActionItem] = Field(default_factory=list)
 
 
-_ROUTE_MODEL = "claude-haiku-4-5"
-
-
-def _route_via_api(system: str, transcript: str, schema: dict, api_key: str) -> dict:
-    """Direct Anthropic API call with forced tool-use for structured output.
-    ~1.5s round-trip vs ~11s for a Claude Code CLI subprocess; a memo route is
-    ~600 tokens, so the credit cost is negligible unlike enrichment."""
-    import json
-    import urllib.request
-
-    body = json.dumps({
-        "model": _ROUTE_MODEL,
-        "max_tokens": 1024,
-        "system": system,
-        "messages": [{"role": "user", "content": transcript}],
-        "tools": [{"name": "route_memo", "description": "Classify the memo.",
-                   "input_schema": schema}],
-        "tool_choice": {"type": "tool", "name": "route_memo"},
-    }).encode()
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=body,
-        headers={"content-type": "application/json",
-                 "x-api-key": api_key,
-                 "anthropic-version": "2023-06-01"},
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        payload = json.loads(resp.read())
-    for block in payload.get("content", []):
-        if block.get("type") == "tool_use":
-            return block["input"]
-    raise RuntimeError(f"no tool_use block in response: {payload.get('stop_reason')}")
-
-
 def route(transcript: str, repos: list[str] | None = None) -> MemoResult:
-    """Classify a memo transcript. One primary kind per memo (v1).
-
-    Fast path: direct API (Haiku) when ANTHROPIC_API_KEY is set.
-    Fallback: Claude Code subprocess on subscription auth."""
+    """Classify a memo transcript. One primary kind per memo (v1)."""
     repo_hint = f"\nAvailable GitHub repos: {', '.join(repos)}\n" if repos else ""
-    schema = MemoResult.model_json_schema()
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if api_key:
-        try:
-            data = _route_via_api(_SYSTEM_MEMO + repo_hint, transcript[:20_000], schema, api_key)
-            return MemoResult.model_validate(data)
-        except Exception:
-            logging.getLogger(__name__).warning("API route failed; falling back to SDK", exc_info=True)
-    data = run_structured(
-        _SYSTEM_MEMO + repo_hint,
-        transcript[:20_000],
-        schema,
-        model="claude-haiku-4-5",
-    )
-    return MemoResult.model_validate(data)
+    return structured(_SYSTEM_MEMO + repo_hint, transcript, MemoResult)
 
 
 def write_memo_note(transcript: str, audio_path: Path | None) -> Path:

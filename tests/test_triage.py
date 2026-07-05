@@ -19,7 +19,7 @@ def test_extract_returns_items():
             }
         ]
     }
-    with patch("ytk.triage.run_structured", return_value=fake):
+    with patch("ytk.sdk.run_structured", return_value=fake):
         items = extract_action_items("Fix the settings page drawer for Epic Map.")
     assert len(items) == 1
     assert items[0].title == "Fix settings page drawer layout"
@@ -28,7 +28,7 @@ def test_extract_returns_items():
 
 
 def test_extract_returns_empty_list():
-    with patch("ytk.triage.run_structured", return_value={"items": []}):
+    with patch("ytk.sdk.run_structured", return_value={"items": []}):
         items = extract_action_items("Had a nice walk today.")
     assert items == []
 
@@ -69,7 +69,7 @@ def test_action_item_suggested_repo_set():
 
 
 def test_extract_passes_repos_to_system_prompt():
-    with patch("ytk.triage.run_structured", return_value={"items": []}) as mock_run:
+    with patch("ytk.sdk.run_structured", return_value={"items": []}) as mock_run:
         extract_action_items("note text", repos=["owner/repo-a", "owner/repo-b"])
     system_arg = mock_run.call_args.args[0]
     assert "owner/repo-a" in system_arg
@@ -77,7 +77,7 @@ def test_extract_passes_repos_to_system_prompt():
 
 
 def test_extract_no_repos_omits_hint():
-    with patch("ytk.triage.run_structured", return_value={"items": []}) as mock_run:
+    with patch("ytk.sdk.run_structured", return_value={"items": []}) as mock_run:
         extract_action_items("note text", repos=None)
     system_arg = mock_run.call_args.args[0]
     assert "Available GitHub repos" not in system_arg
