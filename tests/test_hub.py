@@ -139,6 +139,10 @@ def test_fresh_notes_lists_recent_with_thumbnails(hub):
     assert notes[0]["source"] == "instagram"
     assert notes[0]["thumbnail"] == "sources/instagram/cover.jpg"
     assert notes[-1]["stem"] == "older"
+    # 'added' reflects ingestion time (mtime) — the ordering key shown on cards
+    import datetime
+    assert notes[0]["added"] == datetime.date.today().isoformat()
+    assert notes[-1]["added"] == datetime.date.fromtimestamp(1).isoformat()
 
 
 # --- API endpoints ---------------------------------------------------------------

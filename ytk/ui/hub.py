@@ -160,17 +160,30 @@ def _worker(items: list[reels.ReelItem], bucket: str, thought: str) -> None:
 _FM_LINE = re.compile(r"^(url|title|type|date):\s*(.+)$", re.MULTILINE)
 
 
+def _ingested_at(p: Path) -> float:
+    """Best approximation of when a note entered the vault.
+
+    mtime alone is unreliable: iCloud sync, reindexing, and wikilink edits all
+    touch it. The earlier of creation time and mtime survives those.
+    """
+    st = p.stat()
+    birth = getattr(st, "st_birthtime", st.st_mtime)
+    return min(birth, st.st_mtime)
+
+
 def fresh_notes(n: int = 30) -> list[dict]:
-    """The most recently written source notes, newest first, with thumbnails."""
+    """The most recently ingested source notes, newest first, with thumbnails."""
     brain = vault._get_brain_path()
     sources = brain / "sources"
     if not sources.exists():
         return []
     files = sorted(
         sources.glob("**/*.md"),
-        key=lambda p: p.stat().st_mtime,
+        key=_ingested_at,
         reverse=True,
     )[:n]
+
+    from datetime import date
 
     out = []
     for md in files:
@@ -188,6 +201,7 @@ def fresh_notes(n: int = 30) -> list[dict]:
                 "url": meta.get("url"),
                 "source": meta.get("type", md.parent.name),
                 "date": meta.get("date"),
+                "added": date.fromtimestamp(_ingested_at(md)).isoformat(),
                 "thumbnail": thumb,
             }
         )

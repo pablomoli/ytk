@@ -30,7 +30,6 @@
 <header>
   <a href="/" class="here">fresh</a>
   <a href="/inbox">inbox</a>
-  <a href="/chat">chat</a>
   <span class="hint">recently ingested</span>
 </header>
 
@@ -70,7 +69,7 @@ async function load() {
         <div class="title">${esc(n.title)}</div>
         <div class="sub">
           <span class="src">${esc(n.source)}</span>
-          <span>${esc(n.date || "")}</span>
+          <span>added ${esc(n.added || "")}</span>
           ${n.url ? `<a href="${esc(n.url)}" target="_blank">open</a>` : ""}
         </div>
       </div>
