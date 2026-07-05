@@ -35,6 +35,8 @@ def classify_url(url: str) -> str:
         return "tiktok"
     if re.search(r"(?:youtube\.com/|youtu\.be/)", url):
         return "youtube"
+    if re.search(r"pinterest\.com/", url):
+        return "pinterest"
     return "web"
 
 
@@ -78,7 +80,7 @@ class ReelsState:
     last_seen_message_id: str | None = None
     pending: list = field(default_factory=list)  # list[ReelItem]
     last_pull_at: float | None = None            # ingest-hub auto-pull throttle
-    custom_buckets: list[str] = field(default_factory=list)  # UI-created buckets
+    custom_tags: list[str] = field(default_factory=list)  # UI-created tags
 
 
 _client_cache: dict[tuple[str, str], object] = {}
@@ -121,7 +123,7 @@ def load_state(path: Path = STATE_PATH) -> ReelsState:
         last_seen_message_id=raw.get("last_seen_message_id"),
         pending=[_as_item(e) for e in raw.get("pending", [])],
         last_pull_at=raw.get("last_pull_at"),
-        custom_buckets=raw.get("custom_buckets", []),
+        custom_tags=raw.get("custom_tags", raw.get("custom_buckets", [])),
     )
 
 

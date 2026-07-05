@@ -589,24 +589,60 @@ def write_tiktok_note(
     return note_path
 
 
-def annotate_note(note_path: Path, bucket: str, thought: str) -> None:
+def write_pinterest_note(pin, enrichment: Enrichment) -> Path:
+    """Write an Obsidian note for an ingested Pinterest pin. Returns the path."""
+    note_dir = _get_brain_path() / "sources" / "pinterest"
+    note_dir.mkdir(parents=True, exist_ok=True)
+
+    note_path = note_dir / f"pinterest-{pin.pin_id}.md"
+    if note_path.exists():
+        raise NoteAlreadyExists(note_path)
+
+    saved = _save_image(pin.image_url, note_dir / f"{pin.pin_id}-img")
+    brain = _get_brain_path()
+    image_paths_yaml = f"\n  - {saved.relative_to(brain)}" if saved else " []"
+
+    tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
+    concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
+    insights = "\n".join(f"- {i}" for i in enrichment.insights)
+
+    content = (
+        f"---\nurl: {pin.url}\ntitle: {enrichment.thesis}\n"
+        f"tags:\n{tags_yaml}\ntype: pinterest\n"
+        f"image_paths:{image_paths_yaml}\n---\n\n"
+    )
+    if saved:
+        content += f"![[{saved.name}]]\n\n"
+    if pin.title or pin.description:
+        content += f"> {pin.title}\n> {pin.description}\n\n"
+    content += (
+        f"## Summary\n{enrichment.summary}\n\n"
+        f"## Key Concepts\n{concepts}\n\n"
+        f"## Insights\n{insights}\n"
+    )
+
+    note_path.write_text(content, encoding="utf-8")
+    return note_path
+
+
+def annotate_note(note_path: Path, tags: list[str], thought: str) -> None:
     """Attach the user's ingest-hub annotation to a written note.
 
-    The bucket joins the frontmatter tags (so it embeds and filters like any
+    Each tag joins the frontmatter tags (so it embeds and filters like any
     interest tag); the thought lands in a `## My take` section. Idempotent on
-    the tag; repeated thoughts append under the same section.
+    tags; repeated thoughts append under the same section.
     """
     text = note_path.read_text(encoding="utf-8")
-    bucket = _normalize_tag(bucket) if bucket else ""
 
-    if bucket:
+    for tag in [_normalize_tag(t) for t in tags if t]:
         fm_end = text.index("---", 4) if text.startswith("---") else 0
         frontmatter = text[:fm_end]
-        if f"- {bucket}\n" not in frontmatter:
-            if re.search(r"^tags:", frontmatter, re.MULTILINE):
-                text = text.replace("tags:\n", f"tags:\n  - {bucket}\n", 1)
-            else:
-                text = text[:fm_end] + f"tags:\n  - {bucket}\n" + text[fm_end:]
+        if f"- {tag}\n" in frontmatter:
+            continue
+        if re.search(r"^tags:", frontmatter, re.MULTILINE):
+            text = text.replace("tags:\n", f"tags:\n  - {tag}\n", 1)
+        else:
+            text = text[:fm_end] + f"tags:\n  - {tag}\n" + text[fm_end:]
 
     if thought.strip():
         if "## My take" in text:
@@ -617,7 +653,7 @@ def annotate_note(note_path: Path, bucket: str, thought: str) -> None:
     note_path.write_text(text, encoding="utf-8")
 
 
-def append_daily_digest(note_path: Path, bucket: str, thought: str) -> Path:
+def append_daily_digest(note_path: Path, tags: list[str], thought: str) -> Path:
     """Append one wikilinked line for an annotated ingest to today's digest.
 
     Returns the digest path (inbox/review-YYYY-MM-DD.md, created on first use)
@@ -635,9 +671,12 @@ def append_daily_digest(note_path: Path, bucket: str, thought: str) -> Path:
     snippet = " ".join(thought.split())
     if len(snippet) > 80:
         snippet = snippet[:80].rstrip() + "..."
-    line = f"- [[{note_path.stem}]] (#{_normalize_tag(bucket)})" if bucket else f"- [[{note_path.stem}]]"
+    line = f"- [[{note_path.stem}]]"
+    hashtags = " ".join(f"#{_normalize_tag(t)}" for t in tags if t)
+    if hashtags:
+        line += f" ({hashtags})"
     if snippet:
-        line += f" — {snippet}"
+        line += f": {snippet}"
     with digest.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
     return digest

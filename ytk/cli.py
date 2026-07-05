@@ -108,6 +108,9 @@ def add(ctx: click.Context, url: str, force: bool):
     if re.search(r"tiktok\.com/", url):
         ctx.invoke(add_tiktok, url=url)
         return
+    if re.search(r"pinterest\.com/", url):
+        ctx.invoke(add_pinterest, url=url)
+        return
 
     cfg = load_config()
 
@@ -796,6 +799,63 @@ def add_instagram(url: str):
         console.print(f"\n[bold green]Note written:[/] {note_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "instagram_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
+        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
+        upsert_doc(doc_id, body, {
+            "doc_id": doc_id,
+            "tags": ", ".join(result.interest_tags),
+            "source_path": str(note_path),
+        })
+    except NoteAlreadyExists as exc:
+        console.print(f"\n[yellow]Note already exists:[/] {exc}")
+    except EnvironmentError as exc:
+        console.print(f"\n[yellow]Vault not configured:[/] {exc}")
+
+
+@cli.command(name="add-pinterest")
+@click.argument("url")
+def add_pinterest(url: str):
+    """Fetch a Pinterest pin, analyze the image with AI, and store in the vault."""
+    from .enrich import enrich_instagram
+    from .pinterest import fetch_pinterest
+    from .store import strip_frontmatter, upsert_doc
+    from .vault import NoteAlreadyExists, write_pinterest_note
+    from .vision import image_blocks
+
+    with console.status("[bold cyan]Fetching pin...[/]"):
+        try:
+            pin = fetch_pinterest(url)
+        except ValueError as exc:
+            console.print(f"[red]Fetch failed:[/] {exc}")
+            raise SystemExit(1)
+
+    info = Table.grid(padding=(0, 2))
+    info.add_column(style="bold cyan", no_wrap=True)
+    info.add_column()
+    info.add_row("Title", pin.title or "(untitled)")
+    if pin.description:
+        info.add_row("Description", pin.description[:120])
+    console.print(Panel(info, title="[bold]Pinterest Pin[/]", box=box.ROUNDED))
+
+    with console.status("[bold cyan]Analyzing image with AI...[/]"):
+        try:
+            blocks = image_blocks(urls=[pin.image_url], force_base64=True)
+            result = enrich_instagram(
+                caption=f"{pin.title}\n\n{pin.description}".strip(),
+                username="pinterest",
+                slide_count=1,
+                visual_blocks=blocks,
+            )
+        except Exception as exc:
+            console.print(f"[red]Enrichment failed:[/] {exc}")
+            raise SystemExit(1)
+
+    console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
+
+    try:
+        note_path = write_pinterest_note(pin, result)
+        console.print(f"\n[bold green]Note written:[/] {note_path}")
+        console.print(LINK_REMINDER, style="dim", markup=False)
+        doc_id = "pinterest_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(doc_id, body, {
             "doc_id": doc_id,

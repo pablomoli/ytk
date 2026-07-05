@@ -68,7 +68,7 @@ class QueueAddRequest(BaseModel):
 
 class IngestRequest(BaseModel):
     indices: list[int]
-    bucket: str = ""
+    tags: list[str] = []
     thought: str = ""
 
 
@@ -89,23 +89,23 @@ def queue_refresh_api(force: bool = False):
     return hub.refresh_sources(force=force)
 
 
-class BucketRequest(BaseModel):
+class TagRequest(BaseModel):
     name: str
 
 
-@app.get("/api/buckets")
-async def buckets_api():
+@app.get("/api/tags")
+async def tags_api():
     from ytk.ui import hub
 
-    return {"buckets": hub.bucket_list()}
+    return {"tags": hub.tag_list()}
 
 
-@app.post("/api/buckets")
-async def bucket_add_api(req: BucketRequest):
+@app.post("/api/tags")
+async def tag_add_api(req: TagRequest):
     from ytk.ui import hub
 
     try:
-        return {"buckets": hub.add_bucket(req.name)}
+        return {"tags": hub.add_tag(req.name)}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -125,7 +125,7 @@ async def ingest_api(req: IngestRequest):
     from ytk.ui import hub
 
     try:
-        started = hub.start_ingest(req.indices, req.bucket, req.thought)
+        started = hub.start_ingest(req.indices, req.tags, req.thought)
     except hub.HubBusy as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     except ValueError as exc:

@@ -68,7 +68,7 @@ def test_ingest_annotates_digests_and_dequeues(hub):
         note.write_text(NOTE_TEMPLATE.format(url=u), encoding="utf-8")
 
     hub.INGEST = fake_ingest
-    started = hub.start_ingest([1], bucket="build-idea", thought="I want one.")
+    started = hub.start_ingest([1], tags=["build-idea"], thought="I want one.")
     assert started == 1
     status = _wait_done(hub)
 
@@ -93,7 +93,7 @@ def test_ingest_failure_keeps_item_queued(hub):
         raise RuntimeError("fetch failed")
 
     hub.INGEST = exploding
-    hub.start_ingest([1], bucket="", thought="")
+    hub.start_ingest([1], tags=[], thought="")
     status = _wait_done(hub)
 
     assert status["failures"][0]["url"] == url
@@ -103,9 +103,9 @@ def test_ingest_failure_keeps_item_queued(hub):
 def test_ingest_rejects_bad_indices_and_busy(hub):
     hub.queue_add(["https://youtu.be/abc"])
     with pytest.raises(ValueError):
-        hub.start_ingest([5], bucket="", thought="")
+        hub.start_ingest([5], tags=[], thought="")
     with pytest.raises(ValueError):
-        hub.start_ingest([], bucket="", thought="")
+        hub.start_ingest([], tags=[], thought="")
 
     import threading
 
@@ -115,9 +115,9 @@ def test_ingest_rejects_bad_indices_and_busy(hub):
         gate.wait(timeout=5)
 
     hub.INGEST = slow
-    hub.start_ingest([1], bucket="", thought="")
+    hub.start_ingest([1], tags=[], thought="")
     with pytest.raises(hub.HubBusy):
-        hub.start_ingest([1], bucket="", thought="")
+        hub.start_ingest([1], tags=[], thought="")
     gate.set()
     _wait_done(hub)
 
@@ -178,7 +178,7 @@ def test_api_ingest_flow_and_status(client, hub):
 
     hub.INGEST = fake_ingest
     r = client.post(
-        "/api/ingest", json={"indices": [1], "bucket": "design", "thought": "nice"}
+        "/api/ingest", json={"indices": [1], "tags": ["design"], "thought": "nice"}
     )
     assert r.status_code == 200
     assert r.json()["started"] == 1
@@ -188,7 +188,7 @@ def test_api_ingest_flow_and_status(client, hub):
 
 
 def test_api_ingest_bad_indices_400(client, hub):
-    r = client.post("/api/ingest", json={"indices": [9], "bucket": "", "thought": ""})
+    r = client.post("/api/ingest", json={"indices": [9], "tags": [], "thought": ""})
     assert r.status_code == 400
 
 
@@ -211,8 +211,8 @@ def test_vault_media_serves_images_and_blocks_traversal(client, hub):
 def test_inbox_page_served(client):
     r = client.get("/inbox")
     assert r.status_code == 200
-    for marker in ('id="grid"', 'id="buckets"', 'id="thought"', 'id="addurls"',
-                   'id="side"', 'id="newbucket"', "/api/queue", "/api/buckets"):
+    for marker in ('id="grid"', 'id="tags"', 'id="thought"', 'id="addurls"',
+                   'id="side"', 'id="newtag"', "/api/queue", "/api/tags"):
         assert marker in r.text
     assert "selstr" not in r.text          # no index-string UI
     assert "monospace" not in r.text       # normalized typography
@@ -252,6 +252,7 @@ def test_refresh_sources_pulls_instagram_and_youtube(hub, monkeypatch):
         ],
     )
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: vid == "old1")
+    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
 
     result = hub.refresh_sources()
 
@@ -274,6 +275,7 @@ def test_refresh_sources_survives_one_source_failing(hub, monkeypatch):
     monkeypatch.setattr(hub, "IG_PULL", broken)
     monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
+    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
 
     result = hub.refresh_sources()
     assert result["youtube"] == 0
@@ -284,14 +286,15 @@ def test_api_refresh_and_buckets(client, hub, monkeypatch):
     monkeypatch.setattr(hub, "IG_PULL", lambda state: 0)
     monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
+    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
     monkeypatch.delenv("INSTAGRAM_SESSIONID", raising=False)
 
     r = client.post("/api/queue/refresh")
     assert r.status_code == 200
 
-    r = client.get("/api/buckets")
+    r = client.get("/api/tags")
     assert r.status_code == 200
-    assert "design" in r.json()["buckets"]
+    assert "design" in r.json()["tags"]
 
 
 # --- auto-pull throttle + custom buckets ------------------------------------------
@@ -303,6 +306,7 @@ def test_refresh_sources_throttled_by_ttl(hub, monkeypatch):
     monkeypatch.setattr(hub, "IG_PULL", lambda state: 1)
     monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
+    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
 
     first = hub.refresh_sources()
     assert first.get("skipped") is not True
@@ -319,16 +323,36 @@ def test_refresh_sources_throttled_by_ttl(hub, monkeypatch):
     assert _time.time() - st.last_pull_at < 10
 
 
-def test_custom_buckets_persist_and_merge(client, hub):
-    r = client.post("/api/buckets", json={"name": "Anime Recs"})
+def test_custom_tags_persist_and_merge(client, hub):
+    r = client.post("/api/tags", json={"name": "Anime Recs"})
     assert r.status_code == 200
     st = reels.load_state(hub.STATE_PATH)
-    assert "anime-recs" in st.custom_buckets
+    assert "anime-recs" in st.custom_tags
 
-    r = client.get("/api/buckets")
-    buckets = r.json()["buckets"]
-    assert "design" in buckets           # config-defined
-    assert "anime-recs" in buckets       # UI-created
+    r = client.get("/api/tags")
+    tags = r.json()["tags"]
+    assert "design" in tags              # config-defined
+    assert "anime-recs" in tags          # UI-created
     # re-adding is a no-op, not a duplicate
-    client.post("/api/buckets", json={"name": "anime-recs"})
-    assert reels.load_state(hub.STATE_PATH).custom_buckets.count("anime-recs") == 1
+    client.post("/api/tags", json={"name": "anime-recs"})
+    assert reels.load_state(hub.STATE_PATH).custom_tags.count("anime-recs") == 1
+
+
+def test_refresh_sources_pulls_pinterest_feeds(hub, monkeypatch):
+    monkeypatch.setattr(hub, "IG_PULL", lambda state: 0)
+    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
+    monkeypatch.setattr(
+        hub, "PIN_FETCH",
+        lambda: [{
+            "url": "https://www.pinterest.com/pin/12345/",
+            "title": "A cool pin",
+            "image": "https://i.pinimg.com/x.jpg",
+            "date": "2026-07-04",
+        }],
+    )
+    result = hub.refresh_sources(force=True)
+    assert result["pinterest"] == 1
+    pin = [i for i in hub.queue_items() if i.source == "pinterest"][0]
+    assert pin.author == "A cool pin"
+    assert pin.preview_url == "https://i.pinimg.com/x.jpg"

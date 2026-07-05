@@ -30,12 +30,16 @@ class InterestConfig(BaseModel):
 class HubConfig(BaseModel):
     """Configuration for the ingest hub UI."""
 
-    buckets: list[str] = Field(
+    tags: list[str] = Field(
         default_factory=lambda: [
             "design", "music", "build-idea", "dev-tools",
             "movies", "anime", "fitness", "reference",
         ],
-        description="Predefined annotation buckets shown as chips in /inbox.",
+        description="Predefined annotation tags shown as chips in /inbox.",
+    )
+    pinterest_feeds: list[str] = Field(
+        default_factory=list,
+        description="Pinterest board RSS URLs pulled into the ingest queue.",
     )
 
 

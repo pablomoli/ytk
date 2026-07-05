@@ -90,10 +90,48 @@ def _yt_is_processed(video_id: str) -> bool:
     return db.is_processed(video_id)
 
 
+def _pin_fetch() -> list[dict]:
+    """Fetch pins from the configured Pinterest board RSS feeds."""
+    import urllib.request
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+
+    from ytk.config import load_config
+
+    pins: list[dict] = []
+    for feed_url in load_config().hub.pinterest_feeds:
+        req = urllib.request.Request(feed_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            root = ET.fromstring(resp.read())
+        for item in root.iter("item"):
+            link = (item.findtext("link") or "").strip()
+            if not link:
+                continue
+            desc = item.findtext("description") or ""
+            img = re.search(r'<img src="([^"]+)"', desc)
+            date = None
+            pub = item.findtext("pubDate")
+            if pub:
+                try:
+                    date = parsedate_to_datetime(pub).date().isoformat()
+                except Exception:
+                    date = None
+            pins.append(
+                {
+                    "url": link,
+                    "title": (item.findtext("title") or "").strip() or None,
+                    "image": img.group(1) if img else None,
+                    "date": date,
+                }
+            )
+    return pins
+
+
 # test seams
 IG_PULL = _ig_pull
 YT_FETCH = _yt_fetch
 YT_IS_PROCESSED = _yt_is_processed
+PIN_FETCH = _pin_fetch
 
 
 PULL_TTL_SECONDS = 15 * 60
@@ -106,7 +144,10 @@ def refresh_sources(force: bool = False) -> dict:
     is a no-op (a source hit on every page load is bot-shaped traffic).
     Each source fails independently; errors are reported, not raised.
     """
-    result: dict = {"instagram": 0, "youtube": 0, "errors": [], "skipped": False}
+    result: dict = {
+        "instagram": 0, "youtube": 0, "pinterest": 0,
+        "errors": [], "skipped": False,
+    }
     with _LOCK:
         state = reels.load_state(STATE_PATH)
 
@@ -142,36 +183,54 @@ def refresh_sources(force: bool = False) -> dict:
         except Exception as exc:
             result["errors"].append(f"youtube: {exc}")
 
+        try:
+            known = {i.url for i in state.pending}
+            for pin in PIN_FETCH():
+                if pin["url"] in known:
+                    continue
+                state.pending.append(
+                    reels.ReelItem(
+                        url=pin["url"],
+                        author=pin.get("title"),
+                        shared_at=pin.get("date"),
+                        preview_url=pin.get("image"),
+                        source="pinterest",
+                    )
+                )
+                result["pinterest"] += 1
+        except Exception as exc:
+            result["errors"].append(f"pinterest: {exc}")
+
         state.last_pull_at = time.time()
         reels.save_state(state, STATE_PATH)
     return result
 
 
 # ---------------------------------------------------------------------------
-# Buckets
+# Tags
 # ---------------------------------------------------------------------------
 
 
-def bucket_list() -> list[str]:
-    """Config-defined buckets merged with UI-created ones, order preserved."""
+def tag_list() -> list[str]:
+    """Config-defined tags merged with UI-created ones, order preserved."""
     from ytk.config import load_config
 
-    configured = load_config().hub.buckets
-    custom = reels.load_state(STATE_PATH).custom_buckets
+    configured = load_config().hub.tags
+    custom = reels.load_state(STATE_PATH).custom_tags
     return list(dict.fromkeys([*configured, *custom]))
 
 
-def add_bucket(name: str) -> list[str]:
-    """Persist a new UI-created bucket (normalized); returns the merged list."""
+def add_tag(name: str) -> list[str]:
+    """Persist a new UI-created tag (normalized); returns the merged list."""
     normalized = vault._normalize_tag(name)
     if not normalized:
-        raise ValueError("Bucket name is empty.")
+        raise ValueError("Tag name is empty.")
     with _LOCK:
         state = reels.load_state(STATE_PATH)
-        if normalized not in state.custom_buckets:
-            state.custom_buckets.append(normalized)
+        if normalized not in state.custom_tags:
+            state.custom_tags.append(normalized)
             reels.save_state(state, STATE_PATH)
-    return bucket_list()
+    return tag_list()
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +273,7 @@ def job_status() -> dict:
         return dict(_JOB, failures=list(_JOB["failures"]))
 
 
-def start_ingest(indices: list[int], bucket: str, thought: str) -> int:
+def start_ingest(indices: list[int], tags: list[str], thought: str) -> int:
     """Kick off a background ingest of the given 1-based queue indices.
 
     Raises HubBusy if a job is already running, ValueError on bad indices.
@@ -234,11 +293,11 @@ def start_ingest(indices: list[int], bucket: str, thought: str) -> int:
             failures=[], annotated=0,
         )
 
-    threading.Thread(target=_worker, args=(items, bucket, thought), daemon=True).start()
+    threading.Thread(target=_worker, args=(items, tags, thought), daemon=True).start()
     return len(items)
 
 
-def _worker(items: list[reels.ReelItem], bucket: str, thought: str) -> None:
+def _worker(items: list[reels.ReelItem], tags: list[str], thought: str) -> None:
     started = time.time()
     for idx, item in enumerate(items):
         with _LOCK:
@@ -246,9 +305,9 @@ def _worker(items: list[reels.ReelItem], bucket: str, thought: str) -> None:
         try:
             INGEST(item.url)
             note = find_note_by_url(item.url, since=started - 5)
-            if note and (bucket or thought.strip()):
-                vault.annotate_note(note, bucket, thought)
-                vault.append_daily_digest(note, bucket, thought)
+            if note and (tags or thought.strip()):
+                vault.annotate_note(note, tags, thought)
+                vault.append_daily_digest(note, tags, thought)
                 with _LOCK:
                     _JOB["annotated"] += 1
             _remove_from_queue(item.url)
