@@ -157,13 +157,14 @@ void main() {
   vec2 p = gl_PointCoord * 2.0 - 1.0;
   float d2 = dot(p, p);
   float a = smoothstep(1.0, 0.82, sqrt(d2)) * v_alpha;
-  // shade each disc as a lit sphere: normal from the sprite footprint
+  // matte clay shading: wrapped diffuse, faint spec, edge falloff
   float z = sqrt(max(0.0, 1.0 - d2));
   vec3 n = vec3(p.x, -p.y, z);
   vec3 L = normalize(vec3(-0.45, 0.55, 0.72));
-  float diff = 0.5 + 0.5 * max(dot(n, L), 0.0);
-  float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 28.0) * 0.45;
-  vec3 c = v_col * diff + vec3(spec);
+  float wrap = (dot(n, L) + 0.6) / 1.6;
+  float diff = 0.35 + 0.65 * clamp(wrap, 0.0, 1.0);
+  float spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 12.0) * 0.10;
+  vec3 c = v_col * diff * (0.75 + 0.25 * z) + vec3(spec);
   gl_FragColor = vec4(c * a, a);
 }`;
 
@@ -421,21 +422,47 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+function buildSubs() {
+  // static partition of each cluster into spatial sub-blobs, so aggregation
+  // preserves the cluster's silhouette instead of collapsing to one orb
+  const isC = view === 'content';
+  const key = view;
+  DATA._subs = DATA._subs || {};
+  if (DATA._subs[key]) return DATA._subs[key];
+  const cells = new Map();
+  const CELL = 0.13;
+  pts.forEach((p, i) => {
+    const gi = isC ? (p.c3 !== undefined ? p.th : -1) : p.g;
+    if (gi === undefined || gi < 0) return;
+    const c = isC ? p.c3 : p.z3;
+    const k = gi + ':' + Math.round(c[0] / CELL) + ':' + Math.round(c[1] / CELL) + ':' + Math.round(c[2] / CELL);
+    if (!cells.has(k)) cells.set(k, { gi, idxs: [] });
+    cells.get(k).idxs.push(i);
+  });
+  return DATA._subs[key] = [...cells.values()];
+}
+
 function drawOrbs(stats, aggT, eff, base) {
   const rows = [];
-  stats.forEach((g, i) => {
-    const orbA = (1 - (aggT[i] ?? 1)) * (eff[base + i] ?? 1);
-    if (!g.n || orbA < 0.02) return;
-    const col = colorOf(groupColor(i));
+  for (const sub of buildSubs()) {
+    const orbA = (1 - (aggT[sub.gi] ?? 1)) * (eff[base + sub.gi] ?? 1);
+    if (orbA < 0.02) continue;
+    let x = 0, y = 0, z = 0;
+    for (const i of sub.idxs) {
+      const w = worldOf(pts[i]);
+      x += w[0]; y += w[1]; z += w[2];
+    }
+    const m = sub.idxs.length;
+    x /= m; y /= m; z /= m;
+    const col = colorOf(groupColor(sub.gi));
     rows.push([
-      g.c[0], g.c[1], g.c[2],  g.c[0], g.c[1], g.c[2],
-      g.c[0], g.c[1],          g.c[0], g.c[1],
-      10 + Math.sqrt(g.n) * 1.1,
+      x, y, z, x, y, z, x, y, x, y,
+      4.5 + Math.sqrt(m) * 1.5,
       ...col, ...col,
       orbA * 0.95, orbA * 0.95,
       -1,
     ]);
-  });
+  }
   if (!rows.length) return;
   orbBuf = orbBuf || gl.createBuffer();
   orbGrpBuf = orbGrpBuf || gl.createBuffer();
@@ -523,7 +550,8 @@ let drag = null, moved = 0, panMode = false;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('mousedown', e => {
   drag = { x: e.clientX, y: e.clientY }; moved = 0;
-  panMode = e.button === 2 || e.shiftKey || dimTgt < 0.5;
+  if (e.button === 1) e.preventDefault();
+  panMode = e.button === 2 || e.button === 1 || e.shiftKey || dimTgt < 0.5;
   canvas.classList.add('dragging');
 });
 addEventListener('mouseup', () => { drag = null; canvas.classList.remove('dragging'); });
