@@ -46,14 +46,13 @@ def run_structured(
     )
 
 
-async def _run_structured_async(
+def _build_options(
     system_prompt: str,
-    user_prompt: str,
     schema: dict,
     add_dirs: list[str | Path],
     max_turns: int,
-) -> dict:
-    options = ClaudeAgentOptions(
+) -> ClaudeAgentOptions:
+    return ClaudeAgentOptions(
         system_prompt=system_prompt,
         allowed_tools=["Read"] if add_dirs else [],
         permission_mode="bypassPermissions",
@@ -63,7 +62,19 @@ async def _run_structured_async(
         setting_sources=None,
         env={"ANTHROPIC_API_KEY": ""},
         cli_path=_SYSTEM_CLAUDE_CLI,
+        # one base64-encoded carousel slide can exceed the 1MB default
+        max_buffer_size=32 * 1024 * 1024,
     )
+
+
+async def _run_structured_async(
+    system_prompt: str,
+    user_prompt: str,
+    schema: dict,
+    add_dirs: list[str | Path],
+    max_turns: int,
+) -> dict:
+    options = _build_options(system_prompt, schema, add_dirs, max_turns)
 
     async with ClaudeSDKClient(options=options) as client:
         await client.query(user_prompt)
