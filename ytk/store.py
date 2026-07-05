@@ -46,15 +46,21 @@ def _get_client() -> chromadb.PersistentClient:
     return _client
 
 
+_TEXT_MODEL = "thenlper/gte-small"
+
+
 def _get_ef() -> embedding_functions.SentenceTransformerEmbeddingFunction:
     """
-    Lazy-load the embedding model (all-MiniLM-L6-v2, ~100MB download on first use).
-    Fast on M-series Macs via MPS after the initial download.
+    Lazy-load the text embedding model (~130MB download on first use).
+    gte-small replaced all-MiniLM-L6-v2 on 2026-07-05: same 384 dims and
+    symmetric (no query prefix needed), but markedly stronger retrieval.
+    Changing _TEXT_MODEL requires re-embedding every text collection —
+    see experiments/migrate_embedder.py.
     """
     global _ef
     if _ef is None:
         _ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
+            model_name=_TEXT_MODEL
         )
     return _ef
 
