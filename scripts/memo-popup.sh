@@ -16,7 +16,7 @@ ffmpeg -hide_banner -loglevel error -y \
   -t 300 -ar 16000 -ac 1 "$OUT" </dev/null &
 FFPID=$!
 mark RECORDING
-printf '\033[1;31m* rec\033[0m  speak, Enter to stop\n'
+printf '\n \033[1;38;5;203m\xe2\x97\x8f rec\033[0m \033[2m\xc2\xb7 enter to stop\033[0m'
 read -r _
 kill -INT "$FFPID" 2>/dev/null
 ( sleep 3; kill -9 "$FFPID" 2>/dev/null ) &
