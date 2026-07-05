@@ -50,6 +50,6 @@ if [ ! -s "$OUT" ]; then
 fi
 
 set -m
-env -u TMUX nohup "$YTK" memo --from-audio "$OUT" >>"$HOME/.ytk/logs/worker.err" 2>&1 &
+env -u TMUX nohup "$YTK" memo --from-audio "$OUT" <"/dev/null" >>"$HOME/.ytk/logs/worker.err" 2>&1 &
 disown
 mark BG_WORKER_SPAWNED

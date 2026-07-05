@@ -52,6 +52,6 @@ wait "$WATCHDOG" 2>/dev/null
 mark "RECORDED $STAMP.wav"
 
 set -m
-env -u TMUX nohup "$YTK" snap --file "$IMG" --note-audio "$WAV" >>"$HOME/.ytk/logs/worker.err" 2>&1 &
+env -u TMUX nohup "$YTK" snap --file "$IMG" --note-audio "$WAV" <"/dev/null" >>"$HOME/.ytk/logs/worker.err" 2>&1 &
 disown
 mark BG_WORKER_SPAWNED
