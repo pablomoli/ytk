@@ -14,7 +14,7 @@ Add to `~/.config/karabiner/karabiner.json` under `profiles[0].complex_modificat
       "from": { "key_code": "m", "modifiers": { "mandatory": ["right_option"] } },
       "to": [
         {
-          "shell_command": "/opt/homebrew/bin/tmux display-popup -E -w 60% -h 30% 'ytk memo'"
+          "shell_command": "/opt/homebrew/bin/tmux display-popup -E -w 60% -h 30% '$HOME/.local/bin/ytk memo'"
         }
       ]
     }
@@ -23,8 +23,14 @@ Add to `~/.config/karabiner/karabiner.json` under `profiles[0].complex_modificat
 ```
 
 A floating popup drops over the active tmux client, records until Enter, routes,
-and closes. Non-tmux fallback: replace the shell_command with
-`open -na Ghostty --args -e ytk memo`.
+and closes. Use the absolute ytk path — Karabiner's shell has no user PATH, so a
+bare `ytk` silently fails. Non-tmux fallback: replace the shell_command with
+`open -na Ghostty --args -e $HOME/.local/bin/ytk memo`.
+
+The same rule shape with `key_code: "s"`, modifiers
+`["left_control", "left_option", "left_command"]`, and command
+`$HOME/.local/bin/ytk snap --speak` binds screenshot-plus-spoken-note:
+Shottr capture -> annotate -> copy -> ctrl+opt+cmd+s -> talk -> Enter.
 
 ## sketchybar item (the pretty channel)
 
