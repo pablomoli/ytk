@@ -1808,7 +1808,9 @@ def similar(query: tuple[str, ...], is_text: bool, n: int, as_json: bool):
 @click.option("--tags", default="", help="Comma-separated tags.")
 @click.option("--file", "file_path", type=click.Path(exists=True), default=None,
               help="Ingest this image file instead of the clipboard.")
-def snap(note: tuple[str, ...], tags: str, file_path: str | None):
+@click.option("--speak", is_flag=True, default=False,
+              help="Record the note by voice (Enter to stop) instead of typing it.")
+def snap(note: tuple[str, ...], tags: str, file_path: str | None, speak: bool):
     """Save the clipboard image (e.g. a Shottr screenshot) as a vault memory.
 
     Writes the PNG + a note to second-brain/sources/screenshots/, indexes the
@@ -1832,6 +1834,17 @@ def snap(note: tuple[str, ...], tags: str, file_path: str | None):
             raise SystemExit(1)
 
     text = " ".join(note).strip()
+    if speak and not text:
+        import tempfile as _tf
+
+        from .memo import ensure_wav, record, transcribe as memo_transcribe
+
+        cfg = load_config()
+        with _tf.TemporaryDirectory() as td:
+            audio = record(Path(td) / "snap-note.wav")
+            console.print("[dim]transcribing...[/dim]")
+            text = memo_transcribe(ensure_wav(audio), cfg.whisper_model).strip()
+        console.print(f"[dim]note:[/dim] {text}")
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     note_path = save_snap(data, text, tag_list)
     console.print(f"[green]Saved[/] {note_path.name}")
