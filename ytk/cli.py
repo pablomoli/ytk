@@ -656,6 +656,7 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str):
     else:
         try:
             audio_path = memo_record(AUDIO_DIR / f"{_dt.now().strftime('%Y%m%d-%H%M%S')}.wav")
+            console.print(f"[dim]transcribing ({cfg.whisper_model})...[/dim]")
             transcript = memo_transcribe(audio_path, cfg.whisper_model)
         except RuntimeError as exc:
             console.print(f"[red]{exc}[/]")
@@ -664,10 +665,11 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str):
             console.print("[red]Empty transcription; audio kept at[/] " f"{audio_path}")
             raise SystemExit(1)
 
-    console.print(f"[dim]{transcript}[/]")
+    console.print(Panel(transcript, title="transcript", border_style="dim"))
     note_path = memo_write_note(transcript, audio_path)
 
     try:
+        console.print("[dim]routing via Claude...[/dim]")
         result = memo_route(transcript, repos=cfg.github_repos or [])
     except Exception as exc:
         memo_finalize(note_path, "failed", [])
@@ -684,10 +686,13 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str):
         memo_finalize(note_path, f"dry-run:{result.kind}", [])
         return
 
+    console.print("[dim]executing routes...[/dim]")
     routed_lines = memo_execute(result, transcript, cfg.github_repos or [])
     memo_finalize(note_path, result.kind, routed_lines)
     memo_index(note_path, transcript, result.kind)
     memo_notify(result.summary, result.kind, cfg.memo_notify or None)
+    console.print(f"[green]{result.kind}[/] {result.summary}")
+    time.sleep(3)
     console.print(f"[bold green]{result.kind}:[/] {result.summary}")
     for line in routed_lines:
         console.print(f"  {line}")
