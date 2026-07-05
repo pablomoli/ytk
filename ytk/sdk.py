@@ -33,6 +33,7 @@ def run_structured(
     schema: dict,
     add_dirs: list[str | Path] | None = None,
     max_turns: int = 20,
+    model: str | None = None,
 ) -> dict:
     """Run a one-shot enrichment against Claude Code and return validated JSON.
 
@@ -41,7 +42,7 @@ def run_structured(
     """
     return asyncio.run(
         _run_structured_async(
-            system_prompt, user_prompt, schema, add_dirs or [], max_turns
+            system_prompt, user_prompt, schema, add_dirs or [], max_turns, model
         )
     )
 
@@ -51,8 +52,10 @@ def _build_options(
     schema: dict,
     add_dirs: list[str | Path],
     max_turns: int,
+    model: str | None = None,
 ) -> ClaudeAgentOptions:
     return ClaudeAgentOptions(
+        model=model,
         system_prompt=system_prompt,
         allowed_tools=["Read"] if add_dirs else [],
         permission_mode="bypassPermissions",
@@ -73,8 +76,9 @@ async def _run_structured_async(
     schema: dict,
     add_dirs: list[str | Path],
     max_turns: int,
+    model: str | None = None,
 ) -> dict:
-    options = _build_options(system_prompt, schema, add_dirs, max_turns)
+    options = _build_options(system_prompt, schema, add_dirs, max_turns, model)
 
     async with ClaudeSDKClient(options=options) as client:
         await client.query(user_prompt)
