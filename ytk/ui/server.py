@@ -309,8 +309,89 @@ async def read_note_api(path: str):
 
 
 # ---------------------------------------------------------------------------
-# Serve the SPA shell
+# Ingest hub: queue, ingest job, fresh feed, vault media
 # ---------------------------------------------------------------------------
+
+
+class QueueAddRequest(BaseModel):
+    urls: list[str]
+
+
+class IngestRequest(BaseModel):
+    indices: list[int]
+    bucket: str = ""
+    thought: str = ""
+
+
+@app.post("/api/queue/add")
+async def queue_add_api(req: QueueAddRequest):
+    from ytk.ui import hub
+
+    added = hub.queue_add(req.urls)
+    return {"added": added, "pending": len(hub.queue_items())}
+
+
+@app.get("/api/queue")
+async def queue_api():
+    from dataclasses import asdict
+
+    from ytk.ui import hub
+
+    items = [dict(asdict(item), n=i) for i, item in enumerate(hub.queue_items(), 1)]
+    return {"items": items}
+
+
+@app.post("/api/ingest")
+async def ingest_api(req: IngestRequest):
+    from ytk.ui import hub
+
+    try:
+        started = hub.start_ingest(req.indices, req.bucket, req.thought)
+    except hub.HubBusy as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"started": started}
+
+
+@app.get("/api/ingest/status")
+async def ingest_status_api():
+    from ytk.ui import hub
+
+    return hub.job_status()
+
+
+@app.get("/api/fresh")
+async def fresh_api(n: int = 30):
+    from ytk.ui import hub
+
+    return hub.fresh_notes(n=n)
+
+
+@app.get("/vault-media/{rel_path:path}")
+async def vault_media(rel_path: str):
+    from fastapi.responses import FileResponse
+
+    from ytk.vault import _get_brain_path
+
+    brain = _get_brain_path().resolve()
+    target = (brain / rel_path).resolve()
+    if not target.is_relative_to(brain) or not target.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(target)
+
+
+# ---------------------------------------------------------------------------
+# Serve the pages
+# ---------------------------------------------------------------------------
+
+
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_page():
+    html_path = _STATIC_DIR / "index.html"
+    if not html_path.exists():
+        return HTMLResponse("<h1>UI not found</h1>", status_code=404)
+    return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
 
 @app.get("/", response_class=HTMLResponse)
