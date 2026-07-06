@@ -388,7 +388,9 @@ async def settings_put(request: Request):
 
 @app.get("/api/map")
 async def map_data_api():
-    map_path = _STATIC_DIR / "map.json"
+    map_path = Path.home() / ".ytk" / "map.json"
+    if not map_path.exists():
+        map_path = _STATIC_DIR / "map.json"   # pre-runtime-dir builds
     if not map_path.exists():
         raise HTTPException(
             status_code=404,
