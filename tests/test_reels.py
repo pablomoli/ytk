@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from ytk.reels import (
+    ReelItem,
     ReelsState,
     extract_links,
     fetch_new_links,
@@ -172,6 +173,31 @@ def test_load_state_missing_file_returns_empty(tmp_path):
     state = load_state(tmp_path / "nope.json")
     assert state.thread_id is None
     assert state.last_seen_message_id is None
+
+
+def test_load_state_empty_file_does_not_crash(tmp_path):
+    path = tmp_path / "reels_state.json"
+    path.write_text("", encoding="utf-8")  # 0-byte, as a killed-mid-write leaves it
+    assert load_state(path).pending == []
+
+
+def test_load_state_corrupt_falls_back_to_backup(tmp_path):
+    path = tmp_path / "reels_state.json"
+    # a good save leaves a .bak on the next save
+    save_state(ReelsState(pending=[ReelItem(url="u1", source="web")]), path)
+    save_state(ReelsState(pending=[ReelItem(url="u2", source="web")]), path)
+    # now corrupt the primary; loader should recover the prior good state
+    path.write_text("{ this is not json", encoding="utf-8")
+    assert [i.url for i in load_state(path).pending] == ["u1"]
+
+
+def test_save_state_is_atomic_and_backs_up(tmp_path):
+    path = tmp_path / "reels_state.json"
+    save_state(ReelsState(thread_id="v1"), path)
+    save_state(ReelsState(thread_id="v2"), path)
+    assert load_state(path).thread_id == "v2"
+    assert path.with_suffix(".json.bak").exists()
+    assert not path.with_suffix(".json.tmp").exists()  # temp cleaned up by rename
 
 
 # --- get_client (session persistence contract) --------------------------------

@@ -52,6 +52,10 @@
   .notecard { min-height: 110px; box-sizing: border-box; display: flex; flex-direction: column; gap: .6rem; padding: .8rem; background: linear-gradient(160deg, #133a1f, #0d2416); }
   .notecard p { margin: 0; color: #e8f5ea; line-height: 1.4; font-size: .82rem; white-space: pre-wrap; overflow-wrap: anywhere; }
   .notecard span { color: #5fbf76; font-size: .68rem; margin-top: auto; }
+  .card.brewing { cursor: default; outline: 2px dashed #e2b04a77; }
+  .card.brewing .notecard { background: linear-gradient(160deg, #2a2410, #1a1608); }
+  .card.brewing .notecard p { color: #e8e0c8; }
+  .brewmeta { color: #e2b04a; font-size: .68rem; font-weight: 600; letter-spacing: .02em; }
   .openlink { position: absolute; bottom: .45rem; right: .45rem; background: #000b; color: #e2b04a; text-decoration: none; border-radius: 999px; padding: .15rem .7rem; opacity: 0; transition: opacity .15s; }
   .card:hover .openlink { opacity: 1; }
 
@@ -140,6 +144,7 @@ const ICONS = {
 
 const sel = new Set();          // selected item URLs
 let items = [];
+let warm = [];                  // still-warm self-note sessions (brewing cards)
 let ingested = [];              // recently ingested vault notes (re-ingest pool)
 let showIngested = false;
 let searchHits = null;   // null = not searching; array = search results
@@ -276,7 +281,17 @@ function renderGrid() {
         ? `<img src="/api/cover?u=${encodeURIComponent(it.url)}" loading="lazy"
              onerror="this.onerror=null;this.src='${esc(it.preview_url)}'">`
         : `<div class="noimg">${esc(it.source)}</div>`;
-  let html = sorted.map(it => card(
+  // brewing: still-warm self-note sessions, captured but not yet closed
+  const showBrew = !sourceFilter || sourceFilter === "imessage";
+  const brewHtml = showBrew ? warm.map(w => `
+    <div class="card brewing">
+      <span class="badge">${ICONS.imessage}</span>
+      <div class="notecard">
+        <div class="brewmeta">brewing · ${w.count} note${w.count === 1 ? "" : "s"} · ~${w.minutes_left}m</div>
+        <p>${esc(w.text)}</p>
+      </div>
+    </div>`).join("") : "";
+  let html = brewHtml + sorted.map(it => card(
     it,
     it.source === "youtube" ? " wide" : "",
     cardImg(it),
@@ -300,6 +315,7 @@ function wireCards() {
   document.querySelectorAll(".card").forEach(card => {
     card.addEventListener("click", e => {
       if (e.target.closest("a")) return;
+      if (card.classList.contains("brewing")) return;  // not selectable; still cooking
       if (card.classList.contains("queued") || card.classList.contains("ingesting")) return;
       const u = card.dataset.url;
       if (sel.has(u)) { sel.delete(u); } else { sel.add(u); }
@@ -514,6 +530,13 @@ async function watchReady() {
   setTimeout(watchReady, 1000);
 }
 
+async function loadWarm() {
+  try {
+    warm = (await (await fetch("/api/imessage-warm")).json()).warm || [];
+  } catch (e) { warm = []; }
+  if (searchHits === null) renderGrid();
+}
+
 renderFilters();
 loadTags();
 loadQueue().then(() => {
@@ -522,6 +545,8 @@ loadQueue().then(() => {
 });
 autoPull();
 watchReady();
+loadWarm();
+setInterval(loadWarm, 30000);  // brewing sessions age; refresh the countdown
 </script>
 </body>
 </html>

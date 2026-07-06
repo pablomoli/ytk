@@ -304,6 +304,17 @@ def ready_api():
     return {"search": hub.search_ready()}
 
 
+@app.get("/api/imessage-warm")
+def imessage_warm_api():
+    """Still-warm self-note sessions, for the inbox 'brewing' card."""
+    from ytk.ui import hub
+
+    try:
+        return {"warm": hub.imessage_warm()}
+    except Exception:
+        return {"warm": []}
+
+
 @app.get("/api/inbox-search")
 def inbox_search_api(q: str, n: int = 30, scope: str = "ingested"):
     """Visual+text search for the inbox picker.

@@ -6,7 +6,9 @@ Discovery only — ingestion goes through the existing `ytk add` pipeline.
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -117,11 +119,7 @@ def get_client(sessionid: str, settings_path: Path = SETTINGS_PATH):
     return client
 
 
-def load_state(path: Path = STATE_PATH) -> ReelsState:
-    """Load the sync cursor. Missing file means first run: empty state."""
-    if not path.exists():
-        return ReelsState()
-    raw = json.loads(path.read_text(encoding="utf-8"))
+def _parse_state(raw: dict) -> ReelsState:
     return ReelsState(
         thread_id=raw.get("thread_id"),
         last_seen_message_id=raw.get("last_seen_message_id"),
@@ -133,9 +131,38 @@ def load_state(path: Path = STATE_PATH) -> ReelsState:
     )
 
 
+def load_state(path: Path = STATE_PATH) -> ReelsState:
+    """Load the queue state, tolerating a missing/empty/corrupt file.
+
+    A truncated file (e.g. a process killed mid-write) must never take the hub
+    down or wipe the queue silently: fall back to the last-good `.bak`, and only
+    then to an empty state.
+    """
+    for candidate in (path, path.with_suffix(".json.bak")):
+        try:
+            if candidate.exists() and candidate.stat().st_size > 0:
+                return _parse_state(json.loads(candidate.read_text(encoding="utf-8")))
+        except (json.JSONDecodeError, ValueError, OSError):
+            continue
+    return ReelsState()
+
+
 def save_state(state: ReelsState, path: Path = STATE_PATH) -> None:
+    """Persist state atomically so an interrupted write can't corrupt it.
+
+    Writes to a temp file and os.replace()s it into place (atomic on the same
+    filesystem), keeping the previous good copy as `.bak` for recovery.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(asdict(state), indent=2), encoding="utf-8")
+    data = json.dumps(asdict(state), indent=2)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(data, encoding="utf-8")
+    if path.exists() and path.stat().st_size > 0:
+        try:
+            shutil.copy2(path, path.with_suffix(".json.bak"))
+        except OSError:
+            pass
+    os.replace(tmp, path)
 
 
 def extract_items(messages) -> list[ReelItem]:

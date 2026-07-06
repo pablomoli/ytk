@@ -253,6 +253,38 @@ def warm_search() -> bool:
     return True
 
 
+def imessage_warm() -> list[dict]:
+    """Still-warm self-note sessions: captured but not yet closed into a node.
+
+    These are notes you're likely still adding to — held back by the silence
+    window. Surfacing them gives immediate feedback that a note landed, instead
+    of the inbox looking empty until the gap elapses. Read-only; queues nothing.
+    """
+    from datetime import datetime
+
+    from ytk import imessage
+
+    now = datetime.now()
+    thread = imessage.read_recent(days=3, now=now)
+    if not thread.messages:
+        return []
+    gap = load_config().hub.imessage_gap_minutes
+    closed = {s.note_id for s in imessage.sessionize(thread, gap_minutes=gap, now=now)}
+    seen = set(reels.load_state(STATE_PATH).imessage_seen)
+    out: list[dict] = []
+    for s in imessage.sessionize(thread, gap_minutes=gap, now=None):
+        if s.note_id in closed or s.note_id in seen:
+            continue
+        mins_left = max(0.0, gap - (now - s.end).total_seconds() / 60)
+        out.append({
+            "note_id": s.note_id,
+            "count": len(s.messages),
+            "text": "\n\n".join(m.text for m in s.messages),
+            "minutes_left": round(mins_left),
+        })
+    return out
+
+
 _watcher_started = False
 
 
@@ -403,7 +435,7 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
                     # pairing: keep them together, link embedded in the text. A
                     # bare link on its own reuses the normal fetch pipeline
                     # (classified by url), same as a pasted or IG-shared link.
-                    full = "\n".join(m.text for m in s.messages)
+                    full = "\n\n".join(m.text for m in s.messages)
                     urls, prose = split_urls(full)
                     if prose:
                         state.pending.append(
