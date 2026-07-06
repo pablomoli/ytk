@@ -37,6 +37,11 @@
   .qbadge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #000b; color: #e2b04a; border-radius: 999px; padding: .2rem .8rem; display: none; }
   .card.queued .qbadge { display: block; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .card.done { opacity: .55; }
+  .card.done:hover, .card.done.sel { opacity: 1; }
+  .card.done .badge { background: #14532daa; }
+  .groupsep { grid-column: 1 / -1; grid-row-end: span 3; color: #777; display: flex; align-items: center; gap: .6rem; }
+  .groupsep::before, .groupsep::after { content: ""; flex: 1; border-top: 1px solid #2a2a2a; }
   .ctitle { padding: .4rem .6rem .5rem; color: #ccc; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .openlink { position: absolute; bottom: .45rem; right: .45rem; background: #000b; color: #e2b04a; text-decoration: none; border-radius: 999px; padding: .15rem .7rem; opacity: 0; transition: opacity .15s; }
   .card:hover .openlink { opacity: 1; }
@@ -114,6 +119,8 @@ const ICONS = {
 
 const sel = new Set();          // selected item URLs
 let items = [];
+let ingested = [];              // recently ingested vault notes (re-ingest pool)
+let showIngested = false;
 let jobState = { queued: [], current: null };
 const tags = new Set();
 let sourceFilter = "";
@@ -121,13 +128,22 @@ const SOURCES = ["instagram", "youtube", "pinterest", "tiktok", "web"];
 
 function renderFilters() {
   document.getElementById("filters").innerHTML = SOURCES.map(sname =>
-    `<button class="fchip${sourceFilter === sname ? " on" : ""}" data-s="${sname}">${sname}</button>`).join("");
-  document.querySelectorAll(".fchip").forEach(chip => {
+    `<button class="fchip${sourceFilter === sname ? " on" : ""}" data-s="${sname}">${sname}</button>`).join("")
+    + `<button class="fchip ingtoggle${showIngested ? " on" : ""}">ingested</button>`;
+  document.querySelectorAll(".fchip:not(.ingtoggle)").forEach(chip => {
     chip.addEventListener("click", () => {
       sourceFilter = sourceFilter === chip.dataset.s ? "" : chip.dataset.s;
       renderFilters();
       renderGrid();
     });
+  });
+  document.querySelector(".ingtoggle").addEventListener("click", async () => {
+    showIngested = !showIngested;
+    if (showIngested && !ingested.length) {
+      ingested = await (await fetch("/api/fresh?n=100")).json();
+    }
+    renderFilters();
+    renderGrid();
   });
 }
 
@@ -191,19 +207,38 @@ function renderGrid() {
   const sorted = [...visible].sort((a, b) =>
     rank(a) - rank(b)
     || (b.shared_at || "").localeCompare(a.shared_at || "") || b.n - a.n);
-  document.getElementById("grid").innerHTML = sorted.map(it => `
-    <div class="card${sel.has(it.url) ? " sel" : ""}${it.source === "youtube" ? " wide" : ""}" data-url="${esc(it.url)}">
+  const card = (it, extraCls, imgHtml, title) => `
+    <div class="card${sel.has(it.url) ? " sel" : ""}${extraCls}" data-url="${esc(it.url)}">
       <span class="check">ok</span>
       <span class="badge">${ICONS[it.source] || ICONS.web}</span>
-      ${it.preview_url
-        ? `<img src="/api/cover?u=${encodeURIComponent(it.url)}" loading="lazy"
-             onerror="this.onerror=null;this.src='${esc(it.preview_url)}'">`
-        : `<div class="noimg">${esc(it.source)}</div>`}
+      ${imgHtml}
       <div class="spinner"></div>
       <span class="qbadge">queued</span>
-      ${it.source === "youtube" && it.author ? `<div class="ctitle">${esc(it.author)}</div>` : ""}
+      ${title ? `<div class="ctitle">${esc(title)}</div>` : ""}
       <a class="openlink" href="${esc(it.url)}" target="_blank">open</a>
-    </div>`).join("");
+    </div>`;
+  let html = sorted.map(it => card(
+    it,
+    it.source === "youtube" ? " wide" : "",
+    it.preview_url
+      ? `<img src="/api/cover?u=${encodeURIComponent(it.url)}" loading="lazy"
+           onerror="this.onerror=null;this.src='${esc(it.preview_url)}'">`
+      : `<div class="noimg">${esc(it.source)}</div>`,
+    it.source === "youtube" ? it.author : ""));
+  if (showIngested) {
+    const pendingUrls = new Set(items.map(i => i.url));
+    const pool = ingested.filter(n => n.url && !pendingUrls.has(n.url)
+      && (!sourceFilter || n.source === sourceFilter));
+    html += `<div class="groupsep">already ingested</div>`;
+    html += pool.map(n => card(
+      {url: n.url, source: n.source},
+      " done" + (n.source === "youtube" ? " wide" : ""),
+      n.thumbnail
+        ? `<img src="/vault-media/${esc(n.thumbnail)}" loading="lazy">`
+        : `<div class="noimg">${esc(n.source)}</div>`,
+      n.title !== n.stem ? n.title : "")).join("");
+  }
+  document.getElementById("grid").innerHTML = html;
   document.querySelectorAll(".card").forEach(card => {
     card.addEventListener("click", e => {
       if (e.target.closest("a")) return;
@@ -339,6 +374,16 @@ function startPolling() {
 
 document.getElementById("ingest").addEventListener("click", async () => {
   const thought = document.getElementById("thought").value;
+  const pendingUrls = new Set(items.map(i => i.url));
+  const requeue = [...sel].filter(u => !pendingUrls.has(u));
+  if (requeue.length) {
+    await fetch("/api/queue/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls: requeue }),
+    });
+    await loadQueue();
+  }
   const res = await fetch("/api/ingest", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
