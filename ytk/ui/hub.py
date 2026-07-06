@@ -138,11 +138,75 @@ def _pin_fetch() -> list[dict]:
     return pins
 
 
+def _im_fetch() -> list:
+    """Export the self-chat, parse it, and sessionize into closed sessions.
+
+    Bounded to a recent window so each pull stays cheap; the persistent
+    imessage_seen set is what actually prevents re-adding older sessions.
+    """
+    import os
+    from datetime import datetime, timedelta
+
+    from ytk import imessage
+
+    contact = os.environ.get("IMESSAGE_SELF", "")
+    if not contact:
+        return []
+    since = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
+    export_dir = imessage.export_conversation(contact, start_date=since)
+    try:
+        txt_path = imessage.find_exported_file(export_dir, contact)
+        thread = imessage.parse_txt(txt_path)
+    finally:
+        import shutil
+        shutil.rmtree(export_dir, ignore_errors=True)
+    gap = load_config().hub.imessage_gap_minutes
+    return imessage.sessionize(thread, gap_minutes=gap, now=datetime.now())
+
+
+def ingest_imessage_item(item: reels.ReelItem, note: str = "") -> Path | None:
+    """Write and index one iMessage session as a journal note. Returns its path.
+
+    Text sources have no URL to fetch, so this replaces the `ytk add` step for
+    imessage-source queue items — it reuses the journal enrichment + writer.
+    """
+    import os
+
+    from ytk.imessage import MessageEntry, MessageThread, enrich_journal
+    from ytk.store import strip_frontmatter, upsert_doc
+    from ytk.vault import NoteAlreadyExists, write_journal_note
+
+    date = item.author or ""
+    messages = [
+        MessageEntry(sender="Me", timestamp=date, text=line)
+        for line in (item.text or "").splitlines()
+        if line.strip()
+    ]
+    thread = MessageThread(
+        contact=os.environ.get("IMESSAGE_SELF", "me"), date=date, messages=messages
+    )
+    result = enrich_journal(thread)
+    suffix = item.url.rsplit(":", 1)[-1][:8]  # session hash -> unique filename
+    try:
+        path = write_journal_note(thread, result, suffix=suffix)
+    except NoteAlreadyExists:
+        return None
+    doc_id = "journal_" + re.sub(r"[^a-zA-Z0-9_-]", "_", path.stem[:60])
+    upsert_doc(doc_id, strip_frontmatter(path.read_text(encoding="utf-8")), {
+        "doc_id": doc_id,
+        "tags": ", ".join(result.interest_tags),
+        "source_path": str(path),
+    })
+    return path
+
+
 # test seams
 IG_PULL = _ig_pull
 YT_FETCH = _yt_fetch
 YT_IS_PROCESSED = _yt_is_processed
 PIN_FETCH = _pin_fetch
+IM_FETCH = _im_fetch
+INGEST_TEXT = ingest_imessage_item
 
 
 def _pull_due(state: reels.ReelsState, source: str, cadence_minutes: dict, force: bool) -> bool:
@@ -167,14 +231,15 @@ def refresh_sources(force: bool = False) -> dict:
 
     cadence = load_config().hub.cadence_minutes
     result: dict = {
-        "instagram": 0, "youtube": 0, "pinterest": 0,
+        "instagram": 0, "youtube": 0, "pinterest": 0, "imessage": 0,
         "errors": [], "skipped": False, "skipped_sources": [],
     }
+    auto_ingest_ids: list[str] = []
     with _LOCK:
         state = reels.load_state(STATE_PATH)
         now = time.time()
 
-        due = {s: _pull_due(state, s, cadence, force) for s in ("instagram", "youtube", "pinterest")}
+        due = {s: _pull_due(state, s, cadence, force) for s in ("instagram", "youtube", "pinterest", "imessage")}
         if not any(due.values()):
             result["skipped"] = True
             result["skipped_sources"] = list(due)
@@ -229,8 +294,65 @@ def refresh_sources(force: bool = False) -> dict:
             except Exception as exc:
                 result["errors"].append(f"pinterest: {exc}")
 
+        if due["imessage"]:
+            try:
+                from ytk.imessage import split_urls
+
+                seen = set(state.imessage_seen)
+                known = {i.url for i in state.pending}
+                for s in IM_FETCH():
+                    if s.note_id in seen or s.note_id in known:
+                        continue
+                    state.imessage_seen.append(s.note_id)
+
+                    # A link paired with prose is a deliberate note-plus-source
+                    # pairing: keep them together, link embedded in the text. A
+                    # bare link on its own reuses the normal fetch pipeline
+                    # (classified by url), same as a pasted or IG-shared link.
+                    full = "\n".join(m.text for m in s.messages)
+                    urls, prose = split_urls(full)
+                    if prose:
+                        state.pending.append(
+                            reels.ReelItem(
+                                url=s.note_id,
+                                author=s.date,
+                                shared_at=s.start.strftime("%Y-%m-%d"),
+                                source="imessage",
+                                text=full,
+                            )
+                        )
+                        result["imessage"] += 1
+                        if s.override:
+                            auto_ingest_ids.append(s.note_id)
+                    else:
+                        for u in urls:
+                            if u in known:
+                                continue
+                            known.add(u)
+                            state.pending.append(
+                                reels.ReelItem(
+                                    url=u,
+                                    shared_at=s.start.strftime("%Y-%m-%d"),
+                                    source=reels.classify_url(u),
+                                )
+                            )
+                            result["imessage"] += 1
+                            if s.override:
+                                auto_ingest_ids.append(u)
+                state.last_pulls["imessage"] = now
+            except Exception as exc:
+                result["errors"].append(f"imessage: {exc}")
+
         state.last_pull_at = now
         reels.save_state(state, STATE_PATH)
+
+    # $$-marked sessions bypass the inbox pick — ingest them now. Done outside
+    # the lock: enrichment is slow, and start_ingest re-acquires the lock.
+    if auto_ingest_ids:
+        try:
+            start_ingest(auto_ingest_ids, tags=[], thought="")
+        except Exception as exc:
+            result["errors"].append(f"imessage-autoingest: {exc}")
     return result
 
 
@@ -495,8 +617,11 @@ def _drain() -> None:
             _JOB["current"] = item.url
             _JOB["queued"] = [e[0].url for e in _QUEUE]
         try:
-            INGEST(item.url, thought)
-            note = find_note_by_url(item.url, since=started - 5)
+            if item.source == "imessage":
+                note = INGEST_TEXT(item, thought)
+            else:
+                INGEST(item.url, thought)
+                note = find_note_by_url(item.url, since=started - 5)
             if note and (tags or thought.strip()):
                 vault.annotate_note(note, tags, thought)
                 vault.append_daily_digest(note, tags, thought)

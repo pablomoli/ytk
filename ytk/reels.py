@@ -24,7 +24,8 @@ class ReelItem:
     author: str | None = None       # content author's username, not the sender
     shared_at: str | None = None    # YYYY-MM-DD the item entered the queue
     preview_url: str | None = None  # cover image (signed CDN URL, expires)
-    source: str = "instagram"       # instagram | tiktok | youtube | web
+    source: str = "instagram"       # instagram | tiktok | youtube | web | imessage
+    text: str | None = None         # inline body for text sources (imessage), no URL to fetch
 
 
 def classify_url(url: str) -> str:
@@ -52,6 +53,7 @@ def _as_item(entry) -> ReelItem:
         shared_at=entry.get("shared_at"),
         preview_url=entry.get("preview_url"),
         source=entry.get("source") or classify_url(entry["url"]),
+        text=entry.get("text"),
     )
 
 
@@ -82,6 +84,7 @@ class ReelsState:
     last_pull_at: float | None = None            # ingest-hub auto-pull throttle
     last_pulls: dict = field(default_factory=dict)  # per-source last pull, {source: epoch}
     custom_tags: list[str] = field(default_factory=list)  # UI-created tags
+    imessage_seen: list[str] = field(default_factory=list)  # session note_ids already queued/ingested
 
 
 _client_cache: dict[tuple[str, str], object] = {}
@@ -126,6 +129,7 @@ def load_state(path: Path = STATE_PATH) -> ReelsState:
         last_pull_at=raw.get("last_pull_at"),
         last_pulls=raw.get("last_pulls", {}),
         custom_tags=raw.get("custom_tags", raw.get("custom_buckets", [])),
+        imessage_seen=raw.get("imessage_seen", []),
     )
 
 

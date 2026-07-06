@@ -292,6 +292,101 @@ def test_refresh_sources_pulls_instagram_and_youtube(hub, monkeypatch):
     assert yt.shared_at == "2026-07-04"
 
 
+def _quiet_other_sources(hub, monkeypatch):
+    monkeypatch.setattr(hub, "IG_PULL", lambda state: 0)
+    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
+    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+
+
+def test_refresh_sources_queues_imessage_sessions(hub, monkeypatch):
+    from ytk.imessage import MessageEntry, MessageThread, sessionize
+    from datetime import datetime
+
+    _quiet_other_sources(hub, monkeypatch)
+    thread = MessageThread(
+        contact="+1555", date="Apr 19, 2026",
+        messages=[MessageEntry("Me", "Apr 19, 2026 7:00:00 PM", "a walk thought")],
+    )
+    sessions = sessionize(thread, gap_minutes=20, now=datetime(2030, 1, 1))
+    monkeypatch.setattr(hub, "IM_FETCH", lambda: sessions)
+
+    result = hub.refresh_sources()
+    assert result["imessage"] == 1
+    item = [i for i in hub.queue_items() if i.source == "imessage"][0]
+    assert item.text == "a walk thought"
+    assert item.url.startswith("imessage:session:")
+
+    # A second pull must not re-queue the same session (imessage_seen persists).
+    monkeypatch.setattr(hub, "IM_FETCH", lambda: sessions)
+    result2 = hub.refresh_sources(force=True)
+    assert result2["imessage"] == 0
+
+
+def _im_session(hub, monkeypatch, text, now=None):
+    from ytk.imessage import MessageEntry, MessageThread, sessionize
+    from datetime import datetime
+
+    _quiet_other_sources(hub, monkeypatch)
+    thread = MessageThread(
+        contact="+1555", date="Apr 19, 2026",
+        messages=[MessageEntry("Me", "Apr 19, 2026 7:00:00 PM", text)],
+    )
+    sessions = sessionize(thread, gap_minutes=20, now=now or datetime(2030, 1, 1))
+    monkeypatch.setattr(hub, "IM_FETCH", lambda: sessions)
+    return sessions
+
+
+def test_link_with_prose_stays_one_note_with_link_embedded(hub, monkeypatch):
+    _im_session(hub, monkeypatch, "loved this https://youtu.be/abc watch later")
+    hub.refresh_sources()
+    items = hub.queue_items()
+    # no standalone fetch item — the pairing is kept together
+    assert not [i for i in items if i.url == "https://youtu.be/abc"]
+    im = [i for i in items if i.source == "imessage"]
+    assert len(im) == 1
+    assert "https://youtu.be/abc" in im[0].text and "watch later" in im[0].text
+
+
+def test_bare_link_becomes_fetch_item(hub, monkeypatch):
+    _im_session(hub, monkeypatch, "https://youtu.be/abc")
+    hub.refresh_sources()
+    items = hub.queue_items()
+    yt = [i for i in items if i.url == "https://youtu.be/abc"]
+    assert yt and yt[0].source == "youtube"
+    assert not [i for i in items if i.source == "imessage"]
+
+
+def test_refresh_sources_autoingests_marked_session(hub, monkeypatch):
+    from ytk.imessage import MARKER, MessageEntry, MessageThread, sessionize
+    from datetime import datetime
+
+    _quiet_other_sources(hub, monkeypatch)
+    thread = MessageThread(
+        contact="+1555", date="Apr 19, 2026",
+        messages=[MessageEntry("Me", "Apr 19, 2026 7:00:00 PM", f"ship it {MARKER}")],
+    )
+    # Warm (now == last message) but MARKER forces the session through.
+    sessions = sessionize(thread, gap_minutes=20, now=datetime(2026, 4, 19, 19, 0, 0))
+    assert sessions and sessions[0].override
+    monkeypatch.setattr(hub, "IM_FETCH", lambda: sessions)
+
+    ingested = []
+    def fake_text_ingest(item, note=""):
+        p = hub.brain / "sources" / "journal" / "note.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("---\ntype: journal\n---\nbody", encoding="utf-8")
+        ingested.append(item.url)
+        return p
+    monkeypatch.setattr(hub, "INGEST_TEXT", fake_text_ingest)
+
+    hub.refresh_sources()
+    _wait_done(hub)
+    assert ingested and ingested[0].startswith("imessage:session:")
+    # auto-ingested item is removed from the queue after success
+    assert not [i for i in hub.queue_items() if i.source == "imessage"]
+
+
 def test_refresh_sources_survives_one_source_failing(hub, monkeypatch):
     monkeypatch.setenv("INSTAGRAM_SESSIONID", "sess")
 

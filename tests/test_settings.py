@@ -48,6 +48,7 @@ def hub(tmp_path, monkeypatch, cfg_path):
     monkeypatch.setattr(hub_mod, "YT_FETCH", lambda: [])
     monkeypatch.setattr(hub_mod, "YT_IS_PROCESSED", lambda vid: False)
     monkeypatch.setattr(hub_mod, "PIN_FETCH", lambda: [])
+    monkeypatch.setattr(hub_mod, "IM_FETCH", lambda: [])
     return hub_mod
 
 
@@ -62,7 +63,7 @@ def client(hub):
 
 def test_per_source_cadence(hub):
     cfg = Config()
-    cfg.hub.cadence_minutes = {"instagram": 0, "youtube": 15, "pinterest": 15}
+    cfg.hub.cadence_minutes = {"instagram": 0, "youtube": 15, "pinterest": 15, "imessage": 15}
     save_config(cfg)
 
     first = hub.refresh_sources()
@@ -72,7 +73,7 @@ def test_per_source_cadence(hub):
     second = hub.refresh_sources()
     assert second["skipped"] is False
     assert second["instagram"] == 1
-    assert sorted(second["skipped_sources"]) == ["pinterest", "youtube"]
+    assert sorted(second["skipped_sources"]) == ["imessage", "pinterest", "youtube"]
 
 
 def test_favicon_renders_configured_glyph(client):

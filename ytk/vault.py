@@ -401,14 +401,21 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
     return note_path
 
 
-def write_journal_note(thread: "MessageThread", enrichment: Enrichment) -> Path:
-    """Write an Obsidian note for an iMessage journal thread. Returns the path written."""
+def write_journal_note(
+    thread: "MessageThread", enrichment: Enrichment, suffix: str = ""
+) -> Path:
+    """Write an Obsidian note for an iMessage journal thread. Returns the path written.
+
+    `suffix` (e.g. a session start time "HHMM") disambiguates multiple sessions
+    captured from the same contact on the same day so they don't collide.
+    """
     note_dir = _get_brain_path() / "sources" / "journal"
     note_dir.mkdir(parents=True, exist_ok=True)
 
     date_slug = re.sub(r"[,\s]+", "-", thread.date).strip("-").lower()
     contact_slug = re.sub(r"[^a-z0-9]+", "-", thread.contact.lower()).strip("-")
-    note_path = note_dir / f"{date_slug}-{contact_slug}.md"
+    stem = f"{date_slug}-{contact_slug}" + (f"-{suffix}" if suffix else "")
+    note_path = note_dir / f"{stem}.md"
     if note_path.exists():
         raise NoteAlreadyExists(note_path)
 
