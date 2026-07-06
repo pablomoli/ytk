@@ -31,19 +31,17 @@ STATE_PATH = reels.STATE_PATH
 PACING_SECONDS = 3.0
 
 _LOCK = threading.Lock()
+_QUEUE: list = []  # (ReelItem, tags, thought) triples awaiting the drain worker
 _JOB: dict = {
     "running": False,
     "total": 0,
     "done": 0,
     "current": None,
+    "queued": [],
     "failures": [],
     "annotated": 0,
     "linked": [],
 }
-
-
-class HubBusy(RuntimeError):
-    pass
 
 
 # ---------------------------------------------------------------------------
@@ -319,7 +317,9 @@ def ingest_via_cli(url: str, note: str = "") -> None:
     """
     from ytk.cli import cli as click_cli
 
-    args = ["add", url]
+    # hand-picked from the inbox = explicit intent: bypass filter prompts,
+    # which would otherwise raise a blank click.Abort in this TTY-less worker
+    args = ["add", url, "--force"]
     if note.strip():
         args += ["--note", note]
     try:
@@ -450,35 +450,50 @@ def _memo_worker(audio_bytes: bytes, filename: str, text: str) -> None:
         _memo_job.update(state="error", detail=str(exc))
 
 
-def start_ingest(indices: list[int], tags: list[str], thought: str) -> int:
-    """Kick off a background ingest of the given 1-based queue indices.
+def start_ingest(urls: list[str], tags: list[str], thought: str) -> int:
+    """Enqueue the given pending-queue URLs for background ingestion.
 
-    Raises HubBusy if a job is already running, ValueError on bad indices.
+    Appends to the running job if one is active (each batch keeps its own
+    tags/thought), otherwise starts a fresh drain worker. Returns the number
+    of items actually enqueued (already queued or in-flight URLs are
+    skipped). Raises ValueError on an empty or unknown selection.
     """
     with _LOCK:
-        if _JOB["running"]:
-            raise HubBusy("An ingest job is already running.")
-        pending = reels.load_state(STATE_PATH).pending
-        if not indices:
+        pending = {item.url: item for item in reels.load_state(STATE_PATH).pending}
+        if not urls:
             raise ValueError("No items selected.")
-        bad = [i for i in indices if i < 1 or i > len(pending)]
-        if bad:
-            raise ValueError(f"Selection out of range 1-{len(pending)}: {bad}")
-        items = [pending[i - 1] for i in sorted(set(indices))]
-        _JOB.update(
-            running=True, total=len(items), done=0, current=None,
-            failures=[], annotated=0, linked=[],
-        )
+        unknown = [u for u in urls if u not in pending]
+        if unknown:
+            raise ValueError(f"Not in the pending queue: {unknown}")
+        active = {e[0].url for e in _QUEUE} | {_JOB["current"]}
+        fresh = [u for u in dict.fromkeys(urls) if u not in active]
+        _QUEUE.extend((pending[u], tags, thought) for u in fresh)
+        if _JOB["running"]:
+            _JOB["total"] += len(fresh)
+        else:
+            _JOB.update(
+                running=True, total=len(fresh), done=0, current=None,
+                failures=[], annotated=0, linked=[],
+            )
+            threading.Thread(target=_drain, daemon=True).start()
+        _JOB["queued"] = [e[0].url for e in _QUEUE]
+    return len(fresh)
 
-    threading.Thread(target=_worker, args=(items, tags, thought), daemon=True).start()
-    return len(items)
 
-
-def _worker(items: list[reels.ReelItem], tags: list[str], thought: str) -> None:
+def _drain() -> None:
     started = time.time()
-    for idx, item in enumerate(items):
+    while True:
         with _LOCK:
+            if not _QUEUE:
+                # end the job under the lock so a concurrent start_ingest
+                # either lands before this (we keep draining) or after
+                # (it sees running=False and spawns a new worker)
+                _JOB["running"] = False
+                _JOB["current"] = None
+                break
+            item, tags, thought = _QUEUE.pop(0)
             _JOB["current"] = item.url
+            _JOB["queued"] = [e[0].url for e in _QUEUE]
         try:
             INGEST(item.url, thought)
             note = find_note_by_url(item.url, since=started - 5)
@@ -495,16 +510,15 @@ def _worker(items: list[reels.ReelItem], tags: list[str], thought: str) -> None:
                 _JOB["failures"].append({"url": item.url, "error": str(exc)})
         with _LOCK:
             _JOB["done"] += 1
-        if idx < len(items) - 1:
+            _JOB["current"] = None
+            more = bool(_QUEUE)
+        if more:
             time.sleep(PACING_SECONDS)
 
     try:
         REINDEX()
     except Exception:
         pass
-    with _LOCK:
-        _JOB["running"] = False
-        _JOB["current"] = None
 
 
 # ---------------------------------------------------------------------------

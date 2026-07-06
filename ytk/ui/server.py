@@ -72,7 +72,7 @@ class QueueAddRequest(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    indices: list[int]
+    urls: list[str]
     tags: list[str] = []
     thought: str = ""
 
@@ -156,9 +156,7 @@ async def ingest_api(req: IngestRequest):
     from ytk.ui import hub
 
     try:
-        started = hub.start_ingest(req.indices, req.tags, req.thought)
-    except hub.HubBusy as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        started = hub.start_ingest(req.urls, req.tags, req.thought)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"started": started}
