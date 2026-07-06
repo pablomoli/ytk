@@ -1,14 +1,91 @@
 """Tests for ytk.imessage sessionization — inactivity-timeout grouping."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ytk.imessage import (
     MARKER,
     MessageEntry,
     MessageThread,
+    decode_attributed_body,
+    read_recent,
     sessionize,
     split_urls,
 )
+
+
+def _blob(text: str) -> bytes:
+    """Build a minimal streamtyped attributedBody carrying `text`."""
+    tb = text.encode("utf-8")
+    if len(tb) < 0x81:
+        length = bytes([len(tb)])
+    else:
+        length = b"\x81" + len(tb).to_bytes(2, "little")
+    return b"\x04\x0bstreamtyped\x81\xe8\x03NSString\x01\x94\x84\x01+" + length + tb + b"\x86\x84"
+
+
+def test_decode_short_text():
+    assert decode_attributed_body(_blob("hello world")) == "hello world"
+
+
+def test_decode_long_text_two_byte_length():
+    long = "x" * 300
+    assert decode_attributed_body(_blob(long)) == long
+
+
+def test_decode_unicode_and_emoji():
+    s = "café — done 🎉"
+    assert decode_attributed_body(_blob(s)) == s
+
+
+def test_decode_empty_or_garbage():
+    assert decode_attributed_body(b"") == ""
+    assert decode_attributed_body(b"no marker here") == ""
+
+
+def _make_chatdb(path, rows, self_id="+1555"):
+    """rows: list of (chat_identifier, apple_date, text, blob, is_from_me)."""
+    import sqlite3
+    con = sqlite3.connect(path)
+    con.executescript(
+        "CREATE TABLE message (ROWID INTEGER PRIMARY KEY, date INTEGER, text TEXT, "
+        "attributedBody BLOB, is_from_me INTEGER);"
+        "CREATE TABLE chat (ROWID INTEGER PRIMARY KEY, chat_identifier TEXT);"
+        "CREATE TABLE chat_message_join (chat_id INTEGER, message_id INTEGER);"
+    )
+    chats = {}
+    for i, (chat_id, date, text, blob, mine) in enumerate(rows, 1):
+        if chat_id not in chats:
+            chats[chat_id] = len(chats) + 1
+            con.execute("INSERT INTO chat VALUES (?, ?)", (chats[chat_id], chat_id))
+        con.execute("INSERT INTO message (ROWID, date, text, attributedBody, is_from_me) VALUES (?,?,?,?,?)",
+                    (i, date, text, blob, mine))
+        con.execute("INSERT INTO chat_message_join VALUES (?, ?)", (chats[chat_id], i))
+    con.commit()
+    con.close()
+
+
+def test_read_recent_decodes_and_isolates_self_chat(tmp_path):
+    from ytk.imessage import _APPLE_EPOCH
+    now = datetime(2026, 4, 19, 20, 0, 0)
+
+    def apple(mins_ago):
+        return int((now - timedelta(minutes=mins_ago)).timestamp() - _APPLE_EPOCH) * 1_000_000_000
+
+    db = tmp_path / "chat.db"
+    _make_chatdb(db, [
+        ("+1555", apple(30), "plain note", None, 1),          # text column
+        ("+1555", apple(20), None, _blob("blob note"), 1),    # decoded from blob
+        ("+1555", apple(10), None, _blob("￼"), 1),            # attachment-only -> skipped
+        ("+1999", apple(15), "someone else", None, 1),        # different chat -> excluded
+        ("+1555", apple(9999), "too old", None, 1),           # outside window -> excluded
+    ])
+    thread = read_recent(days=3, now=now, self_id="+1555", db_path=db)
+    assert [m.text for m in thread.messages] == ["plain note", "blob note"]
+
+
+def test_read_recent_missing_db_or_self_is_empty(tmp_path):
+    assert read_recent(self_id="", db_path=tmp_path / "nope.db").messages == []
+    assert read_recent(self_id="+1555", db_path=tmp_path / "nope.db").messages == []
 
 
 def test_split_urls_separates_links_from_prose():

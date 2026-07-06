@@ -139,29 +139,21 @@ def _pin_fetch() -> list[dict]:
 
 
 def _im_fetch() -> list:
-    """Export the self-chat, parse it, and sessionize into closed sessions.
+    """Read the self-chat straight from chat.db and sessionize closed sessions.
 
-    Bounded to a recent window so each pull stays cheap; the persistent
-    imessage_seen set is what actually prevents re-adding older sessions.
+    Direct sqlite read (no subprocess), bounded to a recent window so each pull
+    stays cheap; the persistent imessage_seen set prevents re-adding older ones.
     """
-    import os
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     from ytk import imessage
 
-    contact = os.environ.get("IMESSAGE_SELF", "")
-    if not contact:
+    now = datetime.now()
+    thread = imessage.read_recent(days=3, now=now)
+    if not thread.messages:
         return []
-    since = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
-    export_dir = imessage.export_conversation(contact, start_date=since)
-    try:
-        txt_path = imessage.find_exported_file(export_dir, contact)
-        thread = imessage.parse_txt(txt_path)
-    finally:
-        import shutil
-        shutil.rmtree(export_dir, ignore_errors=True)
     gap = load_config().hub.imessage_gap_minutes
-    return imessage.sessionize(thread, gap_minutes=gap, now=datetime.now())
+    return imessage.sessionize(thread, gap_minutes=gap, now=now)
 
 
 def ingest_imessage_item(item: reels.ReelItem, note: str = "") -> Path | None:
@@ -222,6 +214,52 @@ IM_FETCH = _im_fetch
 INGEST_TEXT = ingest_imessage_item
 
 
+_watcher_started = False
+
+
+def start_imessage_watcher(interval: float = 3.0, debounce: float = 8.0) -> bool:
+    """Watch chat.db for writes and pull the self-chat within seconds.
+
+    macOS exposes no message-insertion hook, so this polls the SQLite
+    write-ahead-log's mtime (cheap, no DB open) and, on change, runs a targeted
+    imessage-only refresh. Debounced so a burst of messages triggers at most one
+    pull per window — and since sessionize withholds still-warm sessions anyway,
+    normal notes still wait out the gap; only "$$" notes ingest near-instantly.
+    Returns False if already running or IMESSAGE_SELF is unset.
+    """
+    global _watcher_started
+    import os
+
+    if _watcher_started or not os.environ.get("IMESSAGE_SELF"):
+        return False
+    _watcher_started = True
+
+    def _run() -> None:
+        from ytk.imessage import chatdb_path
+
+        db = chatdb_path()
+        watched = [db, db.parent / (db.name + "-wal")]
+        last_sig = None
+        last_pull = 0.0
+        pending = False
+        while True:
+            try:
+                sig = tuple(p.stat().st_mtime if p.exists() else 0 for p in watched)
+                if sig != last_sig:
+                    last_sig = sig
+                    pending = True
+                if pending and time.time() - last_pull >= debounce:
+                    pending = False
+                    last_pull = time.time()
+                    refresh_sources(force=True, only={"imessage"})
+            except Exception:
+                pass
+            time.sleep(interval)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
+
+
 def _pull_due(state: reels.ReelsState, source: str, cadence_minutes: dict, force: bool) -> bool:
     """Whether a source's per-source throttle window has elapsed."""
     if force:
@@ -232,13 +270,14 @@ def _pull_due(state: reels.ReelsState, source: str, cadence_minutes: dict, force
     return time.time() - last >= cadence_minutes.get(source, 15) * 60
 
 
-def refresh_sources(force: bool = False) -> dict:
+def refresh_sources(force: bool = False, only: set | None = None) -> dict:
     """Pull new items from all discovery sources into the queue.
 
     Auto-pull is throttled per source by hub.cadence_minutes (a source hit on
     every page load is bot-shaped traffic); `skipped` is True when every
     source was inside its window. Each source fails independently; errors are
-    reported, not raised.
+    reported, not raised. Pass `only={"imessage"}` to pull just those sources
+    (used by the chat.db watcher for cheap, targeted refreshes).
     """
     from ytk.config import load_config
 
@@ -252,7 +291,10 @@ def refresh_sources(force: bool = False) -> dict:
         state = reels.load_state(STATE_PATH)
         now = time.time()
 
-        due = {s: _pull_due(state, s, cadence, force) for s in ("instagram", "youtube", "pinterest", "imessage")}
+        due = {
+            s: (only is None or s in only) and _pull_due(state, s, cadence, force)
+            for s in ("instagram", "youtube", "pinterest", "imessage")
+        }
         if not any(due.values()):
             result["skipped"] = True
             result["skipped_sources"] = list(due)
