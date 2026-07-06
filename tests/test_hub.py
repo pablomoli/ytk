@@ -348,6 +348,29 @@ def test_link_with_prose_stays_one_note_with_link_embedded(hub, monkeypatch):
     assert "https://youtu.be/abc" in im[0].text and "watch later" in im[0].text
 
 
+def test_imessage_ingest_pairs_link_via_add(hub, monkeypatch):
+    called = {}
+    def fake_ingest(url, note=""):
+        called["url"] = url
+        called["note"] = note
+        p = hub.brain / "sources" / "youtube" / "vid.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(f"---\nurl: {url}\n---\nbody", encoding="utf-8")
+    monkeypatch.setattr(hub, "INGEST", fake_ingest)
+
+    item = reels.ReelItem(
+        url="imessage:session:x", source="imessage", author="Apr 19, 2026",
+        text="must watch https://youtu.be/abc great point",
+    )
+    note = hub.ingest_imessage_item(item, "inbox thought")
+
+    # reused the add pipeline; prose + inbox thought both steer enrichment
+    assert called["url"] == "https://youtu.be/abc"
+    assert "great point" in called["note"] and "inbox thought" in called["note"]
+    # returns the fetched source note (the pairing), not a separate journal note
+    assert note and note.name == "vid.md"
+
+
 def test_bare_link_becomes_fetch_item(hub, monkeypatch):
     _im_session(hub, monkeypatch, "https://youtu.be/abc")
     hub.refresh_sources()

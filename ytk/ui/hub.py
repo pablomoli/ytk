@@ -172,9 +172,22 @@ def ingest_imessage_item(item: reels.ReelItem, note: str = "") -> Path | None:
     """
     import os
 
-    from ytk.imessage import MessageEntry, MessageThread, enrich_journal
+    from ytk.imessage import MessageEntry, MessageThread, enrich_journal, split_urls
     from ytk.store import strip_frontmatter, upsert_doc
     from ytk.vault import NoteAlreadyExists, write_journal_note
+
+    # A note paired with a link: fetch the linked source and let the prose ride
+    # along as the user-note that steers its enrichment (reuses `ytk add --note`).
+    # The enriched source note IS the pairing, so no separate journal note.
+    urls, prose = split_urls(item.text or "")
+    if urls:
+        steer = "\n\n".join(t for t in (prose, note) if t and t.strip())
+        found: Path | None = None
+        for u in urls:
+            started = time.time()
+            INGEST(u, steer)
+            found = find_note_by_url(u, since=started - 5) or found
+        return found
 
     date = item.author or ""
     messages = [
