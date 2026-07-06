@@ -168,6 +168,33 @@ def client(hub):
     return TestClient(app)
 
 
+def test_imessage_warm_returns_only_open_sessions(hub, monkeypatch):
+    from datetime import datetime, timedelta
+    from ytk.imessage import MessageEntry, MessageThread
+
+    now = datetime.now()
+    def ts(mins):
+        return (now - timedelta(minutes=mins)).strftime("%b %d, %Y %I:%M:%S %p")
+
+    thread = MessageThread(contact="+1555", date="", messages=[
+        MessageEntry("Me", ts(120), "old closed note"),  # 2h ago -> closed session
+        MessageEntry("Me", ts(5), "fresh warm note"),    # 5 min ago -> still warm
+    ])
+    monkeypatch.setattr("ytk.imessage.read_recent", lambda **k: thread)
+
+    warm = hub.imessage_warm()
+    assert len(warm) == 1
+    assert "fresh warm note" in warm[0]["text"]
+    assert "old closed note" not in warm[0]["text"]
+    assert warm[0]["minutes_left"] > 0
+
+
+def test_imessage_warm_endpoint(client, hub, monkeypatch):
+    monkeypatch.setattr("ytk.imessage.read_recent",
+                        lambda **k: __import__("ytk.imessage", fromlist=["MessageThread"]).MessageThread("+1", "", []))
+    assert client.get("/api/imessage-warm").json() == {"warm": []}
+
+
 def test_ready_endpoint_reflects_search_flag(client, hub):
     import ytk.ui.hub as hm
     prev = hm._READY["search"]
