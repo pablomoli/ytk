@@ -122,6 +122,11 @@ def visual_count() -> int:
     return _visual_collection().count()
 
 
+def visual_ids() -> set[str]:
+    """All item_ids already present in the visual collection."""
+    return set(_visual_collection().get(include=[])["ids"])
+
+
 def get_visual_embedding(item_id: str) -> list[float] | None:
     res = _visual_collection().get(ids=[item_id], include=["embeddings"])
     if not res["ids"]:

@@ -260,6 +260,50 @@ def similar_api(q: str = "", note: str = "", n: int = 8):
     ]
 
 
+@app.get("/api/inbox-search")
+def inbox_search_api(q: str, n: int = 30):
+    """Visual+text search over ingested covers for the inbox re-ingest picker.
+
+    Returns actionable hits only (those with a url to re-queue), each with a
+    servable thumbnail path under the vault."""
+    from ytk import visual
+    from ytk.store import visual_similar
+    from ytk.vault import _get_brain_path
+
+    if not q.strip():
+        return {"results": []}
+    brain = _get_brain_path().resolve()
+    try:
+        embedding = visual.embed_text(q)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"embed failed: {exc}")
+    # the visual index is dominated by url-less cover-cache items; over-fetch
+    # so enough actionable (note-backed) hits survive the filter below
+    hits = visual_similar(embedding=embedding, n=max(n * 6, 120))
+
+    out = []
+    for r in hits:
+        if not r.url:
+            continue  # cover-cache items have no note to re-ingest
+        if len(out) >= n:
+            break
+        thumb = None
+        try:
+            p = Path(r.image_path).resolve()
+            if p.is_relative_to(brain):
+                thumb = str(p.relative_to(brain))
+        except Exception:
+            pass
+        out.append({
+            "url": r.url,
+            "title": r.title,
+            "source": r.source,
+            "thumbnail": thumb,
+            "distance": r.distance,
+        })
+    return {"results": out}
+
+
 @app.post("/api/snap")
 async def snap_api(request: Request, note: str = "", tags: str = ""):
     """Accept a raw image body (phone screenshot via Tailscale + iOS Shortcut).
