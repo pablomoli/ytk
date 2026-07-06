@@ -42,6 +42,8 @@
   .card.done .badge { background: #14532daa; }
   #searchrow { display: flex; gap: .4rem; }
   #searchbox { flex: 1; background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 999px; padding: .4rem .8rem; font-family: inherit; }
+  #searchbox:disabled { opacity: .55; cursor: wait; }
+  #searchbox.warming { border-color: #e2b04a; animation: pulse 1.4s ease-in-out infinite; }
   #searchmsg { color: #888; min-height: 1rem; }
   #scoperow { display: flex; gap: .4rem; }
   .groupsep { grid-column: 1 / -1; grid-row-end: span 3; color: #777; display: flex; align-items: center; gap: .6rem; }
@@ -494,6 +496,24 @@ document.getElementById("ingest").addEventListener("click", async () => {
   startPolling();
 });
 
+const SEARCH_PLACEHOLDER = "find by meaning, e.g. hand splint";
+async function watchReady() {
+  const box = document.getElementById("searchbox");
+  try {
+    const r = await (await fetch("/api/ready")).json();
+    if (r.search) {
+      box.disabled = false;
+      box.classList.remove("warming");
+      box.placeholder = SEARCH_PLACEHOLDER;
+      return;
+    }
+  } catch (e) { /* hub still coming up; keep polling */ }
+  box.disabled = true;
+  box.classList.add("warming");
+  box.placeholder = "warming search index...";
+  setTimeout(watchReady, 1000);
+}
+
 renderFilters();
 loadTags();
 loadQueue().then(() => {
@@ -501,6 +521,7 @@ loadQueue().then(() => {
   startPolling();
 });
 autoPull();
+watchReady();
 </script>
 </body>
 </html>

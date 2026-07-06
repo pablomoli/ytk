@@ -21,10 +21,12 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def _lifespan(app: "FastAPI"):
-    # Begin watching chat.db so self-notes land in the queue within seconds.
     from ytk.ui import hub
 
+    # Watch chat.db so self-notes land within seconds, and preload the search
+    # model so the first real search doesn't eat the cold-start lag.
     hub.start_imessage_watcher()
+    hub.warm_search()
     yield
 
 
@@ -292,6 +294,14 @@ def _kick_pending_sync() -> None:
             _pending_sync_lock.release()
 
     threading.Thread(target=run, daemon=True).start()
+
+
+@app.get("/api/ready")
+def ready_api():
+    """Readiness of the search subsystem, for the UI's warming indicator."""
+    from ytk.ui import hub
+
+    return {"search": hub.search_ready()}
 
 
 @app.get("/api/inbox-search")
