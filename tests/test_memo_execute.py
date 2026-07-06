@@ -80,3 +80,17 @@ def test_investigate_tagged_in_ideas(tmp_path):
 def test_thought_produces_no_artifacts():
     lines = execute_route(MemoResult(kind="thought", summary="s"), "t", [])
     assert lines == []
+
+
+def test_mixed_routing_thought_with_stated_asks(tmp_path):
+    """A musing-dominant memo still files its stated action items."""
+    result = MemoResult(
+        kind="thought", summary="brainstorm",
+        items=[ActionItem(title="Add loading indicator to inbox",
+                          description="Spinner or stage display for in-flight ingests.",
+                          priority="medium", suggested_route="idea", suggested_repo=None)],
+    )
+    with patch("ytk.memo._get_brain_path", return_value=tmp_path):
+        lines = execute_route(result, "t", [])
+    assert len(lines) == 1
+    assert "Add loading indicator" in (tmp_path / "inbox" / "ideas.md").read_text()

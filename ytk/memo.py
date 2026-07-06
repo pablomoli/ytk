@@ -31,14 +31,18 @@ Classify it into exactly one kind:
 
 kind:
   "memory"  — a durable fact, decision, or preference worth remembering long-term.
-  "action"  — one or more concrete actionable tasks (features, bugs, errands, research).
+  "action"  — the memo is primarily one or more concrete actionable tasks.
   "thought" — everything else: musings, reflections, half-ideas not yet actionable.
+  kind reflects the DOMINANT character of the memo, but action items are
+  extracted regardless of kind (see items).
 
 summary: One line under 80 chars capturing the memo, used in a desktop notification.
 
 tags: For "memory" only — 1-4 lowercase hyphenated topic tags. Otherwise [].
 
-items: For "action" only — the action items. Each item has:
+items: Every concrete, stated ask in the memo, whatever its kind — a memo that
+  is mostly musing can still contain "can we add X" or "we need to Y" asks;
+  extract those too. [] only when nothing actionable was stated. Each item has:
   title: Short imperative phrase under 70 chars.
   description: 1-2 sentences with enough context to act on without the recording.
   priority: "high", "medium", or "low" based on urgency signals in the memo.
@@ -112,7 +116,12 @@ def _append_idea(item: ActionItem, note: str = "") -> str:
 
 
 def execute_route(result: MemoResult, transcript: str, github_repos: list[str]) -> list[str]:
-    """Create the artifacts for a routed memo. Returns human-readable lines."""
+    """Create the artifacts for a routed memo. Returns human-readable lines.
+
+    Mixed routing: `kind` names the memo's dominant character, but stated
+    action items are executed whatever the kind — a mostly-musing memo with a
+    "can we add X" buried in it still gets that ask filed.
+    """
     lines: list[str] = []
 
     if result.kind == "memory":
@@ -120,28 +129,27 @@ def execute_route(result: MemoResult, transcript: str, github_repos: list[str]) 
         upsert_memory(doc_id, transcript, result.tags, str(note_path))
         lines.append(f"memory -> {note_path.name}")
 
-    elif result.kind == "action":
-        for item in result.items:
-            if item.suggested_route == "gh-issue" and item.suggested_repo in github_repos:
-                try:
-                    gh = subprocess.run(
-                        ["gh", "issue", "create", "--title", item.title,
-                         "--body", item.description, "--repo", item.suggested_repo],
-                        capture_output=True, text=True,
-                        timeout=30, stdin=subprocess.DEVNULL,
-                    )
-                except (FileNotFoundError, subprocess.TimeoutExpired):
-                    gh = None
-                if gh is not None and gh.returncode == 0:
-                    lines.append(f"gh-issue -> {item.suggested_repo}: {item.title} ({gh.stdout.strip()})")
-                else:
-                    lines.append(_append_idea(item, "gh failed"))
-            elif item.suggested_route == "investigate":
-                lines.append(_append_idea(item, "investigate"))
+    for item in result.items:
+        if item.suggested_route == "gh-issue" and item.suggested_repo in github_repos:
+            try:
+                gh = subprocess.run(
+                    ["gh", "issue", "create", "--title", item.title,
+                     "--body", item.description, "--repo", item.suggested_repo],
+                    capture_output=True, text=True,
+                    timeout=30, stdin=subprocess.DEVNULL,
+                )
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                gh = None
+            if gh is not None and gh.returncode == 0:
+                lines.append(f"gh-issue -> {item.suggested_repo}: {item.title} ({gh.stdout.strip()})")
             else:
-                lines.append(_append_idea(item))
+                lines.append(_append_idea(item, "gh failed"))
+        elif item.suggested_route == "investigate":
+            lines.append(_append_idea(item, "investigate"))
+        else:
+            lines.append(_append_idea(item))
 
-    return lines  # "thought": transcript note is the artifact; nothing else
+    return lines  # a pure "thought": the transcript note is the artifact
 
 
 AUDIO_DIR = Path.home() / ".ytk" / "audio" / "memos"
