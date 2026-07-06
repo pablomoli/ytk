@@ -36,7 +36,8 @@ def hub(tmp_path, monkeypatch):
     monkeypatch.setattr(hub_mod, "REINDEX", lambda: 0)
     # reset job state between tests
     hub_mod._JOB.update(running=False, total=0, done=0, current=None,
-                        failures=[], annotated=0)
+                        queued=[], failures=[], annotated=0, linked=[])
+    hub_mod._QUEUE.clear()
     hub_mod.brain = brain
     return hub_mod
 
@@ -68,7 +69,7 @@ def test_ingest_annotates_digests_and_dequeues(hub):
         p.write_text(NOTE_TEMPLATE.format(url=u), encoding="utf-8")
 
     hub.INGEST = fake_ingest
-    started = hub.start_ingest([1], tags=["build-idea"], thought="I want one.")
+    started = hub.start_ingest([url], tags=["build-idea"], thought="I want one.")
     assert started == 1
     status = _wait_done(hub)
 
@@ -93,17 +94,17 @@ def test_ingest_failure_keeps_item_queued(hub):
         raise RuntimeError("fetch failed")
 
     hub.INGEST = exploding
-    hub.start_ingest([1], tags=[], thought="")
+    hub.start_ingest([url], tags=[], thought="")
     status = _wait_done(hub)
 
     assert status["failures"][0]["url"] == url
     assert [i.url for i in hub.queue_items()] == [url]
 
 
-def test_ingest_rejects_bad_indices_and_busy(hub):
-    hub.queue_add(["https://youtu.be/abc"])
+def test_ingest_rejects_bad_urls_and_appends_while_running(hub):
+    hub.queue_add(["https://youtu.be/abc", "https://youtu.be/def"])
     with pytest.raises(ValueError):
-        hub.start_ingest([5], tags=[], thought="")
+        hub.start_ingest(["https://youtu.be/nope"], tags=[], thought="")
     with pytest.raises(ValueError):
         hub.start_ingest([], tags=[], thought="")
 
@@ -115,11 +116,19 @@ def test_ingest_rejects_bad_indices_and_busy(hub):
         gate.wait(timeout=5)
 
     hub.INGEST = slow
-    hub.start_ingest([1], tags=[], thought="")
-    with pytest.raises(hub.HubBusy):
-        hub.start_ingest([1], tags=[], thought="")
+    hub.start_ingest(["https://youtu.be/abc"], tags=[], thought="")
+    # re-queuing the in-flight url is a no-op; a new url appends to the job
+    assert hub.start_ingest(["https://youtu.be/abc"], tags=[], thought="") == 0
+    assert hub.start_ingest(["https://youtu.be/def"], tags=[], thought="") == 1
+    status = hub.job_status()
+    assert status["total"] == 2
+    # abc is either in-flight or still queued depending on worker timing,
+    # but def is queued exactly once and abc was not duplicated
+    assert status["queued"].count("https://youtu.be/def") == 1
+    assert status["queued"].count("https://youtu.be/abc") <= 1
     gate.set()
-    _wait_done(hub)
+    status = _wait_done(hub)
+    assert status["done"] == 2
 
 
 def test_fresh_notes_lists_recent_with_thumbnails(hub):
@@ -180,7 +189,7 @@ def test_api_ingest_flow_and_status(client, hub):
 
     hub.INGEST = fake_ingest
     r = client.post(
-        "/api/ingest", json={"indices": [1], "tags": ["design"], "thought": "nice"}
+        "/api/ingest", json={"urls": [url], "tags": ["design"], "thought": "nice"}
     )
     assert r.status_code == 200
     assert r.json()["started"] == 1
@@ -189,8 +198,8 @@ def test_api_ingest_flow_and_status(client, hub):
     assert status["done"] == 1 and status["running"] is False
 
 
-def test_api_ingest_bad_indices_400(client, hub):
-    r = client.post("/api/ingest", json={"indices": [9], "tags": [], "thought": ""})
+def test_api_ingest_bad_urls_400(client, hub):
+    r = client.post("/api/ingest", json={"urls": ["https://x/nope"], "tags": [], "thought": ""})
     assert r.status_code == 400
 
 
@@ -387,7 +396,7 @@ def test_ingest_forwards_thought_to_pipeline(hub):
         )
 
     hub.INGEST = fake_ingest
-    hub.start_ingest([1], tags=[], thought="make this about touchdesigner")
+    hub.start_ingest([url], tags=[], thought="make this about touchdesigner")
     _wait_done(hub)
     assert received["note"] == "make this about touchdesigner"
 

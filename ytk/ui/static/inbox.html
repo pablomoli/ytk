@@ -29,6 +29,14 @@
   .badge svg { width: 1rem; height: 1rem; }
   .check { position: absolute; top: .45rem; left: .45rem; background: #4ade80; color: #000; border-radius: 999px; width: 1.7rem; height: 1.7rem; display: none; align-items: center; justify-content: center; font-weight: 700; }
   .card.sel .check { display: flex; }
+  .card.queued { outline-color: #e2b04a55; }
+  .card.queued img, .card.ingesting img { opacity: .45; }
+  .card.ingesting { outline-color: #e2b04a; }
+  .spinner { position: absolute; top: 50%; left: 50%; width: 2rem; height: 2rem; margin: -1rem 0 0 -1rem; border: 3px solid #e2b04a33; border-top-color: #e2b04a; border-radius: 50%; animation: spin .8s linear infinite; display: none; }
+  .card.ingesting .spinner { display: block; }
+  .qbadge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #000b; color: #e2b04a; border-radius: 999px; padding: .2rem .8rem; display: none; }
+  .card.queued .qbadge { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .openlink { position: absolute; bottom: .45rem; right: .45rem; background: #000b; color: #e2b04a; text-decoration: none; border-radius: 999px; padding: .15rem .7rem; opacity: 0; transition: opacity .15s; }
   .card:hover .openlink { opacity: 1; }
 
@@ -48,6 +56,13 @@
   #newtag { flex: 1; background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 999px; padding: .3rem .8rem; font-family: inherit; }
   #selcount { color: #bbb; }
   #pullmsg, #progress { color: #888; min-height: 1.1rem; }
+  #qbar { display: none; height: 8px; border-radius: 999px; overflow: hidden; background: #262626; }
+  #qbar.on { display: flex; }
+  #qbar div { height: 100%; transition: flex-grow .6s ease; }
+  #qbar .failed { background: #f87171; }
+  #qbar .active { background: #e2b04a; animation: pulse 1.2s ease-in-out infinite; }
+  #qbar .waiting { background: #e2b04a44; }
+  @keyframes pulse { 50% { opacity: .5; } }
   #progress .fail, #pullmsg .fail { color: #f87171; }
 </style>
 <link rel="stylesheet" href="/static/theme.css">
@@ -82,6 +97,7 @@
     </div>
     <textarea id="thought"></textarea>
     <button id="ingest" class="btn primary" disabled>Ingest</button>
+    <div id="qbar"></div>
     <div id="progress"></div>
   </aside>
 </div>
@@ -95,8 +111,9 @@ const ICONS = {
   web: '<svg viewBox="0 0 24 24" fill="#9ca3af"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm7.9 9h-3a15.6 15.6 0 0 0-1.2-5.2A8 8 0 0 1 19.9 11zM12 4a13.8 13.8 0 0 1 1.9 7h-3.8A13.8 13.8 0 0 1 12 4zM8.3 5.8A15.6 15.6 0 0 0 7.1 11h-3a8 8 0 0 1 4.2-5.2zM4.1 13h3a15.6 15.6 0 0 0 1.2 5.2A8 8 0 0 1 4.1 13zM12 20a13.8 13.8 0 0 1-1.9-7h3.8A13.8 13.8 0 0 1 12 20zm3.7-1.8a15.6 15.6 0 0 0 1.2-5.2h3a8 8 0 0 1-4.2 5.2z"/></svg>',
 };
 
-const sel = new Set();
+const sel = new Set();          // selected item URLs
 let items = [];
+let jobState = { queued: [], current: null };
 const tags = new Set();
 let sourceFilter = "";
 const SOURCES = ["instagram", "youtube", "pinterest", "tiktok", "web"];
@@ -164,32 +181,59 @@ async function loadQueue() {
 }
 
 function renderGrid() {
+  const scrollY = window.scrollY;
   const visible = sourceFilter ? items.filter(i => i.source === sourceFilter) : items;
   document.getElementById("count").textContent =
     (sourceFilter ? `${visible.length} of ${items.length}` : items.length) + " pending";
+  const qorder = new Map((jobState.queued || []).map((u, i) => [u, i + 1]));
+  const rank = it => it.url === jobState.current ? 0 : (qorder.get(it.url) ?? Infinity);
   const sorted = [...visible].sort((a, b) =>
-    (b.shared_at || "").localeCompare(a.shared_at || "") || b.n - a.n);
+    rank(a) - rank(b)
+    || (b.shared_at || "").localeCompare(a.shared_at || "") || b.n - a.n);
   document.getElementById("grid").innerHTML = sorted.map(it => `
-    <div class="card${sel.has(it.n) ? " sel" : ""}${it.source === "youtube" ? " wide" : ""}" data-n="${it.n}">
+    <div class="card${sel.has(it.url) ? " sel" : ""}${it.source === "youtube" ? " wide" : ""}" data-url="${esc(it.url)}">
       <span class="check">ok</span>
       <span class="badge">${ICONS[it.source] || ICONS.web}</span>
       ${it.preview_url
         ? `<img src="/api/cover?u=${encodeURIComponent(it.url)}" loading="lazy"
              onerror="this.onerror=null;this.src='${esc(it.preview_url)}'">`
         : `<div class="noimg">${esc(it.source)}</div>`}
+      <div class="spinner"></div>
+      <span class="qbadge">queued</span>
       <a class="openlink" href="${esc(it.url)}" target="_blank">open</a>
     </div>`).join("");
   document.querySelectorAll(".card").forEach(card => {
     card.addEventListener("click", e => {
       if (e.target.closest("a")) return;
-      const n = Number(card.dataset.n);
-      if (sel.has(n)) { sel.delete(n); } else { sel.add(n); }
+      if (card.classList.contains("queued") || card.classList.contains("ingesting")) return;
+      const u = card.dataset.url;
+      if (sel.has(u)) { sel.delete(u); } else { sel.add(u); }
       card.classList.toggle("sel");
       renderBar();
     });
   });
   layoutGrid();
+  paintJobState();
   renderBar();
+  window.scrollTo(0, scrollY);
+}
+
+let lastOrderKey = "";
+
+function paintJobState() {
+  const order = jobState.queued || [];
+  const pos = new Map(order.map((u, i) => [u, i + 1]));
+  document.querySelectorAll(".card").forEach(card => {
+    const u = card.dataset.url;
+    card.classList.toggle("ingesting", u === jobState.current);
+    card.classList.toggle("queued", pos.has(u));
+    if (pos.has(u)) card.querySelector(".qbadge").textContent = "#" + pos.get(u);
+  });
+  const key = jobState.current + "|" + order.join(",");
+  if (key !== lastOrderKey) {
+    lastOrderKey = key;
+    renderGrid();   // safe: key now matches, so this does not recurse
+  }
 }
 
 function layoutGrid() {
@@ -241,6 +285,7 @@ async function autoPull() {
 }
 
 let pollTimer = null;
+let lastDone = 0;
 
 async function pollStatus() {
   const s = await (await fetch("/api/ingest/status")).json();
@@ -249,16 +294,45 @@ async function pollStatus() {
     ? ` <span class="fail">${s.failures.length} failed</span>` : "";
   const linked = (s.linked || []).length
     ? `<br>${s.linked.map(esc).join("<br>")}` : "";
+  jobState = { queued: s.queued || [], current: s.current };
+  if (s.done !== lastDone) {
+    lastDone = s.done;
+    await loadQueue();   // completed items leave the grid as they finish
+  }
+  paintJobState();
+  renderQbar(s);
   if (s.running) {
-    p.innerHTML = `ingesting ${s.done + 1}/${s.total}${fails}${linked}`;
+    p.innerHTML = `${fails}${linked}`;
   } else {
     clearInterval(pollTimer);
     pollTimer = null;
-    p.innerHTML = s.total
-      ? `done: ${s.done - s.failures.length}/${s.total} ingested${fails}${linked}` : "";
-    sel.clear();
+    p.innerHTML = (s.failures.length || (s.linked || []).length)
+      ? `${fails}${linked}` : "";
     await loadQueue();
   }
+}
+
+function renderQbar(s) {
+  const bar = document.getElementById("qbar");
+  bar.classList.toggle("on", s.running);
+  if (!s.running) { bar.innerHTML = ""; return; }
+  const failed = s.failures.length;
+  const active = s.current ? 1 : 0;
+  const waiting = (s.queued || []).length;
+  if (!bar.children.length) {
+    bar.innerHTML = ["failed", "active", "waiting"]
+      .map(cls => `<div class="${cls}"></div>`).join("");
+  }
+  [failed, active, waiting].forEach((n, i) => {
+    const seg = bar.children[i];
+    seg.style.flexGrow = n;
+    seg.title = `${seg.className}: ${n}`;
+  });
+}
+
+function startPolling() {
+  if (!pollTimer) pollTimer = setInterval(pollStatus, 1500);
+  pollStatus();
 }
 
 document.getElementById("ingest").addEventListener("click", async () => {
@@ -266,7 +340,7 @@ document.getElementById("ingest").addEventListener("click", async () => {
   const res = await fetch("/api/ingest", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ indices: [...sel], tags: [...tags], thought }),
+    body: JSON.stringify({ urls: [...sel], tags: [...tags], thought }),
   });
   if (!res.ok) {
     const err = await res.json();
@@ -274,15 +348,20 @@ document.getElementById("ingest").addEventListener("click", async () => {
       `<span class="fail">${esc(err.detail || res.status)}</span>`;
     return;
   }
+  sel.clear();
+  tags.clear();
+  document.querySelectorAll(".chip.on").forEach(c => c.classList.remove("on"));
+  renderGrid();
   document.getElementById("thought").value = "";
-  document.getElementById("ingest").disabled = true;
-  pollTimer = setInterval(pollStatus, 1500);
-  pollStatus();
+  startPolling();
 });
 
 renderFilters();
 loadTags();
-loadQueue();
+loadQueue().then(() => {
+  // resync with any job already running (e.g. after a page reload mid-ingest)
+  startPolling();
+});
 autoPull();
 </script>
 </body>
