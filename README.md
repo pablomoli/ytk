@@ -1,154 +1,204 @@
 # ytk
 
-A personal knowledge system for the things you watch and read. ytk fetches
-transcripts and metadata from YouTube videos (plus Instagram, TikTok,
-Pinterest, and web articles), enriches them with Claude Haiku, writes atomic
-notes into an Obsidian vault, and indexes embeddings locally in ChromaDB so
-everything is semantically searchable — from the CLI, from a local web hub,
-or from inside a Claude Code session via MCP.
+Turn videos, articles, posts, and voice notes into a searchable personal
+knowledge base.
 
-## Philosophy
+`ytk` captures the things you watch and read, enriches them with Claude Haiku,
+writes plain markdown notes into an Obsidian vault, and indexes everything
+locally with ChromaDB. You can search it from the CLI, browse it in a local web
+hub, or expose the vault to Claude Code through MCP.
 
-ytk is a complement to watching, not a replacement. The premise is that you
-still watch the video — ytk exists so that three weeks later, when you think
-"how did that guy drive the television from the CLI?", you can find the exact
-moment. Enrichment is tuned for density of named specifics (tools, commands,
-techniques, timestamps), not vague summaries.
+It is built for people who still watch the video. The goal is not to replace
+attention with summaries; it is to make the exact tools, commands, names,
+timestamps, and personal annotations findable weeks later.
 
-The second premise: your own words carry the signal. Every capture path lets
-you attach a note — a thought typed at queue time, a voice memo, an
-annotation in the inbox — and those annotations are embedded and searched
-alongside the source content. Over time the system synthesizes an interest
-profile from what you actually save and say about it.
+## Why it exists
 
-## Architecture
+Most saved links become a graveyard. `ytk` turns each capture into a useful
+memory:
 
+- **Save from where you already are**: YouTube, web articles, Instagram,
+  TikTok, Pinterest, iMessage, voice memos, and a local inbox.
+- **Keep the source inspectable**: transcripts, metadata, thumbnails, extracted
+  frames, and timestamped key moments stay linked to the original.
+- **Search by meaning, not filenames**: embeddings are stored locally in
+  ChromaDB for semantic search across sources and your own notes.
+- **Bring your own context**: notes and annotations are embedded alongside the
+  source so your reasons for saving something remain searchable.
+- **Use normal files**: the long-term store is plain markdown in an Obsidian
+  vault, so the data is useful without `ytk`.
+
+## Workflow
+
+```mermaid
+flowchart LR
+  A[Capture] --> B[Fetch]
+  B --> C[Enrich]
+  C --> D[Write notes]
+  D --> E[Index]
+  E --> F[Retrieve]
 ```
-capture                 enrich                store                 retrieve
--------                 ------                -----                 --------
-ytk add (YouTube)   ->  Claude Haiku      ->  Obsidian vault    ->  ytk search / dive
-ytk ingest (web)        (thesis, summary,     (markdown notes,      hub pages (:6969)
-ytk reels (IG DMs)      key concepts,         thumbnails,           MCP server
-ytk add-tiktok          insights, tags,       frames)               interest profile
-ytk memo (voice)        key moments)          ChromaDB
-hub inbox queue                               (embeddings)
-```
 
-- Transcripts come from `youtube-transcript-api` first, with a `yt-dlp`
-  subtitle fallback and a local faster-whisper fallback for audio-only cases.
-- Notes are plain markdown with frontmatter — the vault stays a normal
-  Obsidian vault, usable without ytk.
-- Embeddings are computed locally with sentence-transformers; nothing leaves
-  your machine except the enrichment call to the Anthropic API.
+## What you get
+
+```mermaid
+flowchart TD
+  A[ytk] --> B[CLI]
+  A --> C[Local hub]
+  A --> D[Obsidian vault]
+  A --> E[MCP server]
+  B --> F[Capture commands]
+  B --> G[Search commands]
+  C --> H[Inbox]
+  C --> I[Embedding map]
+  E --> J[Vault tools]
+```
 
 ## Install
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), and `ffmpeg` for voice
+memos, frame extraction, and audio fallbacks.
 
 ```bash
 git clone https://github.com/pablomoli/ytk
 cd ytk
 uv sync
 uv run ytk --help
+```
 
-# or install the CLI globally
+To install the CLI globally:
+
+```bash
 uv tool install .
-# after pulling changes: uv tool install --reinstall .
+
+# after pulling repo changes
+uv tool install --reinstall .
 ```
 
-`ffmpeg` is needed for voice memos and frame extraction.
+## Configure
 
-## Configuration
+Copy `.env.example` to `.env` and point `ytk` at your vault:
 
-Copy `.env.example` to `.env`:
-
-```
+```dotenv
 ANTHROPIC_API_KEY=sk-ant-...
 OBSIDIAN_VAULT_PATH=/path/to/your/obsidian/vault
 CHROMA_PATH=~/.ytk/chroma
-INSTAGRAM_SESSIONID=        # only for ytk reels; see caveats
-INSTAGRAM_PEER=             # optional two-account capture thread
+
+# Optional, only for Instagram capture
+INSTAGRAM_SESSIONID=
+INSTAGRAM_PEER=
 ```
 
-Runtime settings live in `~/.ytk/config.yaml` (auto-created with defaults).
-It holds ingest filters (min/max duration, caption requirement, optional
-interest-tag gate), hub host/port, inbox annotation chips, fetch cadence per
-source, and interest-model parameters. The hub's `/settings` page is a
-validated editor over this file, with inline documentation of every field.
+Runtime settings live in `~/.ytk/config.yaml`, which is created on first run.
+It controls ingest filters, source fetch cadence, inbox annotation chips, hub
+host and port, map colors, and interest-model settings. The hub also provides a
+validated settings editor at `/settings`.
 
 ## Quickstart
 
 ```bash
-ytk add https://www.youtube.com/watch?v=VIDEO_ID     # ingest one video
-ytk add <url> --force                                # bypass filters
-ytk add <url> --note "why I saved this"              # steer enrichment
-ytk ingest <article-url>                             # web article
-ytk feed urls.txt                                    # batch ingest
+# Capture
+ytk add https://www.youtube.com/watch?v=VIDEO_ID
+ytk add <url> --note "why I saved this"
+ytk ingest <article-url>
+ytk feed urls.txt
+ytk memo
 
-ytk search "query"                                   # semantic search, whole vault
-ytk dive VIDEO_ID "query"                            # segment-level, timestamped
-ytk memo                                             # record a voice memo, auto-route
-ytk profile                                          # synthesize interest profile
-ytk ui                                               # start the hub at :6969
+# Retrieve
+ytk search "that terminal TV demo"
+ytk dive VIDEO_ID "the command he used"
+ytk profile
+ytk ui
 ```
 
-Other commands: `add-instagram`, `add-tiktok`, `add-pinterest`, `reels`
-(Instagram DM capture-thread sync), `triage` / `review` (action extraction
-and GitHub routing), `graph` (HTML knowledge graph), `tags`, `remember`,
-`reindex`, `gc`, `snap`, `chat`, `dashboard`, `visual index` / `visual
-similar`. Run `ytk --help` for the full list.
+`ytk ui` starts the local hub on port `6969`.
 
-## The hub
+## Local hub
 
-`ytk ui` serves a local web app:
+The hub is a small local web app for capture, review, and exploration:
 
-- `/` — fresh feed of recent ingests
-- `/inbox` — queue picker with buckets and annotation chips; a paste box adds
-  anything to the queue; your thoughts are embedded into search and the daily
-  digest
-- `/tags` — tag gardening: merge enrichment-coined tag variants; accepted
-  merges persist via an alias map
-- `/map` — 3D brain map, a UMAP projection of every text embedding
-- `/settings` — validated editor over `~/.ytk/config.yaml`
+- `/` shows recent ingests.
+- `/inbox` collects queued links and lets you add annotations before ingest.
+- `/tags` helps merge tag variants produced by enrichment.
+- `/map` renders a 3D UMAP projection of text embeddings.
+- `/settings` edits `~/.ytk/config.yaml` with validation.
 
-On macOS, `ytk ui install` registers the hub as a launchd daemon
-(`ytk ui status` / `ytk ui restart` / `ytk ui uninstall`).
+On macOS, `ytk ui install` registers the hub as a launchd daemon. Use
+`ytk ui status`, `ytk ui restart`, and `ytk ui uninstall` to manage it.
 
-## MCP server for Claude Code
+## Claude Code integration
 
-ytk ships an MCP server (`ytk-mcp` entry point) exposing the vault to Claude
-sessions: `vault_read`, `vault_write`, `vault_search`, `vault_list`,
-`vault_remember`, `vault_reindex`, `vault_update_index`, `visual_similar`.
+`ytk` ships an MCP server through the `ytk-mcp` entry point. It exposes tools
+for vault reads, writes, semantic search, remembering facts, reindexing, and
+visual similarity.
 
 ```bash
-# with the CLI installed globally (uv tool install .):
+# with the CLI installed globally
 claude mcp add --scope user ytk -- ytk-mcp
-# or straight from a checkout:
+
+# or from a checkout
 claude mcp add --scope user ytk -- uv run --directory /path/to/ytk ytk-mcp
 ```
 
-This is the primary interface in practice — a Claude Code session can search
-everything you have ever saved, and capture decisions back into the vault.
+This lets a Claude Code session search everything you have saved and write
+decisions or memories back into the vault.
 
-## What's personal, what's portable
+## Commands
 
-This started as a single-user tool and some edges show:
+Common commands:
 
-- **Instagram (`ytk reels`, `add-instagram`)** needs a `sessionid` cookie
-  from a logged-in browser session, and works best with a dedicated
-  second account as the capture thread. Instagram may flag bot-shaped
-  traffic; the hub throttles pulls per source for this reason.
-- **macOS-flavored bits**: the launchd daemon (`ytk ui install`), the
-  `ytk schedule` nightly launchd job (index + dashboard), voice-memo capture via ffmpeg with
-  macOS notifications, and iMessage ingestion (`add-imessage`) all assume
-  macOS. Core ingest/search works anywhere Python and ffmpeg do.
-- **Vault layout**: the enrichment prompts and vault conventions (a
-  `second-brain/` tree with wiki, memories, sources) reflect one person's
-  system. The note format is plain markdown; adapt the paths and it is
-  yours.
-- **Costs**: enrichment uses `claude-haiku-4-5` per ingest; everything else
-  (embeddings, transcription, search) runs locally.
+| Command | Purpose |
+| --- | --- |
+| `ytk add <youtube-url>` | Ingest one YouTube video |
+| `ytk ingest <url>` | Ingest a web article |
+| `ytk feed urls.txt` | Batch ingest URLs |
+| `ytk search "query"` | Search the whole vault semantically |
+| `ytk dive VIDEO_ID "query"` | Search timestamped video segments |
+| `ytk memo` | Record, transcribe, and route a voice memo |
+| `ytk profile` | Synthesize an interest profile from saved material |
+| `ytk ui` | Start the local hub |
+
+Other commands include `add-instagram`, `add-tiktok`, `add-pinterest`, `reels`,
+`triage`, `review`, `graph`, `tags`, `remember`, `reindex`, `gc`, `snap`,
+`index`, `dashboard`, `schedule`, `chat`, `visual index`, and `similar`. Run
+`ytk --help` for the full list.
+
+## Architecture notes
+
+- YouTube transcripts come from `youtube-transcript-api` first, then `yt-dlp`
+  subtitle fallback, then local `faster-whisper` for audio-only cases.
+- Enrichment uses `claude-haiku-4-5` to produce a thesis, dense summary, key
+  concepts, insights, tags, and timestamped key moments.
+- Embeddings are computed locally with `sentence-transformers`.
+- Markdown notes and media are written into your Obsidian vault.
+- ChromaDB stores the local vector index.
+- The only default external AI call is enrichment through the Anthropic API.
+
+## Status and expectations
+
+This is a personal tool that has grown into a portable repo. The core
+ingest/search/vault flow should be useful anywhere Python and `ffmpeg` run, but
+some features reflect the original setup:
+
+- Instagram capture needs a `sessionid` cookie from a logged-in browser session
+  and may be sensitive to platform rate limits.
+- `ytk ui install`, `ytk schedule`, macOS notifications, and iMessage ingestion
+  are macOS-oriented.
+- The default vault conventions assume a `second-brain/` style Obsidian layout,
+  but the notes are plain markdown and can be adapted.
+- Enrichment has Anthropic API cost; transcription, embeddings, indexing, and
+  search run locally.
+
+## Contributing
+
+Issues, docs improvements, and focused pull requests are welcome. The most
+useful contributions are usually:
+
+- clearer setup notes for non-macOS environments,
+- small bug fixes with tests,
+- capture-source improvements,
+- examples of vault layouts or workflows that make `ytk` easier to adopt.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
