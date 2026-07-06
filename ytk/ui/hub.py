@@ -562,6 +562,11 @@ def fresh_notes(n: int = 30) -> list[dict]:
         m = re.search(r"^image_paths:\n\s+- (.+)$", text, re.MULTILINE)
         if m and (brain / m.group(1).strip()).exists():
             thumb = m.group(1).strip()
+        elif m2 := re.search(r"!\[\[([^\]|]+\.(?:png|jpe?g|webp|gif))", text, re.IGNORECASE):
+            # notes without image_paths (e.g. screenshots) embed their image
+            candidate = md.parent / m2.group(1).strip()
+            if candidate.exists():
+                thumb = str(candidate.relative_to(brain))
         tags_m = re.search(r"^tags:\n((?:\s+- .+\n)+)", text, re.MULTILINE)
         tags = re.findall(r"- (.+)", tags_m.group(1)) if tags_m else []
         out.append(
