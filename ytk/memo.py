@@ -65,8 +65,12 @@ def route(transcript: str, repos: list[str] | None = None) -> MemoResult:
     return structured(_SYSTEM_MEMO + repo_hint, transcript, MemoResult)
 
 
-def write_memo_note(transcript: str, audio_path: Path | None) -> Path:
-    """Write the memo note BEFORE routing. Nothing said is ever lost."""
+def write_memo_note(transcript: str, audio_path: Path | None, source: str = "voice") -> Path:
+    """Write the memo note BEFORE routing. Nothing said is ever lost.
+
+    `source` distinguishes capture channels: "voice" (recorded) vs "imessage"
+    (typed self-notes ingested through the same routing pipeline).
+    """
     now = datetime.now()
     slug = re.sub(r"[^a-z0-9]+", "-", transcript[:40].lower()).strip("-") or "memo"
     text_hash = hashlib.sha1(transcript.encode("utf-8")).hexdigest()[:6]
@@ -77,7 +81,7 @@ def write_memo_note(transcript: str, audio_path: Path | None) -> Path:
     audio_line = f"audio: {audio_path}\n" if audio_path else ""
     note_path.write_text(
         f"---\ncaptured: {now.isoformat(timespec='seconds')}\n"
-        f"source: voice\n{audio_line}route: pending\n---\n\n{transcript}\n",
+        f"source: {source}\n{audio_line}route: pending\n---\n\n{transcript}\n",
         encoding="utf-8",
     )
     return note_path

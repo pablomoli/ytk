@@ -140,6 +140,7 @@ const ICONS = {
   pinterest: '<svg viewBox="0 0 24 24" fill="#e60023"><path d="M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 .04-2.9l1.2-5s-.3-.6-.3-1.5c0-1.4.8-2.4 1.8-2.4.9 0 1.3.6 1.3 1.4 0 .9-.6 2.2-.9 3.4-.2 1 .5 1.9 1.5 1.9 1.9 0 3.3-2 3.3-4.8 0-2.5-1.8-4.3-4.4-4.3a4.6 4.6 0 0 0-4.8 4.6c0 .9.4 1.9.8 2.4a.3.3 0 0 1 .07.3l-.3 1.2c-.05.2-.2.25-.4.15-1.3-.6-2.1-2.5-2.1-4.1 0-3.3 2.4-6.4 7-6.4 3.7 0 6.5 2.6 6.5 6.1 0 3.7-2.3 6.6-5.5 6.6-1.1 0-2.1-.6-2.4-1.2l-.7 2.5c-.2.9-.9 2-1.3 2.7A10 10 0 1 0 12 2z"/></svg>',
   web: '<svg viewBox="0 0 24 24" fill="#9ca3af"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm7.9 9h-3a15.6 15.6 0 0 0-1.2-5.2A8 8 0 0 1 19.9 11zM12 4a13.8 13.8 0 0 1 1.9 7h-3.8A13.8 13.8 0 0 1 12 4zM8.3 5.8A15.6 15.6 0 0 0 7.1 11h-3a8 8 0 0 1 4.2-5.2zM4.1 13h3a15.6 15.6 0 0 0 1.2 5.2A8 8 0 0 1 4.1 13zM12 20a13.8 13.8 0 0 1-1.9-7h3.8A13.8 13.8 0 0 1 12 20zm3.7-1.8a15.6 15.6 0 0 0 1.2-5.2h3a8 8 0 0 1-4.2 5.2z"/></svg>',
   imessage: '<svg viewBox="0 0 24 24" fill="#34da50"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.5 1.4 4.7 3.6 6.2-.2 1.2-.8 2.4-1.6 3.3 1.6-.2 3.1-.7 4.3-1.5 1.1.3 2.4.5 3.7.5 5.5 0 10-3.6 10-8s-4.5-8-10-8z"/></svg>',
+  memo: '<svg viewBox="0 0 24 24" fill="#4ade80"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4zm6-4a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.9V22h2v-3.1A8 8 0 0 0 20 11h-2z"/></svg>',
 };
 
 const sel = new Set();          // selected item URLs
@@ -245,7 +246,13 @@ function renderGrid() {
       ${title ? `<div class="ctitle">${esc(title)}</div>` : ""}
       <a class="openlink" href="${esc(it.url)}" target="_blank">open</a>
     </div>`;
-  const ingestedCard = n => card(
+  const ingestedCard = n => n.source === "memo"
+    // memos are already the artifact: shown for lookup/filtering, not re-ingest
+    ? `<div class="card done memo" data-url="">
+         <span class="badge">${ICONS[n.channel === "imessage" ? "imessage" : "memo"]}</span>
+         <div class="notecard"><p>${esc(n.preview || n.title)}</p><span>${esc(n.kind || "memo")}${n.date ? " · " + esc(n.date) : ""}</span></div>
+       </div>`
+    : card(
     {url: n.url, source: n.source},
     " done" + (n.source === "youtube" ? " wide" : ""),
     n.thumbnail
@@ -257,7 +264,7 @@ function renderGrid() {
     const pendingUrls = new Set(items.map(i => i.url));
     const hits = searchHits.filter(n =>
       (n.pending ? pendingUrls.has(n.url) : !pendingUrls.has(n.url))
-      && (!sourceFilter || n.source === sourceFilter));
+      && (!sourceFilter || n.source === sourceFilter || n.channel === sourceFilter));
     document.getElementById("count").textContent =
       `${hits.length} match${hits.length === 1 ? "" : "es"}`;
     const pendingHitCard = n => card(
@@ -298,8 +305,8 @@ function renderGrid() {
     it.source === "youtube" ? it.author : "")).join("");
   if (showIngested) {
     const pendingUrls = new Set(items.map(i => i.url));
-    const pool = ingested.filter(n => n.url && !pendingUrls.has(n.url)
-      && (!sourceFilter || n.source === sourceFilter));
+    const pool = ingested.filter(n => (n.url || n.source === "memo") && !pendingUrls.has(n.url)
+      && (!sourceFilter || n.source === sourceFilter || n.channel === sourceFilter));
     html += `<div class="groupsep">already ingested</div>`;
     html += pool.map(ingestedCard).join("");
   }
@@ -316,6 +323,7 @@ function wireCards() {
     card.addEventListener("click", e => {
       if (e.target.closest("a")) return;
       if (card.classList.contains("brewing")) return;  // not selectable; still cooking
+      if (!card.dataset.url) return;                   // memos in the pool: view-only
       if (card.classList.contains("queued") || card.classList.contains("ingesting")) return;
       const u = card.dataset.url;
       if (sel.has(u)) { sel.delete(u); } else { sel.add(u); }
