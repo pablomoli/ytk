@@ -661,6 +661,7 @@ def _drain() -> None:
         from ytk import visual
 
         visual.index_covers(skip_existing=True)
+        visual.sync_pending_visual()
     except Exception:
         pass
 

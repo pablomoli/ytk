@@ -43,6 +43,7 @@
   #searchrow { display: flex; gap: .4rem; }
   #searchbox { flex: 1; background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 999px; padding: .4rem .8rem; font-family: inherit; }
   #searchmsg { color: #888; min-height: 1rem; }
+  #scoperow { display: flex; gap: .4rem; }
   .groupsep { grid-column: 1 / -1; grid-row-end: span 3; color: #777; display: flex; align-items: center; gap: .6rem; }
   .groupsep::before, .groupsep::after { content: ""; flex: 1; border-top: 1px solid #2a2a2a; }
   .ctitle { padding: .4rem .6rem .5rem; color: #ccc; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -105,6 +106,10 @@
       <input id="searchbox" placeholder="find by meaning, e.g. hand splint">
       <button id="searchclear" class="btn" title="clear">x</button>
     </div>
+    <div id="scoperow">
+      <button class="chip on" data-scope="ingested">ingested</button>
+      <button class="chip" data-scope="pending">pending</button>
+    </div>
     <div id="searchmsg"></div>
 
     <h2>Ingest</h2>
@@ -136,6 +141,7 @@ let items = [];
 let ingested = [];              // recently ingested vault notes (re-ingest pool)
 let showIngested = false;
 let searchHits = null;   // null = not searching; array = search results
+let searchScope = "ingested";  // or "pending" 
 let jobState = { queued: [], current: null };
 const tags = new Set();
 let sourceFilter = "";
@@ -242,12 +248,18 @@ function renderGrid() {
 
   if (searchHits !== null) {
     const pendingUrls = new Set(items.map(i => i.url));
-    const hits = searchHits.filter(n => !pendingUrls.has(n.url)
+    const hits = searchHits.filter(n =>
+      (n.pending ? pendingUrls.has(n.url) : !pendingUrls.has(n.url))
       && (!sourceFilter || n.source === sourceFilter));
     document.getElementById("count").textContent =
       `${hits.length} match${hits.length === 1 ? "" : "es"}`;
+    const pendingHitCard = n => card(
+      {url: n.url, source: n.source},
+      n.source === "youtube" ? " wide" : "",
+      `<img src="/api/cover?u=${encodeURIComponent(n.url)}" loading="lazy">`,
+      n.title || "");
     document.getElementById("grid").innerHTML =
-      hits.length ? hits.map(ingestedCard).join("")
+      hits.length ? hits.map(n => n.pending ? pendingHitCard(n) : ingestedCard(n)).join("")
                   : `<div class="groupsep">no matches</div>`;
     wireCards();
     layoutGrid(); paintJobState(); renderBar();
@@ -353,7 +365,8 @@ async function runSearch(q) {
   if (!q.trim()) { searchHits = null; msg.textContent = ""; renderGrid(); return; }
   msg.textContent = "searching...";
   try {
-    const r = await (await fetch("/api/inbox-search?q=" + encodeURIComponent(q))).json();
+    const r = await (await fetch("/api/inbox-search?q=" + encodeURIComponent(q)
+      + "&scope=" + searchScope)).json();
     searchHits = r.results || [];
     msg.textContent = searchHits.length ? "" : "no matches";
   } catch (e) {
@@ -366,6 +379,15 @@ document.getElementById("searchbox").addEventListener("input", e => {
   clearTimeout(searchTimer);
   const q = e.target.value;
   searchTimer = setTimeout(() => runSearch(q), 350);
+});
+document.querySelectorAll("#scoperow .chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    searchScope = chip.dataset.scope;
+    document.querySelectorAll("#scoperow .chip").forEach(c =>
+      c.classList.toggle("on", c.dataset.scope === searchScope));
+    const q = document.getElementById("searchbox").value;
+    if (q.trim()) runSearch(q);
+  });
 });
 document.getElementById("searchclear").addEventListener("click", () => {
   document.getElementById("searchbox").value = "";

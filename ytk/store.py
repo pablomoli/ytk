@@ -33,6 +33,7 @@ _COLLECTION_VIDEOS = "ytk_videos"
 _COLLECTION_SEGMENTS = "ytk_segments"
 _COLLECTION_MEMORIES = "ytk_memories"
 _COLLECTION_VISUAL = "ytk_visual"
+_COLLECTION_VISUAL_PENDING = "ytk_visual_pending"
 
 _client: chromadb.PersistentClient | None = None
 _ef: embedding_functions.SentenceTransformerEmbeddingFunction | None = None
@@ -125,6 +126,54 @@ def visual_count() -> int:
 def visual_ids() -> set[str]:
     """All item_ids already present in the visual collection."""
     return set(_visual_collection().get(include=[])["ids"])
+
+
+def _visual_pending_collection() -> chromadb.Collection:
+    """SigLIP-2 embeddings of pending-queue covers, keyed by item url.
+
+    Separate from ytk_visual so ingested-library search stays clean; entries
+    live exactly as long as their item stays in the pending queue."""
+    return _get_client().get_or_create_collection(
+        name=_COLLECTION_VISUAL_PENDING,
+        metadata={"hnsw:space": "cosine"},
+    )
+
+
+def pending_visual_ids() -> set[str]:
+    return set(_visual_pending_collection().get(include=[])["ids"])
+
+
+def upsert_pending_visual(url: str, embedding: list[float], metadata: dict) -> None:
+    _visual_pending_collection().upsert(
+        ids=[url], embeddings=[embedding], metadatas=[metadata]
+    )
+
+
+def delete_pending_visual(urls: list[str]) -> None:
+    if urls:
+        _visual_pending_collection().delete(ids=urls)
+
+
+def pending_visual_similar(embedding: list[float], n: int = 30) -> list[VisualResult]:
+    """Nearest pending-queue covers to a SigLIP vector (image or text tower)."""
+    col = _visual_pending_collection()
+    if col.count() == 0:
+        return []
+    res = col.query(query_embeddings=[embedding], n_results=min(n, col.count()))
+    return [
+        VisualResult(
+            item_id=rid,
+            source=meta.get("source", ""),
+            title=meta.get("title", ""),
+            url=rid,
+            image_path=meta.get("image_path", ""),
+            note_path="",
+            distance=dist,
+        )
+        for rid, meta, dist in zip(
+            res["ids"][0], res["metadatas"][0], res["distances"][0]
+        )
+    ]
 
 
 def get_visual_embedding(item_id: str) -> list[float] | None:
