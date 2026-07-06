@@ -77,6 +77,8 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
         for doc_id, doc_text, meta in zip(
             result["ids"], result["documents"], result["metadatas"]
         ):
+            if "#" in doc_id:  # retrieval-only part vector; one node per video
+                continue
             all_docs.append({
                 "id": doc_id,
                 "text": doc_text,

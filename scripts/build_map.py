@@ -115,7 +115,11 @@ def load_points() -> tuple[np.ndarray, list[dict], list[str]]:
     videos = client.get_collection("ytk_videos").get(
         include=["embeddings", "metadatas", "documents"]
     )
-    for emb, m, doc in zip(videos["embeddings"], videos["metadatas"], videos["documents"]):
+    for vid, emb, m, doc in zip(
+        videos["ids"], videos["embeddings"], videos["metadatas"], videos["documents"]
+    ):
+        if "#" in vid:  # retrieval-only part vector; one map point per video
+            continue
         vecs.append(np.asarray(emb))
         docs.append(doc or "")
         d = m.get("date", "")
