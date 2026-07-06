@@ -147,7 +147,7 @@ let searchScope = "ingested";  // or "pending"
 let jobState = { queued: [], current: null };
 const tags = new Set();
 let sourceFilter = "";
-const SOURCES = ["instagram", "youtube", "pinterest", "tiktok", "web"];
+const SOURCES = ["instagram", "youtube", "pinterest", "tiktok", "web", "imessage"];
 
 function renderFilters() {
   document.getElementById("filters").innerHTML = SOURCES.map(sname =>
