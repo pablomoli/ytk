@@ -260,14 +260,36 @@ def similar_api(q: str = "", note: str = "", n: int = 8):
     ]
 
 
-@app.get("/api/inbox-search")
-def inbox_search_api(q: str, n: int = 30):
-    """Visual+text search over ingested covers for the inbox re-ingest picker.
+_pending_sync_lock = __import__("threading").Lock()
 
-    Returns actionable hits only (those with a url to re-queue), each with a
-    servable thumbnail path under the vault."""
+
+def _kick_pending_sync() -> None:
+    """Refresh the pending-covers index in the background, at most one at a time."""
+    import threading
+
+    def run():
+        if not _pending_sync_lock.acquire(blocking=False):
+            return
+        try:
+            from ytk import visual
+
+            visual.sync_pending_visual()
+        except Exception:
+            pass
+        finally:
+            _pending_sync_lock.release()
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+@app.get("/api/inbox-search")
+def inbox_search_api(q: str, n: int = 30, scope: str = "ingested"):
+    """Visual+text search for the inbox picker.
+
+    scope=ingested: note-backed covers (re-ingest candidates).
+    scope=pending: covers of items waiting in the queue (find-to-drain)."""
     from ytk import visual
-    from ytk.store import visual_similar
+    from ytk.store import pending_visual_similar, visual_similar
     from ytk.vault import _get_brain_path
 
     if not q.strip():
@@ -277,6 +299,22 @@ def inbox_search_api(q: str, n: int = 30):
         embedding = visual.embed_text(q)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"embed failed: {exc}")
+
+    if scope == "pending":
+        _kick_pending_sync()  # pick up newly cached covers for next search
+        hits = pending_visual_similar(embedding=embedding, n=n)
+        return {"results": [
+            {
+                "url": r.url,
+                "title": r.title,
+                "source": r.source,
+                "thumbnail": None,   # served via /api/cover?u= like grid cards
+                "pending": True,
+                "distance": r.distance,
+            }
+            for r in hits
+        ]}
+
     # small over-fetch: a few indexed covers (old tiktok thumbs) lack urls
     hits = visual_similar(embedding=embedding, n=n + 10)
 

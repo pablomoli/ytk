@@ -254,6 +254,52 @@ def index_covers(
     return done
 
 
+def sync_pending_visual() -> tuple[int, int]:
+    """Reconcile the pending-covers visual index with the pending queue.
+
+    Embeds cached covers (~/.ytk/covers/{sha1(url)[:20]}.jpg) for pending items
+    not yet indexed, and evicts entries whose item has left the queue (ingested
+    or removed) — the index always mirrors the queue exactly. Returns
+    (embedded, evicted)."""
+    import hashlib
+
+    from . import reels, store
+
+    pending = reels.load_state(reels.STATE_PATH).pending
+    current = {it.url for it in pending}
+    have = store.pending_visual_ids()
+
+    stale = sorted(have - current)
+    store.delete_pending_visual(stale)
+
+    covers_dir = Path.home() / ".ytk" / "covers"
+    todo = []
+    for it in pending:
+        if it.url in have:
+            continue
+        cover = covers_dir / (hashlib.sha1(it.url.encode()).hexdigest()[:20] + ".jpg")
+        if cover.exists():
+            todo.append((it, cover))
+
+    done = 0
+    batch = 16
+    for i in range(0, len(todo), batch):
+        chunk = todo[i : i + batch]
+        try:
+            embeddings = embed_images([c for _, c in chunk])
+        except Exception:
+            logger.exception("pending visual embedding batch failed")
+            continue
+        for (it, cover), emb in zip(chunk, embeddings):
+            store.upsert_pending_visual(it.url, emb, {
+                "source": it.source,
+                "title": it.author or "",
+                "image_path": str(cover),
+            })
+            done += 1
+    return done, len(stale)
+
+
 def embed_cover_for_save(image_path: Path, item_id: str, metadata: dict) -> bool:
     """Ingest-time hook: embed one cover. Never raises; returns success."""
     from . import store
