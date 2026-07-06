@@ -188,9 +188,16 @@ def _note_block(user_note: str) -> str:
     if not user_note.strip():
         return ""
     return (
-        "\nThe user saved this with their own note. Treat it as the reason this "
-        "content matters to them; steer the summary, key concepts, insights, and "
-        "tags toward that angle:\n"
+        "\nThe user saved this with their own note. The note is the reason this "
+        "content is in their knowledge base, and it OUTRANKS the creator's own "
+        "framing. When the note reframes the content (uses it for a different "
+        "purpose than the creator intended), make the user's angle the organizing "
+        "frame: the thesis states what the content offers FOR THE USER'S PURPOSE, "
+        "the summary leads with the user's angle and treats the creator's "
+        "narrative as supporting detail, and key concepts, insights, and tags are "
+        "selected for usefulness to the user's stated intent. Only when the note "
+        "merely reacts to the content (agreement, a memory hook) should the "
+        "creator's framing lead.\nUser note:\n"
         f"{user_note.strip()}\n"
     )
 
