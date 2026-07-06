@@ -168,6 +168,28 @@ def client(hub):
     return TestClient(app)
 
 
+def test_ready_endpoint_reflects_search_flag(client, hub):
+    import ytk.ui.hub as hm
+    prev = hm._READY["search"]
+    try:
+        hm._READY["search"] = False
+        assert client.get("/api/ready").json() == {"search": False}
+        hm._READY["search"] = True
+        assert client.get("/api/ready").json() == {"search": True}
+    finally:
+        hm._READY["search"] = prev
+
+
+def test_warm_search_noop_when_already_ready(hub):
+    import ytk.ui.hub as hm
+    prev = hm._READY["search"]
+    try:
+        hm._READY["search"] = True
+        assert hm.warm_search() is False  # already warm -> no thread spawned
+    finally:
+        hm._READY["search"] = prev
+
+
 def test_api_queue_add_and_list(client, hub):
     r = client.post("/api/queue/add", json={"urls": ["https://youtu.be/abc"]})
     assert r.status_code == 200

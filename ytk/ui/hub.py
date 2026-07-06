@@ -214,6 +214,45 @@ IM_FETCH = _im_fetch
 INGEST_TEXT = ingest_imessage_item
 
 
+_READY = {"search": False}
+
+
+def search_ready() -> bool:
+    """Whether the embedding model + chroma are warm (first search won't stall)."""
+    return _READY["search"]
+
+
+def warm_search() -> bool:
+    """Preload the embedding model and init chroma in the background on startup.
+
+    The search lag isn't the query — it's the one-time model load. Exercising the
+    real search path here moves that cost off the user's first search, and doing
+    it once single-threaded also avoids the chroma init race two concurrent
+    first-requests would hit. Returns False if already warm/warming.
+    """
+    if _READY["search"]:
+        return False
+
+    def _run() -> None:
+        try:
+            from ytk import visual
+            from ytk.store import pending_visual_similar, visual_similar
+
+            emb = visual.embed_text("warm up the index")
+            for fn in (pending_visual_similar, visual_similar):
+                try:
+                    fn(embedding=emb, n=1)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        finally:
+            _READY["search"] = True  # unblock the UI even if warming errored
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
+
+
 _watcher_started = False
 
 
