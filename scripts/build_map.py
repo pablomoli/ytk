@@ -31,7 +31,7 @@ from ytk import signals
 
 SNAPSHOT = Path(os.path.expanduser("~/.ytk/interest/latest.json"))
 CHROMA = os.path.expanduser("~/.ytk/chroma")
-OUT = Path(__file__).resolve().parent.parent / "ytk" / "ui" / "static" / "map.json"
+OUT = Path.home() / ".ytk" / "map.json"
 
 CONTENT_CATS = {"youtube", "instagram", "tiktok", "pinterest", "web", "screenshots"}
 UNTHEMED_PERCENTILE = 25

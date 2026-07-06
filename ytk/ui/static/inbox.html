@@ -37,6 +37,7 @@
   .qbadge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #000b; color: #e2b04a; border-radius: 999px; padding: .2rem .8rem; display: none; }
   .card.queued .qbadge { display: block; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .ctitle { padding: .4rem .6rem .5rem; color: #ccc; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .openlink { position: absolute; bottom: .45rem; right: .45rem; background: #000b; color: #e2b04a; text-decoration: none; border-radius: 999px; padding: .15rem .7rem; opacity: 0; transition: opacity .15s; }
   .card:hover .openlink { opacity: 1; }
 
@@ -200,6 +201,7 @@ function renderGrid() {
         : `<div class="noimg">${esc(it.source)}</div>`}
       <div class="spinner"></div>
       <span class="qbadge">queued</span>
+      ${it.source === "youtube" && it.author ? `<div class="ctitle">${esc(it.author)}</div>` : ""}
       <a class="openlink" href="${esc(it.url)}" target="_blank">open</a>
     </div>`).join("");
   document.querySelectorAll(".card").forEach(card => {
@@ -243,12 +245,12 @@ function layoutGrid() {
   const base = cards.find(c => !c.classList.contains("wide")) || cards[0];
   const w = base.getBoundingClientRect().width;
   const spanFor = h => "span " + Math.ceil((h + gap) / (rowH + gap));
-  const tall = spanFor(w * 16 / 9);
-  const wideSpan = spanFor((2 * w + gap) * 9 / 16);
   const bare = spanFor(200);
   cards.forEach(c => {
+    const title = c.querySelector(".ctitle");
+    const extra = title ? title.offsetHeight : 0;
     c.style.gridRowEnd = c.querySelector("img")
-      ? (c.classList.contains("wide") ? wideSpan : tall)
+      ? (c.classList.contains("wide") ? spanFor((2 * w + gap) * 9 / 16 + extra) : spanFor(w * 16 / 9 + extra))
       : bare;
   });
 }
