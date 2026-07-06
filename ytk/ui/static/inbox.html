@@ -308,7 +308,7 @@ function renderGrid() {
     const done = ingested.filter(n =>
       n.source === sourceFilter || n.channel === sourceFilter).length;
     html += `<div class="groupsep">0 pending${done
-      ? ` · ${done} already ingested — toggle the ingested chip to see them`
+      ? ` · ${done} already ingested · toggle the ingested chip to see them`
       : ""}</div>`;
   }
   if (showIngested) {
