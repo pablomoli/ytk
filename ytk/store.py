@@ -284,27 +284,45 @@ def upsert(meta: dict, enrichment: Enrichment, segments: list[dict]) -> None:
     title: str = meta.get("title", "")
 
     # --- video-level ---
-    # Combine thesis + summary + insights + key concepts for richer semantic search.
+    # Embedded as PARTS, not one concatenated doc: the embedder (gte-small)
+    # hard-truncates at 512 tokens, and a single thesis+summary+insights+
+    # concepts doc measurably overflows that window, silently dropping the
+    # entity-dense tail (2026-07 enrichment audit). Part ids: the plain
+    # video_id is the representative vector (thesis+summary) that clustering,
+    # tag counts, the map, and the graph consume; '#'-suffixed parts exist for
+    # retrieval only and are collapsed by video_id at query time. Each extra
+    # part is prefixed with title+thesis as situating context (contextual
+    # retrieval: naked fragments match vague queries poorly).
+    context = f"{title}. {enrichment.thesis}"
+    parts: dict[str, str] = {
+        video_id: enrichment.thesis + "\n\n" + enrichment.summary,
+    }
+    if enrichment.key_concepts:
+        parts[f"{video_id}#c"] = (
+            context + "\n\nKey concepts: " + ", ".join(enrichment.key_concepts)
+        )
+    moments_text = "; ".join(m.description for m in enrichment.key_moments)
     insights_text = " ".join(enrichment.insights)
-    video_doc = (
-        enrichment.thesis
-        + "\n\n" + enrichment.summary
-        + "\n\nInsights: " + insights_text
-        + "\n\nKey concepts: " + ", ".join(enrichment.key_concepts)
-    )
+    if insights_text or moments_text:
+        parts[f"{video_id}#i"] = (
+            context
+            + ("\n\nInsights: " + insights_text if insights_text else "")
+            + ("\n\nKey moments: " + moments_text if moments_text else "")
+        )
+    part_meta = {
+        "video_id": video_id,
+        "title": title,
+        "url": meta.get("url", ""),
+        "uploader": meta.get("uploader", ""),
+        "date": meta.get("upload_date", ""),
+        "tags": ", ".join(enrichment.interest_tags),
+        "thesis": enrichment.thesis,
+        "summary": enrichment.summary,
+    }
     _videos_collection().upsert(
-        ids=[video_id],
-        documents=[video_doc],
-        metadatas=[{
-            "video_id": video_id,
-            "title": title,
-            "url": meta.get("url", ""),
-            "uploader": meta.get("uploader", ""),
-            "date": meta.get("upload_date", ""),
-            "tags": ", ".join(enrichment.interest_tags),
-            "thesis": enrichment.thesis,
-            "summary": enrichment.summary,
-        }],
+        ids=list(parts.keys()),
+        documents=list(parts.values()),
+        metadatas=[dict(part_meta) for _ in parts],
     )
 
     # --- segment-level (60s blocks, mirrors vault.py grouping) ---
@@ -350,15 +368,33 @@ def upsert(meta: dict, enrichment: Enrichment, segments: list[dict]) -> None:
         )
 
 
+def _collapse_by_video(metas: list[dict], dists: list[float]) -> list[tuple[dict, float]]:
+    """Collapse part hits to one per video, keeping the best (first) distance.
+
+    Chroma returns hits in ascending distance, so the first occurrence of a
+    video_id is its max-sim part; later parts of the same video are dropped.
+    """
+    seen: set[str] = set()
+    out: list[tuple[dict, float]] = []
+    for meta, dist in zip(metas, dists):
+        vid = meta["video_id"]
+        if vid in seen:
+            continue
+        seen.add(vid)
+        out.append((meta, dist))
+    return out
+
+
 def search_videos(query: str, n: int = 5) -> list[VideoResult]:
     """Search video-level collection. Returns up to n matches ranked by cosine similarity."""
     col = _videos_collection()
     if col.count() == 0:
         return []
 
-    results = col.query(query_texts=[query], n_results=min(n, col.count()))
+    # over-fetch: a video may match on up to 3 parts that collapse to one hit
+    results = col.query(query_texts=[query], n_results=min(n * 3, col.count()))
     out: list[VideoResult] = []
-    for meta, dist in zip(results["metadatas"][0], results["distances"][0]):
+    for meta, dist in _collapse_by_video(results["metadatas"][0], results["distances"][0])[:n]:
         out.append(VideoResult(
             video_id=meta["video_id"],
             title=meta["title"],
@@ -432,8 +468,8 @@ def search_all(query: str, n: int = 5) -> list[UnifiedResult]:
 
     vcol = _videos_collection()
     if vcol.count() > 0:
-        vr = vcol.query(query_texts=[query], n_results=min(n, vcol.count()))
-        for meta, dist in zip(vr["metadatas"][0], vr["distances"][0]):
+        vr = vcol.query(query_texts=[query], n_results=min(n * 3, vcol.count()))
+        for meta, dist in _collapse_by_video(vr["metadatas"][0], vr["distances"][0])[:n]:
             out.append(UnifiedResult(
                 type="video",
                 doc_id=meta["video_id"],
@@ -483,7 +519,10 @@ def tag_counts() -> "Counter[str]":
     counts: Counter[str] = Counter()
     col = _videos_collection()
     if col.count():
-        for meta in col.get(include=["metadatas"])["metadatas"]:
+        res = col.get(include=["metadatas"])
+        for doc_id, meta in zip(res["ids"], res["metadatas"]):
+            if "#" in doc_id:  # retrieval-only part; count each video once
+                continue
             for tag in (meta.get("tags") or "").split(", "):
                 if tag:
                     counts[tag] += 1
@@ -502,6 +541,8 @@ def get_all_videos() -> list[dict]:
     res = col.get(include=["embeddings", "metadatas"])
     out: list[dict] = []
     for vid, emb, meta in zip(res["ids"], res["embeddings"], res["metadatas"]):
+        if "#" in vid:  # retrieval-only part; one representative vector per video
+            continue
         tags = meta.get("tags", "")
         out.append({
             "id": vid,

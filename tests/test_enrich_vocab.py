@@ -22,7 +22,9 @@ class _FakeCol:
         return len(self._metas)
 
     def get(self, include):
-        return {"metadatas": self._metas}
+        # real chroma always returns ids alongside any include
+        return {"ids": [f"vid{i}" for i in range(len(self._metas))],
+                "metadatas": self._metas}
 
 
 def test_tag_counts_frequency_ranked_videos_only(monkeypatch):
