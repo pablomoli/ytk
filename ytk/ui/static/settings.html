@@ -363,7 +363,7 @@ $("#pullnow").onclick = async () => {
   $("#pullmsg").textContent = "pulling…";
   try {
     const r = await fetch("/api/queue/refresh?force=true", { method: "POST" }).then(r => r.json());
-    $("#pullmsg").textContent = `instagram ${r.instagram} · youtube ${r.youtube} · pinterest ${r.pinterest}`
+    $("#pullmsg").textContent = `instagram ${r.instagram} · youtube ${r.youtube} · pinterest ${r.pinterest} · imessage ${r.imessage}`
       + (r.errors.length ? ` · ${r.errors.length} error(s)` : "");
     const s = await fetch("/api/settings").then(r => r.json());
     meta = s.meta; renderCadence();

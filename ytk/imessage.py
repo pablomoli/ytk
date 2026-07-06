@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from .enrich import Enrichment
 from .sdk import run_structured
+
+# Marker a self-note can carry to bypass the inbox pick and ingest immediately.
+# Chosen as "$$" because it is one symbol-layer tap away on the iOS keyboard,
+# and (unlike a leading "/") never trips parse_txt's attachment filter.
+MARKER = "$$"
 
 
 _SYSTEM_JOURNAL = """\
@@ -59,6 +66,128 @@ class MessageThread:
 
     def as_text(self) -> str:
         return "\n".join(f"[{m.timestamp}] {m.text}" for m in self.messages)
+
+
+# imessage-exporter timestamp, e.g. "Apr 19, 2026  7:46:49 PM" (spacing varies).
+_EXPORT_TS_FMT = "%b %d, %Y %I:%M:%S %p"
+
+# Bare http(s) links pasted into a self-note. Trailing punctuation is trimmed so
+# "see https://x.com/a." doesn't capture the sentence period.
+_URL_RE = re.compile(r"https?://[^\s<>\"']+")
+
+
+def split_urls(text: str) -> tuple[list[str], str]:
+    """Split note text into (urls, remaining prose with urls removed)."""
+    urls = [u.rstrip(".,);]") for u in _URL_RE.findall(text)]
+    remaining = _URL_RE.sub("", text)
+    remaining = re.sub(r"[ \t]+\n", "\n", remaining).strip()
+    return urls, remaining
+
+
+def _parse_ts(timestamp: str) -> datetime | None:
+    """Parse an export timestamp to a datetime; None if it doesn't match."""
+    normalized = re.sub(r"\s+", " ", timestamp).strip()
+    try:
+        return datetime.strptime(normalized, _EXPORT_TS_FMT)
+    except ValueError:
+        return None
+
+
+@dataclass
+class Session:
+    """A run of self-notes with no gap larger than the session window.
+
+    A session is the inbox's unit of capture: one node per coherent sitting,
+    with boundaries drawn by silence rather than by day or by message.
+    """
+
+    contact: str
+    start: datetime
+    end: datetime
+    messages: list[MessageEntry] = field(default_factory=list)
+    override: bool = False  # a message carried MARKER -> auto-ingest
+
+    @property
+    def note_id(self) -> str:
+        """URL-shaped, content-derived id so it flows through the URL-keyed
+        pending queue and dedupes deterministically across pulls."""
+        raw = "|".join(m.timestamp for m in self.messages)
+        digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+        return f"imessage:session:{digest}"
+
+    @property
+    def date(self) -> str:
+        return self.start.strftime("%b %d, %Y")
+
+    @property
+    def suffix(self) -> str:
+        """HHMM of the session start — disambiguates same-day note filenames."""
+        return self.start.strftime("%H%M")
+
+    def preview(self, limit: int = 140) -> str:
+        text = " ".join(m.text for m in self.messages).strip()
+        return text[: limit - 1] + "…" if len(text) > limit else text
+
+    def as_thread(self) -> MessageThread:
+        return MessageThread(contact=self.contact, date=self.date, messages=self.messages)
+
+
+def _make_session(contact: str, pairs: list[tuple[datetime, MessageEntry]]) -> Session:
+    """Build a Session from (datetime, entry) pairs, stripping the marker."""
+    messages: list[MessageEntry] = []
+    override = False
+    for _, entry in pairs:
+        text = entry.text
+        if MARKER in text:
+            override = True
+            text = text.replace(MARKER, "").strip()
+        if text:  # a marker-only message contributes override but no content
+            messages.append(MessageEntry(sender=entry.sender, timestamp=entry.timestamp, text=text))
+    return Session(
+        contact=contact,
+        start=pairs[0][0],
+        end=pairs[-1][0],
+        messages=messages,
+        override=override,
+    )
+
+
+def sessionize(
+    thread: MessageThread,
+    gap_minutes: int = 20,
+    now: datetime | None = None,
+) -> list[Session]:
+    """Group a thread's messages into sessions by inactivity timeout.
+
+    Single sorted pass: a silence longer than `gap_minutes` between consecutive
+    messages closes a session and opens the next. A session is only returned
+    once it has gone quiet — its last message must be at least `gap_minutes`
+    before `now` — so a still-warm session you may still be writing is withheld.
+    A session containing MARKER overrides that hold and is always returned.
+    """
+    pairs = sorted(
+        ((dt, m) for m in thread.messages if (dt := _parse_ts(m.timestamp))),
+        key=lambda p: p[0],
+    )
+    if not pairs:
+        return []
+
+    gap = timedelta(minutes=gap_minutes)
+    sessions: list[Session] = []
+    current: list[tuple[datetime, MessageEntry]] = []
+    prev: datetime | None = None
+    for dt, entry in pairs:
+        if prev is not None and dt - prev > gap:
+            sessions.append(_make_session(thread.contact, current))
+            current = []
+        current.append((dt, entry))
+        prev = dt
+    if current:
+        sessions.append(_make_session(thread.contact, current))
+
+    if now is not None:
+        sessions = [s for s in sessions if s.override or now - s.end >= gap]
+    return [s for s in sessions if s.messages]
 
 
 def export_conversation(

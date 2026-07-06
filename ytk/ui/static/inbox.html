@@ -46,6 +46,9 @@
   .groupsep { grid-column: 1 / -1; grid-row-end: span 3; color: #777; display: flex; align-items: center; gap: .6rem; }
   .groupsep::before, .groupsep::after { content: ""; flex: 1; border-top: 1px solid #2a2a2a; }
   .ctitle { padding: .4rem .6rem .5rem; color: #ccc; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .notecard { min-height: 110px; box-sizing: border-box; display: flex; flex-direction: column; gap: .6rem; padding: .8rem; background: linear-gradient(160deg, #133a1f, #0d2416); }
+  .notecard p { margin: 0; color: #e8f5ea; line-height: 1.4; font-size: .82rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .notecard span { color: #5fbf76; font-size: .68rem; margin-top: auto; }
   .openlink { position: absolute; bottom: .45rem; right: .45rem; background: #000b; color: #e2b04a; text-decoration: none; border-radius: 999px; padding: .15rem .7rem; opacity: 0; transition: opacity .15s; }
   .card:hover .openlink { opacity: 1; }
 
@@ -125,6 +128,7 @@ const ICONS = {
   youtube: '<svg viewBox="0 0 24 24" fill="#ff0000"><path d="M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.5 2.5 0 0 0 2.4 7.2 26.3 26.3 0 0 0 2 12a26.3 26.3 0 0 0 .4 4.8 2.5 2.5 0 0 0 1.8 1.8c1.6.4 7.8.4 7.8.4s6.2 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8A26.3 26.3 0 0 0 22 12a26.3 26.3 0 0 0-.4-4.8zM10 15V9l5.2 3z"/></svg>',
   pinterest: '<svg viewBox="0 0 24 24" fill="#e60023"><path d="M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 .04-2.9l1.2-5s-.3-.6-.3-1.5c0-1.4.8-2.4 1.8-2.4.9 0 1.3.6 1.3 1.4 0 .9-.6 2.2-.9 3.4-.2 1 .5 1.9 1.5 1.9 1.9 0 3.3-2 3.3-4.8 0-2.5-1.8-4.3-4.4-4.3a4.6 4.6 0 0 0-4.8 4.6c0 .9.4 1.9.8 2.4a.3.3 0 0 1 .07.3l-.3 1.2c-.05.2-.2.25-.4.15-1.3-.6-2.1-2.5-2.1-4.1 0-3.3 2.4-6.4 7-6.4 3.7 0 6.5 2.6 6.5 6.1 0 3.7-2.3 6.6-5.5 6.6-1.1 0-2.1-.6-2.4-1.2l-.7 2.5c-.2.9-.9 2-1.3 2.7A10 10 0 1 0 12 2z"/></svg>',
   web: '<svg viewBox="0 0 24 24" fill="#9ca3af"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm7.9 9h-3a15.6 15.6 0 0 0-1.2-5.2A8 8 0 0 1 19.9 11zM12 4a13.8 13.8 0 0 1 1.9 7h-3.8A13.8 13.8 0 0 1 12 4zM8.3 5.8A15.6 15.6 0 0 0 7.1 11h-3a8 8 0 0 1 4.2-5.2zM4.1 13h3a15.6 15.6 0 0 0 1.2 5.2A8 8 0 0 1 4.1 13zM12 20a13.8 13.8 0 0 1-1.9-7h3.8A13.8 13.8 0 0 1 12 20zm3.7-1.8a15.6 15.6 0 0 0 1.2-5.2h3a8 8 0 0 1-4.2 5.2z"/></svg>',
+  imessage: '<svg viewBox="0 0 24 24" fill="#34da50"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.5 1.4 4.7 3.6 6.2-.2 1.2-.8 2.4-1.6 3.3 1.6-.2 3.1-.7 4.3-1.5 1.1.3 2.4.5 3.7.5 5.5 0 10-3.6 10-8s-4.5-8-10-8z"/></svg>',
 };
 
 const sel = new Set();          // selected item URLs
@@ -251,14 +255,18 @@ function renderGrid() {
     return;
   }
 
+  const cardImg = it =>
+    it.source === "imessage"
+      ? `<div class="notecard"><p>${esc(it.text || "")}</p><span>${esc(it.author || "")}</span></div>`
+      : it.preview_url
+        ? `<img src="/api/cover?u=${encodeURIComponent(it.url)}" loading="lazy"
+             onerror="this.onerror=null;this.src='${esc(it.preview_url)}'">`
+        : `<div class="noimg">${esc(it.source)}</div>`;
   let html = sorted.map(it => card(
     it,
     it.source === "youtube" ? " wide" : "",
-    it.preview_url
-      ? `<img src="/api/cover?u=${encodeURIComponent(it.url)}" loading="lazy"
-           onerror="this.onerror=null;this.src='${esc(it.preview_url)}'">`
-      : `<div class="noimg">${esc(it.source)}</div>`,
-    it.source === "youtube" ? it.author : ""));
+    cardImg(it),
+    it.source === "youtube" ? it.author : "")).join("");
   if (showIngested) {
     const pendingUrls = new Set(items.map(i => i.url));
     const pool = ingested.filter(n => n.url && !pendingUrls.has(n.url)
@@ -314,6 +322,8 @@ function layoutGrid() {
   const spanFor = h => "span " + Math.ceil((h + gap) / (rowH + gap));
   const bare = spanFor(200);
   cards.forEach(c => {
+    const note = c.querySelector(".notecard");
+    if (note) { c.style.gridRowEnd = spanFor(note.scrollHeight); return; }
     const title = c.querySelector(".ctitle");
     const extra = title ? title.offsetHeight : 0;
     c.style.gridRowEnd = c.querySelector("img")

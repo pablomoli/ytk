@@ -65,8 +65,12 @@ class HubConfig(BaseModel):
     port: int = Field(default=6969, description="Hub port (memorable on purpose).")
     favicon: str = Field(default="✦", description="Character or emoji rendered as the hub tab icon.")
     cadence_minutes: dict[str, int] = Field(
-        default_factory=lambda: {"instagram": 15, "youtube": 15, "pinterest": 15},
+        default_factory=lambda: {"instagram": 15, "youtube": 15, "pinterest": 15, "imessage": 15},
         description="Auto-pull throttle per discovery source, in minutes.",
+    )
+    imessage_gap_minutes: int = Field(
+        default=20,
+        description="Silence gap that closes an iMessage self-note session into one inbox node.",
     )
     tags: list[str] = Field(
         default_factory=lambda: [
