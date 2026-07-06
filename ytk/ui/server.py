@@ -16,7 +16,19 @@ from pydantic import BaseModel
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="ytk ingest hub", docs_url=None, redoc_url=None)
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def _lifespan(app: "FastAPI"):
+    # Begin watching chat.db so self-notes land in the queue within seconds.
+    from ytk.ui import hub
+
+    hub.start_imessage_watcher()
+    yield
+
+
+app = FastAPI(title="ytk ingest hub", docs_url=None, redoc_url=None, lifespan=_lifespan)
 
 from fastapi.staticfiles import StaticFiles
 

@@ -410,6 +410,25 @@ def test_refresh_sources_autoingests_marked_session(hub, monkeypatch):
     assert not [i for i in hub.queue_items() if i.source == "imessage"]
 
 
+def test_refresh_sources_only_filter_pulls_single_source(hub, monkeypatch):
+    from ytk.imessage import MessageEntry, MessageThread, sessionize
+    from datetime import datetime
+
+    ig_called = []
+    monkeypatch.setattr(hub, "IG_PULL", lambda state: ig_called.append(1) or 0)
+    monkeypatch.setattr(hub, "YT_FETCH", lambda: (_ for _ in ()).throw(AssertionError("yt pulled")))
+    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+    thread = MessageThread(contact="+1555", date="Apr 19, 2026",
+                           messages=[MessageEntry("Me", "Apr 19, 2026 7:00:00 PM", "note")])
+    monkeypatch.setattr(hub, "IM_FETCH",
+                        lambda: sessionize(thread, gap_minutes=20, now=datetime(2030, 1, 1)))
+
+    result = hub.refresh_sources(force=True, only={"imessage"})
+    assert result["imessage"] == 1
+    assert not ig_called  # other sources skipped entirely
+    assert set(result["skipped_sources"]) == {"instagram", "youtube", "pinterest"}
+
+
 def test_refresh_sources_survives_one_source_failing(hub, monkeypatch):
     monkeypatch.setenv("INSTAGRAM_SESSIONID", "sess")
 

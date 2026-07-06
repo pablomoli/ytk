@@ -84,6 +84,103 @@ def split_urls(text: str) -> tuple[list[str], str]:
     return urls, remaining
 
 
+# ---------------------------------------------------------------------------
+# Direct chat.db read — replaces the imessage-exporter subprocess. Messages are
+# stored as serialized NSAttributedString objects (Apple's `streamtyped`
+# archive); the plain `text` column is filled for <1% of messages, so the body
+# almost always has to be decoded out of the `attributedBody` blob.
+# ---------------------------------------------------------------------------
+
+_APPLE_EPOCH = 978307200  # unix seconds at 2001-01-01, the Core Data reference date
+
+
+def chatdb_path() -> Path:
+    return Path.home() / "Library" / "Messages" / "chat.db"
+
+
+def _read_ts_int(data: bytes, p: int) -> tuple[int, int]:
+    """Read a typedstream-encoded integer at offset p; return (value, next_p).
+
+    Values < 0x81 are a single byte; 0x81/0x82 introduce a little-endian 2- or
+    4-byte length (how streamtyped stores string byte-counts >= 128).
+    """
+    b = data[p]
+    if b == 0x81:
+        return int.from_bytes(data[p + 1:p + 3], "little"), p + 3
+    if b == 0x82:
+        return int.from_bytes(data[p + 1:p + 5], "little"), p + 5
+    return b, p + 1
+
+
+def decode_attributed_body(data: bytes) -> str:
+    """Extract the message text from a `streamtyped` attributedBody blob.
+
+    The text is stored right after the NSString class marker as a length-prefixed
+    UTF-8 byte run (typedstream `+` type). Validated to match the `text` column
+    exactly on every message that populates both.
+    """
+    if not data:
+        return ""
+    idx = data.find(b"NSString")
+    if idx == -1:
+        idx = data.find(b"NSMutableString")
+    if idx == -1:
+        return ""
+    plus = data.find(b"\x2b", idx)  # '+' typedstream C-string marker
+    if plus == -1:
+        return ""
+    length, start = _read_ts_int(data, plus + 1)
+    return data[start:start + length].decode("utf-8", errors="replace")
+
+
+def read_recent(
+    days: int = 3,
+    now: datetime | None = None,
+    self_id: str | None = None,
+    db_path: Path | None = None,
+) -> MessageThread:
+    """Read self-chat messages from the last `days` straight from chat.db.
+
+    Reads the live DB read-only (WAL-aware, so it sees the newest message) and
+    isolates the self-chat by chat_identifier. Apple's UTC nanosecond timestamps
+    are converted to local time so they line up with a local `now` in sessionize.
+    """
+    import os
+    import sqlite3
+
+    now = now or datetime.now()
+    self_id = self_id if self_id is not None else os.environ.get("IMESSAGE_SELF", "")
+    db = Path(db_path) if db_path else chatdb_path()
+    if not self_id or not db.exists():
+        return MessageThread(contact=self_id or "me", date="", messages=[])
+
+    since_apple = int((now - timedelta(days=days)).timestamp() - _APPLE_EPOCH) * 1_000_000_000
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
+    try:
+        rows = con.execute(
+            "SELECT m.date, m.text, m.attributedBody FROM message m "
+            "JOIN chat_message_join cmj ON cmj.message_id = m.ROWID "
+            "JOIN chat c ON c.ROWID = cmj.chat_id "
+            "WHERE c.chat_identifier = ? AND m.is_from_me = 1 AND m.date > ? "
+            "ORDER BY m.date ASC",
+            (self_id, since_apple),
+        ).fetchall()
+    finally:
+        con.close()
+
+    messages: list[MessageEntry] = []
+    for date, text, blob in rows:
+        body = text if (text and text.strip()) else decode_attributed_body(blob or b"")
+        body = (body or "").replace("￼", "").strip()  # drop attachment placeholders
+        if not body:
+            continue
+        dt = datetime.fromtimestamp(date / 1e9 + _APPLE_EPOCH)
+        messages.append(MessageEntry(sender="Me", timestamp=dt.strftime(_EXPORT_TS_FMT), text=body))
+
+    date0 = messages[0].timestamp.rsplit(" ", 2)[0] if messages else ""
+    return MessageThread(contact=self_id, date=date0, messages=messages)
+
+
 def _parse_ts(timestamp: str) -> datetime | None:
     """Parse an export timestamp to a datetime; None if it doesn't match."""
     normalized = re.sub(r"\s+", " ", timestamp).strip()
