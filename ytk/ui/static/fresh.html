@@ -23,6 +23,10 @@
   .badge { position: absolute; top: .45rem; right: .45rem; background: #000b; border-radius: 999px; width: 1.7rem; height: 1.7rem; display: flex; align-items: center; justify-content: center; }
   .badge svg { width: 1rem; height: 1rem; }
   .take { position: absolute; top: .55rem; left: .55rem; width: .7rem; height: .7rem; border-radius: 999px; background: #4ade80; }
+  .memocard { padding: .8rem .8rem .2rem; background: linear-gradient(160deg, #13291f, #0d1c14); }
+  .memocard p { margin: 0; color: #dcefe2; line-height: 1.4; font-size: .82rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .memokind { color: #4ade80; font-size: .68rem; font-weight: 600; margin-bottom: .35rem; }
+  .wave { width: 100%; height: 48px; display: block; margin-top: .55rem; cursor: pointer; }
   .meta { padding: .5rem .6rem .6rem; }
   .title { line-height: 1.3; max-height: 3.6em; overflow: hidden; }
   .tags { margin-top: .35rem; color: #e2b04a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -61,12 +65,13 @@ const ICONS = {
   youtube: '<svg viewBox="0 0 24 24" fill="#ff0000"><path d="M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.5 2.5 0 0 0 2.4 7.2 26.3 26.3 0 0 0 2 12a26.3 26.3 0 0 0 .4 4.8 2.5 2.5 0 0 0 1.8 1.8c1.6.4 7.8.4 7.8.4s6.2 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8A26.3 26.3 0 0 0 22 12a26.3 26.3 0 0 0-.4-4.8zM10 15V9l5.2 3z"/></svg>',
   pinterest: '<svg viewBox="0 0 24 24" fill="#e60023"><path d="M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 .04-2.9l1.2-5s-.3-.6-.3-1.5c0-1.4.8-2.4 1.8-2.4.9 0 1.3.6 1.3 1.4 0 .9-.6 2.2-.9 3.4-.2 1 .5 1.9 1.5 1.9 1.9 0 3.3-2 3.3-4.8 0-2.5-1.8-4.3-4.4-4.3a4.6 4.6 0 0 0-4.8 4.6c0 .9.4 1.9.8 2.4a.3.3 0 0 1 .07.3l-.3 1.2c-.05.2-.2.25-.4.15-1.3-.6-2.1-2.5-2.1-4.1 0-3.3 2.4-6.4 7-6.4 3.7 0 6.5 2.6 6.5 6.1 0 3.7-2.3 6.6-5.5 6.6-1.1 0-2.1-.6-2.4-1.2l-.7 2.5c-.2.9-.9 2-1.3 2.7A10 10 0 1 0 12 2z"/></svg>',
   web: '<svg viewBox="0 0 24 24" fill="#9ca3af"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm7.9 9h-3a15.6 15.6 0 0 0-1.2-5.2A8 8 0 0 1 19.9 11zM12 4a13.8 13.8 0 0 1 1.9 7h-3.8A13.8 13.8 0 0 1 12 4zM8.3 5.8A15.6 15.6 0 0 0 7.1 11h-3a8 8 0 0 1 4.2-5.2zM4.1 13h3a15.6 15.6 0 0 0 1.2 5.2A8 8 0 0 1 4.1 13zM12 20a13.8 13.8 0 0 1-1.9-7h3.8A13.8 13.8 0 0 1 12 20zm3.7-1.8a15.6 15.6 0 0 0 1.2-5.2h3a8 8 0 0 1-4.2 5.2z"/></svg>',
+  memo: '<svg viewBox="0 0 24 24" fill="#4ade80"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4zm6-4a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.9V22h2v-3.1A8 8 0 0 0 20 11h-2z"/></svg>',
 };
 const ICON_ALIASES = { "instagram-reel": "instagram", "journal": "web" };
 
 let notes = [];
 let sourceFilter = "";
-const SOURCES = ["instagram", "youtube", "pinterest", "tiktok", "web"];
+const SOURCES = ["instagram", "youtube", "pinterest", "tiktok", "web", "memo"];
 
 function esc(s) {
   const d = document.createElement("div");
@@ -121,34 +126,87 @@ function spanCard(card) {
 
 function render() {
   const visible = sourceFilter
-    ? notes.filter(n => (ICON_ALIASES[n.source] || n.source) === sourceFilter)
+    ? notes.filter(n => (ICON_ALIASES[n.source] || n.source) === sourceFilter || n.channel === sourceFilter)
     : notes;
   document.getElementById("hint").textContent =
     `${visible.length} recently ingested`;
+  const body = n => n.source === "memo"
+    ? `<div class="memocard">
+         <div class="memokind">${esc(n.kind || "memo")}${n.date ? " · " + esc(n.date) : ""}</div>
+         <p>${esc(n.preview || n.title)}</p>
+         ${n.audio ? `<canvas class="wave" data-audio="${esc(n.audio)}" title="play"></canvas>` : ""}
+       </div>`
+    : (n.thumbnail
+        ? `<img src="/vault-media/${esc(n.thumbnail)}" loading="lazy">`
+        : `<div class="noimg">${esc(n.source)}</div>`);
   document.getElementById("fresh").innerHTML = visible.map(n => `
     <div class="card" data-path="${esc(n.path)}">
       <span class="badge">${ICONS[ICON_ALIASES[n.source] || n.source] || ICONS.web}</span>
       ${n.has_take ? '<span class="take" title="has a take"></span>' : ""}
-      ${n.thumbnail
-        ? `<img src="/vault-media/${esc(n.thumbnail)}" loading="lazy">`
-        : `<div class="noimg">${esc(n.source)}</div>`}
-      <div class="meta">
+      ${body(n)}
+      ${n.source === "memo" ? "" : `<div class="meta">
         <div class="title">${esc(n.title)}</div>
         ${n.tags && n.tags.length ? `<div class="tags">${esc(n.tags.map(t => "#" + t).join(" "))}</div>` : ""}
         <div class="sub">
           ${n.url ? `<a href="${esc(n.url)}" target="_blank">open</a>` : ""}
         </div>
-      </div>
+      </div>`}
     </div>`).join("");
   document.querySelectorAll("#fresh .card").forEach(card => {
     card.addEventListener("click", e => {
-      if (e.target.closest("a")) return;
+      if (e.target.closest("a") || e.target.closest(".wave")) return;
       openNote(card.dataset.path);
     });
     spanCard(card);
     const img = card.querySelector("img");
     if (img) img.addEventListener("load", () => spanCard(card));
   });
+  document.querySelectorAll("#fresh .wave").forEach(initWave);
+}
+
+// --- memo waveforms: decoded client-side, one shared player at a time ---
+let player = null, playingCv = null;
+
+function drawWave(cv, frac) {
+  const c = cv.getContext("2d");
+  const W = cv.width = cv.offsetWidth * 2, H = cv.height = 96;
+  const peaks = cv._peaks || [];
+  const bw = W / peaks.length;
+  c.clearRect(0, 0, W, H);
+  peaks.forEach((p, i) => {
+    c.fillStyle = i / peaks.length < frac ? "#4ade80" : "#31543f";
+    const h = Math.max(4, p * H * 0.92);
+    c.fillRect(i * bw + bw * 0.18, (H - h) / 2, bw * 0.64, h);
+  });
+}
+
+async function initWave(cv) {
+  try {
+    const buf = await (await fetch("/api/memo-audio/" + encodeURIComponent(cv.dataset.audio))).arrayBuffer();
+    const audio = await new (window.AudioContext || window.webkitAudioContext)().decodeAudioData(buf);
+    const data = audio.getChannelData(0);
+    const bars = 56, step = Math.floor(data.length / bars) || 1;
+    cv._peaks = Array.from({ length: bars }, (_, i) => {
+      let m = 0;
+      for (let j = i * step; j < (i + 1) * step; j += 32) m = Math.max(m, Math.abs(data[j] || 0));
+      return m;
+    });
+    drawWave(cv, 0);
+    cv.addEventListener("click", e => {
+      const frac = e.offsetX / cv.offsetWidth;
+      if (playingCv === cv && player) {           // same memo: seek, or pause on replay
+        player.currentTime = frac * player.duration;
+        if (player.paused) player.play();
+        return;
+      }
+      if (player) { player.pause(); if (playingCv) drawWave(playingCv, 0); }
+      player = new Audio("/api/memo-audio/" + encodeURIComponent(cv.dataset.audio));
+      playingCv = cv;
+      player.addEventListener("timeupdate", () => drawWave(cv, player.currentTime / player.duration));
+      player.addEventListener("ended", () => { drawWave(cv, 0); playingCv = null; });
+      player.play();
+    });
+  } catch (e) { cv.remove(); }  // undecodable/missing audio: text-only card
 }
 
 window.addEventListener("resize", () =>

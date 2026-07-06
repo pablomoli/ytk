@@ -420,6 +420,69 @@ def test_imessage_ingest_pairs_link_via_add(hub, monkeypatch):
     assert note and note.name == "vid.md"
 
 
+def test_imessage_ingest_routes_like_a_memo(hub, monkeypatch):
+    calls = {}
+    def fake_write(transcript, audio, source="voice"):
+        calls["write"] = (transcript, audio, source)
+        p = hub.brain / "inbox" / "memos" / "note.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("---\nroute: pending\n---\nbody", encoding="utf-8")
+        return p
+    class R:  # minimal MemoResult stand-in
+        kind = "thought"
+    monkeypatch.setattr(hub, "memo_write_note", fake_write)
+    monkeypatch.setattr(hub, "memo_route", lambda t, repos=None: calls.setdefault("route", t) and R or R)
+    monkeypatch.setattr(hub, "memo_execute", lambda r, t, repos: [])
+    monkeypatch.setattr(hub, "memo_finalize", lambda p, k, lines: calls.setdefault("finalize", k))
+    monkeypatch.setattr(hub, "memo_index", lambda p, t, k: calls.setdefault("index", k))
+
+    item = reels.ReelItem(url="imessage:session:x", source="imessage",
+                          text="just a thought\n\nsecond note")
+    path = hub.ingest_imessage_item(item, "picked note")
+
+    assert path and path.name == "note.md"
+    transcript, audio, source = calls["write"]
+    assert audio is None and source == "imessage"
+    assert "second note" in transcript and "[inbox note] picked note" in transcript
+    assert calls["finalize"] == "thought" and calls["index"] == "thought"
+
+
+def test_fresh_notes_includes_memos(hub):
+    memo_dir = hub.brain / "inbox" / "memos"
+    memo_dir.mkdir(parents=True, exist_ok=True)
+    (memo_dir / "2026-07-05-1512-test.md").write_text(
+        "---\ncaptured: 2026-07-05T15:12:01\nsource: voice\n"
+        "audio: /Users/x/.ytk/audio/memos/rec.wav\nroute: thought\n---\n\n"
+        "And it starts listening to me.\n", encoding="utf-8")
+    notes = hub.fresh_notes()
+    memos = [n for n in notes if n["source"] == "memo"]
+    assert len(memos) == 1
+    m = memos[0]
+    assert m["audio"] == "rec.wav"
+    assert m["kind"] == "thought"
+    assert m["channel"] == "voice"
+    assert "listening" in m["preview"]
+    assert m["title"].startswith("And it starts")
+
+    (memo_dir / "2026-07-05-2318-texted.md").write_text(
+        "---\ncaptured: 2026-07-05T23:18:00\nsource: imessage\nroute: action\n---\n\n"
+        "make rae an emulator game\n", encoding="utf-8")
+    texted = [n for n in hub.fresh_notes() if n["source"] == "memo"
+              and n["channel"] == "imessage"]
+    assert len(texted) == 1
+    assert texted[0]["audio"] is None
+
+
+def test_memo_audio_endpoint_serves_and_guards(client, hub, monkeypatch, tmp_path):
+    audio_root = tmp_path / "memo-audio"
+    audio_root.mkdir()
+    (audio_root / "rec.wav").write_bytes(b"RIFFxxxx")
+    monkeypatch.setattr("ytk.memo.AUDIO_DIR", audio_root)
+    assert client.get("/api/memo-audio/rec.wav").status_code == 200
+    assert client.get("/api/memo-audio/nope.wav").status_code == 404
+    assert client.get("/api/memo-audio/..%2Frec.wav").status_code in (404, 422)
+
+
 def test_bare_link_becomes_fetch_item(hub, monkeypatch):
     _im_session(hub, monkeypatch, "https://youtu.be/abc")
     hub.refresh_sources()
@@ -476,6 +539,17 @@ def test_refresh_sources_only_filter_pulls_single_source(hub, monkeypatch):
     assert result["imessage"] == 1
     assert not ig_called  # other sources skipped entirely
     assert set(result["skipped_sources"]) == {"instagram", "youtube", "pinterest"}
+
+
+def test_refresh_prunes_already_ingested_urls(hub, monkeypatch):
+    _quiet_other_sources(hub, monkeypatch)
+    monkeypatch.setattr(hub, "IM_FETCH", lambda: [])
+    hub.queue_add(["https://youtu.be/done", "https://youtu.be/fresh"])
+    monkeypatch.setattr(hub, "INGESTED_URLS", lambda: {"https://youtu.be/done"})
+
+    result = hub.refresh_sources(force=True)
+    assert result["dropped_ingested"] == 1
+    assert [i.url for i in hub.queue_items()] == ["https://youtu.be/fresh"]
 
 
 def test_refresh_sources_survives_one_source_failing(hub, monkeypatch):

@@ -411,6 +411,20 @@ def visual_image_api(id: str):
     return FileResponse(p, headers={"Cache-Control": "public, max-age=86400"})
 
 
+@app.get("/api/memo-audio/{name}")
+async def memo_audio(name: str):
+    """Serve a memo recording by basename from the memo audio dir only."""
+    from fastapi.responses import FileResponse
+
+    from ytk.memo import AUDIO_DIR
+
+    root = AUDIO_DIR.resolve()
+    target = (root / name).resolve()
+    if not target.is_relative_to(root) or not target.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(target)
+
+
 @app.get("/vault-media/{rel_path:path}")
 async def vault_media(rel_path: str):
     from fastapi.responses import FileResponse

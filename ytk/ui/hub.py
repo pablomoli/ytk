@@ -157,20 +157,18 @@ def _im_fetch() -> list:
 
 
 def ingest_imessage_item(item: reels.ReelItem, note: str = "") -> Path | None:
-    """Write and index one iMessage session as a journal note. Returns its path.
+    """Ingest one iMessage session through the voice-memo pipeline.
 
-    Text sources have no URL to fetch, so this replaces the `ytk add` step for
-    imessage-source queue items — it reuses the journal enrichment + writer.
+    Typed self-notes are memos, just not spoken: the raw text is the artifact,
+    saved verbatim before routing, then classified (memory/action/thought) and
+    routed like a transcript. No thesis/summary enrichment — a scratchbook note
+    doesn't need an essay written about it.
     """
-    import os
-
-    from ytk.imessage import MessageEntry, MessageThread, enrich_journal, split_urls
-    from ytk.store import strip_frontmatter, upsert_doc
-    from ytk.vault import NoteAlreadyExists, write_journal_note
+    from ytk.imessage import split_urls
 
     # A note paired with a link: fetch the linked source and let the prose ride
     # along as the user-note that steers its enrichment (reuses `ytk add --note`).
-    # The enriched source note IS the pairing, so no separate journal note.
+    # The enriched source note IS the pairing, so no separate memo note.
     urls, prose = split_urls(item.text or "")
     if urls:
         steer = "\n\n".join(t for t in (prose, note) if t and t.strip())
@@ -181,27 +179,17 @@ def ingest_imessage_item(item: reels.ReelItem, note: str = "") -> Path | None:
             found = find_note_by_url(u, since=started - 5) or found
         return found
 
-    date = item.author or ""
-    messages = [
-        MessageEntry(sender="Me", timestamp=date, text=line)
-        for line in (item.text or "").splitlines()
-        if line.strip()
-    ]
-    thread = MessageThread(
-        contact=os.environ.get("IMESSAGE_SELF", "me"), date=date, messages=messages
-    )
-    result = enrich_journal(thread)
-    suffix = item.url.rsplit(":", 1)[-1][:8]  # session hash -> unique filename
-    try:
-        path = write_journal_note(thread, result, suffix=suffix)
-    except NoteAlreadyExists:
+    transcript = (item.text or "").strip()
+    if note.strip():
+        transcript += f"\n\n[inbox note] {note.strip()}"
+    if not transcript:
         return None
-    doc_id = "journal_" + re.sub(r"[^a-zA-Z0-9_-]", "_", path.stem[:60])
-    upsert_doc(doc_id, strip_frontmatter(path.read_text(encoding="utf-8")), {
-        "doc_id": doc_id,
-        "tags": ", ".join(result.interest_tags),
-        "source_path": str(path),
-    })
+    cfg = load_config()
+    path = memo_write_note(transcript, None, source="imessage")
+    result = memo_route(transcript, repos=cfg.github_repos or [])
+    routed = memo_execute(result, transcript, cfg.github_repos or [])
+    memo_finalize(path, result.kind, routed)
+    memo_index(path, transcript, result.kind)
     return path
 
 
@@ -283,6 +271,30 @@ def imessage_warm() -> list[dict]:
             "minutes_left": round(mins_left),
         })
     return out
+
+
+def ingested_urls() -> set[str]:
+    """URLs that already have a vault note — the 'already ingested' set.
+
+    Used to prune the pending queue: a full-thread re-pull (e.g. after a state
+    rebuild) re-discovers items that were ingested long ago; anything whose url
+    is already note-backed has no business waiting in the inbox again.
+    """
+    sources = vault._get_brain_path() / "sources"
+    if not sources.exists():
+        return set()
+    urls: set[str] = set()
+    for md in sources.glob("**/*.md"):
+        try:
+            m = re.search(r"^url:\s*(\S+)\s*$", md.read_text(encoding="utf-8")[:2000], re.MULTILINE)
+        except OSError:
+            continue
+        if m:
+            urls.add(m.group(1))
+    return urls
+
+
+INGESTED_URLS = ingested_urls  # test seam
 
 
 _watcher_started = False
@@ -468,6 +480,15 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
                 state.last_pulls["imessage"] = now
             except Exception as exc:
                 result["errors"].append(f"imessage: {exc}")
+
+        # prune anything the vault already has a note for (re-pulled duplicates)
+        try:
+            done = INGESTED_URLS()
+            before = len(state.pending)
+            state.pending = [i for i in state.pending if i.url not in done]
+            result["dropped_ingested"] = before - len(state.pending)
+        except Exception:
+            result["dropped_ingested"] = 0
 
         state.last_pull_at = now
         reels.save_state(state, STATE_PATH)
@@ -783,7 +804,7 @@ def _drain() -> None:
 # Fresh feed
 # ---------------------------------------------------------------------------
 
-_FM_LINE = re.compile(r"^(url|title|type|date):\s*(.+)$", re.MULTILINE)
+_FM_LINE = re.compile(r"^(url|title|type|date|audio|route|captured|source):\s*(.+)$", re.MULTILINE)
 
 
 def _ingested_at(p: Path) -> float:
@@ -798,16 +819,19 @@ def _ingested_at(p: Path) -> float:
 
 
 def fresh_notes(n: int = 30) -> list[dict]:
-    """The most recently ingested source notes, newest first, with thumbnails."""
+    """The most recently ingested source notes, newest first, with thumbnails.
+
+    Includes voice/text memos from inbox/memos — they're ingested and indexed
+    like everything else, so they belong in the feed.
+    """
     brain = vault._get_brain_path()
     sources = brain / "sources"
-    if not sources.exists():
+    memos = brain / "inbox" / "memos"
+    pool = list(sources.glob("**/*.md")) if sources.exists() else []
+    pool += list(memos.glob("*.md")) if memos.exists() else []
+    if not pool:
         return []
-    files = sorted(
-        sources.glob("**/*.md"),
-        key=_ingested_at,
-        reverse=True,
-    )[:n]
+    files = sorted(pool, key=_ingested_at, reverse=True)[:n]
 
     from datetime import date
 
@@ -827,18 +851,30 @@ def fresh_notes(n: int = 30) -> list[dict]:
                 thumb = str(candidate.relative_to(brain))
         tags_m = re.search(r"^tags:\n((?:\s+- .+\n)+)", text, re.MULTILINE)
         tags = re.findall(r"- (.+)", tags_m.group(1)) if tags_m else []
-        out.append(
-            {
-                "path": str(md.relative_to(brain.parent)),
-                "stem": md.stem,
-                "title": meta.get("title", md.stem),
-                "url": meta.get("url"),
-                "source": meta.get("type", md.parent.name),
-                "date": meta.get("date"),
-                "added": date.fromtimestamp(_ingested_at(md)).isoformat(),
-                "thumbnail": thumb,
-                "tags": tags,
-                "has_take": "## My take" in full,
-            }
-        )
+        entry = {
+            "path": str(md.relative_to(brain.parent)),
+            "stem": md.stem,
+            "title": meta.get("title", md.stem),
+            "url": meta.get("url"),
+            "source": meta.get("type", md.parent.name),
+            "date": meta.get("date"),
+            "added": date.fromtimestamp(_ingested_at(md)).isoformat(),
+            "thumbnail": thumb,
+            "tags": tags,
+            "has_take": "## My take" in full,
+        }
+        if md.parent == memos:
+            # memo cards carry their transcript inline; audio (if any) is
+            # served by name from AUDIO_DIR via /api/memo-audio
+            body = full.split("---", 2)[-1].strip()
+            entry.update(
+                source="memo",
+                channel=meta.get("source", "voice"),  # voice | imessage, for filtering
+                title=body.splitlines()[0][:80] if body else md.stem,
+                preview=body[:600],
+                audio=Path(meta["audio"]).name if meta.get("audio") else None,
+                kind=meta.get("route"),
+                date=(meta.get("captured") or "")[:10] or entry["date"],
+            )
+        out.append(entry)
     return out
