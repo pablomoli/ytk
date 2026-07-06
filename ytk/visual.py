@@ -165,6 +165,18 @@ def iter_covers() -> list[CoverItem]:
             item_id=f"ig:{shortcode}", image_path=p, source="instagram",
             title=title, url=url, note_path=str(note) if note else "",
         ))
+    # video-only reels: no carousel slides, cover lives in thumbnails/
+    for p in sorted((sources / "instagram" / "thumbnails").glob("*-thumb.jpg")):
+        shortcode = p.name.removesuffix("-thumb.jpg")
+        if shortcode in seen_ig:
+            continue
+        seen_ig.add(shortcode)
+        note = next((n for n in ig_notes if shortcode in n.name), None)
+        url, title = _frontmatter(note) if note else ("", "")
+        items.append(CoverItem(
+            item_id=f"ig:{shortcode}", image_path=p, source="instagram",
+            title=title, url=url, note_path=str(note) if note else "",
+        ))
 
     tt_thumbs = sources / "tiktok" / "thumbnails"
     if tt_thumbs.exists():
@@ -183,6 +195,16 @@ def iter_covers() -> list[CoverItem]:
                 note_path=str(note) if note.exists() else "",
             ))
 
+    pin_notes = list((sources / "pinterest").glob("*.md"))
+    for p in sorted((sources / "pinterest").glob("*-img.jpg")):
+        pin_id = p.name.removesuffix("-img.jpg")
+        note = next((n for n in pin_notes if pin_id in n.name), None)
+        url, title = _frontmatter(note) if note else ("", "")
+        items.append(CoverItem(
+            item_id=f"pin:{pin_id}", image_path=p, source="pinterest",
+            title=title, url=url, note_path=str(note) if note else "",
+        ))
+
     covers_dir = Path.home() / ".ytk" / "covers"
     if covers_dir.exists():
         for p in sorted(covers_dir.glob("*.jpg")):
@@ -193,11 +215,20 @@ def iter_covers() -> list[CoverItem]:
     return items
 
 
-def index_covers(limit: int | None = None, progress=None) -> int:
-    """Backfill/refresh the visual collection. Idempotent. Returns count indexed."""
+def index_covers(
+    limit: int | None = None, progress=None, skip_existing: bool = False
+) -> int:
+    """Backfill/refresh the visual collection. Idempotent. Returns count indexed.
+
+    With skip_existing=True, only covers not already in the collection are
+    embedded — cheap enough to run after every ingest to keep the index fresh.
+    """
     from . import store
 
     items = iter_covers()
+    if skip_existing:
+        have = store.visual_ids()
+        items = [it for it in items if it.item_id not in have]
     if limit:
         items = items[:limit]
     done = 0

@@ -519,6 +519,12 @@ def _drain() -> None:
         REINDEX()
     except Exception:
         pass
+    try:
+        from ytk import visual
+
+        visual.index_covers(skip_existing=True)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------

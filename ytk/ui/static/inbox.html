@@ -40,6 +40,9 @@
   .card.done { opacity: .55; }
   .card.done:hover, .card.done.sel { opacity: 1; }
   .card.done .badge { background: #14532daa; }
+  #searchrow { display: flex; gap: .4rem; }
+  #searchbox { flex: 1; background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 999px; padding: .4rem .8rem; font-family: inherit; }
+  #searchmsg { color: #888; min-height: 1rem; }
   .groupsep { grid-column: 1 / -1; grid-row-end: span 3; color: #777; display: flex; align-items: center; gap: .6rem; }
   .groupsep::before, .groupsep::after { content: ""; flex: 1; border-top: 1px solid #2a2a2a; }
   .ctitle { padding: .4rem .6rem .5rem; color: #ccc; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -94,6 +97,13 @@
     <textarea id="addurls" rows="2"></textarea>
     <button id="addbtn" class="btn">Add</button>
 
+    <h2>Search ingested</h2>
+    <div id="searchrow">
+      <input id="searchbox" placeholder="find by meaning, e.g. hand splint">
+      <button id="searchclear" class="btn" title="clear">x</button>
+    </div>
+    <div id="searchmsg"></div>
+
     <h2>Ingest</h2>
     <span id="selcount">0 selected</span>
     <span id="tags"><span id="chips"></span></span>
@@ -121,6 +131,7 @@ const sel = new Set();          // selected item URLs
 let items = [];
 let ingested = [];              // recently ingested vault notes (re-ingest pool)
 let showIngested = false;
+let searchHits = null;   // null = not searching; array = search results
 let jobState = { queued: [], current: null };
 const tags = new Set();
 let sourceFilter = "";
@@ -217,6 +228,29 @@ function renderGrid() {
       ${title ? `<div class="ctitle">${esc(title)}</div>` : ""}
       <a class="openlink" href="${esc(it.url)}" target="_blank">open</a>
     </div>`;
+  const ingestedCard = n => card(
+    {url: n.url, source: n.source},
+    " done" + (n.source === "youtube" ? " wide" : ""),
+    n.thumbnail
+      ? `<img src="/vault-media/${esc(n.thumbnail)}" loading="lazy">`
+      : `<div class="noimg">${esc(n.source)}</div>`,
+    (n.title && n.title !== n.stem) ? n.title : "");
+
+  if (searchHits !== null) {
+    const pendingUrls = new Set(items.map(i => i.url));
+    const hits = searchHits.filter(n => !pendingUrls.has(n.url)
+      && (!sourceFilter || n.source === sourceFilter));
+    document.getElementById("count").textContent =
+      `${hits.length} match${hits.length === 1 ? "" : "es"}`;
+    document.getElementById("grid").innerHTML =
+      hits.length ? hits.map(ingestedCard).join("")
+                  : `<div class="groupsep">no matches</div>`;
+    wireCards();
+    layoutGrid(); paintJobState(); renderBar();
+    window.scrollTo(0, scrollY);
+    return;
+  }
+
   let html = sorted.map(it => card(
     it,
     it.source === "youtube" ? " wide" : "",
@@ -230,15 +264,17 @@ function renderGrid() {
     const pool = ingested.filter(n => n.url && !pendingUrls.has(n.url)
       && (!sourceFilter || n.source === sourceFilter));
     html += `<div class="groupsep">already ingested</div>`;
-    html += pool.map(n => card(
-      {url: n.url, source: n.source},
-      " done" + (n.source === "youtube" ? " wide" : ""),
-      n.thumbnail
-        ? `<img src="/vault-media/${esc(n.thumbnail)}" loading="lazy">`
-        : `<div class="noimg">${esc(n.source)}</div>`,
-      n.title !== n.stem ? n.title : "")).join("");
+    html += pool.map(ingestedCard).join("");
   }
   document.getElementById("grid").innerHTML = html;
+  wireCards();
+  layoutGrid();
+  paintJobState();
+  renderBar();
+  window.scrollTo(0, scrollY);
+}
+
+function wireCards() {
   document.querySelectorAll(".card").forEach(card => {
     card.addEventListener("click", e => {
       if (e.target.closest("a")) return;
@@ -249,10 +285,6 @@ function renderGrid() {
       renderBar();
     });
   });
-  layoutGrid();
-  paintJobState();
-  renderBar();
-  window.scrollTo(0, scrollY);
 }
 
 let lastOrderKey = "";
@@ -303,6 +335,33 @@ document.getElementById("addbtn").addEventListener("click", async () => {
   });
   box.value = "";
   await loadQueue();
+});
+
+let searchTimer = null;
+async function runSearch(q) {
+  const msg = document.getElementById("searchmsg");
+  if (!q.trim()) { searchHits = null; msg.textContent = ""; renderGrid(); return; }
+  msg.textContent = "searching...";
+  try {
+    const r = await (await fetch("/api/inbox-search?q=" + encodeURIComponent(q))).json();
+    searchHits = r.results || [];
+    msg.textContent = searchHits.length ? "" : "no matches";
+  } catch (e) {
+    msg.textContent = "search failed";
+    searchHits = [];
+  }
+  renderGrid();
+}
+document.getElementById("searchbox").addEventListener("input", e => {
+  clearTimeout(searchTimer);
+  const q = e.target.value;
+  searchTimer = setTimeout(() => runSearch(q), 350);
+});
+document.getElementById("searchclear").addEventListener("click", () => {
+  document.getElementById("searchbox").value = "";
+  searchHits = null;
+  document.getElementById("searchmsg").textContent = "";
+  renderGrid();
 });
 
 async function autoPull() {
