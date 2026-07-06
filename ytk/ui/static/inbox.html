@@ -303,6 +303,14 @@ function renderGrid() {
     it.source === "youtube" ? " wide" : "",
     cardImg(it),
     it.source === "youtube" ? it.author : "")).join("");
+  if (!visible.length && !brewHtml && sourceFilter && !showIngested) {
+    // an empty filtered view looks like data loss; say where the items went
+    const done = ingested.filter(n =>
+      n.source === sourceFilter || n.channel === sourceFilter).length;
+    html += `<div class="groupsep">0 pending${done
+      ? ` · ${done} already ingested — toggle the ingested chip to see them`
+      : ""}</div>`;
+  }
   if (showIngested) {
     const pendingUrls = new Set(items.map(i => i.url));
     const pool = ingested.filter(n => (n.url || n.source === "memo") && !pendingUrls.has(n.url)
