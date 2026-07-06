@@ -277,14 +277,13 @@ def inbox_search_api(q: str, n: int = 30):
         embedding = visual.embed_text(q)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"embed failed: {exc}")
-    # the visual index is dominated by url-less cover-cache items; over-fetch
-    # so enough actionable (note-backed) hits survive the filter below
-    hits = visual_similar(embedding=embedding, n=max(n * 6, 120))
+    # small over-fetch: a few indexed covers (old tiktok thumbs) lack urls
+    hits = visual_similar(embedding=embedding, n=n + 10)
 
     out = []
     for r in hits:
         if not r.url:
-            continue  # cover-cache items have no note to re-ingest
+            continue  # not re-ingestable without a url
         if len(out) >= n:
             break
         thumb = None

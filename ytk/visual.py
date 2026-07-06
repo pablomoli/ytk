@@ -205,12 +205,10 @@ def iter_covers() -> list[CoverItem]:
             title=title, url=url, note_path=str(note) if note else "",
         ))
 
-    covers_dir = Path.home() / ".ytk" / "covers"
-    if covers_dir.exists():
-        for p in sorted(covers_dir.glob("*.jpg")):
-            items.append(CoverItem(
-                item_id=f"cover:{p.stem}", image_path=p, source="reel-cover",
-            ))
+    # NOTE: ~/.ytk/covers (pending-queue thumbnail cache) is deliberately NOT
+    # indexed: those files are keyed by sha1(url) with no recoverable metadata,
+    # so their embeddings are unactionable in search. The visual index holds
+    # ingested, note-backed covers only.
 
     return items
 
