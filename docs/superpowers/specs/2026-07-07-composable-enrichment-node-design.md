@@ -108,9 +108,10 @@ are generated into a scratch space and never written to the vault or chroma.
   so CoD and source-bias fragments are both exercised. Each fixture carries the
   note's stored raw transcript (ground truth) and its current enrichment.
 - `generate(fixture, config) -> Enrichment`: runs the node with a given config.
-- `judge(a, b, transcript) -> Verdict`: a stronger model (Sonnet by default)
-  scores two enrichments against the fixed rubric (below), order-swapped;
-  a win counts only if consistent across both orderings (removes position bias).
+- `judge(a, b, transcript) -> Verdict`: the strongest model (Opus) scores two
+  enrichments against the fixed rubric (below), order-swapped; a win counts only
+  if consistent across both orderings (removes position bias). Opus is well
+  above the Haiku generator, so self-enhancement bias is not a concern.
 - `faithfulness(enrichment, transcript) -> FaithScore`: hand-rolled FActScore.
   One Claude call decomposes key_concepts + insights into atomic claims and
   labels each SUPPORTED / INFLATED / UNSUPPORTED against the transcript.
