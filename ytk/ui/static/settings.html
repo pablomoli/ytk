@@ -171,6 +171,17 @@
         <span class="note">none checked = focus-aware auto</span></div>
     </div>
   </details>
+
+  <details data-sec="enrich" open>
+    <summary>Enrichment tone</summary>
+    <div class="body">
+      <div class="row"><label>tone</label>
+        <textarea data-path="hub.enrich_tone" rows="3" placeholder="optional preamble steering enrichment style"></textarea></div>
+      <div class="row"><button class="btn" id="preview-tone">Preview on 5 notes</button></div>
+      <p class="note" id="preview-caption" style="margin:.1rem 0 0">smoke gate, not a ship decision</p>
+      <div id="preview-result"></div>
+    </div>
+  </details>
 </div>
 
 <div id="savebar">
@@ -266,7 +277,7 @@ function renderChecks(box) {
 }
 
 function bindInputs() {
-  $$("input[data-path]").forEach(el => {
+  $$("input[data-path], textarea[data-path]").forEach(el => {
     const p = el.dataset.path, v = get(cfg, p);
     if (el.type === "checkbox") el.checked = !!v;
     else el.value = v ?? "";
@@ -407,6 +418,26 @@ $("#save").onclick = async () => {
 };
 armed($("#revert"), () => { cfg = JSON.parse(saved); clearErrors();
   bindInputs(); renderCadence(); renderRules(); renderPresets(); $("#savebar").classList.remove("on"); });
+
+$("#preview-tone").onclick = async () => {
+  const btn = $("#preview-tone"), out = $("#preview-result");
+  btn.disabled = true; out.textContent = "running...";
+  try {
+    const tone = get(cfg, "hub.enrich_tone") ?? "";
+    const res = await fetch("/api/enrich-preview", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tone }),
+    });
+    if (!res.ok) { out.textContent = `preview failed: HTTP ${res.status}`; return; }
+    const r = await res.json();
+    const ci = r.ci ? `[${r.ci[0].toFixed(2)}, ${r.ci[1].toFixed(2)}]` : "n/a";
+    out.textContent = `winrate ${r.winrate.toFixed(2)}, ci ${ci}, faith delta ${r.faith_delta.toFixed(2)}, n=${r.n}`;
+  } catch (e) {
+    out.textContent = `preview failed: ${e}`;
+  } finally {
+    btn.disabled = false;
+  }
+};
 
 (async () => {
   const s = await fetch("/api/settings").then(r => r.json());

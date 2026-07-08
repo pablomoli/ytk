@@ -2057,3 +2057,15 @@ def snap(note: tuple[str, ...], tags: str, file_path: str | None, speak: bool, n
         console.print(Panel(text or "[dim](empty transcript)[/dim]", title="[bold]transcript[/bold]",
                             border_style="cyan", padding=(0, 1)))
         time.sleep(4)
+
+
+@cli.command(name="enrich-eval")
+@click.option("--tone", required=True, help="Challenger tone preamble to test.")
+def enrich_eval_cmd(tone):
+    """Run the champion-vs-challenger enrichment eval and print the summary."""
+    from .enrich_eval import run_eval
+
+    r = run_eval(tone)
+    click.echo(f"n={r['n']} winrate={r['winrate']:.2f} 95% CI [{r['ci'][0]:.2f}, {r['ci'][1]:.2f}] "
+               f"faith_delta={r['faith_delta']:+.3f}")
+    click.echo("Smoke gate only (n small); not a ship decision.")

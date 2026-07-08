@@ -11,44 +11,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from .enrich import Enrichment
-from .sdk import run_structured
+from .enrich import Enrichment, enrich_content
 
 # Marker a self-note can carry to bypass the inbox pick and ingest immediately.
 # Chosen as "$$" because it is one symbol-layer tap away on the iOS keyboard,
 # and (unlike a leading "/") never trips parse_txt's attachment filter.
 MARKER = "$$"
-
-
-_SYSTEM_JOURNAL = """\
-You are helping someone process and retrieve their own personal notes captured as iMessage self-chat.
-The input is a stream of thoughts, ideas, observations, and questions written during a walk or reflection session.
-Return a JSON object with these fields:
-
-thesis
-  One sentence capturing the central theme or dominant concern of this session.
-  Be specific — name the actual topic, project, or question on their mind.
-
-summary
-  3-5 sentences distilling what was on their mind. Preserve the texture of their thinking —
-  what problems were they chewing on, what ideas emerged, what questions were unresolved.
-  Name specific things (projects, people, tools, ideas) rather than staying abstract.
-
-key_concepts
-  Ideas, questions, observations, or recurring themes. Format each as "concept: brief note on
-  how it appeared in this session". Max 8 items.
-
-insights
-  2-3 concrete things worth remembering or acting on — decisions implied, patterns noticed,
-  something they seemed to land on. These should be the most retrievable, durable thoughts.
-
-interest_tags
-  3-8 lowercase hyphenated topic labels (e.g. "product-thinking", "ai", "personal").
-
-key_moments
-  Up to 5 notable lines or thoughts worth anchoring — specific enough to be findable later.
-  Use "note N" as the timestamp field, and quote or closely paraphrase the thought.
-"""
 
 
 @dataclass
@@ -376,6 +344,5 @@ def parse_txt(txt_path: Path) -> MessageThread:
 
 def enrich_journal(thread: MessageThread) -> Enrichment:
     """Enrich an iMessage self-chat thread as a journal entry via Claude Code."""
-    user_prompt = f"Date: {thread.date}\n\n{thread.as_text()}"
-    data = run_structured(_SYSTEM_JOURNAL, user_prompt, Enrichment.model_json_schema())
-    return Enrichment.model_validate(data)
+    content_block = f"Date: {thread.date}\n\n{thread.as_text()}"
+    return enrich_content(content_block, "journal")

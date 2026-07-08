@@ -113,3 +113,13 @@ def test_settings_put_saves_and_flags_restart(client, cfg_path):
     assert r.status_code == 200
     assert r.json() == {"saved": True, "restart_required": True}
     assert load_config().whisper_model == "small"
+
+
+def test_enrich_preview_endpoint(client, hub, monkeypatch):
+    monkeypatch.setattr(
+        "ytk.enrich_eval.run_eval",
+        lambda tone, fixtures=None: {"winrate": 0.8, "ci": [0.4, 1.0], "faith_delta": 0.0, "n": 5},
+    )
+    r = client.post("/api/enrich-preview", json={"tone": "terse"})
+    assert r.status_code == 200
+    assert r.json()["winrate"] == 0.8
