@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
+import stat
 from pathlib import Path
 
 from youtube_transcript_api import (
@@ -14,6 +16,42 @@ from youtube_transcript_api import (
 )
 
 _AUDIO_CACHE = Path.home() / ".ytk" / "audio"
+
+
+def prune_audio_cache(
+    max_age_days: int,
+    *,
+    cache_dir: Path | None = None,
+    now: "datetime | None" = None,
+    dry_run: bool = False,
+) -> list[Path]:
+    """Delete top-level ``yt_*`` transcription-cache files older than the cutoff.
+
+    Only the YouTube audio cache that ``_download_audio`` writes directly into the
+    cache root is touched. Anything in a subdirectory (voice memos in ``memos/``,
+    snaps in ``snaps/``) is never matched — the glob is non-recursive and filtered
+    to regular files, so subdir contents are structurally out of reach. A
+    non-positive ``max_age_days`` is treated as a no-op rather than a cutoff of
+    "now" that would wipe the whole cache. Returns the paths pruned (or that would
+    be pruned, under ``dry_run``).
+    """
+    from datetime import datetime as _dt
+
+    if max_age_days <= 0:
+        return []
+    root = cache_dir if cache_dir is not None else _AUDIO_CACHE
+    if not root.exists():
+        return []
+    cutoff = (now or _dt.now()).timestamp() - max_age_days * 86400
+    pruned: list[Path] = []
+    for f in sorted(root.glob("yt_*")):
+        st = f.stat()
+        if not stat.S_ISREG(st.st_mode) or st.st_mtime >= cutoff:
+            continue
+        pruned.append(f)
+        if not dry_run:
+            f.unlink()
+    return pruned
 
 
 def _video_id(url: str) -> str:
@@ -46,6 +84,9 @@ def _download_audio(url: str) -> Path:
     for ext in (".m4a", ".opus", ".mp3", ".ogg", ".wav", ".webm"):
         candidate = _AUDIO_CACHE / f"yt_{url_hash}{ext}"
         if candidate.exists():
+            # Refresh mtime so age-based pruning (ytk gc --prune-audio) treats a
+            # reused file as recently active instead of deleting it under you.
+            os.utime(candidate, None)
             return candidate
 
     out_template = str(_AUDIO_CACHE / f"yt_{url_hash}.%(ext)s")
