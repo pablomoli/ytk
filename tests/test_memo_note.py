@@ -65,3 +65,39 @@ def test_write_memo_note_same_minute_no_collision(tmp_path):
         b = write_memo_note("test the hub filters tomorrow but differently", None)
     assert a != b
     assert a.exists() and b.exists()
+
+
+def test_write_memo_note_dedupes_identical_content(tmp_path):
+    """The same transcript re-submitted within the window reuses the note.
+
+    The iMessage pipeline dedupes on session identity, not content, so the
+    same self-note arriving as distinct sessions would otherwise write a fresh
+    memo each time. Content-hash dedup at write time is the backstop.
+    """
+    with _fake_brain(tmp_path):
+        a = write_memo_note("why is it stupid all of a sudden", None)
+        b = write_memo_note("why is it stupid all of a sudden", None)
+    assert a == b
+    assert len(list((tmp_path / "inbox" / "memos").glob("*.md"))) == 1
+
+
+def test_write_memo_note_dedup_ignores_stale_notes(tmp_path):
+    """A byte-identical note older than the window does not suppress a new one."""
+    import os
+    import time
+    from datetime import datetime, timedelta
+
+    with _fake_brain(tmp_path):
+        old = write_memo_note("a thought worth having twice", None)
+        stale = time.time() - (7 * 60 * 60)
+        os.utime(old, (stale, stale))
+
+        class _Clock:
+            @staticmethod
+            def now():
+                return datetime.now() + timedelta(hours=7)
+
+        with patch("ytk.memo.datetime", _Clock):
+            new = write_memo_note("a thought worth having twice", None)
+    assert new != old
+    assert new.exists() and old.exists()
