@@ -69,6 +69,28 @@ def route(transcript: str, repos: list[str] | None = None) -> MemoResult:
     return structured(_SYSTEM_MEMO + repo_hint, transcript, MemoResult)
 
 
+_DEDUP_WINDOW_SECONDS = 6 * 60 * 60
+
+
+def _recent_memo_with_hash(note_dir: Path, text_hash: str) -> Path | None:
+    """Return a recent memo note with the same content hash, if one exists.
+
+    The content hash is the last filename segment, so an identical transcript
+    always produces the same suffix. We only suppress a duplicate written within
+    a recent window so a genuinely-repeated thought days later still lands.
+    """
+    now = datetime.now().timestamp()
+    matches = sorted(
+        note_dir.glob(f"*-{text_hash}.md"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    for path in matches:
+        if now - path.stat().st_mtime <= _DEDUP_WINDOW_SECONDS:
+            return path
+    return None
+
+
 def write_memo_note(transcript: str, audio_path: Path | None, source: str = "voice") -> Path:
     """Write the memo note BEFORE routing. Nothing said is ever lost.
 
@@ -80,6 +102,11 @@ def write_memo_note(transcript: str, audio_path: Path | None, source: str = "voi
     text_hash = hashlib.sha1(transcript.encode("utf-8")).hexdigest()[:6]
     note_dir = _get_brain_path() / "inbox" / "memos"
     note_dir.mkdir(parents=True, exist_ok=True)
+
+    existing = _recent_memo_with_hash(note_dir, text_hash)
+    if existing is not None:
+        return existing
+
     note_path = note_dir / f"{now.strftime('%Y-%m-%d-%H%M')}-{slug}-{text_hash}.md"
 
     audio_line = f"audio: {audio_path}\n" if audio_path else ""
