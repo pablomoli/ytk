@@ -188,7 +188,8 @@ def iter_covers() -> list[CoverItem]:
 
     shots = sources / "screenshots"
     if shots.exists():
-        for p in sorted(shots.glob("*.png")):
+        shot_imgs = [q for q in shots.iterdir() if q.suffix.lower() in (".png", ".webp")]
+        for p in sorted(shot_imgs):
             note = p.with_suffix(".md")
             items.append(CoverItem(
                 item_id=f"shot:{p.stem}", image_path=p, source="screenshot",

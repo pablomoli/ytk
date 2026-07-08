@@ -2012,8 +2012,8 @@ def similar(query: tuple[str, ...], is_text: bool, n: int, as_json: bool):
 def snap(note: tuple[str, ...], tags: str, file_path: str | None, speak: bool, note_audio: str | None):
     """Save the clipboard image (e.g. a Shottr screenshot) as a vault memory.
 
-    Writes the PNG + a note to second-brain/sources/screenshots/, indexes the
-    text into ytk_memories and the image into ytk_visual.
+    Writes a lossless WebP + a note to second-brain/sources/screenshots/, indexes
+    the text into ytk_memories and the image into ytk_visual.
     """
     import tempfile
 
