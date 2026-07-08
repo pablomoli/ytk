@@ -81,6 +81,20 @@ async def read_note_api(path: str):
 # ---------------------------------------------------------------------------
 
 
+class EnrichPreviewRequest(BaseModel):
+    tone: str = ""
+
+
+@app.post("/api/enrich-preview")
+def enrich_preview_api(req: EnrichPreviewRequest):
+    from ytk.enrich_eval import run_eval
+
+    try:
+        return run_eval(req.tone)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 class QueueAddRequest(BaseModel):
     urls: list[str]
 

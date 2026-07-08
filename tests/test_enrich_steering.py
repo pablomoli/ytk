@@ -24,7 +24,6 @@ def captured(monkeypatch):
         return dict(FAKE_RESULT)
 
     monkeypatch.setattr("ytk.enrich.run_structured", fake)
-    monkeypatch.setattr("ytk.ingest.run_structured", fake)
     return calls
 
 

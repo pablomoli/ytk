@@ -83,6 +83,10 @@ class HubConfig(BaseModel):
         default_factory=list,
         description="Pinterest board RSS URLs pulled into the ingest queue.",
     )
+    enrich_tone: str = Field(
+        default="",
+        description="User voice preamble prefixed to every enrichment prompt. Shapes tone only; anti-fluff and faithfulness rules always follow it and cannot be overridden.",
+    )
 
 
 class Config(BaseModel):

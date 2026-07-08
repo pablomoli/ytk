@@ -19,6 +19,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, field_validator
 
+from .config import load_config
 from .sdk import run_structured
 
 
@@ -54,129 +55,84 @@ class Enrichment(BaseModel):
         return out
 
 
-_YT_SYSTEM = """\
-You are a detailed research assistant helping someone who already watches a lot of YouTube videos \
-build a personal reference library. The person watches the videos themselves — your job is to make \
-them retrievable and searchable later. Think: "six months from now, they remember something \
-specific happened in this video and want to find it fast."
-
-You will receive a transcript and metadata for a video, and optionally file paths to extracted \
-frames. Return a JSON object matching the provided schema.
-
-thesis
-  One precise sentence capturing what the video actually does or argues. For tutorials and demos, \
-name the specific thing being built, configured, or demonstrated. For opinion/essay videos, state \
-the actual position. Never use the word "explores". Never be vague about the subject matter.
-
-summary
-  3–5 sentences of commentary written for someone who watched it and wants a sharp reminder of \
-what happened and why it mattered. Include the specific approach taken, any tools or techniques \
-demonstrated, and anything that stood out as unexpected or particularly well done. Name things \
-concretely — tools, commands, libraries, techniques — not just topics. \
-Never start with "The video" or "In this video".
-
-key_concepts
-  Terms, tools, commands, APIs, or techniques that appear in the video and are worth knowing. \
-For each: write the name, then a colon, then one sentence explaining exactly how it was used \
-in this video — not a general definition. Prioritize things someone might ask about later \
-("how did they use X?"). Max 8 items.
-
-insights
-  2–3 specific things worth remembering: a surprising technique, a non-obvious tradeoff the \
-speaker called out, a gotcha demonstrated, or an approach that differed from the conventional way. \
-Each should be a complete sentence a person could act on or reference. Not trivia.
-
-interest_tags
-  Flat list of topic labels (e.g. "geospatial", "go", "creative-coding", "machine-learning"). \
-Lowercase, hyphenated. 3–8 tags.
-
-key_moments
-  Up to 8 moments a viewer might want to jump back to. Use MM:SS timestamps when inferable from \
-chapters or transcript position. Descriptions should be specific enough to find the moment from memory — \
-name the thing being done, not just the topic ("sets up the watcher goroutine with a done channel" \
-not "concurrency explanation").
-
-If frame paths are provided, read a frame with the Read tool ONLY when the transcript around that \
-timestamp references something visual you cannot resolve from text alone (a diagram, a UI state, \
-code on screen, a specific tool being demonstrated). Skip frames that would only confirm what the \
-transcript already states clearly. Do not read every frame.\
-"""
+_SCHEMA = Enrichment.model_json_schema()
 
 
-_INSTAGRAM_SYSTEM = """\
-You are a research assistant helping someone build a personal reference library from social media content.
-You will receive an Instagram post: a caption (the text of the post) and file paths to one or more \
-carousel slide images.
-
-IMPORTANT: The images are carousel slides — they contain text, screenshots, code, or design examples that \
-are the primary content of the post. Read EVERY slide with the Read tool. Read every word visible in every \
-slide carefully. Treat the slide content as at least as important as the caption.
-
-Return a JSON object matching the provided schema.
+BASE_SKELETON = """\
+You are a research assistant helping someone build a personal reference library. \
+They consume the content themselves; your job is to make it retrievable six months later, \
+when they remember something specific happened and want to find it fast. Return a JSON object \
+matching the provided schema.
 
 thesis
-  One precise sentence capturing what this post teaches or argues. Name the specific subject, technique, \
-or framework being described. Never be vague.
+  One precise sentence capturing what the content actually does or argues. Name the specific thing \
+  built, configured, demonstrated, or the actual position taken. Never use the word "explores". Never be vague.
 
 summary
-  3–5 sentences covering both the caption argument and the content of each slide. Be concrete: name tools, \
-commands, frameworks, and specific techniques mentioned anywhere in the post or slides.
+  3-5 sentences for someone who already consumed it and wants a sharp reminder. Name tools, commands, \
+  libraries, and techniques concretely, not just topics. Never start with "The video" or "In this".
 
 key_concepts
-  Terms, tools, commands, or techniques from the caption or slides worth remembering. For each: name, \
-colon, one sentence on how it appears in this post. Max 8 items.
+  Terms, tools, commands, APIs, or techniques that appear and are worth knowing. For each: the name, a \
+  colon, then one sentence on how it was used HERE. Work in passes to densify the list: first pass \
+  identifies obvious ones, second pass scans again for named specifics you missed (tools, flags, \
+  versions, people) and adds them, final pass merges into one clean list. Include as many as the \
+  content genuinely warrants and no filler; a long talk may need 15 or more, a short clip only a few. \
+  Prioritize what someone might ask about later.
 
 insights
-  2–3 specific things worth remembering: a non-obvious tip, a workflow described in the slides, \
-an approach worth trying. Each should be a complete, actionable sentence.
-
-interest_tags
-  Flat list of topic labels. Lowercase, hyphenated. 3–8 tags.
-
-key_moments
-  Leave empty ([]). Instagram posts have no timestamps.\
-"""
-
-
-_TIKTOK_SYSTEM = """\
-You are a research assistant helping someone build a personal reference library from short-form video.
-You will receive metadata, the post caption, an optional Whisper-derived transcript, and file paths to \
-several frames sampled from the video.
-
-IMPORTANT: TikToks are visual-first and very short (often under 60 seconds). The transcript may be sparse, \
-inaccurate, or mostly background music. Read EVERY provided frame with the Read tool — the on-screen text, \
-UI, code, app shown, hand gestures, or product demonstrated is usually the actual content. Treat the caption \
-and transcript as supplementary context, not the source of truth.
-
-Return a JSON object matching the provided schema.
-
-thesis
-  One precise sentence naming what is shown or argued. For demos and tutorials, name the specific thing \
-demonstrated (the app, technique, product, hack). Never be vague. Never use "explores".
-
-summary
-  3-5 sentences describing what actually happens in the video — what the creator does, shows, or says. \
-Name tools, apps, products, and techniques concretely. Mention any on-screen text or UI shown in the frames. \
-Never start with "The video" or "In this TikTok".
-
-key_concepts
-  Tools, apps, techniques, or products that appear in the video. For each: name, colon, one sentence on \
-how it appears here. Max 8.
-
-insights
-  2-3 specific takeaways: a non-obvious tip shown, a surprising technique, an unexpected detail. Each a \
-complete actionable sentence. Not trivia.
+  2-3 specific things worth remembering: a surprising technique, a non-obvious tradeoff, a gotcha, an \
+  approach that differed from convention. Each a complete, actionable sentence. Not trivia.
 
 interest_tags
   Flat list of topic labels. Lowercase, hyphenated. 3-8 tags.
 
 key_moments
-  Leave empty ([]) unless the transcript provides clear timestamped beats worth jumping to. TikToks are \
-short enough that key_moments are usually unnecessary.\
+  Moments worth jumping back to; descriptions specific enough to find from memory (name the thing being \
+  done, not just the topic). Include as many as the content warrants; scale to length.\
 """
 
+_TONE_WRAPPER = "Write in this voice, without sacrificing specificity or faithfulness:\n{tone}\n"
 
-_SCHEMA = Enrichment.model_json_schema()
+SOURCE_BIAS = {
+    "youtube": (
+        "SOURCE: a YouTube transcript plus metadata, and optionally file paths to extracted frames.\n"
+        "Read a frame with the Read tool ONLY when the transcript around that timestamp references "
+        "something visual you cannot resolve from text (a diagram, UI state, on-screen code). Skip frames "
+        "that only confirm the transcript. Do not read every frame.\n"
+        "key_moments: use MM:SS timestamps when inferable from chapters or transcript position."
+    ),
+    "tiktok": (
+        "SOURCE: a short-form TikTok. It is visual-first and often under 60s; the transcript may be sparse, "
+        "inaccurate, or mostly music. Read EVERY provided frame with the Read tool; on-screen text/UI/code/"
+        "product shown is usually the real content. Treat caption and transcript as supplementary.\n"
+        "key_moments: leave empty ([]) unless the transcript has clear timestamped beats."
+    ),
+    "instagram": (
+        "SOURCE: an Instagram post: a caption plus carousel slide images. Read EVERY slide with the Read tool; "
+        "read every visible word. Treat slide content as at least as important as the caption.\n"
+        "key_moments: leave empty ([]). Instagram posts have no timestamps."
+    ),
+    "web": (
+        "SOURCE: a web article (title, author, date, url, body text).\n"
+        "key_moments: leave empty ([]). Articles have no timestamps."
+    ),
+    "journal": (
+        "SOURCE: the user's own self-chat notes, a stream of thoughts/ideas/questions. Preserve the texture "
+        "of their thinking; name the specific projects, tools, and ideas they mention. This is their own "
+        "capture, not third-party content.\n"
+        "key_moments: use \"note N\" as the timestamp field, quoting or closely paraphrasing the thought."
+    ),
+}
+
+def _build_system(source: str, tone: str = "") -> str:
+    bias = SOURCE_BIAS[source]  # KeyError on unknown source is intentional
+    parts = []
+    if tone.strip():
+        parts.append(_TONE_WRAPPER.format(tone=tone.strip()))
+    parts.append(BASE_SKELETON)
+    parts.append(bias)
+    return "\n\n".join(parts)
 
 
 def _note_block(user_note: str) -> str:
@@ -242,11 +198,39 @@ def _vocab_block() -> str:
     )
 
 
+def enrich_content(
+    content_block: str,
+    source: str,
+    *,
+    user_note: str = "",
+    visual_blocks: list[dict] | None = None,
+    tone: str = "",
+) -> Enrichment:
+    """Single enrichment node. Callers format their own content_block; this
+    composes the system prompt for `source`, appends note + vocab to the user
+    prompt, stages any images, and returns a validated Enrichment."""
+    if not tone:
+        try:
+            tone = load_config().hub.enrich_tone
+        except Exception:
+            tone = ""
+    system = _build_system(source, tone)
+    user = content_block + _note_block(user_note) + _vocab_block()
+    with _staged_images(visual_blocks) as (frame_dir, frame_paths):
+        if frame_paths:
+            listing = "\n".join(f"  {p}" for p in frame_paths)
+            user = f"{user}\n\nExtracted frames:\n{listing}\n"
+        add_dirs = [frame_dir] if frame_dir else []
+        data = run_structured(system, user, _SCHEMA, add_dirs=add_dirs)
+        return Enrichment.model_validate(data)
+
+
 def enrich(
     transcript: str,
     metadata: dict,
     visual_blocks: list[dict] | None = None,
     user_note: str = "",
+    tone: str = "",
 ) -> Enrichment:
     """Enrich a YouTube transcript via Claude Code (Agent SDK)."""
     chapters_text = ""
@@ -254,7 +238,7 @@ def enrich(
         lines = [f"  {_fmt_ts(ch['start_time'])} — {ch['title']}" for ch in metadata["chapters"]]
         chapters_text = "\nChapters:\n" + "\n".join(lines)
 
-    text_block = f"""\
+    content_block = f"""\
 Title: {metadata.get("title", "")}
 Uploader: {metadata.get("uploader", "")}
 Duration: {metadata.get("duration", 0)}s
@@ -263,21 +247,9 @@ Tags: {", ".join(metadata.get("tags", [])[:10])}{chapters_text}
 Transcript:
 {transcript}
 """
-    text_block += _note_block(user_note) + _vocab_block()
-
-    with _staged_images(visual_blocks) as (frame_dir, frame_paths):
-        if frame_paths:
-            frames_listing = "\n".join(f"  {p}" for p in frame_paths)
-            prompt = (
-                f"{text_block}\n\n"
-                f"Extracted frames (read selectively per the system prompt):\n{frames_listing}\n"
-            )
-        else:
-            prompt = text_block
-
-        add_dirs = [frame_dir] if frame_dir else []
-        data = run_structured(_YT_SYSTEM, prompt, _SCHEMA, add_dirs=add_dirs)
-        return Enrichment.model_validate(data)
+    return enrich_content(
+        content_block, "youtube", user_note=user_note, visual_blocks=visual_blocks, tone=tone
+    )
 
 
 def enrich_tiktok(
@@ -285,6 +257,7 @@ def enrich_tiktok(
     transcript: str,
     visual_blocks: list[dict] | None = None,
     user_note: str = "",
+    tone: str = "",
 ) -> Enrichment:
     """Enrich a TikTok with a visual-first, short-form-aware prompt.
 
@@ -295,7 +268,7 @@ def enrich_tiktok(
         if transcript.strip() else "Whisper transcript: (none — likely no speech or music-only)"
     )
     music_line = f"Music: {post['music']}\n" if post.get("music") else ""
-    text_block = (
+    content_block = (
         f"Author: @{post.get('username', '')}\n"
         f"Title: {post.get('title', '')}\n"
         f"Duration: {post.get('duration', 0)}s\n"
@@ -303,14 +276,9 @@ def enrich_tiktok(
         f"\nCaption / description:\n{post.get('description', '')}\n\n"
         f"{transcript_block}\n"
     )
-    text_block += _note_block(user_note) + _vocab_block()
-
-    with _staged_images(visual_blocks) as (frame_dir, frame_paths):
-        frames_listing = "\n".join(f"  {p}" for p in frame_paths) if frame_paths else "  (none)"
-        prompt = f"{text_block}\nExtracted frames (read EVERY one):\n{frames_listing}\n"
-        add_dirs = [frame_dir] if frame_dir else []
-        data = run_structured(_TIKTOK_SYSTEM, prompt, _SCHEMA, add_dirs=add_dirs)
-        return Enrichment.model_validate(data)
+    return enrich_content(
+        content_block, "tiktok", user_note=user_note, visual_blocks=visual_blocks, tone=tone
+    )
 
 
 def enrich_instagram(
@@ -319,26 +287,19 @@ def enrich_instagram(
     slide_count: int,
     visual_blocks: list[dict],
     user_note: str = "",
+    tone: str = "",
 ) -> Enrichment:
     """Enrich an Instagram post with a carousel-aware prompt."""
-    text_block = f"""\
+    content_block = f"""\
 Author: @{username}
 Slide count: {slide_count}
 
 Caption:
 {caption}
 """
-    text_block += _note_block(user_note) + _vocab_block()
-
-    with _staged_images(visual_blocks) as (frame_dir, frame_paths):
-        frames_listing = "\n".join(f"  {p}" for p in frame_paths) if frame_paths else "  (none)"
-        prompt = (
-            f"{text_block}\n\n"
-            f"Carousel slides (read EVERY one):\n{frames_listing}\n"
-        )
-        add_dirs = [frame_dir] if frame_dir else []
-        data = run_structured(_INSTAGRAM_SYSTEM, prompt, _SCHEMA, add_dirs=add_dirs)
-        return Enrichment.model_validate(data)
+    return enrich_content(
+        content_block, "instagram", user_note=user_note, visual_blocks=visual_blocks, tone=tone
+    )
 
 
 class _staged_images:

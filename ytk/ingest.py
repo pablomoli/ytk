@@ -6,29 +6,7 @@ from dataclasses import dataclass
 
 import trafilatura
 
-from .enrich import Enrichment
-from .sdk import run_structured
-
-
-_SYSTEM_WEB = """\
-You are a research assistant helping build a personal knowledge library from web articles.
-Return a JSON object with these fields:
-
-thesis: One precise sentence capturing the article's main argument or finding. Never vague.
-
-summary: 3-5 sentences for someone who wants a sharp reminder. Name specific tools,
-  techniques, data, or findings concretely — not just topics.
-
-key_concepts: Terms, tools, or techniques worth knowing. Format each as "name: how it was
-  used or argued in this article". Max 8 items.
-
-insights: 2-3 specific, actionable things worth remembering — non-obvious tradeoffs,
-  surprising findings, or techniques that differ from conventional wisdom.
-
-interest_tags: 3-8 lowercase hyphenated topic labels (e.g. "machine-learning", "go", "geospatial").
-
-key_moments: Return an empty list [].
-"""
+from .enrich import Enrichment, enrich_content
 
 
 @dataclass
@@ -63,16 +41,9 @@ def fetch_web(url: str) -> WebContent:
 
 def enrich_web(content: WebContent, user_note: str = "") -> Enrichment:
     """Summarize web article content via Claude Code. key_moments is always []."""
-    from .enrich import _note_block, _vocab_block
-
-    user_prompt = (
+    content_block = (
         f"Title: {content.title}\nAuthor: {content.author}\n"
         f"Date: {content.date}\nURL: {content.url}\n\n"
         f"Article:\n{content.text[:20_000]}"
-        f"{_note_block(user_note)}{_vocab_block()}"
     )
-
-    data = run_structured(_SYSTEM_WEB, user_prompt, Enrichment.model_json_schema())
-    result = Enrichment.model_validate(data)
-    result.key_moments = []
-    return result
+    return enrich_content(content_block, "web", user_note=user_note)
