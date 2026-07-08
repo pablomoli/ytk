@@ -1521,16 +1521,30 @@ def review():
               help="Archive memories older than N days and remove from ChromaDB.")
 @click.option("--refresh-projects", is_flag=True, default=False,
               help="Re-run seed for project memories older than 30 days.")
+@click.option("--prune-audio", type=int, default=None, metavar="DAYS",
+              help="Delete YouTube transcription-cache audio (yt_*) older than N days.")
 @click.option("--dry-run", is_flag=True, default=False)
-def gc(prune: int | None, refresh_projects: bool, dry_run: bool):
+def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_run: bool):
     """Manage vault memory lifecycle — list ages, prune stale entries, refresh projects."""
     import subprocess
     from .store import delete_doc
     from .vault import _get_brain_path
 
+    did_audio = False
+    if prune_audio is not None:
+        from . import transcript
+        removed = transcript.prune_audio_cache(max_age_days=prune_audio, dry_run=dry_run)
+        verb = "would remove" if dry_run else "removed"
+        console.print(f"[cyan]audio cache:[/] {verb} {len(removed)} yt_* file(s) older than {prune_audio}d")
+        did_audio = True
+
     try:
         vault_path = _get_brain_path()
     except EnvironmentError as exc:
+        # A standalone audio prune (e.g. the nightly job) must not fail just
+        # because the vault is unconfigured — the audio work already succeeded.
+        if did_audio:
+            return
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
 
@@ -1706,7 +1720,8 @@ def schedule_install(hour: int):
     # Write a wrapper script so the plist never shell-interpolates the binary path
     script_path = Path.home() / ".ytk" / "nightly.sh"
     script_path.write_text(
-        f"#!/bin/sh\n{ytk_bin} sync && {ytk_bin} index && {ytk_bin} dashboard\n",
+        f"#!/bin/sh\n{ytk_bin} sync && {ytk_bin} index && {ytk_bin} dashboard\n"
+        f"{ytk_bin} gc --prune-audio 30\n",
         encoding="utf-8",
     )
     script_path.chmod(0o700)
