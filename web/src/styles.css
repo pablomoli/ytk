@@ -295,6 +295,25 @@ body {
   background: #dc2626;
 }
 
+.card-open {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #e2b04a;
+  cursor: pointer;
+  font: inherit;
+  margin-left: auto;
+}
+
+.memocard .card-open {
+  margin-top: 0.55rem;
+}
+
+.delete-error {
+  color: #f87171;
+  margin-bottom: 1rem;
+}
+
 .take {
   position: absolute;
   top: 0.55rem;
