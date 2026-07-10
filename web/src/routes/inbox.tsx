@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useQueue } from "../api/queue";
-import { useAddUrls, useRefreshSources } from "../api/mutations";
+import type { QueueItem } from "../api/queue";
+import { useAddUrls, useRefreshSources, useIngest } from "../api/mutations";
 import { useJobStatus } from "../api/job";
+import { apiGet } from "../api/client";
 import { SourceFilter } from "../components/SourceFilter";
 import { Card } from "../components/Card";
 import { MasonryGrid } from "../components/MasonryGrid";
@@ -19,6 +22,8 @@ export const Route = createFileRoute("/inbox")({
   component: InboxPage,
 });
 
+const fetchTags = () => apiGet<{ tags: string[] }>("/api/tags").then((r) => r.tags);
+
 function InboxPage() {
   const { source } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -26,13 +31,41 @@ function InboxPage() {
   const job = useJobStatus();
   const addUrls = useAddUrls();
   const refreshSources = useRefreshSources();
+  const ingest = useIngest();
+  const tags = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
+
   const [urlsText, setUrlsText] = useState("");
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [chosenTags, setChosenTags] = useState<Set<string>>(new Set());
+  const [thought, setThought] = useState("");
 
   const items = useMemo(
     () => (q.data ?? []).filter((i) => !source || i.source === source),
     [q.data, source],
   );
+  // Progressively renders more of `items` as the sentinel scrolls into view;
+  // not a bounded/sliding window, the visible count only grows.
   const { visible, sentinelRef } = useInfiniteWindow(items, 60);
+
+  const cardState = (item: QueueItem): "queued" | "ingesting" | undefined => {
+    if (job.data?.current === item.url) return "ingesting";
+    if (job.data?.queued.includes(item.url)) return "queued";
+    return undefined;
+  };
+
+  const handleToggleSelect = (item: QueueItem) => {
+    const state = cardState(item);
+    if (state === "queued" || state === "ingesting") return;
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(item.url)) {
+        next.delete(item.url);
+      } else {
+        next.add(item.url);
+      }
+      return next;
+    });
+  };
 
   const handleSourceChange = (next?: string) => {
     void navigate({ search: { source: next } });
@@ -55,6 +88,35 @@ function InboxPage() {
     refreshSources.mutate();
   };
 
+  const handleToggleTag = (t: string) => {
+    setChosenTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) {
+        next.delete(t);
+      } else {
+        next.add(t);
+      }
+      return next;
+    });
+  };
+
+  const handleThoughtChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setThought(e.target.value);
+  };
+
+  const handleIngest = () => {
+    if (sel.size === 0) return;
+    ingest.mutate(
+      { urls: [...sel], tags: [...chosenTags], thought },
+      {
+        onSuccess: () => {
+          setSel(new Set());
+          setThought("");
+        },
+      },
+    );
+  };
+
   let body;
   if (q.isLoading) {
     body = (
@@ -71,7 +133,13 @@ function InboxPage() {
       <>
         <MasonryGrid>
           {visible.map((i) => (
-            <Card key={i.url} item={i} onOpen={(x) => window.open(x.url, "_blank")} />
+            <Card
+              key={i.url}
+              item={i}
+              onOpen={handleToggleSelect}
+              selected={sel.has(i.url)}
+              state={cardState(i)}
+            />
           ))}
         </MasonryGrid>
         <div ref={sentinelRef} className="sentinel" />
@@ -89,9 +157,12 @@ function InboxPage() {
           {q.data && q.data.length !== items.length ? ` of ${q.data.length}` : ""} pending
         </span>
       </header>
-      <div className="hub-body">
-        <div className="addbox">
+      <div className="hub-body hub-row">
+        <div className="grid-col">{body}</div>
+        <aside className="rail">
+          <h2>add to queue</h2>
           <textarea
+            className="addurls"
             value={urlsText}
             onChange={handleUrlsChange}
             placeholder="paste urls to add..."
@@ -105,14 +176,41 @@ function InboxPage() {
               refresh
             </button>
           </div>
+
+          <h2>ingest</h2>
+          <span className="selcount">{sel.size} selected</span>
+          <div className="chips">
+            {(tags.data ?? []).map((t) => (
+              <button
+                key={t}
+                className={`chip${chosenTags.has(t) ? " on" : ""}`}
+                onClick={() => handleToggleTag(t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <textarea
+            className="thought"
+            value={thought}
+            onChange={handleThoughtChange}
+            placeholder="thought (optional)"
+          />
+          <button
+            className="btn primary"
+            onClick={handleIngest}
+            disabled={sel.size === 0 || ingest.isPending}
+          >
+            ingest
+          </button>
+
           {job.data ? (
             <div className={`progress${job.data.running ? " running" : ""}`}>
               {job.data.running ? "running · " : ""}
               {job.data.done}/{job.data.total}
             </div>
           ) : null}
-        </div>
-        {body}
+        </aside>
       </div>
     </div>
   );
