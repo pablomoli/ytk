@@ -603,3 +603,22 @@ async def tags_page():
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return _serve_static("fresh.html")
+
+
+# ---------------------------------------------------------------------------
+# React SPA (web/dist), mounted under /app
+# ---------------------------------------------------------------------------
+
+_WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
+
+if (_WEB_DIST / "assets").is_dir():
+    app.mount("/app/assets", StaticFiles(directory=_WEB_DIST / "assets"), name="app-assets")
+
+
+@app.get("/app", response_class=HTMLResponse)
+@app.get("/app/{path:path}", response_class=HTMLResponse)
+def _spa(path: str = "") -> HTMLResponse:
+    index = _WEB_DIST / "index.html"
+    if not index.exists():
+        return HTMLResponse("<h1>web/dist not built — run vp build</h1>", status_code=404)
+    return HTMLResponse(index.read_text(encoding="utf-8"))
