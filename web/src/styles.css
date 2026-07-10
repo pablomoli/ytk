@@ -63,9 +63,6 @@ body {
   gap: 1rem;
   padding: 0.8rem 1rem;
   background: #181818;
-  position: sticky;
-  top: 46px;
-  z-index: 5;
 }
 
 .hub-header h1 {
@@ -211,10 +208,6 @@ body {
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
-}
-
-.card:focus-visible {
-  outline-color: #4ade80;
 }
 
 .card img {
@@ -394,6 +387,10 @@ body {
   outline-color: #e2b04a;
 }
 
+.card.card:focus-visible {
+  outline-color: #4ade80;
+}
+
 .spinner {
   position: absolute;
   top: 50%;
@@ -427,5 +424,6 @@ body {
   .rail {
     position: static;
     max-height: none;
+    order: -1;
   }
 }
