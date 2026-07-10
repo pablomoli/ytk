@@ -9,18 +9,27 @@ export const ingest = (urls: string[], tags?: string[], thought?: string) =>
 export const useAddUrls = () =>
   useMutation({
     mutationFn: addUrls,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['queue'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['queue'] })
+      void queryClient.invalidateQueries({ queryKey: ['job'] })
+    },
   })
 
 export const useRefreshSources = () =>
   useMutation({
     mutationFn: refreshSources,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['queue'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['queue'] })
+      void queryClient.invalidateQueries({ queryKey: ['job'] })
+    },
   })
 
 export const useIngest = () =>
   useMutation({
     mutationFn: ({ urls, tags, thought }: { urls: string[]; tags?: string[]; thought?: string }) =>
       ingest(urls, tags, thought),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['queue'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['queue'] })
+      void queryClient.invalidateQueries({ queryKey: ['job'] })
+    },
   })

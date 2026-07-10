@@ -48,8 +48,7 @@ function InboxPage() {
       .map((u) => u.trim())
       .filter(Boolean);
     if (!urls.length) return;
-    addUrls.mutate(urls);
-    setUrlsText("");
+    addUrls.mutate(urls, { onSuccess: () => setUrlsText("") });
   };
 
   const handleRefresh = () => {

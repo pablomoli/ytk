@@ -13,4 +13,14 @@ export type JobStatus = {
 }
 
 export const fetchJob = () => apiGet<JobStatus>('/api/ingest/status')
-export const useJobStatus = () => useQuery({ queryKey: ['job'], queryFn: fetchJob, refetchInterval: 1000 })
+
+// Poll once per second only while a job is running; when idle, stop polling so
+// the inbox does not re-render (and MasonryGrid does not relayout) every second.
+// Add/refresh mutations invalidate ['job'] to kick a fresh poll when they may
+// have started work.
+export const useJobStatus = () =>
+  useQuery({
+    queryKey: ['job'],
+    queryFn: fetchJob,
+    refetchInterval: (query) => (query.state.data?.running ? 1000 : false),
+  })
