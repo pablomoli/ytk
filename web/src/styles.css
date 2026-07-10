@@ -314,6 +314,118 @@ body {
   margin-bottom: 1rem;
 }
 
+.tags-main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.tag-actions,
+.tag-group-row,
+.tag-group-buttons,
+.tag-apply-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.tag-status,
+.tag-apply-bar span {
+  color: #888;
+}
+
+.tag-error {
+  color: #f87171;
+}
+
+.hint {
+  margin: 0;
+  color: #666;
+}
+
+.tag-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.tag-group {
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  background: #1c1c1c;
+}
+
+.tag-group.skipped {
+  opacity: 0.4;
+}
+
+.tag-group-row {
+  flex-wrap: wrap;
+}
+
+.tag-chip,
+.tag-group-button {
+  border: 1px solid #333;
+  background: #262626;
+  color: #ddd;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+}
+
+.tag-chip span {
+  color: #888;
+}
+
+.tag-chip.canonical,
+.tag-group-button.on {
+  border-color: #e2b04a;
+  background: #e2b04a;
+  color: #241a05;
+  font-weight: 600;
+}
+
+.tag-chip.canonical span {
+  color: #14532d;
+}
+
+.tag-chip-wrap.excluded {
+  opacity: 0.35;
+}
+
+.tag-exclude {
+  margin-left: -0.8rem;
+  border: 0;
+  background: none;
+  color: #888;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tag-group-button {
+  padding: 0.3rem 0.8rem;
+  border-radius: 8px;
+}
+
+.tag-apply-bar {
+  position: sticky;
+  bottom: 0;
+  padding: 0.8rem 1rem;
+  border-top: 1px solid #2a2a2a;
+  background: #181818;
+}
+
 .take {
   position: absolute;
   top: 0.55rem;

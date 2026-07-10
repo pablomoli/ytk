@@ -14,7 +14,9 @@ function RootLayout() {
         <Link to="/inbox" activeProps={{ className: "active" }}>
           inbox
         </Link>
-        <a href="/tags">tags</a>
+        <Link to="/tags" activeProps={{ className: "active" }}>
+          tags
+        </Link>
         <a href="/map">map</a>
         <a href="/settings">settings</a>
       </nav>
