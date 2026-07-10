@@ -271,6 +271,8 @@ nav a[aria-current="page"] {
 
 .hub-row {
   display: flex;
+  /* override .hub-body's column direction (both classes are on this element) */
+  flex-direction: row;
   align-items: flex-start;
   gap: 1rem;
   flex: 1;
