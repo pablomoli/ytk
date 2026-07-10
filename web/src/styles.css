@@ -208,6 +208,10 @@ nav a[aria-current="page"] {
   cursor: pointer;
 }
 
+.card:focus-visible {
+  outline-color: #4ade80;
+}
+
 .card img {
   width: 100%;
   display: block;
@@ -401,5 +405,22 @@ nav a[aria-current="page"] {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .hub-row {
+    flex-direction: column;
+  }
+
+  .grid-col,
+  .rail {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .rail {
+    position: static;
+    max-height: none;
   }
 }

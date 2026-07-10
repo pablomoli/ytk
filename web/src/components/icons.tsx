@@ -30,8 +30,12 @@ const ICON_ALIASES: Record<string, string> = {
   journal: 'web',
 }
 
+export function canonicalSource(source: string): string {
+  return ICON_ALIASES[source] ?? source
+}
+
 export function sourceIcon(source: string) {
-  const key = ICON_ALIASES[source] ?? source
+  const key = canonicalSource(source)
   const icon = ICON_PATHS[key] ?? ICON_PATHS.web
   return (
     <svg viewBox="0 0 24 24" fill={icon.fill} width="16" height="16" aria-hidden="true">

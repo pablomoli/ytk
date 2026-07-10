@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { expect, test } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { expect, test, vi } from 'vitest'
 import { Card } from './Card'
 
 test('renders a youtube card with title and source badge', () => {
@@ -50,4 +50,14 @@ test('applies the queued class without a selected outline', () => {
   )
   expect(container.querySelector('.card')).toHaveClass('queued')
   expect(container.querySelector('.card')).not.toHaveClass('selected')
+})
+
+test('selects a card with the keyboard', () => {
+  const onOpen = vi.fn()
+  render(<Card item={{ url: 'u', source: 'youtube', text: 'Hello' }} onOpen={onOpen} />)
+
+  fireEvent.keyDown(screen.getByRole('button'), { key: 'Enter' })
+  fireEvent.keyDown(screen.getByRole('button'), { key: ' ' })
+
+  expect(onOpen).toHaveBeenCalledTimes(2)
 })

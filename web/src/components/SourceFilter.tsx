@@ -1,4 +1,4 @@
-const SOURCES = ['instagram', 'youtube', 'pinterest', 'tiktok', 'web', 'memo']
+const SOURCES = ['instagram', 'youtube', 'pinterest', 'tiktok', 'web', 'memo', 'imessage']
 
 export function SourceFilter({ value, onChange }: { value?: string; onChange: (s?: string) => void }) {
   return (
