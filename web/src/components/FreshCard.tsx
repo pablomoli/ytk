@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { MouseEvent } from 'react'
 import type { FreshNote } from '../api/fresh'
 import { sourceIcon } from './icons'
+import { MemoWaveform } from './MemoWaveform'
 
 export function FreshCard({
   note,
@@ -40,7 +41,7 @@ export function FreshCard({
             {note.kind || 'memo'}{note.date ? ` · ${note.date}` : ''}
           </div>
           <p>{note.preview || note.title}</p>
-          {note.audio ? <span className="audio-pending">audio available</span> : null}
+          {note.audio ? <MemoWaveform audio={note.audio} /> : null}
           <button className="card-open" type="button" onClick={open}>open note</button>
         </div>
       ) : note.thumbnail && !imageFailed ? (
