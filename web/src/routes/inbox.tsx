@@ -13,6 +13,7 @@ import { MasonryGrid } from "../components/MasonryGrid";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
+import { filterAndSortQueue } from "../lib/queueItems";
 import "../styles.css";
 
 export const Route = createFileRoute("/inbox")({
@@ -40,7 +41,7 @@ function InboxPage() {
   const [thought, setThought] = useState("");
 
   const items = useMemo(
-    () => (q.data ?? []).filter((i) => !source || i.source === source),
+    () => filterAndSortQueue(q.data ?? [], source),
     [q.data, source],
   );
   // Progressively renders more of `items` as the sentinel scrolls into view;
@@ -163,6 +164,7 @@ function InboxPage() {
           <h2>add to queue</h2>
           <textarea
             className="addurls"
+            aria-label="URLs to add to the queue"
             value={urlsText}
             onChange={handleUrlsChange}
             placeholder="paste urls to add..."
@@ -192,6 +194,7 @@ function InboxPage() {
           </div>
           <textarea
             className="thought"
+            aria-label="Thought to add to selected items"
             value={thought}
             onChange={handleThoughtChange}
             placeholder="thought (optional)"

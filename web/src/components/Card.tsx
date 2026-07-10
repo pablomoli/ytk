@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { MouseEvent } from 'react'
+import type { KeyboardEvent, MouseEvent } from 'react'
 import type { QueueItem } from '../api/queue'
 import { sourceIcon } from './icons'
 
@@ -31,6 +31,20 @@ export function Card({
     onOpen(item)
   }
 
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    onOpen(item)
+  }
+
+  const interactiveProps = {
+    role: 'button',
+    tabIndex: 0,
+    'aria-pressed': selected ?? false,
+    onClick: handleClick,
+    onKeyDown: handleKeyDown,
+  } as const
+
   const handleImageError = () => {
     if (stage === 'cover') {
       setStage(item.preview_url ? 'preview' : 'fallback')
@@ -41,7 +55,7 @@ export function Card({
 
   if (item.source === 'imessage') {
     return (
-      <div className={cardClassName(selected, state)} onClick={handleClick}>
+      <div className={cardClassName(selected, state)} {...interactiveProps}>
         <div className="textcard">
           <p>{item.text}</p>
           <span>{item.author}</span>
@@ -51,7 +65,7 @@ export function Card({
   }
 
   return (
-    <div className={cardClassName(selected, state)} onClick={handleClick}>
+    <div className={cardClassName(selected, state)} {...interactiveProps}>
       {stage === 'fallback' ? (
         <div className="noimg">{item.source}</div>
       ) : (
