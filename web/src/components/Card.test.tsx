@@ -28,3 +28,26 @@ test('renders a media card with an image sourced from /api/cover', () => {
   expect(img).not.toBeNull()
   expect(img).toHaveAttribute('src', expect.stringContaining('/api/cover'))
 })
+
+test('applies the selected class when selected is true', () => {
+  const { container } = render(
+    <Card item={{ url: 'u', source: 'youtube', text: 'Hello' }} onOpen={() => {}} selected />,
+  )
+  expect(container.querySelector('.card')).toHaveClass('selected')
+})
+
+test('applies the ingesting class and renders a spinner when ingesting', () => {
+  const { container } = render(
+    <Card item={{ url: 'u', source: 'youtube', text: 'Hello' }} onOpen={() => {}} state="ingesting" />,
+  )
+  expect(container.querySelector('.card')).toHaveClass('ingesting')
+  expect(container.querySelector('.spinner')).not.toBeNull()
+})
+
+test('applies the queued class without a selected outline', () => {
+  const { container } = render(
+    <Card item={{ url: 'u', source: 'youtube', text: 'Hello' }} onOpen={() => {}} state="queued" />,
+  )
+  expect(container.querySelector('.card')).toHaveClass('queued')
+  expect(container.querySelector('.card')).not.toHaveClass('selected')
+})

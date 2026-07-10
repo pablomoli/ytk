@@ -4,8 +4,26 @@ import type { QueueItem } from '../api/queue'
 import { sourceIcon } from './icons'
 
 type ImageStage = 'cover' | 'preview' | 'fallback'
+type CardState = 'queued' | 'ingesting'
 
-export function Card({ item, onOpen }: { item: QueueItem; onOpen: (i: QueueItem) => void }) {
+function cardClassName(selected?: boolean, state?: CardState): string {
+  let cls = 'card'
+  if (selected) cls += ' selected'
+  if (state) cls += ` ${state}`
+  return cls
+}
+
+export function Card({
+  item,
+  onOpen,
+  selected,
+  state,
+}: {
+  item: QueueItem
+  onOpen: (i: QueueItem) => void
+  selected?: boolean
+  state?: CardState
+}) {
   const [stage, setStage] = useState<ImageStage>('cover')
 
   const handleClick = (e: MouseEvent<HTMLDivElement>) => {
@@ -23,7 +41,7 @@ export function Card({ item, onOpen }: { item: QueueItem; onOpen: (i: QueueItem)
 
   if (item.source === 'imessage') {
     return (
-      <div className="card" onClick={handleClick}>
+      <div className={cardClassName(selected, state)} onClick={handleClick}>
         <div className="textcard">
           <p>{item.text}</p>
           <span>{item.author}</span>
@@ -33,7 +51,7 @@ export function Card({ item, onOpen }: { item: QueueItem; onOpen: (i: QueueItem)
   }
 
   return (
-    <div className="card" onClick={handleClick}>
+    <div className={cardClassName(selected, state)} onClick={handleClick}>
       {stage === 'fallback' ? (
         <div className="noimg">{item.source}</div>
       ) : (
@@ -44,6 +62,7 @@ export function Card({ item, onOpen }: { item: QueueItem; onOpen: (i: QueueItem)
           onError={handleImageError}
         />
       )}
+      {state === 'ingesting' ? <div className="spinner" /> : null}
       <div className="meta">
         <div className="title">{item.text || item.author || item.url}</div>
         <div className="sub">
