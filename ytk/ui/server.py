@@ -609,7 +609,12 @@ async def index():
 # React SPA (web/dist), mounted under /app
 # ---------------------------------------------------------------------------
 
-_WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
+# When installed, the built SPA is bundled inside the package at ytk/ui/webdist
+# (via the force-include in pyproject.toml). When running from a source checkout,
+# it lives at the repo's web/dist. Prefer the bundled copy, fall back to source.
+_PKG_DIST = Path(__file__).parent / "webdist"
+_SRC_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
+_WEB_DIST = _PKG_DIST if (_PKG_DIST / "index.html").exists() else _SRC_DIST
 
 if (_WEB_DIST / "assets").is_dir():
     app.mount("/app/assets", StaticFiles(directory=_WEB_DIST / "assets"), name="app-assets")
@@ -620,5 +625,5 @@ if (_WEB_DIST / "assets").is_dir():
 def _spa(path: str = "") -> HTMLResponse:
     index = _WEB_DIST / "index.html"
     if not index.exists():
-        return HTMLResponse("<h1>web/dist not built — run vp build</h1>", status_code=404)
+        return HTMLResponse("<h1>SPA not built - run: cd web && vp build</h1>", status_code=404)
     return HTMLResponse(index.read_text(encoding="utf-8"))
