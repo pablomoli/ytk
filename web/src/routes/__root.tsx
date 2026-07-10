@@ -1,7 +1,24 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 
-// The inbox page renders its own header; the root just hosts the routed page.
-// (A cross-page nav bar returns once more than one page is migrated.)
 export const Route = createRootRoute({
-  component: () => <Outlet />,
+  component: RootLayout,
 });
+
+function RootLayout() {
+  return (
+    <>
+      <nav className="hub-nav" aria-label="Hub navigation">
+        <Link to="/" activeProps={{ className: "active" }}>
+          fresh
+        </Link>
+        <Link to="/inbox" activeProps={{ className: "active" }}>
+          inbox
+        </Link>
+        <a href="/tags">tags</a>
+        <a href="/map">map</a>
+        <a href="/settings">settings</a>
+      </nav>
+      <Outlet />
+    </>
+  );
+}
