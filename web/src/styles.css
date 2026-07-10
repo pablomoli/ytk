@@ -4,6 +4,12 @@
   grid-auto-rows: 8px;
   grid-auto-flow: row dense;
   gap: 0.75rem;
+  /* Without this, grid items stretch to fill their row-span. scrollHeight then
+     returns the stretched height, so each relayout measures its own last output
+     and the span ratchets upward without bound (observed: 1.8M px). Pinning
+     items to the start keeps scrollHeight == content height, so relayout is
+     idempotent. */
+  align-items: start;
 }
 
 .skel {
