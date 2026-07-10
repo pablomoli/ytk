@@ -18,7 +18,9 @@ function RootLayout() {
           tags
         </Link>
         <a href="/map">map</a>
-        <a href="/settings">settings</a>
+        <Link to="/settings" activeProps={{ className: "active" }}>
+          settings
+        </Link>
       </nav>
       <Outlet />
     </>

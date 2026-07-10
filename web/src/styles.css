@@ -332,6 +332,24 @@ body {
   gap: 0.6rem;
 }
 
+.settings-main { max-width: 760px; margin: 0 auto; padding: 1.2rem 1rem 5rem; }
+.settings-main details { margin-bottom: 1rem; padding: .8rem 1rem; border-radius: 10px; background: #1c1c1c; }
+.settings-main summary { cursor: pointer; font-weight: 600; }
+.settings-body { display: flex; flex-direction: column; gap: .7rem; margin-top: .9rem; }
+.settings-body label { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; color: #b7b5aa; }
+.settings-body input[type=text], .settings-body input[type=number], .settings-body input:not([type]), .settings-body textarea, .settings-body select { border: 1px solid #333; border-radius: 8px; padding: .35rem .6rem; background: #26262a; color: #eee; font: inherit; }
+.settings-body textarea { min-width: 20rem; min-height: 5rem; }
+.settings-body .err { border-color: #e0785a; }
+.settings-body em { color: #e0785a; }
+.settings-chips { display: flex; flex: 1; flex-wrap: wrap; gap: .35rem; min-width: 16rem; padding: .3rem .45rem; border: 1px solid #333; border-radius: 8px; background: #26262a; }
+.settings-chip { padding: .1rem .3rem .1rem .65rem; border-radius: 999px; background: #333; color: #eee; }
+.settings-chip button { border: 0; background: none; color: #888; cursor: pointer; }
+.settings-chips input { min-width: 6rem; flex: 1; border: 0; background: none; color: #eee; }
+.settings-checks { display: flex; flex-wrap: wrap; gap: 1rem; color: #eee; }
+.rule { display: flex; gap: .5rem; align-items: center; }
+.rule input[type=text], .rule input:not([type]) { flex: 1; }
+.settings-savebar { position: sticky; bottom: 0; display: flex; gap: 1rem; align-items: center; padding: .7rem 1.2rem; border-top: 1px solid #2a2a2a; background: #181818; }
+
 .tag-status,
 .tag-apply-bar span {
   color: #888;
