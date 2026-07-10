@@ -76,6 +76,25 @@ async def read_note_api(path: str):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+class NoteDeleteRequest(BaseModel):
+    path: str
+
+
+@app.post("/api/note/delete")
+def delete_note_api(req: NoteDeleteRequest):
+    from ytk.ui import hub
+
+    try:
+        summary = hub.delete_note(req.path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Note not found")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return {"deleted": True, "removed": summary}
+
+
 # ---------------------------------------------------------------------------
 # Ingest hub: queue, ingest job, fresh feed, vault media
 # ---------------------------------------------------------------------------

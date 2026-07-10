@@ -707,3 +707,110 @@ def test_api_cover_serves_and_404s(client, hub, monkeypatch, tmp_path):
 
     r = client.get("/api/cover", params={"u": "https://x/unknown"})
     assert r.status_code == 404
+
+
+# --- note deletion ----------------------------------------------------------------
+
+
+@pytest.fixture
+def spy_store(monkeypatch):
+    """Record store deletions without touching ChromaDB."""
+    calls = {"docs": [], "videos": [], "visual": []}
+    import ytk.store as store
+    monkeypatch.setattr(store, "delete_doc", lambda d: calls["docs"].append(d))
+    monkeypatch.setattr(store, "delete_video", lambda v: calls["videos"].append(v))
+    monkeypatch.setattr(store, "delete_visual", lambda ids: calls["visual"].append(list(ids)))
+    return calls
+
+
+def _rel(hub, path):
+    """Card `path` field: note path relative to the vault root (brain.parent)."""
+    return str(path.relative_to(hub.brain.parent))
+
+
+def test_delete_note_removes_memo_file_and_vector(hub, spy_store):
+    memos = hub.brain / "inbox" / "memos"
+    memos.mkdir(parents=True)
+    note = memos / "2026-07-06-0106-a-memo-abc.md"
+    note.write_text("---\nsource: imessage\nroute: action\n---\n\nhi there\n", encoding="utf-8")
+
+    result = hub.delete_note(_rel(hub, note))
+
+    assert not note.exists()
+    assert "memo_2026-07-06-0106-a-memo-abc" in spy_store["docs"]
+    assert result["file"].endswith("2026-07-06-0106-a-memo-abc.md")
+
+
+def test_delete_note_removes_youtube_video_and_visual(hub, spy_store):
+    yt = hub.brain / "sources" / "youtube"
+    yt.mkdir(parents=True)
+    note = yt / "some-video.md"
+    note.write_text(
+        "---\nurl: https://www.youtube.com/watch?v=dQw4w9WgXcQ\ntitle: V\ntype: youtube\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+
+    hub.delete_note(_rel(hub, note))
+
+    assert not note.exists()
+    assert "dQw4w9WgXcQ" in spy_store["videos"]
+    assert ["yt:dQw4w9WgXcQ"] == spy_store["visual"][0]
+
+
+def test_delete_note_removes_instagram_doc_and_visual(hub, spy_store):
+    note = hub.brain / "sources" / "instagram" / "someone-abc.md"
+    note.write_text(
+        NOTE_TEMPLATE.format(url="https://www.instagram.com/reel/abc123/"), encoding="utf-8"
+    )
+
+    hub.delete_note(_rel(hub, note))
+
+    assert not note.exists()
+    assert "note_sources_instagram_someone-abc" in spy_store["docs"]
+    assert ["ig:abc123"] == spy_store["visual"][0]
+
+
+def test_delete_note_prefers_frontmatter_id(hub, spy_store):
+    mem = hub.brain / "inbox" / "memories" / "ytk"
+    mem.mkdir(parents=True)
+    note = mem / "state.md"
+    note.write_text("---\nid: memory_2026_ytk_state_ab12\ntype: memory\n---\n\nstate\n", encoding="utf-8")
+
+    hub.delete_note(_rel(hub, note))
+
+    assert "memory_2026_ytk_state_ab12" in spy_store["docs"]
+
+
+def test_delete_note_refuses_path_outside_vault(hub, spy_store):
+    with pytest.raises(ValueError):
+        hub.delete_note("../../../etc/passwd")
+    with pytest.raises(ValueError):
+        hub.delete_note("/etc/passwd")
+    assert spy_store["docs"] == []
+
+
+def test_delete_note_missing_file_raises(hub, spy_store):
+    with pytest.raises(FileNotFoundError):
+        hub.delete_note("brain/sources/instagram/ghost.md")
+
+
+def test_api_delete_note(client, hub, spy_store):
+    note = hub.brain / "sources" / "instagram" / "someone-abc.md"
+    note.write_text(NOTE_TEMPLATE.format(url="https://x/"), encoding="utf-8")
+
+    r = client.post("/api/note/delete", json={"path": _rel(hub, note)})
+    assert r.status_code == 200
+    assert r.json()["deleted"] is True
+    assert not note.exists()
+
+
+def test_api_delete_note_outside_vault_400(client, hub, spy_store):
+    r = client.post("/api/note/delete", json={"path": "../../etc/passwd"})
+    assert r.status_code == 400
+
+
+def test_fresh_page_has_delete_control(client):
+    r = client.get("/")
+    assert "/api/note/delete" in r.text
+    assert 'class="del"' in r.text
+    assert "—" not in r.text  # still no em dashes after adding the control

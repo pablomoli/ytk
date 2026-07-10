@@ -69,6 +69,82 @@ def _remove_from_queue(url: str) -> None:
         reels.save_state(state, STATE_PATH)
 
 
+def delete_note(rel_path: str) -> dict:
+    """Delete a vault note and every vector it left behind in the index.
+
+    `rel_path` is a fresh-feed card's `path`: the note relative to the vault
+    root (the parent of the brain dir). A plain file unlink would strand the
+    note's embeddings in ChromaDB (reindex only prunes the hash cache, not the
+    vectors), so deletion has to reach into every collection the note touched:
+
+      - memo notes -> memories doc `memo_{stem}`
+      - other vault notes -> memories doc from `id:` frontmatter or `note_{path}`
+      - youtube notes -> video + segment vectors, keyed by the 11-char id
+      - youtube/instagram -> cover embedding `yt:{id}` / `ig:{code}`
+
+    Refuses anything that resolves outside the vault or isn't a markdown file.
+    Returns a summary of what was removed.
+    """
+    from ytk import store
+    from ytk.cache import load_index_cache, save_index_cache
+
+    brain = vault._get_brain_path().resolve()
+    target = (brain.parent / rel_path).resolve()
+    if not target.is_relative_to(brain):
+        raise ValueError(f"Refusing to delete outside the vault: {rel_path}")
+    if target.suffix != ".md" or not target.is_file():
+        raise FileNotFoundError(rel_path)
+
+    text = target.read_text(encoding="utf-8", errors="ignore")
+    summary: dict = {"file": str(target.relative_to(brain.parent)), "docs": [], "video": None, "visual": []}
+
+    # text vectors: id: frontmatter, memo id, and the path-derived note id all
+    # get deleted (delete_doc is a no-op for ids that aren't present).
+    doc_ids: list[str] = []
+    if m := re.search(r"^id:\s*(.+)$", text, re.MULTILINE):
+        doc_ids.append(m.group(1).strip())
+    if target.parent == brain / "inbox" / "memos":
+        doc_ids.append(f"memo_{target.stem}")
+    rel_to_brain = target.relative_to(brain)
+    doc_ids.append("note_" + str(rel_to_brain).replace("/", "_").replace(".md", "").replace(" ", "_"))
+    for did in dict.fromkeys(doc_ids):
+        store.delete_doc(did)
+        summary["docs"].append(did)
+
+    # youtube video + segment vectors
+    video_id = None
+    if mv := re.search(r"(?:youtube\.com/watch\?v=|youtu\.be/)([\w-]{11})", text):
+        video_id = mv.group(1)
+        store.delete_video(video_id)
+        summary["video"] = video_id
+
+    # cover (visual) vectors
+    visual_ids: list[str] = []
+    if video_id:
+        visual_ids.append(f"yt:{video_id}")
+    if mi := re.search(r"instagram\.com/(?:p|reel)/([\w-]+)", text):
+        visual_ids.append(f"ig:{mi.group(1)}")
+    if visual_ids:
+        store.delete_visual(visual_ids)
+        summary["visual"] = visual_ids
+
+    # a voice memo's own recording is orphaned once its note is gone
+    if ma := re.search(r"^audio:\s*(.+)$", text, re.MULTILINE):
+        audio = MEMO_AUDIO_DIR / Path(ma.group(1).strip()).name
+        if audio.is_file():
+            audio.unlink()
+
+    target.unlink()
+    try:
+        cache = load_index_cache()
+        if str(target) in cache:
+            del cache[str(target)]
+            save_index_cache(cache)
+    except Exception:
+        pass
+    return summary
+
+
 # ---------------------------------------------------------------------------
 # Source pulls: Instagram DM thread + YouTube ytk playlist
 # ---------------------------------------------------------------------------
