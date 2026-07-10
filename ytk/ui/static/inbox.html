@@ -40,6 +40,7 @@
   .card.done { opacity: .55; }
   .card.done:hover, .card.done.sel { opacity: 1; }
   .card.done .badge { background: #14532daa; }
+  .skel { background: #1c1c1c; border-radius: 10px; animation: pulse 1.4s ease-in-out infinite; }
   #searchrow { display: flex; gap: .4rem; }
   #searchbox { flex: 1; background: #1c1c1c; color: #eee; border: 1px solid #333; border-radius: 999px; padding: .4rem .8rem; font-family: inherit; }
   #searchbox:disabled { opacity: .55; cursor: wait; }
@@ -220,6 +221,14 @@ document.getElementById("newtagbtn").addEventListener("click", async () => {
   }
 });
 
+function showSkeletons() {
+  // placeholder cards so the grid is never blank before the first fetch resolves;
+  // fixed varied spans avoid measuring scrollHeight on empty elements
+  const spans = [16, 20, 14, 22, 18, 16, 24, 14, 20, 18, 22, 16];
+  document.getElementById("grid").innerHTML = spans.map(s =>
+    `<div class="skel" style="grid-row-end: span ${s}"></div>`).join("");
+}
+
 async function loadQueue() {
   const res = await fetch("/api/queue");
   items = (await res.json()).items;
@@ -318,6 +327,9 @@ function renderGrid() {
     html += `<div class="groupsep">already ingested</div>`;
     html += pool.map(ingestedCard).join("");
   }
+  if (!html.trim()) {
+    html = `<div class="groupsep">inbox is empty</div>`;
+  }
   document.getElementById("grid").innerHTML = html;
   wireCards();
   layoutGrid();
@@ -359,6 +371,9 @@ function paintJobState() {
   }
 }
 
+// Masonry row-span sizing. Every card is measured in a READ pass before any
+// gridRowEnd is written, so a full relayout collapses into a single reflow
+// instead of one per card.
 function layoutGrid() {
   const rowH = 8, gap = 12;
   const cards = [...document.querySelectorAll(".card")];
@@ -367,18 +382,23 @@ function layoutGrid() {
   const w = base.getBoundingClientRect().width;
   const spanFor = h => "span " + Math.ceil((h + gap) / (rowH + gap));
   const bare = spanFor(200);
-  cards.forEach(c => {
+  const spans = cards.map(c => {
     const note = c.querySelector(".notecard");
-    if (note) { c.style.gridRowEnd = spanFor(note.scrollHeight); return; }
+    if (note) return spanFor(note.scrollHeight);
     const title = c.querySelector(".ctitle");
     const extra = title ? title.offsetHeight : 0;
-    c.style.gridRowEnd = c.querySelector("img")
+    return c.querySelector("img")
       ? (c.classList.contains("wide") ? spanFor((2 * w + gap) * 9 / 16 + extra) : spanFor(w * 16 / 9 + extra))
       : bare;
   });
+  cards.forEach((c, i) => { c.style.gridRowEnd = spans[i]; });
 }
 
-window.addEventListener("resize", layoutGrid);
+let _layoutRaf = 0;
+window.addEventListener("resize", () => {
+  if (_layoutRaf) return;
+  _layoutRaf = requestAnimationFrame(() => { _layoutRaf = 0; layoutGrid(); });
+});
 
 document.getElementById("addbtn").addEventListener("click", async () => {
   const box = document.getElementById("addurls");
@@ -555,6 +575,7 @@ async function loadWarm() {
 
 renderFilters();
 loadTags();
+showSkeletons();
 loadQueue().then(() => {
   // resync with any job already running (e.g. after a page reload mid-ingest)
   startPolling();
