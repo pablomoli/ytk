@@ -203,8 +203,14 @@ Phases 3–4 get their own plans once the pattern is proven on inbox.
   `dist` that FastAPI serves at `/app`.
 - `/app/inbox` reaches feature parity with legacy `/inbox`: same cards, filters,
   add box, refresh, ingest actions, job progress.
-- Inbox DOM node count stays bounded while scrolling the full 744-item queue
-  (verified: node count does not grow unboundedly).
+- Inbox uses **progressive rendering** (not a bounded/sliding window): it renders
+  ~60 cards and appends more as the sentinel scrolls in, so the DOM is bounded by
+  scroll depth and caps at the dataset size, not the viewport. This is honest
+  wording: the earlier "bounded DOM" claim was inaccurate. Measured at the full
+  754-item queue: ~6,065 DOM nodes and a full masonry relayout in 1.8ms — no jank,
+  because the actual perf villain (layout thrash: the align-items ratchet plus
+  interleaved reads/writes) is fixed. True virtualization (TanStack Virtual) is
+  deferred; it would only pay off around ~10k items.
 - API calls are typed from the generated schema; a deliberate wrong-shape call
   fails at compile time.
 - Legacy hub fully functional throughout (nothing at `/`, `/inbox`, etc. breaks).
