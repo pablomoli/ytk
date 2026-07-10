@@ -249,6 +249,34 @@ def delete_doc(doc_id: str) -> None:
         logging.getLogger(__name__).debug("delete_doc %s: %s", doc_id, exc)
 
 
+def delete_video(video_id: str) -> None:
+    """Remove a video's channel/insight parts and all its segment vectors.
+
+    Videos are keyed `{video_id}#c` / `{video_id}#i`; segments carry a
+    `video_id` metadata field, so they're purged by where-filter. Each
+    collection fails independently so a partial index never blocks the rest.
+    """
+    log = logging.getLogger(__name__)
+    try:
+        _videos_collection().delete(ids=[f"{video_id}#c", f"{video_id}#i"])
+    except Exception as exc:
+        log.debug("delete_video parts %s: %s", video_id, exc)
+    try:
+        _segments_collection().delete(where={"video_id": video_id})
+    except Exception as exc:
+        log.debug("delete_video segments %s: %s", video_id, exc)
+
+
+def delete_visual(item_ids: list[str]) -> None:
+    """Remove cover embeddings from the visual collection by item id."""
+    if not item_ids:
+        return
+    try:
+        _visual_collection().delete(ids=item_ids)
+    except Exception as exc:
+        logging.getLogger(__name__).debug("delete_visual %s: %s", item_ids, exc)
+
+
 @dataclass
 class VideoResult:
     video_id: str
