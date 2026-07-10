@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { KeyboardEvent, MouseEvent } from 'react'
+import type { MouseEvent } from 'react'
 import type { FreshNote } from '../api/fresh'
 import { sourceIcon } from './icons'
 
@@ -20,20 +20,10 @@ export function FreshCard({
     if ((event.target as HTMLElement).closest('a, button')) return
     open()
   }
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return
-    event.preventDefault()
-    open()
-  }
-
   return (
     <article
       className="card fresh-card"
-      role="button"
-      tabIndex={0}
       onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      aria-label={`Open ${note.title}`}
     >
       <button
         className="delete-note"
@@ -51,6 +41,7 @@ export function FreshCard({
           </div>
           <p>{note.preview || note.title}</p>
           {note.audio ? <span className="audio-pending">audio available</span> : null}
+          <button className="card-open" type="button" onClick={open}>open note</button>
         </div>
       ) : note.thumbnail && !imageFailed ? (
         <img
@@ -73,6 +64,7 @@ export function FreshCard({
                 open
               </a>
             ) : null}
+            <button className="card-open" type="button" onClick={open}>open note</button>
           </div>
         </div>
       )}

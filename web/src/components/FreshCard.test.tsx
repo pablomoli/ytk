@@ -21,11 +21,11 @@ test('uses vault media for fresh-note thumbnails', () => {
   expect(screen.getByText('#reference')).toBeInTheDocument()
 })
 
-test('opens with keyboard and keeps external links separate', () => {
+test('opens through its button and keeps external links separate', () => {
   const onOpen = vi.fn()
   render(<FreshCard note={note} onOpen={onOpen} onDelete={() => {}} />)
 
-  fireEvent.keyDown(screen.getByRole('button', { name: 'Open A video' }), { key: 'Enter' })
+  fireEvent.click(screen.getByRole('button', { name: 'open note' }))
   fireEvent.click(screen.getByRole('link', { name: 'open' }))
 
   expect(onOpen).toHaveBeenCalledTimes(1)
