@@ -15,7 +15,9 @@ function TagsPage() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    if (status.data?.state === 'done') setGroups(editableProposals(status.data.proposals))
+    if (status.data?.state === 'done') {
+      setGroups((current) => current.length ? current : editableProposals(status.data.proposals))
+    }
   }, [status.data])
 
   const mapping = useMemo(() => mappingFromProposals(groups), [groups])
@@ -41,6 +43,7 @@ function TagsPage() {
 
   const start = () => {
     setMessage('')
+    setGroups([])
     propose.mutate(undefined, { onError: (error) => setMessage(`failed to start: ${String(error)}`) })
   }
 
@@ -87,6 +90,8 @@ function TagsPage() {
                         <button
                           className={`tag-chip${canonical ? ' canonical' : ''}`}
                           type="button"
+                          aria-pressed={canonical}
+                          disabled={canonical}
                           onClick={() => canonical ? undefined : makeCanonical(index, tag)}
                         >
                           {tag} <span>{group.counts[tag] ?? ''}</span>
