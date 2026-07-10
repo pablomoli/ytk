@@ -1,5 +1,6 @@
 import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 // The SPA is served by FastAPI under /app, so built asset URLs must be
 // /app/-prefixed to match the backend's /app/assets mount. The dev server
@@ -26,5 +27,5 @@ export default defineConfig({
       typeCheck: true,
     },
   },
-  plugins: [react()],
+  plugins: [tanstackRouter({ target: "react" }), react()],
 });
