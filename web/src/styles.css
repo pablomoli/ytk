@@ -269,6 +269,135 @@ body {
   margin-top: auto;
 }
 
+.fresh-card .delete-note {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  z-index: 3;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: #000b;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  opacity: 0;
+}
+
+.fresh-card:hover .delete-note,
+.fresh-card:focus-within .delete-note {
+  opacity: 1;
+}
+
+.delete-note:hover {
+  background: #dc2626;
+}
+
+.take {
+  position: absolute;
+  top: 0.55rem;
+  left: 2.3rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: #4ade80;
+}
+
+.memocard {
+  padding: 0.8rem 0.8rem 0.6rem;
+  background: linear-gradient(160deg, #13291f, #0d1c14);
+}
+
+.memocard p {
+  margin: 0;
+  color: #dcefe2;
+  line-height: 1.4;
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.memokind,
+.audio-pending {
+  color: #4ade80;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.memokind {
+  margin-bottom: 0.35rem;
+}
+
+.audio-pending {
+  display: block;
+  margin-top: 0.55rem;
+  color: #888;
+}
+
+.tags {
+  margin-top: 0.35rem;
+  color: #e2b04a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub a {
+  color: #e2b04a;
+  margin-left: auto;
+  text-decoration: none;
+}
+
+.note-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  padding: 2rem;
+  background: #000d;
+}
+
+.note-panel {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 1.2rem;
+  border-radius: 8px;
+  background: #181818;
+  overflow: auto;
+}
+
+.note-panel pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+}
+
+.viewer-close {
+  float: right;
+}
+
+.similar-items {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.similar-items span {
+  flex-shrink: 0;
+  color: #888;
+  font-size: 0.8rem;
+}
+
+.similar-items img {
+  height: 88px;
+  display: block;
+  border-radius: 6px;
+}
+
 /* --- right-hand control rail layout --- */
 
 .hub-row {
