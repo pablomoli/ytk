@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import type { MouseEvent } from 'react'
+import type { KeyboardEvent, MouseEvent } from 'react'
 
 let activePlayer: HTMLAudioElement | null = null
 let activeCanvas: HTMLCanvasElement | null = null
 let activePeaks: number[] = []
+let decoderContext: AudioContext | null = null
+
+function getDecoderContext(): AudioContext {
+  if (!decoderContext) decoderContext = new window.AudioContext()
+  return decoderContext
+}
 
 function drawWave(canvas: HTMLCanvasElement, peaks: number[], fraction: number) {
   const context = canvas.getContext('2d')
@@ -23,24 +29,17 @@ function drawWave(canvas: HTMLCanvasElement, peaks: number[], fraction: number) 
 
 async function peaksForAudio(audio: string): Promise<number[]> {
   const buffer = await (await fetch(`/api/memo-audio/${encodeURIComponent(audio)}`)).arrayBuffer()
-  const AudioContextConstructor = window.AudioContext
-  if (!AudioContextConstructor) throw new Error('AudioContext is unavailable')
-  const context = new AudioContextConstructor()
-  try {
-    const decoded = await context.decodeAudioData(buffer)
-    const data = decoded.getChannelData(0)
-    const bars = 56
-    const step = Math.floor(data.length / bars) || 1
-    return Array.from({ length: bars }, (_, index) => {
-      let maximum = 0
-      for (let offset = index * step; offset < (index + 1) * step; offset += 32) {
-        maximum = Math.max(maximum, Math.abs(data[offset] || 0))
-      }
-      return maximum
-    })
-  } finally {
-    void context.close()
-  }
+  const decoded = await getDecoderContext().decodeAudioData(buffer)
+  const data = decoded.getChannelData(0)
+  const bars = 56
+  const step = Math.floor(data.length / bars) || 1
+  return Array.from({ length: bars }, (_, index) => {
+    let maximum = 0
+    for (let offset = index * step; offset < (index + 1) * step; offset += 32) {
+      maximum = Math.max(maximum, Math.abs(data[offset] || 0))
+    }
+    return maximum
+  })
 }
 
 export function MemoWaveform({ audio }: { audio: string }) {
@@ -76,14 +75,12 @@ export function MemoWaveform({ audio }: { audio: string }) {
 
   if (!available) return null
 
-  const handleClick = (event: MouseEvent<HTMLCanvasElement>) => {
-    event.stopPropagation()
+  const playAt = (fraction: number) => {
     const canvas = canvasRef.current
     if (!canvas || !peaksRef.current.length) return
-    const fraction = event.nativeEvent.offsetX / canvas.offsetWidth
 
     if (activeCanvas === canvas && activePlayer) {
-      activePlayer.currentTime = fraction * activePlayer.duration
+      if (Number.isFinite(activePlayer.duration)) activePlayer.currentTime = fraction * activePlayer.duration
       void activePlayer.play()
       return
     }
@@ -109,5 +106,17 @@ export function MemoWaveform({ audio }: { audio: string }) {
     void player.play()
   }
 
-  return <canvas ref={canvasRef} className="wave" onClick={handleClick} title="play memo" />
+  const handleClick = (event: MouseEvent<HTMLCanvasElement>) => {
+    event.stopPropagation()
+    playAt(event.nativeEvent.offsetX / event.currentTarget.offsetWidth)
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLCanvasElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    event.stopPropagation()
+    playAt(0)
+  }
+
+  return <canvas ref={canvasRef} className="wave" tabIndex={0} role="button" aria-label="Play memo" onClick={handleClick} onKeyDown={handleKeyDown} title="play memo" />
 }
