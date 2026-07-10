@@ -24,3 +24,205 @@
     opacity: 0.5;
   }
 }
+
+/* --- ported inbox/fresh chrome (dark theme, amber accents) --- */
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #111;
+  color: #eee;
+}
+
+#root {
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  text-align: left;
+  border-inline: none;
+  margin: 0;
+  display: block;
+  box-sizing: border-box;
+}
+
+.hub-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.hub-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  background: #181818;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.hub-header .brand {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.hub-header .count {
+  color: #888;
+  margin-left: auto;
+  font-size: 0.85rem;
+}
+
+nav {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  background: #181818;
+}
+
+nav a {
+  color: #e2b04a;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+nav a.active,
+nav a[aria-current="page"] {
+  color: #4ade80;
+}
+
+.hub-body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+}
+
+.filters {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.fchip {
+  background: #262626;
+  color: #ddd;
+  border: 1px solid #333;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+}
+
+.fchip.on {
+  background: #e2b04a;
+  border-color: #e2b04a;
+  color: #000;
+  font-weight: 600;
+}
+
+.addbox {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: flex-start;
+  background: #181818;
+  border: 1px solid #262626;
+  border-radius: 10px;
+  padding: 0.8rem;
+}
+
+.addbox textarea {
+  flex: 1;
+  min-width: 220px;
+  min-height: 2.2rem;
+  box-sizing: border-box;
+  background: #1c1c1c;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.addbox-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn {
+  background: #2a2a2a;
+  color: #eee;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.btn:hover {
+  background: #333;
+}
+
+.btn.primary {
+  background: #e2b04a;
+  color: #241a05;
+}
+
+.btn:disabled {
+  background: #2a2a2a;
+  color: #666;
+  cursor: default;
+}
+
+.progress {
+  color: #888;
+  font-size: 0.82rem;
+  min-height: 1.1rem;
+}
+
+.progress.running {
+  color: #e2b04a;
+}
+
+.sentinel {
+  height: 1px;
+}
+
+.card {
+  position: relative;
+  background: #1c1c1c;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.card img {
+  width: 100%;
+  display: block;
+}
+
+.meta {
+  padding: 0.5rem 0.6rem 0.6rem;
+}
+
+.title {
+  line-height: 1.3;
+  max-height: 3.6em;
+  overflow: hidden;
+  color: #ddd;
+}
+
+.sub {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+  color: #888;
+  font-size: 0.78rem;
+}
