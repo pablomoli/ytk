@@ -151,7 +151,7 @@ function InboxPage() {
   return (
     <div id="inbox-page" className="hub-page">
       <header className="hub-header">
-        <span className="brand">inbox</span>
+        <h1>inbox</h1>
         <SourceFilter value={source} onChange={handleSourceChange} />
         <span className="count">
           {items.length}

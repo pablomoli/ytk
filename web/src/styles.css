@@ -64,13 +64,15 @@ body {
   padding: 0.8rem 1rem;
   background: #181818;
   position: sticky;
-  top: 0;
+  top: 46px;
   z-index: 5;
 }
 
-.hub-header .brand {
+.hub-header h1 {
   color: #4ade80;
   font-weight: 600;
+  font-size: inherit;
+  margin: 0;
 }
 
 .hub-header .count {
@@ -79,22 +81,25 @@ body {
   font-size: 0.85rem;
 }
 
-nav {
+.hub-nav {
   display: flex;
   gap: 1rem;
   align-items: center;
   padding: 0.8rem 1rem;
   background: #181818;
+  position: sticky;
+  top: 0;
+  z-index: 6;
 }
 
-nav a {
+.hub-nav a {
   color: #e2b04a;
   text-decoration: none;
   font-weight: 600;
 }
 
-nav a.active,
-nav a[aria-current="page"] {
+.hub-nav a.active,
+.hub-nav a[aria-current="page"] {
   color: #4ade80;
 }
 
