@@ -3,8 +3,8 @@ import type { MapData, MapPoint } from '../api/map'
 export type MapHover = { point: MapPoint; x: number; y: number }
 export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setGroupFocus: (group?: number) => void; destroy: () => void }
 
-const vertex = `attribute vec3 p; attribute vec3 color; attribute float alpha; uniform float u_flat; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; varying vec3 c; varying float a; void main(){ vec3 q=mix(p,vec3(p.xy,0.),u_flat); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(4./depth,2.,12.); c=color; a=alpha; }`
-const fragment = `precision mediump float; varying vec3 c; varying float a; void main(){ float d=length(gl_PointCoord*2.-1.); if(d>1.) discard; gl_FragColor=vec4(c,a); }`
+const vertex = `attribute vec3 p; attribute vec3 color; attribute float alpha; attribute float size; uniform float u_flat; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; varying vec3 c; varying float a; void main(){ vec3 q=mix(p,vec3(p.xy,0.),u_flat); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(size*zoom/depth,1.8,26.); c=color; a=alpha; }`
+const fragment = `precision mediump float; varying vec3 c; varying float a; void main(){ vec2 p=gl_PointCoord*2.-1.; float d2=dot(p,p); float edge=smoothstep(1.,.82,sqrt(d2)); if(edge<=0.) discard; float z=sqrt(max(0.,1.-d2)); vec3 n=vec3(p.x,-p.y,z); vec3 light=normalize(vec3(-.45,.55,.72)); float wrap=(dot(n,light)+.6)/1.6; float diff=.35+.65*clamp(wrap,0.,1.); float spec=pow(max(dot(reflect(-light,n),vec3(0.,0.,1.)),0.),12.)*.10; vec3 shaded=c*diff*(.75+.25*z)+vec3(spec); gl_FragColor=vec4(shaded,a*edge); }`
 const ramp = ['#5b7cfa', '#2fb7c9', '#43c26a', '#d9a520', '#e8703a', '#e0507e', '#9d6bf0']
 const gray: [number, number, number] = [.435, .427, .4]
 const rgb = (hex: string): [number, number, number] => [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255) as [number, number, number]
@@ -32,6 +32,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   const position = gl.getAttribLocation(program, 'p')
   const color = gl.getAttribLocation(program, 'color')
   const alpha = gl.getAttribLocation(program, 'alpha')
+  const size = gl.getAttribLocation(program, 'size')
   const flat = gl.getUniformLocation(program, 'u_flat')
   const zoom = gl.getUniformLocation(program, 'zoom')
   const pan = gl.getUniformLocation(program, 'pan')
@@ -76,20 +77,22 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
       const group = content ? point.th : point.g
       const focus = focusedGroup === undefined || group === focusedGroup ? 1 : .08
       renderedPoints.push({ point, position })
-      return [...position, ...color, (signal === .04 ? .04 : base * signal) * focus]
+      return [...position, ...color, (signal === .04 ? .04 : base * signal) * focus, 3.2 + point.r * 1.8 + (content ? .8 : 0)]
       })
-      pointCount = points.length / 7
+      pointCount = points.length / 8
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW)
       geometryDirty = false
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     gl.enableVertexAttribArray(position)
-    gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 28, 0)
+    gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 32, 0)
     gl.enableVertexAttribArray(color)
-    gl.vertexAttribPointer(color, 3, gl.FLOAT, false, 28, 12)
+    gl.vertexAttribPointer(color, 3, gl.FLOAT, false, 32, 12)
     gl.enableVertexAttribArray(alpha)
-    gl.vertexAttribPointer(alpha, 1, gl.FLOAT, false, 28, 24)
+    gl.vertexAttribPointer(alpha, 1, gl.FLOAT, false, 32, 24)
+    gl.enableVertexAttribArray(size)
+    gl.vertexAttribPointer(size, 1, gl.FLOAT, false, 32, 28)
     gl.clearColor(0, 0, 0, 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.uniform1f(flat, isFlat ? 1 : 0)
