@@ -639,13 +639,16 @@ describe('pointPhases', () => {
   it('normalizes distance from the subtopic centroid per group', () => {
     const points = [
       { z3: [0, 0, 0], g: 0, dom: 0 },
+      { z3: [3, 0, 0], g: 0, dom: 0 },
       { z3: [1, 0, 0], g: 0, dom: 0 },
       { z3: [0.5, 0, 0], g: -1, dom: 2 },
     ] as unknown as MapPoint[]
+    // group-0 centroid x = 4/3: distances 4/3, 5/3, 1/3 -> phases 0.8, 1.0, 0.2
     const phases = pointPhases(points)
     expect(phases[1]).toBe(1) // farthest in its group
-    expect(phases[0]).toBeLessThan(phases[1])
-    expect(phases[2]).toBeGreaterThanOrEqual(0) // noise keys on domain centroid
+    expect(phases[0]).toBeCloseTo(0.8)
+    expect(phases[2]).toBeCloseTo(0.2)
+    expect(phases[3]).toBe(0) // sole noise point of its domain sits on its own centroid
   })
 })
 ```
