@@ -356,7 +356,7 @@ body {
 .map-stage { position: relative; }
 .map-state { min-height: calc(100vh - 46px); padding: 2rem; background: #000; }
 .map-legend { position: fixed; top: 7rem; right: 1rem; width: 250px; max-height: calc(100vh - 9rem); overflow: auto; padding: .6rem; border: 1px solid #ffffff14; border-radius: 12px; background: #161618e6; }
-.map-legend.collapsed { width: 40px; height: 40px; padding: 0; overflow: hidden; }
+.map-legend.collapsed { width: 40px; padding: .3rem 0 .5rem; overflow: visible; }
 .map-legend-toggle { justify-content: center !important; font-size: 1.1rem; }
 .map-legend button { display: flex; width: 100%; align-items: center; gap: .55rem; padding: .3rem; border: 0; border-radius: 6px; background: none; color: #b7b5aa; cursor: pointer; text-align: left; }
 .map-legend button:hover { background: #ffffff0d; color: #f0eee7; }
