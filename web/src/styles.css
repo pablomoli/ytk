@@ -363,6 +363,9 @@ body {
 .map-legend button.off { opacity: .32; }
 .map-legend i { width: 8px; height: 8px; flex: none; border-radius: 999px; }
 .map-legend span { margin-left: auto; color: #83817a; }
+.map-legend footer { margin: .5rem -.6rem -.6rem; padding: .55rem .8rem .7rem; border-top: 1px solid #ffffff14; color: #83817a; font-size: .75rem; }
+.map-legend-dots { display: flex; flex-direction: column; align-items: center; gap: .55rem; padding-top: .2rem; }
+.map-legend-dots i { width: 8px; height: 8px; border-radius: 999px; }
 .map-tip { position: fixed; z-index: 8; max-width: 300px; padding: .55rem .7rem; border: 1px solid #333; border-radius: 10px; background: #1c1c1cee; pointer-events: none; }
 .map-tip img { display: block; max-width: 100%; margin-bottom: .4rem; border-radius: 6px; }
 .map-tip small { display: block; margin-top: .2rem; color: #888; }
