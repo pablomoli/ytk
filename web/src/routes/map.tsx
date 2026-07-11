@@ -52,9 +52,16 @@ function MapPage() {
   // Focus changes rewrite the hash to #d:<domain>[:<sub>]; clearing focus
   // falls back to the dimension flag (#content is a one-shot deep-link read
   // at mount only, never round-tripped through interactive state changes).
+  // In content view focus.dom indexes the theme list, not map.data.all.domains,
+  // so a #d: hash would name an unrelated domain - the hash stays #content
+  // for the whole content-view lifetime, focused or not.
   const setFocus = (next: MapFocus) => {
     setFocusState(next)
     if (!map.data) return
+    if (view === 'content') {
+      history.replaceState(null, '', location.pathname + '#content')
+      return
+    }
     const h = focusHash(next, map.data.all.domains, map.data.all.groups)
     history.replaceState(null, '', h || location.pathname + (flatRef.current ? '#2d' : ''))
   }
@@ -62,9 +69,12 @@ function MapPage() {
   useEffect(() => { setFocusRef.current = setFocus })
   useEffect(() => {
     if (!map.data || !canvas.current) return
-    setFocusState(parseFocusHash(location.hash, map.data.all.domains, map.data.all.groups))
+    // A #d: hash only ever encodes an all-view domain (content view keeps
+    // #content); view state already agrees with the hash at mount.
+    if (view === 'all') setFocusState(parseFocusHash(location.hash, map.data.all.domains, map.data.all.groups))
     renderer.current = mountMapRenderer(canvas.current, map.data, setPointHover, labels.current ?? undefined, (next) => setFocusRef.current(next), leaders.current ?? undefined, { intro: !location.hash.startsWith('#d:') })
     return () => renderer.current?.destroy()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map.data])
   useEffect(() => { renderer.current?.setView(view) }, [view])
   useEffect(() => { renderer.current?.setDimension(flat) }, [flat])

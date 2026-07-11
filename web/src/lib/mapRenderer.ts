@@ -38,7 +38,7 @@ void main(){
   float agg=grp<0. ? 1. : (level<.5 ? aggDom[di] : aggSub[si]);
   float grow=rampf(introT*1.8-phase*.8);
   gl_PointSize=clamp(size*zoom/depth*dpr,1.8,26.*dpr)*grow;
-  c=mix(mix(color0,colorSub,subColorT*step(.5,level)),color1,morph);
+  c=mix(mix(color0,colorSub,subColorT),color1,morph);
   float pulse=1.+.12*sin(time*2.2-phase*5.)*step(1.5,level+focusT);
   a=mix(alpha0,alpha1,morph)*fa*agg*grow*pulse; }`
 const fragment = `precision mediump float; varying vec3 c; varying float a; varying float depthV;
