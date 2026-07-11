@@ -476,13 +476,6 @@ async def vault_media(rel_path: str):
 # ---------------------------------------------------------------------------
 
 
-def _serve_static(name: str) -> HTMLResponse:
-    html_path = _STATIC_DIR / name
-    if not html_path.exists():
-        return HTMLResponse("<h1>UI not found</h1>", status_code=404)
-    return HTMLResponse(html_path.read_text(encoding="utf-8"))
-
-
 @app.get("/favicon.svg")
 async def favicon():
     from fastapi.responses import Response
@@ -562,16 +555,6 @@ async def map_data_api():
     return FileResponse(map_path, media_type="application/json")
 
 
-@app.get("/map", response_class=HTMLResponse)
-async def map_page():
-    return _serve_static("map.html")
-
-
-@app.get("/inbox", response_class=HTMLResponse)
-async def inbox_page():
-    return _serve_static("inbox.html")
-
-
 @app.get("/docs/settings", response_class=HTMLResponse)
 async def settings_docs():
     md = (_STATIC_DIR / "docs-settings.md").read_text(encoding="utf-8")
@@ -590,23 +573,8 @@ async def settings_docs():
     )
 
 
-@app.get("/settings", response_class=HTMLResponse)
-async def settings_page():
-    return _serve_static("settings.html")
-
-
-@app.get("/tags", response_class=HTMLResponse)
-async def tags_page():
-    return _serve_static("tags.html")
-
-
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    return _serve_static("fresh.html")
-
-
 # ---------------------------------------------------------------------------
-# React SPA (web/dist), mounted under /app
+# React SPA (web/dist), served at the root
 # ---------------------------------------------------------------------------
 
 # When installed, the built SPA is bundled inside the package at ytk/ui/webdist
@@ -617,12 +585,30 @@ _SRC_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
 _WEB_DIST = _PKG_DIST if (_PKG_DIST / "index.html").exists() else _SRC_DIST
 
 if (_WEB_DIST / "assets").is_dir():
-    app.mount("/app/assets", StaticFiles(directory=_WEB_DIST / "assets"), name="app-assets")
+    app.mount("/assets", StaticFiles(directory=_WEB_DIST / "assets"), name="app-assets")
 
 
-@app.get("/app", response_class=HTMLResponse)
-@app.get("/app/{path:path}", response_class=HTMLResponse)
+@app.get("/app", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/app/{path:path}", response_class=HTMLResponse, include_in_schema=False)
+def _spa_redirect(path: str = ""):
+    # pre-cutover bookmarks: the SPA used to live under /app
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(f"/{path}", status_code=308)
+
+
+# The SPA's client-side routes. Serving index.html only for these (rather
+# than a blanket fallback) keeps real 404s for junk paths and traversal noise.
+_SPA_ROUTES = {"", "inbox", "tags", "map", "settings"}
+
+
+# Registered last on purpose: FastAPI matches routes in registration order,
+# so every API route, mount, and page above wins first.
+@app.get("/", response_class=HTMLResponse)
+@app.get("/{path:path}", response_class=HTMLResponse)
 def _spa(path: str = "") -> HTMLResponse:
+    if path.rstrip("/") not in _SPA_ROUTES:
+        raise HTTPException(status_code=404)
     index = _WEB_DIST / "index.html"
     if not index.exists():
         return HTMLResponse("<h1>SPA not built - run: cd web && vp build</h1>", status_code=404)
