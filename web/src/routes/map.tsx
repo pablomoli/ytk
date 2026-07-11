@@ -1,16 +1,27 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMap, isMapV2 } from '../api/map'
+import type { MapData, MapDomain, MapPoint } from '../api/map'
 import { ErrorState } from '../components/StateViews'
-import { mapDomainColor, mapGroupColor, mountMapRenderer } from '../lib/mapRenderer'
+import { mapDomainColor, mapGroupColor, mapSubColor, mountMapRenderer } from '../lib/mapRenderer'
 import type { MapHover } from '../lib/mapRenderer'
+import { focusHash, legendRows, parseFocusHash } from '../lib/mapGroups'
 import type { MapFocus } from '../lib/mapGroups'
 import { HubControls } from '../components/HubControls'
 import '../styles.css'
 
 export const Route = createFileRoute('/map')({ component: MapPage })
 
-function MapTooltip({ hover, group }: { hover: MapHover; group: string }) {
+// Content view has no domain/subtopic split - its themes stand in as a flat
+// domain list so legendRows can drive both views with one code path.
+const contentAsDomains = (data: MapData): MapDomain[] => data.content.groups.map((group) => ({ label: group.label, n: group.n, x: group.x ?? 0, y: group.y ?? 0 }))
+
+function hoverLabels(data: MapData, view: 'all' | 'content', point: MapPoint): { domain: string; sub?: string } {
+  if (view === 'content') return { domain: data.content.groups[point.th ?? -1]?.label || 'dust' }
+  return { domain: data.all.domains[point.dom]?.label || 'dust', sub: point.g >= 0 ? data.all.groups[point.g]?.label : undefined }
+}
+
+function MapTooltip({ hover, domain, sub }: { hover: MapHover; domain: string; sub?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState({ left: hover.x + 14, top: hover.y + 14 })
   useLayoutEffect(() => {
@@ -18,7 +29,7 @@ function MapTooltip({ hover, group }: { hover: MapHover; group: string }) {
     setPosition({ left: Math.min(hover.x + 14, innerWidth - 320), top: Math.min(hover.y + 14, innerHeight - height - 16) })
   }, [hover])
   const signal = ['', 'saved', 'thought', 'directive'][hover.point.r] || ''
-  return <div ref={ref} className="map-tip" style={position}>{hover.point.img && hover.point.u ? <img src={`/api/cover?u=${encodeURIComponent(hover.point.u)}`} alt="" /> : null}<div>{hover.point.t}</div><small>{hover.point.c} · {group}{signal ? ` · ${signal}` : ''}{hover.point.d ? ` · ${hover.point.d}` : ''}</small></div>
+  return <div ref={ref} className="map-tip" style={position}>{hover.point.img && hover.point.u ? <img src={`/api/cover?u=${encodeURIComponent(hover.point.u)}`} alt="" /> : null}<div>{hover.point.t}</div><small>{hover.point.c} · {domain}{sub ? ` · ${sub}` : ''}{signal ? ` · ${signal}` : ''}{hover.point.d ? ` · ${hover.point.d}` : ''}</small></div>
 }
 
 function MapPage() {
@@ -30,40 +41,70 @@ function MapPage() {
   const [flat, setFlat] = useState(location.hash === '#2d')
   const [signal, setSignal] = useState(false)
   const [recent, setRecent] = useState(false)
-  const [hover, setHover] = useState<MapHover>()
-  const [focus, setFocus] = useState<MapFocus>({})
-  const [hoverGroupIndex, setHoverGroupIndex] = useState<number>()
-  const [hidden, setHidden] = useState<Set<number>>(new Set())
+  const [pointHover, setPointHover] = useState<MapHover>()
+  const [focus, setFocusState] = useState<MapFocus>({})
+  const [hover, setHover] = useState<MapFocus>()
+  const [hiddenDoms, setHiddenDoms] = useState<Set<number>>(new Set())
   const [legendOpen, setLegendOpen] = useState(true)
   const renderer = useRef<ReturnType<typeof mountMapRenderer> | undefined>(undefined)
+  const flatRef = useRef(flat)
+  useEffect(() => { flatRef.current = flat }, [flat])
+  // Focus changes rewrite the hash to #d:<domain>[:<sub>]; clearing focus
+  // falls back to the dimension flag (#content is a one-shot deep-link read
+  // at mount only, never round-tripped through interactive state changes).
+  const setFocus = (next: MapFocus) => {
+    setFocusState(next)
+    if (!map.data) return
+    const h = focusHash(next, map.data.all.domains, map.data.all.groups)
+    history.replaceState(null, '', h || location.pathname + (flatRef.current ? '#2d' : ''))
+  }
+  const setFocusRef = useRef(setFocus)
+  useEffect(() => { setFocusRef.current = setFocus })
   useEffect(() => {
     if (!map.data || !canvas.current) return
-    renderer.current = mountMapRenderer(canvas.current, map.data, setHover, labels.current ?? undefined, setFocus, leaders.current ?? undefined, { intro: true })
+    setFocusState(parseFocusHash(location.hash, map.data.all.domains, map.data.all.groups))
+    renderer.current = mountMapRenderer(canvas.current, map.data, setPointHover, labels.current ?? undefined, (next) => setFocusRef.current(next), leaders.current ?? undefined, { intro: !location.hash.startsWith('#d:') })
     return () => renderer.current?.destroy()
   }, [map.data])
   useEffect(() => { renderer.current?.setView(view) }, [view])
   useEffect(() => { renderer.current?.setDimension(flat) }, [flat])
   useEffect(() => { renderer.current?.setFilters(signal, recent) }, [signal, recent])
   useEffect(() => { renderer.current?.setFocus(focus) }, [focus])
-  useEffect(() => { renderer.current?.setHover(hoverGroupIndex === undefined ? undefined : { dom: hoverGroupIndex }) }, [hoverGroupIndex])
-  useEffect(() => { renderer.current?.setHiddenDomains(hidden) }, [hidden])
+  useEffect(() => { renderer.current?.setHover(hover) }, [hover])
+  useEffect(() => { renderer.current?.setHiddenDomains(hiddenDoms) }, [hiddenDoms])
   useEffect(() => { renderer.current?.setLegendOpen(legendOpen) }, [legendOpen])
   if (map.isLoading) return <div className="map-state">loading map...</div>
   if (map.isError) return <div className="map-state"><ErrorState error={map.error} /></div>
   if (map.data && !isMapV2(map.data)) return <div className="map-state">map data predates the domain hierarchy - run `uv run python scripts/build_map.py`</div>
-  const hoverGroup = hover ? (view === 'content' ? map.data!.content.groups[hover.point.th ?? -1]?.label : map.data!.all.groups[hover.point.g]?.label) || 'dust' : ''
+  const hoverInfo = pointHover ? hoverLabels(map.data!, view, pointHover.point) : undefined
   const layout = view === 'content' ? map.data!.content : map.data!.all
-  // Interim single-level legend over domains (themes in the content view);
-  // Task 6 replaces this with the hierarchical legend.
-  const legendEntries = view === 'content' ? map.data!.content.groups.map((group, index) => ({ index, label: group.label, n: group.n, color: mapGroupColor(map.data!, 'content', index) })) : map.data!.all.domains.map((domain, index) => ({ index, label: domain.label, n: domain.n, color: mapDomainColor(map.data!, index) }))
+  const rows = legendRows(view === 'content' ? contentAsDomains(map.data!) : map.data!.all.domains, view === 'content' ? [] : map.data!.all.groups, focus)
+  const domColor = (index: number) => view === 'content' ? mapGroupColor(map.data!, 'content', index) : mapDomainColor(map.data!, index)
   const visibleNotes = view === 'content' ? map.data!.points.filter((point) => point.c3).length : map.data!.points.length
   const trust = layout.params.trustworthiness_3d ?? layout.params.trustworthiness
+  const resetView = (next: 'all' | 'content') => { setView(next); setFocus({}); setHiddenDoms(new Set()); setHover(undefined) }
+  const toggleHidden = (dom: number) => setHiddenDoms((current) => { const next = new Set(current); next.has(dom) ? next.delete(dom) : next.add(dom); return next })
   return (
     <div className="map-page">
-      <HubControls><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => { setView('all'); setFocus({}); setHidden(new Set()); setHoverGroupIndex(undefined) }}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => { setView('content'); setFocus({}); setHidden(new Set()); setHoverGroupIndex(undefined) }}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button><span className="count">{map.data?.points.length ?? 0} notes</span></HubControls>
+      <HubControls><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => resetView('all')}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => resetView('content')}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button><span className="count">{map.data?.points.length ?? 0} notes</span></HubControls>
       <div className="map-stage" aria-label="Knowledge map renderer"><canvas ref={canvas} /><svg ref={leaders} className="map-leaders" /><div ref={labels} className="map-labels" />
-        <aside className={`map-legend${legendOpen ? '' : ' collapsed'}`}><button className="map-legend-toggle" onClick={() => setLegendOpen((open) => !open)} aria-label={legendOpen ? 'Collapse cluster legend' : 'Expand cluster legend'}>{legendOpen ? '›' : '‹'}</button>{legendOpen ? <>{legendEntries.map((entry) => entry.n ? <button key={entry.index} className={hidden.has(entry.index) || focus.dom !== undefined && focus.dom !== entry.index ? 'off' : ''} onMouseEnter={() => setHoverGroupIndex(entry.index)} onMouseLeave={() => setHoverGroupIndex(undefined)} onClick={(event) => { if (event.altKey) setHidden((current) => { const next = new Set(current); if (next.has(entry.index)) next.delete(entry.index); else next.add(entry.index); return next }); else setFocus((current) => current.dom === entry.index ? {} : { dom: entry.index }) }}><i style={{ background: entry.color }} />{entry.label}<span>{entry.n}</span></button> : null)}<footer>{visibleNotes} notes · trust {trust?.toFixed(2) ?? 'n/a'} · sil {layout.params.silhouette?.toFixed(2) ?? 'n/a'}<br />drag orbit · right-drag pan · scroll zoom</footer></> : <div className="map-legend-dots">{legendEntries.filter((entry) => entry.n).sort((a, b) => b.n - a.n).slice(0, 10).map((entry) => <i key={entry.index} style={{ background: entry.color }} />)}</div>}</aside>
-        {hover ? <MapTooltip hover={hover} group={hoverGroup} /> : null}
+        <aside className={`map-legend${legendOpen ? '' : ' collapsed'}`}><button className="map-legend-toggle" onClick={() => setLegendOpen((open) => !open)} aria-label={legendOpen ? 'Collapse cluster legend' : 'Expand cluster legend'}>{legendOpen ? '›' : '‹'}</button>{legendOpen ? <>{rows.map((row) => (
+          <div key={row.dom}>
+            <button className={hiddenDoms.has(row.dom) || (focus.dom !== undefined && focus.dom !== row.dom && hover?.dom !== row.dom) ? 'off' : ''}
+              onMouseEnter={() => setHover({ dom: row.dom })} onMouseLeave={() => setHover(undefined)}
+              onClick={(event) => { if (event.altKey) toggleHidden(row.dom); else setFocus(focus.dom === row.dom && focus.sub === undefined ? {} : { dom: row.dom }) }}>
+              <i style={{ background: domColor(row.dom) }} />{row.label}<span>{row.n}</span>
+            </button>
+            {row.subs.map((s) => (
+              <button key={s.sub} className={`sub${hiddenDoms.has(row.dom) || (focus.sub !== undefined && focus.sub !== s.sub && hover?.sub !== s.sub) ? ' off' : ''}`}
+                onMouseEnter={() => setHover({ dom: row.dom, sub: s.sub })} onMouseLeave={() => setHover(undefined)}
+                onClick={() => setFocus(focus.sub === s.sub ? { dom: row.dom } : { dom: row.dom, sub: s.sub })}>
+                <i style={{ background: mapSubColor(map.data!, s.sub) }} />{s.label}<span>{s.n}</span>
+              </button>
+            ))}
+          </div>
+        ))}<footer>{visibleNotes} notes · trust {trust?.toFixed(2) ?? 'n/a'} · sil {layout.params.silhouette?.toFixed(2) ?? 'n/a'}<br />drag orbit · right-drag pan · scroll zoom</footer></> : <div className="map-legend-dots">{rows.slice(0, 10).map((row) => <i key={row.dom} style={{ background: domColor(row.dom) }} />)}</div>}</aside>
+        {pointHover && hoverInfo ? <MapTooltip hover={pointHover} domain={hoverInfo.domain} sub={hoverInfo.sub} /> : null}
       </div>
     </div>
   )
