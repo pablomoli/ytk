@@ -28,12 +28,13 @@ import chromadb
 import numpy as np
 
 from ytk import signals
+from ytk.mapdomains import CONTENT_CATS as _CATS, domain_labels, index_domains
 
 SNAPSHOT = Path(os.path.expanduser("~/.ytk/interest/latest.json"))
 CHROMA = os.path.expanduser("~/.ytk/chroma")
 OUT = Path.home() / ".ytk" / "map.json"
 
-CONTENT_CATS = {"youtube", "instagram", "tiktok", "pinterest", "web", "screenshots"}
+CONTENT_CATS = _CATS
 UNTHEMED_PERCENTILE = 25
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
@@ -167,32 +168,75 @@ def assign_themes(vecs: np.ndarray, snapshot: dict) -> list[int]:
     return [int(b) if c >= floor else -1 for b, c in zip(best, conf)]
 
 
-def derive_clusters(vecs: np.ndarray, docs: list[str]) -> tuple[list[int], list[str]]:
-    """HDBSCAN over a 15-dim UMAP reduction, clusters named by c-TF-IDF."""
-    import umap
-    from sklearn.cluster import HDBSCAN
+def _ctfidf_names(cluster_docs: list[str]) -> list[str]:
+    """c-TF-IDF top-5 terms per cluster document blob."""
     from sklearn.feature_extraction.text import CountVectorizer
 
-    reduced = umap.UMAP(
-        n_neighbors=30, n_components=15, min_dist=0.0, metric="cosine", random_state=42
-    ).fit_transform(vecs)
-    labels = HDBSCAN(min_cluster_size=40, min_samples=10).fit_predict(reduced)
-    n = labels.max() + 1
-    print(f"HDBSCAN: {n} clusters, {int((labels == -1).sum())} noise points")
-
-    cluster_docs = [
-        " ".join(docs[i] for i in np.flatnonzero(labels == k))[:400_000]
-        for k in range(n)
-    ]
     vec = CountVectorizer(stop_words="english", max_features=20_000, min_df=2)
     tf = vec.fit_transform(cluster_docs).toarray().astype(float)
-    # c-TF-IDF: term freq within the cluster, discounted by cross-cluster presence
     tf = tf / tf.sum(axis=1, keepdims=True).clip(1)
-    idf = np.log(1 + n / (1 + (tf > 0).sum(axis=0)))
+    idf = np.log(1 + len(cluster_docs) / (1 + (tf > 0).sum(axis=0)))
     scores = tf * idf
     terms = np.array(vec.get_feature_names_out())
-    names = [", ".join(terms[np.argsort(scores[k])[::-1][:5]]) for k in range(n)]
-    return labels.tolist(), names
+    return [", ".join(terms[np.argsort(scores[k])[::-1][:5]]) for k in range(len(cluster_docs))]
+
+
+def derive_subtopics(
+    vecs: np.ndarray, docs: list[str], doms: list[int], n_domains: int
+) -> tuple[list[int], list[str], list[int]]:
+    """HDBSCAN within each large domain. Returns (per-point global subtopic
+    index or -1, subtopic term-names, owning domain per subtopic)."""
+    import umap
+    from sklearn.cluster import HDBSCAN
+
+    dom_arr = np.array(doms)
+    clabels = np.full(len(doms), -1, dtype=int)
+    term_names: list[str] = []
+    owners: list[int] = []
+    for d in range(n_domains):
+        idx = np.flatnonzero(dom_arr == d)
+        if len(idx) < 120:
+            continue
+        reduced = umap.UMAP(
+            n_neighbors=30, n_components=15, min_dist=0.0, metric="cosine",
+            random_state=42,
+        ).fit_transform(vecs[idx])
+        local = HDBSCAN(
+            min_cluster_size=max(20, len(idx) // 50), min_samples=10
+        ).fit_predict(reduced)
+        n_local = local.max() + 1
+        if n_local < 1:
+            continue
+        cluster_docs = [
+            " ".join(docs[i] for i in idx[local == k])[:400_000]
+            for k in range(n_local)
+        ]
+        base = len(term_names)
+        term_names.extend(_ctfidf_names(cluster_docs))
+        owners.extend([d] * n_local)
+        for k in range(n_local):
+            clabels[idx[local == k]] = base + k
+        print(f"domain {d}: {n_local} subtopics over {len(idx)} points")
+    return clabels.tolist(), term_names, owners
+
+
+def assemble_all_view(
+    domains_meta: list[dict],
+    group_meta: list[dict],
+    doms: list[int],
+    clabels: list[int],
+    axy: np.ndarray,
+) -> dict:
+    """Everything-view payload: domain and subtopic centroids over the 2D
+    layout, with uniform-cap warnings (renderer arrays are fixed-size)."""
+    if len(domains_meta) > 32:
+        print(f"warning: {len(domains_meta)} domains exceeds the 32-domain uniform cap")
+    if len(group_meta) > 96:
+        print(f"warning: {len(group_meta)} subtopics exceeds the 96-subtopic uniform cap")
+    return {
+        "domains": group_positions(axy, doms, domains_meta),
+        "groups": group_positions(axy, clabels, group_meta),
+    }
 
 
 def _point_key(m: dict) -> str:
@@ -398,9 +442,12 @@ def main() -> None:
         {"label": t["label"], "weight": t["weight"]} for t in snapshot["themes"]
     ]
 
-    # --- all view: whole vault, data-derived clusters ----------------------
+    # --- all view: domain hierarchy + per-domain subtopics -------------------
     print(f"all view: {len(meta)} points")
-    clabels, term_names = derive_clusters(vecs, docs)
+    content_theme = {g: cthemes[k] for k, g in enumerate(cidx)}
+    labels_str = domain_labels(meta, content_theme, [t["label"] for t in snapshot["themes"]])
+    doms, domains_meta = index_domains(labels_str)
+    clabels, term_names, owners = derive_subtopics(vecs, docs, doms, len(domains_meta))
     exemplars = [
         [meta[i]["title"] for i in np.flatnonzero(np.array(clabels) == k)[:5]]
         for k in range(len(term_names))
@@ -412,7 +459,7 @@ def main() -> None:
     print(f"name anchoring: {len(anchored)} kept, {len(fresh)} new")
     if fresh and not args.no_llm:
         fresh_names = polish_names(
-            [term_names[k] for k in fresh],
+            [f"{domains_meta[owners[k]]['label']} | {term_names[k]}" for k in fresh],
             [exemplars[k] for k in fresh],
             taken=sorted(set(anchored.values())),
         )
@@ -420,9 +467,9 @@ def main() -> None:
             anchored[k] = nm
     names = [anchored.get(k, term_names[k]) for k in range(len(term_names))]
     ann, amd = (
-        fit_params(vecs, clabels, (10, 30, 50)) if args.sweep else (50, 0.05)
+        fit_params(vecs, doms, (10, 30, 50)) if args.sweep else (50, 0.05)
     )
-    axy, aparams = layout(vecs, clabels, ann, amd)
+    axy, aparams = layout(vecs, doms, ann, amd)
     axyz = project3(vecs, ann, amd)
     from sklearn.manifold import trustworthiness as _trust
 
@@ -436,8 +483,8 @@ def main() -> None:
         float((np.array(clabels) == k).sum()) / len(clabels) for k in range(len(names))
     ]
     group_meta = [
-        {"label": nm, "weight": w, "terms": tn}
-        for nm, w, tn in zip(names, weights, term_names)
+        {"label": nm, "domain": d, "weight": w, "terms": tn}
+        for nm, d, w, tn in zip(names, owners, weights, term_names)
     ]
 
     # --- unified point list: all-view position on every point; content
@@ -455,6 +502,7 @@ def main() -> None:
             "u": m["url"],
             "d": m["date"],
             "g": clabels[i],
+            "dom": doms[i],
             "p": _rel_path(m["path"])
             or (_video_note_path(m["title"]) if m["cat"] == "youtube" else ""),
             "r": smap.get(m["video_id"], smap.get(m["path"], 0)),
@@ -471,9 +519,10 @@ def main() -> None:
     OUT.write_text(
         json.dumps(
             {
+                "v": 2,
                 "generated": snapshot["generated_at"],
                 "content": {"params": cparams, "groups": group_positions(cxy, cthemes, theme_meta)},
-                "all": {"params": aparams, "groups": group_positions(axy, clabels, group_meta)},
+                "all": {"params": aparams, **assemble_all_view(domains_meta, group_meta, doms, clabels, axy)},
                 "points": points,
             }
         )
