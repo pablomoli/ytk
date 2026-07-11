@@ -4,6 +4,10 @@ export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimen
 
 const vertex = `attribute vec3 p; attribute vec3 color; attribute float alpha; uniform float flat; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; varying vec3 c; varying float a; void main(){ vec3 q=mix(p,vec3(p.xy,0.),flat); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(4./depth,2.,12.); c=color; a=alpha; }`
 const fragment = `precision mediump float; varying vec3 c; varying float a; void main(){ float d=length(gl_PointCoord*2.-1.); if(d>1.) discard; gl_FragColor=vec4(c,a); }`
+const ramp = ['#5b7cfa', '#2fb7c9', '#43c26a', '#d9a520', '#e8703a', '#e0507e', '#9d6bf0']
+const gray: [number, number, number] = [.435, .427, .4]
+const rgb = (hex: string): [number, number, number] => [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255) as [number, number, number]
+function rampColor(value: number): [number, number, number] { const x = Math.max(0, Math.min(.9999, value)) * (ramp.length - 1); const i = Math.floor(x); const f = x - i; const a = rgb(ramp[i]); const b = rgb(ramp[i + 1]); return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f] }
 
 function shader(gl: WebGLRenderingContext, type: number, source: string) {
   const value = gl.createShader(type)!
@@ -46,6 +50,8 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
 
   const resize = () => { const ratio = Math.min(devicePixelRatio || 1, 2); canvas.width = innerWidth * ratio; canvas.height = innerHeight * ratio; canvas.style.width = `${innerWidth}px`; canvas.style.height = `${innerHeight}px`; gl.viewport(0, 0, canvas.width, canvas.height) }
   const draw = () => {
+    const rank = Object.fromEntries(data.all.groups.map((group, index) => ({ index, n: group.n })).sort((a, b) => b.n - a.n).map((group, index) => [group.index, index])) as Record<number, number>
+    const groupCount = data.all.groups.length
     const points = data.points.flatMap((point) => {
       if (view === 'content' && !point.c3) return []
       const position = isFlat
@@ -53,10 +59,11 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
         : view === 'content' && point.c3 ? point.c3 : point.z3
       const days = point.d ? (Date.parse(document.lastModified) - Date.parse(point.d)) / 86_400_000 : Infinity
       const recency = recentOnly ? Math.max(.12, Math.pow(.5, Math.max(0, days) / 90)) : 1
-      const signal = signalOnly && point.r < 1 ? .04 : 1
-      const hue = ((view === 'content' ? point.th ?? 0 : point.g) * 47 % 360 + 360) % 360
-      const rgb = [Math.abs(Math.sin(hue * .017)), Math.abs(Math.sin((hue + 120) * .017)), Math.abs(Math.sin((hue + 240) * .017))]
-      return [...position, ...rgb, recency * signal]
+      const signal = signalOnly && point.r < 1 ? .04 : recency
+      const content = view === 'content'
+      const color = content ? point.th !== undefined && point.th >= 0 ? rampColor(point.th / 7) : gray : point.g < 0 ? gray : rampColor((rank[point.g] ?? 0) / Math.max(1, groupCount - 1))
+      const base = content ? point.c3 && point.th >= 0 ? .95 : 0 : point.g < 0 ? .4 : 1
+      return [...position, ...color, base * signal]
     })
     if (geometryDirty) {
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
