@@ -364,6 +364,8 @@ body {
 .map-tip { position: fixed; z-index: 8; max-width: 300px; padding: .55rem .7rem; border: 1px solid #333; border-radius: 10px; background: #1c1c1cee; pointer-events: none; }
 .map-tip img { display: block; max-width: 100%; margin-bottom: .4rem; border-radius: 6px; }
 .map-tip small { display: block; margin-top: .2rem; color: #888; }
+.map-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.map-label { position: absolute; transform: translate(-50%, -50%); color: #9b9b93; text-shadow: 0 1px 6px #000; white-space: nowrap; text-transform: uppercase; letter-spacing: .08em; font-weight: 500; }
 
 .tag-status,
 .tag-apply-bar span {
