@@ -29,6 +29,9 @@ function MapPage() {
   const [recent, setRecent] = useState(false)
   const [hover, setHover] = useState<MapHover>()
   const [focus, setFocus] = useState<number>()
+  const [hoverGroupIndex, setHoverGroupIndex] = useState<number>()
+  const [hidden, setHidden] = useState<Set<number>>(new Set())
+  const [legendOpen, setLegendOpen] = useState(true)
   const renderer = useRef<ReturnType<typeof mountMapRenderer>>()
   useEffect(() => {
     if (!map.data || !canvas.current) return
@@ -39,14 +42,16 @@ function MapPage() {
   useEffect(() => { renderer.current?.setDimension(flat) }, [flat])
   useEffect(() => { renderer.current?.setFilters(signal, recent) }, [signal, recent])
   useEffect(() => { renderer.current?.setGroupFocus(focus) }, [focus])
+  useEffect(() => { renderer.current?.setGroupHover(hoverGroupIndex) }, [hoverGroupIndex])
+  useEffect(() => { renderer.current?.setHiddenGroups(hidden) }, [hidden])
   if (map.isLoading) return <div className="map-state">loading map...</div>
   if (map.isError) return <div className="map-state"><ErrorState error={map.error} /></div>
   const hoverGroup = hover ? (view === 'content' ? map.data!.content.groups[hover.point.th ?? -1]?.label : map.data!.all.groups[hover.point.g]?.label) || 'dust' : ''
   return (
     <div className="map-page">
-      <header className="map-header"><span>map</span><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => { setView('all'); setFocus(undefined) }}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => { setView('content'); setFocus(undefined) }}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button><span>{map.data?.points.length ?? 0} notes</span></header>
+      <header className="map-header"><span>map</span><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => { setView('all'); setFocus(undefined); setHidden(new Set()); setHoverGroupIndex(undefined) }}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => { setView('content'); setFocus(undefined); setHidden(new Set()); setHoverGroupIndex(undefined) }}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button><span>{map.data?.points.length ?? 0} notes</span></header>
       <div className="map-stage" aria-label="Knowledge map renderer"><canvas ref={canvas} /><div ref={labels} className="map-labels" />
-        <aside className="map-legend">{(view === 'content' ? map.data!.content.groups : map.data!.all.groups).map((group, index) => group.n ? <button key={index} className={focus !== undefined && focus !== index ? 'off' : ''} onClick={() => setFocus((current) => current === index ? undefined : index)}><i style={{ background: mapGroupColor(map.data!, view, index) }} />{group.label}<span>{group.n}</span></button> : null)}</aside>
+        <aside className={`map-legend${legendOpen ? '' : ' collapsed'}`}><button className="map-legend-toggle" onClick={() => setLegendOpen((open) => !open)} aria-label={legendOpen ? 'Collapse cluster legend' : 'Expand cluster legend'}>{legendOpen ? '›' : '‹'}</button>{legendOpen ? (view === 'content' ? map.data!.content.groups : map.data!.all.groups).map((group, index) => group.n ? <button key={index} className={hidden.has(index) || focus !== undefined && focus !== index ? 'off' : ''} onMouseEnter={() => setHoverGroupIndex(index)} onMouseLeave={() => setHoverGroupIndex(undefined)} onClick={(event) => { if (event.altKey) setHidden((current) => { const next = new Set(current); if (next.has(index)) next.delete(index); else next.add(index); return next }); else setFocus((current) => current === index ? undefined : index) }}><i style={{ background: mapGroupColor(map.data!, view, index) }} />{group.label}<span>{group.n}</span></button> : null) : null}</aside>
         {hover ? <MapTooltip hover={hover} group={hoverGroup} /> : null}
       </div>
     </div>
