@@ -12,6 +12,7 @@ import { Card } from "../components/Card";
 import { MasonryGrid } from "../components/MasonryGrid";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
+import { HubControls } from "../components/HubControls";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
 import { filterAndSortQueue } from "../lib/queueItems";
 import "../styles.css";
@@ -150,14 +151,13 @@ function InboxPage() {
 
   return (
     <div id="inbox-page" className="hub-page">
-      <header className="hub-header">
-        <h1>inbox</h1>
+      <HubControls>
         <SourceFilter value={source} onChange={handleSourceChange} />
         <span className="count">
           {items.length}
           {q.data && q.data.length !== items.length ? ` of ${q.data.length}` : ""} pending
         </span>
-      </header>
+      </HubControls>
       <div className="hub-body hub-row">
         <div className="grid-col">{body}</div>
         <aside className="rail">

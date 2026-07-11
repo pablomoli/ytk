@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useApplyTagMerges, useProposeTagMerges, useTagMergeStatus } from '../api/tagMerge'
 import type { EditableTagProposal } from '../lib/tagMerge'
 import { editableProposals, mappingFromProposals } from '../lib/tagMerge'
+import { HubControls } from '../components/HubControls'
 import '../styles.css'
 
 export const Route = createFileRoute('/tags')({ component: TagsPage })
@@ -68,10 +69,9 @@ function TagsPage() {
 
   return (
     <div className="tags-page">
-      <header className="hub-header">
-        <h1>tags</h1>
+      <HubControls>
         <span className="count">{groups.length ? `${groups.length} proposals` : ''}</span>
-      </header>
+      </HubControls>
       <main className="tags-main">
         <div className="tag-actions">
           <button className="btn primary" type="button" onClick={start} disabled={propose.isPending || status.data?.state === 'running'}>Find merge candidates</button>
