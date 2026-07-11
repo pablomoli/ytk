@@ -88,6 +88,23 @@ body {
   z-index: 6;
 }
 
+.hub-nav-links {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.hub-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.hub-controls .count {
+  color: #888;
+}
+
 .hub-nav a {
   color: #e2b04a;
   text-decoration: none;
