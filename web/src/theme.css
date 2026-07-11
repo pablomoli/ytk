@@ -1,0 +1,88 @@
+/* ytk design system — "observatory": editorial serif, one family.
+   Everything is Newsreader — no sans, no mono. Data (counts, chips, stats,
+   tags, metadata) is differentiated by size, tracked small caps, and tabular
+   numerals instead of a second typeface. Ported from ytk/ui/static/theme.css;
+   imported last in main.tsx so the shared identity wins on equal specificity. */
+
+@font-face {
+  font-family: "Newsreader";
+  src: url("./fonts/Newsreader-normal-400.woff2") format("woff2");
+  font-weight: 400 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Newsreader";
+  src: url("./fonts/Newsreader-italic-400.woff2") format("woff2");
+  font-weight: 400 700; font-style: italic; font-display: swap;
+}
+:root {
+  color-scheme: dark;
+  /* warm-biased neutrals: chosen, not inherited */
+  --bg0: #0e0e10;        /* page plane */
+  --bg1: #161618;        /* header, panels */
+  --bg2: #1c1c1f;        /* cards */
+  --bg3: #26262a;        /* chips, inputs */
+  --ink: #f0eee7;        /* primary, warm white */
+  --ink2: #b7b5aa;       /* secondary */
+  --mute: #83817a;       /* muted, metadata */
+  --line: rgba(255, 255, 255, 0.08);
+  --accent: #e2b04a;     /* action / links — warm brass */
+  --live: #4ade80;       /* active / here / take */
+  --serif: "Newsreader", Georgia, serif;
+  --data: "Newsreader", Georgia, serif;
+  --r: 10px;
+  --ease: cubic-bezier(.25, .1, .25, 1);
+}
+
+body {
+  font-family: var(--serif);
+  background: var(--bg0);
+  color: var(--ink);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+h1, h2, h3, .title { font-family: var(--serif); letter-spacing: -0.02em; font-weight: 500; }
+
+/* data wears lowercase tracked serif + tabular numerals, not a second family */
+.tags, .sub, .badge, .n, .count, .meta-line, code, pre, .hint, .fchip,
+.stat, .m, time { font-family: var(--data); font-size: 12.5px;
+  letter-spacing: .04em; font-variant-numeric: tabular-nums;
+  text-transform: lowercase; }
+
+header, .hub-nav {
+  background: var(--bg1);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--data);
+  font-size: 14px;
+  letter-spacing: .03em;
+  text-transform: lowercase;
+}
+header a, .hub-nav a { color: var(--ink2); text-decoration: none; font-weight: 500;
+  transition: color .18s var(--ease); }
+header a:hover, .hub-nav a:hover { color: var(--ink); }
+header a.here, .hub-nav a.active, .hub-nav a[aria-current="page"] { color: var(--live); }
+
+.fchip {
+  background: var(--bg3); color: var(--ink2); border: 1px solid var(--line);
+  border-radius: 999px; padding: .2rem .75rem; cursor: pointer;
+  font-family: var(--data); font-size: 12.5px; letter-spacing: .04em;
+  transition: color .18s var(--ease), border-color .18s var(--ease),
+    background .18s var(--ease);
+}
+.fchip:hover { color: var(--ink); border-color: rgba(255, 255, 255, 0.22); }
+.fchip.on { background: var(--accent); border-color: var(--accent);
+  color: #241a05; font-weight: 500; }
+
+.card { background: var(--bg2); border-radius: var(--r);
+  border: 1px solid transparent;
+  transition: transform .18s var(--ease), border-color .18s var(--ease); }
+.card:hover { transform: translateY(-2px); border-color: var(--line); }
+
+::selection { background: rgba(226, 176, 74, 0.28); }
+* { scrollbar-width: thin; scrollbar-color: var(--bg3) transparent; }
+button, input, textarea, select { font-family: var(--data); }
+:focus-visible { outline: 1.5px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
