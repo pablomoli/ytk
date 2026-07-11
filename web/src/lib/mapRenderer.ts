@@ -3,7 +3,7 @@ import type { MapData, MapPoint } from '../api/map'
 export type MapHover = { point: MapPoint; x: number; y: number }
 export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setGroupFocus: (group?: number) => void; setGroupHover: (group?: number) => void; setHiddenGroups: (groups: Set<number>) => void; destroy: () => void }
 
-const vertex = `attribute vec3 p0; attribute vec3 p1; attribute vec3 color; attribute float alpha; attribute float size; uniform float morph; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; uniform float dpr; varying vec3 c; varying float a; void main(){ vec3 q=mix(p0,p1,morph); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(size*zoom/depth*dpr,1.8,26.*dpr); c=color; a=alpha; }`
+const vertex = `attribute vec3 p0; attribute vec3 p1; attribute vec3 color0; attribute vec3 color1; attribute float alpha0; attribute float alpha1; attribute float size; uniform float morph; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; uniform float dpr; varying vec3 c; varying float a; void main(){ vec3 q=mix(p0,p1,morph); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(size*zoom/depth*dpr,1.8,26.*dpr); c=mix(color0,color1,morph); a=mix(alpha0,alpha1,morph); }`
 const fragment = `precision mediump float; varying vec3 c; varying float a; void main(){ vec2 p=gl_PointCoord*2.-1.; float d2=dot(p,p); float edge=smoothstep(1.,.82,sqrt(d2)); if(edge<=0.) discard; float z=sqrt(max(0.,1.-d2)); vec3 n=vec3(p.x,-p.y,z); vec3 light=normalize(vec3(-.45,.55,.72)); float wrap=(dot(n,light)+.6)/1.6; float diff=.35+.65*clamp(wrap,0.,1.); float spec=pow(max(dot(reflect(-light,n),vec3(0.,0.,1.)),0.),12.)*.10; vec3 shaded=c*diff*(.75+.25*z)+vec3(spec); float alpha=a*edge; gl_FragColor=vec4(shaded*alpha,alpha); }`
 const ramp = ['#5b7cfa', '#2fb7c9', '#43c26a', '#d9a520', '#e8703a', '#e0507e', '#9d6bf0']
 const gray: [number, number, number] = [.435, .427, .4]
@@ -33,8 +33,10 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   const buffer = gl.createBuffer()!
   const position0 = gl.getAttribLocation(program, 'p0')
   const position1 = gl.getAttribLocation(program, 'p1')
-  const color = gl.getAttribLocation(program, 'color')
-  const alpha = gl.getAttribLocation(program, 'alpha')
+  const color0 = gl.getAttribLocation(program, 'color0')
+  const color1 = gl.getAttribLocation(program, 'color1')
+  const alpha0 = gl.getAttribLocation(program, 'alpha0')
+  const alpha1 = gl.getAttribLocation(program, 'alpha1')
   const size = gl.getAttribLocation(program, 'size')
   const morphUniform = gl.getUniformLocation(program, 'morph')
   const zoom = gl.getUniformLocation(program, 'zoom')
@@ -75,36 +77,42 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
       const rank = Object.fromEntries(data.all.groups.map((group, index) => ({ index, n: group.n })).sort((a, b) => b.n - a.n).map((group, index) => [group.index, index])) as Record<number, number>
       const groupCount = data.all.groups.length
       renderedPoints = []
+      const contentView = view === 'content'
+      const dim = (group: number) => hiddenGroups.has(group) ? 0 : focusedGroup !== undefined && group !== focusedGroup || hoveredGroup !== undefined && group !== hoveredGroup ? .08 : 1
       const points = data.points.flatMap((point) => {
       const position = isFlat ? [point.x, point.y, 0] : point.z3
       const target = isFlat ? [point.cx ?? point.x, point.cy ?? point.y, 0] : point.c3 ?? point.z3
       const days = point.d ? (Date.parse(document.lastModified) - Date.parse(point.d)) / 86_400_000 : Infinity
       const recency = recentOnly ? Math.max(.12, Math.pow(.5, Math.max(0, days) / 90)) : 1
-      const signal = signalOnly && point.r < 1 ? .04 : recency
-      const content = view === 'content'
-      const color = content ? point.th !== undefined && point.th >= 0 ? rampColor(point.th / 7) : gray : point.g < 0 ? gray : rampColor((rank[point.g] ?? 0) / Math.max(1, groupCount - 1))
-      const base = content ? point.c3 ? .95 : 0 : point.g < 0 ? .4 : 1
-      const group = content ? point.th ?? -1 : point.g
-      const focus = hiddenGroups.has(group) ? 0 : focusedGroup !== undefined && group !== focusedGroup || hoveredGroup !== undefined && group !== hoveredGroup ? .08 : 1
+      const sig = signalOnly && point.r < 1 ? .04 : recency
+      const alphaFor = (base: number, focus: number) => (sig === .04 ? .04 : base * sig) * focus
+      const color0 = point.g < 0 ? gray : rampColor((rank[point.g] ?? 0) / Math.max(1, groupCount - 1))
+      const color1 = point.th !== undefined && point.th >= 0 ? rampColor(point.th / 7) : gray
+      const alpha0 = alphaFor(point.g < 0 ? .4 : 1, contentView ? 1 : dim(point.g))
+      const alpha1 = alphaFor(point.c3 ? .95 : 0, contentView ? dim(point.th ?? -1) : 1)
       renderedPoints.push({ point, position, target })
-      return [...position, ...target, ...color, (signal === .04 ? .04 : base * signal) * focus, 3.2 + point.r * 1.8 + (content ? .8 : 0)]
+      return [...position, ...target, ...color0, ...color1, alpha0, alpha1, 3.2 + point.r * 1.8 + (point.c3 ? .8 : 0)]
       })
-      pointCount = points.length / 11
+      pointCount = points.length / 15
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW)
       geometryDirty = false
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     gl.enableVertexAttribArray(position0)
-    gl.vertexAttribPointer(position0, 3, gl.FLOAT, false, 44, 0)
+    gl.vertexAttribPointer(position0, 3, gl.FLOAT, false, 60, 0)
     gl.enableVertexAttribArray(position1)
-    gl.vertexAttribPointer(position1, 3, gl.FLOAT, false, 44, 12)
-    gl.enableVertexAttribArray(color)
-    gl.vertexAttribPointer(color, 3, gl.FLOAT, false, 44, 24)
-    gl.enableVertexAttribArray(alpha)
-    gl.vertexAttribPointer(alpha, 1, gl.FLOAT, false, 44, 36)
+    gl.vertexAttribPointer(position1, 3, gl.FLOAT, false, 60, 12)
+    gl.enableVertexAttribArray(color0)
+    gl.vertexAttribPointer(color0, 3, gl.FLOAT, false, 60, 24)
+    gl.enableVertexAttribArray(color1)
+    gl.vertexAttribPointer(color1, 3, gl.FLOAT, false, 60, 36)
+    gl.enableVertexAttribArray(alpha0)
+    gl.vertexAttribPointer(alpha0, 1, gl.FLOAT, false, 60, 48)
+    gl.enableVertexAttribArray(alpha1)
+    gl.vertexAttribPointer(alpha1, 1, gl.FLOAT, false, 60, 52)
     gl.enableVertexAttribArray(size)
-    gl.vertexAttribPointer(size, 1, gl.FLOAT, false, 44, 40)
+    gl.vertexAttribPointer(size, 1, gl.FLOAT, false, 60, 56)
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.uniform1f(morphUniform, morph)
