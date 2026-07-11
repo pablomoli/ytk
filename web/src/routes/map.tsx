@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMap } from '../api/map'
 import { ErrorState } from '../components/StateViews'
-import { mountMapRenderer } from '../lib/mapRenderer'
+import { mapGroupColor, mountMapRenderer } from '../lib/mapRenderer'
+import type { MapHover } from '../lib/mapRenderer'
 import '../styles.css'
 
 export const Route = createFileRoute('/map')({ component: MapPage })
@@ -14,21 +15,27 @@ function MapPage() {
   const [flat, setFlat] = useState(location.hash === '#2d')
   const [signal, setSignal] = useState(false)
   const [recent, setRecent] = useState(false)
+  const [hover, setHover] = useState<MapHover>()
+  const [focus, setFocus] = useState<number>()
   const renderer = useRef<ReturnType<typeof mountMapRenderer>>()
   useEffect(() => {
     if (!map.data || !canvas.current) return
-    renderer.current = mountMapRenderer(canvas.current, map.data)
+    renderer.current = mountMapRenderer(canvas.current, map.data, setHover)
     return () => renderer.current?.destroy()
   }, [map.data])
   useEffect(() => { renderer.current?.setView(view) }, [view])
   useEffect(() => { renderer.current?.setDimension(flat) }, [flat])
   useEffect(() => { renderer.current?.setFilters(signal, recent) }, [signal, recent])
+  useEffect(() => { renderer.current?.setGroupFocus(focus) }, [focus])
   if (map.isLoading) return <div className="map-state">loading map...</div>
   if (map.isError) return <div className="map-state"><ErrorState error={map.error} /></div>
   return (
     <div className="map-page">
-      <header className="map-header"><span>map</span><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => setView('all')}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => setView('content')}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button><span>{map.data?.points.length ?? 0} notes</span></header>
-      <div className="map-stage" aria-label="Knowledge map renderer"><canvas ref={canvas} /></div>
+      <header className="map-header"><span>map</span><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => { setView('all'); setFocus(undefined) }}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => { setView('content'); setFocus(undefined) }}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button><span>{map.data?.points.length ?? 0} notes</span></header>
+      <div className="map-stage" aria-label="Knowledge map renderer"><canvas ref={canvas} />
+        <aside className="map-legend">{(view === 'content' ? map.data!.content.groups : map.data!.all.groups).map((group, index) => group.n ? <button key={index} className={focus !== undefined && focus !== index ? 'off' : ''} onClick={() => setFocus((current) => current === index ? undefined : index)}><i style={{ background: mapGroupColor(map.data!, view, index) }} />{group.label}<span>{group.n}</span></button> : null)}</aside>
+        {hover ? <div className="map-tip" style={{ left: hover.x + 14, top: hover.y + 14 }}>{hover.point.img && hover.point.u ? <img src={`/api/cover?u=${encodeURIComponent(hover.point.u)}`} alt="" /> : null}<div>{hover.point.t}</div><small>{hover.point.c}{hover.point.d ? ` · ${hover.point.d}` : ''}</small></div> : null}
+      </div>
     </div>
   )
 }
