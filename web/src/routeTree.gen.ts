@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TagsRouteImport } from './routes/tags'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as MapRouteImport } from './routes/map'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -22,6 +23,11 @@ const TagsRoute = TagsRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MapRoute = MapRouteImport.update({
+  id: '/map',
+  path: '/map',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InboxRoute = InboxRouteImport.update({
@@ -38,12 +44,14 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/map': typeof MapRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/map': typeof MapRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/inbox': typeof InboxRoute
+  '/map': typeof MapRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/inbox' | '/settings' | '/tags'
+  fullPaths: '/' | '/inbox' | '/map' | '/settings' | '/tags'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inbox' | '/settings' | '/tags'
-  id: '__root__' | '/' | '/inbox' | '/settings' | '/tags'
+  to: '/' | '/inbox' | '/map' | '/settings' | '/tags'
+  id: '__root__' | '/' | '/inbox' | '/map' | '/settings' | '/tags'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   InboxRoute: typeof InboxRoute
+  MapRoute: typeof MapRoute
   SettingsRoute: typeof SettingsRoute
   TagsRoute: typeof TagsRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/map': {
+      id: '/map'
+      path: '/map'
+      fullPath: '/map'
+      preLoaderRoute: typeof MapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inbox': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   InboxRoute: InboxRoute,
+  MapRoute: MapRoute,
   SettingsRoute: SettingsRoute,
   TagsRoute: TagsRoute,
 }
