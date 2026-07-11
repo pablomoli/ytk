@@ -9,6 +9,7 @@ import { SourceFilter } from "../components/SourceFilter";
 import { canonicalSource } from "../components/icons";
 import { useDeleteNote, useFreshNotes, useNote, useSimilarNotes } from "../api/fresh";
 import type { FreshNote } from "../api/fresh";
+import { HubControls } from "../components/HubControls";
 import "../styles.css";
 
 export const Route = createFileRoute("/")({
@@ -82,11 +83,10 @@ function IndexPage() {
 
   return (
     <div id="fresh-page" className="hub-page">
-      <header className="hub-header">
-        <h1>fresh</h1>
+      <HubControls>
         <SourceFilter value={source} onChange={(next) => void navigate({ search: { source: next } })} />
         <span className="count">{notes.length} recently ingested</span>
-      </header>
+      </HubControls>
       <div className="hub-body">
         {remove.isError ? <div className="delete-error" role="alert">failed to delete note: {String(remove.error)}</div> : null}
         {body}

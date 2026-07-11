@@ -5,6 +5,7 @@ import { ApiError, apiSend } from '../api/client'
 import { useSaveSettings, useSettings } from '../api/settings'
 import type { ColorRule, SettingsConfig, SettingsValidationError } from '../api/settings'
 import { cloneSettings, isDirty, validationByPath } from '../lib/settingsDraft'
+import { HubControls } from '../components/HubControls'
 import '../styles.css'
 
 export const Route = createFileRoute('/settings')({ component: SettingsPage })
@@ -32,7 +33,7 @@ function SettingsPage() {
   const [preset, setPreset] = useState('')
 
   useEffect(() => { if (settings.data) { const next = cloneSettings(settings.data.config); setDraft(next); setSaved(cloneSettings(next)) } }, [settings.data])
-  if (!draft || !saved) return <div className="hub-page"><header className="hub-header"><h1>settings</h1></header><div className="hub-body">loading settings...</div></div>
+  if (!draft || !saved) return <div className="hub-page"><div className="hub-body">loading settings...</div></div>
   const dirty = isDirty(draft, saved)
   const set = (update: (current: SettingsConfig) => void) => setDraft((current) => { const next = cloneSettings(current!); update(next); return next })
   const fieldError = (path: string) => errors[path] || Object.entries(errors).find(([key]) => key.startsWith(`${path}.`))?.[1]
@@ -41,7 +42,7 @@ function SettingsPage() {
   const moveRule = (index: number, direction: number) => set((config) => { const next = index + direction; [config.map.color_rules[index], config.map.color_rules[next]] = [config.map.color_rules[next], config.map.color_rules[index]] })
   const cadence = Object.entries(draft.hub.cadence_minutes)
 
-  return <div className="settings-page"><header className="hub-header"><h1>settings</h1><span className="count">~/.ytk/config.yaml</span></header><main className="settings-main">
+  return <div className="settings-page"><HubControls><span className="count">~/.ytk/config.yaml</span></HubControls><main className="settings-main">
     <details open><summary>Hub</summary><div className="settings-body">
       <label>host<input value={draft.hub.host} className={fieldError('hub.host') ? 'err' : ''} onChange={(e) => set((c) => { c.hub.host = e.target.value })} /><span className="settings-pill">restart required</span>{fieldError('hub.host') && <em>{fieldError('hub.host')}</em>}</label>
       <label>port<input type="number" value={draft.hub.port} className={fieldError('hub.port') ? 'err' : ''} onChange={(e) => set((c) => { c.hub.port = Number(e.target.value) })} /><span className="settings-pill">restart required</span>{fieldError('hub.port') && <em>{fieldError('hub.port')}</em>}</label>
