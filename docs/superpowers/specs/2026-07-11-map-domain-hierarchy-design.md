@@ -133,6 +133,15 @@ transitions are instant flips. New model:
 **Aggregation orbs** key on domain at overview, subtopic when the domain is focused
 (`pointGroup` gains the focus level). Existing orb mechanics otherwise unchanged.
 
+**Entrance animation — hard refresh only.** On a fresh document load, the map plays
+an organic growth intro reusing the same machinery: an `introProgress` uniform sweeps
+a clamped-cosine ramp against each point's `phase` (offset by its distance from the
+map origin), scaling point size and alpha from zero — the graph grows outward from
+the center, domains blooming in staggered waves, settling into the overview state
+(~1.5s). It plays only on hard refresh: gate on a module-level "played" flag that
+only resets with the document, so SPA navigations back to `/map` mount instantly.
+A hash-focused deep link (`#d:...`) skips the intro rather than fighting it.
+
 **Fragment/vertex garnish (all cheap, same shader):**
 
 - Fresnel rim: brighten the sprite silhouette with `pow(1 - n.z, k)` using the fake
@@ -165,7 +174,9 @@ transitions are instant flips. New model:
   level, phase normalization.
 - Playwright smoke, run in both 3D (default) and 2D (`#2d`): clicking a domain label
   focuses that domain (not a neighbor); legend order matches size rank; drill-down
-  (domain -> subtopic -> pop via empty click); focus survives the 2D/3D toggle.
+  (domain -> subtopic -> pop via empty click); focus survives the 2D/3D toggle; the
+  growth intro plays on a hard load, is skipped on SPA navigation back to `/map`,
+  and is skipped when arriving on a `#d:` deep link.
 
 ### 5. Ops
 
