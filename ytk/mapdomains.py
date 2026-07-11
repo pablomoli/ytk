@@ -38,7 +38,10 @@ def project_from_path(source_path: str) -> str | None:
             slug = parts[i + 1].lower()
             m = _SUMMARY_RE.match(parts[-1])
             if slug == "claude-mem" and m:
-                return m.group(1).lower()
+                project = m.group(1).lower()
+                # Untitled sessions parse to the literal "session" - a
+                # meaningless pseudo-domain, not a real project.
+                return None if project == "session" else project
             return slug
     return None
 
@@ -88,8 +91,8 @@ def domain_labels(
 
 
 def index_domains(labels: list[str]) -> tuple[list[int], list[dict]]:
-    """Stable indexing: domains ordered by size descending, `other` never first
-    unless it truly is the largest. Returns (per-point index, domain meta)."""
+    """Stable indexing: domains ordered by count descending, ties broken by
+    first occurrence. Returns (per-point index, domain meta)."""
     counts = Counter(labels)
     ordered = [label for label, _ in counts.most_common()]
     index = {label: i for i, label in enumerate(ordered)}
