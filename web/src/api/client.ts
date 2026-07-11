@@ -5,12 +5,14 @@ export const queryClient = new QueryClient({
 })
 
 export class ApiError extends Error {
-  constructor(
-    public readonly path: string,
-    public readonly status: number,
-    public readonly body: unknown,
-  ) {
+  readonly path: string
+  readonly status: number
+  readonly body: unknown
+  constructor(path: string, status: number, body: unknown) {
     super(`${path} -> ${status}`)
+    this.path = path
+    this.status = status
+    this.body = body
   }
 }
 

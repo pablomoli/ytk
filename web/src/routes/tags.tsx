@@ -16,7 +16,8 @@ function TagsPage() {
 
   useEffect(() => {
     if (status.data?.state === 'done') {
-      setGroups((current) => current.length ? current : editableProposals(status.data.proposals))
+      const proposals = status.data.proposals
+      setGroups((current) => current.length ? current : editableProposals(proposals))
     }
   }, [status.data])
 
