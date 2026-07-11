@@ -47,12 +47,14 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
   let signalOnly = false
   let recentOnly = false
   let geometryDirty = true
+  let pointCount = 0
 
   const resize = () => { const ratio = Math.min(devicePixelRatio || 1, 2); canvas.width = innerWidth * ratio; canvas.height = innerHeight * ratio; canvas.style.width = `${innerWidth}px`; canvas.style.height = `${innerHeight}px`; gl.viewport(0, 0, canvas.width, canvas.height) }
   const draw = () => {
-    const rank = Object.fromEntries(data.all.groups.map((group, index) => ({ index, n: group.n })).sort((a, b) => b.n - a.n).map((group, index) => [group.index, index])) as Record<number, number>
-    const groupCount = data.all.groups.length
-    const points = data.points.flatMap((point) => {
+    if (geometryDirty) {
+      const rank = Object.fromEntries(data.all.groups.map((group, index) => ({ index, n: group.n })).sort((a, b) => b.n - a.n).map((group, index) => [group.index, index])) as Record<number, number>
+      const groupCount = data.all.groups.length
+      const points = data.points.flatMap((point) => {
       if (view === 'content' && !point.c3) return []
       const position = isFlat
         ? view === 'content' ? [point.cx ?? point.x, point.cy ?? point.y, 0] : [point.x, point.y, 0]
@@ -62,10 +64,10 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
       const signal = signalOnly && point.r < 1 ? .04 : recency
       const content = view === 'content'
       const color = content ? point.th !== undefined && point.th >= 0 ? rampColor(point.th / 7) : gray : point.g < 0 ? gray : rampColor((rank[point.g] ?? 0) / Math.max(1, groupCount - 1))
-      const base = content ? point.c3 && point.th >= 0 ? .95 : 0 : point.g < 0 ? .4 : 1
-      return [...position, ...color, base * signal]
-    })
-    if (geometryDirty) {
+      const base = content ? point.c3 ? .95 : 0 : point.g < 0 ? .4 : 1
+      return [...position, ...color, signal === .04 ? .04 : base * signal]
+      })
+      pointCount = points.length / 7
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW)
       geometryDirty = false
@@ -84,7 +86,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
     gl.uniform2f(pan, offset[0], offset[1])
     gl.uniform1f(theta, isFlat ? 0 : angle)
     gl.uniform1f(phi, isFlat ? 0 : tilt)
-    gl.drawArrays(gl.POINTS, 0, points.length / 7)
+    gl.drawArrays(gl.POINTS, 0, pointCount)
   }
   const render = () => { draw(); frame = requestAnimationFrame(render) }
   const down = (event: MouseEvent) => { if (event.button !== 0 && event.button !== 2) return; event.preventDefault(); orbit = !isFlat && event.button === 0 && !event.shiftKey; drag = { x: event.clientX, y: event.clientY }; canvas.classList.add('dragging') }
