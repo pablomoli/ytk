@@ -45,6 +45,7 @@ function MapPage() {
   useEffect(() => { renderer.current?.setGroupFocus(focus) }, [focus])
   useEffect(() => { renderer.current?.setGroupHover(hoverGroupIndex) }, [hoverGroupIndex])
   useEffect(() => { renderer.current?.setHiddenGroups(hidden) }, [hidden])
+  useEffect(() => { renderer.current?.setLegendOpen(legendOpen) }, [legendOpen])
   if (map.isLoading) return <div className="map-state">loading map...</div>
   if (map.isError) return <div className="map-state"><ErrorState error={map.error} /></div>
   const hoverGroup = hover ? (view === 'content' ? map.data!.content.groups[hover.point.th ?? -1]?.label : map.data!.all.groups[hover.point.g]?.label) || 'dust' : ''
