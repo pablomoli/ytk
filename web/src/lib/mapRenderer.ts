@@ -1,6 +1,6 @@
 import type { MapData } from '../api/map'
 
-export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; destroy: () => void }
+export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; destroy: () => void }
 
 const vertex = `attribute vec3 p; uniform float flat; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; void main(){ vec3 q=mix(p,vec3(p.xy,0.),flat); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(4./depth,2.,12.); }`
 const fragment = `precision mediump float; void main(){ float d=length(gl_PointCoord*2.-1.); if(d>1.) discard; gl_FragColor=vec4(.47,.72,.95,.78); }`
@@ -38,12 +38,16 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
   let orbit = false
   let angle = .5
   let tilt = .3
+  let signalOnly = false
+  let recentOnly = false
   let geometryDirty = true
 
   const resize = () => { const ratio = Math.min(devicePixelRatio || 1, 2); canvas.width = innerWidth * ratio; canvas.height = innerHeight * ratio; canvas.style.width = `${innerWidth}px`; canvas.style.height = `${innerHeight}px`; gl.viewport(0, 0, canvas.width, canvas.height) }
   const draw = () => {
     const points = data.points.flatMap((point) => {
       if (view === 'content' && !point.c3) return []
+      if (signalOnly && point.r < 1) return []
+      if (recentOnly && point.d && (Date.now() - Date.parse(point.d)) / 86_400_000 > 90) return []
       const position = isFlat
         ? view === 'content' ? [point.cx ?? point.x, point.cy ?? point.y, 0] : [point.x, point.y, 0]
         : view === 'content' && point.c3 ? point.c3 : point.z3
@@ -73,5 +77,5 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
   const wheel = (event: WheelEvent) => { event.preventDefault(); const previous = scale; scale = Math.max(.3, Math.min(12, scale * Math.exp(-event.deltaY * .0012))); const x = event.clientX / innerWidth * 2 - 1; const y = 1 - event.clientY / innerHeight * 2; const delta = (scale - previous) * .88; offset = [offset[0] - x * delta, offset[1] - y * delta] }
   const contextmenu = (event: MouseEvent) => event.preventDefault()
   resize(); addEventListener('resize', resize); canvas.addEventListener('mousedown', down); canvas.addEventListener('contextmenu', contextmenu); addEventListener('mousemove', move); addEventListener('mouseup', up); canvas.addEventListener('wheel', wheel, { passive: false }); render()
-  return { setView: (next) => { view = next; geometryDirty = true }, setDimension: (next) => { isFlat = next; geometryDirty = true }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); gl.deleteBuffer(buffer); gl.deleteProgram(program) } }
+  return { setView: (next) => { view = next; geometryDirty = true }, setDimension: (next) => { isFlat = next; geometryDirty = true }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); gl.deleteBuffer(buffer); gl.deleteProgram(program) } }
 }

@@ -12,6 +12,8 @@ function MapPage() {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [view, setView] = useState<'all' | 'content'>(location.hash === '#content' ? 'content' : 'all')
   const [flat, setFlat] = useState(location.hash === '#2d')
+  const [signal, setSignal] = useState(false)
+  const [recent, setRecent] = useState(false)
   const renderer = useRef<ReturnType<typeof mountMapRenderer>>()
   useEffect(() => {
     if (!map.data || !canvas.current) return
@@ -20,11 +22,12 @@ function MapPage() {
   }, [map.data])
   useEffect(() => { renderer.current?.setView(view) }, [view])
   useEffect(() => { renderer.current?.setDimension(flat) }, [flat])
+  useEffect(() => { renderer.current?.setFilters(signal, recent) }, [signal, recent])
   if (map.isLoading) return <div className="map-state">loading map...</div>
   if (map.isError) return <div className="map-state"><ErrorState error={map.error} /></div>
   return (
     <div className="map-page">
-      <header className="map-header"><span>map</span><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => setView('all')}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => setView('content')}>content</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button><span>{map.data?.points.length ?? 0} notes</span></header>
+      <header className="map-header"><span>map</span><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => setView('all')}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => setView('content')}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button><span>{map.data?.points.length ?? 0} notes</span></header>
       <div className="map-stage" aria-label="Knowledge map renderer"><canvas ref={canvas} /></div>
     </div>
   )
