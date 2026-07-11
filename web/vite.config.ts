@@ -2,11 +2,11 @@ import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
-// The SPA is served by FastAPI under /app, so built asset URLs must be
-// /app/-prefixed to match the backend's /app/assets mount. The dev server
-// proxies backend routes to the hub on :6969.
+// The SPA is served by FastAPI at the root; built asset URLs live under
+// /assets to match the backend mount. The dev server proxies backend
+// routes to the hub on :6969.
 export default defineConfig({
-  base: "/app/",
+  base: "/",
   server: {
     port: 5173,
     proxy: {
