@@ -202,8 +202,11 @@ def derive_subtopics(
             n_neighbors=30, n_components=15, min_dist=0.0, metric="cosine",
             random_state=42,
         ).fit_transform(vecs[idx])
+        # Swept 2026-07-11 (issue #70): min_samples=10 glues 72% of epicmap
+        # into one cluster; n//70 with min_samples=5 splits it into ~23
+        # coherent workstreams while small domains stay stable.
         local = HDBSCAN(
-            min_cluster_size=max(20, len(idx) // 50), min_samples=10
+            min_cluster_size=max(20, len(idx) // 70), min_samples=5
         ).fit_predict(reduced)
         n_local = local.max() + 1
         if n_local < 1:
@@ -246,19 +249,26 @@ def _point_key(m: dict) -> str:
     return m.get("u") or m.get("url") or m.get("t") or m.get("title") or ""
 
 
-def load_previous_clusters() -> list[tuple[str, set[str]]]:
-    """Cluster (name, member-key set) pairs from the previous map.json, if any."""
+def load_previous_clusters() -> list[tuple[str, set[str], str | None]]:
+    """Cluster (name, member-key set, domain label) triples from the previous
+    map.json, if any. Domain label is None for pre-v2 files."""
     if not OUT.exists():
         return []
     try:
         prev = json.loads(OUT.read_text())
         groups = prev["all"]["groups"]
+        domains = prev["all"].get("domains", [])
+
+        def dom_label(g: dict) -> str | None:
+            d = g.get("domain")
+            return domains[d]["label"] if d is not None and d < len(domains) else None
+
         members: list[set[str]] = [set() for _ in groups]
         for p in prev["points"]:
             g = p.get("g", -1)
             if 0 <= g < len(members):
                 members[g].add(_point_key(p))
-        return [(g["label"], mem) for g, mem in zip(groups, members)]
+        return [(g["label"], mem, dom_label(g)) for g, mem in zip(groups, members)]
     except Exception as exc:
         print(f"previous map unreadable ({exc}); no name anchoring")
         return []
@@ -268,12 +278,15 @@ def anchor_names(
     clabels: list[int],
     meta: list[dict],
     n_clusters: int,
-    prev: list[tuple[str, set[str]]],
+    prev: list[tuple[str, set[str], str | None]],
     min_jaccard: float = 0.3,
+    new_domains: list[str] | None = None,
 ) -> dict[int, str]:
     """Match new clusters to previous ones by member Jaccard overlap.
 
     Greedy best-first assignment; each old name is reused at most once.
+    A name never crosses domains: candidates whose previous domain label is
+    known and differs from the new cluster's domain are skipped (issue #70).
     Returns {new_cluster_index: kept_name} for matches above threshold.
     """
     if not prev:
@@ -284,7 +297,9 @@ def anchor_names(
     ]
     candidates = []
     for k, nm in enumerate(new_members):
-        for j, (_, om) in enumerate(prev):
+        for j, (_, om, od) in enumerate(prev):
+            if od is not None and new_domains is not None and od != new_domains[k]:
+                continue
             union = len(nm | om)
             if union:
                 candidates.append((len(nm & om) / union, k, j))
@@ -455,7 +470,13 @@ def main() -> None:
     ]
     # Anchor names deterministically to the previous build so labels stay
     # stable across rebuilds; Haiku only names genuinely new clusters.
-    anchored = anchor_names(clabels, meta, len(term_names), load_previous_clusters())
+    anchored = anchor_names(
+        clabels,
+        meta,
+        len(term_names),
+        load_previous_clusters(),
+        new_domains=[domains_meta[owners[k]]["label"] for k in range(len(term_names))],
+    )
     fresh = [k for k in range(len(term_names)) if k not in anchored]
     print(f"name anchoring: {len(anchored)} kept, {len(fresh)} new")
     if fresh and not args.no_llm:
