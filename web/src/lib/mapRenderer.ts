@@ -2,7 +2,7 @@ import type { MapData } from '../api/map'
 
 export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; destroy: () => void }
 
-const vertex = `attribute vec3 p; uniform float flat; uniform float zoom; uniform vec2 pan; void main(){ vec3 q=mix(p,vec3(p.xy,0.),flat); gl_Position=vec4(q.xy*.88*zoom+pan,q.z*.12,1.); gl_PointSize=4.; }`
+const vertex = `attribute vec3 p; uniform float flat; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; void main(){ vec3 q=mix(p,vec3(p.xy,0.),flat); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(4./depth,2.,12.); }`
 const fragment = `precision mediump float; void main(){ float d=length(gl_PointCoord*2.-1.); if(d>1.) discard; gl_FragColor=vec4(.47,.72,.95,.78); }`
 
 function shader(gl: WebGLRenderingContext, type: number, source: string) {
@@ -27,12 +27,17 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
   const flat = gl.getUniformLocation(program, 'flat')
   const zoom = gl.getUniformLocation(program, 'zoom')
   const pan = gl.getUniformLocation(program, 'pan')
+  const theta = gl.getUniformLocation(program, 'theta')
+  const phi = gl.getUniformLocation(program, 'phi')
   let view: 'all' | 'content' = 'all'
   let isFlat = location.hash === '#2d'
   let frame = 0
   let scale = 1
   let offset: [number, number] = [0, 0]
   let drag: { x: number; y: number } | undefined
+  let orbit = false
+  let angle = .5
+  let tilt = .3
   let geometryDirty = true
 
   const resize = () => { const ratio = Math.min(devicePixelRatio || 1, 2); canvas.width = innerWidth * ratio; canvas.height = innerHeight * ratio; canvas.style.width = `${innerWidth}px`; canvas.style.height = `${innerHeight}px`; gl.viewport(0, 0, canvas.width, canvas.height) }
@@ -57,13 +62,17 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
     gl.uniform1f(flat, isFlat ? 1 : 0)
     gl.uniform1f(zoom, scale)
     gl.uniform2f(pan, offset[0], offset[1])
+    gl.uniform1f(theta, isFlat ? 0 : angle)
+    gl.uniform1f(phi, isFlat ? 0 : tilt)
     gl.drawArrays(gl.POINTS, 0, points.length / 3)
   }
   const render = () => { draw(); frame = requestAnimationFrame(render) }
-  const down = (event: MouseEvent) => { if (event.button !== 0) return; event.preventDefault(); drag = { x: event.clientX, y: event.clientY }; canvas.classList.add('dragging') }
-  const move = (event: MouseEvent) => { if (!drag) return; offset = [offset[0] + (event.clientX - drag.x) / innerWidth * 2, offset[1] - (event.clientY - drag.y) / innerHeight * 2]; drag = { x: event.clientX, y: event.clientY } }
-  const up = () => { drag = undefined; canvas.classList.remove('dragging') }
+  const down = (event: MouseEvent) => { if (event.button !== 0 && event.button !== 2) return; event.preventDefault(); orbit = !isFlat && event.button === 0 && !event.shiftKey; drag = { x: event.clientX, y: event.clientY }; canvas.classList.add('dragging') }
+  const move = (event: MouseEvent) => { if (!drag) return; const dx = event.clientX - drag.x; const dy = event.clientY - drag.y; if (orbit) { angle -= dx * .005; tilt = Math.max(-1.35, Math.min(1.35, tilt + dy * .005)) } else offset = [offset[0] + dx / innerWidth * 2, offset[1] - dy / innerHeight * 2]; drag = { x: event.clientX, y: event.clientY } }
+  const up = () => { drag = undefined; orbit = false; canvas.classList.remove('dragging') }
   const wheel = (event: WheelEvent) => { event.preventDefault(); const previous = scale; scale = Math.max(.3, Math.min(12, scale * Math.exp(-event.deltaY * .0012))); const x = event.clientX / innerWidth * 2 - 1; const y = 1 - event.clientY / innerHeight * 2; const delta = (scale - previous) * .88; offset = [offset[0] - x * delta, offset[1] - y * delta] }
-  resize(); addEventListener('resize', resize); canvas.addEventListener('mousedown', down); addEventListener('mousemove', move); addEventListener('mouseup', up); canvas.addEventListener('wheel', wheel, { passive: false }); render()
+  const contextmenu = (event: MouseEvent) => event.preventDefault()
+  resize(); addEventListener('resize', resize); canvas.addEventListener('mousedown', down); canvas.addEventListener('contextmenu', contextmenu); addEventListener('mousemove', move); addEventListener('mouseup', up); canvas.addEventListener('wheel', wheel, { passive: false }); render()
+  return { setView: (next) => { view = next; geometryDirty = true }, setDimension: (next) => { isFlat = next; geometryDirty = true }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); gl.deleteBuffer(buffer); gl.deleteProgram(program) } }
   return { setView: (next) => { view = next; geometryDirty = true }, setDimension: (next) => { isFlat = next; geometryDirty = true }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); gl.deleteBuffer(buffer); gl.deleteProgram(program) } }
 }
