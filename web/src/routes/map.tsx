@@ -55,10 +55,12 @@ function MapPage() {
   // In content view focus.dom indexes the theme list, not map.data.all.domains,
   // so a #d: hash would name an unrelated domain - the hash stays #content
   // for the whole content-view lifetime, focused or not.
-  const setFocus = (next: MapFocus) => {
+  // forView covers view switches: setView is async, so resetView passes the
+  // incoming view instead of letting the closure read the outgoing one.
+  const setFocus = (next: MapFocus, forView: 'all' | 'content' = view) => {
     setFocusState(next)
     if (!map.data) return
-    if (view === 'content') {
+    if (forView === 'content') {
       history.replaceState(null, '', location.pathname + '#content')
       return
     }
@@ -92,7 +94,7 @@ function MapPage() {
   const domColor = (index: number) => view === 'content' ? mapGroupColor(map.data!, 'content', index) : mapDomainColor(map.data!, index)
   const visibleNotes = view === 'content' ? map.data!.points.filter((point) => point.c3).length : map.data!.points.length
   const trust = layout.params.trustworthiness_3d ?? layout.params.trustworthiness
-  const resetView = (next: 'all' | 'content') => { setView(next); setFocus({}); setHiddenDoms(new Set()); setHover(undefined) }
+  const resetView = (next: 'all' | 'content') => { setView(next); setFocus({}, next); setHiddenDoms(new Set()); setHover(undefined) }
   const toggleHidden = (dom: number) => setHiddenDoms((current) => { const next = new Set(current); next.has(dom) ? next.delete(dom) : next.add(dom); return next })
   return (
     <div className="map-page">

@@ -164,6 +164,8 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   const subPosArr = data.all.groups.map((_, index) => subPos(data, index))
   // Themes act as single-level domains in the content view; theme dims ride
   // both arrays because content points carry the theme in grp AND dm.
+  // dom is sized by the all-view domain count: themes beyond nDom would be
+  // silently truncated (8 themes vs 9 domains today - revisit if that flips).
   const contentTargets = () => {
     const n = data.content.groups.length
     const dom = new Float32Array(nDom).fill(1)

@@ -30,6 +30,8 @@ def run(page, base, suffix, name):
     rows = legend(page)
     ns = [r["n"] for r in rows]
     assert ns == sorted(ns, reverse=True), f"[{name}] legend not size-sorted: {ns}"
+    # .first re-resolves between text_content() and click(); safe because the
+    # renderer only recreates label nodes on focus/view changes, never per frame.
     lab_el = page.locator(".map-label").first
     lab_t = lab_el.text_content()
     lab_el.click()
