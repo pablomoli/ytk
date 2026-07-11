@@ -35,7 +35,7 @@ function MapPage() {
   const renderer = useRef<ReturnType<typeof mountMapRenderer>>()
   useEffect(() => {
     if (!map.data || !canvas.current) return
-    renderer.current = mountMapRenderer(canvas.current, map.data, setHover, labels.current ?? undefined)
+    renderer.current = mountMapRenderer(canvas.current, map.data, setHover, labels.current ?? undefined, setFocus)
     return () => renderer.current?.destroy()
   }, [map.data])
   useEffect(() => { renderer.current?.setView(view) }, [view])
