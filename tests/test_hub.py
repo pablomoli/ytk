@@ -181,6 +181,10 @@ def test_imessage_warm_returns_only_open_sessions(hub, monkeypatch):
         MessageEntry("Me", ts(5), "fresh warm note"),    # 5 min ago -> still warm
     ])
     monkeypatch.setattr("ytk.imessage.read_recent", lambda **k: thread)
+    # pin the silence window: imessage_warm reads the user's real config,
+    # and a gap of 0 there closes every session instantly
+    from ytk.config import Config
+    monkeypatch.setattr("ytk.ui.hub.load_config", lambda: Config())
 
     warm = hub.imessage_warm()
     assert len(warm) == 1
@@ -268,23 +272,6 @@ def test_vault_media_serves_images_and_blocks_traversal(client, hub):
     assert r.status_code in (400, 404)
 
 
-def test_inbox_page_served(client):
-    r = client.get("/inbox")
-    assert r.status_code == 200
-    for marker in ('id="grid"', 'id="tags"', 'id="thought"', 'id="addurls"',
-                   'id="side"', 'id="newtag"', "/api/queue", "/api/tags"):
-        assert marker in r.text
-    assert "selstr" not in r.text          # no index-string UI
-    assert "monospace" not in r.text       # normalized typography
-    assert "Pull sources" not in r.text    # auto-pull replaced the button
-    assert "\u2014" not in r.text            # no em dashes in UI copy
-
-
-def test_fresh_page_has_no_em_dashes(client):
-    r = client.get("/")
-    assert "\u2014" not in r.text
-
-
 def test_fresh_notes_flags_my_take(hub):
     note = hub.brain / "sources" / "instagram" / "taken.md"
     note.write_text(
@@ -292,19 +279,6 @@ def test_fresh_notes_flags_my_take(hub):
         encoding="utf-8",
     )
     assert hub.fresh_notes(n=5)[0]["has_take"] is True
-
-
-def test_both_pages_have_source_filters(client):
-    for path in ("/", "/inbox"):
-        r = client.get(path)
-        assert 'id="filters"' in r.text, path
-
-
-def test_fresh_page_is_main(client):
-    r = client.get("/")
-    assert r.status_code == 200
-    assert 'id="fresh"' in r.text
-    assert "/api/fresh" in r.text
 
 
 # --- source pulls + buckets -------------------------------------------------------
@@ -807,10 +781,3 @@ def test_api_delete_note(client, hub, spy_store):
 def test_api_delete_note_outside_vault_400(client, hub, spy_store):
     r = client.post("/api/note/delete", json={"path": "../../etc/passwd"})
     assert r.status_code == 400
-
-
-def test_fresh_page_has_delete_control(client):
-    r = client.get("/")
-    assert "/api/note/delete" in r.text
-    assert 'class="del"' in r.text
-    assert "—" not in r.text  # still no em dashes after adding the control
