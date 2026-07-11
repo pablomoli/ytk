@@ -33,7 +33,7 @@ function MapPage() {
   const [hoverGroupIndex, setHoverGroupIndex] = useState<number>()
   const [hidden, setHidden] = useState<Set<number>>(new Set())
   const [legendOpen, setLegendOpen] = useState(true)
-  const renderer = useRef<ReturnType<typeof mountMapRenderer>>()
+  const renderer = useRef<ReturnType<typeof mountMapRenderer> | undefined>(undefined)
   useEffect(() => {
     if (!map.data || !canvas.current) return
     renderer.current = mountMapRenderer(canvas.current, map.data, setHover, labels.current ?? undefined, setFocus, leaders.current ?? undefined)
