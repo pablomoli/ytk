@@ -2,7 +2,7 @@ import { expect, test } from 'vitest'
 import { aggFactor, groupStats, pointGroup, subCells } from './mapAggregation'
 import type { MapPoint } from '../api/map'
 
-const pt = (over: Partial<MapPoint>): MapPoint => ({ x: 0, y: 0, z3: [0, 0, 0], t: '', c: '', g: 0, r: 0, ...over })
+const pt = (over: Partial<MapPoint>): MapPoint => ({ x: 0, y: 0, z3: [0, 0, 0], t: '', c: '', g: 0, r: 0, dom: 0, ...over })
 
 test('pointGroup keys off g for all-view and th for content-view', () => {
   expect(pointGroup(pt({ g: 3 }), 'all')).toBe(3)
