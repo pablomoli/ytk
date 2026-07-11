@@ -2,8 +2,8 @@ import type { MapData } from '../api/map'
 
 export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; destroy: () => void }
 
-const vertex = `attribute vec3 p; uniform float flat; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; void main(){ vec3 q=mix(p,vec3(p.xy,0.),flat); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(4./depth,2.,12.); }`
-const fragment = `precision mediump float; void main(){ float d=length(gl_PointCoord*2.-1.); if(d>1.) discard; gl_FragColor=vec4(.47,.72,.95,.78); }`
+const vertex = `attribute vec3 p; attribute vec3 color; attribute float alpha; uniform float flat; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; varying vec3 c; varying float a; void main(){ vec3 q=mix(p,vec3(p.xy,0.),flat); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(4./depth,2.,12.); c=color; a=alpha; }`
+const fragment = `precision mediump float; varying vec3 c; varying float a; void main(){ float d=length(gl_PointCoord*2.-1.); if(d>1.) discard; gl_FragColor=vec4(c,a); }`
 
 function shader(gl: WebGLRenderingContext, type: number, source: string) {
   const value = gl.createShader(type)!
@@ -24,6 +24,8 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
   gl.useProgram(program)
   const buffer = gl.createBuffer()!
   const position = gl.getAttribLocation(program, 'p')
+  const color = gl.getAttribLocation(program, 'color')
+  const alpha = gl.getAttribLocation(program, 'alpha')
   const flat = gl.getUniformLocation(program, 'flat')
   const zoom = gl.getUniformLocation(program, 'zoom')
   const pan = gl.getUniformLocation(program, 'pan')
@@ -46,12 +48,15 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
   const draw = () => {
     const points = data.points.flatMap((point) => {
       if (view === 'content' && !point.c3) return []
-      if (signalOnly && point.r < 1) return []
-      if (recentOnly && point.d && (Date.now() - Date.parse(point.d)) / 86_400_000 > 90) return []
       const position = isFlat
         ? view === 'content' ? [point.cx ?? point.x, point.cy ?? point.y, 0] : [point.x, point.y, 0]
         : view === 'content' && point.c3 ? point.c3 : point.z3
-      return position
+      const days = point.d ? (Date.parse(document.lastModified) - Date.parse(point.d)) / 86_400_000 : Infinity
+      const recency = recentOnly ? Math.max(.12, Math.pow(.5, Math.max(0, days) / 90)) : 1
+      const signal = signalOnly && point.r < 1 ? .04 : 1
+      const hue = ((view === 'content' ? point.th ?? 0 : point.g) * 47 % 360 + 360) % 360
+      const rgb = [Math.abs(Math.sin(hue * .017)), Math.abs(Math.sin((hue + 120) * .017)), Math.abs(Math.sin((hue + 240) * .017))]
+      return [...position, ...rgb, recency * signal]
     })
     if (geometryDirty) {
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
@@ -60,7 +65,11 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     gl.enableVertexAttribArray(position)
-    gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 0, 0)
+    gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 28, 0)
+    gl.enableVertexAttribArray(color)
+    gl.vertexAttribPointer(color, 3, gl.FLOAT, false, 28, 12)
+    gl.enableVertexAttribArray(alpha)
+    gl.vertexAttribPointer(alpha, 1, gl.FLOAT, false, 28, 24)
     gl.clearColor(0, 0, 0, 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.uniform1f(flat, isFlat ? 1 : 0)
@@ -68,7 +77,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
     gl.uniform2f(pan, offset[0], offset[1])
     gl.uniform1f(theta, isFlat ? 0 : angle)
     gl.uniform1f(phi, isFlat ? 0 : tilt)
-    gl.drawArrays(gl.POINTS, 0, points.length / 3)
+    gl.drawArrays(gl.POINTS, 0, points.length / 7)
   }
   const render = () => { draw(); frame = requestAnimationFrame(render) }
   const down = (event: MouseEvent) => { if (event.button !== 0 && event.button !== 2) return; event.preventDefault(); orbit = !isFlat && event.button === 0 && !event.shiftKey; drag = { x: event.clientX, y: event.clientY }; canvas.classList.add('dragging') }
