@@ -172,7 +172,8 @@ def _ctfidf_names(cluster_docs: list[str]) -> list[str]:
     """c-TF-IDF top-5 terms per cluster document blob."""
     from sklearn.feature_extraction.text import CountVectorizer
 
-    vec = CountVectorizer(stop_words="english", max_features=20_000, min_df=2)
+    min_df = 2 if len(cluster_docs) > 1 else 1
+    vec = CountVectorizer(stop_words="english", max_features=20_000, min_df=min_df)
     tf = vec.fit_transform(cluster_docs).toarray().astype(float)
     tf = tf / tf.sum(axis=1, keepdims=True).clip(1)
     idf = np.log(1 + len(cluster_docs) / (1 + (tf > 0).sum(axis=0)))

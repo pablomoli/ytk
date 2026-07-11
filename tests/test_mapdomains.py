@@ -34,6 +34,11 @@ def test_project_from_unrelated_path_is_none():
     assert project_from_path("") is None
 
 
+def test_project_from_untitled_session_summary_is_none():
+    p = "second-brain/inbox/memories/claude-mem/summaries/summary-2026-02-28-session-895.md"
+    assert project_from_path(p) is None
+
+
 def test_normalize_slug_strips_user_prefixes():
     assert normalize_slug("users-melocoton-developer-tts", set()) == "tts"
     assert normalize_slug("users-melocoton-config", set()) == "config"

@@ -13,7 +13,12 @@ EXE = "/Users/melocoton/Library/Caches/ms-playwright/chromium_headless_shell-121
 def legend(page):
     return page.eval_on_selector_all(
         ".map-legend button:not(.map-legend-toggle):not(.sub)",
-        "els => els.map(e => ({label: e.textContent.replace(/\\d+$/, ''), n: +e.querySelector('span').textContent, off: e.classList.contains('off')}))",
+        """els => els.map(e => {
+            const span = e.querySelector('span');
+            const clone = e.cloneNode(true);
+            clone.querySelector('span').remove();
+            return {label: clone.textContent, n: +span.textContent, off: e.classList.contains('off')};
+        })""",
     )
 
 
