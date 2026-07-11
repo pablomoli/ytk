@@ -1,5 +1,5 @@
-import { expect, test } from 'vitest'
-import { aggFactor, groupStats, pointGroup, subCells } from './mapAggregation'
+import { describe, expect, it, test } from 'vitest'
+import { aggFactor, groupStats, pointDomain, pointGroup, subCells } from './mapAggregation'
 import type { MapPoint } from '../api/map'
 
 const pt = (over: Partial<MapPoint>): MapPoint => ({ x: 0, y: 0, z3: [0, 0, 0], t: '', c: '', g: 0, r: 0, dom: 0, ...over })
@@ -11,13 +11,13 @@ test('pointGroup keys off g for all-view and th for content-view', () => {
   expect(pointGroup(pt({ g: 3, th: 5 }), 'content')).toBe(-1)
 })
 
-test('subCells partitions each cluster on a fixed grid and skips ungrouped points', () => {
+test('subCells partitions each domain on a fixed grid and skips undomained points', () => {
   const points = [
-    pt({ g: 0, z3: [0, 0, 0] }),
-    pt({ g: 0, z3: [0.01, 0, 0] }), // same cell as the first (within 0.13)
-    pt({ g: 0, z3: [1, 0, 0] }), // far cell, same cluster
-    pt({ g: 1, z3: [0, 0, 0] }), // different cluster, same coord -> different cell
-    pt({ g: -1, z3: [0, 0, 0] }), // ungrouped -> dropped
+    pt({ g: 0, dom: 0, z3: [0, 0, 0] }),
+    pt({ g: 0, dom: 0, z3: [0.01, 0, 0] }), // same cell as the first (within 0.13)
+    pt({ g: 0, dom: 0, z3: [1, 0, 0] }), // far cell, same domain
+    pt({ g: 1, dom: 1, z3: [0, 0, 0] }), // different domain, same coord -> different cell
+    pt({ g: -1, dom: -1, z3: [0, 0, 0] }), // undomained -> dropped
   ]
   const cells = subCells(points, 'all')
   expect(cells).toHaveLength(3)
@@ -36,6 +36,23 @@ test('groupStats computes centroid and RMS radius per group', () => {
   expect(stats[0].radius).toBeCloseTo(1) // sqrt((1+1)/2)
   expect(stats[1].centroid).toEqual([0, 0, 0])
   expect(stats[1].radius).toBe(0)
+})
+
+describe('pointDomain', () => {
+  it('returns dom for the all view and theme for the content view', () => {
+    const point = { g: 5, dom: 2, th: 1, c3: [0, 0, 0] } as unknown as MapPoint
+    expect(pointDomain(point, 'all')).toBe(2)
+    expect(pointDomain(point, 'content')).toBe(1)
+  })
+  it('subCells key on domain for the all view', () => {
+    const points = [
+      { g: 0, dom: 1, z3: [0, 0, 0] },
+      { g: 3, dom: 1, z3: [0.01, 0, 0] },
+    ] as unknown as MapPoint[]
+    const cells = subCells(points, 'all')
+    expect(cells).toHaveLength(1)
+    expect(cells[0].group).toBe(1)
+  })
 })
 
 test('aggFactor ramps 0..1 across the 45..115px spread band', () => {

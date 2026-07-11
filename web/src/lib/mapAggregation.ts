@@ -7,11 +7,18 @@ import type { MapData, MapPoint } from '../api/map'
 
 export type SubCell = { group: number; indices: number[] }
 
-// The group a point belongs to in a given view: cluster id (`g`) for the
+// The group a point belongs to in a given view: subtopic id (`g`) for the
 // "everything" layout, theme id (`th`, content-only) for the "content" layout.
 export function pointGroup(point: MapPoint, view: 'all' | 'content'): number {
   if (view === 'content') return point.c3 !== undefined ? point.th ?? -1 : -1
   return point.g
+}
+
+// The domain a point belongs to: controlled hierarchy level for the
+// everything view, theme for the content view.
+export function pointDomain(point: MapPoint, view: 'all' | 'content'): number {
+  if (view === 'content') return point.c3 !== undefined ? point.th ?? -1 : -1
+  return point.dom
 }
 
 // Stable 3D layout coordinate used only to bucket points into sub-cells, so the
@@ -20,11 +27,12 @@ function cellCoord(point: MapPoint, view: 'all' | 'content'): [number, number, n
   return (view === 'content' ? point.c3 : point.z3) ?? point.z3
 }
 
-// Partition each cluster's points into spatial sub-blobs on a fixed grid.
-export function subCells(points: MapPoint[], view: 'all' | 'content', cell = 0.13): SubCell[] {
+// Partition each domain's points into spatial sub-blobs on a fixed grid
+// (themes act as single-level domains in the content view).
+export function subCells(points: MapPoint[], view: 'all' | 'content', cell = 0.13, groupOf: (p: MapPoint) => number = (p) => pointDomain(p, view)): SubCell[] {
   const cells = new Map<string, SubCell>()
   points.forEach((point, index) => {
-    const group = pointGroup(point, view)
+    const group = groupOf(point)
     if (group < 0) return
     const c = cellCoord(point, view)
     const key = `${group}:${Math.round(c[0] / cell)}:${Math.round(c[1] / cell)}:${Math.round(c[2] / cell)}`
