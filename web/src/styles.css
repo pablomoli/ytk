@@ -350,6 +350,11 @@ body {
 .rule { display: flex; gap: .5rem; align-items: center; }
 .rule input[type=text], .rule input:not([type]) { flex: 1; }
 .settings-savebar { position: sticky; bottom: 0; display: flex; gap: 1rem; align-items: center; padding: .7rem 1.2rem; border-top: 1px solid #2a2a2a; background: #181818; }
+.map-page, .map-stage { min-height: calc(100vh - 46px); background: #000; }
+.map-header { position: fixed; z-index: 5; display: flex; gap: 1rem; width: 100%; padding: .8rem 1rem; background: #181818; color: #4ade80; }
+.map-header span + span { margin-left: auto; margin-right: 1rem; color: #888; }
+.map-stage { position: relative; }
+.map-state { min-height: calc(100vh - 46px); padding: 2rem; background: #000; }
 
 .tag-status,
 .tag-apply-bar span {

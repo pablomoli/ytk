@@ -17,7 +17,9 @@ function RootLayout() {
         <Link to="/tags" activeProps={{ className: "active" }}>
           tags
         </Link>
-        <a href="/map">map</a>
+        <Link to="/map" activeProps={{ className: "active" }}>
+          map
+        </Link>
         <Link to="/settings" activeProps={{ className: "active" }}>
           settings
         </Link>
