@@ -341,6 +341,7 @@ body {
 .settings-body textarea { min-width: 20rem; min-height: 5rem; }
 .settings-body .err { border-color: #e0785a; }
 .settings-body em { color: #e0785a; }
+.settings-pill { color: #888; }
 .settings-chips { display: flex; flex: 1; flex-wrap: wrap; gap: .35rem; min-width: 16rem; padding: .3rem .45rem; border: 1px solid #333; border-radius: 8px; background: #26262a; }
 .settings-chip { padding: .1rem .3rem .1rem .65rem; border-radius: 999px; background: #333; color: #eee; }
 .settings-chip button { border: 0; background: none; color: #888; cursor: pointer; }
