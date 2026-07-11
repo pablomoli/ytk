@@ -1,9 +1,11 @@
 import type { MapData, MapPoint } from '../api/map'
+import { aggFactor, groupStats, pointGroup, subCells } from './mapAggregation'
+import type { SubCell } from './mapAggregation'
 
 export type MapHover = { point: MapPoint; x: number; y: number }
 export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setGroupFocus: (group?: number) => void; setGroupHover: (group?: number) => void; setHiddenGroups: (groups: Set<number>) => void; setLegendOpen: (open: boolean) => void; destroy: () => void }
 
-const vertex = `attribute vec3 p0; attribute vec3 p1; attribute vec3 color0; attribute vec3 color1; attribute float alpha0; attribute float alpha1; attribute float size; uniform float morph; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; uniform float dpr; varying vec3 c; varying float a; void main(){ vec3 q=mix(p0,p1,morph); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(size*zoom/depth*dpr,1.8,26.*dpr); c=mix(color0,color1,morph); a=mix(alpha0,alpha1,morph); }`
+const vertex = `attribute vec3 p0; attribute vec3 p1; attribute vec3 color0; attribute vec3 color1; attribute float alpha0; attribute float alpha1; attribute float size; attribute float grp; uniform float morph; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; uniform float dpr; uniform float galpha[64]; varying vec3 c; varying float a; void main(){ vec3 q=mix(p0,p1,morph); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(size*zoom/depth*dpr,1.8,26.*dpr); c=mix(color0,color1,morph); float ga=grp<0.?1.:galpha[int(grp+.5)]; a=mix(alpha0,alpha1,morph)*ga; }`
 const fragment = `precision mediump float; varying vec3 c; varying float a; void main(){ vec2 p=gl_PointCoord*2.-1.; float d2=dot(p,p); float edge=smoothstep(1.,.82,sqrt(d2)); if(edge<=0.) discard; float z=sqrt(max(0.,1.-d2)); vec3 n=vec3(p.x,-p.y,z); vec3 light=normalize(vec3(-.45,.55,.72)); float wrap=(dot(n,light)+.6)/1.6; float diff=.35+.65*clamp(wrap,0.,1.); float spec=pow(max(dot(reflect(-light,n),vec3(0.,0.,1.)),0.),12.)*.10; vec3 shaded=c*diff*(.75+.25*z)+vec3(spec); float alpha=a*edge; gl_FragColor=vec4(shaded*alpha,alpha); }`
 const ramp = ['#5b7cfa', '#2fb7c9', '#43c26a', '#d9a520', '#e8703a', '#e0507e', '#9d6bf0']
 const gray: [number, number, number] = [.435, .427, .4]
@@ -31,6 +33,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   gl.enable(gl.BLEND)
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
   const buffer = gl.createBuffer()!
+  const orbBuffer = gl.createBuffer()!
   const position0 = gl.getAttribLocation(program, 'p0')
   const position1 = gl.getAttribLocation(program, 'p1')
   const color0 = gl.getAttribLocation(program, 'color0')
@@ -38,6 +41,8 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   const alpha0 = gl.getAttribLocation(program, 'alpha0')
   const alpha1 = gl.getAttribLocation(program, 'alpha1')
   const size = gl.getAttribLocation(program, 'size')
+  const grp = gl.getAttribLocation(program, 'grp')
+  const galphaU = gl.getUniformLocation(program, 'galpha[0]')
   const morphUniform = gl.getUniformLocation(program, 'morph')
   const zoom = gl.getUniformLocation(program, 'zoom')
   const pan = gl.getUniformLocation(program, 'pan')
@@ -61,7 +66,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   let recentOnly = false
   let geometryDirty = true
   let pointCount = 0
-  let renderedPoints: Array<{ point: MapPoint; position: number[]; target: number[] }> = []
+  let renderedPoints: Array<{ point: MapPoint; position: number[]; target: number[]; group: number }> = []
   let focusedGroup: number | undefined
   let hoveredGroup: number | undefined
   let hiddenGroups = new Set<number>()
@@ -71,12 +76,14 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   let morph = location.hash === '#content' ? 1 : 0
   let morphTarget = morph
   let legendOpen = true
+  const allCount = data.all.groups.length
+  const rankAll = Object.fromEntries(data.all.groups.map((group, index) => ({ index, n: group.n })).sort((a, b) => b.n - a.n).map((group, rank) => [group.index, rank])) as Record<number, number>
+  const groupColor = (g: number): [number, number, number] => view === 'content' ? rampColor(g / 7) : rampColor((rankAll[g] ?? 0) / Math.max(1, allCount - 1))
+  const subCache: Record<string, SubCell[]> = {}
 
   const resize = () => { const ratio = Math.min(devicePixelRatio || 1, 2); canvas.width = innerWidth * ratio; canvas.height = innerHeight * ratio; canvas.style.width = `${innerWidth}px`; canvas.style.height = `${innerHeight}px`; gl.viewport(0, 0, canvas.width, canvas.height) }
   const draw = () => {
     if (geometryDirty) {
-      const rank = Object.fromEntries(data.all.groups.map((group, index) => ({ index, n: group.n })).sort((a, b) => b.n - a.n).map((group, index) => [group.index, index])) as Record<number, number>
-      const groupCount = data.all.groups.length
       renderedPoints = []
       const contentView = view === 'content'
       const dim = (group: number) => hiddenGroups.has(group) ? 0 : focusedGroup !== undefined && group !== focusedGroup || hoveredGroup !== undefined && group !== hoveredGroup ? .08 : 1
@@ -87,33 +94,40 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
       const recency = recentOnly ? Math.max(.12, Math.pow(.5, Math.max(0, days) / 90)) : 1
       const sig = signalOnly && point.r < 1 ? .04 : recency
       const alphaFor = (base: number, focus: number) => (sig === .04 ? .04 : base * sig) * focus
-      const color0 = point.g < 0 ? gray : rampColor((rank[point.g] ?? 0) / Math.max(1, groupCount - 1))
+      const color0 = point.g < 0 ? gray : rampColor((rankAll[point.g] ?? 0) / Math.max(1, allCount - 1))
       const color1 = point.th !== undefined && point.th >= 0 ? rampColor(point.th / 7) : gray
       const alpha0 = alphaFor(point.g < 0 ? .4 : 1, contentView ? 1 : dim(point.g))
       const alpha1 = alphaFor(point.c3 ? .95 : 0, contentView ? dim(point.th ?? -1) : 1)
-      renderedPoints.push({ point, position, target })
-      return [...position, ...target, ...color0, ...color1, alpha0, alpha1, 3.2 + point.r * 1.8 + (point.c3 ? .8 : 0)]
+      const group = pointGroup(point, view)
+      renderedPoints.push({ point, position, target, group })
+      return [...position, ...target, ...color0, ...color1, alpha0, alpha1, 3.2 + point.r * 1.8 + (point.c3 ? .8 : 0), group]
       })
-      pointCount = points.length / 15
+      pointCount = points.length / 16
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW)
       geometryDirty = false
     }
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-    gl.enableVertexAttribArray(position0)
-    gl.vertexAttribPointer(position0, 3, gl.FLOAT, false, 60, 0)
-    gl.enableVertexAttribArray(position1)
-    gl.vertexAttribPointer(position1, 3, gl.FLOAT, false, 60, 12)
-    gl.enableVertexAttribArray(color0)
-    gl.vertexAttribPointer(color0, 3, gl.FLOAT, false, 60, 24)
-    gl.enableVertexAttribArray(color1)
-    gl.vertexAttribPointer(color1, 3, gl.FLOAT, false, 60, 36)
-    gl.enableVertexAttribArray(alpha0)
-    gl.vertexAttribPointer(alpha0, 1, gl.FLOAT, false, 60, 48)
-    gl.enableVertexAttribArray(alpha1)
-    gl.vertexAttribPointer(alpha1, 1, gl.FLOAT, false, 60, 52)
-    gl.enableVertexAttribArray(size)
-    gl.vertexAttribPointer(size, 1, gl.FLOAT, false, 60, 56)
+    const drawSet = (buf: WebGLBuffer, count: number) => {
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+      gl.enableVertexAttribArray(position0); gl.vertexAttribPointer(position0, 3, gl.FLOAT, false, 64, 0)
+      gl.enableVertexAttribArray(position1); gl.vertexAttribPointer(position1, 3, gl.FLOAT, false, 64, 12)
+      gl.enableVertexAttribArray(color0); gl.vertexAttribPointer(color0, 3, gl.FLOAT, false, 64, 24)
+      gl.enableVertexAttribArray(color1); gl.vertexAttribPointer(color1, 3, gl.FLOAT, false, 64, 36)
+      gl.enableVertexAttribArray(alpha0); gl.vertexAttribPointer(alpha0, 1, gl.FLOAT, false, 64, 48)
+      gl.enableVertexAttribArray(alpha1); gl.vertexAttribPointer(alpha1, 1, gl.FLOAT, false, 64, 52)
+      gl.enableVertexAttribArray(size); gl.vertexAttribPointer(size, 1, gl.FLOAT, false, 64, 56)
+      gl.enableVertexAttribArray(grp); gl.vertexAttribPointer(grp, 1, gl.FLOAT, false, 64, 60)
+      gl.drawArrays(gl.POINTS, 0, count)
+    }
+    // adaptive aggregation: while a cluster is small on screen its points fade
+    // out (galpha) and it condenses into one orb per spatial sub-cell; zooming
+    // in dissolves the orbs back into points.
+    const groups = view === 'content' ? data.content.groups : data.all.groups
+    const worlds = renderedPoints.map((item) => [item.position[0] + (item.target[0] - item.position[0]) * morph, item.position[1] + (item.target[1] - item.position[1]) * morph, item.position[2] + (item.target[2] - item.position[2]) * morph])
+    const stats = groupStats(worlds, renderedPoints.map((item) => item.group), groups.length)
+    const right = [Math.cos(isFlat ? 0 : angle), 0, Math.sin(isFlat ? 0 : angle)]
+    const galphaArr = new Float32Array(64).fill(1)
+    const aggT = stats.map((s, g) => { if (!s.n) return 1; const [x0] = project(s.centroid, s.centroid); const [xr] = project([s.centroid[0] + s.radius * right[0], s.centroid[1] + s.radius * right[1], s.centroid[2] + s.radius * right[2]]); const t = aggFactor(Math.abs(xr - x0)); if (g < 64) galphaArr[g] = t; return t })
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.uniform1f(morphUniform, morph)
@@ -122,7 +136,20 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     gl.uniform1f(theta, isFlat ? 0 : angle)
     gl.uniform1f(phi, isFlat ? 0 : tilt)
     gl.uniform1f(dpr, Math.min(devicePixelRatio || 1, 2))
-    gl.drawArrays(gl.POINTS, 0, pointCount)
+    gl.uniform1fv(galphaU, galphaArr)
+    drawSet(buffer, pointCount)
+    const orbs: number[] = []
+    for (const sub of (subCache[view] ??= subCells(data.points, view))) {
+      const vis = hiddenGroups.has(sub.group) ? 0 : focusedGroup !== undefined && sub.group !== focusedGroup || hoveredGroup !== undefined && sub.group !== hoveredGroup ? .08 : 1
+      const orbA = (1 - (aggT[sub.group] ?? 1)) * vis
+      if (orbA < .02) continue
+      let x = 0, y = 0, z = 0
+      for (const i of sub.indices) { x += worlds[i][0]; y += worlds[i][1]; z += worlds[i][2] }
+      const m = sub.indices.length; x /= m; y /= m; z /= m
+      const col = groupColor(sub.group)
+      orbs.push(x, y, z, x, y, z, ...col, ...col, orbA * .95, orbA * .95, 4.5 + Math.sqrt(m) * 1.5, -1)
+    }
+    if (orbs.length) { gl.bindBuffer(gl.ARRAY_BUFFER, orbBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(orbs), gl.DYNAMIC_DRAW); drawSet(orbBuffer, orbs.length / 16) }
   }
   let lastFrame = 0
   const render = (now = 0) => {
@@ -161,5 +188,5 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   const open = () => { if (hoveredPoint?.u) window.open(hoveredPoint.u, '_blank', 'noopener') }
   const click = () => { if (moved >= 4) return; if (!hoveredPoint) { focusedGroup = undefined; flyPos = undefined; flyTgt = undefined; scaleTarget = scale; onFocus?.(); geometryDirty = true; labelsDirty = true; return } const group = view === 'content' ? hoveredPoint.th ?? -1 : hoveredPoint.g; if (group < 0) return; focusedGroup = group; const item = renderedPoints.find((entry) => entry.point === hoveredPoint); if (item) { scaleTarget = Math.max(scale, 1.8); flyPos = item.position; flyTgt = item.target } onFocus?.(group); geometryDirty = true; labelsDirty = true }
   resize(); addEventListener('resize', resize); canvas.addEventListener('mousedown', down); canvas.addEventListener('click', click); canvas.addEventListener('dblclick', open); canvas.addEventListener('contextmenu', contextmenu); addEventListener('mousemove', move); addEventListener('mouseup', up); canvas.addEventListener('wheel', wheel, { passive: false }); render()
-  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focusedGroup = undefined; hiddenGroups.clear(); flyPos = undefined; flyTgt = undefined; scaleTarget = scale; geometryDirty = true; labelsDirty = true }, setDimension: (next) => { isFlat = next; flyPos = undefined; flyTgt = undefined; scaleTarget = scale; geometryDirty = true; labelsDirty = true }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setGroupFocus: (group) => { focusedGroup = group; geometryDirty = true; labelsDirty = true }, setGroupHover: (group) => { hoveredGroup = group; geometryDirty = true }, setHiddenGroups: (groups) => { hiddenGroups = new Set(groups); geometryDirty = true; labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteProgram(program) } }
+  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focusedGroup = undefined; hiddenGroups.clear(); flyPos = undefined; flyTgt = undefined; scaleTarget = scale; geometryDirty = true; labelsDirty = true }, setDimension: (next) => { isFlat = next; flyPos = undefined; flyTgt = undefined; scaleTarget = scale; geometryDirty = true; labelsDirty = true }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setGroupFocus: (group) => { focusedGroup = group; geometryDirty = true; labelsDirty = true }, setGroupHover: (group) => { hoveredGroup = group; geometryDirty = true }, setHiddenGroups: (groups) => { hiddenGroups = new Set(groups); geometryDirty = true; labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteBuffer(orbBuffer); gl.deleteProgram(program) } }
 }
