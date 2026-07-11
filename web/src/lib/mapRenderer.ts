@@ -3,7 +3,7 @@ import type { MapData, MapPoint } from '../api/map'
 export type MapHover = { point: MapPoint; x: number; y: number }
 export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setGroupFocus: (group?: number) => void; destroy: () => void }
 
-const vertex = `attribute vec3 p; attribute vec3 color; attribute float alpha; uniform float flat; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; varying vec3 c; varying float a; void main(){ vec3 q=mix(p,vec3(p.xy,0.),flat); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(4./depth,2.,12.); c=color; a=alpha; }`
+const vertex = `attribute vec3 p; attribute vec3 color; attribute float alpha; uniform float u_flat; uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; varying vec3 c; varying float a; void main(){ vec3 q=mix(p,vec3(p.xy,0.),u_flat); float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi); q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y); float depth=1.35-q.z*.24; gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); gl_PointSize=clamp(4./depth,2.,12.); c=color; a=alpha; }`
 const fragment = `precision mediump float; varying vec3 c; varying float a; void main(){ float d=length(gl_PointCoord*2.-1.); if(d>1.) discard; gl_FragColor=vec4(c,a); }`
 const ramp = ['#5b7cfa', '#2fb7c9', '#43c26a', '#d9a520', '#e8703a', '#e0507e', '#9d6bf0']
 const gray: [number, number, number] = [.435, .427, .4]
@@ -32,7 +32,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   const position = gl.getAttribLocation(program, 'p')
   const color = gl.getAttribLocation(program, 'color')
   const alpha = gl.getAttribLocation(program, 'alpha')
-  const flat = gl.getUniformLocation(program, 'flat')
+  const flat = gl.getUniformLocation(program, 'u_flat')
   const zoom = gl.getUniformLocation(program, 'zoom')
   const pan = gl.getUniformLocation(program, 'pan')
   const theta = gl.getUniformLocation(program, 'theta')
