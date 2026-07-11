@@ -33,7 +33,9 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData): MapR
   const draw = () => {
     const points = data.points.flatMap((point) => {
       if (view === 'content' && !point.c3) return []
-      const position = view === 'content' && point.c3 ? point.c3 : point.z3
+      const position = isFlat
+        ? view === 'content' ? [point.cx ?? point.x, point.cy ?? point.y, 0] : [point.x, point.y, 0]
+        : view === 'content' && point.c3 ? point.c3 : point.z3
       return position
     })
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
