@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMap } from '../api/map'
+import { useMap, isMapV2 } from '../api/map'
 import { ErrorState } from '../components/StateViews'
 import { mapGroupColor, mountMapRenderer } from '../lib/mapRenderer'
 import type { MapHover } from '../lib/mapRenderer'
@@ -49,6 +49,7 @@ function MapPage() {
   useEffect(() => { renderer.current?.setLegendOpen(legendOpen) }, [legendOpen])
   if (map.isLoading) return <div className="map-state">loading map...</div>
   if (map.isError) return <div className="map-state"><ErrorState error={map.error} /></div>
+  if (map.data && !isMapV2(map.data)) return <div className="map-state">map data predates the domain hierarchy - run `uv run python scripts/build_map.py`</div>
   const hoverGroup = hover ? (view === 'content' ? map.data!.content.groups[hover.point.th ?? -1]?.label : map.data!.all.groups[hover.point.g]?.label) || 'dust' : ''
   const layout = view === 'content' ? map.data!.content : map.data!.all
   const visibleNotes = view === 'content' ? map.data!.points.filter((point) => point.c3).length : map.data!.points.length
