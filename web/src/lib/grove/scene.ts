@@ -53,24 +53,26 @@ void main(){
   gl_FragColor = vec4(uRim*a, a); }`
 
 const budVertex = `attribute float depth; attribute float phase;
-uniform float uProgress; uniform float uTime; uniform float uDpr;
-varying float vA;
+uniform float uProgress; uniform float uTime; uniform float uDpr; uniform float uLeafSize;
+varying float vA; varying float vPhase;
 ${RAMP}
 void main(){
   float g = ramp(uProgress*1.35 - depth);
   vec4 mv = modelViewMatrix*vec4(position,1.);
-  float tw = .75 + .25*sin(uTime*2.1 + phase*6.28);
-  gl_PointSize = (2.4 + 2.6*g)*tw*uDpr;
+  float tw = .7 + .3*sin(uTime*1.3 + phase*6.28);
+  gl_PointSize = uLeafSize*(3.2 + 3.4*g)*tw*uDpr*(6./max(2., -mv.z));
   vA = g*tw;
+  vPhase = phase;
   gl_Position = projectionMatrix*mv; }`
 
 const budFragment = `precision highp float;
-uniform vec3 uBud;
-varying float vA;
+uniform vec3 uBud; uniform vec3 uLeaf;
+varying float vA; varying float vPhase;
 void main(){
   vec2 p = gl_PointCoord*2.-1.; float d = dot(p,p); if (d > 1.) discard;
-  float a = vA*(1.-d);
-  gl_FragColor = vec4(uBud*a, a); }`
+  vec3 c = mix(uLeaf, uBud, vPhase*vPhase);
+  float a = vA*(1.-d)*.6;
+  gl_FragColor = vec4(c*a, a); }`
 
 export type GroveHandle = { regenerate: (params: GroveParams) => void; setLook: (look: GroveLook) => void; replay: () => void; destroy: () => void }
 
@@ -85,7 +87,7 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
   controls.enableDamping = true
   controls.maxPolarAngle = Math.PI * 0.55
 
-  const uniforms = { uProgress: { value: 0 }, uTime: { value: 0 }, uDpr: { value: Math.min(devicePixelRatio || 1, 2) }, uBase: { value: new Color('#4a4438') }, uRim: { value: new Color('#8fb8a8') }, uBud: { value: new Color('#d9c9a0') } }
+  const uniforms = { uProgress: { value: 0 }, uTime: { value: 0 }, uDpr: { value: Math.min(devicePixelRatio || 1, 2) }, uLeafSize: { value: params.leafSize }, uBase: { value: new Color('#4a4438') }, uRim: { value: new Color('#8fb8a8') }, uBud: { value: new Color('#e3d2a4') }, uLeaf: { value: new Color('#7fae7f') } }
   const tubeMaterial = new ShaderMaterial({ vertexShader: tubeVertex, fragmentShader: tubeFragment, uniforms, side: DoubleSide })
   const lineMaterial = new ShaderMaterial({ vertexShader: lineVertex, fragmentShader: lineFragment, uniforms, transparent: true, blending: AdditiveBlending, depthWrite: false })
   const budMaterial = new ShaderMaterial({ vertexShader: budVertex, fragmentShader: budFragment, uniforms, transparent: true, blending: AdditiveBlending, depthWrite: false })
@@ -105,6 +107,7 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
     clear()
     lastParams = next
     growSeconds = next.growSeconds
+    uniforms.uLeafSize.value = next.leafSize
     const rand = rng(next.seed)
     const spread = Math.max(1, next.trees - 1) * next.reach * 0.75
     for (let t = 0; t < next.trees; t++) {
@@ -120,14 +123,17 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
       lines.setAttribute('position', new BufferAttribute(tree.linePosition, 3))
       lines.setAttribute('depth', new BufferAttribute(tree.lineDepth, 1))
       grown.push(new LineSegments(lines, lineMaterial))
-      // buds at every leaf tip; the foliage look thickens each tip into a cluster
+      // buds: single points at tips for tubes/wires; the foliage look grows
+      // gaussian leaf masses at every canopy site along the outer branches
       const budPos: number[] = []; const budDepth: number[] = []; const budPhase: number[] = []
-      for (const tip of tree.tips) {
-        const cluster = currentLookIsFoliage() ? 26 : 1
+      const gauss = () => rand() + rand() - 1
+      const sites = currentLookIsFoliage() ? tree.leafSites : tree.tips
+      const cluster = currentLookIsFoliage() ? Math.round(next.leafDensity) : 1
+      for (const site of sites) {
         for (let i = 0; i < cluster; i++) {
-          const jitter = cluster === 1 ? new Vector3() : new Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).multiplyScalar(next.stepScale * 0.9)
-          budPos.push(tip.position.x + jitter.x, tip.position.y + jitter.y, tip.position.z + jitter.z)
-          budDepth.push(tip.depth)
+          const jitter = cluster === 1 ? new Vector3() : new Vector3(gauss(), gauss() * 0.75, gauss()).multiplyScalar(next.leafSpread)
+          budPos.push(site.position.x + jitter.x, site.position.y + jitter.y, site.position.z + jitter.z)
+          budDepth.push(Math.min(1, site.depth + jitter.length() * 0.3))
           budPhase.push(rand())
         }
       }

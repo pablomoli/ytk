@@ -35,10 +35,13 @@ const KNOBS: Array<{ key: keyof GroveParams; label: string; min: number; max: nu
   { key: 'girthDecay', label: 'taper', min: 0.6, max: 0.97, step: 0.01 },
   { key: 'ringSegments', label: 'ring verts', min: 4, max: 12, step: 1 },
   { key: 'growSeconds', label: 'grow time', min: 1, max: 15, step: 0.5 },
+  { key: 'leafDensity', label: 'leaf density', min: 0, max: 120, step: 2 },
+  { key: 'leafSpread', label: 'leaf spread', min: 0.1, max: 0.9, step: 0.02 },
+  { key: 'leafSize', label: 'leaf size', min: 0.5, max: 4, step: 0.1 },
 ]
 
 function GrovePage() {
-  const { variant = 'tubes' } = Route.useSearch()
+  const { variant = 'foliage' } = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const canvas = useRef<HTMLCanvasElement>(null)
   const handle = useRef<GroveHandle>(undefined)
