@@ -752,3 +752,13 @@ body {
     order: -1;
   }
 }
+
+/* grove workshop (prototype) */
+.grove-page { position: fixed; inset: 0; }
+.grove-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.grove-panel { position: fixed; top: 7rem; right: 1rem; width: 240px; padding: .7rem .8rem; border: 1px solid #ffffff14; border-radius: 12px; background: #161618e6; display: flex; flex-direction: column; gap: .35rem; }
+.grove-panel label { display: grid; grid-template-columns: 5.2rem 1fr 2.4rem; align-items: center; gap: .5rem; color: #b7b5aa; font-size: .78rem; }
+.grove-panel input[type="range"] { width: 100%; accent-color: #8fb8a8; }
+.grove-panel em { font-style: normal; color: #83817a; text-align: right; }
+.grove-switcher { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: .8rem; padding: .4rem .9rem; border: 1px solid #ffffff22; border-radius: 999px; background: #1c1c1cee; box-shadow: 0 4px 18px #00000088; color: #d9c9a0; font-size: .8rem; letter-spacing: .06em; }
+.grove-switcher button { border: 0; background: none; color: #f0eee7; cursor: pointer; font-size: 1rem; }

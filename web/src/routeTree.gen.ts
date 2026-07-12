@@ -13,6 +13,7 @@ import { Route as TagsRouteImport } from './routes/tags'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as GroveRouteImport } from './routes/grove'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TagsRoute = TagsRouteImport.update({
@@ -35,6 +36,11 @@ const InboxRoute = InboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GroveRoute = GroveRouteImport.update({
+  id: '/grove',
+  path: '/grove',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -43,6 +49,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/grove': typeof GroveRoute
   '/inbox': typeof InboxRoute
   '/map': typeof MapRoute
   '/settings': typeof SettingsRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/grove': typeof GroveRoute
   '/inbox': typeof InboxRoute
   '/map': typeof MapRoute
   '/settings': typeof SettingsRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/grove': typeof GroveRoute
   '/inbox': typeof InboxRoute
   '/map': typeof MapRoute
   '/settings': typeof SettingsRoute
@@ -65,14 +74,15 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/inbox' | '/map' | '/settings' | '/tags'
+  fullPaths: '/' | '/grove' | '/inbox' | '/map' | '/settings' | '/tags'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inbox' | '/map' | '/settings' | '/tags'
-  id: '__root__' | '/' | '/inbox' | '/map' | '/settings' | '/tags'
+  to: '/' | '/grove' | '/inbox' | '/map' | '/settings' | '/tags'
+  id: '__root__' | '/' | '/grove' | '/inbox' | '/map' | '/settings' | '/tags'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GroveRoute: typeof GroveRoute
   InboxRoute: typeof InboxRoute
   MapRoute: typeof MapRoute
   SettingsRoute: typeof SettingsRoute
@@ -109,6 +119,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/grove': {
+      id: '/grove'
+      path: '/grove'
+      fullPath: '/grove'
+      preLoaderRoute: typeof GroveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -121,6 +138,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GroveRoute: GroveRoute,
   InboxRoute: InboxRoute,
   MapRoute: MapRoute,
   SettingsRoute: SettingsRoute,
