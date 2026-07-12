@@ -66,7 +66,10 @@ export function generateTree(params: GroveParams, rand: () => number, origin: Ve
   // the sapling leaves the ground (Ballot's sphere distribution, our bias).
   for (let i = 0; i < params.initialChildren; i++) {
     const direction = randomUnit(rand).multiplyScalar(1 - Math.abs(params.upBias)).add(up.clone().multiplyScalar(params.upBias + Math.sign(params.upBias) * rand() * 0.4)).normalize()
-    const child: TreeNode = { position: origin.clone().add(direction.clone().multiplyScalar(params.stepScale * (0.7 + rand() * 0.6))), weight: params.girthDecay, pathLength: params.stepScale, dir: direction, children: [] }
+    const firstPos = origin.clone().add(direction.clone().multiplyScalar(params.stepScale * (0.7 + rand() * 0.6)))
+    const firstSide = params.upBias >= 0 ? 1 : -1
+    if (firstPos.y * firstSide < 0.03) firstPos.y = firstSide * (0.03 + Math.abs(firstPos.y) * 0.3)
+    const child: TreeNode = { position: firstPos, weight: params.girthDecay, pathLength: params.stepScale, dir: direction, children: [] }
     root.children.push(child)
     queue.push(child)
   }
@@ -86,6 +89,14 @@ export function generateTree(params: GroveParams, rand: () => number, origin: Ve
       const direction = node.dir.clone().multiplyScalar(params.stiffness).add(pull.multiplyScalar(1 - params.stiffness)).normalize()
       const step = direction.clone().multiplyScalar(params.stepScale * (0.6 + rand() * 0.8))
       const position = node.position.clone().add(step)
+      // hemisphere rule: canopy stays above the ground plane, roots below -
+      // noise that pushes growth across the surface folds back to its side
+      const side = params.upBias >= 0 ? 1 : -1
+      if (position.y * side < 0.03) {
+        position.y = side * (0.03 + Math.abs(position.y) * 0.3)
+        direction.y = Math.abs(direction.y) * side * 0.5
+        direction.normalize()
+      }
       if (position.distanceTo(origin) > params.reach) continue
       if (nodes >= maxNodes) return root
       // da Vinci rule at forks: children split the parent's cross-section
