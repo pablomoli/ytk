@@ -75,10 +75,13 @@ function GrovePage() {
     return () => removeEventListener('keydown', onKey)
   }, [variant, navigate])
 
+  const regenTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const apply = (next: GroveParams) => {
     setParams(next)
     localStorage.setItem(STORAGE, JSON.stringify(next))
-    handle.current?.regenerate(next)
+    // debounce: slider drags fire per pixel; regenerate once the hand settles
+    clearTimeout(regenTimer.current)
+    regenTimer.current = setTimeout(() => handle.current?.regenerate(next), 160)
   }
   const reseed = () => apply({ ...params, seed: Math.floor(Math.random() * 1e6) })
   const cycle = (delta: number) => navigate({ search: { variant: LOOKS[(LOOKS.indexOf(variant) + delta + LOOKS.length) % LOOKS.length] }, replace: true })

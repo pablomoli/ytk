@@ -36,10 +36,17 @@ export function rng(seed: number): () => number {
 
 const randomUnit = (rand: () => number): Vector3 => { const z = rand() * 2 - 1; const a = rand() * Math.PI * 2; const r = Math.sqrt(1 - z * z); return new Vector3(r * Math.cos(a), z, r * Math.sin(a)) }
 
-export function generateTree(params: GroveParams, rand: () => number, origin: Vector3): TreeNode {
+// Complexity budget: BFS growth is exponential in branchChance and
+// reach/step, so a hard node cap keeps every knob combination interactive
+// (a hung main thread is a workshop failure, not a user error). The scene
+// shares the budget across trees via maxNodes.
+const MAX_NODES = 2200
+
+export function generateTree(params: GroveParams, rand: () => number, origin: Vector3, maxNodes: number = MAX_NODES): TreeNode {
   const root: TreeNode = { position: origin.clone(), weight: 1, pathLength: 0, children: [] }
   const up = new Vector3(0, 1, 0)
   const queue: TreeNode[] = []
+  let nodes = 1
   // Initial 1-4 children sphere-distributed around the root, biased upward so
   // the sapling leaves the ground (Ballot's sphere distribution, our bias).
   for (let i = 0; i < params.initialChildren; i++) {
@@ -61,9 +68,11 @@ export function generateTree(params: GroveParams, rand: () => number, origin: Ve
       const step = outward.clone().multiplyScalar(params.stepScale * (0.6 + rand() * 0.8)).add(randomUnit(rand).multiplyScalar(lateral)).add(up.clone().multiplyScalar(params.upBias * params.stepScale * 0.3))
       const position = node.position.clone().add(step)
       if (position.distanceTo(origin) > params.reach) continue
+      if (nodes >= maxNodes) return root
       const child: TreeNode = { position, weight: node.weight * params.girthDecay, pathLength: node.pathLength + step.length(), children: [] }
       node.children.push(child)
       queue.push(child)
+      nodes++
     }
   }
   return root
@@ -125,7 +134,12 @@ export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeom
   for (const chain of chains) {
     if (chain.points.length < 2) continue
     const curve = new CatmullRomCurve3(chain.points, false, 'centripetal')
-    const samples = Math.max(4, Math.round(curve.getLength() / (params.stepScale * 0.22)))
+    // polyline length estimate: curve.getLength() subdivides 200x per chain
+    // and was the generation hotspot; control-point distances are plenty
+    // accurate for picking a sample count
+    let length = 0
+    for (let i = 1; i < chain.points.length; i++) length += chain.points[i].distanceTo(chain.points[i - 1])
+    const samples = Math.min(72, Math.max(4, Math.round(length / (params.stepScale * 0.22))))
     const spine: Vector3[] = []
     const radii: number[] = []
     const depths: number[] = []

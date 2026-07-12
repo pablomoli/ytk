@@ -23,7 +23,7 @@ export function buildLeafGeometry(params: LeafShapeParams): BufferGeometry {
   shape.quadraticCurveTo(W * 0.1, L * 0.95, 0, L)
   shape.quadraticCurveTo(-W * 0.1, L * 0.95, -W * 0.28, L * 0.82)
   shape.bezierCurveTo(-W, L * 0.42, -W * 0.55, L * 0.12, 0, 0)
-  const geometry: BufferGeometry = new ShapeGeometry(shape, 5)
+  const geometry: BufferGeometry = new ShapeGeometry(shape, 3)
   // cup across the width, curl the tip downward - gives the card a real
   // silhouette from every angle and normals that catch the rim light
   const pos = geometry.getAttribute('position')

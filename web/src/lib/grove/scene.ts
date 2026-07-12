@@ -150,7 +150,7 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
     const spread = Math.max(1, next.trees - 1) * next.reach * 0.75
     for (let t = 0; t < next.trees; t++) {
       const origin = new Vector3(next.trees === 1 ? 0 : -spread / 2 + (t / Math.max(1, next.trees - 1)) * spread, 0, next.trees === 1 ? 0 : (rand() - 0.5) * next.reach)
-      const tree = buildTreeGeometry(next, generateTree(next, rand, origin))
+      const tree = buildTreeGeometry(next, generateTree(next, rand, origin, Math.max(700, Math.floor(4400 / next.trees))))
       const tube = new BufferGeometry()
       tube.setAttribute('position', new BufferAttribute(tree.position, 3))
       tube.setAttribute('roff', new BufferAttribute(tree.roff, 3))
@@ -165,14 +165,18 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
       // by the site's branch frame; tubes/wires keep single bud points at tips
       if (currentLookIsFoliage()) {
         const perSite = Math.max(1, Math.round(next.leafDensity / 12))
-        const count = tree.leafSites.length * perSite
+        // instance budget per tree: stride sites rather than truncate the
+        // canopy so dense settings thin evenly instead of balding at the top
+        const stride = Math.max(1, Math.ceil((tree.leafSites.length * perSite) / Math.max(2500, 14_000 / next.trees)))
+        const sites = tree.leafSites.filter((_, index) => index % stride === 0)
+        const count = sites.length * perSite
         const leaves = new InstancedMesh(leafGeometry, leafMaterial, count)
         leaves.instanceMatrix.setUsage(DynamicDrawUsage)
         const iDepth = new Float32Array(count)
         const iPhase = new Float32Array(count)
         const matrix = new Matrix4()
         let n = 0
-        for (const site of tree.leafSites) {
+        for (const site of sites) {
           for (let i = 0; i < perSite; i++) {
             const spin = rand() * Math.PI * 2
             const pitch = 0.35 + rand() * 0.75 // feather outward-and-along
