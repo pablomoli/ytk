@@ -18,15 +18,25 @@ export type GroveParams = {
   girth: number // trunk radius at the root
   girthDecay: number // weight multiplier per generation
   ringSegments: number // vertices per tube ring
+  stiffness: number // 0-1: how much a branch resists changing direction
+  wind: number // 0-1: branch + leaf sway amplitude
   growSeconds: number
   leafDensity: number // points per leaf site (foliage look)
   leafSpread: number // world radius of a leaf cluster
   leafSize: number // point size multiplier for leaves
 }
 
-export const DEFAULT_PARAMS: GroveParams = { seed: 7, trees: 1, initialChildren: 1, branchChance: 0.5, stepScale: 0.32, noise: 0.16, reach: 4, upBias: 0.55, girth: 0.12, girthDecay: 0.92, ringSegments: 7, growSeconds: 5, leafDensity: 60, leafSpread: 0.4, leafSize: 2.2 }
+export const DEFAULT_PARAMS: GroveParams = { seed: 7, trees: 1, initialChildren: 1, branchChance: 0.5, stepScale: 0.32, noise: 0.16, reach: 4, upBias: 0.55, girth: 0.12, girthDecay: 0.92, ringSegments: 7, stiffness: 0.6, wind: 0.35, growSeconds: 5, leafDensity: 60, leafSpread: 0.4, leafSize: 2.2 }
 
-type TreeNode = { position: Vector3; weight: number; pathLength: number; children: TreeNode[] }
+export type TreeNode = { position: Vector3; weight: number; pathLength: number; dir: Vector3; children: TreeNode[] }
+
+// Root plates are wide and shallow: generate at near-canopy reach, then
+// compress vertically so the span mirrors the crown while staying shallow.
+export function flattenTree(root: TreeNode, yScale: number): TreeNode {
+  const walk = (n: TreeNode) => { n.position.y *= yScale; n.children.forEach(walk) }
+  walk(root)
+  return root
+}
 
 // mulberry32 - seeded so "regenerate" is reproducible from the seed knob
 export function rng(seed: number): () => number {
@@ -43,15 +53,15 @@ const randomUnit = (rand: () => number): Vector3 => { const z = rand() * 2 - 1; 
 const MAX_NODES = 2200
 
 export function generateTree(params: GroveParams, rand: () => number, origin: Vector3, maxNodes: number = MAX_NODES): TreeNode {
-  const root: TreeNode = { position: origin.clone(), weight: 1, pathLength: 0, children: [] }
+  const root: TreeNode = { position: origin.clone(), weight: 1, pathLength: 0, dir: new Vector3(0, 1, 0), children: [] }
   const up = new Vector3(0, 1, 0)
   const queue: TreeNode[] = []
   let nodes = 1
   // Initial 1-4 children sphere-distributed around the root, biased upward so
   // the sapling leaves the ground (Ballot's sphere distribution, our bias).
   for (let i = 0; i < params.initialChildren; i++) {
-    const direction = randomUnit(rand).multiplyScalar(1 - params.upBias).add(up.clone().multiplyScalar(params.upBias + rand() * 0.4)).normalize()
-    const child: TreeNode = { position: origin.clone().add(direction.multiplyScalar(params.stepScale * (0.7 + rand() * 0.6))), weight: params.girthDecay, pathLength: params.stepScale, children: [] }
+    const direction = randomUnit(rand).multiplyScalar(1 - Math.abs(params.upBias)).add(up.clone().multiplyScalar(params.upBias + Math.sign(params.upBias) * rand() * 0.4)).normalize()
+    const child: TreeNode = { position: origin.clone().add(direction.clone().multiplyScalar(params.stepScale * (0.7 + rand() * 0.6))), weight: params.girthDecay, pathLength: params.stepScale, dir: direction, children: [] }
     root.children.push(child)
     queue.push(child)
   }
@@ -65,11 +75,18 @@ export function generateTree(params: GroveParams, rand: () => number, origin: Ve
       // fork siblings get a strong lateral kick so branches visibly diverge
       // instead of hugging the shared root-outward direction
       const lateral = i === 0 ? params.noise : params.noise + params.stepScale * 0.8
-      const step = outward.clone().multiplyScalar(params.stepScale * (0.6 + rand() * 0.8)).add(randomUnit(rand).multiplyScalar(lateral)).add(up.clone().multiplyScalar(params.upBias * params.stepScale * 0.3))
+      const pull = outward.clone().add(randomUnit(rand).multiplyScalar(lateral / params.stepScale)).add(up.clone().multiplyScalar(params.upBias * 0.3)).normalize()
+      // stiffness: wood resists direction change - blend the pull with the
+      // direction the limb was already growing in
+      const direction = node.dir.clone().multiplyScalar(params.stiffness).add(pull.multiplyScalar(1 - params.stiffness)).normalize()
+      const step = direction.clone().multiplyScalar(params.stepScale * (0.6 + rand() * 0.8))
       const position = node.position.clone().add(step)
       if (position.distanceTo(origin) > params.reach) continue
       if (nodes >= maxNodes) return root
-      const child: TreeNode = { position, weight: node.weight * params.girthDecay, pathLength: node.pathLength + step.length(), children: [] }
+      // da Vinci rule at forks: children split the parent's cross-section
+      // area, so girth thins where the tree branches, not merely with age
+      const girth = params.girthDecay * (count === 2 ? 0.72 : 1)
+      const child: TreeNode = { position, weight: node.weight * girth, pathLength: node.pathLength + step.length(), dir: direction, children: [] }
       node.children.push(child)
       queue.push(child)
       nodes++
@@ -80,7 +97,7 @@ export function generateTree(params: GroveParams, rand: () => number, origin: Ve
 
 // Chains: maximal single-child runs between branch points, each starting at
 // its parent branch node so tubes stay connected. Ballot's "segments".
-type Chain = { points: Vector3[]; weights: number[]; depths: number[] }
+type Chain = { points: Vector3[]; weights: number[]; depths: number[]; tip: boolean }
 
 function decompose(root: TreeNode): { chains: Chain[]; tips: Array<{ position: Vector3; depth: number }> } {
   let maxPath = 0
@@ -100,7 +117,7 @@ function decompose(root: TreeNode): { chains: Chain[]; tips: Array<{ position: V
         if (node.children.length !== 1) break
         node = node.children[0]
       }
-      chains.push({ points, weights, depths })
+      chains.push({ points, weights, depths, tip: node.children.length === 0 })
       if (node.children.length === 0) tips.push({ position: node.position, depth: depthOf(node) })
       else walk(node)
     }
@@ -143,9 +160,11 @@ export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeom
     const spine: Vector3[] = []
     const radii: number[] = []
     const depths: number[] = []
+    const polyline = (t: number) => { const f = t * (chain.points.length - 1); const j = Math.min(chain.points.length - 2, Math.floor(f)); return chain.points[j].clone().lerp(chain.points[j + 1], f - j) }
     for (let i = 0; i <= samples; i++) {
       const t = i / samples
-      spine.push(curve.getPoint(t))
+      // stiff wood: pull the spline back toward straight runs between joints
+      spine.push(curve.getPoint(t).lerp(polyline(t), params.stiffness * 0.45))
       const f = t * (chain.points.length - 1)
       const j = Math.min(chain.points.length - 2, Math.floor(f))
       const local = f - j
@@ -184,6 +203,18 @@ export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeom
       if (i > 0) { lpos.push(spine[i - 1].x, spine[i - 1].y, spine[i - 1].z, spine[i].x, spine[i].y, spine[i].z); ldep.push(depths[i - 1], depths[i]) }
       // canopy accumulates along the outer half of the tree, not just at tips
       if (depths[i] > 0.55 && i % 2 === 0) leafSites.push({ position: spine[i].clone(), depth: depths[i], tangent: tangent.clone(), normal: normal.clone(), radius: radii[i] })
+      // close tip chains with an apex fan so branch ends are never open pipes
+      if (chain.tip && i === samples) {
+        const endTangent = spine[samples].clone().sub(spine[Math.max(0, samples - 1)]).normalize()
+        const apex = spine[samples].clone().add(endTangent.clone().multiplyScalar(Math.max(0.015, radii[samples] * 1.6)))
+        const apexIndex = pos.length / 3
+        pos.push(apex.x, apex.y, apex.z)
+        const apexOff = endTangent.multiplyScalar(0.002)
+        off.push(apexOff.x, apexOff.y, apexOff.z)
+        dep.push(depths[samples])
+        const lastRing = base + samples * ring
+        for (let s = 0; s < ring; s++) idx.push(lastRing + s, apexIndex, lastRing + ((s + 1) % ring))
+      }
     }
   }
   for (const tip of tips) leafSites.push({ position: tip.position, depth: tip.depth, tangent: new Vector3(0, 1, 0), normal: new Vector3(1, 0, 0), radius: 0.01 })
