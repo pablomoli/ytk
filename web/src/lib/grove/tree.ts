@@ -19,9 +19,12 @@ export type GroveParams = {
   girthDecay: number // weight multiplier per generation
   ringSegments: number // vertices per tube ring
   growSeconds: number
+  leafDensity: number // points per leaf site (foliage look)
+  leafSpread: number // world radius of a leaf cluster
+  leafSize: number // point size multiplier for leaves
 }
 
-export const DEFAULT_PARAMS: GroveParams = { seed: 7, trees: 1, initialChildren: 1, branchChance: 0.5, stepScale: 0.32, noise: 0.16, reach: 4, upBias: 0.55, girth: 0.12, girthDecay: 0.92, ringSegments: 7, growSeconds: 5 }
+export const DEFAULT_PARAMS: GroveParams = { seed: 7, trees: 1, initialChildren: 1, branchChance: 0.5, stepScale: 0.32, noise: 0.16, reach: 4, upBias: 0.55, girth: 0.12, girthDecay: 0.92, ringSegments: 7, growSeconds: 5, leafDensity: 60, leafSpread: 0.4, leafSize: 2.2 }
 
 type TreeNode = { position: Vector3; weight: number; pathLength: number; children: TreeNode[] }
 
@@ -108,6 +111,8 @@ export type TreeGeometry = {
   lineDepth: Float32Array
   // leaf tips (buds / future notes)
   tips: Array<{ position: Vector3; depth: number }>
+  // canopy sites: outer-branch spine samples where foliage accumulates
+  leafSites: Array<{ position: Vector3; depth: number }>
 }
 
 export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeometry {
@@ -115,6 +120,7 @@ export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeom
   const ring = params.ringSegments
   const pos: number[] = []; const off: number[] = []; const dep: number[] = []; const idx: number[] = []
   const lpos: number[] = []; const ldep: number[] = []
+  const leafSites: Array<{ position: Vector3; depth: number }> = []
   for (const chain of chains) {
     if (chain.points.length < 2) continue
     const curve = new CatmullRomCurve3(chain.points, false, 'centripetal')
@@ -161,7 +167,10 @@ export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeom
         }
       }
       if (i > 0) { lpos.push(spine[i - 1].x, spine[i - 1].y, spine[i - 1].z, spine[i].x, spine[i].y, spine[i].z); ldep.push(depths[i - 1], depths[i]) }
+      // canopy accumulates along the outer half of the tree, not just at tips
+      if (depths[i] > 0.55 && i % 2 === 0) leafSites.push({ position: spine[i].clone(), depth: depths[i] })
     }
   }
-  return { position: new Float32Array(pos), roff: new Float32Array(off), depth: new Float32Array(dep), index: new Uint32Array(idx), linePosition: new Float32Array(lpos), lineDepth: new Float32Array(ldep), tips }
+  for (const tip of tips) leafSites.push({ position: tip.position, depth: tip.depth })
+  return { position: new Float32Array(pos), roff: new Float32Array(off), depth: new Float32Array(dep), index: new Uint32Array(idx), linePosition: new Float32Array(lpos), lineDepth: new Float32Array(ldep), tips, leafSites }
 }
