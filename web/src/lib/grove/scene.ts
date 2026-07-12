@@ -2,8 +2,9 @@
 // Three.js scene hosting the Ballot trees: fresnel-rimmed tube shader with the
 // clamped-cosine growth ramp (depth as phase) and a uTime pulse, plus the
 // wireframe and foliage looks over the same generated geometry.
-import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, Color, DoubleSide, FogExp2, LineSegments, Mesh, MeshBasicMaterial, PerspectiveCamera, Points, Scene, ShaderMaterial, Vector3, WebGLRenderer } from 'three'
+import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, Color, DoubleSide, DynamicDrawUsage, FogExp2, InstancedBufferAttribute, InstancedMesh, LineSegments, Matrix4, Mesh, MeshBasicMaterial, PerspectiveCamera, Points, Scene, ShaderMaterial, Vector3, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { buildLeafGeometry, DEFAULT_LEAF, leafBasis } from './leaf'
 import { buildTreeGeometry, generateTree, rng } from './tree'
 import type { GroveParams } from './tree'
 
@@ -52,6 +53,41 @@ void main(){
   float a = vGrow*(.28 + .5*pulse*(1.-vDepth) + .25*(1.-vDepth));
   gl_FragColor = vec4(uRim*a, a); }`
 
+const leafVertex = `attribute float iDepth; attribute float iPhase;
+uniform float uProgress; uniform float uTime;
+varying vec3 vN; varying vec3 vView; varying float vPhase; varying float vAlong;
+${RAMP}
+void main(){
+  float g = ramp(uProgress*1.35 - iDepth);
+  // wind: stacked sines, tip moves more than base, no two leaves in step
+  float along = uv.y;
+  float sway = along*along*(.5*sin(uTime*1.9 + iPhase*6.28) + .3*sin(uTime*3.7 + iPhase*9.4) + .2*sin(uTime*.7 + iPhase*3.1))*.08;
+  vec3 p = position*g;
+  p.x += sway; p.z += sway*.6;
+  #ifdef USE_INSTANCING
+  vec4 world = modelViewMatrix*instanceMatrix*vec4(p,1.);
+  vN = normalMatrix*mat3(instanceMatrix)*normal;
+  #else
+  vec4 world = modelViewMatrix*vec4(p,1.);
+  vN = normalMatrix*normal;
+  #endif
+  vView = -world.xyz;
+  vPhase = iPhase;
+  vAlong = along;
+  gl_Position = projectionMatrix*world; }`
+
+const leafFragment = `precision highp float;
+uniform vec3 uLeaf; uniform vec3 uBud; uniform vec3 uRim;
+varying vec3 vN; varying vec3 vView; varying float vPhase; varying float vAlong;
+void main(){
+  vec3 n = normalize(vN); vec3 v = normalize(vView);
+  float facing = abs(dot(n, v));
+  float fres = pow(1. - facing, 2.);
+  vec3 base = mix(uLeaf, uBud, vPhase*vPhase*.7);
+  base *= .55 + .45*vAlong;
+  vec3 c = base*(.3 + .5*facing) + uRim*fres*.5;
+  gl_FragColor = vec4(c, 1.); }`
+
 const budVertex = `attribute float depth; attribute float phase;
 uniform float uProgress; uniform float uTime; uniform float uDpr; uniform float uLeafSize;
 varying float vA; varying float vPhase;
@@ -89,6 +125,8 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
 
   const uniforms = { uProgress: { value: 0 }, uTime: { value: 0 }, uDpr: { value: Math.min(devicePixelRatio || 1, 2) }, uLeafSize: { value: params.leafSize }, uBase: { value: new Color('#4a4438') }, uRim: { value: new Color('#8fb8a8') }, uBud: { value: new Color('#e3d2a4') }, uLeaf: { value: new Color('#7fae7f') } }
   const tubeMaterial = new ShaderMaterial({ vertexShader: tubeVertex, fragmentShader: tubeFragment, uniforms, side: DoubleSide })
+  const leafMaterial = new ShaderMaterial({ vertexShader: leafVertex, fragmentShader: leafFragment, uniforms, side: DoubleSide })
+  const leafGeometry = buildLeafGeometry(DEFAULT_LEAF)
   const lineMaterial = new ShaderMaterial({ vertexShader: lineVertex, fragmentShader: lineFragment, uniforms, transparent: true, blending: AdditiveBlending, depthWrite: false })
   const budMaterial = new ShaderMaterial({ vertexShader: budVertex, fragmentShader: budFragment, uniforms, transparent: true, blending: AdditiveBlending, depthWrite: false })
 
@@ -123,25 +161,44 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
       lines.setAttribute('position', new BufferAttribute(tree.linePosition, 3))
       lines.setAttribute('depth', new BufferAttribute(tree.lineDepth, 1))
       grown.push(new LineSegments(lines, lineMaterial))
-      // buds: single points at tips for tubes/wires; the foliage look grows
-      // gaussian leaf masses at every canopy site along the outer branches
-      const budPos: number[] = []; const budDepth: number[] = []; const budPhase: number[] = []
-      const gauss = () => rand() + rand() - 1
-      const sites = currentLookIsFoliage() ? tree.leafSites : tree.tips
-      const cluster = currentLookIsFoliage() ? Math.round(next.leafDensity) : 1
-      for (const site of sites) {
-        for (let i = 0; i < cluster; i++) {
-          const jitter = cluster === 1 ? new Vector3() : new Vector3(gauss(), gauss() * 0.75, gauss()).multiplyScalar(next.leafSpread)
-          budPos.push(site.position.x + jitter.x, site.position.y + jitter.y, site.position.z + jitter.z)
-          budDepth.push(Math.min(1, site.depth + jitter.length() * 0.3))
-          budPhase.push(rand())
+      // foliage: crafted leaf cards instanced at every canopy site, oriented
+      // by the site's branch frame; tubes/wires keep single bud points at tips
+      if (currentLookIsFoliage()) {
+        const perSite = Math.max(1, Math.round(next.leafDensity / 12))
+        const count = tree.leafSites.length * perSite
+        const leaves = new InstancedMesh(leafGeometry, leafMaterial, count)
+        leaves.instanceMatrix.setUsage(DynamicDrawUsage)
+        const iDepth = new Float32Array(count)
+        const iPhase = new Float32Array(count)
+        const matrix = new Matrix4()
+        let n = 0
+        for (const site of tree.leafSites) {
+          for (let i = 0; i < perSite; i++) {
+            const spin = rand() * Math.PI * 2
+            const pitch = 0.35 + rand() * 0.75 // feather outward-and-along
+            const { xAxis, yAxis, zAxis } = leafBasis(site.tangent, site.normal, spin, pitch)
+            const seat = site.position.clone().add(yAxis.clone().multiplyScalar(site.radius * 0.8))
+            const scale = next.leafSize * (0.55 + rand() * 0.75) * (0.6 + 0.4 * site.depth)
+            matrix.makeBasis(xAxis.multiplyScalar(scale), yAxis.multiplyScalar(scale), zAxis.multiplyScalar(scale)).setPosition(seat)
+            leaves.setMatrixAt(n, matrix)
+            iDepth[n] = Math.min(1, site.depth + rand() * 0.08)
+            iPhase[n] = rand()
+            n++
+          }
         }
+        leaves.geometry = leafGeometry.clone()
+        leaves.geometry.setAttribute('iDepth', new InstancedBufferAttribute(iDepth, 1))
+        leaves.geometry.setAttribute('iPhase', new InstancedBufferAttribute(iPhase, 1))
+        grown.push(leaves)
+      } else {
+        const budPos: number[] = []; const budDepth: number[] = []; const budPhase: number[] = []
+        for (const tip of tree.tips) { budPos.push(tip.position.x, tip.position.y, tip.position.z); budDepth.push(tip.depth); budPhase.push(rand()) }
+        const buds = new BufferGeometry()
+        buds.setAttribute('position', new BufferAttribute(new Float32Array(budPos), 3))
+        buds.setAttribute('depth', new BufferAttribute(new Float32Array(budDepth), 1))
+        buds.setAttribute('phase', new BufferAttribute(new Float32Array(budPhase), 1))
+        grown.push(new Points(buds, budMaterial))
       }
-      const buds = new BufferGeometry()
-      buds.setAttribute('position', new BufferAttribute(new Float32Array(budPos), 3))
-      buds.setAttribute('depth', new BufferAttribute(new Float32Array(budDepth), 1))
-      buds.setAttribute('phase', new BufferAttribute(new Float32Array(budPhase), 1))
-      grown.push(new Points(buds, budMaterial))
     }
     for (const object of grown) scene.add(object)
     applyLook()

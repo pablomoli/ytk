@@ -111,8 +111,9 @@ export type TreeGeometry = {
   lineDepth: Float32Array
   // leaf tips (buds / future notes)
   tips: Array<{ position: Vector3; depth: number }>
-  // canopy sites: outer-branch spine samples where foliage accumulates
-  leafSites: Array<{ position: Vector3; depth: number }>
+  // canopy sites: outer-branch spine samples where foliage accumulates,
+  // each carrying its branch frame so instanced geometry can orient to the limb
+  leafSites: Array<{ position: Vector3; depth: number; tangent: Vector3; normal: Vector3; radius: number }>
 }
 
 export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeometry {
@@ -120,7 +121,7 @@ export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeom
   const ring = params.ringSegments
   const pos: number[] = []; const off: number[] = []; const dep: number[] = []; const idx: number[] = []
   const lpos: number[] = []; const ldep: number[] = []
-  const leafSites: Array<{ position: Vector3; depth: number }> = []
+  const leafSites: Array<{ position: Vector3; depth: number; tangent: Vector3; normal: Vector3; radius: number }> = []
   for (const chain of chains) {
     if (chain.points.length < 2) continue
     const curve = new CatmullRomCurve3(chain.points, false, 'centripetal')
@@ -168,9 +169,9 @@ export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeom
       }
       if (i > 0) { lpos.push(spine[i - 1].x, spine[i - 1].y, spine[i - 1].z, spine[i].x, spine[i].y, spine[i].z); ldep.push(depths[i - 1], depths[i]) }
       // canopy accumulates along the outer half of the tree, not just at tips
-      if (depths[i] > 0.55 && i % 2 === 0) leafSites.push({ position: spine[i].clone(), depth: depths[i] })
+      if (depths[i] > 0.55 && i % 2 === 0) leafSites.push({ position: spine[i].clone(), depth: depths[i], tangent: tangent.clone(), normal: normal.clone(), radius: radii[i] })
     }
   }
-  for (const tip of tips) leafSites.push({ position: tip.position, depth: tip.depth })
+  for (const tip of tips) leafSites.push({ position: tip.position, depth: tip.depth, tangent: new Vector3(0, 1, 0), normal: new Vector3(1, 0, 0), radius: 0.01 })
   return { position: new Float32Array(pos), roff: new Float32Array(off), depth: new Float32Array(dep), index: new Uint32Array(idx), linePosition: new Float32Array(lpos), lineDepth: new Float32Array(ldep), tips, leafSites }
 }
