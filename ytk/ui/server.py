@@ -599,7 +599,7 @@ def _spa_redirect(path: str = ""):
 
 # The SPA's client-side routes. Serving index.html only for these (rather
 # than a blanket fallback) keeps real 404s for junk paths and traversal noise.
-_SPA_ROUTES = {"", "inbox", "tags", "map", "settings"}
+_SPA_ROUTES = {"", "inbox", "tags", "map", "grove", "settings"}
 
 
 # Registered last on purpose: FastAPI matches routes in registration order,
