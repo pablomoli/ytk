@@ -33,6 +33,8 @@ const KNOBS: Array<{ key: keyof GroveParams; label: string; min: number; max: nu
   { key: 'upBias', label: 'up bias', min: 0, max: 1, step: 0.05 },
   { key: 'girth', label: 'girth', min: 0.02, max: 0.2, step: 0.01 },
   { key: 'girthDecay', label: 'taper', min: 0.6, max: 0.97, step: 0.01 },
+  { key: 'stiffness', label: 'stiffness', min: 0, max: 0.95, step: 0.05 },
+  { key: 'wind', label: 'wind', min: 0, max: 1, step: 0.05 },
   { key: 'ringSegments', label: 'ring verts', min: 4, max: 12, step: 1 },
   { key: 'growSeconds', label: 'grow time', min: 1, max: 15, step: 0.5 },
   { key: 'leafDensity', label: 'leaf density', min: 0, max: 120, step: 2 },

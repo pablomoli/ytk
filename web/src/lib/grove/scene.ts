@@ -5,7 +5,7 @@
 import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, Color, DoubleSide, DynamicDrawUsage, FogExp2, InstancedBufferAttribute, InstancedMesh, LineSegments, Matrix4, Mesh, MeshBasicMaterial, PerspectiveCamera, Points, Scene, ShaderMaterial, Vector3, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { buildLeafGeometry, DEFAULT_LEAF, leafBasis } from './leaf'
-import { buildTreeGeometry, generateTree, rng } from './tree'
+import { buildTreeGeometry, flattenTree, generateTree, rng } from './tree'
 import type { GroveParams } from './tree'
 
 export type GroveLook = 'tubes' | 'wires' | 'foliage'
@@ -13,13 +13,20 @@ export const LOOKS: GroveLook[] = ['tubes', 'wires', 'foliage']
 
 const RAMP = `float ramp(float p){ return .5 - .5*cos(clamp(p,0.,1.)*3.14159265); }`
 
+const WIND = `vec3 windSway(vec3 wp, float d, float t, float amp){
+  float ph = wp.x*1.3 + wp.z*2.1 + wp.y*.6;
+  float s = .55*sin(t*1.15 + ph) + .3*sin(t*2.4 + ph*1.7) + .15*sin(t*4.1 + ph*.9);
+  return vec3(s, .25*sin(t*.9 + ph*1.3), s*.7) * amp * d*d; }`
+
 const tubeVertex = `attribute vec3 roff; attribute float depth;
-uniform float uProgress;
+uniform float uProgress; uniform float uTime; uniform float uWind;
 varying float vDepth; varying float vGrow; varying vec3 vN; varying vec3 vView;
 ${RAMP}
+${WIND}
 void main(){
   float g = ramp(uProgress*1.35 - depth);
   vec3 p = position + roff*g;
+  p += windSway(position, depth, uTime, uWind*.09);
   vDepth = depth; vGrow = g;
   vec4 mv = modelViewMatrix*vec4(p,1.);
   vN = normalMatrix*normalize(roff + vec3(1e-5));
@@ -38,12 +45,14 @@ void main(){
   gl_FragColor = vec4(c, 1.); }`
 
 const lineVertex = `attribute float depth;
-uniform float uProgress;
+uniform float uProgress; uniform float uTime; uniform float uWind;
 varying float vDepth; varying float vGrow;
 ${RAMP}
+${WIND}
 void main(){
   vDepth = depth; vGrow = ramp(uProgress*1.35 - depth);
-  gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`
+  vec3 p = position + windSway(position, depth, uTime, uWind*.09);
+  gl_Position = projectionMatrix*modelViewMatrix*vec4(p,1.); }`
 
 const lineFragment = `precision highp float;
 uniform float uTime; uniform vec3 uRim;
@@ -54,9 +63,10 @@ void main(){
   gl_FragColor = vec4(uRim*a, a); }`
 
 const leafVertex = `attribute float iDepth; attribute float iPhase;
-uniform float uProgress; uniform float uTime;
+uniform float uProgress; uniform float uTime; uniform float uWind;
 varying vec3 vN; varying vec3 vView; varying float vPhase; varying float vAlong;
 ${RAMP}
+${WIND}
 void main(){
   float g = ramp(uProgress*1.35 - iDepth);
   // wind: stacked sines, tip moves more than base, no two leaves in step
@@ -65,12 +75,14 @@ void main(){
   vec3 p = position*g;
   p.x += sway; p.z += sway*.6;
   #ifdef USE_INSTANCING
-  vec4 world = modelViewMatrix*instanceMatrix*vec4(p,1.);
+  vec4 wp = instanceMatrix*vec4(p,1.);
   vN = normalMatrix*mat3(instanceMatrix)*normal;
   #else
-  vec4 world = modelViewMatrix*vec4(p,1.);
+  vec4 wp = vec4(p,1.);
   vN = normalMatrix*normal;
   #endif
+  wp.xyz += windSway(wp.xyz, iDepth, uTime, uWind*.09);
+  vec4 world = modelViewMatrix*wp;
   vView = -world.xyz;
   vPhase = iPhase;
   vAlong = along;
@@ -121,16 +133,19 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
   const controls = new OrbitControls(camera, canvas)
   controls.target.set(0, 1.4, 0)
   controls.enableDamping = true
-  controls.maxPolarAngle = Math.PI * 0.55
+  controls.maxPolarAngle = Math.PI * 0.72
 
-  const uniforms = { uProgress: { value: 0 }, uTime: { value: 0 }, uDpr: { value: Math.min(devicePixelRatio || 1, 2) }, uLeafSize: { value: params.leafSize }, uBase: { value: new Color('#4a4438') }, uRim: { value: new Color('#8fb8a8') }, uBud: { value: new Color('#e3d2a4') }, uLeaf: { value: new Color('#7fae7f') } }
-  const tubeMaterial = new ShaderMaterial({ vertexShader: tubeVertex, fragmentShader: tubeFragment, uniforms, side: DoubleSide })
-  const leafMaterial = new ShaderMaterial({ vertexShader: leafVertex, fragmentShader: leafFragment, uniforms, side: DoubleSide })
+  const uniforms = { uProgress: { value: 0 }, uTime: { value: 0 }, uDpr: { value: Math.min(devicePixelRatio || 1, 2) }, uLeafSize: { value: params.leafSize }, uWind: { value: params.wind }, uBase: { value: new Color('#4a4438') }, uRim: { value: new Color('#8fb8a8') }, uBud: { value: new Color('#e3d2a4') }, uLeaf: { value: new Color('#7fae7f') } }
+  // per-tree materials share the animated uniform objects (uProgress/uTime/
+  // uWind by reference) but carry their own tint - each tree will be a topic
+  const treeMaterials: ShaderMaterial[] = []
+  const tubeMaterialFor = (tint: Color) => { const m = new ShaderMaterial({ vertexShader: tubeVertex, fragmentShader: tubeFragment, uniforms: { ...uniforms, uBase: { value: tint.clone().multiplyScalar(0.55) }, uRim: { value: tint.clone() } }, side: DoubleSide }); treeMaterials.push(m); return m }
+  const leafMaterialFor = (tint: Color) => { const m = new ShaderMaterial({ vertexShader: leafVertex, fragmentShader: leafFragment, uniforms: { ...uniforms, uLeaf: { value: tint.clone() }, uBud: { value: tint.clone().offsetHSL(0.09, -0.05, 0.14) } }, side: DoubleSide }); treeMaterials.push(m); return m }
+  const lineMaterialFor = (tint: Color) => { const m = new ShaderMaterial({ vertexShader: lineVertex, fragmentShader: lineFragment, uniforms: { ...uniforms, uRim: { value: tint.clone() } }, transparent: true, blending: AdditiveBlending, depthWrite: false }); treeMaterials.push(m); return m }
   const leafGeometry = buildLeafGeometry(DEFAULT_LEAF)
-  const lineMaterial = new ShaderMaterial({ vertexShader: lineVertex, fragmentShader: lineFragment, uniforms, transparent: true, blending: AdditiveBlending, depthWrite: false })
   const budMaterial = new ShaderMaterial({ vertexShader: budVertex, fragmentShader: budFragment, uniforms, transparent: true, blending: AdditiveBlending, depthWrite: false })
 
-  const ground = new Mesh(new CircleGeometry(9, 48).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: new Color('#101012'), transparent: true, opacity: 0.55 }))
+  const ground = new Mesh(new CircleGeometry(9, 48).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: new Color('#101012'), transparent: true, opacity: 0.28 }))
   scene.add(ground)
 
   let grown: Array<Mesh | LineSegments | Points> = []
@@ -139,28 +154,45 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
   let growSeconds = params.growSeconds
   let lastParams = params
 
-  const clear = () => { for (const object of grown) { object.geometry.dispose(); scene.remove(object) } grown = [] }
+  const clear = () => { for (const object of grown) { object.geometry.dispose(); scene.remove(object) } grown = []; for (const m of treeMaterials) m.dispose(); treeMaterials.length = 0 }
 
   const plant = (next: GroveParams) => {
     clear()
     lastParams = next
     growSeconds = next.growSeconds
     uniforms.uLeafSize.value = next.leafSize
+    uniforms.uWind.value = next.wind
     const rand = rng(next.seed)
     const spread = Math.max(1, next.trees - 1) * next.reach * 0.75
     for (let t = 0; t < next.trees; t++) {
       const origin = new Vector3(next.trees === 1 ? 0 : -spread / 2 + (t / Math.max(1, next.trees - 1)) * spread, 0, next.trees === 1 ? 0 : (rand() - 0.5) * next.reach)
+      // each tree is (going to be) a topic: its own hue family across wood,
+      // rim, and leaves, spread around the wheel per tree index
+      const tint = new Color().setHSL((0.36 + t * 0.13) % 1, 0.34, 0.58)
+      const tubeGeo = (g: { position: Float32Array; roff: Float32Array; depth: Float32Array; index: Uint32Array }) => {
+        const tube = new BufferGeometry()
+        tube.setAttribute('position', new BufferAttribute(g.position, 3))
+        tube.setAttribute('roff', new BufferAttribute(g.roff, 3))
+        tube.setAttribute('depth', new BufferAttribute(g.depth, 1))
+        tube.setIndex(new BufferAttribute(g.index, 1))
+        return tube
+      }
+      const lineGeo = (g: { linePosition: Float32Array; lineDepth: Float32Array }) => {
+        const lines = new BufferGeometry()
+        lines.setAttribute('position', new BufferAttribute(g.linePosition, 3))
+        lines.setAttribute('depth', new BufferAttribute(g.lineDepth, 1))
+        return lines
+      }
       const tree = buildTreeGeometry(next, generateTree(next, rand, origin, Math.max(700, Math.floor(4400 / next.trees))))
-      const tube = new BufferGeometry()
-      tube.setAttribute('position', new BufferAttribute(tree.position, 3))
-      tube.setAttribute('roff', new BufferAttribute(tree.roff, 3))
-      tube.setAttribute('depth', new BufferAttribute(tree.depth, 1))
-      tube.setIndex(new BufferAttribute(tree.index, 1))
-      grown.push(new Mesh(tube, tubeMaterial))
-      const lines = new BufferGeometry()
-      lines.setAttribute('position', new BufferAttribute(tree.linePosition, 3))
-      lines.setAttribute('depth', new BufferAttribute(tree.lineDepth, 1))
-      grown.push(new LineSegments(lines, lineMaterial))
+      grown.push(new Mesh(tubeGeo(tree), tubeMaterialFor(tint)))
+      grown.push(new LineSegments(lineGeo(tree), lineMaterialFor(tint)))
+      // root system: the same organism grown the opposite way - shorter
+      // reach, inverted up bias, a touch gnarlier, darker wood
+      const rootParams = { ...next, reach: next.reach * 0.8, upBias: -0.45, initialChildren: Math.max(2, next.initialChildren), branchChance: Math.min(0.6, next.branchChance + 0.1), noise: next.noise * 1.25, stepScale: next.stepScale * 0.8, girth: next.girth * 1.1, stiffness: next.stiffness * 0.85 }
+      const roots = buildTreeGeometry(rootParams, flattenTree(generateTree(rootParams, rand, origin, Math.max(200, Math.floor(1200 / next.trees))), 0.4))
+      const rootTint = tint.clone().offsetHSL(-0.05, -0.18, -0.34)
+      grown.push(new Mesh(tubeGeo(roots), tubeMaterialFor(rootTint)))
+      grown.push(new LineSegments(lineGeo(roots), lineMaterialFor(rootTint)))
       // foliage: crafted leaf cards instanced at every canopy site, oriented
       // by the site's branch frame; tubes/wires keep single bud points at tips
       if (currentLookIsFoliage()) {
@@ -170,7 +202,7 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
         const stride = Math.max(1, Math.ceil((tree.leafSites.length * perSite) / Math.max(2500, 14_000 / next.trees)))
         const sites = tree.leafSites.filter((_, index) => index % stride === 0)
         const count = sites.length * perSite
-        const leaves = new InstancedMesh(leafGeometry, leafMaterial, count)
+        const leaves = new InstancedMesh(leafGeometry, leafMaterialFor(tint), count)
         leaves.instanceMatrix.setUsage(DynamicDrawUsage)
         const iDepth = new Float32Array(count)
         const iPhase = new Float32Array(count)
