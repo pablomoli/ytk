@@ -2,7 +2,7 @@
 // Three.js scene hosting the Ballot trees: fresnel-rimmed tube shader with the
 // clamped-cosine growth ramp (depth as phase) and a uTime pulse, plus the
 // wireframe and foliage looks over the same generated geometry.
-import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, Color, DoubleSide, DynamicDrawUsage, FogExp2, InstancedBufferAttribute, InstancedMesh, LineSegments, Matrix4, Mesh, MeshBasicMaterial, PerspectiveCamera, Points, Scene, ShaderMaterial, Vector3, WebGLRenderer } from 'three'
+import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, Color, DoubleSide, DynamicDrawUsage, FogExp2, InstancedBufferAttribute, InstancedMesh, LineSegments, Matrix4, Mesh, PerspectiveCamera, Points, Scene, ShaderMaterial, Vector3, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { buildLeafGeometry, DEFAULT_LEAF, leafBasis } from './leaf'
 import { buildTreeGeometry, flattenTree, generateTree, rng } from './tree'
@@ -145,7 +145,12 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
   const leafGeometry = buildLeafGeometry(DEFAULT_LEAF)
   const budMaterial = new ShaderMaterial({ vertexShader: budVertex, fragmentShader: budFragment, uniforms, transparent: true, blending: AdditiveBlending, depthWrite: false })
 
-  const ground = new Mesh(new CircleGeometry(9, 48).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: new Color('#101012'), transparent: true, opacity: 0.28 }))
+  const groundMaterial = new ShaderMaterial({
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv*2.-1.; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+    fragmentShader: 'precision highp float; varying vec2 vUv; void main(){ float r = length(vUv); float disc = smoothstep(1., .25, r); float rim = smoothstep(.02, .0, abs(r - .985))*.35; float a = disc*.16 + rim; gl_FragColor = vec4(vec3(.62,.66,.62)*a + vec3(.05,.055,.05)*disc*.3, a + disc*.12); }',
+    transparent: true, depthWrite: false, side: DoubleSide,
+  })
+  const ground = new Mesh(new CircleGeometry(9, 64).rotateX(-Math.PI / 2), groundMaterial)
   scene.add(ground)
 
   let grown: Array<Mesh | LineSegments | Points> = []
@@ -191,8 +196,10 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
       const rootParams = { ...next, reach: next.reach * 0.8, upBias: -0.45, initialChildren: Math.max(2, next.initialChildren), branchChance: Math.min(0.6, next.branchChance + 0.1), noise: next.noise * 1.25, stepScale: next.stepScale * 0.8, girth: next.girth * 1.1, stiffness: next.stiffness * 0.85 }
       const roots = buildTreeGeometry(rootParams, flattenTree(generateTree(rootParams, rand, origin, Math.max(200, Math.floor(1200 / next.trees))), 0.4))
       const rootTint = tint.clone().offsetHSL(-0.05, -0.18, -0.34)
-      grown.push(new Mesh(tubeGeo(roots), tubeMaterialFor(rootTint)))
-      grown.push(new LineSegments(lineGeo(roots), lineMaterialFor(rootTint)))
+      // roots are anchored: same shaders, but their wind uniform is pinned to 0
+      const still = (m: ShaderMaterial) => { m.uniforms.uWind = { value: 0 }; return m }
+      grown.push(new Mesh(tubeGeo(roots), still(tubeMaterialFor(rootTint))))
+      grown.push(new LineSegments(lineGeo(roots), still(lineMaterialFor(rootTint))))
       // foliage: crafted leaf cards instanced at every canopy site, oriented
       // by the site's branch frame; tubes/wires keep single bud points at tips
       if (currentLookIsFoliage()) {
@@ -271,6 +278,6 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
     regenerate: (next) => plant(next),
     setLook: (next) => { const rebuild = (next === 'foliage') !== currentLookIsFoliage(); currentLook = next; if (rebuild) plant({ ...lastParams, growSeconds: 0.5 }); else applyLook() },
     replay: () => { uniforms.uProgress.value = 0 },
-    destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); clear(); controls.dispose(); ground.geometry.dispose(); renderer.dispose() },
+    destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); clear(); controls.dispose(); ground.geometry.dispose(); groundMaterial.dispose(); renderer.dispose() },
   }
 }

@@ -26,6 +26,11 @@ export type GroveParams = {
   leafSize: number // point size multiplier for leaves
 }
 
+// Liked configuration snapshots from workshop sessions - survive localStorage.
+export const PRESETS: Record<string, GroveParams> = {
+  'bonsai-80163': { seed: 80163, trees: 1, initialChildren: 3, branchChance: 0.15, stepScale: 0.3, noise: 0.6, reach: 2.4, upBias: 0.75, girth: 0.09, girthDecay: 0.94, ringSegments: 12, stiffness: 0.6, wind: 0.65, growSeconds: 4, leafDensity: 24, leafSpread: 0.78, leafSize: 2.2 },
+}
+
 export const DEFAULT_PARAMS: GroveParams = { seed: 7, trees: 1, initialChildren: 1, branchChance: 0.5, stepScale: 0.32, noise: 0.16, reach: 4, upBias: 0.55, girth: 0.12, girthDecay: 0.92, ringSegments: 7, stiffness: 0.6, wind: 0.35, growSeconds: 5, leafDensity: 60, leafSpread: 0.4, leafSize: 2.2 }
 
 export type TreeNode = { position: Vector3; weight: number; pathLength: number; dir: Vector3; children: TreeNode[] }
@@ -99,14 +104,16 @@ export function generateTree(params: GroveParams, rand: () => number, origin: Ve
 // its parent branch node so tubes stay connected. Ballot's "segments".
 type Chain = { points: Vector3[]; weights: number[]; depths: number[]; tip: boolean }
 
-function decompose(root: TreeNode): { chains: Chain[]; tips: Array<{ position: Vector3; depth: number }> } {
+function decompose(root: TreeNode): { chains: Chain[]; tips: Array<{ position: Vector3; depth: number }>; knuckles: Array<{ position: Vector3; weight: number; depth: number }> } {
   let maxPath = 0
   const walkMax = (n: TreeNode) => { maxPath = Math.max(maxPath, n.pathLength); n.children.forEach(walkMax) }
   walkMax(root)
   const depthOf = (n: TreeNode) => (maxPath > 0 ? n.pathLength / maxPath : 0)
   const chains: Chain[] = []
   const tips: Array<{ position: Vector3; depth: number }> = []
+  const knuckles: Array<{ position: Vector3; weight: number; depth: number }> = []
   const walk = (start: TreeNode) => {
+    if (start.children.length > 1) knuckles.push({ position: start.position, weight: start.weight, depth: depthOf(start) })
     for (const first of start.children) {
       const points = [start.position]
       const weights = [start.weight]
@@ -123,7 +130,7 @@ function decompose(root: TreeNode): { chains: Chain[]; tips: Array<{ position: V
     }
   }
   walk(root)
-  return { chains, tips }
+  return { chains, tips, knuckles }
 }
 
 export type TreeGeometry = {
@@ -143,7 +150,7 @@ export type TreeGeometry = {
 }
 
 export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeometry {
-  const { chains, tips } = decompose(root)
+  const { chains, tips, knuckles } = decompose(root)
   const ring = params.ringSegments
   const pos: number[] = []; const off: number[] = []; const dep: number[] = []; const idx: number[] = []
   const lpos: number[] = []; const ldep: number[] = []
@@ -218,5 +225,31 @@ export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeom
     }
   }
   for (const tip of tips) leafSites.push({ position: tip.position, depth: tip.depth, tangent: new Vector3(0, 1, 0), normal: new Vector3(1, 0, 0), radius: 0.01 })
+  // knuckles: a small UV-sphere welded over every fork so parent and child
+  // tubes meet inside solid geometry instead of showing open seams
+  for (const k of knuckles) {
+    const r = Math.max(0.012, k.weight * params.girth * 1.18)
+    const lats = 4
+    const base = pos.length / 3
+    for (let li = 0; li <= lats; li++) {
+      const phi = -Math.PI / 2 + (li / lats) * Math.PI
+      const cy = Math.sin(phi) * r
+      const cr = Math.cos(phi) * r
+      for (let s2 = 0; s2 < ring; s2++) {
+        const a = (s2 / ring) * Math.PI * 2
+        pos.push(k.position.x, k.position.y, k.position.z)
+        off.push(Math.cos(a) * cr, cy, Math.sin(a) * cr)
+        dep.push(k.depth)
+      }
+      if (li > 0) {
+        const a0 = base + (li - 1) * ring
+        const b0 = base + li * ring
+        for (let s2 = 0; s2 < ring; s2++) {
+          const s3 = (s2 + 1) % ring
+          idx.push(a0 + s2, b0 + s2, b0 + s3, a0 + s2, b0 + s3, a0 + s3)
+        }
+      }
+    }
+  }
   return { position: new Float32Array(pos), roff: new Float32Array(off), depth: new Float32Array(dep), index: new Uint32Array(idx), linePosition: new Float32Array(lpos), lineDepth: new Float32Array(ldep), tips, leafSites }
 }
