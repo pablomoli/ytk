@@ -1,0 +1,72 @@
+{
+ "manifest_sha": "3231125aaa9be2b7ed552a70738121ef10a903cf276d289e0c69876341e05f08",
+ "partial": false,
+ "semantic_readback": {
+  "primary": {
+   "n": 3,
+   "correct": 3,
+   "mean_confidence": 4.67,
+   "median_rt_ms": 6403,
+   "binom_tail": 0.125
+  },
+  "secondary": {
+   "n": 6,
+   "correct": 4,
+   "mean_confidence": 3.33,
+   "median_rt_ms": 5736
+  },
+  "adjacency": {
+   "n": 3,
+   "correct": 3,
+   "mean_confidence": 4.33,
+   "median_rt_ms": 5374,
+   "binom_tail": 0.125
+  },
+  "payload": {
+   "n": 6,
+   "correct": 4,
+   "mean_confidence": 3.5,
+   "median_rt_ms": 7110
+  },
+  "per_bucket": {
+   "ai-building": {
+    "n": 3,
+    "correct": 3,
+    "mean_confidence": 4.33,
+    "median_rt_ms": 5374,
+    "band": "clear read",
+    "construct": "adjacency"
+   },
+   "epicmap": {
+    "n": 3,
+    "correct": 3,
+    "mean_confidence": 3.67,
+    "median_rt_ms": 7110,
+    "band": "clear read",
+    "construct": "payload"
+   },
+   "visual-craft": {
+    "n": 3,
+    "correct": 1,
+    "mean_confidence": 3.33,
+    "median_rt_ms": 6403,
+    "band": "no read",
+    "construct": "payload"
+   }
+  }
+ },
+ "topology_invariance": {
+  "n": 9,
+  "correct": 7,
+  "mean_confidence": 4.56,
+  "median_rt_ms": 18060,
+  "binom_tail": 0.0898
+ },
+ "identification_exploratory": {
+  "n": 6,
+  "correct": 6,
+  "mean_confidence": 4.5,
+  "median_rt_ms": 3704,
+  "binom_tail": 0.0014
+ }
+}
