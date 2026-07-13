@@ -177,8 +177,11 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
     const maxBucketNotes = Math.max(1, ...buckets.map((b) => b.n_notes))
     const ringRadius = buckets.length > 1 ? Math.max(2.4, Math.sqrt(treeCount) * next.reach * 0.42) : 0
     if (buckets.length) {
-      // frame the whole ring; the user can still orbit in from there
-      camera.position.set(0, ringRadius * 0.55 + 2.2, ringRadius * 1.55 + 6)
+      // frame the whole ring; the user can still orbit in from there.
+      // azimuth rotates the viewpoint around the vertical axis (E7 control)
+      const az = dataPayload?.azimuth ?? 0
+      const dist = ringRadius * 1.55 + 6
+      camera.position.set(Math.sin(az) * dist, ringRadius * 0.55 + 2.2, Math.cos(az) * dist)
       controls.target.set(0, 1.1, 0)
     }
     const spread = Math.max(1, treeCount - 1) * next.reach * 0.75

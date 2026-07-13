@@ -104,6 +104,40 @@ probabilities may be reported as conditional summaries only.
    cannot write into the repo); archived to `docs/grove-lab/` after the
    run completes.
 
+## Amendments after Codex v3 audit (still pre-exposure; blocking findings fixed)
+
+4. **Amendment 1 RETRACTED (Codex H5 rejection accepted).** A render seed
+   changes geometry, not the camera. Now separated: every stimulus carries
+   an explicit `camera_azimuth`; task-1 pairs share BOTH geometry seed and
+   azimuth (only structure differs); task-2 stimuli carry independent
+   geometry seeds (render invariance is the construct) with recorded
+   azimuths. Scene rotates the camera from the payload azimuth.
+5. **Truth isolation (H1):** public manifest carries opaque stimulus ids
+   (s00..sNN) and no role or answer information anywhere (tested by
+   serialization grep); answers + id map live in a private
+   `e7-answer-key.json` the trial pipeline never reads.
+6. **Block structure (H2/H6/H7):** practice, then each bucket's FIRST
+   task-1 exposure (randomized bucket order, marked `primary` — the only
+   uncontaminated semantic observations), then task-1 repeats (secondary,
+   learning-sensitive), then task 2, then exploratory identification
+   strictly last. Left/right balanced within task groups. All ordering
+   properties are unit-tested, not promised.
+7. **Response integrity (H3/H4):** server validates trial ids, per-trial
+   allowed choices, confidence 1-5, non-negative RT; idempotent by
+   manifest hash + trial (exact duplicate acknowledged, conflicting
+   duplicate rejected 409); GET returns completed trials for
+   server-backed resume. UI locks controls during submission, advances
+   only on confirmed persistence, offers retry on failure, and reveals
+   choices — and starts RT — only after every canvas reports planted and
+   the growth animation has finished.
+8. **visual-craft construct (H8):** each task-1 trial is marked
+   `adjacency` or `payload` by whether its control moved parent links.
+   Payload-construct trials are preregistered as payload-geometry
+   readback and reported separately from adjacency-construct trials;
+   they do not pool into the semantic-legibility claim.
+9. Manifest regenerated (seed 72) after these fixes; the prior manifest
+   was never run past practice, so naive-subject status is intact.
+
 ## Contamination rule
 
 Until the run completes: no rendered true-vs-control image may appear in
