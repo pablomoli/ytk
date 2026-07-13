@@ -86,6 +86,24 @@ probabilities may be reported as conditional summaries only.
   refuses to regenerate over an existing manifest without `--force`,
   which also voids the naive-subject status in the log.
 
+## Amendments (pre-exposure, before any scored stimulus was viewed)
+
+1. **Camera azimuth randomization is realized by per-stimulus render
+   seeds.** Fork azimuths in the generator are isotropic, so an
+   independent render seed is equivalent to rotating the camera; no scene
+   change needed. Recorded in the manifest's render note.
+2. **Second constrained-control move: payload permutation within depth.**
+   Within-level parent permutation is identity-locked on topologies where
+   a level's children all share one parent (true of visual-craft:
+   root -> 3 limbs -> 2 sub-branches under one limb). The control
+   therefore also permutes (mass, persistence) payloads within each depth
+   level — wire topology unchanged, every preregistered stratum preserved
+   exactly, joint mass-by-position signature (the semantic content)
+   broken. Implemented in `e7_manifest.shuffle_topology`, tested.
+3. **Response log location:** `~/.ytk/grove/e7-responses.jsonl` (the hub
+   cannot write into the repo); archived to `docs/grove-lab/` after the
+   run completes.
+
 ## Contamination rule
 
 Until the run completes: no rendered true-vs-control image may appear in

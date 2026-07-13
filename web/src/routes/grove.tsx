@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { HubControls } from '../components/HubControls'
 import { fetchGrovePayload } from '../lib/grove/datatree'
-import type { GrovePayload } from '../lib/grove/datatree'
+import type { GrovePayload, TopoNode } from '../lib/grove/datatree'
 import { DEFAULT_PARAMS } from '../lib/grove/tree'
 import type { GroveParams } from '../lib/grove/tree'
 import type { GroveHandle } from '../lib/grove/scene'
@@ -18,9 +18,18 @@ const loadParams = (): GroveParams => {
   try { return { ...DEFAULT_PARAMS, ...JSON.parse(localStorage.getItem(STORAGE) ?? '{}') } } catch { return DEFAULT_PARAMS }
 }
 
+type GroveSearch = { readback?: boolean }
+
 export const Route = createFileRoute('/grove')({
-  component: GrovePage,
+  validateSearch: (search: Record<string, unknown>): GroveSearch =>
+    search.readback ? { readback: true } : {},
+  component: GroveRoute,
 })
+
+function GroveRoute() {
+  const { readback } = Route.useSearch()
+  return readback ? <ReadbackPage /> : <GrovePage />
+}
 
 const KNOBS: Array<{ key: keyof GroveParams; label: string; min: number; max: number; step: number }> = [
   { key: 'trees', label: 'trees', min: 1, max: 5, step: 1 },
@@ -103,6 +112,122 @@ function GrovePage() {
             </label>
           ))}
         </aside>
+      ) : null}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// E7 readback (preregistered protocol, docs/grove-lab/e7-preregistration.md).
+// The manifest arrives with truth stripped; responses are appended raw and
+// correctness is never shown. Inline styles on purpose - trial UI, not product.
+// ---------------------------------------------------------------------------
+
+type E7Stimulus = { id: string; nodes: TopoNode[]; n_notes: number; render_seed: number }
+type E7Trial = {
+  trial: string; task: string; prompt: string; bucket: string | null
+  left?: string; right?: string; anchor?: string; single?: string; options?: string[]
+}
+type E7Manifest = { sha256: string; stimuli: E7Stimulus[]; trials: E7Trial[] }
+
+function StimulusCanvas({ stim, height }: { stim: E7Stimulus; height: string }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    let handle: GroveHandle | undefined
+    let alive = true
+    import('../lib/grove/scene').then((mod) => {
+      if (!alive || !ref.current) return
+      // fixed neutral preset; render_seed doubles as azimuth randomization.
+      // single-bucket payloads are scale-normalized + identically tinted by
+      // construction (preregistration amendment 1)
+      handle = mod.mountGrove(ref.current, { ...DEFAULT_PARAMS, seed: stim.render_seed, growSeconds: 0.8, wind: 0.2 }, 'foliage')
+      handle.setData({ version: 1, buckets: [{ bucket: stim.id, n_notes: stim.n_notes, nodes: stim.nodes }] })
+    })
+    return () => { alive = false; handle?.destroy() }
+  }, [stim.id])
+  return <canvas ref={ref} style={{ width: '100%', height, display: 'block', borderRadius: 8, background: '#0a0a0c' }} />
+}
+
+const chip: React.CSSProperties = { padding: '10px 22px', borderRadius: 20, border: '1px solid #4a4438', background: '#1a1a19', color: '#e2b04a', cursor: 'pointer', fontSize: 15 }
+
+function ReadbackPage() {
+  const [manifest, setManifest] = useState<E7Manifest | null>(null)
+  const [error, setError] = useState('')
+  const [index, setIndex] = useState(0)
+  const [choice, setChoice] = useState<string | null>(null)
+  const shownAt = useRef(0)
+  const rt = useRef(0)
+
+  useEffect(() => {
+    fetch('/api/grove/e7')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
+      .then(setManifest)
+      .catch(() => setError('no manifest - run scripts.grove_lab.e7_manifest first'))
+  }, [])
+  useEffect(() => { shownAt.current = performance.now(); setChoice(null) }, [index])
+
+  if (error) return <div style={{ padding: 40, color: '#c3c2b7' }}>{error}</div>
+  if (!manifest) return <div style={{ padding: 40, color: '#c3c2b7' }}>loading manifest...</div>
+  if (index >= manifest.trials.length) {
+    return <div style={{ padding: 40, color: '#c3c2b7', fontSize: 18 }}>
+      done - {manifest.trials.length} trials logged. thank you, subject.
+    </div>
+  }
+
+  const trial = manifest.trials[index]
+  const stim = (id?: string) => manifest.stimuli.find((s) => s.id === id)!
+  const pick = (c: string) => { rt.current = Math.round(performance.now() - shownAt.current); setChoice(c) }
+  const submit = (confidence: number) => {
+    fetch('/api/grove/e7/response', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trial: trial.trial, choice: choice, confidence, rt_ms: rt.current }),
+    }).finally(() => setIndex((i) => i + 1))
+  }
+  const isPair = trial.task !== 'identification-exploratory'
+  const twoHigh = trial.task === 'topology-invariance' ? '34vh' : '56vh'
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#0a0a0c', padding: '18px 26px', fontFamily: 'inherit' }}>
+      <div style={{ color: '#c3c2b7', marginBottom: 12, fontSize: 15 }}>
+        trial {index + 1} / {manifest.trials.length}
+        {trial.task === 'practice' ? ' - practice (not scored)' : ''} &middot; {trial.prompt}
+      </div>
+      {trial.anchor ? (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ color: '#52514e', fontSize: 12, marginBottom: 4 }}>anchor</div>
+          <StimulusCanvas stim={stim(trial.anchor)} height="30vh" />
+        </div>
+      ) : null}
+      {isPair ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          {(['left', 'right'] as const).map((side) => (
+            <div key={`${trial.trial}-${side}`}>
+              <StimulusCanvas stim={stim(trial[side])} height={twoHigh} />
+              {choice === null ? (
+                <button style={{ ...chip, marginTop: 10, width: '100%' }} onClick={() => pick(side)}>{side}</button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div>
+          <StimulusCanvas stim={stim(trial.single)} height="52vh" />
+          {choice === null ? (
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              {trial.options?.map((o) => (
+                <button key={o} style={chip} onClick={() => pick(o)}>{o}</button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      )}
+      {choice !== null ? (
+        <div style={{ marginTop: 16 }}>
+          <span style={{ color: '#c3c2b7', marginRight: 12 }}>confidence:</span>
+          {[1, 2, 3, 4, 5].map((c) => (
+            <button key={c} style={{ ...chip, marginRight: 8 }} onClick={() => submit(c)}>{c}</button>
+          ))}
+        </div>
       ) : null}
     </div>
   )

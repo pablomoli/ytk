@@ -583,6 +583,39 @@ async def grove_topology_api():
     return {"version": 1, "buckets": buckets}
 
 
+class E7Response(BaseModel):
+    trial: str
+    choice: str
+    confidence: int
+    rt_ms: int
+
+
+@app.get("/api/grove/e7")
+async def grove_e7_manifest():
+    """The E7 readback manifest with per-trial truth stripped — the subject
+    must never receive correctness (preregistration contract)."""
+    path = _GROVE_DIR / "e7-manifest.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="no E7 manifest; run scripts.grove_lab.e7_manifest")
+    manifest = json.loads(path.read_text())
+    manifest["trials"] = [
+        {k: v for k, v in t.items() if k != "answer"} for t in manifest["trials"]
+    ]
+    return manifest
+
+
+@app.post("/api/grove/e7/response")
+async def grove_e7_response(resp: E7Response):
+    """Append-only raw response log; correctness never computed here."""
+    from datetime import datetime, timezone
+
+    path = _GROVE_DIR / "e7-responses.jsonl"
+    row = {**resp.model_dump(), "ts": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    with path.open("a") as f:
+        f.write(json.dumps(row) + "\n")
+    return {"logged": True}
+
+
 @app.get("/api/map")
 async def map_data_api():
     map_path = Path.home() / ".ytk" / "map.json"

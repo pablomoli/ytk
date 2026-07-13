@@ -931,3 +931,40 @@ def test_grove_api_404_when_no_snapshots(client, tmp_path, monkeypatch):
 
     monkeypatch.setattr(server, "_GROVE_DIR", tmp_path / "empty")
     assert client.get("/api/grove").status_code == 404
+
+
+def test_e7_api_strips_answers_and_appends_responses(client, tmp_path, monkeypatch):
+    import json
+
+    import ytk.ui.server as server
+
+    grove = tmp_path / "grove"
+    grove.mkdir()
+    manifest = {
+        "version": 1, "sha256": "abc", "analysis_version": "e7-prereg-1",
+        "stimuli": [{"id": "s1", "nodes": [], "n_notes": 5, "render_seed": 7}],
+        "trials": [
+            {"trial": "T1-x-0", "task": "semantic-readback", "bucket": "x",
+             "left": "s1", "right": "s1", "answer": "left", "prompt": "?"},
+        ],
+    }
+    (grove / "e7-manifest.json").write_text(json.dumps(manifest))
+    monkeypatch.setattr(server, "_GROVE_DIR", grove)
+
+    r = client.get("/api/grove/e7")
+    assert r.status_code == 200
+    data = r.json()
+    # the subject must never receive correctness
+    assert all("answer" not in t for t in data["trials"])
+    assert data["sha256"] == "abc"
+
+    resp = client.post("/api/grove/e7/response", json={
+        "trial": "T1-x-0", "choice": "left", "confidence": 4, "rt_ms": 2100,
+    })
+    assert resp.status_code == 200
+    log = (grove / "e7-responses.jsonl").read_text().strip().splitlines()
+    assert len(log) == 1
+    row = json.loads(log[0])
+    assert row["trial"] == "T1-x-0" and row["choice"] == "left"
+    # responses are append-only, correctness never echoed
+    assert "correct" not in resp.json() and "answer" not in resp.json()
