@@ -13,7 +13,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
@@ -586,32 +586,56 @@ async def grove_topology_api():
 class E7Response(BaseModel):
     trial: str
     choice: str
-    confidence: int
-    rt_ms: int
+    confidence: int = Field(ge=1, le=5)
+    rt_ms: int = Field(ge=0)
+
+
+def _e7_manifest() -> dict:
+    path = _GROVE_DIR / "e7-manifest.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="no E7 manifest; run scripts.grove_lab.e7_manifest")
+    return json.loads(path.read_text())
+
+
+def _e7_log(sha: str) -> list[dict]:
+    path = _GROVE_DIR / "e7-responses.jsonl"
+    if not path.exists():
+        return []
+    rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    return [r for r in rows if r.get("manifest_sha") == sha]
 
 
 @app.get("/api/grove/e7")
 async def grove_e7_manifest():
-    """The E7 readback manifest with per-trial truth stripped — the subject
-    must never receive correctness (preregistration contract)."""
-    path = _GROVE_DIR / "e7-manifest.json"
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="no E7 manifest; run scripts.grove_lab.e7_manifest")
-    manifest = json.loads(path.read_text())
-    manifest["trials"] = [
-        {k: v for k, v in t.items() if k != "answer"} for t in manifest["trials"]
-    ]
+    """The public E7 manifest (truth lives only in the private answer key,
+    never in this file) plus completed trial ids for safe resume."""
+    manifest = _e7_manifest()
+    manifest["completed"] = [r["trial"] for r in _e7_log(manifest["sha256"])]
     return manifest
 
 
 @app.post("/api/grove/e7/response")
 async def grove_e7_response(resp: E7Response):
-    """Append-only raw response log; correctness never computed here."""
+    """Validated, idempotent, append-only. Correctness is never computed
+    here — the answer key is not readable by this process's code path."""
     from datetime import datetime, timezone
 
-    path = _GROVE_DIR / "e7-responses.jsonl"
-    row = {**resp.model_dump(), "ts": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    with path.open("a") as f:
+    manifest = _e7_manifest()
+    trial = next((t for t in manifest["trials"] if t["trial"] == resp.trial), None)
+    if trial is None:
+        raise HTTPException(status_code=404, detail="unknown trial")
+    allowed = trial["options"] if trial.get("options") else ["left", "right"]
+    if resp.choice not in allowed:
+        raise HTTPException(status_code=400, detail=f"choice must be one of {allowed}")
+    prior = [r for r in _e7_log(manifest["sha256"]) if r["trial"] == resp.trial]
+    if prior:
+        same = prior[0]["choice"] == resp.choice and prior[0]["confidence"] == resp.confidence
+        if same:
+            return {"logged": True, "duplicate": True}
+        raise HTTPException(status_code=409, detail="conflicting duplicate for this trial")
+    row = {**resp.model_dump(), "manifest_sha": manifest["sha256"],
+           "ts": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    with (_GROVE_DIR / "e7-responses.jsonl").open("a") as f:
         f.write(json.dumps(row) + "\n")
     return {"logged": True}
 

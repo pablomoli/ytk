@@ -16,7 +16,13 @@ export type BucketTopology = {
   stability?: { kind: string; ari: number | null } | null
   nodes: TopoNode[]
 }
-export type GrovePayload = { version: number; buckets: BucketTopology[] }
+export type GrovePayload = {
+  version: number
+  buckets: BucketTopology[]
+  // explicit camera azimuth (radians) around the vertical axis; E7 records
+  // it per stimulus so view angle is a controlled variable, not a nuisance
+  azimuth?: number
+}
 
 const randomUnit = (rand: () => number): Vector3 => { const z = rand() * 2 - 1; const a = rand() * Math.PI * 2; const r = Math.sqrt(1 - z * z); return new Vector3(r * Math.cos(a), z, r * Math.sin(a)) }
 
