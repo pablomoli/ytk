@@ -1,0 +1,85 @@
+{
+ "embedding_model": "thenlper/gte-small",
+ "dedupe_reconciliation": {
+  "chroma_rows_after_part_skip": 4618,
+  "identity_rule": "url | source_path | title (first occurrence wins; empty keys never collapse)",
+  "keys_with_2plus_rows": 168,
+  "rows_removed": 169,
+  "unique_notes": 4449
+ },
+ "total_notes": 4449,
+ "matched": 2644,
+ "overlap_notes_matching_2plus_buckets": 0,
+ "per_bucket": {
+  "epicmap": {
+   "n": 2065,
+   "within_sim": 0.93,
+   "nearest_other": "visual-craft",
+   "nearest_other_sim": 0.9,
+   "separation": 0.03
+  },
+  "ai-building": {
+   "n": 427,
+   "within_sim": 0.901,
+   "nearest_other": "visual-craft",
+   "nearest_other_sim": 0.881,
+   "separation": 0.02
+  },
+  "youtube-channel": {
+   "n": 23,
+   "within_sim": 0.924,
+   "nearest_other": "mind-systems",
+   "nearest_other_sim": 0.888,
+   "separation": 0.036
+  },
+  "visual-craft": {
+   "n": 86,
+   "within_sim": 0.915,
+   "nearest_other": "ai-building",
+   "nearest_other_sim": 0.894,
+   "separation": 0.021
+  },
+  "playful-tools": {
+   "n": 9,
+   "within_sim": 0.926,
+   "nearest_other": "ai-building",
+   "nearest_other_sim": 0.882,
+   "separation": 0.043
+  },
+  "mind-systems": {
+   "n": 13,
+   "within_sim": 0.919,
+   "nearest_other": "youtube-channel",
+   "nearest_other_sim": 0.883,
+   "separation": 0.035
+  },
+  "combat-sports": {
+   "n": 12,
+   "within_sim": 0.92,
+   "nearest_other": "mind-systems",
+   "nearest_other_sim": 0.87,
+   "separation": 0.049
+  },
+  "eating": {
+   "n": 4,
+   "within_sim": 0.935,
+   "nearest_other": "mind-systems",
+   "nearest_other_sim": 0.857,
+   "separation": 0.078
+  },
+  "film": {
+   "n": 3,
+   "within_sim": 0.931,
+   "nearest_other": "mind-systems",
+   "nearest_other_sim": 0.845,
+   "separation": 0.085
+  },
+  "adhd": {
+   "n": 2,
+   "within_sim": 0.98,
+   "nearest_other": "mind-systems",
+   "nearest_other_sim": 0.872,
+   "separation": 0.108
+  }
+ }
+}
