@@ -32,14 +32,29 @@ def hub(tmp_path, monkeypatch):
     (brain / "sources" / "instagram" / "cover.jpg").write_bytes(b"jpg")
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: brain)
     monkeypatch.setattr(hub_mod, "STATE_PATH", tmp_path / "state.json")
+    monkeypatch.setattr(hub_mod, "JOB_PATH", tmp_path / "ingest-job.json")
     monkeypatch.setattr(hub_mod, "PACING_SECONDS", 0.0)
     monkeypatch.setattr(hub_mod, "REINDEX", lambda: 0)
     # reset job state between tests
     hub_mod._JOB.update(running=False, total=0, done=0, current=None,
-                        queued=[], failures=[], annotated=0, linked=[])
+                        current_started=None, queued=[], failures=[],
+                        annotated=0, linked=[])
     hub_mod._QUEUE.clear()
+    hub_mod._ATTEMPTS.clear()
     hub_mod.brain = brain
     return hub_mod
+
+
+def _simulate_restart(hub_mod):
+    """Drop every scrap of in-memory job state, as a killed hub process would.
+
+    The queue file on disk is all a fresh process inherits.
+    """
+    hub_mod._QUEUE.clear()
+    hub_mod._ATTEMPTS.clear()
+    hub_mod._JOB.update(running=False, total=0, done=0, current=None,
+                        current_started=None, queued=[], failures=[],
+                        annotated=0, linked=[])
 
 
 def _wait_done(hub_mod, timeout=5.0):
@@ -49,6 +64,15 @@ def _wait_done(hub_mod, timeout=5.0):
             return hub_mod.job_status()
         time.sleep(0.02)
     raise TimeoutError("ingest job never finished")
+
+
+def _wait_current(hub_mod, url, timeout=5.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if hub_mod.job_status()["current"] == url:
+            return hub_mod.job_status()
+        time.sleep(0.02)
+    raise TimeoutError(f"{url} never went in flight")
 
 
 def test_queue_add_classifies_dedupes_persists(hub):
@@ -129,6 +153,91 @@ def test_ingest_rejects_bad_urls_and_appends_while_running(hub):
     gate.set()
     status = _wait_done(hub)
     assert status["done"] == 2
+
+
+def test_inflight_item_stays_on_the_persisted_queue(hub):
+    """The item being worked stays on disk for the whole ~2 minutes it takes, so
+    a hub killed mid-video (uv reinstall, launchd restart) can resume it."""
+    import threading
+
+    urls = ["https://youtu.be/one", "https://youtu.be/two"]
+    hub.queue_add(urls)
+    gate = threading.Event()
+
+    def slow(u, note=""):
+        gate.wait(timeout=5)
+
+    hub.INGEST = slow
+    hub.start_ingest(urls, tags=["learning"], thought="watch later")
+    _wait_current(hub, urls[0])
+
+    entries = hub._load_persisted()
+    assert [e["url"] for e in entries] == urls, "in-flight item is still on disk"
+    assert entries[0]["tags"] == ["learning"]
+    assert entries[0]["thought"] == "watch later"
+    assert entries[0]["attempts"] == 1
+
+    gate.set()
+    _wait_done(hub)
+    assert hub._load_persisted() == [], "a drained queue leaves nothing behind"
+
+
+def test_restart_mid_batch_resumes_the_unfinished_items(hub):
+    """A hub killed mid-batch must not silently drop the rest of the queue."""
+    urls = [f"https://youtu.be/{k}" for k in ("one", "two", "three")]
+    hub.queue_add(urls)
+    hub.INGEST = lambda u, note="": None
+    hub.start_ingest(urls[:1], tags=[], thought="")  # the first one got through
+    _wait_done(hub)
+
+    # the file the killed process left behind: two videos still owed
+    hub._write_persisted([
+        {"url": u, "tags": ["learning"], "thought": "watch later", "attempts": 1}
+        for u in urls[1:]
+    ])
+    _simulate_restart(hub)
+    assert hub.job_status()["running"] is False
+
+    ingested: list[str] = []
+    hub.INGEST = lambda u, note="": ingested.append(u)
+
+    assert hub.resume_ingest() == 2, "the two unfinished videos come back"
+    status = _wait_done(hub)
+    assert status["done"] == 2
+    assert ingested == urls[1:], "each resumed video ingests exactly once"
+    assert hub.queue_items() == []
+    assert hub._load_persisted() == []
+
+
+def test_resume_skips_items_that_already_landed(hub):
+    """An item removed from pending made it into the vault before the restart."""
+    urls = ["https://youtu.be/a", "https://youtu.be/b"]
+    hub.queue_add(urls)
+    hub.INGEST = lambda u, note="": None
+    hub.start_ingest(urls, tags=[], thought="")
+    _wait_done(hub)
+
+    _simulate_restart(hub)
+    assert hub.resume_ingest() == 0
+
+
+def test_resume_abandons_an_item_that_keeps_killing_the_hub(hub):
+    """A poison-pill video must not crash-loop forever against launchd KeepAlive."""
+    url = "https://youtu.be/poison"
+    hub.queue_add([url])
+    hub.INGEST = lambda u, note="": None
+
+    hub.start_ingest([url], tags=[], thought="")
+    _wait_done(hub)
+    # rewrite the file as if the hub had died on this item MAX_ATTEMPTS times
+    hub._write_persisted([
+        {"url": url, "tags": [], "thought": "", "attempts": hub.MAX_ATTEMPTS}
+    ])
+    _simulate_restart(hub)
+    hub.queue_add([url])
+
+    assert hub.resume_ingest() == 0
+    assert hub._load_persisted() == []
 
 
 def test_fresh_notes_lists_recent_with_thumbnails(hub):

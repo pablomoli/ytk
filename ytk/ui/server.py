@@ -23,6 +23,13 @@ from contextlib import asynccontextmanager
 async def _lifespan(app: "FastAPI"):
     from ytk.ui import hub
 
+    # Pick a batch back up before anything else: the hub is killed and restarted
+    # whenever its uv-installed package is reinstalled under it, and the queue
+    # lives in memory, so an interrupted ingest would otherwise vanish silently.
+    revived = hub.resume_ingest()
+    if revived:
+        print(f"resumed {revived} interrupted ingest item(s)")
+
     # Watch chat.db so self-notes land within seconds, and preload the search
     # model so the first real search doesn't eat the cold-start lag.
     hub.start_imessage_watcher()

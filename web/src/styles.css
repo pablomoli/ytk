@@ -208,10 +208,61 @@ body {
   color: #888;
   font-size: 0.82rem;
   min-height: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .progress.running {
   color: #e2b04a;
+}
+
+.progress-line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ingest-spinner {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid rgba(226, 176, 74, 0.25);
+  border-top-color: #e2b04a;
+  animation: ingest-spin 0.7s linear infinite;
+}
+
+@keyframes ingest-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The title can be a full video name; keep the rail from stretching. */
+.progress-current {
+  color: #bbb;
+  font-size: 0.78rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-hint {
+  color: #666;
+  font-size: 0.72rem;
+}
+
+.progress-failed {
+  color: #d08a7a;
+  font-size: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ingest-spinner {
+    animation: none;
+  }
 }
 
 .sentinel {
