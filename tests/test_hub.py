@@ -890,3 +890,44 @@ def test_api_delete_note(client, hub, spy_store):
 def test_api_delete_note_outside_vault_400(client, hub, spy_store):
     r = client.post("/api/note/delete", json={"path": "../../etc/passwd"})
     assert r.status_code == 400
+
+
+def test_grove_api_aggregates_snapshots_without_attach_machinery(client, tmp_path, monkeypatch):
+    import json
+
+    import ytk.ui.server as server
+
+    snap = {
+        "version": 1, "bucket": "visual-craft", "embedding_model": "thenlper/gte-small",
+        "built": "2026-07-12T20:45:00+00:00", "n_notes": 86,
+        "params": {"kind": "linkage", "method": "average-cosine", "k_main": 3},
+        "stability": {"kind": "temporal", "ari": 0.813, "span_days": 337},
+        "nodes": [
+            {"id": 0, "parent": -1, "mass": 86, "persistence": 0.1,
+             "centroid": [0.0] * 384, "exemplars": ["a title"]},
+        ],
+        "members": {"some/note.md": 0},
+    }
+    grove = tmp_path / "grove"
+    grove.mkdir()
+    (grove / "visual-craft.tree.json").write_text(json.dumps(snap))
+    monkeypatch.setattr(server, "_GROVE_DIR", grove)
+
+    r = client.get("/api/grove")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["buckets"]) == 1
+    b = data["buckets"][0]
+    assert b["bucket"] == "visual-craft"
+    assert b["stability"]["ari"] == 0.813
+    # attach-time machinery stays server-side
+    assert "members" not in b
+    assert "centroid" not in b["nodes"][0]
+    assert b["nodes"][0]["exemplars"] == ["a title"]
+
+
+def test_grove_api_404_when_no_snapshots(client, tmp_path, monkeypatch):
+    import ytk.ui.server as server
+
+    monkeypatch.setattr(server, "_GROVE_DIR", tmp_path / "empty")
+    assert client.get("/api/grove").status_code == 404

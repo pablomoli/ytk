@@ -7,6 +7,7 @@ reader endpoints.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -545,6 +546,41 @@ async def settings_put(request: Request):
         cfg.hub.host != before.hub.host or cfg.hub.port != before.hub.port
     )
     return {"saved": True, "restart_required": restart_required}
+
+
+_GROVE_DIR = Path.home() / ".ytk" / "grove"
+
+
+@app.get("/api/grove")
+async def grove_topology_api():
+    """Per-bucket tree topology snapshots for the grove's data-native mode.
+
+    Serves render data only: centroids and member maps are attach-time
+    machinery (scripts/grove_lab/dendro.py) and stay server-side.
+    """
+    snaps = sorted(_GROVE_DIR.glob("*.tree.json")) if _GROVE_DIR.exists() else []
+    if not snaps:
+        raise HTTPException(
+            status_code=404,
+            detail="No grove topology built yet — run: "
+                   "uv run --extra dev python -m scripts.grove_lab.dendro",
+        )
+    buckets = []
+    for p in snaps:
+        snap = json.loads(p.read_text())
+        buckets.append({
+            "bucket": snap["bucket"],
+            "n_notes": snap["n_notes"],
+            "built": snap.get("built"),
+            "embedding_model": snap.get("embedding_model"),
+            "params": snap.get("params"),
+            "stability": snap.get("stability"),
+            "nodes": [
+                {k: v for k, v in n.items() if k != "centroid"}
+                for n in snap["nodes"]
+            ],
+        })
+    return {"version": 1, "buckets": buckets}
 
 
 @app.get("/api/map")
