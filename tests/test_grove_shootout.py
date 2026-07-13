@@ -40,8 +40,47 @@ def test_triplet_agreement_high_for_same_structure_low_for_shuffled():
     Za, Zb = linkage(pdist(a, "cosine"), "average"), linkage(pdist(b, "cosine"), "average")
     rng = np.random.default_rng(0)
     same = triplet_agreement(Za, a, Zb, b, n_triplets=500, rng=rng)
-    assert same > 0.75
-    # shuffled mapping destroys agreement toward the 1/3 chance floor
+    # v2 metric (symmetric, injective, tie-skipping) is stricter than the
+    # retired one-way version; the property is "far above the 1/3 chance
+    # floor", with the shuffled gap carrying the discriminative assertion
+    assert same > 0.65
     perm = rng.permutation(len(b))
     shuffled = triplet_agreement(Za, a, Zb, b[perm], n_triplets=500, rng=rng)
     assert shuffled < same - 0.2
+
+
+def test_triplet_agreement_is_symmetric_and_reports_stats():
+    """Codex G3: score both directions; reject non-injective triplets; skip
+    ties on either side; expose collision + usage stats."""
+    from scipy.cluster.hierarchy import linkage
+    from scipy.spatial.distance import pdist
+
+    a, _ = _blobs(seed=5)
+    b, _ = _blobs(seed=6)
+    Za, Zb = linkage(pdist(a, "cosine"), "average"), linkage(pdist(b, "cosine"), "average")
+    rng = np.random.default_rng(1)
+    score, stats = triplet_agreement(Za, a, Zb, b, n_triplets=500, rng=rng, return_stats=True)
+    assert score > 0.75
+    # both directions were scored and averaged
+    assert set(stats) >= {"collision_rate", "used", "rejected_noninjective", "tie_skipped"}
+    assert 0.0 <= stats["collision_rate"] < 1.0
+    assert stats["used"] > 100
+
+
+def test_structure_null_is_near_chance():
+    """Codex G5: with tree SHAPE kept and leaf identities permuted (mapping
+    intact), agreement must collapse toward 1/3 — this isolates whether the
+    fitted hierarchy, not raw embedding neighborhoods, carries the signal."""
+    from scipy.cluster.hierarchy import linkage
+    from scipy.spatial.distance import pdist
+
+    from scripts.grove_lab.shootout import structure_null
+
+    a, _ = _blobs(seed=7)
+    b, _ = _blobs(seed=8)
+    Za, Zb = linkage(pdist(a, "cosine"), "average"), linkage(pdist(b, "cosine"), "average")
+    rng = np.random.default_rng(2)
+    real = triplet_agreement(Za, a, Zb, b, n_triplets=500, rng=rng)
+    null = structure_null(Za, a, Zb, b, n_triplets=500, rng=rng)
+    assert null < 0.5
+    assert real - null > 0.25

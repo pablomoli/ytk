@@ -32,7 +32,9 @@ SEEDS = 20
 TRIPLET_SEEDS = 10
 KNN = 5
 
-OUT = Path(__file__).resolve().parents[2] / "docs" / "grove-lab" / "shootout-v2.json"
+# v3: triplet metric repaired per Codex v2 review (G3 symmetric/injective/
+# tie-skipping, G5 structure null, G7 HDBSCAN single-linkage-tree gate)
+OUT = Path(__file__).resolve().parents[2] / "docs" / "grove-lab" / "shootout-v3.json"
 
 
 def _unit(m: np.ndarray) -> np.ndarray:
@@ -56,29 +58,80 @@ def knn_transfer(src: np.ndarray, src_labels: np.ndarray, dst: np.ndarray, k: in
     return out
 
 
-def triplet_agreement(Za, va, Zb, vb, n_triplets: int = 2000, rng=None) -> float:
-    """Hierarchy-aware cross-half agreement. B's points are mapped to their
-    nearest A point; for random triplets of B, do both dendrograms pick the
-    same cophenetically-closest pair? Chance floor is 1/3."""
+def _cophenetic(Z) -> np.ndarray:
     from scipy.cluster.hierarchy import cophenet
     from scipy.spatial.distance import squareform
 
-    rng = rng if rng is not None else np.random.default_rng(0)
-    Ca = squareform(cophenet(Za))
-    Cb = squareform(cophenet(Zb))
-    reps = np.argmax(_unit(vb) @ _unit(va).T, axis=1)
-    n = len(vb)
-    hits = total = 0
+    return squareform(cophenet(Z))
+
+
+def _oneway_triplets(C_src, C_dst, reps, n_dst, n_triplets, rng):
+    """Directional triplet agreement: dst's own tree (C_dst) vs the src
+    tree's opinion via mapped representatives. Codex G3 rules: triplets
+    whose three representatives are not distinct are rejected; closest-pair
+    ties on EITHER side are skipped, never resolved by pair order."""
+    hits = total = rejected = ties = 0
     for _ in range(n_triplets):
-        i, j, k = rng.choice(n, 3, replace=False)
-        pairs = ((i, j), (i, k), (j, k))
-        db = [Cb[p, q] for p, q in pairs]
-        if len(set(db)) < 2:
+        i, j, k = rng.choice(n_dst, 3, replace=False)
+        r = (reps[i], reps[j], reps[k])
+        if len(set(r)) < 3:
+            rejected += 1
             continue
-        da = [Ca[reps[p], reps[q]] for p, q in pairs]
+        pairs = ((i, j), (i, k), (j, k))
+        db = [C_dst[p, q] for p, q in pairs]
+        da = [C_src[a, b] for (a, b) in ((r[0], r[1]), (r[0], r[2]), (r[1], r[2]))]
+        sb, sa = sorted(db), sorted(da)
+        if sb[0] == sb[1] or sa[0] == sa[1]:  # ambiguous closest pair, either side
+            ties += 1
+            continue
         hits += int(int(np.argmin(db)) == int(np.argmin(da)))
         total += 1
-    return hits / max(1, total)
+    return hits / max(1, total), {"used": total, "rejected_noninjective": rejected, "tie_skipped": ties}
+
+
+def triplet_agreement(Za, va, Zb, vb, n_triplets: int = 2000, rng=None, return_stats: bool = False):
+    """Hierarchy-aware cross-half agreement, symmetric (both directions
+    averaged). ORDINAL only: measures closest-pair order, invariant to
+    monotone distance transforms — it never validates literal cophenetic
+    magnitudes (Codex G2). Chance floor is 1/3."""
+    rng = rng if rng is not None else np.random.default_rng(0)
+    Ca, Cb = _cophenetic(Za), _cophenetic(Zb)
+    ua, ub = _unit(va), _unit(vb)
+    reps_ba = np.argmax(ub @ ua.T, axis=1)  # B leaf -> nearest A leaf
+    reps_ab = np.argmax(ua @ ub.T, axis=1)
+    s1, st1 = _oneway_triplets(Ca, Cb, reps_ba, len(vb), n_triplets, rng)
+    s2, st2 = _oneway_triplets(Cb, Ca, reps_ab, len(va), n_triplets, rng)
+    score = (s1 + s2) / 2
+    if not return_stats:
+        return score
+    coll = 1 - (len(set(reps_ba.tolist())) / len(reps_ba)
+                + len(set(reps_ab.tolist())) / len(reps_ab)) / 2
+    stats = {
+        "collision_rate": round(float(coll), 3),
+        "used": st1["used"] + st2["used"],
+        "rejected_noninjective": st1["rejected_noninjective"] + st2["rejected_noninjective"],
+        "tie_skipped": st1["tie_skipped"] + st2["tie_skipped"],
+    }
+    return score, stats
+
+
+def structure_null(Za, va, Zb, vb, n_triplets: int = 2000, rng=None) -> float:
+    """Codex G5's tree-structure null: keep both dendrogram SHAPES and the
+    cross-half leaf mapping intact, but permute which leaf occupies which
+    position in each tree. Kills the content-hierarchy correspondence while
+    preserving every structural marginal; agreement should fall to ~1/3 if
+    the fitted hierarchy (not raw neighborhoods) carries the signal."""
+    rng = rng if rng is not None else np.random.default_rng(0)
+    Ca, Cb = _cophenetic(Za), _cophenetic(Zb)
+    pa, pb = rng.permutation(len(va)), rng.permutation(len(vb))
+    Ca_null = Ca[np.ix_(pa, pa)]
+    Cb_null = Cb[np.ix_(pb, pb)]
+    ua, ub = _unit(va), _unit(vb)
+    reps_ba = np.argmax(ub @ ua.T, axis=1)
+    reps_ab = np.argmax(ua @ ub.T, axis=1)
+    s1, _ = _oneway_triplets(Ca_null, Cb_null, reps_ba, len(vb), n_triplets, rng)
+    s2, _ = _oneway_triplets(Cb_null, Ca_null, reps_ab, len(va), n_triplets, rng)
+    return (s1 + s2) / 2
 
 
 # --------------------------------------------------------------------------
@@ -201,23 +254,46 @@ def main() -> None:
             results["cells"][f"{name}|agglo-cos|{t}|temporal"] = round(v, 3)
             print(f"  {name:<14} {t:<9} {v:.3f}")
 
-    print(f"\nTRIPLET AGREEMENT (hierarchy-aware, chance=0.33) - {TRIPLET_SEEDS} seeds")
+    # Triplet gate v2 (Codex G3/G5/G7): symmetric, injective, tie-skipping;
+    # two nulls (correspondence + structure); HDBSCAN's single-linkage tree
+    # gets the same gate so the topology-source choice is fair (item E).
+    # Brackets are SEED RANGES (2.5-97.5 pct over splits), not calibrated
+    # CIs — triplets within a split are dependent (Codex G6).
+    print(f"\nTRIPLET AGREEMENT v2 (symmetric, injective, tie-skipped; chance=0.33)")
+    print(f"{'bucket':<14} {'tree':<11} {'agree':>22} {'corr-null':>10} {'struct-null':>12} {'collide':>8}")
     from scipy.cluster.hierarchy import linkage
     from scipy.spatial.distance import pdist
 
+    def agglo_tree(v):
+        return linkage(pdist(_unit(v), "cosine"), "average")
+
+    def hdb_tree(v):
+        import hdbscan
+
+        c = hdbscan.HDBSCAN(min_cluster_size=max(5, len(v) // 60), min_samples=5)
+        c.fit(_unit(v).astype(np.float64))
+        return c.single_linkage_tree_.to_numpy()
+
     for name, idx in bucket_idx.items():
-        agr, base = [], []
-        for s in range(TRIPLET_SEEDS):
-            rng = np.random.default_rng(2000 + s)
-            a, b = _halves(idx, rng)
-            va, vb = vecs[a], vecs[b]
-            Za = linkage(pdist(_unit(va), "cosine"), "average")
-            Zb = linkage(pdist(_unit(vb), "cosine"), "average")
-            agr.append(triplet_agreement(Za, va, Zb, vb, rng=rng))
-            base.append(triplet_agreement(Za, va, Zb, vb[rng.permutation(len(vb))], rng=rng))
-        ca, cb = _ci(agr), _ci(base)
-        results["cells"][f"{name}|triplet"] = {"agreement": ca, "shuffled": cb}
-        print(f"  {name:<14} agreement {ca['mean']} [{ca['lo']},{ca['hi']}]   shuffled {cb['mean']}")
+        for tree_name, tree_fn in (("agglo-cos", agglo_tree), ("hdb-slt", hdb_tree)):
+            agr, corr, struct, colls = [], [], [], []
+            for s in range(TRIPLET_SEEDS):
+                rng = np.random.default_rng(2000 + s)
+                a, b = _halves(idx, rng)
+                va, vb = vecs[a], vecs[b]
+                Za, Zb = tree_fn(va), tree_fn(vb)
+                score, st = triplet_agreement(Za, va, Zb, vb, rng=rng, return_stats=True)
+                agr.append(score)
+                colls.append(st["collision_rate"])
+                corr.append(triplet_agreement(Za, va, Zb, vb[rng.permutation(len(vb))], rng=rng))
+                struct.append(structure_null(Za, va, Zb, vb, rng=rng))
+            ca, cc, cs = _ci(agr), _ci(corr), _ci(struct)
+            results["cells"][f"{name}|triplet|{tree_name}"] = {
+                "agreement": ca, "correspondence_null": cc, "structure_null": cs,
+                "collision_rate": round(float(np.mean(colls)), 3),
+            }
+            print(f"{name:<14} {tree_name:<11} {ca['mean']:>7.3f} [{ca['lo']:.2f},{ca['hi']:.2f}]"
+                  f" {cc['mean']:>10.3f} {cs['mean']:>12.3f} {np.mean(colls):>8.2f}")
 
     print("\nAI-BUILDING temporal-half composition (F3/Q5: mixture vs drift)")
     idx = bucket_idx["ai-building"]
