@@ -1,28 +1,24 @@
 // PROTOTYPE (grove workshop) - the page where we develop and iterate tree
-// generation; throwaway until a look wins a real spec. Three looks switchable
-// via ?variant= and arrow keys; generation knobs persist to localStorage.
+// generation. Foliage won the look bake-off (2026-07-12); the variant
+// switcher is gone. Generation knobs persist to localStorage.
 import { useEffect, useRef, useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { HubControls } from '../components/HubControls'
 import { fetchGrovePayload } from '../lib/grove/datatree'
 import type { GrovePayload } from '../lib/grove/datatree'
 import { DEFAULT_PARAMS } from '../lib/grove/tree'
 import type { GroveParams } from '../lib/grove/tree'
-import type { GroveHandle, GroveLook } from '../lib/grove/scene'
+import type { GroveHandle } from '../lib/grove/scene'
 import '../styles.css'
 
 const STORAGE = 'grove-params-v1'
 const DATA_MODE = 'grove-data-mode-v1'
-const LOOKS: GroveLook[] = ['tubes', 'wires', 'foliage']
 
 const loadParams = (): GroveParams => {
   try { return { ...DEFAULT_PARAMS, ...JSON.parse(localStorage.getItem(STORAGE) ?? '{}') } } catch { return DEFAULT_PARAMS }
 }
 
-type GroveSearch = { variant?: GroveLook }
-
 export const Route = createFileRoute('/grove')({
-  validateSearch: (search: Record<string, unknown>): GroveSearch => (LOOKS.includes(search.variant as GroveLook) ? { variant: search.variant as GroveLook } : {}),
   component: GrovePage,
 })
 
@@ -46,8 +42,6 @@ const KNOBS: Array<{ key: keyof GroveParams; label: string; min: number; max: nu
 ]
 
 function GrovePage() {
-  const { variant = 'foliage' } = Route.useSearch()
-  const navigate = useNavigate({ from: Route.fullPath })
   const canvas = useRef<HTMLCanvasElement>(null)
   const handle = useRef<GroveHandle>(undefined)
   const [params, setParams] = useState<GroveParams>(loadParams)
@@ -61,34 +55,19 @@ function GrovePage() {
     // dynamic import keeps three out of every other route's bundle
     import('../lib/grove/scene').then((mod) => {
       if (!alive || !canvas.current) return
-      handle.current = mod.mountGrove(canvas.current, loadParams(), variant)
+      handle.current = mod.mountGrove(canvas.current, loadParams(), 'foliage')
       setReady(true)
     })
     fetchGrovePayload().then((p) => { if (alive) setPayload(p) })
     return () => { alive = false; handle.current?.destroy(); handle.current = undefined }
-    // mount once; look and params are pushed through the handle below
+    // mount once; params are pushed through the handle below
   }, [])
-  useEffect(() => { handle.current?.setLook(variant) }, [variant, ready])
   // data mode: structure from bucket topology (/api/grove); aesthetic BFS
   // stays one click away — the calibrated look is never lost, only bypassed
   useEffect(() => {
     if (!ready) return
     handle.current?.setData(dataMode && payload ? payload : null)
   }, [dataMode, payload, ready])
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        const delta = event.key === 'ArrowLeft' ? -1 : 1
-        const next = LOOKS[(LOOKS.indexOf(variant) + delta + LOOKS.length) % LOOKS.length]
-        navigate({ search: { variant: next }, replace: true })
-      }
-    }
-    addEventListener('keydown', onKey)
-    return () => removeEventListener('keydown', onKey)
-  }, [variant, navigate])
-
   const regenTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const apply = (next: GroveParams) => {
     setParams(next)
@@ -98,7 +77,6 @@ function GrovePage() {
     regenTimer.current = setTimeout(() => handle.current?.regenerate(next), 160)
   }
   const reseed = () => apply({ ...params, seed: Math.floor(Math.random() * 1e6) })
-  const cycle = (delta: number) => navigate({ search: { variant: LOOKS[(LOOKS.indexOf(variant) + delta + LOOKS.length) % LOOKS.length] }, replace: true })
 
   return (
     <div className="grove-page">
@@ -126,11 +104,6 @@ function GrovePage() {
           ))}
         </aside>
       ) : null}
-      <div className="grove-switcher">
-        <button onClick={() => cycle(-1)} aria-label="Previous look">&#8592;</button>
-        <span>PROTOTYPE &middot; {variant}</span>
-        <button onClick={() => cycle(1)} aria-label="Next look">&#8594;</button>
-      </div>
     </div>
   )
 }
