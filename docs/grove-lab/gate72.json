@@ -1,0 +1,71 @@
+{
+ "embedding_model": "thenlper/gte-small",
+ "seeds": 10,
+ "buckets": {
+  "epicmap": {
+   "n": 2065,
+   "kind": "temporal",
+   "span_days": 87,
+   "gate": {
+    "triplet": 0.478,
+    "structure_null": 0.33,
+    "halves": 1
+   }
+  },
+  "ai-building": {
+   "n": 427,
+   "kind": "temporal",
+   "span_days": 1147,
+   "gate": {
+    "triplet": 0.616,
+    "structure_null": 0.314,
+    "halves": 1
+   }
+  },
+  "youtube-channel": {
+   "n": 23,
+   "kind": "sapling",
+   "gate": null
+  },
+  "visual-craft": {
+   "n": 86,
+   "kind": "temporal",
+   "span_days": 337,
+   "gate": {
+    "triplet": 0.673,
+    "structure_null": 0.335,
+    "halves": 1
+   }
+  },
+  "playful-tools": {
+   "n": 9,
+   "kind": "sapling",
+   "gate": null
+  },
+  "mind-systems": {
+   "n": 13,
+   "kind": "sapling",
+   "gate": null
+  },
+  "combat-sports": {
+   "n": 12,
+   "kind": "sapling",
+   "gate": null
+  },
+  "eating": {
+   "n": 4,
+   "kind": "sapling",
+   "gate": null
+  },
+  "film": {
+   "n": 3,
+   "kind": "sapling",
+   "gate": null
+  },
+  "adhd": {
+   "n": 2,
+   "kind": "sapling",
+   "gate": null
+  }
+ }
+}
