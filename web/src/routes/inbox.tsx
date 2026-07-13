@@ -49,6 +49,24 @@ function InboxPage() {
   // not a bounded/sliding window, the visible count only grows.
   const { visible, sentinelRef } = useInfiniteWindow(items, 60);
 
+  // The in-flight item, named. A batch runs ~2 minutes per video, so a bare
+  // "0/3" sits unchanged long enough to read as broken; showing which video is
+  // being worked, and for how long, is the difference between stalled and slow.
+  const currentTitle = useMemo(() => {
+    const url = job.data?.current;
+    if (!url) return "";
+    const item = (q.data ?? []).find((i) => i.url === url);
+    return item?.text || item?.author || url;
+  }, [q.data, job.data?.current]);
+
+  // job.data refreshes every second while running, which re-renders this.
+  const elapsed = useMemo(() => {
+    const startedAt = job.data?.current_started;
+    if (!startedAt) return "";
+    const secs = Math.max(0, Math.floor(Date.now() / 1000 - startedAt));
+    return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  }, [job.data?.current_started, job.data?.done, job.dataUpdatedAt]);
+
   const cardState = (item: QueueItem): "queued" | "ingesting" | undefined => {
     if (job.data?.current === item.url) return "ingesting";
     if (job.data?.queued.includes(item.url)) return "queued";
@@ -207,10 +225,31 @@ function InboxPage() {
             ingest
           </button>
 
-          {job.data ? (
+          {job.data && (job.data.running || job.data.total > 0) ? (
             <div className={`progress${job.data.running ? " running" : ""}`}>
-              {job.data.running ? "running · " : ""}
-              {job.data.done}/{job.data.total}
+              <span className="progress-line">
+                {job.data.running ? (
+                  <span className="ingest-spinner" aria-hidden="true" />
+                ) : null}
+                <span>
+                  {job.data.running ? "running · " : "done · "}
+                  {job.data.done}/{job.data.total}
+                  {job.data.running && elapsed ? ` · ${elapsed}` : ""}
+                </span>
+              </span>
+              {job.data.running ? (
+                <>
+                  <span className="progress-current" title={currentTitle}>
+                    {currentTitle}
+                  </span>
+                  <span className="progress-hint">enrichment takes ~2 min per item</span>
+                </>
+              ) : null}
+              {job.data.failures.length > 0 ? (
+                <span className="progress-failed">
+                  {job.data.failures.length} failed
+                </span>
+              ) : null}
             </div>
           ) : null}
         </aside>

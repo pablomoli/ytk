@@ -8,6 +8,7 @@ the daily digest, and removed from the queue.
 
 from __future__ import annotations
 
+import json
 import re
 import threading
 import time
@@ -28,15 +29,19 @@ from ytk.memo import (
 )
 
 STATE_PATH = reels.STATE_PATH
+JOB_PATH = STATE_PATH.parent / "ingest-job.json"
 PACING_SECONDS = 3.0
+MAX_ATTEMPTS = 3
 
 _LOCK = threading.Lock()
-_QUEUE: list = []  # (ReelItem, tags, thought) triples awaiting the drain worker
+_QUEUE: list = []  # (ReelItem, tags, thought) triples; the head is the one in flight
+_ATTEMPTS: dict[str, int] = {}  # url -> times a worker has picked it up
 _JOB: dict = {
     "running": False,
     "total": 0,
     "done": 0,
     "current": None,
+    "current_started": None,
     "queued": [],
     "failures": [],
     "annotated": 0,
@@ -795,6 +800,95 @@ def _memo_worker(audio_bytes: bytes, filename: str, text: str) -> None:
         _memo_job.update(state="error", detail=str(exc))
 
 
+def _write_persisted(entries: list[dict]) -> None:
+    """Atomically mirror the in-flight batch to disk.
+
+    Written via a temp file and rename: the hub is killed outright whenever the
+    uv-installed package is reinstalled under it, and a half-written file would
+    lose the batch just as surely as no file at all.
+    """
+    try:
+        JOB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = JOB_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"entries": entries}, indent=2), encoding="utf-8")
+        tmp.replace(JOB_PATH)
+    except OSError:
+        pass
+
+
+def _persist_locked() -> None:
+    """Snapshot _QUEUE to disk. Caller must hold _LOCK."""
+    _write_persisted([
+        {
+            "url": item.url,
+            "tags": tags,
+            "thought": thought,
+            "attempts": _ATTEMPTS.get(item.url, 0),
+        }
+        for item, tags, thought in _QUEUE
+    ])
+
+
+def _load_persisted() -> list[dict]:
+    try:
+        data = json.loads(JOB_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    entries = data.get("entries") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        return []
+    return [e for e in entries if isinstance(e, dict) and e.get("url")]
+
+
+def resume_ingest() -> int:
+    """Re-queue a batch that a hub restart interrupted. Returns items revived.
+
+    The queue only ever lived in memory, so any restart — a `uv tool install
+    --reinstall`, a crash, launchd's KeepAlive — silently dropped every item the
+    worker had not reached yet. The user, watching from the hub, saw the batch
+    simply stop. Called on server startup.
+    """
+    entries = _load_persisted()
+    if not entries:
+        return 0
+
+    pending = {item.url: item for item in reels.load_state(STATE_PATH).pending}
+    with _LOCK:
+        if _JOB["running"]:
+            return 0
+        revived, abandoned = [], []
+        for entry in entries:
+            item = pending.get(entry["url"])
+            if item is None:
+                continue  # it reached the vault before the restart
+            attempts = entry.get("attempts", 0)
+            if attempts >= MAX_ATTEMPTS:
+                # it took the hub down every time we tried it; another go would
+                # just crash-loop against KeepAlive
+                abandoned.append(entry["url"])
+                continue
+            _ATTEMPTS[entry["url"]] = attempts
+            revived.append((item, entry.get("tags") or [], entry.get("thought") or ""))
+
+        if not revived:
+            _write_persisted([])
+            return 0
+
+        _QUEUE.extend(revived)
+        _JOB.update(
+            running=True, total=len(revived), done=0, current=None,
+            current_started=None, annotated=0, linked=[],
+            failures=[
+                {"url": url, "error": "abandoned: kept killing the hub mid-ingest"}
+                for url in abandoned
+            ],
+            queued=[item.url for item, _, _ in revived],
+        )
+        _persist_locked()
+        threading.Thread(target=_drain, daemon=True).start()
+    return len(revived)
+
+
 def start_ingest(urls: list[str], tags: list[str], thought: str) -> int:
     """Enqueue the given pending-queue URLs for background ingestion.
 
@@ -818,10 +912,11 @@ def start_ingest(urls: list[str], tags: list[str], thought: str) -> int:
         else:
             _JOB.update(
                 running=True, total=len(fresh), done=0, current=None,
-                failures=[], annotated=0, linked=[],
+                current_started=None, failures=[], annotated=0, linked=[],
             )
             threading.Thread(target=_drain, daemon=True).start()
         _JOB["queued"] = [e[0].url for e in _QUEUE]
+        _persist_locked()
     return len(fresh)
 
 
@@ -835,10 +930,17 @@ def _drain() -> None:
                 # (it sees running=False and spawns a new worker)
                 _JOB["running"] = False
                 _JOB["current"] = None
+                _JOB["current_started"] = None
+                _persist_locked()
                 break
-            item, tags, thought = _QUEUE.pop(0)
+            # peek, don't pop: the item stays on the persisted queue for the
+            # whole ~2 minutes it takes, so a hub killed mid-video resumes it
+            item, tags, thought = _QUEUE[0]
+            _ATTEMPTS[item.url] = _ATTEMPTS.get(item.url, 0) + 1
             _JOB["current"] = item.url
-            _JOB["queued"] = [e[0].url for e in _QUEUE]
+            _JOB["current_started"] = time.time()
+            _JOB["queued"] = [e[0].url for e in _QUEUE[1:]]
+            _persist_locked()
         try:
             if item.source == "imessage":
                 note = INGEST_TEXT(item, thought)
@@ -857,8 +959,13 @@ def _drain() -> None:
             with _LOCK:
                 _JOB["failures"].append({"url": item.url, "error": str(exc)})
         with _LOCK:
+            if _QUEUE and _QUEUE[0][0].url == item.url:
+                _QUEUE.pop(0)
+            _ATTEMPTS.pop(item.url, None)
             _JOB["done"] += 1
             _JOB["current"] = None
+            _JOB["current_started"] = None
+            _persist_locked()
             more = bool(_QUEUE)
         if more:
             time.sleep(PACING_SECONDS)
