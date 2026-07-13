@@ -226,9 +226,12 @@ function ReadbackPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0c', padding: '18px 26px', fontFamily: 'inherit' }}>
-      <div style={{ color: '#c3c2b7', marginBottom: 12, fontSize: 15 }}>
+      <div style={{ color: '#52514e', fontSize: 13, marginBottom: 4 }}>
         trial {index + 1} / {manifest.trials.length}
-        {trial.task === 'practice' ? ' - practice (not scored)' : ''} &middot; {trial.prompt}
+        {trial.task === 'practice' ? ' - practice (not scored)' : ''}
+      </div>
+      <div style={{ color: '#e2b04a', fontSize: 24, marginBottom: 14 }}>
+        {trial.prompt}
       </div>
       {trial.top ? (
         <div style={{ marginBottom: 10 }}>
