@@ -142,3 +142,47 @@ def test_visual_craft_is_payload_construct():
     t1 = [t for t in public["trials"] if t["task"] == "semantic-readback"]
     assert all(t["construct"] == "payload" for t in t1 if t["bucket"] == "visual-craft")
     assert all(t["construct"] == "adjacency" for t in t1 if t["bucket"] == "epicmap")
+
+
+# --- scoring: post-run only, per preregistered bands -----------------------
+
+def _fake_run(tmp_path, n_answered=None):
+    import json
+
+    public, key = _built()
+    scored = [t for t in public["trials"] if t["task"] != "practice"]
+    answered = scored if n_answered is None else scored[:n_answered]
+    rows = []
+    for t in answered:
+        rows.append({"trial": t["trial"], "choice": key["answers"][t["trial"]],
+                     "confidence": 4, "rt_ms": 3000,
+                     "manifest_sha": public["sha256"], "ts": "t"})
+    (tmp_path / "e7-manifest.json").write_text(json.dumps(public))
+    (tmp_path / "e7-answer-key.json").write_text(json.dumps(key))
+    (tmp_path / "e7-responses.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in rows) + "\n")
+    return public, key
+
+
+def test_score_refuses_partial_runs(tmp_path):
+    import pytest
+
+    from scripts.grove_lab.e7_score import score
+
+    _fake_run(tmp_path, n_answered=5)
+    with pytest.raises(SystemExit):
+        score(tmp_path)
+
+
+def test_score_reports_primaries_and_constructs_separately(tmp_path):
+    from scripts.grove_lab.e7_score import score
+
+    _fake_run(tmp_path)  # all answers correct
+    result = score(tmp_path)
+    t1 = result["semantic_readback"]
+    assert t1["primary"]["correct"] == 3 and t1["primary"]["n"] == 3
+    # adjacency and payload constructs never pool
+    assert t1["adjacency"]["n"] + t1["payload"]["n"] == 9
+    assert t1["payload"]["n"] >= 3  # visual-craft trials at minimum
+    assert result["topology_invariance"]["correct"] == 9
+    assert result["identification_exploratory"]["correct"] == 6

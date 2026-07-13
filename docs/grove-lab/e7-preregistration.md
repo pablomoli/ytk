@@ -1,6 +1,12 @@
 # E7 preregistration: grove readback (single-subject case study)
 
-Status: FROZEN pending implementation. Incorporates every Codex v2
+Status: CLEARED TO RUN (Codex v4 verification,
+`external-review-response-codex-v4.md`: clear_to_run=true, zero findings).
+Manifest seed 72, sha 3231125aaa9be2b7. Scoring:
+`uv run --extra dev python -m scripts.grove_lab.e7_score` — refuses
+partial runs so correctness stays hidden until the session completes.
+
+Originally: FROZEN pending implementation. Incorporates every Codex v2
 protocol edit (`external-review-response-codex-v2.md`: G1, G4, G6,
 `e7_protocol_edits`). The subject (the vault's owner) is naive and can be
 exposed exactly once; no rendered true-vs-control comparisons may be shown
