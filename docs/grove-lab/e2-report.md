@@ -151,7 +151,36 @@ intervals, plus a hierarchy-aware triplet metric). Artifact:
   gte-small migration re-embedded every text collection
   (`experiments/migrate_embedder.py`, commit 2780465).
 
-## 8. Open items
+## 8. Review round 2 (v3) — metric repaired, HDBSCAN gated fairly
+
+The Codex v2 review (`external-review-response-codex-v2.md`) rated the
+corrections sound, the triplet metric trustworthy-with-fixes, and E7
+run-with-changes. The fixes are in (`shootout.py`, artifact
+`shootout-v3.json`):
+
+- **Metric repair (G3):** symmetric both-directions scoring, non-injective
+  triplets rejected, closest-pair ties skipped on either side, collision
+  rates reported (0.47 — half of cross-half 1-NN mappings collide).
+- **The signal survives its repair:** agglo triplet agreement epicmap
+  0.596 [0.53, 0.65], ai-building 0.752 [0.69, 0.80], visual-craft
+  0.738 [0.66, 0.84] (brackets are seed ranges over 10 splits, not
+  calibrated CIs — G6).
+- **Both nulls at chance (G5):** correspondence null ~0.33 and the new
+  structure null (tree shape + mapping intact, leaf placement permuted)
+  ~0.33-0.34 on every bucket. The fitted hierarchy itself carries the
+  information, not residual embedding geometry.
+- **HDBSCAN gated fairly (G7 / item E):** its single-linkage tree passes
+  the identical gate (0.594 / 0.739 / 0.645). HDBSCAN's hierarchy was
+  never the problem — its flat extraction was. The agglo choice is hereby
+  a product decision (determinism + complete dendrogram + slightly better
+  visual-craft agreement), not a claim of scientific superiority.
+- **Claims narrowed (G2/G8):** the triplet gate is ORDINAL — it validates
+  reproducible branching order (which pairs sit closer), never literal
+  cophenetic magnitudes. Rendered branch lengths, golden-angle placement,
+  and mass-to-girth remain visual encodings pending separate validation.
+- E7 is preregistered separately per G1/G4/G6: `e7-preregistration.md`.
+
+## 9. Open items
 
 - E7 blind readback with the user: does the grove read without labels?
   (The real gate; everything above is machinery.) Per review F7, the
