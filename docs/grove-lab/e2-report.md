@@ -113,10 +113,55 @@ hand-tuned BFS mode stays one click away behind the `data trees` chip;
 ![data mode: 10 topic trees](grove-data-mode.png)
 ![aesthetic mode: calibrated BFS](grove-bfs-mode.png)
 
-## 7. Open items
+## 7. Review response (v2) — corrections after external review
+
+An external (Codex) review of this report
+(`external-review-handoff.md` / `external-review-response-codex.md`)
+prompted the settling experiments in `scripts/grove_lab/shootout.py`
+(20 seeds, centroid AND cosine-kNN transfer, paired differences with 95%
+intervals, plus a hierarchy-aware triplet metric). Artifact:
+`shootout-v2.json`. Results overturn part of section 4:
+
+- **The v1 "agglo wins decisively" claim is retracted.** All paired
+  agglo-minus-HDBSCAN differences span 0 under both transfer rules
+  (e.g. visual-craft/knn5: -0.088 [-0.57, 0.49]). The v1 margin was
+  2-seed sampling noise; HDBSCAN's per-seed ARI is extremely high-variance
+  (visual-craft interval [0.00, 1.00] — bimodal refind-or-miss).
+- **Flat-partition ARI was the wrong gate for a tree.** Sampled triplet
+  agreement between half-fit dendrograms (chance 0.33, shuffled baselines
+  0.33): epicmap 0.595 [0.52, 0.64], ai-building 0.768 [0.70, 0.82],
+  visual-craft 0.777 [0.67, 0.94]. The hierarchy's relative structure
+  reproduces across halves in every tested bucket — including epicmap.
+- **epicmap correction:** "no reproducible sub-structure at any
+  granularity" was too broad. Correct claim: no reproducible flat
+  partition at k=3-12; coarse relative (cophenetic) structure IS
+  reproducible (0.595). Branch identity stays weak; branch geometry is
+  not decoration.
+- **ai-building "drift" retracted as a causal claim.** Temporal agglo ARI
+  is ~0.00 under both transfers, and the temporal halves differ in source
+  mixture (early: 86% session memories; late: 58% memories / 42% consumed
+  content). Correct claim: temporal non-stationarity beyond estimator
+  variation, cause unresolved, mixture change the leading rival.
+- **Method choice, corrected grounds:** average-linkage remains the
+  renderer's topology source because it is deterministic, yields a full
+  dendrogram, and passes the hierarchy-aware gate — not because it beat
+  HDBSCAN at flat transfer (it did not). It is the best supported
+  candidate, not a validated hierarchy.
+- Embedding-pipeline uniformity (review Q2) verified: the 2026-07-05
+  gte-small migration re-embedded every text collection
+  (`experiments/migrate_embedder.py`, commit 2780465).
+
+## 8. Open items
 
 - E7 blind readback with the user: does the grove read without labels?
-  (The real gate; everything above is machinery.)
+  (The real gate; everything above is machinery.) Per review F7, the
+  protocol must control size, position, foliage, and exemplars — compare
+  against size-matched shuffled topologies with randomized ring position,
+  or success only proves sqrt(n) is legible.
+- Swap dendro.py's stability gate from centroid-transfer ARI to triplet
+  agreement (the construct-valid metric); re-stamp snapshots.
+- Measure grow-only cache path dependence (review F6): randomized arrival
+  replays vs full rebuilds, divergence-triggered split rule.
 - 995 unparsed seed-era memories: project names are in filename prose;
   recoverable via backfill or bucket seeds.
 - Branch split-on-mass for the incremental path.
