@@ -4,12 +4,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { HubControls } from '../components/HubControls'
+import { fetchGrovePayload } from '../lib/grove/datatree'
+import type { GrovePayload } from '../lib/grove/datatree'
 import { DEFAULT_PARAMS } from '../lib/grove/tree'
 import type { GroveParams } from '../lib/grove/tree'
 import type { GroveHandle, GroveLook } from '../lib/grove/scene'
 import '../styles.css'
 
 const STORAGE = 'grove-params-v1'
+const DATA_MODE = 'grove-data-mode-v1'
 const LOOKS: GroveLook[] = ['tubes', 'wires', 'foliage']
 
 const loadParams = (): GroveParams => {
@@ -50,6 +53,8 @@ function GrovePage() {
   const [params, setParams] = useState<GroveParams>(loadParams)
   const [panelOpen, setPanelOpen] = useState(true)
   const [ready, setReady] = useState(false)
+  const [payload, setPayload] = useState<GrovePayload | null>(null)
+  const [dataMode, setDataMode] = useState(() => localStorage.getItem(DATA_MODE) === 'on')
 
   useEffect(() => {
     let alive = true
@@ -59,10 +64,17 @@ function GrovePage() {
       handle.current = mod.mountGrove(canvas.current, loadParams(), variant)
       setReady(true)
     })
+    fetchGrovePayload().then((p) => { if (alive) setPayload(p) })
     return () => { alive = false; handle.current?.destroy(); handle.current = undefined }
     // mount once; look and params are pushed through the handle below
   }, [])
   useEffect(() => { handle.current?.setLook(variant) }, [variant, ready])
+  // data mode: structure from bucket topology (/api/grove); aesthetic BFS
+  // stays one click away — the calibrated look is never lost, only bypassed
+  useEffect(() => {
+    if (!ready) return
+    handle.current?.setData(dataMode && payload ? payload : null)
+  }, [dataMode, payload, ready])
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement
@@ -93,8 +105,14 @@ function GrovePage() {
       <HubControls>
         <button className="fchip" onClick={() => handle.current?.replay()}>replay growth</button>
         <button className="fchip" onClick={reseed}>reseed</button>
+        {payload ? (
+          <button
+            className={`fchip${dataMode ? ' on' : ''}`}
+            onClick={() => setDataMode((on) => { localStorage.setItem(DATA_MODE, on ? 'off' : 'on'); return !on })}
+          >data trees</button>
+        ) : null}
         <button className={`fchip${panelOpen ? ' on' : ''}`} onClick={() => setPanelOpen((open) => !open)}>knobs</button>
-        <span className="count">seed {params.seed}</span>
+        <span className="count">{dataMode && payload ? `${payload.buckets.length} topics` : `seed ${params.seed}`}</span>
       </HubControls>
       <canvas ref={canvas} className="grove-canvas" />
       {panelOpen ? (

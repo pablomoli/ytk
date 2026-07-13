@@ -4,6 +4,8 @@
 // wireframe and foliage looks over the same generated geometry.
 import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, Color, DoubleSide, DynamicDrawUsage, FogExp2, InstancedBufferAttribute, InstancedMesh, LineSegments, Matrix4, Mesh, PerspectiveCamera, Points, Scene, ShaderMaterial, Vector3, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { generateDataTree } from './datatree'
+import type { GrovePayload } from './datatree'
 import { buildLeafGeometry, DEFAULT_LEAF, leafBasis } from './leaf'
 import { buildTreeGeometry, flattenTree, generateTree, rng } from './tree'
 import type { GroveParams } from './tree'
@@ -122,7 +124,7 @@ void main(){
   float a = vA*(1.-d)*.6;
   gl_FragColor = vec4(c*a, a); }`
 
-export type GroveHandle = { regenerate: (params: GroveParams) => void; setLook: (look: GroveLook) => void; replay: () => void; destroy: () => void }
+export type GroveHandle = { regenerate: (params: GroveParams) => void; setLook: (look: GroveLook) => void; setData: (payload: GrovePayload | null) => void; replay: () => void; destroy: () => void }
 
 export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look: GroveLook): GroveHandle {
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true })
@@ -158,6 +160,8 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
   let progressTarget = 1
   let growSeconds = params.growSeconds
   let lastParams = params
+  // data mode: one tree per bucket, structure from /api/grove topology
+  let dataPayload: GrovePayload | null = null
 
   const clear = () => { for (const object of grown) { object.geometry.dispose(); scene.remove(object) } grown = []; for (const m of treeMaterials) m.dispose(); treeMaterials.length = 0 }
 
@@ -168,12 +172,28 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
     uniforms.uLeafSize.value = next.leafSize
     uniforms.uWind.value = next.wind
     const rand = rng(next.seed)
-    const spread = Math.max(1, next.trees - 1) * next.reach * 0.75
-    for (let t = 0; t < next.trees; t++) {
-      const origin = new Vector3(next.trees === 1 ? 0 : -spread / 2 + (t / Math.max(1, next.trees - 1)) * spread, 0, next.trees === 1 ? 0 : (rand() - 0.5) * next.reach)
-      // each tree is (going to be) a topic: its own hue family across wood,
-      // rim, and leaves, spread around the wheel per tree index
+    const buckets = dataPayload?.buckets ?? []
+    const treeCount = buckets.length || next.trees
+    const maxBucketNotes = Math.max(1, ...buckets.map((b) => b.n_notes))
+    const ringRadius = buckets.length > 1 ? Math.max(2.4, Math.sqrt(treeCount) * next.reach * 0.42) : 0
+    if (buckets.length) {
+      // frame the whole ring; the user can still orbit in from there
+      camera.position.set(0, ringRadius * 0.55 + 2.2, ringRadius * 1.55 + 6)
+      controls.target.set(0, 1.1, 0)
+    }
+    const spread = Math.max(1, treeCount - 1) * next.reach * 0.75
+    for (let t = 0; t < treeCount; t++) {
+      // data mode plants the buckets in a ring; aesthetic mode keeps the line
+      const origin = buckets.length
+        ? new Vector3(Math.cos((t / treeCount) * Math.PI * 2) * ringRadius, 0, Math.sin((t / treeCount) * Math.PI * 2) * ringRadius)
+        : new Vector3(treeCount === 1 ? 0 : -spread / 2 + (t / Math.max(1, treeCount - 1)) * spread, 0, treeCount === 1 ? 0 : (rand() - 0.5) * next.reach)
+      // each tree is a topic: its own hue family across wood, rim, and leaves
       const tint = new Color().setHSL((0.36 + t * 0.13) % 1, 0.34, 0.58)
+      // topic size sets tree scale: epicmap towers, a two-note interest is
+      // a seedling. sqrt keeps the 1000x mass range within one grove.
+      const bucket = buckets[t]
+      const sizeScale = bucket ? 0.45 + 0.55 * Math.sqrt(bucket.n_notes / maxBucketNotes) : 1
+      next = bucket ? { ...next, reach: lastParams.reach * sizeScale, girth: lastParams.girth * (0.5 + 0.5 * sizeScale) } : next
       const tubeGeo = (g: { position: Float32Array; roff: Float32Array; depth: Float32Array; index: Uint32Array }) => {
         const tube = new BufferGeometry()
         tube.setAttribute('position', new BufferAttribute(g.position, 3))
@@ -188,13 +208,16 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
         lines.setAttribute('depth', new BufferAttribute(g.lineDepth, 1))
         return lines
       }
-      const tree = buildTreeGeometry(next, generateTree(next, rand, origin, Math.max(700, Math.floor(4400 / next.trees))))
+      const canopyBudget = Math.max(700, Math.floor(4400 / treeCount))
+      const tree = buildTreeGeometry(next, bucket
+        ? generateDataTree(next, rand, origin, bucket, canopyBudget)
+        : generateTree(next, rand, origin, canopyBudget))
       grown.push(new Mesh(tubeGeo(tree), tubeMaterialFor(tint)))
       grown.push(new LineSegments(lineGeo(tree), lineMaterialFor(tint)))
       // root system: the same organism grown the opposite way - shorter
       // reach, inverted up bias, a touch gnarlier, darker wood
       const rootParams = { ...next, reach: next.reach * 0.8, upBias: -0.45, initialChildren: Math.max(2, next.initialChildren), branchChance: Math.min(0.6, next.branchChance + 0.1), noise: next.noise * 1.25, stepScale: next.stepScale * 0.8, girth: next.girth * 1.1, stiffness: next.stiffness * 0.85 }
-      const roots = buildTreeGeometry(rootParams, flattenTree(generateTree(rootParams, rand, origin, Math.max(200, Math.floor(1200 / next.trees))), 0.4))
+      const roots = buildTreeGeometry(rootParams, flattenTree(generateTree(rootParams, rand, origin, Math.max(200, Math.floor(1200 / treeCount))), 0.4))
       const rootTint = tint.clone().offsetHSL(-0.05, -0.18, -0.34)
       // roots are anchored: same shaders, but their wind uniform is pinned to 0
       const still = (m: ShaderMaterial) => { m.uniforms.uWind = { value: 0 }; return m }
@@ -206,7 +229,7 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
         const perSite = Math.max(1, Math.round(next.leafDensity / 12))
         // instance budget per tree: stride sites rather than truncate the
         // canopy so dense settings thin evenly instead of balding at the top
-        const stride = Math.max(1, Math.ceil((tree.leafSites.length * perSite) / Math.max(2500, 14_000 / next.trees)))
+        const stride = Math.max(1, Math.ceil((tree.leafSites.length * perSite) / Math.max(2500, 14_000 / treeCount)))
         const sites = tree.leafSites.filter((_, index) => index % stride === 0)
         const count = sites.length * perSite
         const leaves = new InstancedMesh(leafGeometry, leafMaterialFor(tint), count)
@@ -276,6 +299,7 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
 
   return {
     regenerate: (next) => plant(next),
+    setData: (payload) => { dataPayload = payload; plant(lastParams) },
     setLook: (next) => { const rebuild = (next === 'foliage') !== currentLookIsFoliage(); currentLook = next; if (rebuild) plant({ ...lastParams, growSeconds: 0.5 }); else applyLook() },
     replay: () => { uniforms.uProgress.value = 0 },
     destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); clear(); controls.dispose(); ground.geometry.dispose(); groundMaterial.dispose(); renderer.dispose() },
