@@ -385,7 +385,7 @@ def _order_indices(meta_dates: list[str], order: str, n: int, seed: int) -> list
     uniformly at seeded positions; integers = random permutations."""
     rng = np.random.default_rng(seed)
     if order != "date":
-        return list(np.random.default_rng(int(order)).permutation(n))
+        return [int(x) for x in np.random.default_rng(int(order)).permutation(n)]
     dated = [i for i in range(n) if meta_dates[i]]
     undated = [i for i in range(n) if not meta_dates[i]]
     dated.sort(key=lambda i: (meta_dates[i], rng.random()))
