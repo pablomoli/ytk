@@ -232,12 +232,36 @@ def strip_frontmatter(text: str) -> str:
     return text[m.end():].lstrip() if m else text
 
 
+def _with_ingest_time(col, ids: list[str], metas: list[dict]) -> list[dict]:
+    """Stamp ingested_at (UTC ISO) exactly once per id: first write wins,
+    re-upserts carry the existing stamp forward (chroma upsert replaces
+    metadata wholesale, so preservation must be explicit). Records written
+    before this field existed stay unstamped until they pass through an
+    API upsert again — absent means unknown, never a backfilled guess.
+    The embedder migration copies metadata verbatim, so stamps survive
+    re-embedding (grove v6 finding 15)."""
+    from datetime import datetime, timezone
+
+    try:
+        existing = col.get(ids=ids, include=["metadatas"])
+        prior = {i: (m or {}).get("ingested_at")
+                 for i, m in zip(existing["ids"], existing["metadatas"])}
+    except Exception:
+        prior = {}
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return [
+        {**meta, "ingested_at": prior.get(i) or now}
+        for i, meta in zip(ids, metas)
+    ]
+
+
 def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
     """Upsert arbitrary text into the memories collection."""
-    _memories_collection().upsert(
+    col = _memories_collection()
+    col.upsert(
         ids=[doc_id],
         documents=[text[:8000]],
-        metadatas=[metadata],
+        metadatas=_with_ingest_time(col, [doc_id], [metadata]),
     )
 
 
@@ -347,10 +371,13 @@ def upsert(meta: dict, enrichment: Enrichment, segments: list[dict]) -> None:
         "thesis": enrichment.thesis,
         "summary": enrichment.summary,
     }
-    _videos_collection().upsert(
+    vcol = _videos_collection()
+    vcol.upsert(
         ids=list(parts.keys()),
         documents=list(parts.values()),
-        metadatas=[dict(part_meta) for _ in parts],
+        metadatas=_with_ingest_time(
+            vcol, list(parts.keys()), [dict(part_meta) for _ in parts]
+        ),
     )
 
     # --- segment-level (60s blocks, mirrors vault.py grouping) ---
@@ -389,10 +416,11 @@ def upsert(meta: dict, enrichment: Enrichment, segments: list[dict]) -> None:
         _flush(block_start, block_texts, block_index)
 
     if seg_ids:
-        _segments_collection().upsert(
+        scol = _segments_collection()
+        scol.upsert(
             ids=seg_ids,
             documents=seg_docs,
-            metadatas=seg_metas,
+            metadatas=_with_ingest_time(scol, seg_ids, seg_metas),
         )
 
 
