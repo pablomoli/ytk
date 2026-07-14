@@ -43,6 +43,10 @@ REFS_DIR = Path.home() / ".ytk" / "grove" / "replay-refs"
 CHECKPOINTS = (0.6, 0.7, 0.8, 0.9, 1.0)
 N_TRIPLETS = 3000
 USABLE_FLOOR = 200
+# v3 (Codex v6): one engine version for every comparable cell; centroid
+# semantics are a parameter, never an ambient global; persistence
+# staleness measured; terminal-only attach arms; artifacts stamped.
+SCHEMA_VERSION = 3
 
 
 # --------------------------------------------------------------------------
@@ -101,10 +105,17 @@ def fit_nodes_capacity(vecs: np.ndarray, k_main: int | None = None):
     }
 
 
-def _stamp_centroids(vecs: np.ndarray, nodes, membership) -> None:
-    """Centroids from DESCENDANT mass (Codex v5 K2): an internal node's
-    centroid is the mean of every note under it, accumulated bottom-up —
-    never a global-mean pseudo-observation."""
+def _stamp_centroids(vecs: np.ndarray, nodes, membership,
+                     mode: str = "production") -> None:
+    """Centroid semantics are a PARAMETER (Codex v6 finding 1):
+
+    production - direct-member means; nodes without direct members get the
+                 global mean. Exactly dendro.build_bucket's shipped
+                 behavior; every rebuild-policy cell must use this.
+    descendant - a node's centroid is the mean of every note under it,
+                 accumulated bottom-up. Only for the centroid-maintenance
+                 alternative arms (Codex v5 K2's corrected comparator).
+    """
     u = _unit(vecs)
     lab = np.array([membership.get(i, -1) for i in range(len(vecs))])
     by_id = {n["id"]: n for n in nodes}
@@ -112,7 +123,12 @@ def _stamp_centroids(vecs: np.ndarray, nodes, membership) -> None:
         mask = lab == node["id"]
         node["_sum"] = u[mask].sum(axis=0) if mask.any() else np.zeros(u.shape[1])
         node["_count"] = int(mask.sum())
-    # accumulate child sums into parents, deepest first
+    if mode == "production":
+        for node in nodes:
+            node["centroid"] = ((node["_sum"] / node["_count"]).astype(float)
+                                if node["_count"] else u.mean(axis=0).astype(float))
+        return
+    # descendant mode: accumulate child sums into parents, deepest first
     depth: dict[int, int] = {}
 
     def d(i: int) -> int:
@@ -131,7 +147,7 @@ def _stamp_centroids(vecs: np.ndarray, nodes, membership) -> None:
     for node in nodes:
         if node["_count"] > 0:
             node["centroid"] = (node["_sum"] / node["_count"]).astype(float)
-        else:  # empty node: fall back to global mean, marked by zero count
+        else:
             node["centroid"] = u.mean(axis=0).astype(float)
             node["_sum"] = np.zeros(u.shape[1])
 
@@ -259,24 +275,71 @@ def descendant_mass_metric(nodes_a, members_a, nodes_b, members_b) -> dict:
 # replay
 # --------------------------------------------------------------------------
 
-def _attach(nodes, members, by_id, vec_unit, key, policy) -> int:
-    """Production attach + optional online centroid maintenance (P6).
-    Returns the target node's depth."""
-    cents = np.array([n["centroid"] for n in nodes])
+def _attach(nodes, members, by_id, vec_unit, key, policy) -> tuple[int, bool]:
+    """Attach one note. Policies (Codex v6 finding 9 ordering):
+    rebuild / never   - production semantics: search EVERY node centroid
+    terminal          - search terminal nodes only (what a fresh fit does)
+    centroid-maintain - all nodes + online descendant-centroid updates
+    terminal-cm       - terminal-only + online centroid updates
+    Returns (target depth, target_was_internal)."""
+    terminal_only = policy in ("terminal", "terminal-cm")
+    maintain = policy in ("centroid-maintain", "terminal-cm")
+    has_kids = {n["parent"] for n in nodes if n["parent"] != -1}
+    candidates = ([n for n in nodes if n["id"] not in has_kids]
+                  if terminal_only else nodes)
+    cents = np.array([n["centroid"] for n in candidates])
     cents = cents / np.linalg.norm(cents, axis=1, keepdims=True).clip(1e-12)
-    target = nodes[int(np.argmax(cents @ vec_unit))]
+    target = candidates[int(np.argmax(cents @ vec_unit))]
+    was_internal = target["id"] in has_kids
     members[key] = target["id"]
     nid, depth = target["id"], 0
     while nid != -1:
         node = by_id[nid]
         node["mass"] += 1
-        if policy == "centroid-maintain":
+        if maintain:
             node["_sum"] = node["_sum"] + vec_unit
             node["_count"] += 1
             node["centroid"] = node["_sum"] / node["_count"]
         nid = node["parent"]
         depth += 1
-    return depth
+    return depth, was_internal
+
+
+def persistence_metric(nodes_a, members_a, nodes_b, members_b) -> dict:
+    """v6 finding 3: branch-LENGTH staleness. Persistence is the renderer's
+    limb-length input (normalized by each tree's max); attach never updates
+    it. Rank correlation + normalized L1 across descendant-matched nodes."""
+    from scipy.stats import spearmanr
+
+    da, db = _descendant_sets(nodes_a, members_a), _descendant_sets(nodes_b, members_b)
+    candidates = []
+    for a, sa in da.items():
+        for b, sb in db.items():
+            union = len(sa | sb)
+            if union:
+                candidates.append((len(sa & sb) / union, a, b))
+    matched, ua, ub = [], set(), set()
+    for jac, a, b in sorted(candidates, reverse=True):
+        if jac < 0.3:
+            break
+        if a in ua or b in ub:
+            continue
+        matched.append((a, b))
+        ua.add(a)
+        ub.add(b)
+    pa = {n["id"]: n["persistence"] for n in nodes_a}
+    pb = {n["id"]: n["persistence"] for n in nodes_b}
+    max_a = max(pa.values()) or 1.0
+    max_b = max(pb.values()) or 1.0
+    pairs = [(pa[a] / max_a, pb[b] / max_b) for a, b in matched]
+    if len(pairs) < 2:
+        return {"spearman": None, "l1_mean": None, "matched": len(pairs)}
+    l1 = float(np.mean([abs(x - y) for x, y in pairs]))
+    rho = None
+    if len(pairs) >= 3:
+        r = spearmanr([x for x, _ in pairs], [y for _, y in pairs]).statistic
+        rho = None if np.isnan(r) else round(float(r), 3)
+    return {"spearman": rho, "l1_mean": round(l1, 3), "matched": len(pairs)}
 
 
 def _compare(nodes, members, k, vecs, samples, ref) -> dict:
@@ -294,6 +357,7 @@ def _compare(nodes, members, k, vecs, samples, ref) -> dict:
         "assignment_ari": round(float(adjusted_rand_score(la, lb)), 3),
         "triplets": _triplets(la, ta, lb, tb, samples),
         "mass": descendant_mass_metric(nodes, members, ref_nodes, ref_members),
+        "persistence": persistence_metric(nodes, members, ref_nodes, ref_members),
         "k_main_requested": info["k_main_requested"],
         "k_main_used": info["k_main_used"],
         "ref_nodes": len(ref_nodes),
@@ -315,12 +379,15 @@ def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
     k0 = max(int(n * base_frac), MIN_CLUSTER_NOTES)
     u_all = _unit(vecs[seq])
 
+    centroid_mode = ("descendant" if policy in ("centroid-maintain", "terminal-cm")
+                     else "production")
     nodes, membership, base_info = fit_nodes_capacity(vecs[seq[:k0]])
-    _stamp_centroids(vecs[seq[:k0]], nodes, membership)
+    _stamp_centroids(vecs[seq[:k0]], nodes, membership, mode=centroid_mode)
     members = {str(i): nid for i, nid in membership.items()}
     by_id = {nd["id"]: nd for nd in nodes}
     n_at_last, attached_since = k0, 0
     work = k0 * k0
+    internal_targets = 0
     rebuild_events: list[dict] = []
     marks = {max(int(n * f), k0): f for f in checkpoints}
 
@@ -340,7 +407,8 @@ def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
 
     checkpoints_out = []
     for pos in range(k0, n):
-        depth = _attach(nodes, members, by_id, u_all[pos], str(pos), policy)
+        depth, was_internal = _attach(nodes, members, by_id, u_all[pos], str(pos), policy)
+        internal_targets += was_internal
         attached_since += 1
         k = pos + 1
 
@@ -352,7 +420,8 @@ def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
             ref = production_ref(k)
             pre = _compare(nodes, members, k, vecs, samples, ref)
             fresh_nodes, fresh_membership, _ = fit_nodes_capacity(vecs[seq[:k]])
-            _stamp_centroids(vecs[seq[:k]], fresh_nodes, fresh_membership)
+            _stamp_centroids(vecs[seq[:k]], fresh_nodes, fresh_membership,
+                             mode=centroid_mode)
             fresh_members = {str(i): nid for i, nid in fresh_membership.items()}
             mapping = anchor_nodes(members, fresh_members)
             taken = set(mapping.values())
@@ -388,8 +457,11 @@ def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
     prod_tri = [c["production"]["triplets"]["agreement"] for c in checkpoints_out
                 if c["production"]["triplets"]["agreement"] is not None]
     return {
+        "schema_version": SCHEMA_VERSION,
+        "centroid_mode": centroid_mode,
         "theta": theta, "policy": policy, "base_frac": base_frac, "n": n,
         "base_k_main": base_info["k_main_used"],
+        "attach_internal_targets": internal_targets,
         "rebuild_events": rebuild_events,
         "rebuilds": len(rebuild_events),
         "checkpoints": checkpoints_out,
@@ -477,7 +549,7 @@ def main() -> None:
     ap.add_argument("--order", help="'date' or an integer seed")
     ap.add_argument("--theta", default="never")
     ap.add_argument("--policy", default="rebuild",
-                    choices=["rebuild", "centroid-maintain"])
+                    choices=["rebuild", "centroid-maintain", "terminal", "terminal-cm"])
     ap.add_argument("--base-frac", type=float, default=0.5)
     ap.add_argument("--floor", type=int, default=0,
                     help="absolute debt floor in notes (hybrid trigger, K6)")
@@ -507,8 +579,14 @@ def main() -> None:
     cell = replay_cell(vecs, order_idx, theta, policy=args.policy,
                        base_frac=args.base_frac, floor=args.floor,
                        rng=np.random.default_rng(cell_seed))
+    import subprocess
+
+    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                            capture_output=True, text=True,
+                            cwd=Path(__file__).parent).stdout.strip()
     cell.pop("final_centroids", None)  # test/debug payload, not an artifact
-    cell.update({"bucket": args.bucket, "order": args.order, "floor": args.floor,
+    cell.update({"engine_commit": commit,
+                 "bucket": args.bucket, "order": args.order, "floor": args.floor,
                  "embedding_model": meta["embedding_model"],
                  "vec_sha256": meta["vec_sha256"],
                  "dated": meta["dated"], "undated": meta["n"] - meta["dated"]})
