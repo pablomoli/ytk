@@ -8,37 +8,43 @@ backs it. Full analysis: `path-dependence-report.md`.
 Options measured (144 cells, `replay-cells/*.json`, frontier figure
 `path-policy-frontier.png`):
 
-| option | what the data says |
+| option | what the data says (post Codex-v5 corrections) |
 |---|---|
-| never (current) | Hierarchy holds at base 0.5 (triplet at/above the cross-half floor except visual-craft date, 0.732 vs 0.738) but falls below floor in all three buckets at base 0.25 on the date arm (epicmap 0.493 vs 0.596). Flat assignment and girth drift badly: epicmap final ARI 0.085, mass-share L1 0.685. Renderer-visible. |
-| centroid-maintain | Rejected: theta=0.25 dominates it in every cell. Worse than never on ~3/4 of arm pairs (visual-craft date triplet 0.732 -> 0.532; ai-building date ARI 0.625 -> 0.453), though it improves ~1/4 (repairs mass L1 on 4 of 5 ai-building random seeds). Report section 2. |
-| theta=0.1 | Best ai-building AUC (0.950); on the date arm a shallower epicmap transient than theta=0.25 (worst-pre 0.277 vs 0.097; theta=0.5's 0.454 is shallower still but ends stale), mixed vs theta=0.25 on random seeds. 7 rebuilds per doubling. |
-| theta=0.25 | Knee of the frontier: best/near-best triplet AUC everywhere (date 0.913/0.969/0.953), mass L1 <= 0.16 final on the date base-0.5 arm (max across all arms 0.246, ai-building seed 102), 3 rebuilds per doubling. |
-| theta=0.5, 1.0 | Trigger-position artifacts. theta=0.5: one fire then a 517-note stale tail, final ARI 0.076 despite the shallowest epicmap worst-pre (0.454). theta=1.0: fires at the very end, one deep dip (worst-pre 0.175). Final numbers flatter to deceive. Report section 2. |
+| never (current) | Ordinal hierarchy stays high at base 0.5 (0.69-0.93 raw agreement) but reads much lower for young trees (base 0.25: 0.493/0.680/0.701). Flat assignment and girth drift badly: epicmap final ARI 0.085, matched-mass L1 0.685 at coverage 0.902. Renderer-visible. |
+| centroid-maintain | Not recommended, on CORRECTED grounds: the overnight comparator had an init bug (K2), all 24 cells rerun with the fix. Corrected cm is a wash vs never (worse ARI 14/24, worse triplet 11/24) and theta=0.25 beats it decisively on every inspected arm (epicmap date ARI 0.074 vs 0.762). "Dominated in every cell" retracted; terminal-only attach untested. |
+| theta=0.1 | Most best-or-tied arms in the grid (triplet AUC 13, assignment 14 — more than theta=0.25's 12/9, per K1 recount). 7 rebuilds per doubling. Date-arm epicmap transient shallower than theta=0.25 (0.277 vs 0.097); deeper on 3 of 5 random seeds. |
+| theta=0.25 + floor 15 | The MEASURED hybrid (24 cells, `*-rebuild-0.25f15.json`): identical to pure theta=0.25 in 12/18 base-0.5 arms; the floor's cost lands on the smallest bucket (visual-craft: one fewer rebuild, final ARI 1.000 -> 0.887, triplet 1.000 -> 0.960). Date-arm triplet AUC 0.913/0.969/0.953, mass L1 <= 0.16 at base 0.5, 3 rebuilds per doubling. |
+| theta=0.5, 1.0 | Trigger-position artifacts. theta=0.5: one fire then a 517-note stale tail, final ARI 0.076. theta=1.0: fires at the very end, one deep dip (worst-pre 0.175). Final numbers flatter to deceive. Report section 2. |
 
-**Recommendation: ship anchored rebuild at theta=0.25** — fire when
-attached_since_rebuild >= 0.25 * n_at_last_rebuild — with an absolute debt
-floor (suggest 15 notes) so saplings and slow buckets do not churn, and NO
-online centroid maintenance. Cost is a non-issue (epicmap worst case ~seconds
-per rebuild; report section 5). If transient dips right before a rebuild ever
-become user-visible, theta=0.1 is the paid upgrade (2x rebuilds) on the date
-arm — on random arms its transients are mixed against theta=0.25 (deeper on
-3 of 5 epicmap seeds) — and it is a config constant either way.
+**Recommendation: ship anchored rebuild at theta=0.25 with the 15-note
+floor — as an operationally preferred provisional policy, not a measured
+optimum** (K1 wording). theta=0.1 wins more arms outright; theta=0.25 is
+preferred only under a continuity/churn judgment (3 rebuilds per doubling
+vs 7 — renumbering risk and animation noise, asserted not measured). Both
+constants ship as config, and the hybrid's behavior is now measured
+including its floor (K6 resolved). No online centroid maintenance. Compute
+cost is a non-issue (report section 5).
 
 ## (b) Gate swap, issue #72 — stamp snapshots with triplet gates
 
-`gate72.json` has the numbers ready: epicmap 0.478, ai-building 0.616,
-visual-craft 0.673 (temporal halves, structure nulls all ~0.33); the seven
-saplings gate null. This replaces the construct-invalid centroid-transfer
-ARI gate (retraction history: `e2-report.md` sections 7-8; metric validity:
-`shootout-v3.json`).
+Codex v5 HELD the original stamp (K7: one half-split, one triplet draw,
+wrong construct). `gate72.json` was regenerated decision-grade: 10
+triplet-sampling seeds on the fixed temporal halves, tie/collision
+accounting, and BOTH constructs explicitly named. The numbers:
 
-**Recommendation: yes, swap and stamp now.** Two honesty notes for the
-stamp: these are temporal-split gates, so they read lower than the
-random-split floors in `shootout-v3.json` (0.596/0.752/0.738) — record
-which split kind the stamp used (`kind` field already does); and epicmap's
-0.478 vs null 0.33 is a real but modest margin, consistent with its known
-blob-ness. Mechanical change in `scripts/grove_lab/dendro.py` + re-stamp.
+| bucket | fit_nodes_triplet (the stored/rendered topology) | full_linkage_triplet | structure null |
+|---|---|---|---|
+| epicmap | 0.622 [0.611, 0.636] | 0.476 | 0.332 |
+| ai-building | 0.742 [0.726, 0.755] | 0.612 | 0.338 |
+| visual-craft | 0.947 [0.939, 0.954] | 0.664 | 0.320 |
+
+**Recommendation: swap and stamp with `fit_nodes_triplet` as the primary
+field** (it measures the truncated node topology snapshots actually
+render), `full_linkage_triplet` recorded alongside, and the tie/usable
+stats kept in the stamp — epicmap's gate carries heavy tie-rejection
+(~18k usable of 40k), a shallow-tree property that belongs next to the
+number. K7's conditions are met. Mechanical change in
+`scripts/grove_lab/dendro.py` + re-stamp.
 
 ## (c) Bucket hygiene (you author buckets; these are flags, not edits)
 
