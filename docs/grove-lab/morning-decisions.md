@@ -4,17 +4,24 @@
 backs it. Full analysis: `path-dependence-report.md`.
 
 > **STATUS AFTER CODEX v6 (`external-review-response-codex-v6.md`): items
-> (a) and (b) are HELD.** The v5 correction pass fixed findings locally
+> (a) and (b) were HELD.** The v5 correction pass fixed findings locally
 > but broke grid comparability: the K2 centroid fix changed a SHARED
 > engine helper, only cm + hybrid cells were rerun, and new-engine cells
 > were compared against old-engine cells (proof: epicmap date-0.5 pure
 > vs hybrid have identical trigger schedules, 3 rebuilds each, but
 > different AUCs, 0.913 vs 0.927). The hybrid cells also use descendant
-> centroids that production does not have. Nothing below ships until a
-> replay v3 reruns the comparable grid under ONE engine with
-> production-faithful semantics, adds a persistence-staleness metric, and
-> tests terminal-only attachment. The meta-lesson stands recorded: review
-> compliance is not experimental validity.
+> centroids that production does not have. The meta-lesson stands
+> recorded: review compliance is not experimental validity.
+>
+> **STATUS AFTER REPLAY v3 (`path-dependence-v3-addendum.md`,
+> `replay-cells-v3/*.json`, 192 cells, one engine at `e0e903c`,
+> production-faithful centroid semantics stamped per cell): item (a)'s
+> measurement prerequisites are MET** — the v2 ranking holds under one
+> engine, persistence staleness is measured (large under never-rebuild),
+> and terminal-only attach is tested (material improvement, not a
+> substitute for rebuilds). What remains on (a) is engineering, not
+> measurement. **Item (b) remains HELD** (fit_nodes null + schema work,
+> unchanged by v3).
 
 ## (a) Shipping policy for the grove cache
 
@@ -26,23 +33,52 @@ Options measured (144 cells, `replay-cells/*.json`, frontier figure
 | never (current) | Ordinal hierarchy stays high at base 0.5 (0.69-0.93 raw agreement) but reads much lower for young trees (base 0.25: 0.493/0.680/0.701). Flat assignment and girth drift badly: epicmap final ARI 0.085, matched-mass L1 0.685 at coverage 0.902. Renderer-visible. |
 | centroid-maintain | Not recommended, on CORRECTED grounds: the overnight comparator had an init bug (K2), all 24 cells rerun with the fix. Corrected cm is a wash vs never (worse ARI 14/24, worse triplet 11/24) and theta=0.25 beats it decisively on every inspected arm (epicmap date ARI 0.074 vs 0.762). "Dominated in every cell" retracted; terminal-only attach untested. |
 | theta=0.1 | Most best-or-tied arms in the grid (triplet AUC 13, assignment 14 — more than theta=0.25's 12/9, per K1 recount). 7 rebuilds per doubling. Date-arm epicmap transient shallower than theta=0.25 (0.277 vs 0.097); deeper on 3 of 5 random seeds. |
-| theta=0.25 + floor 15 | Hybrid cells exist (`*-rebuild-0.25f15.json`) with date-arm triplet AUC 0.927/0.972/0.916 and rebuilds 3/3/2 (v6 finding 7 corrected — earlier stated numbers were copy-forwarded from pure-theta cells). CAVEAT: these cells run on post-K2 descendant-centroid semantics that production does not have, and the pure-theta cells they were compared to ran on the older engine — "identical in 12/18 arms" described trigger schedules only, not measured behavior (v6 finding 1). Not comparable until replay v3. |
+| theta=0.25 + floor 15 | Hybrid cells exist (`*-rebuild-0.25f15.json`) with date-arm triplet AUC 0.927/0.972/0.916 and rebuilds 3/3/2 (v6 finding 7 corrected — earlier stated numbers were copy-forwarded from pure-theta cells). CAVEAT: these cells ran on post-K2 descendant-centroid semantics that production does not have (v6 finding 1). RESOLVED by replay v3: under one engine the date-arm triplet AUCs read 0.913/0.969/0.916 (the old engine flattered epicmap by ~0.014) and f15 is identical to pure 0.25 in 17/24 arms, all divergences confined to visual-craft where the floor suppresses one rebuild as designed (`replay-cells-v3/*-rebuild-0.25f15.json`, addendum section 1). |
 | theta=0.5, 1.0 | Trigger-position artifacts. theta=0.5: one fire then a 517-note stale tail, final ARI 0.076. theta=1.0: fires at the very end, one deep dip (worst-pre 0.175). Final numbers flatter to deceive. Report section 2. |
 
-**Recommendation: HELD (v6).** theta=0.25 + floor remains the leading
-candidate, but shipping requires: (1) replay v3 — one engine version,
-production-faithful centroid semantics, full comparable grid, artifacts
-stamped with schema + git commit; (2) a persistence-staleness metric
-(branch LENGTH is a principal visual encoding and attach never updates
-persistence — unmeasured, v6 finding 3); (3) the terminal-only attach
-comparator (v6 finding 9 — production attach can file notes at internal
-nodes/root, which fresh fits never do; possibly a major drift mechanism
-and cheaper than split-on-mass); (4) honest engineering scope — automatic
-rebuild needs persistent debt state, snapshot migration, atomic
-replacement, and multi-invocation tests; it is NOT a small mechanical
-change (v6 finding 2). Also: the continuity-cost judgment cannot even be
-supported by current anchoring, which matches direct members only and
-never anchors internal nodes (v6 finding 8).
+**Recommendation: theta=0.25 + floor 15, measurement complete — shipping
+now gates on engineering only.** Replay v3
+(`path-dependence-v3-addendum.md`, all claims traceable to
+`replay-cells-v3/*.json`) discharged the three measurement prerequisites:
+
+1. **Ranking holds under one engine.** Best-or-tied over 24 arms:
+   theta=0.1 leads AUC counts (ARI-AUC 14, triplet-AUC 14) vs theta=0.25
+   (9, 13); never is best in ZERO arms on every metric; theta=1.0's
+   final-checkpoint wins remain trigger-position artifacts (ARI-AUC grid
+   mean 0.628, worst transient 0.058). 0.25+f15 is now genuinely
+   comparable to pure 0.25: identical in 17/24 arms; all seven divergences
+   are visual-craft, where the floor suppresses one rebuild as designed
+   (bounded cost, worst final ARI -0.217 on n=86). The 0.25-vs-0.1 choice
+   remains the 3-vs-7-rebuilds churn judgment.
+2. **Persistence staleness measured (v6 finding 3): the held-out visual
+   channel is genuinely stale under never.** Final-checkpoint matched-node
+   branch-length L1 0.22-0.32 of tree-max under never-rebuild, with rank
+   order collapsing (Spearman 0.023 ai-building, -0.200 visual-craft);
+   theta arms hold L1 at 0.01-0.11, Spearman 0.77-0.94. Only rebuilds
+   repair this channel — neither cm nor terminal attach touches it.
+3. **Terminal-only attach tested (v6 finding 9): material, prominent, but
+   it does NOT change the recommendation.** Production attach files
+   27.6-37.8% of notes at internal nodes/root (`attach_internal_targets`);
+   forbidding that beats production attach in 23/24 arms and recovers
+   roughly 27% of the never-to-theta final-ARI gap, 43% of mass L1, 52%
+   of ARI-AUC (grid means 0.368 -> 0.484 ARI, 0.411 -> 0.269 L1). It is a
+   cheap, strictly local improvement worth shipping ALONGSIDE the rebuild
+   policy — not instead of it (remaining drift still far from any theta
+   arm; capacity starvation and persistence untouched). One confirmation
+   arm (terminal attach between theta rebuilds) should run when it ships.
+4. Corrected cm under one engine: wash on hierarchy/mass, mildly worse on
+   assignment (ARI-AUC 5W/18L vs never). Closed — not recommended in any
+   configuration.
+
+**What remains before shipping — engineering, not measurement (v6 finding
+2):** persistent debt state, snapshot schema migration, atomic snapshot
+replacement, failure/concurrency behavior, and multi-invocation tests for
+the automatic theta rebuild; plus the anchoring fix if continuity claims
+are to be made (anchor_nodes matches direct members only and never anchors
+internal nodes/root — v6 finding 8, still open). Known residual caveats:
+the date arm is still not ingest order (`ingested_at` capture landed in
+`922ff01` but history accrues from now), and AUC is still an unweighted
+checkpoint mean.
 
 ## (b) Gate swap, issue #72 — stamp snapshots with triplet gates
 
