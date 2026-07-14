@@ -109,10 +109,13 @@ designed; the cost there is bounded (worst arm final ARI -0.217,
 `visual-craft-102-0.5-rebuild-0.25f15.json`; date-0.5 ARI 1.000 to 0.887,
 ARI-AUC 0.757 to 0.655). In epicmap and ai-building the floor never binds
 and the cells are numerically indistinguishable from pure theta=0.25.
-The v2 cross-engine skew is now quantified: the v2 hybrid cells' date-arm
+The v2 cross-engine skew is now bounded: the v2 hybrid cells' date-arm
 triplet AUCs (0.927 / 0.972 / 0.916, v6 finding 7 corrected values) read
-0.913 / 0.969 / 0.916 under production semantics — the descendant-centroid
-engine was flattering epicmap by ~0.014.
+0.913 / 0.969 / 0.916 under the v3 engine — 0.014 lower on epicmap. The v2
+hybrid cells carry no `engine_commit` or `schema_version` stamps, so this
+delta measures the unstamped v2 engine state against `e0e903c` as a whole;
+descendant-centroid semantics is the known difference between them, but the
+cells cannot confirm it as the sole cause.
 
 ## 2. Persistence staleness — the unmeasured visual channel (v6 finding 3)
 
@@ -168,8 +171,11 @@ target was an internal node or the root — placements a fresh fit would
 never produce. Under production attach this is common, not rare: summed
 over the 8 never-rebuild arms per bucket, epicmap 2429/8263 attaches
 (29.4%), ai-building 471/1705 (27.6%), visual-craft 130/344 (37.8%)
-(`*-rebuild-never.json`; theta arms run 20.7-32.5%). The terminal arms
-verify 0/8263, 0/1705, 0/344 by construction.
+(`*-rebuild-never.json`). The theta arms span 20.7-37.8%, with bucket-level
+shares (epicmap / ai-building / visual-craft): theta=0.1 32.5/20.7/31.1%,
+theta=0.25 30.4/21.9/34.3%, 0.25+f15 30.4/21.9/33.1%, theta=1.0
+29.6/25.1/37.8%. The terminal arms verify 0/8263, 0/1705, 0/344 by
+construction.
 
 Head-to-head, terminal-never vs rebuild-never over 24 arms: terminal wins
 23/24 on final ARI, 23/24 on final and AUC triplet, 23/24 on ARI-AUC, and
