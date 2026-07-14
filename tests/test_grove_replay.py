@@ -103,3 +103,47 @@ def test_checkpoints_carry_both_references_and_triplet_accounting():
             assert cp[ref]["k_main_requested"] >= 3
         # matched-capacity freezes k to the base tree's k
         assert c["base_k_main"] == cp["matched_capacity"]["k_main_used"]
+
+
+# --- Codex v5 corrections (K2 init bug, K6 floor policy) --------------------
+
+def test_internal_node_centroids_init_from_descendants():
+    """K2: a node with no DIRECT members (e.g. a limb whose notes all live
+    in its sub-branches) must start with the centroid of its descendant
+    mass, never a global-mean pseudo-observation."""
+    from scripts.grove_lab.replay import _stamp_centroids, fit_nodes_capacity
+
+    vecs = _blobs(n=200)
+    nodes, membership, _ = fit_nodes_capacity(vecs)
+    _stamp_centroids(vecs, nodes, membership)
+    by_id = {n["id"]: n for n in nodes}
+    kids = {}
+    for n in nodes:
+        if n["parent"] != -1:
+            kids.setdefault(n["parent"], []).append(n["id"])
+    for n in nodes:
+        if kids.get(n["id"]):
+            child_counts = sum(by_id[c]["_count"] for c in kids[n["id"]])
+            direct = sum(1 for v in membership.values() if v == n["id"])
+            assert n["_count"] == child_counts + direct
+            # centroid is the (unnormalized-mean) of descendant sums
+            expect = sum((by_id[c]["_sum"] for c in kids[n["id"]]),
+                         np.zeros_like(n["_sum"]))
+            assert np.allclose(n["_sum"], expect, atol=1e-6) or direct > 0
+
+
+def test_absolute_debt_floor_delays_small_triggers():
+    """K6: hybrid trigger max(theta*n_at_last, floor). n=200, base 100,
+    theta=0.25 alone fires at attached=25 (n=125); with floor=40 the first
+    fire needs attached>=40 (n=140)."""
+    vecs = _blobs(n=200)
+    from scripts.grove_lab.replay import replay_cell
+
+    pure = replay_cell(vecs, order=list(range(200)), theta=0.25,
+                       checkpoints=(1.0,), base_frac=0.5,
+                       rng=np.random.default_rng(0))
+    hybrid = replay_cell(vecs, order=list(range(200)), theta=0.25, floor=40,
+                         checkpoints=(1.0,), base_frac=0.5,
+                         rng=np.random.default_rng(0))
+    assert pure["rebuild_events"][0]["n"] == 125
+    assert hybrid["rebuild_events"][0]["n"] == 140

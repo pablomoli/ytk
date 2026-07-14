@@ -1,15 +1,39 @@
 {
  "embedding_model": "thenlper/gte-small",
- "seeds": 10,
+ "triplet_seeds": 10,
  "buckets": {
   "epicmap": {
    "n": 2065,
    "kind": "temporal",
    "span_days": 87,
    "gate": {
-    "triplet": 0.478,
-    "structure_null": 0.33,
-    "halves": 1
+    "full_linkage_triplet": {
+     "mean": 0.476,
+     "min": 0.463,
+     "max": 0.485,
+     "n_seeds": 10
+    },
+    "structure_null": {
+     "mean": 0.332,
+     "min": 0.318,
+     "max": 0.342,
+     "n_seeds": 10
+    },
+    "fit_nodes_triplet": {
+     "mean": 0.622,
+     "min": 0.611,
+     "max": 0.636,
+     "n_seeds": 10
+    },
+    "full_linkage_stats": {
+     "used_total": 39421,
+     "ties_total": 0,
+     "collision_rate": 0.661
+    },
+    "fit_nodes_stats": {
+     "usable": 18068,
+     "ties": 21932
+    }
    }
   },
   "ai-building": {
@@ -17,9 +41,33 @@
    "kind": "temporal",
    "span_days": 1147,
    "gate": {
-    "triplet": 0.616,
-    "structure_null": 0.314,
-    "halves": 1
+    "full_linkage_triplet": {
+     "mean": 0.612,
+     "min": 0.602,
+     "max": 0.622,
+     "n_seeds": 10
+    },
+    "structure_null": {
+     "mean": 0.338,
+     "min": 0.321,
+     "max": 0.349,
+     "n_seeds": 10
+    },
+    "fit_nodes_triplet": {
+     "mean": 0.742,
+     "min": 0.726,
+     "max": 0.755,
+     "n_seeds": 10
+    },
+    "full_linkage_stats": {
+     "used_total": 36830,
+     "ties_total": 0,
+     "collision_rate": 0.652
+    },
+    "fit_nodes_stats": {
+     "usable": 13449,
+     "ties": 26551
+    }
    }
   },
   "youtube-channel": {
@@ -32,9 +80,33 @@
    "kind": "temporal",
    "span_days": 337,
    "gate": {
-    "triplet": 0.673,
-    "structure_null": 0.335,
-    "halves": 1
+    "full_linkage_triplet": {
+     "mean": 0.664,
+     "min": 0.655,
+     "max": 0.674,
+     "n_seeds": 10
+    },
+    "structure_null": {
+     "mean": 0.32,
+     "min": 0.237,
+     "max": 0.374,
+     "n_seeds": 10
+    },
+    "fit_nodes_triplet": {
+     "mean": 0.947,
+     "min": 0.939,
+     "max": 0.954,
+     "n_seeds": 10
+    },
+    "full_linkage_stats": {
+     "used_total": 29638,
+     "ties_total": 0,
+     "collision_rate": 0.637
+    },
+    "fit_nodes_stats": {
+     "usable": 15456,
+     "ties": 24544
+    }
    }
   },
   "playful-tools": {

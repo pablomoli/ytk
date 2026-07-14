@@ -32,8 +32,9 @@ one note at a time through the production attach path. Arms:
   n_at_last_rebuild, firing on >= theta (review P1 semantics).
 - References at checkpoints 60/70/80/90/100% and immediately pre/post every
   rebuild event: a production-fresh `fit_nodes` reference (shipping frontier)
-  AND a matched-capacity reference with k_main frozen to the base tree
-  (attribution arm, review P2). Inputs frozen and hashed (`vec_sha256` in
+  AND a matched-k-main reference with k_main frozen to the base tree
+  (attribution arm, review P2; renamed post-review — it freezes k_main
+  only, NOT sub-split eligibility, so it is a partial capacity control). Inputs frozen and hashed (`vec_sha256` in
   every cell, embedding model `thenlper/gte-small`).
 - Metrics: assignment ARI; LCA-triplet agreement with attempted/usable/tie
   accounting (review P5); mass placement via descendant-set node matching
@@ -49,7 +50,7 @@ one note at a time through the production attach path. Arms:
 ## 2. Headline findings
 
 Final-checkpoint (100%) divergence, date order, base 0.5, production
-reference (matched-capacity in parentheses where it differs):
+reference (matched-k-main in parentheses where it differs):
 
 | bucket | policy | ARI | triplet | mass L1 | ARI-AUC | worst pre | rebuilds |
 |---|---|---|---|---|---|---|---|
@@ -82,16 +83,18 @@ What the table says:
   descendant masses nest and unmatched nodes contribute nothing, so the
   value is not a fraction of total girth.) visual-craft never: ARI 0.317,
   L1 0.337.
-- **Capacity starvation is one measured drift mechanism — in ai-building
-  only.** Attach never creates nodes: ai-building's incremental tree stays
-  at its base 7 nodes while the fresh reference grows 7 -> 13 (k_main
-  3 -> 5 across the n//80 thresholds; `ref_nodes` vs `incremental_nodes`
-  in `ai-building-date-0.5-rebuild-never.json`). Mass keeps pouring into a
-  frozen skeleton. It is not the drift mechanism everywhere: in the worst
+- **Capacity starvation is a measured drift mechanism in ai-building AND
+  visual-craft** (corrected per review K3). Attach never creates nodes:
+  ai-building's incremental tree stays at its base 7 nodes while the fresh
+  reference grows 7 -> 13 (k_main 3 -> 5 across the n//80 thresholds);
+  visual-craft's stays at 4 while references grow to 6 via SUB-SPLIT
+  eligibility (its k_main never moves — the "matched-capacity" arm froze
+  only k_main, not sub-splitting, so it is renamed matched-k-main and is
+  not a full capacity control). The clean negative stands: in the worst
   drifter, `epicmap-date-0.5-rebuild-never.json` (final ARI 0.085, mass L1
   0.685), ref and incremental node counts are identical (15) and k_main
-  stays 9 at every checkpoint — zero capacity gap, so epicmap's drift is
-  not capacity starvation.
+  stays 9 at every checkpoint — epicmap's drift is not attributable to
+  measured node-count growth.
 - **Capacity growth vs true path dependence: both are real, and their split
   is order-dependent.** ai-building is the only bucket that crosses k
   thresholds inside the replay window at base 0.5. On the date arm the
@@ -102,18 +105,20 @@ What the table says:
   of the production-reference gap IS the capacity increment. The honest
   statement: neither reference makes never-rebuild look acceptable on
   assignment or mass.
-- **centroid-maintain is rejected by measurement.** The review-P6 cheap
-  mitigation is equal-or-worse than plain never on roughly three quarters
-  of the 24 never-vs-cm arm pairs: it degrades visual-craft triplet
-  0.732 -> 0.532 and ai-building ARI 0.625 -> 0.453 on the date arm;
-  epicmap date ARI unchanged (0.085 -> 0.081), though its triplet improves
-  0.801 -> 0.861. It does improve about a quarter of comparisons — e.g.
-  visual-craft random seeds 101-103 gain ARI +0.03 to +0.09, and on
-  ai-building random seeds it substantially repairs mass L1 in 4 of 5
-  (e.g. 0.480 -> 0.208) — so "no mass repair" holds only on the epicmap
-  date arm (L1 0.689 vs 0.685). The rejection stands on a stronger ground:
-  theta=0.25 dominates centroid-maintain in every cell, and cm is worse
-  than never precisely on the date arms.
+- **centroid-maintain: not recommended, on corrected grounds.** The
+  overnight comparator had an initialization bug (review K2: internal
+  nodes seeded with a global-mean pseudo-observation instead of their
+  descendant mass — `_stamp_centroids` now accumulates descendant sums
+  bottom-up, tested). All 24 cm cells were RERUN with the fix. Corrected
+  result: cm is worse than plain never on 14/24 arms for final ARI and
+  11/24 for final triplet — a wash against doing nothing, not a
+  catastrophe — and theta=0.25 beats it decisively on every inspected arm
+  (epicmap date ARI 0.074 vs 0.762; visual-craft date 0.150 vs 1.000).
+  The earlier claim "dominated in every cell" is RETRACTED (pre-fix it was
+  also numerically false: ai-building seed 102 cm 0.586 vs theta 0.580
+  assignment AUC). Terminal-only attachment remains untested (review K2's
+  second suggestion) — a fresh fit assigns notes only to terminal nodes
+  while production attach considers all nodes; that arm is future work.
 - **theta=1.0's perfect finals are a trigger-position artifact, not
   quality.** With base 0.5 the doubling trigger fires at the very end
   (epicmap event at n=2064 of 2065; post-rebuild ARI is 1.0 by construction
@@ -122,15 +127,20 @@ What the table says:
   for theta=0.5 in reverse: epicmap fires once at n=1548 then attaches 517
   notes stale, ending at ARI 0.076 — exactly the review-P1 warning that
   final-only scoring misleads; AUC and worst-pre are the decision metrics.
-- **theta=0.25 is the knee of the frontier.** Best or near-best triplet AUC
-  in every bucket on both order arms (date: 0.913 / 0.969 / 0.953; random
-  mean: 0.878 / 0.950 / 0.990) at 3 rebuilds per ~doubling. theta=0.1 buys
-  ai-building 0.983 and, on the date arm, a shallower epicmap worst dip
-  (0.277 vs 0.097) for 7 rebuilds. That transient advantage is date-arm
-  only: on random arms theta=0.1's worst-pre is deeper than theta=0.25's
-  on 3 of 5 epicmap seeds (e.g. 101: 0.192 vs 0.215) and the ai-building
-  seeds split roughly evenly. The single worst transient in the whole grid
-  is epicmap seed-102 theta=1.0, worst-pre 0.058. See
+- **theta=0.25 is the operationally preferred provisional tradeoff — not a
+  data-identified optimum** (reworded per review K1). Counting best-or-tied
+  arms across the grid, theta=0.1 actually leads (triplet AUC 13 vs 12
+  arms; assignment AUC 14 vs 9); theta=0.25 is preferred only once 3
+  rebuilds per doubling is priced cheaper than 7 — a continuity/churn
+  judgment (tree renumbering risk, growth-animation noise), asserted, not
+  measured. Both are strong: theta=0.25 date-arm triplet AUC 0.913 / 0.969
+  / 0.953; theta=0.1 buys ai-building 0.983 and a shallower date-arm
+  epicmap worst dip (0.277 vs 0.097) — a transient advantage that is
+  date-arm only (deeper than theta=0.25 on 3 of 5 epicmap random seeds).
+  The AUC itself is an unweighted checkpoint mean (nulls dropped), not the
+  time-weighted integral the design asked for, so the ranking carries
+  checkpoint-phase sensitivity (section 6). The single worst transient in
+  the whole grid is epicmap seed-102 theta=1.0, worst-pre 0.058. See
   `path-policy-frontier.png`.
 - **Caveat on epicmap ARI-AUC ordering** (theta=0.1 at 0.513 below
   theta=0.25 at 0.727): epicmap's fresh references are themselves unstable
@@ -140,31 +150,28 @@ What the table says:
   is bounded by reference noise, not policy; rank policies there on triplet
   AUC and mass L1.
 
-## 3. Hierarchy divergence sits at each bucket's own instability floor
+## 3. Hierarchy degrades less than assignment and mass at mature bases
 
-The intrinsic cross-half triplet floors (`shootout-v3.json`, 10 seeds):
-epicmap 0.596, ai-building 0.752, visual-craft 0.738. A never-rebuild
-incremental tree whose triplet agreement with a fresh fit is at or above the
-floor is indistinguishable from the bucket's own refit instability.
+(Reframed per review K4: the cross-half floors from `shootout-v3.json` use
+full-linkage cophenetic triplets across DISJOINT halves with 1-NN leaf
+mapping; the replay uses truncated fit_nodes LCA triplets over the SAME
+prefix notes. Numeric equality across these different contracts is
+qualitative context, not statistical indistinguishability — no
+replay-specific null distribution has been generated. Floors below are
+reference points, not verdicts.)
 
-| bucket | floor | never, date | never, random mean | verdict |
-|---|---|---|---|---|
-| epicmap | 0.596 | 0.801 | 0.694 | above floor |
-| ai-building | 0.752 | 0.854 (mc 0.941) | 0.815 (mc 0.890) | above floor |
-| visual-craft | 0.738 | 0.732 | 0.929 | below floor (date, 0.732 vs 0.738), above (random) |
+| bucket | reference floor | never, date | never, random mean |
+|---|---|---|---|
+| epicmap | 0.596 | 0.801 | 0.694 |
+| ai-building | 0.752 | 0.854 (mk 0.941) | 0.815 (mk 0.890) |
+| visual-craft | 0.738 | 0.732 | 0.929 |
 
-**At base 0.5 the grow-only cache does not measurably corrupt the ordinal
-hierarchy** — E7 tested the construct as owner-legible with caveats
-(`e7-results.json`; identification 6/6, but visual-craft payload was a
-"no read" and topology invariance was marginal at 7/9). At base 0.5 the
-incremental tree agrees with a fresh rebuild at least as well as two fresh
-half-fits agree with each other in every cell except visual-craft date
-(0.732, just below the 0.738 floor). The universal does NOT hold for young
-trees: at base 0.25 the never-rebuild date arm ends below the floor in all
-three buckets — epicmap 0.493 vs 0.596 (below even the floor's CI lower
-bound 0.526), ai-building 0.680 vs 0.752 (below CI lower bound 0.693),
-visual-craft 0.701 vs 0.738 — and mid-run checkpoints dip below floor in
-several more cells (e.g. epicmap date-0.5 min 0.583). For mature trees,
+**At base 0.5, ordinal hierarchy agreement stays high (0.69-0.93) while
+assignment and mass drift badly** — the raw contrast that matters, stated
+without the floor verdict. At base 0.25 the never-rebuild date arm reads
+substantially lower in all three buckets (epicmap 0.493, ai-building
+0.680, visual-craft 0.701) and mid-run checkpoints dip lower in several
+more cells (e.g. epicmap date-0.5 min 0.583). For mature trees,
 path dependence lives almost entirely in flat assignment and mass
 placement, i.e. in which node a note is filed under and how girth is
 distributed — renderer-visible, but not the tree's deep shape. This is why
@@ -269,3 +276,36 @@ noise) is the real price of small theta, and anchoring already contains it.
 - Post-rebuild agreement is 1.0 by construction (the anchored rebuild is
   the reference fit), so policies are separated only by their between-
   rebuild behavior — which is what AUC and worst-pre report.
+- **mass_l1 is a MATCHED-mass L1 — a lower bound.** Unmatched nodes
+  (epicmap never headline: 6 per side at coverage 0.902) contribute
+  nothing, and the 0.3 Jaccard matching cutoff is unswept (review K5).
+  Read every mass_l1 with its adjacent coverage; the headline drift
+  conclusion only strengthens under any unmatched-mass penalty.
+
+## 7. Post-review corrections (Codex v5, `external-review-response-codex-v5.md`)
+
+Verdict was results-valid-with-corrections; all seven findings applied:
+
+- K1: theta=0.25 reworded from "frontier knee" to operationally preferred
+  provisional tradeoff; theta=0.1's best-tied-arm lead stated; churn cost
+  named as judgment (section 2).
+- K2: centroid-maintain comparator initialization bug fixed
+  (descendant-based, tested), all 24 cm cells rerun; "dominated in every
+  cell" retracted; corrected verdict in section 2.
+- K3: visual-craft sub-split capacity starvation acknowledged;
+  "matched-capacity" renamed matched-k-main (mk) throughout.
+- K4: floor verdicts replaced with raw values; cross-construct comparison
+  labeled qualitative (section 3).
+- K5: mass_l1 relabeled matched-mass lower bound (section 6).
+- K6: the 15-note absolute debt floor was MEASURED post-review: 24 hybrid
+  cells (`*-rebuild-0.25f15.json`). At base 0.5 it is identical to pure
+  theta=0.25 in 12/18 arms; the difference concentrates where designed —
+  visual-craft trades one rebuild for final ARI 1.000 -> 0.887 and
+  triplet 1.000 -> 0.960. Known, bounded.
+- K7: `gate72.json` regenerated decision-grade: 10 triplet-sampling seeds
+  on fixed temporal halves with tie/collision accounting, and BOTH
+  constructs explicitly named — full_linkage_triplet (0.476 / 0.612 /
+  0.664) and fit_nodes_triplet, the truncated topology snapshots actually
+  render (0.622 / 0.742 / 0.947), structure nulls ~0.33. Note the epicmap
+  fit_nodes gate carries heavy tie-rejection (usable ~18k of 40k), a
+  shallow-tree property to keep beside the number.

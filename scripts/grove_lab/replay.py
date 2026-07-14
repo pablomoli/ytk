@@ -102,14 +102,38 @@ def fit_nodes_capacity(vecs: np.ndarray, k_main: int | None = None):
 
 
 def _stamp_centroids(vecs: np.ndarray, nodes, membership) -> None:
+    """Centroids from DESCENDANT mass (Codex v5 K2): an internal node's
+    centroid is the mean of every note under it, accumulated bottom-up —
+    never a global-mean pseudo-observation."""
     u = _unit(vecs)
     lab = np.array([membership.get(i, -1) for i in range(len(vecs))])
+    by_id = {n["id"]: n for n in nodes}
     for node in nodes:
         mask = lab == node["id"]
-        cent = u[mask].mean(axis=0) if mask.any() else u.mean(axis=0)
-        node["centroid"] = cent.astype(float)
-        node["_sum"] = u[mask].sum(axis=0) if mask.any() else cent.copy()
-        node["_count"] = int(mask.sum()) or 1
+        node["_sum"] = u[mask].sum(axis=0) if mask.any() else np.zeros(u.shape[1])
+        node["_count"] = int(mask.sum())
+    # accumulate child sums into parents, deepest first
+    depth: dict[int, int] = {}
+
+    def d(i: int) -> int:
+        if i not in depth:
+            p = by_id[i]["parent"]
+            depth[i] = 0 if p == -1 else d(p) + 1
+        return depth[i]
+
+    for n in nodes:
+        d(n["id"])
+    for n in sorted(nodes, key=lambda x: depth[x["id"]], reverse=True):
+        p = n["parent"]
+        if p != -1:
+            by_id[p]["_sum"] = by_id[p]["_sum"] + n["_sum"]
+            by_id[p]["_count"] += n["_count"]
+    for node in nodes:
+        if node["_count"] > 0:
+            node["centroid"] = (node["_sum"] / node["_count"]).astype(float)
+        else:  # empty node: fall back to global mean, marked by zero count
+            node["centroid"] = u.mean(axis=0).astype(float)
+            node["_sum"] = np.zeros(u.shape[1])
 
 
 # --------------------------------------------------------------------------
@@ -279,7 +303,8 @@ def _compare(nodes, members, k, vecs, samples, ref) -> dict:
 
 def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
                 policy: str = "rebuild", checkpoints=CHECKPOINTS,
-                base_frac: float = 0.5, rng=None, refs: dict | None = None) -> dict:
+                base_frac: float = 0.5, rng=None, refs: dict | None = None,
+                floor: int = 0) -> dict:
     """One (order, theta, policy, base_frac) cell. refs may carry
     precomputed production references and shared triplet samples keyed by
     checkpoint n (P7); missing entries are computed locally."""
@@ -319,8 +344,10 @@ def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
         attached_since += 1
         k = pos + 1
 
+        # hybrid trigger (Codex v5 K6): debt threshold with an absolute
+        # note floor - max(theta * n_at_last, floor) notes must accumulate
         if (policy == "rebuild" and theta is not None
-                and attached_since / n_at_last >= theta):
+                and attached_since >= max(theta * n_at_last, floor)):
             samples = sample_triplets(k)
             ref = production_ref(k)
             pre = _compare(nodes, members, k, vecs, samples, ref)
@@ -452,6 +479,8 @@ def main() -> None:
     ap.add_argument("--policy", default="rebuild",
                     choices=["rebuild", "centroid-maintain"])
     ap.add_argument("--base-frac", type=float, default=0.5)
+    ap.add_argument("--floor", type=int, default=0,
+                    help="absolute debt floor in notes (hybrid trigger, K6)")
     ap.add_argument("--out")
     args = ap.parse_args()
 
@@ -473,13 +502,13 @@ def main() -> None:
         int(hashlib.sha256(f"{args.bucket}|{args.order}".encode()).hexdigest()[:8], 16)))
     theta = None if args.theta == "never" else float(args.theta)
     cell_seed = int(hashlib.sha256(
-        f"{args.bucket}|{args.order}|{args.theta}|{args.policy}|{args.base_frac}"
+        f"{args.bucket}|{args.order}|{args.theta}|{args.policy}|{args.base_frac}|{args.floor}"
         .encode()).hexdigest()[:8], 16)
     cell = replay_cell(vecs, order_idx, theta, policy=args.policy,
-                       base_frac=args.base_frac,
+                       base_frac=args.base_frac, floor=args.floor,
                        rng=np.random.default_rng(cell_seed))
     cell.pop("final_centroids", None)  # test/debug payload, not an artifact
-    cell.update({"bucket": args.bucket, "order": args.order,
+    cell.update({"bucket": args.bucket, "order": args.order, "floor": args.floor,
                  "embedding_model": meta["embedding_model"],
                  "vec_sha256": meta["vec_sha256"],
                  "dated": meta["dated"], "undated": meta["n"] - meta["dated"]})
