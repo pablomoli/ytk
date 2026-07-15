@@ -1,15 +1,13 @@
 .masonry {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  grid-auto-rows: 8px;
-  grid-auto-flow: row dense;
-  gap: 0.75rem;
-  /* Without this, grid items stretch to fill their row-span. scrollHeight then
-     returns the stretched height, so each relayout measures its own last output
-     and the span ratchets upward without bound (observed: 1.8M px). Pinning
-     items to the start keeps scrollHeight == content height, so relayout is
-     idempotent. */
-  align-items: start;
+  /* Positioning context for JS masonry: MasonryGrid measures each child,
+     packs shortest-column-first, and writes left/top/width/height in px. */
+  position: relative;
+}
+
+.masonry > * {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .skel {
@@ -19,7 +17,6 @@
 }
 
 .empty {
-  grid-column: 1 / -1;
   color: #888;
   padding: 2rem 0;
   text-align: center;
