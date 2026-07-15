@@ -40,6 +40,7 @@ export function MasonryGrid({ children }: { children: ReactNode }) {
         const { nCols, colW } = columnSpec(width, GAP, COL_MIN)
         items.forEach((el) => {
           const wide = el.dataset.wide === '1' && nCols >= 2
+          el.style.position = 'absolute'
           el.style.width = `${wide ? 2 * colW + GAP : colW}px`
         })
         const boxes = items.map((el) => ({
