@@ -102,8 +102,11 @@ but the relayout body changes to:
 ### CSS (`web/src/styles.css`)
 
 `.masonry` drops all grid properties, becomes `position: relative` with its
-`height` set by JS. `.card` becomes `position: absolute` (left/top/width set
-inline by the layout pass). `gap` moves from CSS into the layout math (12px).
+`height` set by JS. Positioning is not owned by the stylesheet: the component
+writes `position: absolute` (and left/top/width) inline per child, because a
+`.masonry > *` rule ties on specificity with the later `.card { position:
+relative }` rule and loses the cascade — exactly the bug inline styles fixed.
+`gap` moves from CSS into the layout math (12px).
 The `.empty` / skeleton states that relied on `grid-column: 1 / -1` are
 adjusted to plain block flow.
 

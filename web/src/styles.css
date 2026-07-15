@@ -1,13 +1,10 @@
 .masonry {
-  /* Positioning context for JS masonry: MasonryGrid measures each child,
-     packs shortest-column-first, and writes left/top/width/height in px. */
+  /* Positioning context for JS masonry. MasonryGrid owns child geometry:
+     it writes position/left/top/width inline per child and sets this
+     container's height. No stylesheet rule positions the children — a
+     .masonry > * rule here loses the cascade to .card (position:
+     relative), which is exactly the bug that inline styles fixed. */
   position: relative;
-}
-
-.masonry > * {
-  position: absolute;
-  top: 0;
-  left: 0;
 }
 
 .skel {
