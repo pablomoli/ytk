@@ -13,7 +13,11 @@ function markWide(img: HTMLImageElement) {
   if (!img.naturalWidth || !img.naturalHeight) return
   const card = img.closest<HTMLElement>('.card')
   if (!card) return
-  if (img.naturalWidth / img.naturalHeight >= WIDE_RATIO) card.dataset.wide = '1'
+  if (img.naturalWidth / img.naturalHeight >= WIDE_RATIO) {
+    card.dataset.wide = '1'
+  } else {
+    delete card.dataset.wide
+  }
 }
 
 export function MasonryGrid({ children }: { children: ReactNode }) {
