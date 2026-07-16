@@ -48,3 +48,4 @@ ytk/CLAUDE.md
 # macOS
 .DS_Store
 docs/session-*-brief.md
+experiments/encoder_harness/data/
