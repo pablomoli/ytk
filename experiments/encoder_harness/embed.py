@@ -63,7 +63,9 @@ def main() -> None:
 
     cfg = MODELS[args.model]
     data = Path(args.data)
-    corpus = [json.loads(l) for l in (data / "corpus.jsonl").read_text().splitlines()]
+    # newline-only iteration: splitlines() would also split on U+2028/U+2029
+    with (data / "corpus.jsonl").open(encoding="utf-8") as f:
+        corpus = [json.loads(l) for l in f if l.strip()]
 
     use_parts = cfg["window"] <= 512 or args.force_parts
     texts: list[str] = []

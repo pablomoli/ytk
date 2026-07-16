@@ -64,7 +64,9 @@ def main() -> None:
     import numpy as np
 
     data = Path(args.data)
-    queries = [json.loads(l) for l in (data / "queries.jsonl").read_text().splitlines()]
+    # newline-only iteration: splitlines() would also split on U+2028/U+2029
+    with (data / "queries.jsonl").open(encoding="utf-8") as f:
+        queries = [json.loads(l) for l in f if l.strip()]
 
     spaces = {}
     for key in args.spaces:
