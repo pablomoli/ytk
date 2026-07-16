@@ -257,9 +257,23 @@ def fetch_new_items(
     The capture thread is the one-on-one thread with `peer` when given (the
     two-account pattern), else the note-to-self thread. The API returns messages
     newest-first; an empty cursor drains the whole thread.
+
+    The persisted thread_id is reused when present: listing every DM thread to
+    re-find the capture thread costs ~20s of private-API pagination per pull.
+    Discovery runs only on first use, or as a fallback when the cached id no
+    longer resolves (thread deleted or account switched).
     """
-    thread = find_peer_thread(client, peer) if peer else find_self_thread(client)
-    messages = _messages_until_cursor(client, thread.id, state.last_seen_message_id)
+    thread_id = state.thread_id
+    messages = None
+    if thread_id:
+        try:
+            messages = _messages_until_cursor(client, thread_id, state.last_seen_message_id)
+        except Exception:
+            thread_id = None
+    if thread_id is None:
+        thread = find_peer_thread(client, peer) if peer else find_self_thread(client)
+        thread_id = str(thread.id)
+        messages = _messages_until_cursor(client, thread_id, state.last_seen_message_id)
 
     new = []
     for m in messages:
@@ -270,7 +284,7 @@ def fetch_new_items(
     items = extract_items(reversed(new))
     newest_id = str(messages[0].id) if messages else state.last_seen_message_id
     return items, ReelsState(
-        thread_id=str(thread.id),
+        thread_id=thread_id,
         last_seen_message_id=newest_id,
         pending=list(state.pending),
     )
