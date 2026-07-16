@@ -158,6 +158,42 @@ def test_cursor_at_newest_yields_nothing():
     assert state.last_seen_message_id == "3"
 
 
+# --- cached thread id (skip thread-list discovery) ----------------------------
+
+
+class NoDiscoveryClient(FakeClient):
+    """Client whose thread listing must never be hit — the expensive call."""
+
+    def direct_threads(self, amount=0):
+        raise AssertionError("direct_threads must not be called when thread_id is cached")
+
+
+def test_cached_thread_id_skips_thread_discovery():
+    msgs = [_clip("3", "ccc"), _clip("2", "bbb")]
+    client = NoDiscoveryClient([], {"ts": msgs})
+    links, state = fetch_new_links(
+        client, ReelsState(thread_id="ts", last_seen_message_id="2")
+    )
+    assert links == ["https://www.instagram.com/reel/ccc/"]
+    assert state.thread_id == "ts"
+    assert state.last_seen_message_id == "3"
+
+
+def test_stale_cached_thread_id_falls_back_to_discovery():
+    class StaleThenGoodClient(FakeClient):
+        def direct_messages(self, thread_id, amount=0):
+            if thread_id == "gone":
+                raise RuntimeError("thread not found")
+            return super().direct_messages(thread_id, amount)
+
+    msgs = [_clip("1", "aaa")]
+    client = StaleThenGoodClient([_thread("ts", [])], {"ts": msgs})
+    links, state = fetch_new_links(client, ReelsState(thread_id="gone"))
+    assert links == ["https://www.instagram.com/reel/aaa/"]
+    assert state.thread_id == "ts"
+    assert state.last_seen_message_id == "1"
+
+
 # --- state persistence -------------------------------------------------------
 
 
