@@ -255,22 +255,88 @@ def _with_ingest_time(col, ids: list[str], metas: list[dict]) -> list[dict]:
     ]
 
 
+_DOC_PART_LIMIT = 1800  # chars (~450 tokens): a whole part fits the embedder's 512-token window
+
+
+def _split_doc(text: str, limit: int = _DOC_PART_LIMIT) -> list[str]:
+    """Greedy paragraph packing into chunks that fit the embedder window."""
+    if len(text) <= limit:
+        return [text]
+    parts: list[str] = []
+    buf = ""
+    for para in text.split("\n\n"):
+        while len(para) > limit:
+            if buf:
+                parts.append(buf)
+                buf = ""
+            parts.append(para[:limit])
+            para = para[limit:]
+        candidate = f"{buf}\n\n{para}" if buf else para
+        if len(candidate) > limit:
+            parts.append(buf)
+            buf = para
+        else:
+            buf = candidate
+    if buf.strip():
+        parts.append(buf)
+    return [p for p in parts if p.strip()]
+
+
 def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
-    """Upsert arbitrary text into the memories collection."""
+    """Upsert arbitrary text into the memories collection.
+
+    Documents are embedded as PARTS, same convention as videos: the embedder
+    hard-truncates at 512 tokens, so a single vector for a long note silently
+    drops the tail. The plain doc_id is the representative vector that
+    counting consumers (map, grove, synthesis) use; '#'-suffixed parts exist
+    for retrieval only and are collapsed by doc_id at query time. Tail parts
+    are prefixed with the note's first line as situating context.
+
+    Also guards against double-indexing: any existing vectors that share this
+    write's source_path or doc_id but are not part of it are deleted, so a
+    note re-indexed under a new id scheme cannot leave phantom copies behind.
+    """
     col = _memories_collection()
-    col.upsert(
-        ids=[doc_id],
-        documents=[text[:8000]],
-        metadatas=_with_ingest_time(col, [doc_id], [metadata]),
-    )
+    text = text[:8000]
+    chunks = _split_doc(text)
+    context = next(
+        (line.strip().lstrip("# ") for line in text.splitlines() if line.strip()), ""
+    )[:120]
+    ids = [doc_id] + [f"{doc_id}#{i}" for i in range(1, len(chunks))]
+    docs = [chunks[0]] + [f"{context}\n\n{c}" for c in chunks[1:]]
+    base = {**metadata, "doc_id": doc_id}
+    metas = [{**base, "part": i} for i in range(len(chunks))]
+
+    stale: list[str] = []
+    try:
+        clauses = [{"doc_id": doc_id}]
+        if base.get("source_path"):
+            clauses.append({"source_path": base["source_path"]})
+        where = clauses[0] if len(clauses) == 1 else {"$or": clauses}
+        existing = col.get(where=where, include=[])
+        stale = [i for i in existing["ids"] if i not in set(ids)]
+    except Exception as exc:
+        logging.getLogger(__name__).debug("upsert_doc guard %s: %s", doc_id, exc)
+
+    col.upsert(ids=ids, documents=docs, metadatas=_with_ingest_time(col, ids, metas))
+    if stale:
+        try:
+            col.delete(ids=stale)
+        except Exception as exc:
+            logging.getLogger(__name__).debug("upsert_doc stale %s: %s", doc_id, exc)
 
 
 def delete_doc(doc_id: str) -> None:
-    """Remove a document from the memories collection by ID."""
+    """Remove a document and its '#'-suffixed parts from the memories collection."""
+    log = logging.getLogger(__name__)
     try:
         _memories_collection().delete(ids=[doc_id])
     except Exception as exc:
-        logging.getLogger(__name__).debug("delete_doc %s: %s", doc_id, exc)
+        log.debug("delete_doc %s: %s", doc_id, exc)
+    try:
+        _memories_collection().delete(where={"doc_id": doc_id})
+    except Exception as exc:
+        log.debug("delete_doc parts %s: %s", doc_id, exc)
 
 
 def delete_video(video_id: str) -> None:
@@ -537,8 +603,12 @@ def search_all(query: str, n: int = 5) -> list[UnifiedResult]:
 
     mcol = _memories_collection()
     if mcol.count() > 0:
-        mr = mcol.query(query_texts=[query], n_results=min(n, mcol.count()))
+        mr = mcol.query(query_texts=[query], n_results=min(n * 3, mcol.count()))
+        seen_docs: set[str] = set()
         for meta, doc, dist in zip(mr["metadatas"][0], mr["documents"][0], mr["distances"][0]):
+            if meta["doc_id"] in seen_docs:  # best-ranked part already represents this doc
+                continue
+            seen_docs.add(meta["doc_id"])
             out.append(UnifiedResult(
                 type="memory",
                 doc_id=meta["doc_id"],
@@ -640,6 +710,8 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
     for mid, emb, meta, doc in zip(
         res["ids"], res["embeddings"], res["metadatas"], res["documents"]
     ):
+        if "#" in mid:  # retrieval-only part; one entry per doc
+            continue
         doc_id = meta.get("doc_id", mid)
         if not doc_id.startswith(allow):
             continue

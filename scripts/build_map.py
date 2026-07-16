@@ -138,9 +138,11 @@ def load_points() -> tuple[np.ndarray, list[dict], list[str]]:
     memories = client.get_collection("ytk_memories").get(
         include=["embeddings", "metadatas", "documents"]
     )
-    for emb, m, doc in zip(
-        memories["embeddings"], memories["metadatas"], memories["documents"]
+    for mid, emb, m, doc in zip(
+        memories["ids"], memories["embeddings"], memories["metadatas"], memories["documents"]
     ):
+        if "#" in mid:  # retrieval-only part vector; one map point per note
+            continue
         sp = m.get("source_path", "")
         dm = DATE_RE.search(m.get("doc_id", "") + " " + sp)
         url_m = re.search(r"^url: *(\S+)", (doc or "")[:600], re.MULTILINE)
