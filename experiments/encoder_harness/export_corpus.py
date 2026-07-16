@@ -73,7 +73,9 @@ def main() -> None:
     path = out / "corpus.jsonl"
     with path.open("w", encoding="utf-8") as f:
         for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            # ensure_ascii: note text can contain U+2028/U+2029, which
+            # str.splitlines() treats as line breaks — raw they corrupt JSONL
+            f.write(json.dumps(r) + "\n")
 
     counts: dict[str, int] = {}
     for r in rows:
