@@ -68,7 +68,7 @@ _EPOCHS: dict[str, dict] = {
         "encode_batch": 4,
     },
 }
-EMBEDDING_EPOCH = "v1"
+EMBEDDING_EPOCH = "v2"
 
 # Stamped into grove/map artifacts (dendro compares stamps to detect engine
 # changes); resolves from the active epoch so a cutover invalidates caches.

@@ -1,6 +1,15 @@
 """Shared test fixtures."""
 
+import os
+
 import pytest
+
+# Strip color-forcing vars BEFORE any ytk module import: ytk.cli builds its
+# rich Console at import time, and under FORCE_COLOR (tmux sessions) rich
+# injects highlight codes inside tokens like dates in captured CliRunner
+# output — splitting the substrings CLI tests assert on.
+for _var in ("FORCE_COLOR", "CLICOLOR_FORCE", "COLORTERM"):
+    os.environ.pop(_var, None)
 
 
 @pytest.fixture(autouse=True)
