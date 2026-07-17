@@ -414,6 +414,46 @@ INGESTED_URLS = ingested_urls  # test seam
 _watcher_started = False
 
 
+_CAPTURE_PROBLEMS: list[str] = []
+
+
+def probe_capture_health() -> list[str]:
+    """Startup probe: verify capture-source access and say so loudly.
+
+    Born 2026-07-17: the hub daemon silently lost Full Disk Access on a
+    `uv tool install --reinstall` (TCC grants die with the replaced python
+    binary) and iMessage capture was dead for six days — the watcher and
+    refresh_sources both swallowed the PermissionError. Problems land in
+    hub.log, the ops journal, and /api/ready."""
+    global _CAPTURE_PROBLEMS
+    problems: list[str] = []
+    try:
+        import sqlite3
+
+        from ytk.imessage import chatdb_path
+
+        con = sqlite3.connect(f"file:{chatdb_path()}?mode=ro", uri=True)
+        con.execute("select 1 from message limit 1")
+        con.close()
+    except Exception as exc:
+        problems.append(
+            f"chat.db unreadable ({exc}) — iMessage capture is dead. "
+            "Re-grant Full Disk Access to the hub python "
+            "(~/.local/share/uv/tools/ytk/bin/python); the grant dies on "
+            "every uv tool reinstall."
+        )
+    for p in problems:
+        print(f"[capture-health] {p}", flush=True)
+        try:
+            from ytk import ops
+
+            ops.journal(f"capture-health: {p}")
+        except Exception:
+            pass
+    _CAPTURE_PROBLEMS = problems
+    return problems
+
+
 def start_imessage_watcher(interval: float = 3.0, debounce: float = 8.0) -> bool:
     """Watch chat.db for writes and pull the self-chat within seconds.
 
@@ -439,6 +479,7 @@ def start_imessage_watcher(interval: float = 3.0, debounce: float = 8.0) -> bool
         last_sig = None
         last_pull = 0.0
         pending = False
+        last_err = ""
         while True:
             try:
                 sig = tuple(p.stat().st_mtime if p.exists() else 0 for p in watched)
@@ -448,9 +489,16 @@ def start_imessage_watcher(interval: float = 3.0, debounce: float = 8.0) -> bool
                 if pending and time.time() - last_pull >= debounce:
                     pending = False
                     last_pull = time.time()
-                    refresh_sources(force=True, only={"imessage"})
-            except Exception:
-                pass
+                    res = refresh_sources(force=True, only={"imessage"})
+                    for e in res.get("errors", []):
+                        if e != last_err:  # once per distinct error, not per poll
+                            print(f"[imessage watcher] {e}", flush=True)
+                            last_err = e
+            except Exception as exc:
+                msg = f"{type(exc).__name__}: {exc}"
+                if msg != last_err:
+                    print(f"[imessage watcher] {msg}", flush=True)
+                    last_err = msg
             time.sleep(interval)
 
     threading.Thread(target=_run, daemon=True).start()
