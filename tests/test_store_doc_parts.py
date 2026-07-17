@@ -10,6 +10,7 @@ def store(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     import ytk.store as store_mod
     importlib.reload(store_mod)
+    store_mod.EMBEDDING_EPOCH = "v1"  # reload resets to the production default
     return store_mod
 
 

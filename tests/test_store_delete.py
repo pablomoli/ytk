@@ -9,6 +9,7 @@ def _fresh_store(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     import ytk.store as store
     importlib.reload(store)
+    store.EMBEDDING_EPOCH = "v1"  # reload resets to the production default
     return store
 
 
