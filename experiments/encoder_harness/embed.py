@@ -56,6 +56,8 @@ def main() -> None:
     ap.add_argument("--force-parts", action="store_true",
                     help="use the parts strategy even on long-context models")
     ap.add_argument("--batch", type=int, default=32)
+    ap.add_argument("--fp16", action="store_true", help="load weights in float16 (halves memory)")
+    ap.add_argument("--max-seq", type=int, default=0, help="cap tokenizer sequence length")
     args = ap.parse_args()
 
     import numpy as np
@@ -79,7 +81,13 @@ def main() -> None:
             part_doc.append(di)
 
     t0 = time.perf_counter()
-    model = SentenceTransformer(cfg["hf"])
+    kwargs = {}
+    if args.fp16:
+        import torch
+        kwargs["model_kwargs"] = {"torch_dtype": torch.float16}
+    model = SentenceTransformer(cfg["hf"], **kwargs)
+    if args.max_seq:
+        model.max_seq_length = args.max_seq
     t_load = time.perf_counter() - t0
 
     t0 = time.perf_counter()
