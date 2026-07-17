@@ -807,3 +807,24 @@ body {
 .grove-panel em { font-style: normal; color: #83817a; text-align: right; }
 .grove-switcher { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: .8rem; padding: .4rem .9rem; border: 1px solid #ffffff22; border-radius: 999px; background: #1c1c1cee; box-shadow: 0 4px 18px #00000088; color: #d9c9a0; font-size: .8rem; letter-spacing: .06em; }
 .grove-switcher button { border: 0; background: none; color: #f0eee7; cursor: pointer; font-size: 1rem; }
+
+/* library */
+.library-search { background: none; border: 1px solid var(--line, #3a352c); color: inherit; font: inherit; padding: 0.3rem 0.6rem; border-radius: 999px; width: 15rem; }
+.library-more { display: flex; justify-content: center; padding: 1.5rem 0 2.5rem; }
+
+/* profile */
+.profile-body { max-width: 46rem; margin: 0 auto; }
+.profile-meta { color: var(--dim, #8a8375); margin: 0.5rem 0 1.5rem; }
+.profile-theme { border-bottom: 1px solid var(--line, #2a261f); padding: 0.4rem 0; }
+.profile-theme summary { display: flex; align-items: center; gap: 0.8rem; cursor: pointer; list-style: none; }
+.profile-theme-label { flex: 0 0 15rem; }
+.profile-theme-bar { flex: 1; height: 6px; background: var(--line, #2a261f); border-radius: 3px; overflow: hidden; }
+.profile-theme-bar span { display: block; height: 100%; background: #e2b04a; }
+.profile-theme-share { flex: 0 0 auto; color: var(--dim, #8a8375); font-size: 0.85em; }
+.profile-theme p, .profile-theme ul { color: var(--dim, #8a8375); margin: 0.5rem 0 0.5rem 15.8rem; }
+.profile-prose { margin-top: 2rem; line-height: 1.65; }
+
+/* settings extras */
+.settings-yaml { width: 100%; font-family: ui-monospace, monospace; font-size: 0.85em; background: none; color: inherit; border: 1px solid var(--line, #3a352c); border-radius: 6px; padding: 0.6rem; }
+.settings-hint { color: var(--dim, #8a8375); font-size: 0.9em; }
+.settings-env { font-family: ui-monospace, monospace; font-size: 0.85em; color: var(--dim, #8a8375); word-break: break-all; }

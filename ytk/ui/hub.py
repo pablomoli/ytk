@@ -1129,63 +1129,96 @@ def _ingested_at(p: Path) -> float:
     return min(birth, st.st_mtime)
 
 
+def _note_pool() -> tuple:
+    """(brain, memos_dir, all ingested note paths newest-first)."""
+    brain = vault._get_brain_path()
+    sources = brain / "sources"
+    memos = brain / "inbox" / "memos"
+    pool = list(sources.glob("**/*.md")) if sources.exists() else []
+    pool += list(memos.glob("*.md")) if memos.exists() else []
+    return brain, memos, sorted(pool, key=_ingested_at, reverse=True)
+
+
 def fresh_notes(n: int = 30) -> list[dict]:
     """The most recently ingested source notes, newest first, with thumbnails.
 
     Includes voice/text memos from inbox/memos — they're ingested and indexed
     like everything else, so they belong in the feed.
     """
-    brain = vault._get_brain_path()
-    sources = brain / "sources"
-    memos = brain / "inbox" / "memos"
-    pool = list(sources.glob("**/*.md")) if sources.exists() else []
-    pool += list(memos.glob("*.md")) if memos.exists() else []
-    if not pool:
-        return []
-    files = sorted(pool, key=_ingested_at, reverse=True)[:n]
+    brain, memos, pool = _note_pool()
+    return [_note_card(md, brain, memos) for md in pool[:n]]
 
+
+_LIB_CACHE: tuple[float, int, list[dict]] | None = None
+
+
+def library_notes(n: int = 60, offset: int = 0, source: str = "",
+                  match: str = "") -> dict:
+    """Every ingested note as cards, filtered and paginated (/library).
+
+    The fresh feed is a recency window; this is the whole store. Cards for
+    all notes are rebuilt at most once a minute (cache keyed on pool size
+    too, so an ingest mid-window shows up on the next call).
+    """
+    global _LIB_CACHE
+    brain, memos, pool = _note_pool()
+    now = time.time()
+    if (_LIB_CACHE is None or now - _LIB_CACHE[0] > 60
+            or _LIB_CACHE[1] != len(pool)):
+        _LIB_CACHE = (now, len(pool), [_note_card(md, brain, memos) for md in pool])
+    items = _LIB_CACHE[2]
+    if source:
+        s = source.lower()
+        items = [i for i in items
+                 if i["source"].lower() == s or (i.get("channel") or "").lower() == s]
+    if match:
+        q = match.lower()
+        items = [i for i in items
+                 if q in i["title"].lower() or q in i["stem"].lower()
+                 or any(q in t.lower() for t in i["tags"])]
+    return {"total": len(items), "items": items[offset:offset + n]}
+
+
+def _note_card(md, brain, memos) -> dict:
     from datetime import date
 
-    out = []
-    for md in files:
-        full = md.read_text(encoding="utf-8")
-        text = full[:3000]
-        meta = {k: v.strip() for k, v in _FM_LINE.findall(text)}
-        thumb = None
-        m = re.search(r"^image_paths:\n\s+- (.+)$", text, re.MULTILINE)
-        if m and (brain / m.group(1).strip()).exists():
-            thumb = m.group(1).strip()
-        elif m2 := re.search(r"!\[\[([^\]|]+\.(?:png|jpe?g|webp|gif))", text, re.IGNORECASE):
-            # notes without image_paths (e.g. screenshots) embed their image
-            candidate = md.parent / m2.group(1).strip()
-            if candidate.exists():
-                thumb = str(candidate.relative_to(brain))
-        tags_m = re.search(r"^tags:\n((?:\s+- .+\n)+)", text, re.MULTILINE)
-        tags = re.findall(r"- (.+)", tags_m.group(1)) if tags_m else []
-        entry = {
-            "path": str(md.relative_to(brain.parent)),
-            "stem": md.stem,
-            "title": meta.get("title", md.stem),
-            "url": meta.get("url"),
-            "source": meta.get("type", md.parent.name),
-            "date": meta.get("date"),
-            "added": date.fromtimestamp(_ingested_at(md)).isoformat(),
-            "thumbnail": thumb,
-            "tags": tags,
-            "has_take": "## My take" in full,
-        }
-        if md.parent == memos:
-            # memo cards carry their transcript inline; audio (if any) is
-            # served by name from AUDIO_DIR via /api/memo-audio
-            body = full.split("---", 2)[-1].strip()
-            entry.update(
-                source="memo",
-                channel=meta.get("source", "voice"),  # voice | imessage, for filtering
-                title=body.splitlines()[0][:80] if body else md.stem,
-                preview=body[:600],
-                audio=Path(meta["audio"]).name if meta.get("audio") else None,
-                kind=meta.get("route"),
-                date=(meta.get("captured") or "")[:10] or entry["date"],
-            )
-        out.append(entry)
-    return out
+    full = md.read_text(encoding="utf-8")
+    text = full[:3000]
+    meta = {k: v.strip() for k, v in _FM_LINE.findall(text)}
+    thumb = None
+    m = re.search(r"^image_paths:\n\s+- (.+)$", text, re.MULTILINE)
+    if m and (brain / m.group(1).strip()).exists():
+        thumb = m.group(1).strip()
+    elif m2 := re.search(r"!\[\[([^\]|]+\.(?:png|jpe?g|webp|gif))", text, re.IGNORECASE):
+        # notes without image_paths (e.g. screenshots) embed their image
+        candidate = md.parent / m2.group(1).strip()
+        if candidate.exists():
+            thumb = str(candidate.relative_to(brain))
+    tags_m = re.search(r"^tags:\n((?:\s+- .+\n)+)", text, re.MULTILINE)
+    tags = re.findall(r"- (.+)", tags_m.group(1)) if tags_m else []
+    entry = {
+        "path": str(md.relative_to(brain.parent)),
+        "stem": md.stem,
+        "title": meta.get("title", md.stem),
+        "url": meta.get("url"),
+        "source": meta.get("type", md.parent.name),
+        "date": meta.get("date"),
+        "added": date.fromtimestamp(_ingested_at(md)).isoformat(),
+        "thumbnail": thumb,
+        "tags": tags,
+        "has_take": "## My take" in full,
+    }
+    if md.parent == memos:
+        # memo cards carry their transcript inline; audio (if any) is
+        # served by name from AUDIO_DIR via /api/memo-audio
+        body = full.split("---", 2)[-1].strip()
+        entry.update(
+            source="memo",
+            channel=meta.get("source", "voice"),  # voice | imessage, for filtering
+            title=body.splitlines()[0][:80] if body else md.stem,
+            preview=body[:600],
+            audio=Path(meta["audio"]).name if meta.get("audio") else None,
+            kind=meta.get("route"),
+            date=(meta.get("captured") or "")[:10] or entry["date"],
+        )
+    return entry
