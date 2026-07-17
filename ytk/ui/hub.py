@@ -438,9 +438,10 @@ def probe_capture_health() -> list[str]:
     except Exception as exc:
         problems.append(
             f"chat.db unreadable ({exc}) — iMessage capture is dead. "
-            "Re-grant Full Disk Access to the hub python "
-            "(~/.local/share/uv/tools/ytk/bin/python); the grant dies on "
-            "every uv tool reinstall."
+            "Grant Full Disk Access to ytk.app (System Settings > Privacy & "
+            "Security > Full Disk Access > add /Applications/ytk.app). The "
+            "grant keys on the app's launcher stub, so ytk code reinstalls "
+            "never touch it; only rebuilding the app resets it."
         )
     for p in problems:
         print(f"[capture-health] {p}", flush=True)
