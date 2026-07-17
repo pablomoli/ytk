@@ -62,6 +62,10 @@ _EPOCHS: dict[str, dict] = {
         "parts": False,
         "fp16": True,
         "max_seq": 3072,
+        # encode few docs at a time: attention scores for a batch of
+        # max_seq-long docs are batch*heads*3072^2 fp16 — 32 at once asks
+        # Metal for a 10 GB buffer and SIGABRTs (migration night finding)
+        "encode_batch": 4,
     },
 }
 EMBEDDING_EPOCH = "v1"
@@ -98,12 +102,13 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
 
     def __init__(self, model_name: str, query_prefix: str,
                  fp16: bool = True, max_seq: int = 0,
-                 device: str | None = None):
+                 device: str | None = None, encode_batch: int = 32):
         self._model_name = model_name
         self._query_prefix = query_prefix
         self._fp16 = fp16
         self._max_seq = max_seq
         self._device = device  # None = auto (MPS); tests pass "cpu"
+        self._encode_batch = encode_batch
         self._model = None
 
     def _load(self):
@@ -123,7 +128,8 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
 
     def __call__(self, input) -> list[list[float]]:
         embs = self._load().encode(
-            list(input), normalize_embeddings=True, show_progress_bar=False
+            list(input), batch_size=self._encode_batch,
+            normalize_embeddings=True, show_progress_bar=False,
         )
         return [[float(x) for x in e] for e in embs]
 
@@ -141,6 +147,7 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
             "fp16": self._fp16,
             "max_seq": self._max_seq,
             "device": self._device,
+            "encode_batch": self._encode_batch,
         }
 
     @staticmethod
@@ -164,6 +171,7 @@ def _get_ef(epoch: str | None = None):
                 model_name=cfg["model"], query_prefix=cfg["query_prefix"],
                 fp16=cfg["fp16"], max_seq=cfg["max_seq"],
                 device=cfg.get("device"),
+                encode_batch=cfg.get("encode_batch", 32),
             )
         else:
             _efs[epoch] = embedding_functions.SentenceTransformerEmbeddingFunction(
