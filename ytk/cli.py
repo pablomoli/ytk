@@ -435,13 +435,15 @@ def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None
 @click.argument("video_id")
 @click.argument("query")
 @click.option("-n", default=5, show_default=True, help="Number of results.")
-def dive(video_id: str, query: str, n: int):
+@click.option("--rerank/--no-rerank", default=None,
+              help="Cross-encoder second stage (default: YTK_RERANK env).")
+def dive(video_id: str, query: str, n: int, rerank: bool | None):
     """Segment-level semantic search within a specific video.
 
     VIDEO_ID is the YouTube video ID (e.g. dQw4w9WgXcQ).
     """
     with console.status("[bold cyan]Searching segments...[/]"):
-        results = search_segments(query, video_id=video_id, n=n)
+        results = search_segments(query, video_id=video_id, n=n, rerank=rerank)
 
     if not results:
         console.print(
@@ -562,10 +564,12 @@ def tags(n: int):
 @cli.command()
 @click.argument("query")
 @click.option("-n", default=5, show_default=True, help="Number of results.")
-def search(query: str, n: int):
+@click.option("--rerank/--no-rerank", default=None,
+              help="Cross-encoder second stage (default: YTK_RERANK env).")
+def search(query: str, n: int, rerank: bool | None):
     """Semantic search across ingested videos."""
     with console.status("[bold cyan]Searching...[/]"):
-        results = search_videos(query, n=n)
+        results = search_videos(query, n=n, rerank=rerank)
 
     if not results:
         console.print("[yellow]No results.[/] Run [bold]ytk sync[/] to ingest videos first.")
