@@ -1,7 +1,8 @@
 # Spec: encoder migration to Qwen3-Embedding-0.6B @ 1024d
 
 2026-07-16 · owner: ytk core · evidence: docs/research/encoder-audit/ reports 0-5
-Status: approved-pending-preflight (two cheap checks below)
+Status: approved — Phase 0 pre-flight passed 3/3 (see
+docs/research/encoder-audit/06-preflight.md); Phase 1 unblocked
 
 ## Decision
 
@@ -56,6 +57,12 @@ resolves #84's failure class structurally.
   independent of chunking. `_split_doc` and video parts remain only until
   cutover, then the parts branch is deleted; consumer `"#" in id` filters
   are harmless and stay for one release.
+- **Eager-load the encoder at hub startup** (measured in pre-flight: cold
+  start is 7.4 s — 6.7 s load + 0.7 s first encode — not the ~1.4 s the
+  audit estimated; lazy load would hang the first search after any hub
+  restart). Load in a background thread when the hub boots.
+- **Log hub search queries** (path + timestamp + query string) so the next
+  encoder eval can replay real traffic; pre-flight found none recoverable.
 - **Migration script**: extend `experiments/migrate_embedder.py` — read v1
   docs + metadata, re-embed whole docs, write v2 with metadata copied
   verbatim (ingested_at preservation, grove v6 finding 15). Idempotent,
