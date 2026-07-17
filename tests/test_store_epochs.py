@@ -126,3 +126,22 @@ def test_log_search_query_jsonl_and_unicode(tmp_path, monkeypatch):
     # logging must never fail the search
     monkeypatch.setattr(hub, "_SEARCH_LOG", tmp_path / "logs")  # a directory
     hub.log_search_query("/api/search", "boom")
+
+
+def test_api_search_logs_query(tmp_path, monkeypatch):
+    """Regression: log_search_query is imported inside the endpoint (server.py
+    defers all hub imports); a module-level reference NameErrors at request
+    time and 500s every search."""
+    from fastapi.testclient import TestClient
+
+    import ytk.store as store_mod
+    import ytk.ui.hub as hub
+    from ytk.ui.server import app
+
+    monkeypatch.setattr(hub, "_SEARCH_LOG", tmp_path / "search.jsonl")
+    monkeypatch.setattr(store_mod, "search_videos", lambda q, n=8: [])
+
+    resp = TestClient(app).get("/api/search", params={"q": "cache lines"})
+    assert resp.status_code == 200
+    row = json.loads((tmp_path / "search.jsonl").read_text())
+    assert row["q"] == "cache lines"
