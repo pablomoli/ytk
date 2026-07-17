@@ -613,7 +613,11 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
     from . import retrieval_gate
     from .store import EMBEDDING_EPOCH
 
-    with console.status("[bold cyan]Running retrieval gate (embedding queries)...[/]"):
+    # in --json mode stdout is the report and nothing else; all human chrome
+    # (spinner, verdicts) moves to stderr so pipes get parseable output
+    out = Console(stderr=True) if as_json else console
+
+    with out.status("[bold cyan]Running retrieval gate (embedding queries)...[/]"):
         report = retrieval_gate.run_live_gate(top_k=top_k)
 
     if as_json:
@@ -628,14 +632,14 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
         table.add_row("[bold]overall[/]", str(report["n_evaluated"]), *(
             f"[bold]{o[f'hit@{k}']:.3f}[/]" for k in (1, 5, 10)
         ))
-        console.print(table)
+        out.print(table)
         if report["missing_gold"]:
-            console.print(
+            out.print(
                 f"[yellow]{len(report['missing_gold'])} gold docs missing from "
                 f"the store[/] (excluded from rates):"
             )
             for gid in report["missing_gold"]:
-                console.print(f"  [dim]{gid}[/]")
+                out.print(f"  [dim]{gid}[/]")
 
     if update_baseline:
         baseline = retrieval_gate.make_baseline(
@@ -645,11 +649,11 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
         retrieval_gate.BASELINE_PATH.write_text(
             _json.dumps(baseline, indent=2) + "\n", encoding="utf-8"
         )
-        console.print(f"[green]Baseline written:[/] {retrieval_gate.BASELINE_PATH}")
+        out.print(f"[green]Baseline written:[/] {retrieval_gate.BASELINE_PATH}")
         return
 
     if not retrieval_gate.BASELINE_PATH.exists():
-        console.print(
+        out.print(
             "[red]No baseline found.[/] Stamp one first: "
             "[bold]ytk eval --update-baseline[/]"
         )
@@ -661,15 +665,15 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
             f"{m}: {report['overall'][m] - baseline['overall'][m]:+.3f}"
             for m in ("hit@5", "hit@10")
         )
-        console.print(
+        out.print(
             f"vs baseline ({baseline['epoch']}, {baseline['authored']}): {deltas}"
         )
     failures = retrieval_gate.compare_to_baseline(report, baseline)
     if failures:
         for f in failures:
-            console.print(f"[red]GATE FAIL[/] {f}")
+            out.print(f"[red]GATE FAIL[/] {f}")
         raise SystemExit(1)
-    console.print("[green]Gate passed.[/]")
+    out.print("[green]Gate passed.[/]")
 
 
 @cli.command(name="profile")
