@@ -31,7 +31,7 @@ from pathlib import Path
 
 os.environ["HF_HUB_OFFLINE"] = "0"
 
-from ytk import store  # noqa: E402
+from ytk import ops, store  # noqa: E402
 
 LOG = Path("/tmp/ytk-encoder-eval.log")
 BATCH = 64
@@ -136,6 +136,7 @@ def migrate(kind: str, dry_run: bool) -> dict:
     if dry_run or not todo:
         return {"kind": kind, "total": len(rows), "embedded": 0, **stats}
 
+    ops.step(f"migrate {kind}", "running", f"{len(todo)} to embed")
     t0 = time.perf_counter()
     for i in range(0, len(todo), BATCH):
         batch = todo[i:i + BATCH]
@@ -148,11 +149,14 @@ def migrate(kind: str, dry_run: bool) -> dict:
         rate = n / (time.perf_counter() - t0)
         log(f"{kind}: {n}/{len(todo)} ({rate:.1f} vec/s, "
             f"~{(len(todo) - n) / max(rate, 0.1) / 60:.0f} min left)")
+        ops.progress(n, len(todo), rate, label=kind)
 
     final = v2.count()
     ok = final == len(rows)
     log(f"{kind}: v2 count {final} vs expected {len(rows)} "
         f"[{'OK' if ok else 'MISMATCH'}]")
+    ops.step(f"migrate {kind}", "done" if ok else "fail",
+             f"v2 count {final} vs expected {len(rows)}")
     return {"kind": kind, "total": len(rows), "embedded": len(todo),
             "v2_count": final, "ok": ok, **stats}
 
