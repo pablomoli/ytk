@@ -593,6 +593,85 @@ def search(query: str, n: int):
         ))
 
 
+@cli.command(name="eval")
+@click.option("--update-baseline", "update_baseline", is_flag=True, default=False,
+              help="Re-stamp eval/retrieval/baseline.json from this run.")
+@click.option("--json", "as_json", is_flag=True, default=False,
+              help="Print the raw report as JSON instead of tables.")
+@click.option("--top-k", default=10, show_default=True,
+              help="Ranking window for hit@k.")
+def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
+    """Run the retrieval regression gate against the live store.
+
+    Scores the frozen known-item query set through the production search
+    paths and fails (exit 1) if hit rates regressed past the baseline's
+    tolerance. The measuring stick for any change to search behavior.
+    """
+    import json as _json
+    from datetime import date
+
+    from . import retrieval_gate
+    from .store import EMBEDDING_EPOCH
+
+    with console.status("[bold cyan]Running retrieval gate (embedding queries)...[/]"):
+        report = retrieval_gate.run_live_gate(top_k=top_k)
+
+    if as_json:
+        click.echo(_json.dumps(report, indent=2))
+    else:
+        table = Table("bucket", "n", "hit@1", "hit@5", "hit@10", box=box.SIMPLE)
+        for bucket, row in report["per_bucket"].items():
+            table.add_row(bucket, str(row["n"]), *(
+                f"{row[f'hit@{k}']:.3f}" for k in (1, 5, 10)
+            ))
+        o = report["overall"]
+        table.add_row("[bold]overall[/]", str(report["n_evaluated"]), *(
+            f"[bold]{o[f'hit@{k}']:.3f}[/]" for k in (1, 5, 10)
+        ))
+        console.print(table)
+        if report["missing_gold"]:
+            console.print(
+                f"[yellow]{len(report['missing_gold'])} gold docs missing from "
+                f"the store[/] (excluded from rates):"
+            )
+            for gid in report["missing_gold"]:
+                console.print(f"  [dim]{gid}[/]")
+
+    if update_baseline:
+        baseline = retrieval_gate.make_baseline(
+            report, epoch=EMBEDDING_EPOCH, authored=date.today().isoformat()
+        )
+        retrieval_gate.BASELINE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        retrieval_gate.BASELINE_PATH.write_text(
+            _json.dumps(baseline, indent=2) + "\n", encoding="utf-8"
+        )
+        console.print(f"[green]Baseline written:[/] {retrieval_gate.BASELINE_PATH}")
+        return
+
+    if not retrieval_gate.BASELINE_PATH.exists():
+        console.print(
+            "[red]No baseline found.[/] Stamp one first: "
+            "[bold]ytk eval --update-baseline[/]"
+        )
+        raise SystemExit(2)
+
+    baseline = _json.loads(retrieval_gate.BASELINE_PATH.read_text(encoding="utf-8"))
+    if not as_json:
+        deltas = "  ".join(
+            f"{m}: {report['overall'][m] - baseline['overall'][m]:+.3f}"
+            for m in ("hit@5", "hit@10")
+        )
+        console.print(
+            f"vs baseline ({baseline['epoch']}, {baseline['authored']}): {deltas}"
+        )
+    failures = retrieval_gate.compare_to_baseline(report, baseline)
+    if failures:
+        for f in failures:
+            console.print(f"[red]GATE FAIL[/] {f}")
+        raise SystemExit(1)
+    console.print("[green]Gate passed.[/]")
+
+
 @cli.command(name="profile")
 @click.option(
     "--render-only",

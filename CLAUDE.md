@@ -189,6 +189,18 @@ ytk add https://www.youtube.com/watch?v=VIDEO_ID
 ytk search "query"
 ```
 
+## Retrieval eval gate (#85)
+
+Never change search behavior without running the gate. `uv run ytk eval` scores
+the frozen known-item query set (`eval/retrieval/queries.jsonl`, 156 queries)
+against the live store through the production search paths and fails on
+regression vs `eval/retrieval/baseline.json` (stamped with epoch + date).
+`--update-baseline` re-stamps after an intentional change. A pre-commit hook
+(`scripts/git-hooks/pre-commit`, installed via `git config core.hooksPath
+scripts/git-hooks`) runs it automatically when `ytk/store.py`,
+`ytk/retrieval_gate.py`, or `eval/retrieval/` change. Live end-to-end test:
+`uv run pytest -m eval`.
+
 ## Obsidian Vault
 
 Path: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault`

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Retrieval regression gate (#85): any commit that touches the search stack
+# must prove the frozen known-item queries still return their answers.
+# Costs ~40 s only when triggered. Bypass (sparingly): git commit --no-verify
+# Install once per clone: git config core.hooksPath scripts/git-hooks
+
+changed=$(git diff --cached --name-only)
+if printf '%s\n' "$changed" | grep -qE '^(ytk/(store|retrieval_gate)\.py|eval/retrieval/)'; then
+    echo "pre-commit: search stack changed — running retrieval gate"
+    uv run ytk eval || {
+        echo "pre-commit: retrieval gate FAILED — fix the regression," >&2
+        echo "re-stamp the baseline (ytk eval --update-baseline) if the" >&2
+        echo "change is intentional, or bypass with --no-verify." >&2
+        exit 1
+    }
+fi

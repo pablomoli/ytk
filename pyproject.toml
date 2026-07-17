@@ -44,3 +44,11 @@ build-backend = "hatchling.build"
 # wheel at ytk/ui/webdist, where server.py's _WEB_DIST looks for it.
 [tool.hatch.build.targets.wheel.force-include]
 "web/dist" = "ytk/ui/webdist"
+
+[tool.pytest.ini_options]
+# eval marks live retrieval-gate runs (loads the encoder, hits the real
+# chroma store); the fast suite skips them. Run explicitly: pytest -m eval
+addopts = "-m 'not eval'"
+markers = [
+    "eval: live retrieval regression gate (real store + encoder)",
+]

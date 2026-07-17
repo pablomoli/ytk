@@ -1,0 +1,156 @@
+{"query": "note about organizing jobs on a timeline with colored status bars for a dashboard Kanban view", "gold_id": "mem::inbox/memories/2026-04-20-epicmap-analytics-tab-design-epiphany-2026-04-20.md", "bucket": "memories"}
+{"query": "decision to archive the FieldWork model and use job status entries instead for analytics", "gold_id": "mem::inbox/memories/2026-07-04-epicmap-retired-the-fieldwork-model-entirely-202-e893d0.md", "bucket": "memories"}
+{"query": "production lesson about how server-sent events consume thread resources when too many connections stay open", "gold_id": "mem::inbox/memories/2026-05-11-epicmap-2026-05-11-prod-cascade-taught-three-durab-86769d.md", "bucket": "memories"}
+{"query": "bug where a progress section vanished due to flexbox collapsing when overflow wasn't visible", "gold_id": "mem::inbox/memories/2026-06-30-epicmap-hotfix-commit-39d403f6-pushed-to-master-1f5ab8.md", "bucket": "memories"}
+{"query": "fix splitting video embeddings into multiple vectors for search so longer text won't exceed limits", "gold_id": "mem::inbox/memories/2026-07-06-ytk-512-token-cliff-fix-shipped-2026-07-06-commi-aacf9c.md", "bucket": "memories"}
+{"query": "planning session that framed the entire system as one unified text encoder generating all visualization layouts", "gold_id": "mem::inbox/memories/2026-07-16-planning-burst-2026-07-16-reframed-ytk-as-one-bi-9d9bb3.md", "bucket": "memories"}
+{"query": "fix for parcel identification truncation in Brevard County that touched the API and utility functions", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-06-epicmap-25.md", "bucket": "memories"}
+{"query": "engineer sharing every coding question and system design interview she encountered during job hunting", "gold_id": "vid::auEozC5eUDw", "bucket": "videos"}
+{"query": "building a handheld device that generates electromagnetic pulses using capacitors and a Marx voltage multiplier", "gold_id": "vid::OU0v_G3-4Hw", "bucket": "videos"}
+{"query": "fragment about why something always has a good reason despite appearing complicated", "gold_id": "seg::HZAmbbTcQ3M_26", "bucket": "segments"}
+{"query": "dialogue where someone defends mysterious items that turned out to be decades-old inventory they kept", "gold_id": "seg::OQbqEuaTMkI_25", "bucket": "segments"}
+{"query": "explaining how to define simple tools for AI agents through an API by making a basic greeting example", "gold_id": "seg::yAPKzHrx3eo_24", "bucket": "segments"}
+{"query": "Twitter argument where someone claims AI is great at design if you just screenshot the mockup", "gold_id": "seg::5dEp1ZpYDUg_8", "bucket": "segments"}
+{"query": "stripped out the DaisyUI card styling from that landing page status thing and went with a pink accent color instead", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-09-epicmap-209.md", "bucket": "memories"}
+{"query": "note about rearranging parcel ID formats for the county property lookup tool", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-09-session-236.md", "bucket": "memories"}
+{"query": "fixed the mileage calculation that kept dropping certain waypoints because of how the database joins worked", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-11-epicmap-280.md", "bucket": "memories"}
+{"query": "crew section buttons weren't staying the same size until I added flex-shrink-0", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-12-epicmap-325.md", "bucket": "memories"}
+{"query": "added support for ad-hoc addresses in the event model using an XOR pattern instead of database constraints", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-15-epicmap-360.md", "bucket": "memories"}
+{"query": "difference between the direct Postgres connection string and Supabase API layer environment setup", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-15-session-400.md", "bucket": "memories"}
+{"query": "calendar events needed drag-and-drop with percentage-based positioning and requestAnimationFrame for performance", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-16-session-431.md", "bucket": "memories"}
+{"query": "files browser had a view button passing job number in the URL but map JavaScript never checked for it", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-18-epicmap-491.md", "bucket": "memories"}
+{"query": "that syntax podcast episode where Scott and Wes reviewed various AI developer tools and talked about reducing slop", "gold_id": "vid::9O0lQBEPL2U", "bucket": "videos"}
+{"query": "watched something about deterministic linters and static analysis tools for constraining agent code generation", "gold_id": "vid::LSq485DvILM", "bucket": "videos"}
+{"query": "Pi coding agent walkthrough showing minimal system prompt and provider switching via model.json", "gold_id": "vid::yAPKzHrx3eo", "bucket": "videos"}
+{"query": "segment about how fiction readers show better empathy skills than those who stick only to non-fiction", "gold_id": "seg::OmPf4dFvawE_4", "bucket": "segments"}
+{"query": "Syntax podcast discussion on markdown capability files that describe agent behavior", "gold_id": "seg::RWH4AIVRgvU_0", "bucket": "segments"}
+{"query": "clip about testing security vulnerabilities in legacy code with AI agents discovering sandbox escapes", "gold_id": "seg::qCpY4K9jtOg_28", "bucket": "segments"}
+{"query": "segment about how effort and defending your choices becomes the differentiator once AI makes everything cheap", "gold_id": "seg::xafwfGVBxos_88", "bucket": "segments"}
+{"query": "why does the frontend keep undoing the correct sort order from the backend when handling route assignments", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-19-epicmap-497.md", "bucket": "memories"}
+{"query": "the subtle difference between visible and all prefixes when querying esri layers", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-19-epicmap-516.md", "bucket": "memories"}
+{"query": "humanitarian data has roughly 860k records broken down by geography and sector requiring tons of pagination", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-540.md", "bucket": "memories"}
+{"query": "we were triple-counting affected populations by not filtering on admin level and using the right sector totals", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-567.md", "bucket": "memories"}
+{"query": "generating RAG documents and setting up vector search on the crisis mismatch results", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-587.md", "bucket": "memories"}
+{"query": "project IDs have a leading letter so the ISO code starts at position one not zero", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-607.md", "bucket": "memories"}
+{"query": "renaming the crisis metrics from average B2B to something cleaner and using weighted calculations", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-634.md", "bucket": "memories"}
+{"query": "that version of markdown-pdf in the requirements file doesn't actually exist in PyPI", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-661.md", "bucket": "memories"}
+{"query": "Pocock's skill that dumps the current session into a markdown file for the next agent", "gold_id": "vid::DNqsMXH6Eog", "bucket": "videos"}
+{"query": "using cursor traces as training material for improving large language models", "gold_id": "vid::JM1sIVIZYRg", "bucket": "videos"}
+{"query": "asking the agent for multiple competing UI designs in one shot to prevent convergence", "gold_id": "vid::S9EGx6ik-18", "bucket": "videos"}
+{"query": "clicking directly on a line of dialogue to modify the caption text inline", "gold_id": "seg::251hsWgoTPM_49", "bucket": "segments"}
+{"query": "writing action beats and emotional cues in parentheses throughout the script", "gold_id": "seg::OQbqEuaTMkI_22", "bucket": "segments"}
+{"query": "a language where people use rough size descriptions instead of counting", "gold_id": "seg::GFz6KqZurFY_50", "bucket": "segments"}
+{"query": "animating color palettes by modulating the input with a time parameter", "gold_id": "seg::f4s1h2YETNY_16", "bucket": "segments"}
+{"query": "performance optimizations for Three.js rendering on high-DPI MacBook displays reducing pixel workload", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-24-spacecraft-786.md", "bucket": "memories"}
+{"query": "decorating calendar feed event titles with client reference numbers for iCal subscriptions", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-25-epicmap-826.md", "bucket": "memories"}
+{"query": "upgrading Next.js and React while handling ESLint incompatibility requiring version downgrade", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-24-spacecraft-793.md", "bucket": "memories"}
+{"query": "fixing calendar layout to start on Sunday instead of Monday for week view", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-25-epicmap-836.md", "bucket": "memories"}
+{"query": "implementing client-side status filtering for calendar events without modifying API", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-01-epicmap-1042.md", "bucket": "memories"}
+{"query": "creating interactive HTML playground to preview different terminal themes and prompt styles", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-26-config-848.md", "bucket": "memories"}
+{"query": "optimizing NAS PDF scanning using Synology Search API to replace recursive directory traversal", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-01-epicmap-1040.md", "bucket": "memories"}
+{"query": "redesigning tmux session picker from Neovim editor to fzf with action keybindings", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-26-config-875.md", "bucket": "memories"}
+{"query": "CSS subgrid technique for aligning buttons and content across variable-height card layouts", "gold_id": "vid::APxt2mKOsss", "bucket": "videos"}
+{"query": "self-hosted workspace bundling chat interface, agents, email client, and model manager locally", "gold_id": "vid::rAzT5lcezPs", "bucket": "videos"}
+{"query": "Blender workflow for rendering spherical textures via equirectangular camera into Space Engine", "gold_id": "vid::kWMGG1zdGkA", "bucket": "videos"}
+{"query": "the complexity and friction of working with separate git worktrees during npm development", "gold_id": "seg::251hsWgoTPM_39", "bucket": "segments"}
+{"query": "whether LLM-generated code actually works end-to-end or merely appears functional on surface", "gold_id": "seg::y1QId4-F2I0_7", "bucket": "segments"}
+{"query": "fantasy spell system where magic requires drawing complete glyphs to activate programs", "gold_id": "seg::zVWYW0K3ikg_1", "bucket": "segments"}
+{"query": "Shannon information theory with fractional bits and language probability distributions beyond powers of 2", "gold_id": "seg::l6DKRf-fAAM_17", "bucket": "segments"}
+{"query": "that session where I fixed the OAuth token issue blocking API calls to the calendar endpoint", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-04-epicmap-1101.md", "bucket": "memories"}
+{"query": "git rebase issue where untracked files conflicted and I had to delete them before replaying commits", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-04-epicmap-1145.md", "bucket": "memories"}
+{"query": "that research comparing icon libraries, Lucide seemed best for our Tailwind and daisyUI stack", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-05-epicmap-1170.md", "bucket": "memories"}
+{"query": "my note about the contains_duplicate bug where the loop bound was off by one at the end", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-07-neat-1188.md", "bucket": "memories"}
+{"query": "that video about Shannon building information theory from first principles, using coding examples with a robot", "gold_id": "vid::l6DKRf-fAAM", "bucket": "videos"}
+{"query": "the commentary on how doped athletes actually performed worse than their own personal records at the Enhanced Games", "gold_id": "vid::uCsf49OwvmU", "bucket": "videos"}
+{"query": "Ben's terminal setup using Tailscale to SSH into a basement server with tmux for agent control", "gold_id": "vid::ffuxDr_QCAI", "bucket": "videos"}
+{"query": "that segment where someone's critiquing dialogue that felt like it was written by an amateur, too on-the-nose therapy exposition", "gold_id": "seg::QNW2IAj9IIE_17", "bucket": "segments"}
+{"query": "someone explaining that you need a corpus of text when training this kind of model to get output that makes sense", "gold_id": "seg::YmLp8qe87A0_25", "bucket": "segments"}
+{"query": "why job markers weren't aligned with parcel boundaries in certain cases", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-14-epicmap-1407.md", "bucket": "memories"}
+{"query": "breaking down a huge render file into smaller domain-specific pieces", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-14-epicmap-1437.md", "bucket": "memories"}
+{"query": "which api endpoints weren't documented in the project guide", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-14-epicmap-1467.md", "bucket": "memories"}
+{"query": "creating a readme with project badges after restructuring the package layout", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-14-epicmap-1497.md", "bucket": "memories"}
+{"query": "how much we saved on tokens using that optimization tool", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-15-epicmap-1521.md", "bucket": "memories"}
+{"query": "adding color options for different benchmark data layers", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-15-epicmap-1551.md", "bucket": "memories"}
+{"query": "making map filters update instantly without an apply button", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-15-epicmap-1581.md", "bucket": "memories"}
+{"query": "showing weekly job activity shifts on cards using red and green arrows", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-16-epicmap-1611.md", "bucket": "memories"}
+{"query": "investigation of whether electrolyte supplement brands cause vitamin toxicity", "gold_id": "vid::S5Tv_22ojbw", "bucket": "videos"}
+{"query": "github repositories for ai-powered coding that chain architecture design with security checks", "gold_id": "vid::UnzD_bwylWs", "bucket": "videos"}
+{"query": "cognitive science studies on how visualization helps people solve problems", "gold_id": "vid::AF3XJT9YKpM", "bucket": "videos"}
+{"query": "how people choose different charts depending on who they're presenting to", "gold_id": "seg::AF3XJT9YKpM_49", "bucket": "segments"}
+{"query": "why people retain stories better than abstract information", "gold_id": "seg::wC5ji4M4FhU_4", "bucket": "segments"}
+{"query": "philosophical question about how we comprehend images of things that don't exist", "gold_id": "seg::AF3XJT9YKpM_57", "bucket": "segments"}
+{"query": "reducing noise from startup output with npm flags and redirecting to dev null", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-16-epicmap-1701.md", "bucket": "memories"}
+{"query": "that session where i analyzed hundreds of scattered plat folders and found duplicate pdfs", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-16-epicmap-1720.md", "bucket": "memories"}
+{"query": "making the command support natural time expressions instead of commit counts", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-16-epicmap-1780.md", "bucket": "memories"}
+{"query": "fixing missing notification toasts across the plat processing pipelines", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-17-epicmap-1820.md", "bucket": "memories"}
+{"query": "learning that design skill with searchable databases for colors and typography rules", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-19-epicmap-1850.md", "bucket": "memories"}
+{"query": "stopping audio playback by cancelling the command context with sigkill", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-21-tts-1990.md", "bucket": "memories"}
+{"query": "that indie game with the weird fourth dimension where you can shrink to sixteenths of a block", "gold_id": "vid::kYhb7w2GNIs", "bucket": "videos"}
+{"query": "linguistics iceberg format debunking that famous claim about eskimo snow language words", "gold_id": "vid::GFz6KqZurFY", "bucket": "videos"}
+{"query": "segment about the biblical command to fill and populate the entire earth", "gold_id": "seg::6AK_cyXfn6o_10", "bucket": "segments"}
+{"query": "mma analysis where they talk about the insane spectacle of walkouts and the fight card", "gold_id": "seg::A3Ce9ulH4zg_28", "bucket": "segments"}
+{"query": "using arcs and lines with the css shape function instead of the path function", "gold_id": "seg::svqu6FDiMAs_1", "bucket": "segments"}
+{"query": "when context window limits came up during a prototyping session with sixty thousand tokens", "gold_id": "seg::DNqsMXH6Eog_2", "bucket": "segments"}
+{"query": "that note where we tested filtering crew by name with case variations and it worked with alphabetical sort in the calendar name", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-24-epicmap-2001.md", "bucket": "memories"}
+{"query": "setting up ngrok to expose our local sandbox service so teammates could call the API endpoints publicly over HTTPS", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-28-usf-2140.md", "bucket": "memories"}
+{"query": "the system with EventBus publishing stage events to WebSocket, plus Windows VPS for dynamic analysis that goes beyond what Docker sandbox can do", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-28-usf-2175.md", "bucket": "memories"}
+{"query": "the Athena delegation bug where sub_agents wasn't registered so the transfer to Hades failed silently even though the prompt said to delegate", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-29-usf-2245.md", "bucket": "memories"}
+{"query": "the developer explaining how being a copy-paste programmer at Google didn't hurt his career and arguing that DSA builds mental models even if you never use them", "gold_id": "vid::jdJ5jg0XSmU", "bucket": "videos"}
+{"query": "the harsh review of that tower movie where the twist that the other character was hallucinating the whole time retroactively ruins the entire film", "gold_id": "vid::HnVvjePLvT0", "bucket": "videos"}
+{"query": "the learning strategy of asking LLMs for step-by-step worked examples instead of finished solutions, backed by cognitive science showing it improves retention", "gold_id": "vid::LYDF1s0OUU0", "bucket": "videos"}
+{"query": "explaining autoregressive token generation where the model doesn't plan ahead, just appending tokens blind, and how production LLMs prepend system prompts users don't see", "gold_id": "seg::YmLp8qe87A0_42", "bucket": "segments"}
+{"query": "3D printed lamp using a Philips bulb and a companion phone mount with magnets weighted by washers to keep it stable at angle", "gold_id": "seg::aiiIGDnT6JQ_16", "bucket": "segments"}
+{"query": "architecture where the gateway is the only external entry point and all servers live behind it on a private network, potentially with load balancing", "gold_id": "seg::Qa-7iWxDz1A_22", "bucket": "segments"}
+{"query": "how the body runs on 90-minute energy cycles and why poor sleep plus stress completely destroy the quality of your deep work output", "gold_id": "seg::gUK1imWyec0_51", "bucket": "segments"}
+{"query": "that session fixing tab-wide message relay loops and losing Alpine drag bindings during DOM updates", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-31-epicmap-2314.md", "bucket": "memories"}
+{"query": "when we debated whether EpicMap needed in-browser PDF viewing or geometric overlay on the map", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md", "bucket": "memories"}
+{"query": "how job number search opened detail panels automatically but client search filtering didn't", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-02-epicmap-2411.md", "bucket": "memories"}
+{"query": "using data-section DOM attributes to patch the modal surgically instead of full re-renders", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-02-epicmap-2544.md", "bucket": "memories"}
+{"query": "when those out-of-bounds drift paths looked wrong but made sense given the universityA noise", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-02-niloc-2373.md", "bucket": "memories"}
+{"query": "staging the full avalon grid config and discovering mixed-rate noise libraries break drift calculations", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-02-niloc-2443.md", "bucket": "memories"}
+{"query": "switching from conda to uv and pinning Python 3.9 so Ana could run training", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-02-niloc-2484.md", "bucket": "memories"}
+{"query": "loading Ana's training snapshots and patching PyTorch 2.6 to read old Lightning checkpoint formats", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-03-niloc-2575.md", "bucket": "memories"}
+{"query": "the interview where NeetCode explained DSA persistence and his $200 code execution service with intentional memory leaks", "gold_id": "vid::xafwfGVBxos", "bucket": "videos"}
+{"query": "where the escaped convict recognizes the fake aristocrat and demands a weekly allowance through threats", "gold_id": "vid::0iEfNt5vYWQ", "bucket": "videos"}
+{"query": "Crystal's four-quadrant job framework with the farrier joke about wrestling livestock all day", "gold_id": "vid::g8N_5WZzUfg", "bucket": "videos"}
+{"query": "explaining how excessive inductance slows down magnetic field buildup, then building toward Marx generators", "gold_id": "seg::OU0v_G3-4Hw_11", "bucket": "segments"}
+{"query": "the embeddable markdown feature that locks reading mode so clicking won't switch to edit", "gold_id": "seg::aqt5NJE2sJ8_3", "bucket": "segments"}
+{"query": "hunting through Ben Snow's SIGGRAPH paper on Iron Man suit shading and spotting cryptic dual specularity mention", "gold_id": "seg::r3bkGPobpTw_5", "bucket": "segments"}
+{"query": "childhood scene with Bear and the cat Dutes, then kitchen pills and bathroom mirror practicing a smile", "gold_id": "seg::OQbqEuaTMkI_10", "bucket": "segments"}
+{"query": "setting up Vite project for 3D animation with either procedural geometry or imported models", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-05-coolshit-2681.md", "bucket": "memories"}
+{"query": "extracting good fixes from a problematic Claude PR and reattributing commits properly", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-07-epicmap-2750.md", "bucket": "memories"}
+{"query": "reorganizing page routes so field crews see the map as the primary landing interface", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-09-epicmap-port-tanstack-start-2850.md", "bucket": "memories"}
+{"query": "deciding on unified calendar component for overlap visualization and scheduling capabilities", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-12-epicmap-2869.md", "bucket": "memories"}
+{"query": "enhancing minimap with darker borders and fit-bounds control to reset the viewport", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-12-epicmap-2888.md", "bucket": "memories"}
+{"query": "making dashboard job elements clickable so they open detail panels for full context", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-12-epicmap-2889.md", "bucket": "memories"}
+{"query": "designing URL shortener with read-heavy traffic ratio and picking DynamoDB for scale", "gold_id": "vid::BAVrwcPDa-k", "bucket": "videos"}
+{"query": "building Google Drive clone starting from single server and adding presigned upload URLs", "gold_id": "vid::Qa-7iWxDz1A", "bucket": "videos"}
+{"query": "AWS SaaS architecture using containers with Postgres and comparing to serverless approach", "gold_id": "vid::qrr5EnJQWlY", "bucket": "videos"}
+{"query": "measuring GitHub activity influx and talking to operations about measurable trends", "gold_id": "seg::qCpY4K9jtOg_17", "bucket": "segments"}
+{"query": "understanding worktree commands and using tools to eliminate downtime during development", "gold_id": "seg::251hsWgoTPM_26", "bucket": "segments"}
+{"query": "why markdown files matter for maintaining a proper computer experience today", "gold_id": "seg::6MBq1paspVU_55", "bucket": "segments"}
+{"query": "how visibility and exposure prevent talented people from sharing work publicly", "gold_id": "seg::gUK1imWyec0_12", "bucket": "segments"}
+{"query": "that session about restructuring the dashboard into three columns with a minimap that highlighted today's jobs using pink animated pulses", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-12-epicmap-2890.md", "bucket": "memories"}
+{"query": "converting the files route to enable browsing the entire Projects folder instead of just job-specific files through a two-pane redesign", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-13-epicmap-2946.md", "bucket": "memories"}
+{"query": "ytk project resume with the enrichment pipeline using Haiku and fallback transcript fetching strategy plus ChromaDB storage", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-13-ytk-3006.md", "bucket": "memories"}
+{"query": "whether neighbor relationships should be stored in files or moved to database JSONB columns with potential GIS auto-population", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-16-epicmap-3113.md", "bucket": "memories"}
+{"query": "designing a parser for extracting control points from descriptions using monument keywords with pyproj coordinate transformation to WGS84", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-17-epicmap-3156.md", "bucket": "memories"}
+{"query": "the medical student who mastered exams using a single indexed notebook with cross-references and the walk-and-talk recitation technique", "gold_id": "vid::R1GZYfINs-k", "bucket": "videos"}
+{"query": "the presentation on running Fable 5 cost-effectively with custom Codex skills that triaged 16 PRs through an autonomous agent workflow", "gold_id": "vid::8GRmLR__OGQ", "bucket": "videos"}
+{"query": "a conversation between two people about entering an unhealthy coding pace and then consciously slowing down after reading about taking time", "gold_id": "seg::qCpY4K9jtOg_42", "bucket": "segments"}
+{"query": "breaking down the physics of Project Hail Mary using time dilation to explain how you can traverse light years within a human lifetime", "gold_id": "seg::8FT-oz9aZU4_0", "bucket": "segments"}
+{"query": "exploring language differences in how people react to the bouba and kiki shapes and why some cultures resist the sound-shape mapping", "gold_id": "seg::GFz6KqZurFY_55", "bucket": "segments"}
+{"query": "that epicmap note about survey markers and avoiding false matches with measurements", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3194.md", "bucket": "memories"}
+{"query": "how we improved readability for that control points table with better visual hierarchy", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3229.md", "bucket": "memories"}
+{"query": "that session where we added a progress bar to git validation instead of just dots", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3278.md", "bucket": "memories"}
+{"query": "explored whether yt-dlp could handle instagram content for knowledge system", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-ytk-3274.md", "bucket": "memories"}
+{"query": "decision on hosting accounts and ownership model for that client project", "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-24-epicmap-epicmap-feature-analytics-tab-3321.md", "bucket": "memories"}
+{"query": "dotfiles project with terminal efficiency improvements and keyboard setup", "gold_id": "mem::inbox/memories/users-melocoton-config/purpose.md", "bucket": "memories"}
+{"query": "transcript fetching with fallback strategy between two different apis", "gold_id": "mem::inbox/memories/users-melocoton-developer-youtube-ai/tech.md", "bucket": "memories"}
+{"query": "matt pocock releasing updated skill names and that github-based planning tool", "gold_id": "vid::A8mokin_YOs", "bucket": "videos"}
+{"query": "cpu cache ping pong problem where cores fight over same cache line", "gold_id": "vid::9lpbN7FXfy8", "bucket": "videos"}
+{"query": "3d printing camera mount fixes including filter holder with magnets", "gold_id": "vid::vR1hF_N6i_c", "bucket": "videos"}
+{"query": "shader math with aspect ratio and that distance function from geometry", "gold_id": "seg::f4s1h2YETNY_10", "bucket": "segments"}
+{"query": "how hiring changed after companies stopped recruiting from boot camps", "gold_id": "seg::cSIMVYjVF28_48", "bucket": "segments"}
+{"query": "cinematography tracking shot technique where camera stays close on one character", "gold_id": "seg::OQbqEuaTMkI_32", "bucket": "segments"}
+{"query": "dworkin's argument about using principles when law has gaps or ambiguity", "gold_id": "seg::9XQ7mKUv8a8_19", "bucket": "segments"}
