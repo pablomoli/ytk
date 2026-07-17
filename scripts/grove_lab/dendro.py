@@ -248,7 +248,8 @@ def _exemplars(meta_idx, membership, meta, k=3):
     return out
 
 
-def build_bucket(name, vecs, meta_idx, meta, rebuild, run_stability, rng):
+def build_bucket(name, vecs, meta_idx, meta, rebuild, run_stability, rng,
+                 palette=None):
     """Build or update one bucket snapshot; returns a status line."""
     GROVE_DIR.mkdir(parents=True, exist_ok=True)
     path = GROVE_DIR / f"{name}.tree.json"
@@ -263,6 +264,9 @@ def build_bucket(name, vecs, meta_idx, meta, rebuild, run_stability, rng):
     if prev and not rebuild:
         nodes, members = prev["nodes"], prev["members"]
         added = attach_new_notes(nodes, members, u, keys)
+        # Decorative metadata is deliberately outside the topology cache key:
+        # changing taste must not reshuffle the measured tree structure.
+        prev["palette"] = palette
         prev["n_notes"] = len(members)
         prev["updated"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         path.write_text(json.dumps(prev))
@@ -295,6 +299,7 @@ def build_bucket(name, vecs, meta_idx, meta, rebuild, run_stability, rng):
     snap = {
         "version": 1,
         "bucket": name,
+        "palette": palette,
         "embedding_model": _TEXT_MODEL,
         "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "n_notes": len(keys),
@@ -334,7 +339,7 @@ def main() -> None:
             print(f"{b.name}: empty, skipped")
             continue
         print(build_bucket(b.name, vecs[idx], idx, meta, args.rebuild,
-                           args.stability, rng))
+                           args.stability, rng, b.palette))
 
 
 if __name__ == "__main__":

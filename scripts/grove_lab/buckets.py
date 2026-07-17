@@ -33,6 +33,7 @@ class Note:
 @dataclass
 class Bucket:
     name: str
+    palette: str | None = None
     projects: list[str] = field(default_factory=list)
     themes: list[str] = field(default_factory=list)
     paths: list[str] = field(default_factory=list)
@@ -51,6 +52,7 @@ def load_buckets(path: str | Path) -> BucketConfig:
     buckets = [
         Bucket(
             name=b["name"],
+            palette=b.get("palette"),
             projects=list(b.get("projects", [])),
             themes=list(b.get("themes", [])),
             paths=list(b.get("paths", [])),

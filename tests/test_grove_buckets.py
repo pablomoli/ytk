@@ -21,6 +21,7 @@ YAML = textwrap.dedent(
         themes: [AI-augmented building]
         paths: [second-brain/projects/ytk]
       - name: visual-craft
+        palette: ultraviolet
         themes: [Visual math & 3D craft]
     """
 )
@@ -38,9 +39,11 @@ def test_load_buckets_parses_yaml(tmp_path):
     assert [b.name for b in cfg.buckets] == ["epicmap", "ai-building", "visual-craft"]
     assert cfg.buckets[1].projects == ["ytk", "tts"]
     assert cfg.buckets[1].themes == ["AI-augmented building"]
+    assert cfg.buckets[2].palette == "ultraviolet"
     # missing keys default to empty, not KeyError
     assert cfg.buckets[0].themes == []
     assert cfg.buckets[0].paths == []
+    assert cfg.buckets[0].palette is None
 
 
 def test_assign_by_project_slug(tmp_path):

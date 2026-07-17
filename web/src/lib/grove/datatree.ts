@@ -11,6 +11,7 @@ import type { GroveParams, TreeNode } from './tree'
 export type TopoNode = { id: number; parent: number; mass: number; persistence: number; exemplars?: string[] }
 export type BucketTopology = {
   bucket: string
+  palette?: string
   n_notes: number
   params?: { kind: string }
   stability?: { kind: string; ari: number | null } | null
