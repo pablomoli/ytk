@@ -165,11 +165,16 @@ def load_points() -> tuple[np.ndarray, list[dict], list[str]]:
 
 
 def assign_themes(vecs: np.ndarray, snapshot: dict) -> list[int]:
-    cents = _normalize(np.array([t["centroid"] for t in snapshot["themes"]]))
+    # A re-anchored snapshot keeps dead themes for time-series identity but
+    # drops their centroid (no resolvable members); skip those while keeping
+    # the returned indices aligned with snapshot["themes"].
+    themes = snapshot["themes"]
+    valid = [i for i, t in enumerate(themes) if t.get("centroid")]
+    cents = _normalize(np.array([themes[i]["centroid"] for i in valid]))
     sims = _normalize(vecs) @ cents.T
     best, conf = sims.argmax(axis=1), sims.max(axis=1)
     floor = np.percentile(conf, UNTHEMED_PERCENTILE)
-    return [int(b) if c >= floor else -1 for b, c in zip(best, conf)]
+    return [int(valid[b]) if c >= floor else -1 for b, c in zip(best, conf)]
 
 
 def _ctfidf_names(cluster_docs: list[str]) -> list[str]:
