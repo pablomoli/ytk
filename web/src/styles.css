@@ -801,7 +801,7 @@ body {
 /* grove workshop (prototype) */
 .grove-page { position: fixed; inset: 0; }
 .grove-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.grove-panel { position: fixed; top: 7rem; right: 1rem; width: 240px; padding: .7rem .8rem; border: 1px solid #ffffff14; border-radius: 12px; background: #161618e6; display: flex; flex-direction: column; gap: .35rem; }
+.grove-panel { position: fixed; top: 7rem; right: 1rem; width: 240px; max-height: calc(100vh - 8rem); overflow-y: auto; padding: .7rem .8rem; border: 1px solid #ffffff14; border-radius: 12px; background: #161618e6; display: flex; flex-direction: column; gap: .35rem; }
 .grove-panel label { display: grid; grid-template-columns: 5.2rem 1fr 2.4rem; align-items: center; gap: .5rem; color: #b7b5aa; font-size: .78rem; }
 .grove-panel input[type="range"] { width: 100%; accent-color: #8fb8a8; }
 .grove-panel em { font-style: normal; color: #83817a; text-align: right; }

@@ -568,7 +568,7 @@ async def grove_topology_api():
     buckets = []
     for p in snaps:
         snap = json.loads(p.read_text())
-        buckets.append({
+        bucket = {
             "bucket": snap["bucket"],
             "n_notes": snap["n_notes"],
             "built": snap.get("built"),
@@ -579,7 +579,10 @@ async def grove_topology_api():
                 {k: v for k, v in n.items() if k != "centroid"}
                 for n in snap["nodes"]
             ],
-        })
+        }
+        if snap.get("palette"):
+            bucket["palette"] = snap["palette"]
+        buckets.append(bucket)
     return {"version": 1, "buckets": buckets}
 
 

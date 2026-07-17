@@ -1,4 +1,5 @@
-// PROTOTYPE (grove workshop) - throwaway until a look wins a real spec.
+// Grove procedural/data-tree geometry. Structural channels here are measured
+// or generation controls; decorative material channels live in shaders.ts.
 // Faithful port of Marius Ballot's procedural data-tree pipeline
 // (sources/youtube/procedural-3d-data-trees-in-three-js-a-shader-geometry-breakdown.md):
 // BFS node tree -> chain decomposition -> centripetal Catmull-Rom -> hand-built
@@ -24,14 +25,20 @@ export type GroveParams = {
   leafDensity: number // points per leaf site (foliage look)
   leafSpread: number // world radius of a leaf cluster
   leafSize: number // point size multiplier for leaves
+  paletteTravel: number // decorative root-to-tip palette travel
+  paletteMotion: number // decorative animated palette phase
+  paletteStrength: number // decorative palette contribution
+  wireGlow: number // decorative x-ray core/halo energy
+  wirePulse: number // decorative x-ray traveling pulse
+  wireBody: number // decorative x-ray tube body opacity
 }
 
 // Liked configuration snapshots from workshop sessions - survive localStorage.
 export const PRESETS: Record<string, GroveParams> = {
-  'bonsai-80163': { seed: 80163, trees: 1, initialChildren: 3, branchChance: 0.15, stepScale: 0.3, noise: 0.6, reach: 2.4, upBias: 0.75, girth: 0.09, girthDecay: 0.94, ringSegments: 12, stiffness: 0.6, wind: 0.65, growSeconds: 4, leafDensity: 24, leafSpread: 0.78, leafSize: 2.2 },
+  'bonsai-80163': { seed: 80163, trees: 1, initialChildren: 3, branchChance: 0.15, stepScale: 0.3, noise: 0.6, reach: 2.4, upBias: 0.75, girth: 0.09, girthDecay: 0.94, ringSegments: 12, stiffness: 0.6, wind: 0.65, growSeconds: 4, leafDensity: 24, leafSpread: 0.78, leafSize: 2.2, paletteTravel: 0.75, paletteMotion: 0.04, paletteStrength: 0.72, wireGlow: 0.8, wirePulse: 0.28, wireBody: 0.12 },
 }
 
-export const DEFAULT_PARAMS: GroveParams = { seed: 7, trees: 1, initialChildren: 1, branchChance: 0.5, stepScale: 0.32, noise: 0.16, reach: 4, upBias: 0.55, girth: 0.12, girthDecay: 0.92, ringSegments: 7, stiffness: 0.6, wind: 0.35, growSeconds: 5, leafDensity: 60, leafSpread: 0.4, leafSize: 2.2 }
+export const DEFAULT_PARAMS: GroveParams = { seed: 7, trees: 1, initialChildren: 1, branchChance: 0.5, stepScale: 0.32, noise: 0.16, reach: 4, upBias: 0.55, girth: 0.12, girthDecay: 0.92, ringSegments: 7, stiffness: 0.6, wind: 0.35, growSeconds: 5, leafDensity: 60, leafSpread: 0.4, leafSize: 2.2, paletteTravel: 0.75, paletteMotion: 0.04, paletteStrength: 0.72, wireGlow: 0.8, wirePulse: 0.28, wireBody: 0.12 }
 
 export type TreeNode = { position: Vector3; weight: number; pathLength: number; dir: Vector3; children: TreeNode[] }
 

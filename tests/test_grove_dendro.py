@@ -6,8 +6,11 @@ existing branches; a full rebuild re-derives but keeps node identities via
 member-overlap anchoring.
 """
 
+import json
+
 import numpy as np
 
+import scripts.grove_lab.dendro as dendro
 from scripts.grove_lab.dendro import (
     anchor_nodes,
     attach_new_notes,
@@ -93,3 +96,36 @@ def test_anchor_nodes_keeps_ids_by_member_overlap():
     mapping = anchor_nodes(old_members, new_members)
     assert mapping[7] == 1
     assert mapping[5] == 2
+
+
+def test_palette_change_updates_snapshot_without_rebuilding_topology(tmp_path, monkeypatch):
+    monkeypatch.setattr(dendro, "GROVE_DIR", tmp_path)
+    original_nodes = [
+        {"id": 0, "parent": -1, "mass": 1, "persistence": 1.0,
+         "centroid": [1.0, 0.0]}
+    ]
+    path = tmp_path / "visual-craft.tree.json"
+    path.write_text(json.dumps({
+        "version": 1,
+        "bucket": "visual-craft",
+        "palette": "verdigris",
+        "embedding_model": dendro._TEXT_MODEL,
+        "n_notes": 1,
+        "nodes": original_nodes,
+        "members": {"note.md": 0},
+    }))
+
+    dendro.build_bucket(
+        "visual-craft",
+        np.array([[1.0, 0.0]]),
+        [0],
+        [{"path": "note.md", "title": "Note"}],
+        rebuild=False,
+        run_stability=False,
+        rng=np.random.default_rng(0),
+        palette="ultraviolet",
+    )
+
+    updated = json.loads(path.read_text())
+    assert updated["palette"] == "ultraviolet"
+    assert updated["nodes"] == original_nodes

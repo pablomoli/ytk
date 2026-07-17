@@ -1,6 +1,6 @@
 // PROTOTYPE (grove workshop) - the page where we develop and iterate tree
-// generation. Foliage won the look bake-off (2026-07-12); the variant
-// switcher is gone. Generation knobs persist to localStorage.
+// generation. Foliage won the look bake-off (2026-07-12); the scoped x-ray
+// reading and generation/effect knobs persist separately in localStorage.
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { HubControls } from '../components/HubControls'
@@ -9,14 +9,18 @@ import type { GrovePayload, TopoNode } from '../lib/grove/datatree'
 import { DEFAULT_PARAMS } from '../lib/grove/tree'
 import type { GroveParams } from '../lib/grove/tree'
 import type { GroveHandle } from '../lib/grove/scene'
+import type { GroveLook } from '../lib/grove/scene'
 import '../styles.css'
 
 const STORAGE = 'grove-params-v1'
 const DATA_MODE = 'grove-data-mode-v1'
+const LOOK = 'grove-look-v1'
 
 const loadParams = (): GroveParams => {
   try { return { ...DEFAULT_PARAMS, ...JSON.parse(localStorage.getItem(STORAGE) ?? '{}') } } catch { return DEFAULT_PARAMS }
 }
+
+const loadLook = (): GroveLook => localStorage.getItem(LOOK) === 'x-ray' ? 'x-ray' : 'foliage'
 
 type GroveSearch = { readback?: boolean }
 
@@ -48,7 +52,15 @@ const KNOBS: Array<{ key: keyof GroveParams; label: string; min: number; max: nu
   { key: 'leafDensity', label: 'leaf density', min: 0, max: 120, step: 2 },
   { key: 'leafSpread', label: 'leaf spread', min: 0.1, max: 0.9, step: 0.02 },
   { key: 'leafSize', label: 'leaf size', min: 0.5, max: 4, step: 0.1 },
+  { key: 'paletteTravel', label: 'palette travel', min: 0, max: 2, step: 0.05 },
+  { key: 'paletteMotion', label: 'palette motion', min: 0, max: 0.25, step: 0.01 },
+  { key: 'paletteStrength', label: 'palette mix', min: 0, max: 1, step: 0.02 },
+  { key: 'wireGlow', label: 'wire glow', min: 0, max: 2, step: 0.05 },
+  { key: 'wirePulse', label: 'wire pulse', min: 0, max: 1, step: 0.02 },
+  { key: 'wireBody', label: 'wire body', min: 0, max: 1, step: 0.02 },
 ]
+
+const EFFECT_KEYS = new Set<keyof GroveParams>(['paletteTravel', 'paletteMotion', 'paletteStrength', 'wireGlow', 'wirePulse', 'wireBody'])
 
 function GrovePage() {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -58,16 +70,18 @@ function GrovePage() {
   const [ready, setReady] = useState(false)
   const [payload, setPayload] = useState<GrovePayload | null>(null)
   const [dataMode, setDataMode] = useState(() => localStorage.getItem(DATA_MODE) === 'on')
+  const [look, setLook] = useState<GroveLook>(loadLook)
+  const latestParams = useRef(params)
 
   useEffect(() => {
     let alive = true
     // dynamic import keeps three out of every other route's bundle
-    import('../lib/grove/scene').then((mod) => {
+    void import('../lib/grove/scene').then((mod) => {
       if (!alive || !canvas.current) return
-      handle.current = mod.mountGrove(canvas.current, loadParams(), 'foliage')
+      handle.current = mod.mountGrove(canvas.current, loadParams(), loadLook())
       setReady(true)
     })
-    fetchGrovePayload().then((p) => { if (alive) setPayload(p) })
+    void fetchGrovePayload().then((p) => { if (alive) setPayload(p) })
     return () => { alive = false; handle.current?.destroy(); handle.current = undefined }
     // mount once; params are pushed through the handle below
   }, [])
@@ -78,20 +92,32 @@ function GrovePage() {
     handle.current?.setData(dataMode && payload ? payload : null)
   }, [dataMode, payload, ready])
   const regenTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const apply = (next: GroveParams) => {
+  const apply = (next: GroveParams, effectsOnly = false) => {
     setParams(next)
+    latestParams.current = next
     localStorage.setItem(STORAGE, JSON.stringify(next))
+    if (effectsOnly) {
+      handle.current?.setEffects(next)
+      return
+    }
     // debounce: slider drags fire per pixel; regenerate once the hand settles
     clearTimeout(regenTimer.current)
-    regenTimer.current = setTimeout(() => handle.current?.regenerate(next), 160)
+    regenTimer.current = setTimeout(() => handle.current?.regenerate(latestParams.current), 160)
   }
   const reseed = () => apply({ ...params, seed: Math.floor(Math.random() * 1e6) })
+  const chooseLook = (next: GroveLook) => {
+    setLook(next)
+    localStorage.setItem(LOOK, next)
+    handle.current?.setLook(next)
+  }
 
   return (
     <div className="grove-page">
       <HubControls>
         <button className="fchip" onClick={() => handle.current?.replay()}>replay growth</button>
         <button className="fchip" onClick={reseed}>reseed</button>
+        <button className={`fchip${look === 'foliage' ? ' on' : ''}`} onClick={() => chooseLook('foliage')}>foliage</button>
+        <button className={`fchip${look === 'x-ray' ? ' on' : ''}`} onClick={() => chooseLook('x-ray')}>x-ray</button>
         {payload ? (
           <button
             className={`fchip${dataMode ? ' on' : ''}`}
@@ -107,7 +133,7 @@ function GrovePage() {
           {KNOBS.map(({ key, label, min, max, step }) => (
             <label key={key}>
               <span>{label}</span>
-              <input type="range" min={min} max={max} step={step} value={params[key]} onChange={(event) => apply({ ...params, [key]: Number(event.target.value) })} />
+              <input type="range" min={min} max={max} step={step} value={params[key]} onChange={(event) => apply({ ...params, [key]: Number(event.target.value) }, EFFECT_KEYS.has(key))} />
               <em>{params[key]}</em>
             </label>
           ))}
@@ -137,7 +163,7 @@ function StimulusCanvas({ stim, height, onReady }: { stim: E7Stimulus; height: s
   useEffect(() => {
     let handle: GroveHandle | undefined
     let alive = true
-    import('../lib/grove/scene').then((mod) => {
+    void import('../lib/grove/scene').then((mod) => {
       if (!alive || !ref.current) return
       // geometry_seed drives structure realization; camera_azimuth rotates
       // the viewpoint (separated per preregistration amendment 4). Single-
