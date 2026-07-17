@@ -29,14 +29,53 @@ from .enrich import Enrichment
 
 
 _CHROMA_PATH = Path(os.environ.get("CHROMA_PATH", str(Path.home() / ".ytk" / "chroma"))).expanduser()
-_COLLECTION_VIDEOS = "ytk_videos"
-_COLLECTION_SEGMENTS = "ytk_segments"
-_COLLECTION_MEMORIES = "ytk_memories"
 _COLLECTION_VISUAL = "ytk_visual"
 _COLLECTION_VISUAL_PENDING = "ytk_visual_pending"
 
+# Text-embedding epochs (spec: docs/superpowers/specs/2026-07-16-encoder-migration-qwen3.md).
+# Embeddings are frozen at write time, so a model change is a new epoch: fresh
+# collections, one migration pass, never two geometries in one collection.
+# Cutover is flipping EMBEDDING_EPOCH in one commit (Phase 2 step 4); v1
+# collections stay intact for rollback.
+_EPOCHS: dict[str, dict] = {
+    "v1": {
+        # gte-small: 384d, symmetric (no query prefix), 512-token window —
+        # docs must be split into parts or the window silently drops tails.
+        "model": "thenlper/gte-small",
+        "query_prefix": "",
+        "suffix": "",
+        "parts": True,
+        "fp16": False,
+        "max_seq": 0,
+    },
+    "v2": {
+        # Qwen3-Embedding-0.6B: 1024d native, instruction-aware (docs embed
+        # plain, queries get the retrieval prefix), 32k window — whole-doc
+        # embedding, no parts. fp16 + max_seq 3072 are mandatory on MPS:
+        # fp32 whole-doc runs get SIGKILLed by macOS memory pressure.
+        "model": "Qwen/Qwen3-Embedding-0.6B",
+        "query_prefix": (
+            "Instruct: Given a web search query, retrieve relevant passages "
+            "that answer the query\nQuery: "
+        ),
+        "suffix": "_v2",
+        "parts": False,
+        "fp16": True,
+        "max_seq": 3072,
+    },
+}
+EMBEDDING_EPOCH = "v1"
+
+# Stamped into grove/map artifacts (dendro compares stamps to detect engine
+# changes); resolves from the active epoch so a cutover invalidates caches.
+_TEXT_MODEL = _EPOCHS[EMBEDDING_EPOCH]["model"]
+
+_COLLECTION_VIDEOS = "ytk_videos"
+_COLLECTION_SEGMENTS = "ytk_segments"
+_COLLECTION_MEMORIES = "ytk_memories"
+
 _client: chromadb.PersistentClient | None = None
-_ef: embedding_functions.SentenceTransformerEmbeddingFunction | None = None
+_efs: dict[str, "embedding_functions.EmbeddingFunction"] = {}
 
 
 def _get_client() -> chromadb.PersistentClient:
@@ -47,47 +86,145 @@ def _get_client() -> chromadb.PersistentClient:
     return _client
 
 
-_TEXT_MODEL = "thenlper/gte-small"
+class InstructionAwareEF(embedding_functions.EmbeddingFunction):
+    """Embedding function for instruction-aware retrieval models (Qwen3).
 
+    __call__ embeds plain — that is the document path, and it is also correct
+    for doc-to-doc similarity queries (graph.py queries with document text via
+    query_texts, which routes through here). User queries must NOT take this
+    path: chroma's EF protocol exposes only one call, so search functions
+    embed queries via embed_query() and pass query_embeddings explicitly.
+    """
 
-def _get_ef() -> embedding_functions.SentenceTransformerEmbeddingFunction:
-    """
-    Lazy-load the text embedding model (~130MB download on first use).
-    gte-small replaced all-MiniLM-L6-v2 on 2026-07-05: same 384 dims and
-    symmetric (no query prefix needed), but markedly stronger retrieval.
-    Changing _TEXT_MODEL requires re-embedding every text collection —
-    see experiments/migrate_embedder.py.
-    """
-    global _ef
-    if _ef is None:
-        _ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name=_TEXT_MODEL
+    def __init__(self, model_name: str, query_prefix: str,
+                 fp16: bool = True, max_seq: int = 0,
+                 device: str | None = None):
+        self._model_name = model_name
+        self._query_prefix = query_prefix
+        self._fp16 = fp16
+        self._max_seq = max_seq
+        self._device = device  # None = auto (MPS); tests pass "cpu"
+        self._model = None
+
+    def _load(self):
+        if self._model is None:
+            from sentence_transformers import SentenceTransformer
+
+            kwargs = {}
+            if self._fp16:
+                import torch
+                kwargs["model_kwargs"] = {"torch_dtype": torch.float16}
+            if self._device:
+                kwargs["device"] = self._device
+            self._model = SentenceTransformer(self._model_name, **kwargs)
+            if self._max_seq:
+                self._model.max_seq_length = self._max_seq
+        return self._model
+
+    def __call__(self, input) -> list[list[float]]:
+        embs = self._load().encode(
+            list(input), normalize_embeddings=True, show_progress_bar=False
         )
-    return _ef
+        return [[float(x) for x in e] for e in embs]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self([self._query_prefix + text])[0]
+
+    @staticmethod
+    def name() -> str:
+        return "ytk-instruction-aware"
+
+    def get_config(self) -> dict:
+        return {
+            "model_name": self._model_name,
+            "query_prefix": self._query_prefix,
+            "fp16": self._fp16,
+            "max_seq": self._max_seq,
+            "device": self._device,
+        }
+
+    @staticmethod
+    def build_from_config(config: dict) -> "InstructionAwareEF":
+        return InstructionAwareEF(**config)
 
 
-def _videos_collection() -> chromadb.Collection:
+def _get_ef(epoch: str | None = None):
+    """Lazy-load the text embedding function for an epoch (default: current).
+
+    v1 keeps chroma's stock SentenceTransformerEmbeddingFunction — gte-small
+    is symmetric, so queries and documents share one path. v2 is instruction-
+    aware; see InstructionAwareEF. Changing a model means a new epoch and a
+    full re-embed — see experiments/migrate_embedder.py.
+    """
+    epoch = epoch or EMBEDDING_EPOCH
+    if epoch not in _efs:
+        cfg = _EPOCHS[epoch]
+        if cfg["query_prefix"]:
+            _efs[epoch] = InstructionAwareEF(
+                model_name=cfg["model"], query_prefix=cfg["query_prefix"],
+                fp16=cfg["fp16"], max_seq=cfg["max_seq"],
+                device=cfg.get("device"),
+            )
+        else:
+            _efs[epoch] = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name=cfg["model"]
+            )
+    return _efs[epoch]
+
+
+def _embed_query(query: str, epoch: str | None = None) -> list[float]:
+    """Embed a user search query for the epoch's collections.
+
+    Instruction-aware epochs prefix the retrieval instruction; symmetric
+    epochs produce exactly the vector chroma's query_texts path would.
+    Search functions must pass this as query_embeddings — never query_texts,
+    which would embed the query on the document path.
+    """
+    ef = _get_ef(epoch)
+    # explicit isinstance, not duck typing: chroma's EF base class also
+    # defines embed_query, but with list-in/list-out semantics
+    if isinstance(ef, InstructionAwareEF):
+        return ef.embed_query(query)
+    return [float(x) for x in ef([query])[0]]
+
+
+def warm_text_encoder() -> None:
+    """Load the current epoch's model and run one encode (hub startup path).
+
+    Cold start is ~7.4 s for Qwen3 on MPS (measured, Phase 0 pre-flight);
+    lazy-loading would hang the first search after every hub restart.
+    """
+    _embed_query("warm up the index")
+
+
+def epoch_collection_name(base: str, epoch: str | None = None) -> str:
+    """Resolve a text-collection name for an epoch (default: current).
+
+    External readers (build_map, dedupe_chroma) must use this instead of
+    hardcoding names, or a cutover leaves them silently reading the retired
+    geometry. Visual collections are epoch-free — SigLIP is untouched.
+    """
+    return base + _EPOCHS[epoch or EMBEDDING_EPOCH]["suffix"]
+
+
+def _text_collection(base: str, epoch: str | None = None) -> chromadb.Collection:
     return _get_client().get_or_create_collection(
-        name=_COLLECTION_VIDEOS,
-        embedding_function=_get_ef(),
+        name=epoch_collection_name(base, epoch),
+        embedding_function=_get_ef(epoch),
         metadata={"hnsw:space": "cosine"},
     )
 
 
-def _segments_collection() -> chromadb.Collection:
-    return _get_client().get_or_create_collection(
-        name=_COLLECTION_SEGMENTS,
-        embedding_function=_get_ef(),
-        metadata={"hnsw:space": "cosine"},
-    )
+def _videos_collection(epoch: str | None = None) -> chromadb.Collection:
+    return _text_collection(_COLLECTION_VIDEOS, epoch)
 
 
-def _memories_collection() -> chromadb.Collection:
-    return _get_client().get_or_create_collection(
-        name=_COLLECTION_MEMORIES,
-        embedding_function=_get_ef(),
-        metadata={"hnsw:space": "cosine"},
-    )
+def _segments_collection(epoch: str | None = None) -> chromadb.Collection:
+    return _text_collection(_COLLECTION_SEGMENTS, epoch)
+
+
+def _memories_collection(epoch: str | None = None) -> chromadb.Collection:
+    return _text_collection(_COLLECTION_MEMORIES, epoch)
 
 
 def _visual_collection() -> chromadb.Collection:
@@ -285,12 +422,14 @@ def _split_doc(text: str, limit: int = _DOC_PART_LIMIT) -> list[str]:
 def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
     """Upsert arbitrary text into the memories collection.
 
-    Documents are embedded as PARTS, same convention as videos: the embedder
-    hard-truncates at 512 tokens, so a single vector for a long note silently
-    drops the tail. The plain doc_id is the representative vector that
-    counting consumers (map, grove, synthesis) use; '#'-suffixed parts exist
-    for retrieval only and are collapsed by doc_id at query time. Tail parts
-    are prefixed with the note's first line as situating context.
+    Under parts epochs (v1/gte-small), documents are embedded as PARTS, same
+    convention as videos: the embedder hard-truncates at 512 tokens, so a
+    single vector for a long note silently drops the tail. The plain doc_id
+    is the representative vector that counting consumers (map, grove,
+    synthesis) use; '#'-suffixed parts exist for retrieval only and are
+    collapsed by doc_id at query time. Tail parts are prefixed with the
+    note's first line as situating context. Long-context epochs (v2/Qwen3)
+    embed the whole doc as one vector and write no parts.
 
     Also guards against double-indexing: any existing vectors that share this
     write's source_path or doc_id but are not part of it are deleted, so a
@@ -298,14 +437,22 @@ def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
     """
     col = _memories_collection()
     text = text[:8000]
-    chunks = _split_doc(text)
-    context = next(
-        (line.strip().lstrip("# ") for line in text.splitlines() if line.strip()), ""
-    )[:120]
-    ids = [doc_id] + [f"{doc_id}#{i}" for i in range(1, len(chunks))]
-    docs = [chunks[0]] + [f"{context}\n\n{c}" for c in chunks[1:]]
     base = {**metadata, "doc_id": doc_id}
-    metas = [{**base, "part": i} for i in range(len(chunks))]
+    if _EPOCHS[EMBEDDING_EPOCH]["parts"]:
+        chunks = _split_doc(text)
+        context = next(
+            (line.strip().lstrip("# ") for line in text.splitlines() if line.strip()), ""
+        )[:120]
+        ids = [doc_id] + [f"{doc_id}#{i}" for i in range(1, len(chunks))]
+        docs = [chunks[0]] + [f"{context}\n\n{c}" for c in chunks[1:]]
+        metas = [{**base, "part": i} for i in range(len(chunks))]
+    else:
+        # Long-context epoch: the whole doc fits the window, one vector per
+        # doc. The stale-guard below also clears leftover '#' parts when a
+        # doc last written under a parts epoch is re-upserted.
+        ids = [doc_id]
+        docs = [text]
+        metas = [base]
 
     stale: list[str] = []
     try:
@@ -402,31 +549,36 @@ def upsert(meta: dict, enrichment: Enrichment, segments: list[dict]) -> None:
     title: str = meta.get("title", "")
 
     # --- video-level ---
-    # Embedded as PARTS, not one concatenated doc: the embedder (gte-small)
-    # hard-truncates at 512 tokens, and a single thesis+summary+insights+
-    # concepts doc measurably overflows that window, silently dropping the
-    # entity-dense tail (2026-07 enrichment audit). Part ids: the plain
-    # video_id is the representative vector (thesis+summary) that clustering,
-    # tag counts, the map, and the graph consume; '#'-suffixed parts exist for
-    # retrieval only and are collapsed by video_id at query time. Each extra
-    # part is prefixed with title+thesis as situating context (contextual
-    # retrieval: naked fragments match vague queries poorly).
+    # Under parts epochs (v1), embedded as PARTS, not one concatenated doc:
+    # the embedder (gte-small) hard-truncates at 512 tokens, and a single
+    # thesis+summary+insights+concepts doc measurably overflows that window,
+    # silently dropping the entity-dense tail (2026-07 enrichment audit).
+    # Part ids: the plain video_id is the representative vector
+    # (thesis+summary) that clustering, tag counts, the map, and the graph
+    # consume; '#'-suffixed parts exist for retrieval only and are collapsed
+    # by video_id at query time. Each extra part is prefixed with
+    # title+thesis as situating context (contextual retrieval: naked
+    # fragments match vague queries poorly).
+    # Long-context epochs (v2) write only the representative doc — that is
+    # what the encoder-audit retrieval gate measured on both sides; folding
+    # concepts/insights into the whole doc is unmeasured (spec Phase 3).
     context = f"{title}. {enrichment.thesis}"
     parts: dict[str, str] = {
         video_id: enrichment.thesis + "\n\n" + enrichment.summary,
     }
-    if enrichment.key_concepts:
-        parts[f"{video_id}#c"] = (
-            context + "\n\nKey concepts: " + ", ".join(enrichment.key_concepts)
-        )
-    moments_text = "; ".join(m.description for m in enrichment.key_moments)
-    insights_text = " ".join(enrichment.insights)
-    if insights_text or moments_text:
-        parts[f"{video_id}#i"] = (
-            context
-            + ("\n\nInsights: " + insights_text if insights_text else "")
-            + ("\n\nKey moments: " + moments_text if moments_text else "")
-        )
+    if _EPOCHS[EMBEDDING_EPOCH]["parts"]:
+        if enrichment.key_concepts:
+            parts[f"{video_id}#c"] = (
+                context + "\n\nKey concepts: " + ", ".join(enrichment.key_concepts)
+            )
+        moments_text = "; ".join(m.description for m in enrichment.key_moments)
+        insights_text = " ".join(enrichment.insights)
+        if insights_text or moments_text:
+            parts[f"{video_id}#i"] = (
+                context
+                + ("\n\nInsights: " + insights_text if insights_text else "")
+                + ("\n\nKey moments: " + moments_text if moments_text else "")
+            )
     part_meta = {
         "video_id": video_id,
         "title": title,
@@ -514,7 +666,9 @@ def search_videos(query: str, n: int = 5) -> list[VideoResult]:
         return []
 
     # over-fetch: a video may match on up to 3 parts that collapse to one hit
-    results = col.query(query_texts=[query], n_results=min(n * 3, col.count()))
+    results = col.query(
+        query_embeddings=[_embed_query(query)], n_results=min(n * 3, col.count())
+    )
     out: list[VideoResult] = []
     for meta, dist in _collapse_by_video(results["metadatas"][0], results["distances"][0])[:n]:
         out.append(VideoResult(
@@ -541,7 +695,10 @@ def search_segments(query: str, video_id: str | None = None, n: int = 10) -> lis
         return []
 
     where = {"video_id": video_id} if video_id else None
-    kwargs: dict = {"query_texts": [query], "n_results": min(n, col.count())}
+    kwargs: dict = {
+        "query_embeddings": [_embed_query(query)],
+        "n_results": min(n, col.count()),
+    }
     if where:
         kwargs["where"] = where
 
@@ -587,10 +744,11 @@ def upsert_memory(doc_id: str, text: str, tags: list[str], source_path: str) -> 
 def search_all(query: str, n: int = 5) -> list[UnifiedResult]:
     """Semantic search across video summaries and memory notes, merged by distance."""
     out: list[UnifiedResult] = []
+    query_emb = _embed_query(query)
 
     vcol = _videos_collection()
     if vcol.count() > 0:
-        vr = vcol.query(query_texts=[query], n_results=min(n * 3, vcol.count()))
+        vr = vcol.query(query_embeddings=[query_emb], n_results=min(n * 3, vcol.count()))
         for meta, dist in _collapse_by_video(vr["metadatas"][0], vr["distances"][0])[:n]:
             out.append(UnifiedResult(
                 type="video",
@@ -603,7 +761,7 @@ def search_all(query: str, n: int = 5) -> list[UnifiedResult]:
 
     mcol = _memories_collection()
     if mcol.count() > 0:
-        mr = mcol.query(query_texts=[query], n_results=min(n * 3, mcol.count()))
+        mr = mcol.query(query_embeddings=[query_emb], n_results=min(n * 3, mcol.count()))
         seen_docs: set[str] = set()
         for meta, doc, dist in zip(mr["metadatas"][0], mr["documents"][0], mr["distances"][0]):
             if meta["doc_id"] in seen_docs:  # best-ranked part already represents this doc

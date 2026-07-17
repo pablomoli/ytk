@@ -113,7 +113,9 @@ def load_points() -> tuple[np.ndarray, list[dict], list[str]]:
     meta: list[dict] = []
     docs: list[str] = []
 
-    videos = client.get_collection("ytk_videos").get(
+    from ytk.store import epoch_collection_name
+
+    videos = client.get_collection(epoch_collection_name("ytk_videos")).get(
         include=["embeddings", "metadatas", "documents"]
     )
     for vid, emb, m, doc in zip(
@@ -135,7 +137,7 @@ def load_points() -> tuple[np.ndarray, list[dict], list[str]]:
             }
         )
 
-    memories = client.get_collection("ytk_memories").get(
+    memories = client.get_collection(epoch_collection_name("ytk_memories")).get(
         include=["embeddings", "metadatas", "documents"]
     )
     for mid, emb, m, doc in zip(

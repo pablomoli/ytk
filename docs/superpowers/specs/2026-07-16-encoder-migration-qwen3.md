@@ -1,8 +1,10 @@
 # Spec: encoder migration to Qwen3-Embedding-0.6B @ 1024d
 
 2026-07-16 · owner: ytk core · evidence: docs/research/encoder-audit/ reports 0-5
-Status: approved — Phase 0 pre-flight passed 3/3 (see
-docs/research/encoder-audit/06-preflight.md); Phase 1 unblocked
+Status: Phase 1 code landed (epoch constant, instruction-aware EF, v2
+collections, migration script, hub eager-load + query logging) — system
+still runs v1; next is Phase 2 migration day. Phase 0: 3/3 pass
+(docs/research/encoder-audit/06-preflight.md)
 
 ## Decision
 

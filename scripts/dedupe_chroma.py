@@ -46,7 +46,9 @@ def main() -> None:
     client = chromadb.PersistentClient(path=os.path.expanduser(
         os.environ.get("CHROMA_PATH", "~/.ytk/chroma")
     ))
-    col = client.get_collection("ytk_memories")
+    from ytk.store import epoch_collection_name
+
+    col = client.get_collection(epoch_collection_name("ytk_memories"))
     res = col.get(include=["metadatas"])
 
     # normalized note path -> family id -> [(row_id, meta)]

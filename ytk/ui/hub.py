@@ -285,6 +285,30 @@ INGEST_TEXT = ingest_imessage_item
 
 _READY = {"search": False}
 
+_SEARCH_LOG = STATE_PATH.parent / "logs" / "search.jsonl"
+
+
+def log_search_query(endpoint: str, q: str) -> None:
+    """Append one user-typed search to ~/.ytk/logs/search.jsonl.
+
+    The encoder audit's eval queries were synthetic with no real traffic to
+    validate against (Phase 0 pre-flight found none recoverable); this feeds
+    the next eval with real usage. ensure_ascii guards U+2028 in pasted
+    text. Logging must never fail the search itself.
+    """
+    from datetime import datetime, timezone
+
+    try:
+        _SEARCH_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with _SEARCH_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({
+                "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "endpoint": endpoint,
+                "q": q,
+            }) + "\n")
+    except Exception:
+        pass
+
 
 def search_ready() -> bool:
     """Whether the embedding model + chroma are warm (first search won't stall)."""
@@ -313,6 +337,15 @@ def warm_search() -> bool:
                     fn(embedding=emb, n=1)
                 except Exception:
                     pass
+        except Exception:
+            pass
+        try:
+            # text encoder loads separately from the visual one; under the
+            # Qwen3 epoch its cold start is ~7.4 s (Phase 0 pre-flight), so
+            # first-search lazy loading would read as a hung search box
+            from ytk.store import warm_text_encoder
+
+            warm_text_encoder()
         except Exception:
             pass
         finally:
