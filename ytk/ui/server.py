@@ -54,8 +54,9 @@ app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 async def search(q: str, n: int = 8):
     try:
         from ytk.store import search_videos
+        from ytk.ui.hub import log_search_query
 
-        hub.log_search_query("/api/search", q)
+        log_search_query("/api/search", q)
         results = search_videos(q, n=n)
         return [
             {
@@ -369,7 +370,9 @@ def inbox_search_api(q: str, n: int = 30, scope: str = "ingested"):
 
     if not q.strip():
         return {"results": []}
-    hub.log_search_query("/api/inbox-search", q)
+    from ytk.ui.hub import log_search_query
+
+    log_search_query("/api/inbox-search", q)
     brain = _get_brain_path().resolve()
     try:
         embedding = visual.embed_text(q)
