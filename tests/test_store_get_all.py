@@ -7,6 +7,7 @@ def test_get_all_videos_returns_embeddings_and_meta(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     import ytk.store as store
     importlib.reload(store)
+    store.EMBEDDING_EPOCH = "v1"  # reload resets to the production default
 
     enr = Enrichment(
         thesis="A precise thesis about tiling renderers.",

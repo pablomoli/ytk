@@ -70,6 +70,12 @@ class InterestSnapshot(BaseModel):
     alpha: float | None = None
     signal_counts: dict[int, int] = Field(default_factory=dict)
     explicit: ExplicitChannel | None = None
+    # Which encoder produced the centroids. Snapshots re-anchored across an
+    # embedding-epoch swap keep themes/weights (taste didn't change) but new
+    # centroid geometry; reanchored_from records the source run so the #83
+    # time series can mark the epoch boundary instead of faking a taste event.
+    embedding_model: str | None = None
+    reanchored_from: str | None = None
 
 
 class ThemeMatch(BaseModel):

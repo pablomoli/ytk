@@ -9,6 +9,7 @@ def test_get_content_memories_filters_by_prefix(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     import ytk.store as store
     importlib.reload(store)
+    store.EMBEDDING_EPOCH = "v1"  # reload resets to the production default
 
     store.upsert_doc(
         "instagram_reel_a",
