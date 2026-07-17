@@ -313,9 +313,11 @@ def test_ready_endpoint_reflects_search_flag(client, hub):
     prev = hm._READY["search"]
     try:
         hm._READY["search"] = False
-        assert client.get("/api/ready").json() == {"search": False}
+        body = client.get("/api/ready").json()
+        assert body["search"] is False
+        assert isinstance(body["capture_problems"], list)
         hm._READY["search"] = True
-        assert client.get("/api/ready").json() == {"search": True}
+        assert client.get("/api/ready").json()["search"] is True
     finally:
         hm._READY["search"] = prev
 

@@ -52,16 +52,19 @@ def choose_k(n: int, cfg: InterestConfig) -> int:
     return max(cfg.cluster_min, min(cfg.cluster_max, k, n))
 
 
-def cluster_embeddings(
-    embeddings: np.ndarray, k: int, sample_weight: list[float] | None = None
-) -> list[int]:
+def cluster_embeddings(embeddings: np.ndarray, k: int) -> list[int]:
     """Assign each embedding row to one of k clusters. Deterministic (seeded).
 
-    sample_weight (v2) carries confidence weights w = 1 + alpha*r: a
-    save-with-thought pulls centroids harder than a passively synced video.
+    The partition is deliberately UNWEIGHTED. Signal weights (w = 1 + alpha*r)
+    used to be passed as sample_weight, and with alpha=7 eleven thought-carrying
+    notes carried 55% of the mass — under the v2 encoder that collapsed KMeans
+    into two blobs plus singletons (measured 2026-07-17: sizes [90,16,2,1...]
+    weighted vs [29,22,19,15,11,11,9,8] unweighted, silhouette 0.013 vs 0.058).
+    "Thoughts count more" lives on in theme weight and weighted_centroid, which
+    still consume the alpha weights — importance accounting, not geometry.
     """
     km = KMeans(n_clusters=k, random_state=0, n_init=10)
-    return [int(label) for label in km.fit_predict(embeddings, sample_weight=sample_weight)]
+    return [int(label) for label in km.fit_predict(embeddings)]
 
 
 def weighted_centroid(embeddings: np.ndarray, weights: list[float]) -> list[float]:
@@ -386,7 +389,7 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     levels = signals.signal_levels(notes)
     weights = signals.weights(levels, cfg.interest.alpha)
     k = choose_k(len(notes), cfg.interest)
-    labels = cluster_embeddings(embeddings, k, sample_weight=weights)
+    labels = cluster_embeddings(embeddings, k)
 
     prompt = build_synthesis_prompt(notes, labels)
     data = run_structured(_PROFILE_SYSTEM, prompt, _PROFILE_SCHEMA)

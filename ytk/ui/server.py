@@ -33,6 +33,7 @@ async def _lifespan(app: "FastAPI"):
 
     # Watch chat.db so self-notes land within seconds, and preload the search
     # model so the first real search doesn't eat the cold-start lag.
+    hub.probe_capture_health()
     hub.start_imessage_watcher()
     hub.warm_search()
     yield
@@ -341,10 +342,14 @@ def _kick_pending_sync() -> None:
 
 @app.get("/api/ready")
 def ready_api():
-    """Readiness of the search subsystem, for the UI's warming indicator."""
+    """Readiness of the search subsystem, for the UI's warming indicator.
+
+    capture_problems surfaces dead capture sources (e.g. chat.db access lost
+    to a TCC reset) so a broken pipeline is visible instead of silent."""
     from ytk.ui import hub
 
-    return {"search": hub.search_ready()}
+    return {"search": hub.search_ready(),
+            "capture_problems": hub._CAPTURE_PROBLEMS}
 
 
 @app.get("/api/imessage-warm")

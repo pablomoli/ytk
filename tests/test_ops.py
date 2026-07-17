@@ -54,3 +54,28 @@ def test_bad_state_rejected(paths):
     ops.start_run("r")
     with pytest.raises(ValueError):
         ops.step("x", "exploded")
+
+
+def test_probe_capture_health_reports_unreadable_chatdb(tmp_path, monkeypatch):
+    import ytk.ui.hub as hub
+
+    monkeypatch.setattr("ytk.imessage.chatdb_path",
+                        lambda: tmp_path / "nope" / "chat.db")
+    monkeypatch.setattr("ytk.ops.journal", lambda *a, **k: None)
+    problems = hub.probe_capture_health()
+    assert problems and "chat.db unreadable" in problems[0]
+    assert hub._CAPTURE_PROBLEMS == problems
+
+
+def test_probe_capture_health_ok(tmp_path, monkeypatch):
+    import sqlite3
+
+    import ytk.ui.hub as hub
+
+    db = tmp_path / "chat.db"
+    con = sqlite3.connect(db)
+    con.execute("create table message (x int)")
+    con.commit()
+    con.close()
+    monkeypatch.setattr("ytk.imessage.chatdb_path", lambda: db)
+    assert hub.probe_capture_health() == []
