@@ -1719,8 +1719,11 @@ def schedule_install(hour: int):
 
     # Write a wrapper script so the plist never shell-interpolates the binary path
     script_path = Path.home() / ".ytk" / "nightly.sh"
+    # touch last-sync-ok on success: the hub's catch-up sync (#90) only fires
+    # when this marker is stale, so a good nightly suppresses the retry
     script_path.write_text(
-        f"#!/bin/sh\n{ytk_bin} sync && {ytk_bin} index && {ytk_bin} dashboard\n"
+        f"#!/bin/sh\n{ytk_bin} sync && touch \"$HOME/.ytk/last-sync-ok\" && "
+        f"{ytk_bin} index && {ytk_bin} dashboard\n"
         f"{ytk_bin} gc --prune-audio 30\n",
         encoding="utf-8",
     )

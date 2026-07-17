@@ -455,6 +455,52 @@ def probe_capture_health() -> list[str]:
     return problems
 
 
+_SYNC_MARKER = STATE_PATH.parent / "last-sync-ok"
+_catchup_started = False
+
+
+def start_sync_catchup(check_every_s: float = 1800.0, stale_after_h: float = 20.0) -> bool:
+    """Daily playlist-sync catch-up from a context that is actually awake.
+
+    The 6:50 launchd nightly runs in a Power-Nap/locked window where the
+    Agent SDK's streaming enrichment call gets its connection cut (#90 — the
+    same videos enrich fine interactively; 16 'Connection closed' failures,
+    zero code bugs). The hub only serves while the machine is genuinely
+    awake, so: if no sync has succeeded in stale_after_h hours, run one here
+    in a background thread. The nightly stays as a harmless first attempt;
+    success in either place updates the shared marker file.
+    """
+    global _catchup_started
+    if _catchup_started:
+        return False
+    _catchup_started = True
+
+    def _last_ok_age_h() -> float:
+        try:
+            return (time.time() - _SYNC_MARKER.stat().st_mtime) / 3600
+        except FileNotFoundError:
+            return float("inf")
+
+    def _run() -> None:
+        while True:
+            try:
+                if _last_ok_age_h() > stale_after_h:
+                    from ytk.config import load_config
+                    from ytk.scheduler import authenticate, sync
+
+                    res = sync(authenticate(), load_config(), verbose=False)
+                    if res.failed == 0:
+                        _SYNC_MARKER.touch()
+                    print(f"[sync catchup] ingested={res.ingested} "
+                          f"failed={res.failed} seen={res.seen}", flush=True)
+            except Exception as exc:
+                print(f"[sync catchup] {type(exc).__name__}: {exc}", flush=True)
+            time.sleep(check_every_s)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
+
+
 def start_imessage_watcher(interval: float = 3.0, debounce: float = 8.0) -> bool:
     """Watch chat.db for writes and pull the self-chat within seconds.
 
