@@ -650,6 +650,43 @@ def upsert(meta: dict, enrichment: Enrichment, segments: list[dict]) -> None:
         )
 
 
+# --- second-stage reranking (#86) ---
+# The cross-encoder reorders the bi-encoder's top candidates reading query
+# and document together. Off unless requested per call or via YTK_RERANK=1;
+# depth/latency tradeoffs are measured by experiments/rerank_bench.py.
+_RERANK_DEPTH = 30
+_reranker = None  # lazy QwenReranker; tests inject a plain callable
+
+
+def _get_reranker():
+    global _reranker
+    if _reranker is None:
+        from .rerank import QwenReranker
+
+        _reranker = QwenReranker()
+    return _reranker
+
+
+def _rerank_enabled(flag: bool | None) -> bool:
+    if flag is None:
+        return os.environ.get("YTK_RERANK", "") == "1"
+    return flag
+
+
+def _apply_rerank(query: str, items: list, texts: list[str], n: int) -> list:
+    import time
+
+    from .rerank import rerank as _rerank_order
+
+    t0 = time.perf_counter()
+    out = _rerank_order(query, items, texts, scorer=_get_reranker(), top_n=n)
+    # the issue budget is +1s per search; keep the added cost observable
+    logging.getLogger("ytk.rerank").info(
+        "reranked %d candidates in %.2fs", len(items), time.perf_counter() - t0
+    )
+    return out
+
+
 def _collapse_by_video(metas: list[dict], dists: list[float]) -> list[tuple[dict, float]]:
     """Collapse part hits to one per video, keeping the best (first) distance.
 
@@ -667,18 +704,25 @@ def _collapse_by_video(metas: list[dict], dists: list[float]) -> list[tuple[dict
     return out
 
 
-def search_videos(query: str, n: int = 5) -> list[VideoResult]:
-    """Search video-level collection. Returns up to n matches ranked by cosine similarity."""
+def search_videos(query: str, n: int = 5, rerank: bool | None = None) -> list[VideoResult]:
+    """Search video-level collection. Returns up to n matches ranked by cosine similarity.
+
+    With rerank on, the cross-encoder reorders the top _RERANK_DEPTH
+    candidates on their representative text (thesis + summary) before the
+    top-n cut.
+    """
     col = _videos_collection()
     if col.count() == 0:
         return []
 
+    rerank_on = _rerank_enabled(rerank)
+    fetch = _RERANK_DEPTH if rerank_on else n
     # over-fetch: a video may match on up to 3 parts that collapse to one hit
     results = col.query(
-        query_embeddings=[_embed_query(query)], n_results=min(n * 3, col.count())
+        query_embeddings=[_embed_query(query)], n_results=min(fetch * 3, col.count())
     )
     out: list[VideoResult] = []
-    for meta, dist in _collapse_by_video(results["metadatas"][0], results["distances"][0])[:n]:
+    for meta, dist in _collapse_by_video(results["metadatas"][0], results["distances"][0])[:fetch]:
         out.append(VideoResult(
             video_id=meta["video_id"],
             title=meta["title"],
@@ -690,10 +734,14 @@ def search_videos(query: str, n: int = 5) -> list[VideoResult]:
             summary=meta["summary"],
             distance=dist,
         ))
-    return out
+    if rerank_on and out:
+        # thesis+summary is the representative doc the video was embedded on
+        out = _apply_rerank(query, out, [f"{r.thesis}\n\n{r.summary}" for r in out], n)
+    return out[:n]
 
 
-def search_segments(query: str, video_id: str | None = None, n: int = 10) -> list[SegmentResult]:
+def search_segments(query: str, video_id: str | None = None, n: int = 10,
+                    rerank: bool | None = None) -> list[SegmentResult]:
     """
     Search segment-level collection. Optionally filter to a specific video_id.
     Used by the future `ytk dive` command.
@@ -702,10 +750,12 @@ def search_segments(query: str, video_id: str | None = None, n: int = 10) -> lis
     if col.count() == 0:
         return []
 
+    rerank_on = _rerank_enabled(rerank)
+    fetch = _RERANK_DEPTH if rerank_on else n
     where = {"video_id": video_id} if video_id else None
     kwargs: dict = {
         "query_embeddings": [_embed_query(query)],
-        "n_results": min(n, col.count()),
+        "n_results": min(fetch, col.count()),
     }
     if where:
         kwargs["where"] = where
@@ -724,7 +774,9 @@ def search_segments(query: str, video_id: str | None = None, n: int = 10) -> lis
             timestamp_url=meta["timestamp_url"],
             distance=dist,
         ))
-    return out
+    if rerank_on and out:
+        out = _apply_rerank(query, out, [r.text for r in out], n)
+    return out[:n]
 
 
 @dataclass
@@ -749,43 +801,55 @@ def upsert_memory(doc_id: str, text: str, tags: list[str], source_path: str) -> 
     })
 
 
-def search_all(query: str, n: int = 5) -> list[UnifiedResult]:
-    """Semantic search across video summaries and memory notes, merged by distance."""
-    out: list[UnifiedResult] = []
+def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[UnifiedResult]:
+    """Semantic search across video summaries and memory notes, merged by distance.
+
+    With rerank on, the cross-encoder reorders the merged top _RERANK_DEPTH
+    on full document text (excerpts are display artifacts) before the top-n
+    cut.
+    """
+    rerank_on = _rerank_enabled(rerank)
+    fetch = _RERANK_DEPTH if rerank_on else n
+    # (result, rerank text) pairs: videos score on their representative doc,
+    # memories on the stored document
+    pairs: list[tuple[UnifiedResult, str]] = []
     query_emb = _embed_query(query)
 
     vcol = _videos_collection()
     if vcol.count() > 0:
-        vr = vcol.query(query_embeddings=[query_emb], n_results=min(n * 3, vcol.count()))
-        for meta, dist in _collapse_by_video(vr["metadatas"][0], vr["distances"][0])[:n]:
-            out.append(UnifiedResult(
+        vr = vcol.query(query_embeddings=[query_emb], n_results=min(fetch * 3, vcol.count()))
+        for meta, dist in _collapse_by_video(vr["metadatas"][0], vr["distances"][0])[:fetch]:
+            pairs.append((UnifiedResult(
                 type="video",
                 doc_id=meta["video_id"],
                 title=meta["title"],
                 excerpt=meta.get("thesis", meta["summary"])[:200],
                 source=meta["url"],
                 distance=dist,
-            ))
+            ), f"{meta.get('thesis', '')}\n\n{meta['summary']}"))
 
     mcol = _memories_collection()
     if mcol.count() > 0:
-        mr = mcol.query(query_embeddings=[query_emb], n_results=min(n * 3, mcol.count()))
+        mr = mcol.query(query_embeddings=[query_emb], n_results=min(fetch * 3, mcol.count()))
         seen_docs: set[str] = set()
         for meta, doc, dist in zip(mr["metadatas"][0], mr["documents"][0], mr["distances"][0]):
             if meta["doc_id"] in seen_docs:  # best-ranked part already represents this doc
                 continue
             seen_docs.add(meta["doc_id"])
-            out.append(UnifiedResult(
+            pairs.append((UnifiedResult(
                 type="memory",
                 doc_id=meta["doc_id"],
                 title=meta["doc_id"],
                 excerpt=doc[:200],
                 source=meta["source_path"],
                 distance=dist,
-            ))
+            ), doc))
 
-    out.sort(key=lambda r: r.distance)
-    return out[:n]
+    pairs.sort(key=lambda p: p[0].distance)
+    if rerank_on and pairs:
+        pairs = pairs[:_RERANK_DEPTH]
+        return _apply_rerank(query, [p[0] for p in pairs], [p[1] for p in pairs], n)
+    return [p[0] for p in pairs[:n]]
 
 
 def top_tags(n: int = 40) -> list[str]:

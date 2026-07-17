@@ -1,0 +1,1324 @@
+{
+  "summary": {
+    "n": 156,
+    "depth": 30,
+    "model": "Qwen/Qwen3-Reranker-0.6B",
+    "overall": {
+      "before": {
+        "hit@1": 0.7115,
+        "hit@5": 0.9038,
+        "hit@10": 0.9487
+      },
+      "after": {
+        "hit@1": 0.7949,
+        "hit@5": 0.9359,
+        "hit@10": 0.9744
+      }
+    },
+    "per_bucket": {
+      "memories": {
+        "n": 79,
+        "before": {
+          "hit@1": 0.6329,
+          "hit@5": 0.8734,
+          "hit@10": 0.9367
+        },
+        "after": {
+          "hit@1": 0.6835,
+          "hit@5": 0.8987,
+          "hit@10": 0.9747
+        }
+      },
+      "segments": {
+        "n": 44,
+        "before": {
+          "hit@1": 0.75,
+          "hit@5": 0.9318,
+          "hit@10": 0.9545
+        },
+        "after": {
+          "hit@1": 0.8636,
+          "hit@5": 0.9773,
+          "hit@10": 0.9773
+        }
+      },
+      "videos": {
+        "n": 33,
+        "before": {
+          "hit@1": 0.8485,
+          "hit@5": 0.9394,
+          "hit@10": 0.9697
+        },
+        "after": {
+          "hit@1": 0.9697,
+          "hit@5": 0.9697,
+          "hit@10": 0.9697
+        }
+      }
+    },
+    "latency_s": {
+      "mean": 23.029,
+      "p50": 18.711,
+      "p95": 49.325
+    },
+    "promoted_into_top5": 6,
+    "demoted_out_of_top5": 1,
+    "demoted_queries": [
+      {
+        "query": "breaking down a huge render file into smaller domain-specific pieces",
+        "before": 4,
+        "after": 5
+      }
+    ]
+  },
+  "rows": [
+    {
+      "query": "note about organizing jobs on a timeline with colored status bars for a dashboard Kanban view",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/2026-04-20-epicmap-analytics-tab-design-epiphany-2026-04-20.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 41.729
+    },
+    {
+      "query": "decision to archive the FieldWork model and use job status entries instead for analytics",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/2026-07-04-epicmap-retired-the-fieldwork-model-entirely-202-e893d0.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 18.242
+    },
+    {
+      "query": "production lesson about how server-sent events consume thread resources when too many connections stay open",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/2026-05-11-epicmap-2026-05-11-prod-cascade-taught-three-durab-86769d.md",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 16.864
+    },
+    {
+      "query": "bug where a progress section vanished due to flexbox collapsing when overflow wasn't visible",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/2026-06-30-epicmap-hotfix-commit-39d403f6-pushed-to-master-1f5ab8.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 16.877
+    },
+    {
+      "query": "fix splitting video embeddings into multiple vectors for search so longer text won't exceed limits",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/2026-07-06-ytk-512-token-cliff-fix-shipped-2026-07-06-commi-aacf9c.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 38.37
+    },
+    {
+      "query": "planning session that framed the entire system as one unified text encoder generating all visualization layouts",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/2026-07-16-planning-burst-2026-07-16-reframed-ytk-as-one-bi-9d9bb3.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 43.347
+    },
+    {
+      "query": "fix for parcel identification truncation in Brevard County that touched the API and utility functions",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-06-epicmap-25.md",
+      "rank_before": 0,
+      "rank_after": 2,
+      "latency_s": 43.715
+    },
+    {
+      "query": "engineer sharing every coding question and system design interview she encountered during job hunting",
+      "bucket": "videos",
+      "gold_id": "vid::auEozC5eUDw",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 13.735
+    },
+    {
+      "query": "building a handheld device that generates electromagnetic pulses using capacitors and a Marx voltage multiplier",
+      "bucket": "videos",
+      "gold_id": "vid::OU0v_G3-4Hw",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 19.352
+    },
+    {
+      "query": "fragment about why something always has a good reason despite appearing complicated",
+      "bucket": "segments",
+      "gold_id": "seg::HZAmbbTcQ3M_26",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 11.494
+    },
+    {
+      "query": "dialogue where someone defends mysterious items that turned out to be decades-old inventory they kept",
+      "bucket": "segments",
+      "gold_id": "seg::OQbqEuaTMkI_25",
+      "rank_before": 3,
+      "rank_after": 0,
+      "latency_s": 11.683
+    },
+    {
+      "query": "explaining how to define simple tools for AI agents through an API by making a basic greeting example",
+      "bucket": "segments",
+      "gold_id": "seg::yAPKzHrx3eo_24",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 8.122
+    },
+    {
+      "query": "Twitter argument where someone claims AI is great at design if you just screenshot the mockup",
+      "bucket": "segments",
+      "gold_id": "seg::5dEp1ZpYDUg_8",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.611
+    },
+    {
+      "query": "stripped out the DaisyUI card styling from that landing page status thing and went with a pink accent color instead",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-09-epicmap-209.md",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 32.005
+    },
+    {
+      "query": "note about rearranging parcel ID formats for the county property lookup tool",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-09-session-236.md",
+      "rank_before": 12,
+      "rank_after": 9,
+      "latency_s": 36.882
+    },
+    {
+      "query": "fixed the mileage calculation that kept dropping certain waypoints because of how the database joins worked",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-11-epicmap-280.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 18.216
+    },
+    {
+      "query": "crew section buttons weren't staying the same size until I added flex-shrink-0",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-12-epicmap-325.md",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 31.495
+    },
+    {
+      "query": "added support for ad-hoc addresses in the event model using an XOR pattern instead of database constraints",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-15-epicmap-360.md",
+      "rank_before": 0,
+      "rank_after": 1,
+      "latency_s": 46.858
+    },
+    {
+      "query": "difference between the direct Postgres connection string and Supabase API layer environment setup",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-15-session-400.md",
+      "rank_before": 2,
+      "rank_after": 1,
+      "latency_s": 40.282
+    },
+    {
+      "query": "calendar events needed drag-and-drop with percentage-based positioning and requestAnimationFrame for performance",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-16-session-431.md",
+      "rank_before": 2,
+      "rank_after": 0,
+      "latency_s": 49.211
+    },
+    {
+      "query": "files browser had a view button passing job number in the URL but map JavaScript never checked for it",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-18-epicmap-491.md",
+      "rank_before": 1,
+      "rank_after": 2,
+      "latency_s": 39.771
+    },
+    {
+      "query": "that syntax podcast episode where Scott and Wes reviewed various AI developer tools and talked about reducing slop",
+      "bucket": "videos",
+      "gold_id": "vid::9O0lQBEPL2U",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 49.325
+    },
+    {
+      "query": "watched something about deterministic linters and static analysis tools for constraining agent code generation",
+      "bucket": "videos",
+      "gold_id": "vid::LSq485DvILM",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 54.82
+    },
+    {
+      "query": "Pi coding agent walkthrough showing minimal system prompt and provider switching via model.json",
+      "bucket": "videos",
+      "gold_id": "vid::yAPKzHrx3eo",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 46.207
+    },
+    {
+      "query": "segment about how fiction readers show better empathy skills than those who stick only to non-fiction",
+      "bucket": "segments",
+      "gold_id": "seg::OmPf4dFvawE_4",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 18.375
+    },
+    {
+      "query": "Syntax podcast discussion on markdown capability files that describe agent behavior",
+      "bucket": "segments",
+      "gold_id": "seg::RWH4AIVRgvU_0",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 19.296
+    },
+    {
+      "query": "clip about testing security vulnerabilities in legacy code with AI agents discovering sandbox escapes",
+      "bucket": "segments",
+      "gold_id": "seg::qCpY4K9jtOg_28",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 20.095
+    },
+    {
+      "query": "segment about how effort and defending your choices becomes the differentiator once AI makes everything cheap",
+      "bucket": "segments",
+      "gold_id": "seg::xafwfGVBxos_88",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 20.668
+    },
+    {
+      "query": "why does the frontend keep undoing the correct sort order from the backend when handling route assignments",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-19-epicmap-497.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 44.777
+    },
+    {
+      "query": "the subtle difference between visible and all prefixes when querying esri layers",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-19-epicmap-516.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 54.376
+    },
+    {
+      "query": "humanitarian data has roughly 860k records broken down by geography and sector requiring tons of pagination",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-540.md",
+      "rank_before": 3,
+      "rank_after": 0,
+      "latency_s": 39.645
+    },
+    {
+      "query": "we were triple-counting affected populations by not filtering on admin level and using the right sector totals",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-567.md",
+      "rank_before": 2,
+      "rank_after": 1,
+      "latency_s": 45.745
+    },
+    {
+      "query": "generating RAG documents and setting up vector search on the crisis mismatch results",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-587.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 39.327
+    },
+    {
+      "query": "project IDs have a leading letter so the ISO code starts at position one not zero",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-607.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 46.87
+    },
+    {
+      "query": "renaming the crisis metrics from average B2B to something cleaner and using weighted calculations",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-634.md",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 40.913
+    },
+    {
+      "query": "that version of markdown-pdf in the requirements file doesn't actually exist in PyPI",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-21-hacklytics-goldenbyte-661.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 44.274
+    },
+    {
+      "query": "Pocock's skill that dumps the current session into a markdown file for the next agent",
+      "bucket": "videos",
+      "gold_id": "vid::DNqsMXH6Eog",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 18.449
+    },
+    {
+      "query": "using cursor traces as training material for improving large language models",
+      "bucket": "videos",
+      "gold_id": "vid::JM1sIVIZYRg",
+      "rank_before": null,
+      "rank_after": null,
+      "latency_s": 36.094
+    },
+    {
+      "query": "asking the agent for multiple competing UI designs in one shot to prevent convergence",
+      "bucket": "videos",
+      "gold_id": "vid::S9EGx6ik-18",
+      "rank_before": 5,
+      "rank_after": 0,
+      "latency_s": 35.248
+    },
+    {
+      "query": "clicking directly on a line of dialogue to modify the caption text inline",
+      "bucket": "segments",
+      "gold_id": "seg::251hsWgoTPM_49",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 17.387
+    },
+    {
+      "query": "writing action beats and emotional cues in parentheses throughout the script",
+      "bucket": "segments",
+      "gold_id": "seg::OQbqEuaTMkI_22",
+      "rank_before": 1,
+      "rank_after": 2,
+      "latency_s": 15.196
+    },
+    {
+      "query": "a language where people use rough size descriptions instead of counting",
+      "bucket": "segments",
+      "gold_id": "seg::GFz6KqZurFY_50",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 15.349
+    },
+    {
+      "query": "animating color palettes by modulating the input with a time parameter",
+      "bucket": "segments",
+      "gold_id": "seg::f4s1h2YETNY_16",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 15.242
+    },
+    {
+      "query": "performance optimizations for Three.js rendering on high-DPI MacBook displays reducing pixel workload",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-24-spacecraft-786.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 42.06
+    },
+    {
+      "query": "decorating calendar feed event titles with client reference numbers for iCal subscriptions",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-25-epicmap-826.md",
+      "rank_before": 8,
+      "rank_after": 6,
+      "latency_s": 29.714
+    },
+    {
+      "query": "upgrading Next.js and React while handling ESLint incompatibility requiring version downgrade",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-24-spacecraft-793.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 39.89
+    },
+    {
+      "query": "fixing calendar layout to start on Sunday instead of Monday for week view",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-25-epicmap-836.md",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 43.094
+    },
+    {
+      "query": "implementing client-side status filtering for calendar events without modifying API",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-01-epicmap-1042.md",
+      "rank_before": 3,
+      "rank_after": 3,
+      "latency_s": 30.861
+    },
+    {
+      "query": "creating interactive HTML playground to preview different terminal themes and prompt styles",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-26-config-848.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 22.206
+    },
+    {
+      "query": "optimizing NAS PDF scanning using Synology Search API to replace recursive directory traversal",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-01-epicmap-1040.md",
+      "rank_before": 7,
+      "rank_after": 7,
+      "latency_s": 14.821
+    },
+    {
+      "query": "redesigning tmux session picker from Neovim editor to fzf with action keybindings",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-26-config-875.md",
+      "rank_before": 2,
+      "rank_after": 4,
+      "latency_s": 10.261
+    },
+    {
+      "query": "CSS subgrid technique for aligning buttons and content across variable-height card layouts",
+      "bucket": "videos",
+      "gold_id": "vid::APxt2mKOsss",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 14.092
+    },
+    {
+      "query": "self-hosted workspace bundling chat interface, agents, email client, and model manager locally",
+      "bucket": "videos",
+      "gold_id": "vid::rAzT5lcezPs",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 19.855
+    },
+    {
+      "query": "Blender workflow for rendering spherical textures via equirectangular camera into Space Engine",
+      "bucket": "videos",
+      "gold_id": "vid::kWMGG1zdGkA",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 30.31
+    },
+    {
+      "query": "the complexity and friction of working with separate git worktrees during npm development",
+      "bucket": "segments",
+      "gold_id": "seg::251hsWgoTPM_39",
+      "rank_before": 0,
+      "rank_after": 1,
+      "latency_s": 7.202
+    },
+    {
+      "query": "whether LLM-generated code actually works end-to-end or merely appears functional on surface",
+      "bucket": "segments",
+      "gold_id": "seg::y1QId4-F2I0_7",
+      "rank_before": 5,
+      "rank_after": 0,
+      "latency_s": 7.072
+    },
+    {
+      "query": "fantasy spell system where magic requires drawing complete glyphs to activate programs",
+      "bucket": "segments",
+      "gold_id": "seg::zVWYW0K3ikg_1",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 6.923
+    },
+    {
+      "query": "Shannon information theory with fractional bits and language probability distributions beyond powers of 2",
+      "bucket": "segments",
+      "gold_id": "seg::l6DKRf-fAAM_17",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 6.31
+    },
+    {
+      "query": "that session where I fixed the OAuth token issue blocking API calls to the calendar endpoint",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-04-epicmap-1101.md",
+      "rank_before": 0,
+      "rank_after": 1,
+      "latency_s": 15.616
+    },
+    {
+      "query": "git rebase issue where untracked files conflicted and I had to delete them before replaying commits",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-04-epicmap-1145.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 12.601
+    },
+    {
+      "query": "that research comparing icon libraries, Lucide seemed best for our Tailwind and daisyUI stack",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-05-epicmap-1170.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 17.593
+    },
+    {
+      "query": "my note about the contains_duplicate bug where the loop bound was off by one at the end",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-07-neat-1188.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 10.865
+    },
+    {
+      "query": "that video about Shannon building information theory from first principles, using coding examples with a robot",
+      "bucket": "videos",
+      "gold_id": "vid::l6DKRf-fAAM",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 23.993
+    },
+    {
+      "query": "the commentary on how doped athletes actually performed worse than their own personal records at the Enhanced Games",
+      "bucket": "videos",
+      "gold_id": "vid::uCsf49OwvmU",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 31.481
+    },
+    {
+      "query": "Ben's terminal setup using Tailscale to SSH into a basement server with tmux for agent control",
+      "bucket": "videos",
+      "gold_id": "vid::ffuxDr_QCAI",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 14.212
+    },
+    {
+      "query": "that segment where someone's critiquing dialogue that felt like it was written by an amateur, too on-the-nose therapy exposition",
+      "bucket": "segments",
+      "gold_id": "seg::QNW2IAj9IIE_17",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 6.789
+    },
+    {
+      "query": "someone explaining that you need a corpus of text when training this kind of model to get output that makes sense",
+      "bucket": "segments",
+      "gold_id": "seg::YmLp8qe87A0_25",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.086
+    },
+    {
+      "query": "why job markers weren't aligned with parcel boundaries in certain cases",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-14-epicmap-1407.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 19.836
+    },
+    {
+      "query": "breaking down a huge render file into smaller domain-specific pieces",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-14-epicmap-1437.md",
+      "rank_before": 4,
+      "rank_after": 5,
+      "latency_s": 17.003
+    },
+    {
+      "query": "which api endpoints weren't documented in the project guide",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-14-epicmap-1467.md",
+      "rank_before": null,
+      "rank_after": null,
+      "latency_s": 20.443
+    },
+    {
+      "query": "creating a readme with project badges after restructuring the package layout",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-14-epicmap-1497.md",
+      "rank_before": 4,
+      "rank_after": 0,
+      "latency_s": 14.314
+    },
+    {
+      "query": "how much we saved on tokens using that optimization tool",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-15-epicmap-1521.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 29.715
+    },
+    {
+      "query": "adding color options for different benchmark data layers",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-15-epicmap-1551.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 28.988
+    },
+    {
+      "query": "making map filters update instantly without an apply button",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-15-epicmap-1581.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 13.681
+    },
+    {
+      "query": "showing weekly job activity shifts on cards using red and green arrows",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-16-epicmap-1611.md",
+      "rank_before": 2,
+      "rank_after": 1,
+      "latency_s": 13.52
+    },
+    {
+      "query": "investigation of whether electrolyte supplement brands cause vitamin toxicity",
+      "bucket": "videos",
+      "gold_id": "vid::S5Tv_22ojbw",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 40.079
+    },
+    {
+      "query": "github repositories for ai-powered coding that chain architecture design with security checks",
+      "bucket": "videos",
+      "gold_id": "vid::UnzD_bwylWs",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 28.263
+    },
+    {
+      "query": "cognitive science studies on how visualization helps people solve problems",
+      "bucket": "videos",
+      "gold_id": "vid::AF3XJT9YKpM",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 20.923
+    },
+    {
+      "query": "how people choose different charts depending on who they're presenting to",
+      "bucket": "segments",
+      "gold_id": "seg::AF3XJT9YKpM_49",
+      "rank_before": 13,
+      "rank_after": 11,
+      "latency_s": 7.814
+    },
+    {
+      "query": "why people retain stories better than abstract information",
+      "bucket": "segments",
+      "gold_id": "seg::wC5ji4M4FhU_4",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 6.841
+    },
+    {
+      "query": "philosophical question about how we comprehend images of things that don't exist",
+      "bucket": "segments",
+      "gold_id": "seg::AF3XJT9YKpM_57",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 6.403
+    },
+    {
+      "query": "reducing noise from startup output with npm flags and redirecting to dev null",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-16-epicmap-1701.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 9.455
+    },
+    {
+      "query": "that session where i analyzed hundreds of scattered plat folders and found duplicate pdfs",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-16-epicmap-1720.md",
+      "rank_before": 22,
+      "rank_after": 9,
+      "latency_s": 17.437
+    },
+    {
+      "query": "making the command support natural time expressions instead of commit counts",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-16-epicmap-1780.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 24.176
+    },
+    {
+      "query": "fixing missing notification toasts across the plat processing pipelines",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-17-epicmap-1820.md",
+      "rank_before": 2,
+      "rank_after": 1,
+      "latency_s": 15.495
+    },
+    {
+      "query": "learning that design skill with searchable databases for colors and typography rules",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-19-epicmap-1850.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 23.912
+    },
+    {
+      "query": "stopping audio playback by cancelling the command context with sigkill",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-21-tts-1990.md",
+      "rank_before": 0,
+      "rank_after": 1,
+      "latency_s": 9.348
+    },
+    {
+      "query": "that indie game with the weird fourth dimension where you can shrink to sixteenths of a block",
+      "bucket": "videos",
+      "gold_id": "vid::kYhb7w2GNIs",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 42.682
+    },
+    {
+      "query": "linguistics iceberg format debunking that famous claim about eskimo snow language words",
+      "bucket": "videos",
+      "gold_id": "vid::GFz6KqZurFY",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 62.684
+    },
+    {
+      "query": "segment about the biblical command to fill and populate the entire earth",
+      "bucket": "segments",
+      "gold_id": "seg::6AK_cyXfn6o_10",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 19.325
+    },
+    {
+      "query": "mma analysis where they talk about the insane spectacle of walkouts and the fight card",
+      "bucket": "segments",
+      "gold_id": "seg::A3Ce9ulH4zg_28",
+      "rank_before": 1,
+      "rank_after": 1,
+      "latency_s": 22.961
+    },
+    {
+      "query": "using arcs and lines with the css shape function instead of the path function",
+      "bucket": "segments",
+      "gold_id": "seg::svqu6FDiMAs_1",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 18.39
+    },
+    {
+      "query": "when context window limits came up during a prototyping session with sixty thousand tokens",
+      "bucket": "segments",
+      "gold_id": "seg::DNqsMXH6Eog_2",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 19.714
+    },
+    {
+      "query": "that note where we tested filtering crew by name with case variations and it worked with alphabetical sort in the calendar name",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-24-epicmap-2001.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 50.193
+    },
+    {
+      "query": "setting up ngrok to expose our local sandbox service so teammates could call the API endpoints publicly over HTTPS",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-28-usf-2140.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 46.798
+    },
+    {
+      "query": "the system with EventBus publishing stage events to WebSocket, plus Windows VPS for dynamic analysis that goes beyond what Docker sandbox can do",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-28-usf-2175.md",
+      "rank_before": 0,
+      "rank_after": 1,
+      "latency_s": 55.147
+    },
+    {
+      "query": "the Athena delegation bug where sub_agents wasn't registered so the transfer to Hades failed silently even though the prompt said to delegate",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-29-usf-2245.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 49.731
+    },
+    {
+      "query": "the developer explaining how being a copy-paste programmer at Google didn't hurt his career and arguing that DSA builds mental models even if you never use them",
+      "bucket": "videos",
+      "gold_id": "vid::jdJ5jg0XSmU",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 44.182
+    },
+    {
+      "query": "the harsh review of that tower movie where the twist that the other character was hallucinating the whole time retroactively ruins the entire film",
+      "bucket": "videos",
+      "gold_id": "vid::HnVvjePLvT0",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 36.793
+    },
+    {
+      "query": "the learning strategy of asking LLMs for step-by-step worked examples instead of finished solutions, backed by cognitive science showing it improves retention",
+      "bucket": "videos",
+      "gold_id": "vid::LYDF1s0OUU0",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 20.39
+    },
+    {
+      "query": "explaining autoregressive token generation where the model doesn't plan ahead, just appending tokens blind, and how production LLMs prepend system prompts users don't see",
+      "bucket": "segments",
+      "gold_id": "seg::YmLp8qe87A0_42",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 8.613
+    },
+    {
+      "query": "3D printed lamp using a Philips bulb and a companion phone mount with magnets weighted by washers to keep it stable at angle",
+      "bucket": "segments",
+      "gold_id": "seg::aiiIGDnT6JQ_16",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.733
+    },
+    {
+      "query": "architecture where the gateway is the only external entry point and all servers live behind it on a private network, potentially with load balancing",
+      "bucket": "segments",
+      "gold_id": "seg::Qa-7iWxDz1A_22",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.176
+    },
+    {
+      "query": "how the body runs on 90-minute energy cycles and why poor sleep plus stress completely destroy the quality of your deep work output",
+      "bucket": "segments",
+      "gold_id": "seg::gUK1imWyec0_51",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.298
+    },
+    {
+      "query": "that session fixing tab-wide message relay loops and losing Alpine drag bindings during DOM updates",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-31-epicmap-2314.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 31.71
+    },
+    {
+      "query": "when we debated whether EpicMap needed in-browser PDF viewing or geometric overlay on the map",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md",
+      "rank_before": 5,
+      "rank_after": 1,
+      "latency_s": 44.422
+    },
+    {
+      "query": "how job number search opened detail panels automatically but client search filtering didn't",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-02-epicmap-2411.md",
+      "rank_before": null,
+      "rank_after": null,
+      "latency_s": 19.287
+    },
+    {
+      "query": "using data-section DOM attributes to patch the modal surgically instead of full re-renders",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-02-epicmap-2544.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 19.358
+    },
+    {
+      "query": "when those out-of-bounds drift paths looked wrong but made sense given the universityA noise",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-02-niloc-2373.md",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 17.561
+    },
+    {
+      "query": "staging the full avalon grid config and discovering mixed-rate noise libraries break drift calculations",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-02-niloc-2443.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 17.229
+    },
+    {
+      "query": "switching from conda to uv and pinning Python 3.9 so Ana could run training",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-02-niloc-2484.md",
+      "rank_before": 15,
+      "rank_after": 3,
+      "latency_s": 13.047
+    },
+    {
+      "query": "loading Ana's training snapshots and patching PyTorch 2.6 to read old Lightning checkpoint formats",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-03-niloc-2575.md",
+      "rank_before": 7,
+      "rank_after": 2,
+      "latency_s": 13.629
+    },
+    {
+      "query": "the interview where NeetCode explained DSA persistence and his $200 code execution service with intentional memory leaks",
+      "bucket": "videos",
+      "gold_id": "vid::xafwfGVBxos",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 17.061
+    },
+    {
+      "query": "where the escaped convict recognizes the fake aristocrat and demands a weekly allowance through threats",
+      "bucket": "videos",
+      "gold_id": "vid::0iEfNt5vYWQ",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 19.508
+    },
+    {
+      "query": "Crystal's four-quadrant job framework with the farrier joke about wrestling livestock all day",
+      "bucket": "videos",
+      "gold_id": "vid::g8N_5WZzUfg",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 31.066
+    },
+    {
+      "query": "explaining how excessive inductance slows down magnetic field buildup, then building toward Marx generators",
+      "bucket": "segments",
+      "gold_id": "seg::OU0v_G3-4Hw_11",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.251
+    },
+    {
+      "query": "the embeddable markdown feature that locks reading mode so clicking won't switch to edit",
+      "bucket": "segments",
+      "gold_id": "seg::aqt5NJE2sJ8_3",
+      "rank_before": 2,
+      "rank_after": 1,
+      "latency_s": 7.474
+    },
+    {
+      "query": "hunting through Ben Snow's SIGGRAPH paper on Iron Man suit shading and spotting cryptic dual specularity mention",
+      "bucket": "segments",
+      "gold_id": "seg::r3bkGPobpTw_5",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.121
+    },
+    {
+      "query": "childhood scene with Bear and the cat Dutes, then kitchen pills and bathroom mirror practicing a smile",
+      "bucket": "segments",
+      "gold_id": "seg::OQbqEuaTMkI_10",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 6.281
+    },
+    {
+      "query": "setting up Vite project for 3D animation with either procedural geometry or imported models",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-05-coolshit-2681.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 15.782
+    },
+    {
+      "query": "extracting good fixes from a problematic Claude PR and reattributing commits properly",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-07-epicmap-2750.md",
+      "rank_before": 7,
+      "rank_after": 6,
+      "latency_s": 14.713
+    },
+    {
+      "query": "reorganizing page routes so field crews see the map as the primary landing interface",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-09-epicmap-port-tanstack-start-2850.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 18.86
+    },
+    {
+      "query": "deciding on unified calendar component for overlap visualization and scheduling capabilities",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-12-epicmap-2869.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 18.711
+    },
+    {
+      "query": "enhancing minimap with darker borders and fit-bounds control to reset the viewport",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-12-epicmap-2888.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 17.419
+    },
+    {
+      "query": "making dashboard job elements clickable so they open detail panels for full context",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-12-epicmap-2889.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 13.23
+    },
+    {
+      "query": "designing URL shortener with read-heavy traffic ratio and picking DynamoDB for scale",
+      "bucket": "videos",
+      "gold_id": "vid::BAVrwcPDa-k",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 15.014
+    },
+    {
+      "query": "building Google Drive clone starting from single server and adding presigned upload URLs",
+      "bucket": "videos",
+      "gold_id": "vid::Qa-7iWxDz1A",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 24.0
+    },
+    {
+      "query": "AWS SaaS architecture using containers with Postgres and comparing to serverless approach",
+      "bucket": "videos",
+      "gold_id": "vid::qrr5EnJQWlY",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 14.587
+    },
+    {
+      "query": "measuring GitHub activity influx and talking to operations about measurable trends",
+      "bucket": "segments",
+      "gold_id": "seg::qCpY4K9jtOg_17",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.302
+    },
+    {
+      "query": "understanding worktree commands and using tools to eliminate downtime during development",
+      "bucket": "segments",
+      "gold_id": "seg::251hsWgoTPM_26",
+      "rank_before": 17,
+      "rank_after": 0,
+      "latency_s": 7.149
+    },
+    {
+      "query": "why markdown files matter for maintaining a proper computer experience today",
+      "bucket": "segments",
+      "gold_id": "seg::6MBq1paspVU_55",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.053
+    },
+    {
+      "query": "how visibility and exposure prevent talented people from sharing work publicly",
+      "bucket": "segments",
+      "gold_id": "seg::gUK1imWyec0_12",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.554
+    },
+    {
+      "query": "that session about restructuring the dashboard into three columns with a minimap that highlighted today's jobs using pink animated pulses",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-12-epicmap-2890.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 14.351
+    },
+    {
+      "query": "converting the files route to enable browsing the entire Projects folder instead of just job-specific files through a two-pane redesign",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-13-epicmap-2946.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 19.126
+    },
+    {
+      "query": "ytk project resume with the enrichment pipeline using Haiku and fallback transcript fetching strategy plus ChromaDB storage",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-13-ytk-3006.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 30.127
+    },
+    {
+      "query": "whether neighbor relationships should be stored in files or moved to database JSONB columns with potential GIS auto-population",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-16-epicmap-3113.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 14.58
+    },
+    {
+      "query": "designing a parser for extracting control points from descriptions using monument keywords with pyproj coordinate transformation to WGS84",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-17-epicmap-3156.md",
+      "rank_before": 0,
+      "rank_after": 1,
+      "latency_s": 17.944
+    },
+    {
+      "query": "the medical student who mastered exams using a single indexed notebook with cross-references and the walk-and-talk recitation technique",
+      "bucket": "videos",
+      "gold_id": "vid::R1GZYfINs-k",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 43.143
+    },
+    {
+      "query": "the presentation on running Fable 5 cost-effectively with custom Codex skills that triaged 16 PRs through an autonomous agent workflow",
+      "bucket": "videos",
+      "gold_id": "vid::8GRmLR__OGQ",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 49.584
+    },
+    {
+      "query": "a conversation between two people about entering an unhealthy coding pace and then consciously slowing down after reading about taking time",
+      "bucket": "segments",
+      "gold_id": "seg::qCpY4K9jtOg_42",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 19.286
+    },
+    {
+      "query": "breaking down the physics of Project Hail Mary using time dilation to explain how you can traverse light years within a human lifetime",
+      "bucket": "segments",
+      "gold_id": "seg::8FT-oz9aZU4_0",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 19.903
+    },
+    {
+      "query": "exploring language differences in how people react to the bouba and kiki shapes and why some cultures resist the sound-shape mapping",
+      "bucket": "segments",
+      "gold_id": "seg::GFz6KqZurFY_55",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 17.008
+    },
+    {
+      "query": "that epicmap note about survey markers and avoiding false matches with measurements",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3194.md",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 34.43
+    },
+    {
+      "query": "how we improved readability for that control points table with better visual hierarchy",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3229.md",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 15.382
+    },
+    {
+      "query": "that session where we added a progress bar to git validation instead of just dots",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3278.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 20.661
+    },
+    {
+      "query": "explored whether yt-dlp could handle instagram content for knowledge system",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-ytk-3274.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 8.527
+    },
+    {
+      "query": "decision on hosting accounts and ownership model for that client project",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-24-epicmap-epicmap-feature-analytics-tab-3321.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 17.244
+    },
+    {
+      "query": "dotfiles project with terminal efficiency improvements and keyboard setup",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/users-melocoton-config/purpose.md",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 23.469
+    },
+    {
+      "query": "transcript fetching with fallback strategy between two different apis",
+      "bucket": "memories",
+      "gold_id": "mem::inbox/memories/users-melocoton-developer-youtube-ai/tech.md",
+      "rank_before": 0,
+      "rank_after": 3,
+      "latency_s": 16.603
+    },
+    {
+      "query": "matt pocock releasing updated skill names and that github-based planning tool",
+      "bucket": "videos",
+      "gold_id": "vid::A8mokin_YOs",
+      "rank_before": 1,
+      "rank_after": 0,
+      "latency_s": 15.343
+    },
+    {
+      "query": "cpu cache ping pong problem where cores fight over same cache line",
+      "bucket": "videos",
+      "gold_id": "vid::9lpbN7FXfy8",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 17.403
+    },
+    {
+      "query": "3d printing camera mount fixes including filter holder with magnets",
+      "bucket": "videos",
+      "gold_id": "vid::vR1hF_N6i_c",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 22.57
+    },
+    {
+      "query": "shader math with aspect ratio and that distance function from geometry",
+      "bucket": "segments",
+      "gold_id": "seg::f4s1h2YETNY_10",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 6.187
+    },
+    {
+      "query": "how hiring changed after companies stopped recruiting from boot camps",
+      "bucket": "segments",
+      "gold_id": "seg::cSIMVYjVF28_48",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 7.48
+    },
+    {
+      "query": "cinematography tracking shot technique where camera stays close on one character",
+      "bucket": "segments",
+      "gold_id": "seg::OQbqEuaTMkI_32",
+      "rank_before": 0,
+      "rank_after": 0,
+      "latency_s": 6.639
+    },
+    {
+      "query": "dworkin's argument about using principles when law has gaps or ambiguity",
+      "bucket": "segments",
+      "gold_id": "seg::9XQ7mKUv8a8_19",
+      "rank_before": 3,
+      "rank_after": 3,
+      "latency_s": 6.195
+    }
+  ]
+}
