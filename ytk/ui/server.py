@@ -35,6 +35,7 @@ async def _lifespan(app: "FastAPI"):
     # model so the first real search doesn't eat the cold-start lag.
     hub.probe_capture_health()
     hub.start_imessage_watcher()
+    hub.start_sync_catchup()
     hub.warm_search()
     yield
 

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/icon.png" width="112" alt="ytk icon">
+</p>
+
 # ytk
 
 Turn videos, articles, posts, and voice notes into a searchable personal
@@ -117,14 +121,27 @@ ytk ui
 
 The hub is a small local web app for capture, review, and exploration:
 
-- `/` shows recent ingests.
+- `/` shows recent ingests with thumbnails and enrichment tags.
 - `/inbox` collects queued links and lets you add annotations before ingest.
 - `/tags` helps merge tag variants produced by enrichment.
-- `/map` renders a 3D UMAP projection of text embeddings.
+- `/map` renders a 3D UMAP projection of every text embedding, colored by
+  provenance, with anchored cluster names that survive rebuilds.
+- `/grove` grows procedural trees whose branch structure is the measured
+  cluster hierarchy of each topic bucket — knowledge as a garden.
 - `/settings` edits `~/.ytk/config.yaml` with validation.
+
+![Fresh feed: recent ingests with enrichment tags](docs/assets/hub-fresh.png)
+
+![Map: 3D embedding projection colored by provenance](docs/assets/hub-map.png)
+
+![Grove: cluster hierarchies rendered as growing trees](docs/assets/hub-grove.png)
 
 On macOS, `ytk ui install` registers the hub as a launchd daemon. Use
 `ytk ui status`, `ytk ui restart`, and `ytk ui uninstall` to manage it.
+`packaging/macos/build_app.sh` additionally wraps the daemon in a small
+`ytk.app` bundle so permission prompts and Full Disk Access show "ytk" with
+an icon instead of a bare python binary — and the TCC grant survives
+package reinstalls because it keys on the app's launcher stub.
 
 ## Claude Code integration
 
@@ -169,10 +186,18 @@ Other commands include `add-instagram`, `add-tiktok`, `add-pinterest`, `reels`,
   subtitle fallback, then local `faster-whisper` for audio-only cases.
 - Enrichment uses `claude-haiku-4-5` to produce a thesis, dense summary, key
   concepts, insights, tags, and timestamped key moments.
-- Embeddings are computed locally with `sentence-transformers`.
+- Text embeddings run locally on `Qwen/Qwen3-Embedding-0.6B` (1024d,
+  whole-document, instruction-aware: documents embed plain, queries carry a
+  retrieval prefix). The encoder was chosen by a measured bake-off on the
+  real corpus — 156 known-item queries, paired bootstrap, geometry gates —
+  documented in `docs/research/encoder-audit/`. Encoder swaps are versioned
+  as epochs: fresh collections, one migration pass, instant rollback.
+- Covers and frames embed with SigLIP-2 for visual similarity search.
 - Markdown notes and media are written into your Obsidian vault.
 - ChromaDB stores the local vector index.
 - The only default external AI call is enrichment through the Anthropic API.
+- Long-running jobs (migrations, re-embeds) report to an ops status file and
+  journal; `scripts/watchboard.py` renders them live in a terminal pane.
 
 ## Status and expectations
 
