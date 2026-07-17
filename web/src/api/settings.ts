@@ -18,7 +18,7 @@ export type SettingsConfig = {
 
 export type SettingsResponse = {
   config: SettingsConfig
-  meta: { restart_required_fields: string[]; last_pulls: Record<string, number>; last_pull_at?: number }
+  meta: { restart_required_fields: string[]; last_pulls: Record<string, number>; last_pull_at?: number; environment?: Record<string, string | boolean> }
 }
 
 export type SettingsValidationError = { loc: string; msg: string }

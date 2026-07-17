@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TagsRouteImport } from './routes/tags'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MapRouteImport } from './routes/map'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as GroveRouteImport } from './routes/grove'
 import { Route as IndexRouteImport } from './routes/index'
@@ -26,9 +28,19 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MapRoute = MapRouteImport.update({
   id: '/map',
   path: '/map',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InboxRoute = InboxRouteImport.update({
@@ -51,7 +63,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/grove': typeof GroveRoute
   '/inbox': typeof InboxRoute
+  '/library': typeof LibraryRoute
   '/map': typeof MapRoute
+  '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
 }
@@ -59,7 +73,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/grove': typeof GroveRoute
   '/inbox': typeof InboxRoute
+  '/library': typeof LibraryRoute
   '/map': typeof MapRoute
+  '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
 }
@@ -68,23 +84,52 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/grove': typeof GroveRoute
   '/inbox': typeof InboxRoute
+  '/library': typeof LibraryRoute
   '/map': typeof MapRoute
+  '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/grove' | '/inbox' | '/map' | '/settings' | '/tags'
+  fullPaths:
+    | '/'
+    | '/grove'
+    | '/inbox'
+    | '/library'
+    | '/map'
+    | '/profile'
+    | '/settings'
+    | '/tags'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/grove' | '/inbox' | '/map' | '/settings' | '/tags'
-  id: '__root__' | '/' | '/grove' | '/inbox' | '/map' | '/settings' | '/tags'
+  to:
+    | '/'
+    | '/grove'
+    | '/inbox'
+    | '/library'
+    | '/map'
+    | '/profile'
+    | '/settings'
+    | '/tags'
+  id:
+    | '__root__'
+    | '/'
+    | '/grove'
+    | '/inbox'
+    | '/library'
+    | '/map'
+    | '/profile'
+    | '/settings'
+    | '/tags'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GroveRoute: typeof GroveRoute
   InboxRoute: typeof InboxRoute
+  LibraryRoute: typeof LibraryRoute
   MapRoute: typeof MapRoute
+  ProfileRoute: typeof ProfileRoute
   SettingsRoute: typeof SettingsRoute
   TagsRoute: typeof TagsRoute
 }
@@ -105,11 +150,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/map': {
       id: '/map'
       path: '/map'
       fullPath: '/map'
       preLoaderRoute: typeof MapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inbox': {
@@ -140,7 +199,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GroveRoute: GroveRoute,
   InboxRoute: InboxRoute,
+  LibraryRoute: LibraryRoute,
   MapRoute: MapRoute,
+  ProfileRoute: ProfileRoute,
   SettingsRoute: SettingsRoute,
   TagsRoute: TagsRoute,
 }

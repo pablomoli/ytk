@@ -258,6 +258,86 @@ async def fresh_api(n: int = 30):
     return hub.fresh_notes(n=n)
 
 
+@app.get("/api/library")
+async def library_api(n: int = 60, offset: int = 0, source: str = "", q: str = ""):
+    """The whole ingested store as cards — the fresh feed without the window."""
+    from ytk.ui import hub
+
+    return hub.library_notes(n=n, offset=offset, source=source, match=q)
+
+
+@app.get("/api/profile")
+async def profile_api():
+    """The latest interest snapshot, shaped for the /profile page."""
+    from ytk import interest
+
+    snap = interest.load_latest()
+    if snap is None:
+        raise HTTPException(status_code=404, detail="no interest snapshot yet — run ytk profile")
+    return {
+        "generated_at": snap.generated_at,
+        "note_count": snap.note_count,
+        "embedding_model": snap.embedding_model,
+        "reanchored_from": snap.reanchored_from,
+        "alpha": snap.alpha,
+        "profile_markdown": snap.profile_markdown,
+        "themes": [
+            {"id": t.id, "label": t.label, "summary": t.summary,
+             "weight": t.weight, "n_notes": len(t.note_ids),
+             "exemplars": t.exemplar_titles[:3]}
+            for t in snap.themes
+        ],
+    }
+
+
+@app.post("/api/profile/run")
+def profile_run_api():
+    # sync def: run_profile blocks on one Haiku call (~15-60 s) in the threadpool
+    from ytk.synthesis import SynthesisTooSparse, run_profile
+
+    try:
+        snap, _ = run_profile()
+    except SynthesisTooSparse as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"generated_at": snap.generated_at, "themes": len(snap.themes)}
+
+
+_GROVE_BUCKETS_PATH = Path.home() / ".ytk" / "grove_buckets.yaml"
+
+
+@app.get("/api/grove-buckets")
+async def grove_buckets_get():
+    text = _GROVE_BUCKETS_PATH.read_text(encoding="utf-8") if _GROVE_BUCKETS_PATH.exists() else ""
+    return {"text": text, "path": str(_GROVE_BUCKETS_PATH)}
+
+
+@app.put("/api/grove-buckets")
+async def grove_buckets_put(request: Request):
+    """Save the bucket file VERBATIM after validation — it is hand-authored
+    yaml whose comments document the matching rules; round-tripping through a
+    parser would destroy them."""
+    import yaml
+
+    raw = (await request.json()).get("text", "")
+    try:
+        data = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        raise HTTPException(status_code=422, detail=f"invalid yaml: {exc}")
+    if not isinstance(data, dict) or not isinstance(data.get("buckets"), list):
+        raise HTTPException(status_code=422, detail="top level needs a 'buckets' list")
+    names = []
+    for i, b in enumerate(data["buckets"]):
+        if not isinstance(b, dict) or not b.get("name"):
+            raise HTTPException(status_code=422, detail=f"bucket {i} needs a name")
+        names.append(str(b["name"]))
+    if len(set(names)) != len(names):
+        raise HTTPException(status_code=422, detail="duplicate bucket names")
+    _GROVE_BUCKETS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _GROVE_BUCKETS_PATH.write_text(raw, encoding="utf-8")
+    return {"saved": True, "buckets": names,
+            "hint": "rebuild to apply: uv run --extra dev python -m scripts.grove_lab.dendro --rebuild"}
+
+
 @app.get("/api/cover")
 def cover_api(u: str):
     # sync def: first request per item downloads from the source CDN
@@ -531,7 +611,25 @@ async def settings_get():
             "restart_required_fields": ["hub.host", "hub.port"],
             "last_pulls": state.last_pulls,
             "last_pull_at": state.last_pull_at,
+            "environment": _environment_info(),
         },
+    }
+
+
+def _environment_info() -> dict:
+    """Read-only facts for the settings page: where data lives, which
+    encoder epoch is serving, how the daemon is packaged."""
+    from ytk import store, vault
+
+    epoch = store.EMBEDDING_EPOCH
+    return {
+        "vault_path": str(vault._get_brain_path()),
+        "chroma_path": str(store._CHROMA_PATH),
+        "embedding_epoch": epoch,
+        "embedding_model": store._EPOCHS[epoch]["model"],
+        "collections": store.epoch_collection_name("ytk_*"),
+        "app_bundle": Path("/Applications/ytk.app").exists(),
+        "grove_buckets_path": str(_GROVE_BUCKETS_PATH),
     }
 
 
