@@ -208,6 +208,21 @@ def test_eval_cli_requires_baseline(eval_cli):
     assert "--update-baseline" in result.output
 
 
+def test_eval_cli_json_output_is_parseable(eval_cli, monkeypatch, tmp_path):
+    # scripts pipe --json; spinner and verdict chrome must stay off stdout
+    from click.testing import CliRunner
+
+    from ytk import cli as cli_mod
+
+    _, baseline_path = eval_cli
+    baseline_path.write_text(json.dumps(_baseline()))
+    runner = CliRunner()
+    result = runner.invoke(cli_mod.cli, ["eval", "--json"])
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert report["overall"]["hit@5"] == 0.9
+
+
 def test_eval_cli_update_baseline_writes_stamped_file(eval_cli):
     invoke, baseline_path = eval_cli
     result = invoke("--update-baseline")
