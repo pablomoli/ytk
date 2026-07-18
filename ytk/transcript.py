@@ -6,6 +6,7 @@ import hashlib
 import os
 import re
 import stat
+from dataclasses import dataclass
 from pathlib import Path
 
 from youtube_transcript_api import (
@@ -115,6 +116,41 @@ def WhisperModel(model_name: str, **kwargs):
     """Lazy import of faster_whisper.WhisperModel."""
     from faster_whisper import WhisperModel as _WM
     return _WM(model_name, **kwargs)
+
+
+@dataclass
+class TranscriptionResult:
+    """Outcome of transcribing a local media file.
+
+    status distinguishes an empty-but-successful run ("no_speech") from a
+    broken one ("failed") so callers can report capture health truthfully.
+    """
+    segments: list[dict]        # [{start, duration, text}]
+    status: str                 # ok | no_speech | failed
+    error: str | None = None
+
+
+def transcribe_file(media_path: Path, whisper_model: str = "base") -> TranscriptionResult:
+    """Transcribe an already-downloaded audio/video file with faster-whisper.
+
+    Never downloads anything and never raises: media supplied by any ingest
+    pipeline (Instagram reel MP4, TikTok audio) is transcribed in place.
+    """
+    try:
+        if not Path(media_path).is_file():
+            raise FileNotFoundError(f"media file not found: {media_path}")
+        model = WhisperModel(whisper_model, device="cpu", compute_type="int8")
+        raw_segments, _ = model.transcribe(str(media_path), beam_size=5)
+        segments = [
+            {"start": seg.start, "duration": round(seg.end - seg.start, 3), "text": seg.text.strip()}
+            for seg in raw_segments
+            if seg.text.strip()
+        ]
+    except Exception as exc:
+        return TranscriptionResult(segments=[], status="failed", error=str(exc))
+    if not segments:
+        return TranscriptionResult(segments=[], status="no_speech")
+    return TranscriptionResult(segments=segments, status="ok")
 
 
 def _fetch_via_whisper(url: str, whisper_model: str = "base") -> tuple[list[dict], str]:

@@ -80,18 +80,9 @@ def transcribe_tiktok(url: str, whisper_model: str = "base") -> list[dict]:
 
     Returns [] if transcription fails or audio is too short.
     """
-    from .transcript import _download_audio, WhisperModel
+    from . import transcript as transcript_mod
     try:
-        audio_path = _download_audio(url)
+        audio_path = transcript_mod._download_audio(url)
     except Exception:
         return []
-    try:
-        model = WhisperModel(whisper_model, device="cpu", compute_type="int8")
-        raw_segments, _ = model.transcribe(str(audio_path), beam_size=5)
-        return [
-            {"start": seg.start, "duration": round(seg.end - seg.start, 3), "text": seg.text.strip()}
-            for seg in raw_segments
-            if seg.text.strip()
-        ]
-    except Exception:
-        return []
+    return transcript_mod.transcribe_file(audio_path, whisper_model=whisper_model).segments

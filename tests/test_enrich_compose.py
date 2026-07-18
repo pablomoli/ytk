@@ -1,7 +1,7 @@
 import pytest
 from ytk.enrich import BASE_SKELETON, SOURCE_BIAS, _build_system
 
-SOURCES = ["youtube", "tiktok", "instagram", "web", "journal"]
+SOURCES = ["youtube", "tiktok", "instagram", "instagram_reel", "web", "journal"]
 
 def test_every_source_has_a_bias_fragment():
     assert set(SOURCE_BIAS) == set(SOURCES)

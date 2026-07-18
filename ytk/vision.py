@@ -61,6 +61,21 @@ def hint_detect(segments: list[dict]) -> list[float]:
     return sorted({float(t) for t in timestamps if isinstance(t, (int, float))})
 
 
+def probe_duration(video_path: Path) -> float | None:
+    """Probe a video's duration in seconds via ffprobe. None if probing fails."""
+    try:
+        probe = subprocess.run(
+            [
+                "ffprobe", "-v", "quiet", "-print_format", "json",
+                "-show_format", str(video_path),
+            ],
+            capture_output=True, text=True, check=True,
+        )
+        return float(json.loads(probe.stdout)["format"]["duration"])
+    except (subprocess.CalledProcessError, KeyError, ValueError, FileNotFoundError):
+        return None
+
+
 def extract_frames(
     video_path: Path,
     timestamps: list[float],
@@ -70,16 +85,8 @@ def extract_frames(
 
     Returns raw JPEG bytes. Returns [] silently if ffmpeg/ffprobe is not installed.
     """
-    try:
-        probe = subprocess.run(
-            [
-                "ffprobe", "-v", "quiet", "-print_format", "json",
-                "-show_format", str(video_path),
-            ],
-            capture_output=True, text=True, check=True,
-        )
-        duration = float(json.loads(probe.stdout)["format"]["duration"])
-    except (subprocess.CalledProcessError, KeyError, ValueError, FileNotFoundError):
+    duration = probe_duration(video_path)
+    if duration is None:
         return []
 
     baseline = [duration * i / (baseline_n + 1) for i in range(1, baseline_n + 1)]
