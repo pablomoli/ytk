@@ -56,8 +56,8 @@ def test_phantom_guard_survives_v2(store_v2):
     """The #71 phantom guard is independent of chunking and must survive the
     migration: a note re-indexed under a new id scheme leaves no stale vector
     sharing its source_path."""
-    store_v2.upsert_doc("old_id_scheme", "note body", {"source_path": "/n.md"})
-    store_v2.upsert_doc("new_id_scheme", "note body", {"source_path": "/n.md"})
+    store_v2.upsert_doc("old_id_scheme", "note body long enough to clear the embed floor", {"source_path": "/n.md"})
+    store_v2.upsert_doc("new_id_scheme", "note body long enough to clear the embed floor", {"source_path": "/n.md"})
     assert store_v2._memories_collection().get()["ids"] == ["new_id_scheme"]
 
 

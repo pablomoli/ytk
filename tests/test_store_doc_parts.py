@@ -28,7 +28,7 @@ def _meta(doc_id, path="/vault/second-brain/inbox/memories/x/note.md"):
 
 
 def test_short_doc_stays_single_vector(store):
-    store.upsert_doc("m1", "one small note", _meta("m1"))
+    store.upsert_doc("m1", "one small note that still clears the minimum embed length floor", _meta("m1"))
     got = store._memories_collection().get()
     assert got["ids"] == ["m1"]
 
@@ -49,7 +49,7 @@ def test_long_doc_splits_into_context_prefixed_parts(store):
 def test_search_finds_doc_by_tail_content(store):
     """The point of the fix: text past the 512-token cliff is genuinely embedded."""
     store.upsert_doc("m1", _long_text(), _meta("m1"))
-    store.upsert_doc("m2", "a note about gardening tomatoes", _meta("m2", path="/vault/second-brain/tools/t.md"))
+    store.upsert_doc("m2", "a note about gardening tomatoes and pruning them in late summer", _meta("m2", path="/vault/second-brain/tools/t.md"))
     hits = [r for r in store.search_all("zanzibar sourdough telescope", n=4) if r.type == "memory"]
     assert hits and hits[0].doc_id == "m1"
     ids = [h.doc_id for h in hits]
@@ -58,7 +58,7 @@ def test_search_finds_doc_by_tail_content(store):
 
 def test_reupsert_prunes_leftover_parts(store):
     store.upsert_doc("m1", _long_text(), _meta("m1"))
-    store.upsert_doc("m1", "now it is short", _meta("m1"))
+    store.upsert_doc("m1", "now it is short but still long enough to stay embedded as one vector", _meta("m1"))
     got = store._memories_collection().get()
     assert got["ids"] == ["m1"]
 
@@ -66,8 +66,8 @@ def test_reupsert_prunes_leftover_parts(store):
 def test_guard_deletes_old_id_scheme_for_same_file(store):
     """A note re-indexed under a new id must not leave a phantom copy (#71)."""
     path = "/vault/second-brain/sources/instagram/reel.md"
-    store.upsert_doc("note_sources_instagram_reel", "an old-scheme row", _meta("note_sources_instagram_reel", path))
-    store.upsert_doc("instagram_reel", "the same note reindexed", _meta("instagram_reel", path))
+    store.upsert_doc("note_sources_instagram_reel", "an old-scheme row that was indexed before the id scheme changed", _meta("note_sources_instagram_reel", path))
+    store.upsert_doc("instagram_reel", "the same note reindexed under the new id scheme with equal body", _meta("instagram_reel", path))
     got = store._memories_collection().get()
     assert got["ids"] == ["instagram_reel"]
 

@@ -727,6 +727,11 @@ def reindex_vault(force: bool = False) -> int:
                 continue
             seen_paths.add(str_path)
 
+            # memory-atom MOCs are wikilink boilerplate: 13 byte-identical
+            # cards competing for the same queries (#87 audit). Skip them.
+            if "inbox/memories" in str_path and md_file.name == "index.md":
+                continue
+
             if not force:
                 current_hash = file_hash(md_file)
                 if cache.get(str_path) == current_hash:
