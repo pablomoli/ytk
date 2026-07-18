@@ -341,6 +341,30 @@ def pending_visual_similar(embedding: list[float], n: int = 30) -> list[VisualRe
     ]
 
 
+def get_profile_visual_pool(pending: bool = False) -> list[dict]:
+    """Return saved or pending cover vectors for the profile ranking eval.
+
+    Pending covers are candidates the discovery queue has not written to the
+    vault. Keeping this boundary explicit is what makes them honest non-vault
+    negatives rather than relabeling another one of the user's saves.
+    """
+    col = _visual_pending_collection() if pending else _visual_collection()
+    if col.count() == 0:
+        return []
+    data = col.get(include=["embeddings", "metadatas"])
+    return [
+        {
+            "id": item_id,
+            "embedding": list(embedding),
+            "source": (meta or {}).get("source", ""),
+            "note_path": (meta or {}).get("note_path", ""),
+        }
+        for item_id, embedding, meta in zip(
+            data["ids"], data["embeddings"], data["metadatas"]
+        )
+    ]
+
+
 def get_visual_embedding(item_id: str) -> list[float] | None:
     res = _visual_collection().get(ids=[item_id], include=["embeddings"])
     if not res["ids"]:
@@ -1003,11 +1027,13 @@ def get_all_videos() -> list[dict]:
         tags = meta.get("tags", "")
         out.append({
             "id": vid,
+            "source": "youtube",
             "title": meta.get("title", ""),
             "thesis": meta.get("thesis", ""),
             "summary": meta.get("summary", ""),
             "tags": tags.split(", ") if tags else [],
             "embedding": list(emb),
+            "captured_at": meta.get("ingested_at", ""),
         })
     return out
 
@@ -1024,9 +1050,16 @@ def _extract_thesis(document: str) -> str:
 
 
 def get_content_memories(prefixes: list[str]) -> list[dict]:
-    """Return memory docs whose doc_id starts with one of the given prefixes (+ '_').
+    """Return memory docs for the given content sources.
 
-    Each item: {id, title, thesis, summary, tags(list[str]), embedding(list[float])}.
+    Matches both id schemes the same note may live under: the ingest
+    pipeline's ``{source}_...`` and the vault reindexer's canonical
+    ``note_sources_{source}_...``. The reindexer wins upsert_doc's
+    double-indexing dedup (same source_path, last writer keeps the id), so
+    most reels/articles exist ONLY under the ``note_sources_`` form —
+    matching the bare prefix alone silently drops them from the profile.
+
+    Each item: {id, source, title, thesis, summary, tags, embedding, ...}.
     title is '' (memories have no separate title); thesis is extracted from the
     stored note body's '## Thesis' section. Used by the synthesis engine so the
     interest profile reflects ingested reels/TikToks/articles, not just YouTube.
@@ -1035,7 +1068,9 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
     col = _memories_collection()
     if col.count() == 0:
         return []
-    allow = tuple(f"{p}_" for p in prefixes)
+    allow = tuple(f"{p}_" for p in prefixes) + tuple(
+        f"note_sources_{p}_" for p in prefixes
+    )
     res = col.get(include=["embeddings", "metadatas", "documents"])
     out: list[dict] = []
     for mid, emb, meta, doc in zip(
@@ -1046,14 +1081,21 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
         doc_id = meta.get("doc_id", mid)
         if not doc_id.startswith(allow):
             continue
+        source = (
+            doc_id.split("_", 3)[2]
+            if doc_id.startswith("note_sources_")
+            else doc_id.split("_", 1)[0]
+        )
         tags = meta.get("tags", "")
         out.append({
             "id": mid,
+            "source": source,
             "title": "",
             "thesis": _extract_thesis(doc),
             "summary": "",
             "tags": tags.split(", ") if tags else [],
             "embedding": list(emb),
             "source_path": meta.get("source_path", ""),
+            "captured_at": meta.get("ingested_at", ""),
         })
     return out

@@ -2,6 +2,19 @@
 
 Standalone utility scripts for ytk. Run with `uv run scripts/<name>.py`.
 
+## check_profile_grounding.py
+
+Validates the generated `second-brain/me/profile.md` XML. It exits nonzero when
+a portrait claim or theme summary lacks evidence references or cites an unknown
+catalog item, when a portrait claim has no cited item captured within the
+configured decay half-life, when a claim's evidence does not reach its kind's
+signal floor, or when a claim is attached to an unknown theme.
+
+```bash
+uv run scripts/check_profile_grounding.py
+uv run scripts/check_profile_grounding.py /path/to/profile.md
+```
+
 ## seed_memory.py
 
 Scrapes `~/.claude/projects/` session JSONLs across all Claude Code projects and generates long-term memory summaries using Claude Haiku. Writes each summary as an atomic note to `inbox/memories/` in the Obsidian vault and indexes it in ChromaDB.

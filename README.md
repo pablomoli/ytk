@@ -115,6 +115,13 @@ ytk profile
 ytk ui
 ```
 
+`ytk profile` writes a machine-checkable portrait: every theme summary cites
+vault evidence and every portrait claim additionally cites at least one item
+captured within the decay half-life. Each full regeneration also prints
+and persists a fixed-cohort visual ranking score (multi-positive nDCG), warning
+when a comparable score drops beyond the configured tolerance. Run
+`uv run scripts/check_profile_grounding.py` to audit the rendered profile.
+
 `ytk ui` starts the local hub on port `6969`.
 
 ## Local hub
@@ -172,7 +179,7 @@ Common commands:
 | `ytk search "query"` | Search the whole vault semantically |
 | `ytk dive VIDEO_ID "query"` | Search timestamped video segments |
 | `ytk memo` | Record, transcribe, and route a voice memo |
-| `ytk profile` | Synthesize an interest profile from saved material |
+| `ytk profile` | Synthesize, ground, and held-out-score an interest profile |
 | `ytk ui` | Start the local hub |
 
 Other commands include `add-instagram`, `add-tiktok`, `add-pinterest`, `reels`,

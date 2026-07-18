@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 MODEL_ID = "google/siglip2-so400m-patch16-384"
+MODEL_REVISION = "dd658faac399427308559e2c3ac1e99cbe43845d"
 
 _model = None
 _processor = None
@@ -36,7 +37,7 @@ def _download_weights():
     subprocess.run(
         [sys.executable, "-c",
          "from huggingface_hub import snapshot_download; "
-         f"snapshot_download('{MODEL_ID}')"],
+         f"snapshot_download('{MODEL_ID}', revision='{MODEL_REVISION}')"],
         check=True,
         env=env,
     )
@@ -52,16 +53,18 @@ def _load():
         dtype = torch.float16 if _device == "mps" else torch.float32
         try:
             _model = AutoModel.from_pretrained(
-                MODEL_ID, dtype=dtype, local_files_only=True
+                MODEL_ID, revision=MODEL_REVISION, dtype=dtype, local_files_only=True
             )
         except OSError:
             logger.info("downloading %s (~4.5GB, one time)", MODEL_ID)
             _download_weights()
             _model = AutoModel.from_pretrained(
-                MODEL_ID, dtype=dtype, local_files_only=True
+                MODEL_ID, revision=MODEL_REVISION, dtype=dtype, local_files_only=True
             )
         _model = _model.to(_device).eval()
-        _processor = AutoProcessor.from_pretrained(MODEL_ID, local_files_only=True)
+        _processor = AutoProcessor.from_pretrained(
+            MODEL_ID, revision=MODEL_REVISION, local_files_only=True
+        )
     return _model, _processor, _device
 
 
@@ -84,16 +87,25 @@ def embed_images(paths: list[Path], batch_size: int = 8) -> list[list[float]]:
 
 def embed_text(query: str) -> list[float]:
     """Embed a text query into the same space (SigLIP-2 text tower)."""
+    return embed_texts([query])[0]
+
+
+def embed_texts(queries: list[str]) -> list[list[float]]:
+    """Embed short claim texts together in the SigLIP-2 image/text space."""
     import torch
 
     model, processor, device = _load()
     inputs = processor(
-        text=[query], padding="max_length", max_length=64, return_tensors="pt"
+        text=queries,
+        padding="max_length",
+        truncation=True,
+        max_length=64,
+        return_tensors="pt",
     ).to(device)
     with torch.no_grad():
         feats = model.get_text_features(**inputs)
     feats = getattr(feats, "pooler_output", feats)
-    return feats.float().cpu().numpy()[0].tolist()
+    return feats.float().cpu().numpy().tolist()
 
 
 @dataclass
@@ -195,10 +207,19 @@ def iter_covers() -> list[CoverItem]:
 
     tt_thumbs = sources / "tiktok" / "thumbnails"
     if tt_thumbs.exists():
+        tt_notes: dict[str, Path] = {}
+        for note in (sources / "tiktok").glob("*.md"):
+            url, _ = _frontmatter(note)
+            if match := re.search(r"/video/(\d+)", url):
+                tt_notes[match.group(1)] = note
         for p in sorted(tt_thumbs.iterdir()):
             if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
+                video_id = p.stem.removesuffix("-thumb")
+                note = tt_notes.get(video_id)
+                url, title = _frontmatter(note) if note else ("", "")
                 items.append(CoverItem(
                     item_id=f"tt:{p.stem}", image_path=p, source="tiktok",
+                    title=title, url=url, note_path=str(note) if note else "",
                 ))
 
     shots = sources / "screenshots"

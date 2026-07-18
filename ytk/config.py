@@ -33,6 +33,27 @@ class InterestConfig(BaseModel):
         default=5,
         description="Minimum thought-carrying items (r >= 2) before the explicit interest channel activates.",
     )
+    decay_half_life_days: float = Field(
+        default=90.0,
+        gt=0,
+        description="Capture-time half-life for recency-decayed theme weight and the maximum age of a claim's freshest evidence.",
+    )
+    profile_eval_positives: int = Field(
+        default=8,
+        ge=1,
+        description="Number of recent, deliberately saved visual items in the fixed profile-evaluation cohort.",
+    )
+    profile_eval_negatives_per_positive: int = Field(
+        default=3,
+        ge=1,
+        description="Source-matched pending (not-yet-vaulted) candidates per held-out save in the profile evaluation.",
+    )
+    profile_eval_regression_tolerance: float = Field(
+        default=0.02,
+        ge=0,
+        le=1,
+        description="Minimum comparable nDCG drop that makes ytk profile print a warning.",
+    )
 
 
 class ColorRule(BaseModel):
