@@ -48,6 +48,7 @@ def test_evaluate_ranks_and_hits():
     assert report["overall"]["hit@10"] == pytest.approx(2 / 3)
     assert report["per_bucket"]["videos"]["n"] == 2
     assert report["per_bucket"]["memories"]["hit@5"] == 1.0
+    assert report["rankings"]["vid::a"] == ["vid::a", "vid::x"]
 
 
 def test_evaluate_missing_gold_excluded_from_metrics():
@@ -102,7 +103,7 @@ def test_make_baseline_stamps_provenance():
         "top_k": 10, "n_queries": 3, "n_evaluated": 3, "missing_gold": [],
         "overall": {"hit@1": 0.5, "hit@5": 0.9, "hit@10": 0.95},
         "per_bucket": {"videos": {"hit@1": 0.5, "hit@5": 0.9, "hit@10": 0.95, "n": 3}},
-        "misses": [],
+        "misses": [], "provenance": {"corpus_fingerprint": "abc"},
     }
     baseline = make_baseline(report, epoch="v2", authored="2026-07-17")
     assert baseline["epoch"] == "v2"
@@ -110,6 +111,7 @@ def test_make_baseline_stamps_provenance():
     assert baseline["overall"] == report["overall"]
     assert baseline["per_bucket"] == report["per_bucket"]
     assert baseline["tolerance"] > 0
+    assert baseline["provenance"] == report["provenance"]
 
 
 def _report(hit5=0.9, hit10=0.95, n=100, missing=()):
@@ -155,6 +157,22 @@ def test_compare_fails_when_query_set_rots():
         _report(missing=[f"mem::{i}" for i in range(15)], n=85), _baseline()
     )
     assert any("missing" in f.lower() for f in failures)
+
+
+def test_compare_fails_closed_on_provenance_mismatch():
+    report = _report()
+    baseline = _baseline()
+    report["provenance"] = {"query_file_sha256": "new"}
+    baseline["provenance"] = {"query_file_sha256": "old"}
+    failures = compare_to_baseline(report, baseline)
+    assert any("query_file_sha256" in failure for failure in failures)
+
+
+def test_compare_requires_provenance_on_both_sides():
+    report = _report()
+    report["provenance"] = {"query_file_sha256": "new"}
+    failures = compare_to_baseline(report, _baseline())
+    assert any("provenance" in failure for failure in failures)
 
 
 def _cli_report(hit5=0.9):

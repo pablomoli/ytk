@@ -65,3 +65,28 @@ def test_delete_visual_empty_is_noop(tmp_path, monkeypatch):
     assert got["metadatas"][0]["image_path"] == "/new/path.jpg"
     assert list(got["embeddings"][0]) == pytest.approx([0.5, 0.6])
     assert not store.update_visual_metadata("ig:missing", {"image_path": "nope"})
+
+
+def test_orphaned_memory_vectors_reports_missing_paths(tmp_path, monkeypatch):
+    store = _fresh_store(tmp_path, monkeypatch)
+    live = tmp_path / "live.md"
+    live.write_text("live", encoding="utf-8")
+    col = store._memories_collection()
+    col.upsert(
+        ids=["live", "gone", "malformed"],
+        documents=["live document", "orphan document", "missing metadata"],
+        metadatas=[
+            {"doc_id": "live", "source_path": str(live)},
+            {"doc_id": "gone", "source_path": str(tmp_path / "gone.md")},
+            {"doc_id": "malformed"},
+        ],
+    )
+
+    assert store.orphaned_memory_vectors() == [
+        {
+            "vector_id": "gone",
+            "doc_id": "gone",
+            "source_path": str(tmp_path / "gone.md"),
+        },
+        {"vector_id": "malformed", "doc_id": "malformed", "source_path": ""},
+    ]

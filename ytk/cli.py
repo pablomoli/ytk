@@ -637,6 +637,19 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
             f"[bold]{o[f'hit@{k}']:.3f}[/]" for k in (1, 5, 10)
         ))
         out.print(table)
+        if "graded" in report:
+            graded = report["graded"]
+            out.print(
+                f"graded nDCG@10: [bold]{graded['ndcg@10']:.3f}[/]  "
+                f"label coverage: {graded['label_coverage']:.1%}  "
+                f"judge: {graded['judge']['model']} / "
+                f"{graded['judge']['prompt_version']}"
+            )
+            if graded["unjudged_pairs"]:
+                out.print(
+                    f"[yellow]{len(graded['unjudged_pairs'])} new result pairs "
+                    "need judging before nDCG is a closed comparison[/]"
+                )
         if report["missing_gold"]:
             out.print(
                 f"[yellow]{len(report['missing_gold'])} gold docs missing from "
@@ -1712,8 +1725,23 @@ def review():
 def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_run: bool):
     """Manage vault memory lifecycle — list ages, prune stale entries, refresh projects."""
     import subprocess
-    from .store import delete_doc
-    from .vault import _get_brain_path
+    from .store import delete_doc, orphaned_memory_vectors
+    from .vault import _get_brain_path, vault_note_doc_id
+
+    def report_orphans() -> None:
+        orphans = orphaned_memory_vectors()
+        if not orphans:
+            console.print("[green]memory vectors:[/] 0 orphaned source paths")
+            return
+        console.print(
+            f"[yellow]memory vectors:[/] {len(orphans)} orphaned vector(s); "
+            "stored text may be the last copy, so none were deleted"
+        )
+        for row in orphans[:10]:
+            source = row["source_path"] or "(missing source_path metadata)"
+            console.print(f"  [dim]{row['vector_id']} -> {source}[/]")
+        if len(orphans) > 10:
+            console.print(f"  [dim]... and {len(orphans) - 10} more[/]")
 
     did_audio = False
     if prune_audio is not None:
@@ -1736,6 +1764,7 @@ def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_r
     mem_dir = vault_path / "inbox" / "memories"
     if not mem_dir.exists() or not list(mem_dir.glob("*.md")):
         console.print("[yellow]No memories found.[/]")
+        report_orphans()
         return
 
     now = datetime.now()
@@ -1765,12 +1794,7 @@ def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_r
                 archive_dir.mkdir(exist_ok=True)
                 for p in to_archive:
                     content = p.read_text(encoding="utf-8")
-                    id_match = re.search(r"^id:\s*(.+)$", content, re.MULTILINE)
-                    if id_match:
-                        try:
-                            delete_doc(id_match.group(1).strip())
-                        except Exception:
-                            pass
+                    delete_doc(vault_note_doc_id(p, vault_path, content))
                     p.rename(archive_dir / p.name)
                     console.print(f"  [dim]archived:[/] {p.name}")
                 console.print(f"\n[bold green]Archived {len(to_archive)} memories.[/]")
@@ -1799,6 +1823,8 @@ def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_r
                     console.print("[bold green]Project memories refreshed.[/]")
                 else:
                     console.print("[red]Seed script failed — check output above.[/]")
+
+    report_orphans()
 
 
 @cli.command(name="index")

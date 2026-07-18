@@ -1177,9 +1177,14 @@ def reindex_vault(force: bool = False) -> int:
                 continue
             seen_paths.add(str_path)
 
-            # memory-atom MOCs are wikilink boilerplate: 13 byte-identical
-            # cards competing for the same queries (#87 audit). Skip them.
-            if "inbox/memories" in str_path and md_file.name == "index.md":
+            rel = md_file.relative_to(brain)
+
+            # Memory-atom MOCs are wikilink boilerplate. Archived memories
+            # are intentionally outside the searchable surface (#93).
+            is_memory = rel.parts[:2] == ("inbox", "memories")
+            if is_memory and (
+                md_file.name == "index.md" or "archived" in rel.parts[2:-1]
+            ):
                 continue
 
             if not force:
@@ -1187,13 +1192,8 @@ def reindex_vault(force: bool = False) -> int:
                 if cache.get(str_path) == current_hash:
                     continue
 
-            rel = md_file.relative_to(brain)
             content = md_file.read_text(encoding="utf-8")
-            id_match = re.search(r"^id:\s*(.+)$", content, re.MULTILINE)
-            if id_match:
-                doc_id = id_match.group(1).strip()
-            else:
-                doc_id = "note_" + str(rel).replace("/", "_").replace(".md", "").replace(" ", "_")
+            doc_id = vault_note_doc_id(md_file, brain, content)
             body = strip_frontmatter(content)
             if not body.strip():
                 update_cache_entry(md_file, cache)
@@ -1215,6 +1215,23 @@ def reindex_vault(force: bool = False) -> int:
 
     save_index_cache(cache)
     return count
+
+
+def vault_note_doc_id(note_path: Path, brain: Path, content: str | None = None) -> str:
+    """Resolve the exact id reindex_vault uses for a vault note.
+
+    gc shares this helper so archiving a note without ``id:`` frontmatter
+    removes its path-derived vector too (#93).
+    """
+    text = content if content is not None else note_path.read_text(encoding="utf-8")
+    id_match = re.search(r"^id:\s*(.+)$", text, re.MULTILINE)
+    if id_match:
+        return id_match.group(1).strip()
+    rel = note_path.relative_to(brain)
+    return (
+        "note_"
+        + str(rel).replace("/", "_").replace(".md", "").replace(" ", "_")
+    )
 
 
 def rebuild_index() -> None:

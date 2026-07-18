@@ -1,18 +1,18 @@
 {
   "epoch": "v2",
-  "authored": "2026-07-17",
+  "authored": "2026-07-18",
   "top_k": 10,
   "n_queries": 156,
   "tolerance": 0.02,
   "overall": {
-    "hit@1": 0.7115384615384616,
-    "hit@5": 0.9038461538461539,
+    "hit@1": 0.717948717948718,
+    "hit@5": 0.9166666666666666,
     "hit@10": 0.9487179487179487
   },
   "per_bucket": {
     "memories": {
-      "hit@1": 0.6329113924050633,
-      "hit@5": 0.8734177215189873,
+      "hit@1": 0.6455696202531646,
+      "hit@5": 0.8860759493670886,
       "hit@10": 0.9367088607594937,
       "n": 79
     },
@@ -24,9 +24,50 @@
     },
     "videos": {
       "hit@1": 0.8484848484848485,
-      "hit@5": 0.9393939393939394,
+      "hit@5": 0.9696969696969697,
       "hit@10": 0.9696969696969697,
       "n": 33
+    }
+  },
+  "provenance": {
+    "query_file_sha256": "c7e86500c568513bcd8240bd5e37da86bd37711ac9d6794c9e07458e9ad6b558",
+    "query_count": 156,
+    "corpus_fingerprint": "dae0af3e98d4f5ed13b441472751d19e57a2cb06f90dfa1313fe972cef611656",
+    "collection_counts": {
+      "videos": 114,
+      "memories": 3796,
+      "segments": 3430
+    },
+    "collection_epoch": "v2",
+    "embedding_model": "Qwen/Qwen3-Embedding-0.6B",
+    "embedding_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+    "query_instruction": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: ",
+    "max_seq_length": 3072,
+    "top_k": 10,
+    "producing_git_commit": "c8b010ce3f606b9e6af9794f063f1ddd77565cb1"
+  },
+  "graded": {
+    "ndcg@10": 0.6982943232039929,
+    "n_queries": 156,
+    "label_coverage": 1.0,
+    "unjudged_pairs": [],
+    "judge": {
+      "model": "claude-haiku-4-5-20251001",
+      "prompt_version": "qrels-v1"
+    },
+    "per_bucket": {
+      "memories": {
+        "ndcg@10": 0.6870489352836822,
+        "n": 79
+      },
+      "segments": {
+        "ndcg@10": 0.6616888925400457,
+        "n": 44
+      },
+      "videos": {
+        "ndcg@10": 0.7740223412318176,
+        "n": 33
+      }
     }
   }
 }

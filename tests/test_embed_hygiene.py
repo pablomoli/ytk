@@ -70,6 +70,24 @@ def test_reindex_skips_memory_moc_index_files(store, tmp_path, monkeypatch):
     assert not any(i.endswith("_index") for i in ids)
 
 
+def test_reindex_skips_archived_memories(store, tmp_path, monkeypatch):
+    brain = tmp_path / "brain"
+    archive = brain / "inbox" / "memories" / "archived"
+    archive.mkdir(parents=True)
+    (archive / "old.md").write_text(
+        "An archived memory that must not return to the searchable index.",
+        encoding="utf-8",
+    )
+
+    import ytk.vault as vault
+    monkeypatch.setattr(vault, "_get_brain_path", lambda: brain)
+    monkeypatch.setattr("ytk.cache.load_index_cache", lambda: {})
+    monkeypatch.setattr("ytk.cache.save_index_cache", lambda cache: None)
+
+    assert vault.reindex_vault(force=True) == 0
+    assert store._memories_collection().count() == 0
+
+
 # --- YouTube takes reach the index ---------------------------------------
 
 

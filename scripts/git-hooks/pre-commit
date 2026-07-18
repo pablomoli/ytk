@@ -5,7 +5,7 @@
 # Install once per clone: git config core.hooksPath scripts/git-hooks
 
 changed=$(git diff --cached --name-only)
-if printf '%s\n' "$changed" | grep -qE '^(ytk/(store|retrieval_gate)\.py|eval/retrieval/)'; then
+if printf '%s\n' "$changed" | grep -qE '^(ytk/(store|retrieval_gate|relevance)\.py|eval/retrieval/)'; then
     echo "pre-commit: search stack changed — running retrieval gate"
     uv run ytk eval || {
         echo "pre-commit: retrieval gate FAILED — fix the regression," >&2
