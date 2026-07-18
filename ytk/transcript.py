@@ -118,6 +118,23 @@ def WhisperModel(model_name: str, **kwargs):
     return _WM(model_name, **kwargs)
 
 
+def _has_audio_stream(media_path: Path) -> bool:
+    """Return False only when a valid media container has no audio stream.
+
+    faster-whisper's decoder can raise an opaque ``tuple index out of range``
+    for video-only MP4s. PyAV is already a faster-whisper dependency, so inspect
+    the container first. If probing itself fails, let Whisper handle the file
+    and report its real decoder error instead of misclassifying it as silent.
+    """
+    try:
+        import av
+
+        with av.open(str(media_path)) as container:
+            return bool(container.streams.audio)
+    except Exception:
+        return True
+
+
 @dataclass
 class TranscriptionResult:
     """Outcome of transcribing a local media file.
@@ -139,6 +156,8 @@ def transcribe_file(media_path: Path, whisper_model: str = "base") -> Transcript
     try:
         if not Path(media_path).is_file():
             raise FileNotFoundError(f"media file not found: {media_path}")
+        if not _has_audio_stream(media_path):
+            return TranscriptionResult(segments=[], status="no_speech")
         model = WhisperModel(whisper_model, device="cpu", compute_type="int8")
         raw_segments, _ = model.transcribe(str(media_path), beam_size=5)
         segments = [

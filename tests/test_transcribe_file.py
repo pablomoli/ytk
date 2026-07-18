@@ -32,6 +32,12 @@ def media_file(tmp_path):
     return f
 
 
+@pytest.fixture(autouse=True)
+def media_has_audio(monkeypatch):
+    """Unit-test fake MP4 bytes are not probeable; model them as audio media."""
+    monkeypatch.setattr(transcript_mod, "_has_audio_stream", lambda path: True)
+
+
 def test_transcribes_local_file_with_timestamped_segments(monkeypatch, media_file):
     fake = FakeModel(segments=[_seg(0.0, 2.5, " hello "), _seg(2.5, 4.0, "world")])
     monkeypatch.setattr(transcript_mod, "WhisperModel", lambda name, **kw: fake)
@@ -62,6 +68,23 @@ def test_no_download_machinery_is_touched(monkeypatch, media_file):
 def test_no_speech_is_a_valid_result(monkeypatch, media_file):
     monkeypatch.setattr(transcript_mod, "WhisperModel", lambda name, **kw: FakeModel())
     result = transcript_mod.transcribe_file(media_file)
+    assert result.status == "no_speech"
+    assert result.segments == []
+    assert result.error is None
+
+
+def test_video_only_container_is_no_speech_without_loading_whisper(
+    monkeypatch, media_file
+):
+    monkeypatch.setattr(transcript_mod, "_has_audio_stream", lambda path: False)
+    monkeypatch.setattr(
+        transcript_mod,
+        "WhisperModel",
+        lambda *args, **kwargs: pytest.fail("Whisper must not load without audio"),
+    )
+
+    result = transcript_mod.transcribe_file(media_file)
+
     assert result.status == "no_speech"
     assert result.segments == []
     assert result.error is None
