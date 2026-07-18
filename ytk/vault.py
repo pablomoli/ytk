@@ -643,7 +643,9 @@ def write_instagram_note(
         frame_dir = note_dir / "frames" / shortcode
         frame_dir.mkdir(parents=True, exist_ok=True)
         for i, raw in enumerate(frame_bytes, start=1):
-            fp = frame_dir / f"frame-{i}.jpg"
+            # basename carries the shortcode: Obsidian resolves ![[name]]
+            # vault-wide, so bare frame-N.jpg collides across notes
+            fp = frame_dir / f"{shortcode}-frame-{i}.jpg"
             fp.write_bytes(raw)
             saved_frames.append(fp)
 
@@ -702,7 +704,7 @@ def refresh_instagram_note(
         staging.mkdir(parents=True)
         try:
             for i, raw in enumerate(frame_bytes, start=1):
-                (staging / f"frame-{i}.jpg").write_bytes(raw)
+                (staging / f"{shortcode}-frame-{i}.jpg").write_bytes(raw)
             if frame_dir.exists():
                 shutil.rmtree(frame_dir)
             staging.rename(frame_dir)
@@ -786,6 +788,42 @@ def find_reel_backfill_candidates() -> list[dict]:
     return candidates
 
 
+def repair_frame_embeds() -> int:
+    """De-collide bare frame-N.jpg assets across instagram/tiktok/youtube notes.
+
+    Obsidian resolves ![[name]] wikilinks by filename vault-wide, so every
+    note whose frames were saved as frames/{key}/frame-N.jpg rendered the
+    same arbitrary files. Renames each asset to {key}-frame-N.jpg and
+    rewrites the note's image_paths and embeds. Structural, idempotent, no
+    re-fetch or re-enrichment. Returns the number of notes rewritten.
+    """
+    brain = _get_brain_path()
+    changed = 0
+    for source in ("instagram", "tiktok", "youtube"):
+        note_dir = brain / "sources" / source
+        if not note_dir.exists():
+            continue
+        for note in sorted(note_dir.glob("*.md")):
+            content = note.read_text(encoding="utf-8")
+            hits = set(re.findall(
+                rf"sources/{source}/frames/([^/\s]+)/(frame-\d+\.jpg)", content
+            ))
+            if not hits:
+                continue
+            for key, fname in hits:
+                old_file = note_dir / "frames" / key / fname
+                new_name = f"{key}-{fname}"
+                if old_file.exists():
+                    old_file.rename(old_file.with_name(new_name))
+                content = content.replace(
+                    f"frames/{key}/{fname}", f"frames/{key}/{new_name}"
+                )
+                content = content.replace(f"![[{fname}]]", f"![[{new_name}]]")
+            note.write_text(content, encoding="utf-8")
+            changed += 1
+    return changed
+
+
 def write_tiktok_note(
     post: "TikTokPost",
     enrichment: Enrichment,
@@ -814,7 +852,7 @@ def write_tiktok_note(
         frame_dir = note_dir / "frames" / post.video_id
         frame_dir.mkdir(parents=True, exist_ok=True)
         for i, raw in enumerate(frame_bytes, start=1):
-            fp = frame_dir / f"frame-{i}.jpg"
+            fp = frame_dir / f"{post.video_id}-frame-{i}.jpg"
             fp.write_bytes(raw)
             saved_frames.append(fp)
 
@@ -1144,7 +1182,7 @@ def write_note(
         frame_dir = note_dir / "frames" / video_id
         frame_dir.mkdir(parents=True, exist_ok=True)
         for i, raw in enumerate(frame_bytes, start=1):
-            fp = frame_dir / f"frame-{i}.jpg"
+            fp = frame_dir / f"{video_id}-frame-{i}.jpg"
             fp.write_bytes(raw)
             saved_frames.append(fp)
 
