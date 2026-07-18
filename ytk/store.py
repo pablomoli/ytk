@@ -427,6 +427,10 @@ def _split_doc(text: str, limit: int = _DOC_PART_LIMIT) -> list[str]:
     return [p for p in parts if p.strip()]
 
 
+# below this, a text is noise in the retrieval surface, not a card (#87)
+MIN_EMBED_CHARS = 40
+
+
 def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
     """Upsert arbitrary text into the memories collection.
 
@@ -445,6 +449,15 @@ def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
     """
     col = _memories_collection()
     text = text[:8000]
+    if len(text.strip()) < MIN_EMBED_CHARS:
+        # too short to be a retrieval card ("good good" test memos, #87
+        # audit); clear any stale vectors so an edited-down note disappears
+        logging.getLogger(__name__).info(
+            "upsert_doc %s: %d chars < %d, not embedding",
+            doc_id, len(text.strip()), MIN_EMBED_CHARS,
+        )
+        delete_doc(doc_id)
+        return
     base = {**metadata, "doc_id": doc_id}
     if _EPOCHS[EMBEDDING_EPOCH]["parts"]:
         chunks = _split_doc(text)
@@ -492,6 +505,30 @@ def delete_doc(doc_id: str) -> None:
         _memories_collection().delete(where={"doc_id": doc_id})
     except Exception as exc:
         log.debug("delete_doc parts %s: %s", doc_id, exc)
+
+
+def append_video_take(video_id: str, thought: str) -> None:
+    """Append the user's take to a video's representative doc and re-embed.
+
+    YouTube annotations otherwise never reach the index (#87 audit):
+    reindex_vault skips sources/youtube and upsert() embeds enrichment text
+    only. Idempotent per thought text; missing videos are a no-op.
+    """
+    take = thought.strip()
+    if not take:
+        return
+    col = _videos_collection()
+    got = col.get(ids=[video_id], include=["documents", "metadatas"])
+    if not got["ids"]:
+        return
+    doc = got["documents"][0] or ""
+    if take in doc:
+        return
+    col.upsert(
+        ids=[video_id],
+        documents=[doc.rstrip() + f"\n\nMy take: {take}"],
+        metadatas=[got["metadatas"][0]],
+    )
 
 
 def delete_video(video_id: str) -> None:

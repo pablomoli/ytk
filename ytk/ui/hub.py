@@ -812,6 +812,26 @@ INGEST = ingest_via_cli
 REINDEX = vault.reindex_vault
 
 
+def _embed_take(note: Path, url: str, thought: str) -> None:
+    """Push a YouTube annotation into the video's embedded doc (#87).
+
+    YouTube notes are indexed from enrichment text, not the note file, so a
+    take written into the note never reaches search on its own. Best-effort:
+    the note and daily digest already hold the thought.
+    """
+    if not thought.strip() or "sources/youtube" not in str(note):
+        return
+    try:
+        from ytk import store
+        from ytk.transcript import _video_id
+
+        store.append_video_take(_video_id(url), thought)
+    except Exception as exc:
+        import logging
+
+        logging.getLogger("ytk.hub").warning("take embedding failed for %s: %s", url, exc)
+
+
 def find_note_by_url(url: str, since: float) -> Path | None:
     """Locate the note a pipeline run just wrote by its frontmatter url."""
     sources = vault._get_brain_path() / "sources"
@@ -1077,6 +1097,7 @@ def _drain() -> None:
                 note = find_note_by_url(item.url, since=started - 5)
             if note and (tags or thought.strip()):
                 vault.annotate_note(note, tags, thought)
+                _embed_take(note, item.url, thought)
                 vault.append_daily_digest(note, tags, thought)
                 applied = directives.process(note, thought)
                 with _LOCK:

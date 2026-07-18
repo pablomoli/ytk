@@ -22,7 +22,9 @@ def store(tmp_path, monkeypatch):
 
 def _seed_memories(store):
     for i, text in enumerate(
-        ["apples and orchard care", "vector database internals", "sourdough starter care"]
+        ["apples and orchard care through the seasons of the year",
+         "vector database internals and how hnsw indexes work",
+         "sourdough starter care and feeding schedules explained"]
     ):
         store.upsert_memory(f"m{i}", text, [], f"/vault/m{i}.md")
 
