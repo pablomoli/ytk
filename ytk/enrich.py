@@ -113,6 +113,16 @@ SOURCE_BIAS = {
         "read every visible word. Treat slide content as at least as important as the caption.\n"
         "key_moments: leave empty ([]). Instagram posts have no timestamps."
     ),
+    "instagram_reel": (
+        "SOURCE: an Instagram reel — a short video. The provided images are sampled video frames, "
+        "NOT carousel slides. Read EVERY provided frame with the Read tool; on-screen text/UI/code/product "
+        "shown is often the real content. The Whisper transcript may be sparse, inaccurate, or music-only; "
+        "treat transcript, on-screen text, motion context, and caption as complementary evidence.\n"
+        "Separate captured evidence from inference: only name tools, stacks, or techniques that are shown "
+        "or spoken. If the capture status reports missing inputs, say what is missing instead of guessing "
+        "what the video probably contained.\n"
+        "key_moments: use M:SS timestamps from the transcript when it has clear beats; otherwise leave empty ([])."
+    ),
     "web": (
         "SOURCE: a web article (title, author, date, url, body text).\n"
         "key_moments: leave empty ([]). Articles have no timestamps."
@@ -299,6 +309,55 @@ Caption:
 """
     return enrich_content(
         content_block, "instagram", user_note=user_note, visual_blocks=visual_blocks, tone=tone
+    )
+
+
+def enrich_instagram_reel(
+    caption: str,
+    username: str,
+    duration: float | None,
+    frame_count: int,
+    transcript_segments: list[dict],
+    transcript_status: str,
+    visual_blocks: list[dict] | None = None,
+    user_note: str = "",
+    tone: str = "",
+) -> Enrichment:
+    """Enrich an Instagram reel with a video-aware prompt.
+
+    The content block states exactly what was captured (frames, transcript)
+    and what failed, so the model never concludes "no content" from a
+    carousel-shaped prompt that was lying about the medium.
+    """
+    if transcript_status == "ok" and transcript_segments:
+        lines = "\n".join(
+            f"[{_fmt_ts(s['start'])}] {s['text']}" for s in transcript_segments
+        )
+        transcript_block = f"Whisper transcript (may be inaccurate or sparse):\n{lines}"
+    elif transcript_status == "no_speech":
+        transcript_block = "Whisper transcript: (none — no speech detected; likely music-only or silent)"
+    elif transcript_status == "failed":
+        transcript_block = "Whisper transcript: (unavailable — transcription failed; do not assume the video had no speech)"
+    else:
+        transcript_block = "Whisper transcript: (not attempted)"
+
+    frames_line = (
+        f"Sampled video frames provided: {frame_count}"
+        if frame_count
+        else "Sampled video frames: (none — frame extraction failed; do not assume the video was empty)"
+    )
+    duration_line = f"Duration: {int(duration)}s\n" if duration else ""
+
+    content_block = (
+        f"Author: @{username}\n"
+        f"Media type: video reel\n"
+        f"{duration_line}"
+        f"{frames_line}\n"
+        f"\nCaption:\n{caption}\n\n"
+        f"{transcript_block}\n"
+    )
+    return enrich_content(
+        content_block, "instagram_reel", user_note=user_note, visual_blocks=visual_blocks, tone=tone
     )
 
 

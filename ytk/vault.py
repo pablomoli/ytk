@@ -469,52 +469,123 @@ def _save_image(url: str, dest: Path) -> Path | None:
         return None
 
 
-def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
-    """Write an Obsidian note for an ingested Instagram post. Returns the path written."""
+INSTAGRAM_CAPTURE_SCHEMA = 2  # bump when the reel capture pipeline changes shape
+
+# Sections owned by the pipeline; anything else in a note is user-authored
+# and must survive a refresh.
+_GENERATED_IG_SECTIONS = {
+    "Caption", "Thesis", "Summary", "Key Concepts", "Insights", "Key Moments", "Transcript",
+}
+
+
+def _fmt_seg_ts(seconds: int | float) -> str:
+    h, rem = divmod(int(seconds), 3600)
+    m, s = divmod(rem, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def instagram_shortcode(url: str) -> str:
+    m = re.search(r"/(?:p|reel|tv)/([A-Za-z0-9_-]+)", url)
+    return m.group(1) if m else "post"
+
+
+def find_instagram_note(shortcode: str) -> Path | None:
+    """Locate an existing ingest note by its canonical shortcode."""
     note_dir = _get_brain_path() / "sources" / "instagram"
-    note_dir.mkdir(parents=True, exist_ok=True)
+    if not note_dir.exists():
+        return None
+    matches = sorted(note_dir.glob(f"*-{shortcode}.md"))
+    return matches[0] if matches else None
 
-    sc_match = re.search(r"/(?:p|reel|tv)/([A-Za-z0-9_-]+)", post.url)
-    shortcode = sc_match.group(1) if sc_match else "post"
-    filename = f"{post.username}-{post.timestamp}-{shortcode}.md"
-    note_path = note_dir / filename
-    if note_path.exists():
-        raise NoteAlreadyExists(note_path)
 
-    # Download images before writing note so we know the saved filenames
+def _parse_note_tags(content: str) -> list[str]:
+    """Read the frontmatter tags list verbatim — user tags like slop? must
+    round-trip byte-exact, so no re-normalization here."""
+    if not content.startswith("---"):
+        return []
+    fm = content[3:content.index("\n---", 3)]
+    tags: list[str] = []
+    in_tags = False
+    for line in fm.splitlines():
+        if line.startswith("tags:"):
+            in_tags = True
+            continue
+        if in_tags:
+            if line.startswith("  - "):
+                tags.append(line[4:].strip())
+            else:
+                break
+    return tags
+
+
+def _user_sections(content: str) -> str:
+    """Extract note sections the pipeline does not generate (e.g. ## My take)."""
+    body = content
+    if content.startswith("---"):
+        body = content[content.index("\n---", 3) + 4:]
+    kept: list[str] = []
+    for block in re.split(r"\n(?=## )", body):
+        if not block.startswith("## "):
+            continue
+        heading = block[3:].splitlines()[0].strip()
+        if heading not in _GENERATED_IG_SECTIONS:
+            kept.append(block.rstrip("\n"))
+    return ("\n" + "\n\n".join(kept) + "\n") if kept else ""
+
+
+def _save_instagram_images(post: "InstagramPost", note_dir: Path, shortcode: str) -> list[Path]:
+    """Slides (stable {shortcode}-img-N names) plus the cover thumbnail for
+    video-only posts. Overwrites are same-content refetches, so refresh-safe."""
     saved_images: list[Path] = []
     for i, img_url in enumerate(post.images or [], start=1):
-        img_dest = note_dir / f"{shortcode}-img-{i}"
-        saved = _save_image(img_url, img_dest)
+        saved = _save_image(img_url, note_dir / f"{shortcode}-img-{i}")
         if saved:
             saved_images.append(saved)
-
-    # video-only reels have no slides; keep the cover so Fresh has a thumbnail
     if not saved_images and getattr(post, "thumbnail_url", None):
         thumb_dir = note_dir / "thumbnails"
         thumb_dir.mkdir(parents=True, exist_ok=True)
         saved_thumb = _save_image(post.thumbnail_url, thumb_dir / f"{shortcode}-thumb")
         if saved_thumb:
             saved_images.append(saved_thumb)
+    return saved_images
 
-    tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
+
+def _render_instagram_note(
+    post: "InstagramPost",
+    enrichment: Enrichment,
+    *,
+    tags: list[str],
+    assets: list[Path],
+    frame_count: int,
+    transcript_segments: list[dict] | None,
+    transcript_status: str | None,
+    extra_sections: str = "",
+) -> str:
     concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
     insights = "\n".join(f"- {i}" for i in enrichment.insights)
+    tags_yaml = "\n".join(f"  - {t}" for t in tags)
 
     brain = _get_brain_path()
     image_paths_yaml = (
-        "\n" + "\n".join(f"  - {p.relative_to(brain)}" for p in saved_images)
-        if saved_images else " []"
+        "\n" + "\n".join(f"  - {p.relative_to(brain)}" for p in assets)
+        if assets else " []"
     )
+
+    media_kind = getattr(post, "media_kind", "image")
+    capture_yaml = f"media: {media_kind}\ncapture_schema: {INSTAGRAM_CAPTURE_SCHEMA}\n"
+    if media_kind == "video":
+        capture_yaml += f"frames: {frame_count}\n"
+        capture_yaml += f"transcript: {transcript_status or 'none'}\n"
 
     content = (
         f"---\nurl: {post.url}\nusername: {post.username}\ndate: {post.timestamp}\n"
         f"title: {enrichment.thesis}\n"
         f"tags:\n{tags_yaml}\ntype: instagram\n"
+        f"{capture_yaml}"
         f"image_paths:{image_paths_yaml}\n---\n\n"
     )
-    if saved_images:
-        embeds = "\n".join(f"![[{p.name}]]" for p in saved_images)
+    if assets:
+        embeds = "\n".join(f"![[{p.name}]]" for p in assets)
         content += f"{embeds}\n\n"
 
     content += (
@@ -530,8 +601,189 @@ def write_instagram_note(post: "InstagramPost", enrichment: Enrichment) -> Path:
         )
         content += f"\n## Key Moments\n{moments}\n"
 
+    if transcript_segments:
+        lines = "\n".join(
+            f"[{_fmt_seg_ts(s['start'])}] {s['text']}" for s in transcript_segments
+        )
+        content += (
+            f"\n## Transcript\n<details>\n<summary>Whisper transcript</summary>\n\n"
+            f"{lines}\n</details>\n"
+        )
+
+    return content + extra_sections
+
+
+def write_instagram_note(
+    post: "InstagramPost",
+    enrichment: Enrichment,
+    transcript_segments: list[dict] | None = None,
+    transcript_status: str | None = None,
+    frame_bytes: list[bytes] | None = None,
+) -> Path:
+    """Write an Obsidian note for an ingested Instagram post. Returns the path written.
+
+    For video reels, the recovered payload is persisted alongside the prose:
+    Whisper transcript in a collapsible section, sampled frames as vault
+    assets, and capture metadata in frontmatter so backfill detection is
+    structural rather than dependent on enrichment wording.
+    """
+    note_dir = _get_brain_path() / "sources" / "instagram"
+    note_dir.mkdir(parents=True, exist_ok=True)
+
+    shortcode = instagram_shortcode(post.url)
+    note_path = note_dir / f"{post.username}-{post.timestamp}-{shortcode}.md"
+    if note_path.exists():
+        raise NoteAlreadyExists(note_path)
+
+    saved_images = _save_instagram_images(post, note_dir, shortcode)
+
+    # sampled video frames become vault assets under a stable shortcode key
+    saved_frames: list[Path] = []
+    if frame_bytes:
+        frame_dir = note_dir / "frames" / shortcode
+        frame_dir.mkdir(parents=True, exist_ok=True)
+        for i, raw in enumerate(frame_bytes, start=1):
+            fp = frame_dir / f"frame-{i}.jpg"
+            fp.write_bytes(raw)
+            saved_frames.append(fp)
+
+    content = _render_instagram_note(
+        post, enrichment,
+        tags=[_normalize_tag(t) for t in enrichment.interest_tags],
+        assets=[*saved_images, *saved_frames],
+        frame_count=len(saved_frames),
+        transcript_segments=transcript_segments,
+        transcript_status=transcript_status,
+    )
     note_path.write_text(content, encoding="utf-8")
     return note_path
+
+
+def refresh_instagram_note(
+    post: "InstagramPost",
+    enrichment: Enrichment,
+    transcript_segments: list[dict] | None = None,
+    transcript_status: str | None = None,
+    frame_bytes: list[bytes] | None = None,
+) -> Path:
+    """Atomically rebuild an existing Instagram note in place.
+
+    The note keeps its path (wikilinks survive), user tags are unioned with
+    the new enrichment tags, and non-generated sections (## My take) are
+    carried over. Any failure before the final os.replace leaves the old note
+    byte-for-byte intact; frames are staged and swapped, never edited live.
+    """
+    import shutil
+
+    note_dir = _get_brain_path() / "sources" / "instagram"
+    shortcode = instagram_shortcode(post.url)
+    existing = find_instagram_note(shortcode)
+    if existing is None:
+        return write_instagram_note(
+            post, enrichment,
+            transcript_segments=transcript_segments,
+            transcript_status=transcript_status,
+            frame_bytes=frame_bytes,
+        )
+
+    old_content = existing.read_text(encoding="utf-8")
+    old_tags = _parse_note_tags(old_content)
+    extra_sections = _user_sections(old_content)
+
+    saved_images = _save_instagram_images(post, note_dir, shortcode)
+
+    # stage frames, then swap the directory only when fully written
+    frame_dir = note_dir / "frames" / shortcode
+    staging = note_dir / "frames" / f".{shortcode}.staging"
+    saved_frames: list[Path] = []
+    if frame_bytes:
+        if staging.exists():
+            shutil.rmtree(staging)
+        staging.mkdir(parents=True)
+        try:
+            for i, raw in enumerate(frame_bytes, start=1):
+                (staging / f"frame-{i}.jpg").write_bytes(raw)
+            if frame_dir.exists():
+                shutil.rmtree(frame_dir)
+            staging.rename(frame_dir)
+        except Exception:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        saved_frames = sorted(frame_dir.iterdir())
+
+    new_tags = [_normalize_tag(t) for t in enrichment.interest_tags]
+    tags = list(dict.fromkeys([*new_tags, *old_tags]))
+
+    content = _render_instagram_note(
+        post, enrichment,
+        tags=tags,
+        assets=[*saved_images, *saved_frames],
+        frame_count=len(saved_frames),
+        transcript_segments=transcript_segments,
+        transcript_status=transcript_status,
+        extra_sections=extra_sections,
+    )
+    tmp = existing.with_name(existing.name + ".tmp")
+    try:
+        tmp.write_text(content, encoding="utf-8")
+        os.replace(tmp, existing)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return existing
+
+
+def find_reel_backfill_candidates() -> list[dict]:
+    """Instagram notes whose reel payload predates the capture schema.
+
+    Discovery is structural — frontmatter and stored asset paths only, never
+    enrichment wording or tags. A note qualifies when it has no
+    capture_schema >= 2 stamp AND is a probable video: /reel/ or /tv/ URL, or
+    a /p/ URL whose only stored assets are cover thumbnails (the pre-schema
+    writer saved a bare thumbnail exactly when a post had no slides).
+    """
+    note_dir = _get_brain_path() / "sources" / "instagram"
+    if not note_dir.exists():
+        return []
+
+    candidates: list[dict] = []
+    for path in sorted(note_dir.glob("*.md")):
+        content = path.read_text(encoding="utf-8")
+        if not content.startswith("---"):
+            continue
+        fm = content[3:content.index("\n---", 3)]
+
+        def _field(key: str) -> str | None:
+            m = re.search(rf"^{key}: (.+)$", fm, re.MULTILINE)
+            return m.group(1).strip() if m else None
+
+        url = _field("url")
+        if not url or _field("type") != "instagram":
+            continue
+
+        schema = _field("capture_schema")
+        if schema and int(schema) >= INSTAGRAM_CAPTURE_SCHEMA:
+            continue
+
+        image_paths = re.findall(r"^  - (sources/instagram/\S+)$", fm, re.MULTILINE)
+        thumbs_only = all("/thumbnails/" in p for p in image_paths)  # True when empty
+        is_reel_url = bool(re.search(r"/(?:reel|tv)/", url))
+        if is_reel_url:
+            reason = "reel URL without capture_schema >= 2"
+        elif thumbs_only:
+            reason = "no capture_schema and only thumbnail assets (probable video post)"
+        else:
+            continue
+
+        candidates.append({
+            "path": path,
+            "url": url,
+            "username": _field("username") or "",
+            "shortcode": instagram_shortcode(url),
+            "reason": reason,
+            "has_transcript": "## Transcript" in content,
+            "has_frames": any("/frames/" in p for p in image_paths),
+        })
+    return candidates
 
 
 def write_tiktok_note(

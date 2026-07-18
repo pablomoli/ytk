@@ -972,13 +972,19 @@ def ingest(url: str, force: bool, note: str):
 @cli.command(name="add-instagram")
 @click.argument("url")
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
-def add_instagram(url: str, note: str = ""):
+@click.option(
+    "--refresh", is_flag=True,
+    help="Re-ingest and atomically replace the existing note, preserving user tags and sections.",
+)
+def add_instagram(url: str, note: str = "", refresh: bool = False):
     """Fetch an Instagram post, analyze visually with AI, and store in the vault."""
-    from .instagram import fetch_instagram
-    from .vision import extract_frames, image_blocks
-    from .enrich import enrich_instagram
-    from .vault import write_instagram_note, NoteAlreadyExists
+    from .instagram import fetch_instagram, capture_reel_media
+    from .vision import image_blocks
+    from .enrich import enrich_instagram, enrich_instagram_reel
+    from .vault import write_instagram_note, refresh_instagram_note, NoteAlreadyExists
     from .store import strip_frontmatter, upsert_doc
+
+    cfg = load_config()
 
     with console.status("[bold cyan]Fetching Instagram post...[/]"):
         try:
@@ -987,38 +993,59 @@ def add_instagram(url: str, note: str = ""):
             console.print(f"[red]Fetch failed:[/] {exc}")
             raise SystemExit(1)
 
+    is_video = post.media_kind == "video" or post.video_path is not None
+
     info = Table.grid(padding=(0, 2))
     info.add_column(style="bold cyan", no_wrap=True)
     info.add_column()
     info.add_row("Username", f"@{post.username}")
     info.add_row("Date", post.timestamp)
+    info.add_row("Media", post.media_kind)
     if post.images:
         info.add_row("Images", str(len(post.images)))
-    if post.video_path:
-        info.add_row("Reel", "yes")
     if post.caption:
         info.add_row("Caption", post.caption[:120])
     console.print(Panel(info, title="[bold]Instagram Post[/]", box=box.ROUNDED))
 
-    with console.status("[bold cyan]Preparing visual content...[/]"):
-        blocks = image_blocks(urls=post.images if post.images else None, force_base64=True)
-        try:
-            if post.video_path:
-                frame_bytes = extract_frames(post.video_path, timestamps=[], baseline_n=4)
-                blocks += image_blocks(frame_bytes=frame_bytes)
-        finally:
-            if post.video_path:
-                post.video_path.unlink(missing_ok=True)
+    capture = None
+    if is_video:
+        with console.status("[bold cyan]Extracting frames + transcribing with Whisper...[/]"):
+            capture = capture_reel_media(post, whisper_model=cfg.whisper_model)
+        for warning in capture.warnings:
+            console.print(f"[yellow]Capture warning:[/] {warning}")
+        console.print(
+            f"[dim]Capture: {len(capture.frame_bytes)} frames, "
+            f"transcript {capture.transcript_status} "
+            f"({len(capture.transcript_segments)} segments)"
+            + (f", {int(capture.duration)}s" if capture.duration else "")
+            + "[/]"
+        )
+        blocks = image_blocks(frame_bytes=capture.frame_bytes)
+    else:
+        with console.status("[bold cyan]Preparing visual content...[/]"):
+            blocks = image_blocks(urls=post.images if post.images else None, force_base64=True)
 
     with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
         try:
-            result = enrich_instagram(
-                caption=post.caption,
-                username=post.username,
-                slide_count=len(post.images),
-                visual_blocks=blocks if blocks else [],
-                user_note=note,
-            )
+            if is_video:
+                result = enrich_instagram_reel(
+                    caption=post.caption,
+                    username=post.username,
+                    duration=capture.duration,
+                    frame_count=len(capture.frame_bytes),
+                    transcript_segments=capture.transcript_segments,
+                    transcript_status=capture.transcript_status,
+                    visual_blocks=blocks if blocks else [],
+                    user_note=note,
+                )
+            else:
+                result = enrich_instagram(
+                    caption=post.caption,
+                    username=post.username,
+                    slide_count=len(post.images),
+                    visual_blocks=blocks if blocks else [],
+                    user_note=note,
+                )
         except Exception as exc:
             console.print(f"[red]Enrichment failed:[/] {exc}")
             raise SystemExit(1)
@@ -1037,8 +1064,14 @@ def add_instagram(url: str, note: str = ""):
     insights = "\n".join(f"[yellow]>[/] {i}" for i in result.insights)
     console.print(Panel(insights, title="[bold]Insights[/]", box=box.ROUNDED))
 
+    write_kwargs = dict(
+        transcript_segments=capture.transcript_segments if capture else None,
+        transcript_status=capture.transcript_status if capture else None,
+        frame_bytes=capture.frame_bytes if capture else None,
+    )
     try:
-        note_path = write_instagram_note(post, result)
+        writer = refresh_instagram_note if refresh else write_instagram_note
+        note_path = writer(post, result, **write_kwargs)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "instagram_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
@@ -1052,6 +1085,71 @@ def add_instagram(url: str, note: str = ""):
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
     except EnvironmentError as exc:
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
+
+
+def _backfill_ingest(url: str) -> None:
+    """Run the full add-instagram pipeline with --refresh for one URL.
+
+    Module-level seam so backfill tests can stub the expensive pipeline.
+    """
+    cli.main(args=["add-instagram", url, "--refresh"], standalone_mode=False)
+
+
+@cli.command(name="backfill-instagram-reels")
+@click.option("--dry-run", "dry_run", is_flag=True, help="List qualifying notes without ingesting.")
+@click.option("--apply", "apply_", is_flag=True, help="Refresh every qualifying note.")
+def backfill_instagram_reels(dry_run: bool, apply_: bool):
+    """Re-capture reel notes written before the capture schema existed.
+
+    Discovery is structural (frontmatter + stored assets); each refresh runs
+    the full pipeline one note at a time and failures never stop the loop.
+    """
+    from .vault import find_reel_backfill_candidates
+
+    if not dry_run and not apply_:
+        dry_run = True
+
+    candidates = find_reel_backfill_candidates()
+    if not candidates:
+        console.print("[green]No backfill candidates — all reel notes carry the current capture schema.[/]")
+        return
+
+    table = Table(box=box.SIMPLE)
+    table.add_column("Note", overflow="fold")
+    table.add_column("URL", overflow="fold")
+    table.add_column("User")
+    table.add_column("Why", overflow="fold")
+    table.add_column("Transcript")
+    table.add_column("Frames")
+    for c in candidates:
+        table.add_row(
+            c["path"].name, c["url"], c["username"], c["reason"],
+            "yes" if c["has_transcript"] else "no",
+            "yes" if c["has_frames"] else "no",
+        )
+    console.print(table)
+    console.print(f"[bold]{len(candidates)}[/] candidate(s)")
+
+    if dry_run:
+        console.print("[dim]Dry run — nothing ingested. Re-run with --apply to refresh.[/]")
+        return
+
+    succeeded, failed = [], []
+    for c in candidates:
+        console.print(f"\n[bold cyan]Refreshing[/] {c['url']}")
+        try:
+            _backfill_ingest(c["url"])
+            succeeded.append(c)
+        except (Exception, SystemExit) as exc:
+            failed.append((c, exc))
+            console.print(f"[red]Failed:[/] {c['url']} — {exc}")
+
+    console.print(
+        f"\n[bold]Backfill report:[/] {len(succeeded)} succeeded, "
+        f"{len(failed)} failed, {len(candidates)} total"
+    )
+    for c, exc in failed:
+        console.print(f"[red]  {c['url']}[/] — {exc}")
 
 
 @cli.command(name="add-pinterest")
