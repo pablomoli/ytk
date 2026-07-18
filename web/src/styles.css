@@ -823,6 +823,8 @@ body {
 .profile-theme-share { flex: 0 0 auto; color: var(--dim, #8a8375); font-size: 0.85em; }
 .profile-theme p, .profile-theme ul { color: var(--dim, #8a8375); margin: 0.5rem 0 0.5rem 15.8rem; }
 .profile-prose { margin-top: 2rem; line-height: 1.65; }
+.profile-exemplar { display: flex; align-items: center; gap: 0.45rem; }
+.profile-exemplar svg { width: 14px; height: 14px; flex: 0 0 auto; }
 
 /* settings extras */
 .settings-yaml { width: 100%; font-family: ui-monospace, monospace; font-size: 0.85em; background: none; color: inherit; border: 1px solid var(--line, #3a352c); border-radius: 6px; padding: 0.6rem; }
