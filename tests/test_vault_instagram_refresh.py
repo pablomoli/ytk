@@ -135,8 +135,8 @@ def test_refresh_replaces_stale_frames(brain):
         _post(), _enrichment(), transcript_status="ok", frame_bytes=[b"new1", b"new2"]
     )
     files = sorted(p.name for p in frame_dir.iterdir())
-    assert files == ["frame-1.jpg", "frame-2.jpg"]
-    assert (frame_dir / "frame-1.jpg").read_bytes() == b"new1"
+    assert files == ["SC123-frame-1.jpg", "SC123-frame-2.jpg"]
+    assert (frame_dir / "SC123-frame-1.jpg").read_bytes() == b"new1"
 
 
 def test_refresh_without_existing_note_writes_new(brain):

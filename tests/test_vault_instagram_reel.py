@@ -61,11 +61,14 @@ def test_reel_note_persists_transcript_frames_and_capture_metadata(brain):
     assert "[0:00] build an app" in content
     assert "[1:02] deploy it" in content
 
+    # basenames must be vault-unique: Obsidian resolves ![[name]] by filename
+    # across the whole vault, so bare frame-1.jpg collides between notes
     frame_dir = brain / "sources" / "instagram" / "frames" / "SC123"
-    assert (frame_dir / "frame-1.jpg").read_bytes() == b"jpeg1"
-    assert (frame_dir / "frame-2.jpg").read_bytes() == b"jpeg2"
-    assert "frames/SC123/frame-1.jpg" in content   # image_paths entry
-    assert "![[frame-1.jpg]]" in content
+    assert (frame_dir / "SC123-frame-1.jpg").read_bytes() == b"jpeg1"
+    assert (frame_dir / "SC123-frame-2.jpg").read_bytes() == b"jpeg2"
+    assert "frames/SC123/SC123-frame-1.jpg" in content   # image_paths entry
+    assert "![[SC123-frame-1.jpg]]" in content
+    assert "![[frame-1.jpg]]" not in content
 
 
 def test_reel_note_no_speech_omits_transcript_section(brain):

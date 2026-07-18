@@ -95,13 +95,13 @@ def test_write_note_saves_frames(tmp_path, monkeypatch):
     path = write_note({**_BASE_META}, _enrichment(), [], frame_bytes=frame_bytes)
 
     frame_dir = tmp_path / "sources" / "youtube" / "frames" / "dQw4w9WgXcQ"
-    assert (frame_dir / "frame-1.jpg").read_bytes() == b"\xff\xd8frame1"
-    assert (frame_dir / "frame-2.jpg").read_bytes() == b"\xff\xd8frame2"
+    assert (frame_dir / "dQw4w9WgXcQ-frame-1.jpg").read_bytes() == b"\xff\xd8frame1"
+    assert (frame_dir / "dQw4w9WgXcQ-frame-2.jpg").read_bytes() == b"\xff\xd8frame2"
 
     content = path.read_text()
-    assert "![[frame-1.jpg]]" in content
-    assert "![[frame-2.jpg]]" in content
-    assert "frames/dQw4w9WgXcQ/frame-1.jpg" in content
+    assert "![[dQw4w9WgXcQ-frame-1.jpg]]" in content
+    assert "![[dQw4w9WgXcQ-frame-2.jpg]]" in content
+    assert "frames/dQw4w9WgXcQ/dQw4w9WgXcQ-frame-1.jpg" in content
 
 
 def test_write_note_thumbnail_and_frames_combined(tmp_path, monkeypatch):
@@ -122,10 +122,10 @@ def test_write_note_thumbnail_and_frames_combined(tmp_path, monkeypatch):
 
     content = path.read_text()
     assert "![[dQw4w9WgXcQ-thumb.jpg]]" in content
-    assert "![[frame-1.jpg]]" in content
+    assert "![[dQw4w9WgXcQ-frame-1.jpg]]" in content
     # Thumbnail comes first in image_paths
     idx_thumb = content.index("dQw4w9WgXcQ-thumb.jpg")
-    idx_frame = content.index("frame-1.jpg")
+    idx_frame = content.index("dQw4w9WgXcQ-frame-1.jpg")
     assert idx_thumb < idx_frame
 
 
