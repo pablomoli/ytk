@@ -723,6 +723,21 @@ def profile_cmd(render_only: bool):
         raise SystemExit(1)
 
     console.print(f"[green]Profile written:[/] {path}")
+    if snapshot.profile_score:
+        score = snapshot.profile_score
+        delta = f" ({score.delta:+.4f})" if score.delta is not None else ""
+        console.print(
+            f"[cyan]Profile ranking:[/] nDCG {score.score:.4f}{delta} · "
+            f"{len(score.positive_ids)} held-out saves / "
+            f"{len(score.negative_ids)} matched candidates"
+        )
+        if score.warning:
+            console.print(f"[yellow]WARNING:[/] {score.warning}")
+    else:
+        console.print(
+            "[yellow]Profile ranking unavailable:[/] no complete saved/pending "
+            "visual cohort"
+        )
     table = Table(box=box.SIMPLE, title=f"{len(snapshot.themes)} themes · {snapshot.note_count} notes")
     table.add_column("Theme", style="cyan")
     table.add_column("Share", justify="right")

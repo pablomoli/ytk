@@ -280,11 +280,25 @@ async def profile_api():
         "embedding_model": snap.embedding_model,
         "reanchored_from": snap.reanchored_from,
         "alpha": snap.alpha,
+        "decay_half_life_days": snap.decay_half_life_days,
         "profile_markdown": snap.profile_markdown,
+        "profile_score": snap.profile_score.model_dump() if snap.profile_score else None,
+        "claims": [
+            {"text": c.text, "evidence_ids": c.evidence_ids}
+            for c in snap.portrait_claims
+        ],
         "themes": [
             {"id": t.id, "label": t.label, "summary": t.summary,
              "weight": t.weight, "n_notes": len(t.note_ids),
-             "exemplars": t.exemplar_titles[:3]}
+             "fresh_notes": t.fresh_note_count,
+             "exemplars": [
+                 {"title": title, "source": source}
+                 for title, source in zip(
+                     t.exemplar_titles[:3],
+                     (t.exemplar_sources + [""] * 3)[:3],
+                 )
+             ],
+             "evidence_ids": t.evidence_ids}
             for t in snap.themes
         ],
     }

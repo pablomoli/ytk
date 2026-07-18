@@ -19,6 +19,9 @@ excluded from profile gathering (interest.content_sources).
 
 from __future__ import annotations
 
+from collections import Counter
+from datetime import datetime, timezone
+import math
 import re
 from . import vault
 
@@ -79,3 +82,61 @@ def signal_levels(notes: list[dict]) -> list[int]:
 def weights(levels: list[int], alpha: float) -> list[float]:
     """Confidence weights w = 1 + alpha * r."""
     return [1.0 + alpha * r for r in levels]
+
+
+def _parse_utc(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def recency_factor(captured_at: str, now: datetime, half_life_days: float) -> float:
+    """Exponential capture-time decay; unknown legacy dates remain neutral.
+
+    Unknown is deliberately not guessed from publication date: an old video
+    saved today is fresh evidence of current interest. Unknown records can
+    retain their cluster influence but cannot establish claim freshness.
+    """
+    captured = _parse_utc(captured_at)
+    if captured is None:
+        return 1.0
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    age_days = max(0.0, (now.astimezone(timezone.utc) - captured).total_seconds() / 86400)
+    return 0.5 ** (age_days / half_life_days)
+
+
+def day_batch_factors(captured_at: list[str]) -> list[float]:
+    """1/sqrt(number of notes captured the same day); unknown dates undamped.
+
+    A heavy ingest day is one day of attention, not N independent acts of
+    interest: seventeen same-day saves weigh ~4x a single-save day, not 17x,
+    so one binge cannot swing the profile's theme weights.
+    """
+    days = [ts[:10] if ts else "" for ts in captured_at]
+    counts = Counter(d for d in days if d)
+    return [1.0 / math.sqrt(counts[d]) if d else 1.0 for d in days]
+
+
+def decayed_weights(
+    levels: list[int],
+    captured_at: list[str],
+    alpha: float,
+    half_life_days: float,
+    now: datetime,
+) -> list[float]:
+    """Confidence x recency x batch dampening:
+    (1 + alpha*r) * 0.5**(age/half-life) / sqrt(same-day batch size)."""
+    if len(levels) != len(captured_at):
+        raise ValueError("levels and captured_at must have matching lengths")
+    batch = day_batch_factors(captured_at)
+    return [
+        (1.0 + alpha * r) * recency_factor(ts, now, half_life_days) * b
+        for r, ts, b in zip(levels, captured_at, batch)
+    ]

@@ -36,7 +36,39 @@ class Theme(BaseModel):
     weight: float
     note_ids: list[str]
     exemplar_titles: list[str]
+    # Parallel to exemplar_titles: which pipeline each exemplar came from
+    # (youtube, instagram, tiktok, ...), so the hub can badge provenance.
+    exemplar_sources: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    # Recency overlay: how many of this theme's notes were captured within the
+    # decay half-life. Reported, never used to gate or merge themes — the
+    # taxonomy is full-history and independent of timestamp coverage.
+    fresh_note_count: int = 0
     centroid: list[float] | None = None
+
+
+class PortraitClaim(BaseModel):
+    """One auditable portrait paragraph with its machine-readable evidence."""
+
+    text: str
+    evidence_ids: list[str]
+
+
+class ProfileScore(BaseModel):
+    """BUMP-style forward ranking result for one profile regeneration."""
+
+    score: float
+    metric: str = "multi-positive-ndcg"
+    protocol: str = "bump-forward-evidence-redacted-visual-v1"
+    positive_ids: list[str]
+    negative_ids: list[str]
+    candidate_fingerprint: str
+    encoder: str
+    claim_count: int
+    comparable_to_previous: bool = False
+    previous_score: float | None = None
+    delta: float | None = None
+    warning: str | None = None
 
 
 class ExplicitChannel(BaseModel):
@@ -67,9 +99,14 @@ class InterestSnapshot(BaseModel):
     themes: list[Theme]
     connections: list[Connection] = Field(default_factory=list)
     profile_markdown: str
+    portrait_claims: list[PortraitClaim] = Field(default_factory=list)
+    evidence_captured_at: dict[str, str] = Field(default_factory=dict)
+    evidence_signals: dict[str, int] = Field(default_factory=dict)
     alpha: float | None = None
+    decay_half_life_days: float | None = None
     signal_counts: dict[int, int] = Field(default_factory=dict)
     explicit: ExplicitChannel | None = None
+    profile_score: ProfileScore | None = None
     # Which encoder produced the centroids. Snapshots re-anchored across an
     # embedding-epoch swap keep themes/weights (taste didn't change) but new
     # centroid geometry; reanchored_from records the source run so the #83

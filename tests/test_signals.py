@@ -3,11 +3,17 @@ confidence weights w = 1 + alpha*r, weighted centroids, gated explicit channel."
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import numpy as np
 import pytest
 
 from ytk import signals
-from ytk.synthesis import ProfileSynthesis, ThemeLabel, assemble_snapshot, weighted_centroid
+from ytk.synthesis import (
+    PortraitClaimOutput, ProfileSynthesis, ThemeLabel, assemble_snapshot,
+    weighted_centroid,
+)
+
+NOW = "2026-06-02T00:00:00+00:00"
 
 
 def test_classify_ladder():
@@ -30,23 +36,23 @@ def test_weighted_centroid_pulls_toward_heavy():
     assert abs(np.linalg.norm(c) - 1.0) < 1e-9  # unit norm
 
 
-def _synth():
+def _synth(e1="n2"):
     return ProfileSynthesis(
-        themes=[ThemeLabel(cluster_index=0, label="A", summary=""),
-                ThemeLabel(cluster_index=1, label="B", summary="")],
-        profile_markdown="p",
+        themes=[ThemeLabel(cluster_index=0, label="A", summary="a", evidence_ids=["n0"]),
+                ThemeLabel(cluster_index=1, label="B", summary="b", evidence_ids=[e1])],
+        claims=[PortraitClaimOutput(text="portrait", evidence_ids=["n0"])],
     )
 
 
 def _notes(n):
-    return [{"id": f"n{i}", "title": f"t{i}"} for i in range(n)]
+    return [{"id": f"n{i}", "title": f"t{i}", "captured_at": NOW} for i in range(n)]
 
 
 def test_snapshot_v2_weighted_theme_share_and_centroids():
     emb = np.array([[1.0, 0.0], [1.0, 0.1], [0.0, 1.0], [0.1, 1.0]])
     labels = [0, 0, 1, 1]
     weights = [1.0, 1.0, 3.0, 3.0]  # theme B carries the signal
-    snap = assemble_snapshot(_notes(4), labels, _synth(), "now",
+    snap = assemble_snapshot(_notes(4), labels, _synth(), NOW,
                              embeddings=emb, weights=weights,
                              levels=[0, 0, 2, 2], alpha=1.0, explicit_min=5)
     assert snap.themes[0].label == "B"          # weighted share ranks B first
@@ -60,15 +66,43 @@ def test_snapshot_v2_weighted_theme_share_and_centroids():
 def test_explicit_channel_activates_at_gate():
     emb = np.tile(np.array([[1.0, 0.0]]), (6, 1))
     snap = assemble_snapshot(_notes(6), [0] * 6,
-                             ProfileSynthesis(themes=[ThemeLabel(cluster_index=0, label="A", summary="")],
-                                              profile_markdown="p"),
-                             "now", embeddings=emb, weights=[1.0] * 6,
+                             ProfileSynthesis(
+                                 themes=[ThemeLabel(cluster_index=0, label="A", summary="a", evidence_ids=["n0"])],
+                                 claims=[PortraitClaimOutput(text="portrait", evidence_ids=["n0"])]),
+                             NOW, embeddings=emb, weights=[1.0] * 6,
                              levels=[2, 2, 2, 2, 2, 0], alpha=1.0, explicit_min=5)
     assert snap.explicit is not None
     assert len(snap.explicit.note_ids) == 5
 
 
 def test_snapshot_v1_call_still_works():
-    snap = assemble_snapshot(_notes(2), [0, 1], _synth(), "now")
+    snap = assemble_snapshot(_notes(2), [0, 1], _synth(e1="n1"), NOW)
     assert snap.themes[0].centroid is None and snap.explicit is None
     assert snap.signal_counts == {}
+
+
+def test_recency_decay_halves_at_half_life_and_composes_with_signal():
+    now = datetime(2026, 6, 2, tzinfo=timezone.utc)
+    assert signals.recency_factor(NOW, now, 90) == 1.0
+    half_life_ago = "2026-03-04T00:00:00+00:00"
+    assert signals.recency_factor(half_life_ago, now, 90) == pytest.approx(0.5)
+    assert signals.decayed_weights(
+        [0, 1], [NOW, half_life_ago], alpha=1.0,
+        half_life_days=90, now=now,
+    ) == pytest.approx([1.0, 1.0])
+
+
+def test_day_batch_dampening_takes_sqrt_of_binge_days():
+    """A 4-note ingest day counts 2x a single-note day, not 4x; unknown
+    capture dates are never lumped into one giant batch."""
+    same_day = ["2026-06-02T00:00:00+00:00"] * 4  # == NOW: recency factor 1.0
+    factors = signals.day_batch_factors(same_day + ["2026-06-01T00:00:00+00:00"] + ["", ""])
+    assert factors[:4] == pytest.approx([0.5] * 4)   # 1/sqrt(4)
+    assert factors[4] == 1.0                          # lone capture undamped
+    assert factors[5:] == [1.0, 1.0]                  # unknown dates undamped
+
+    now = datetime(2026, 6, 2, tzinfo=timezone.utc)
+    weights = signals.decayed_weights(
+        [0] * 4, same_day, alpha=1.0, half_life_days=90, now=now,
+    )
+    assert sum(weights) == pytest.approx(2.0)         # binge day: sqrt(4) total
