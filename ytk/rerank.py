@@ -20,6 +20,7 @@ from typing import Callable, Sequence, TypeVar
 T = TypeVar("T")
 
 MODEL_NAME = "Qwen/Qwen3-Reranker-0.6B"
+MODEL_REVISION = "e61197ed45024b0ed8a2d74b80b4d909f1255473"
 # same instruction the v2 embedder's query prefix uses (store._EPOCHS)
 INSTRUCT = "Given a web search query, retrieve relevant passages that answer the query"
 _PREFIX = (
@@ -59,9 +60,12 @@ def rerank(
 class QwenReranker:
     """Lazy-loading cross-encoder scorer; instances are scorer callables."""
 
-    def __init__(self, model_name: str = MODEL_NAME, max_length: int = 2560,
-                 batch: int = 4, device: str | None = None):
+    def __init__(self, model_name: str = MODEL_NAME,
+                 revision: str | None = MODEL_REVISION,
+                 max_length: int = 2560, batch: int = 4,
+                 device: str | None = None):
         self._model_name = model_name
+        self._revision = revision
         self._max_length = max_length
         self._batch = batch
         self._device = device  # None = MPS if available, else CPU
@@ -78,10 +82,10 @@ class QwenReranker:
             if self._device is None:
                 self._device = "mps" if torch.backends.mps.is_available() else "cpu"
             self._tokenizer = AutoTokenizer.from_pretrained(
-                self._model_name, padding_side="left"
+                self._model_name, revision=self._revision, padding_side="left"
             )
             self._model = AutoModelForCausalLM.from_pretrained(
-                self._model_name, torch_dtype=torch.float16
+                self._model_name, revision=self._revision, torch_dtype=torch.float16
             ).to(self._device).eval()
             self._yes_id = self._tokenizer.convert_tokens_to_ids("yes")
             self._no_id = self._tokenizer.convert_tokens_to_ids("no")

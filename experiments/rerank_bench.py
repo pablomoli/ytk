@@ -20,56 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 RERANK_MODEL = "Qwen/Qwen3-Reranker-0.6B"
-# same instruction the v2 embedder's query prefix uses (store._EPOCHS)
-INSTRUCT = "Given a web search query, retrieve relevant passages that answer the query"
-PREFIX = (
-    "<|im_start|>system\nJudge whether the Document meets the requirements "
-    'based on the Query and the Instruct provided. Note that the answer can '
-    'only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
-)
-SUFFIX = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-MAX_LENGTH = 2560  # memories cap at 8000 chars (~2k tokens); truncate outliers
-BATCH = 4  # MPS fp16: same caution as store.py's encode_batch lesson
-
-
-class Reranker:
-    def __init__(self):
-        import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-
-        self.tokenizer = AutoTokenizer.from_pretrained(RERANK_MODEL, padding_side="left")
-        self.model = AutoModelForCausalLM.from_pretrained(
-            RERANK_MODEL, torch_dtype=torch.float16
-        ).to("mps").eval()
-        self.yes_id = self.tokenizer.convert_tokens_to_ids("yes")
-        self.no_id = self.tokenizer.convert_tokens_to_ids("no")
-
-    def score(self, query: str, docs: list[str]) -> list[float]:
-        """P(yes) for each (query, doc) pair, batched."""
-        import torch
-
-        texts = [
-            f"{PREFIX}<Instruct>: {INSTRUCT}\n<Query>: {query}\n<Document>: {d}{SUFFIX}"
-            for d in docs
-        ]
-        scores: list[float] = []
-        with torch.no_grad():
-            for i in range(0, len(texts), BATCH):
-                batch = self.tokenizer(
-                    texts[i:i + BATCH], padding=True, truncation=True,
-                    max_length=MAX_LENGTH, return_tensors="pt",
-                ).to("mps")
-                # logits_to_keep=1: full-sequence logits are batch x seq x
-                # 152k vocab — ~3 GB fp16 per forward at 2560 tokens, which
-                # thrashes MPS memory; we only need the final position
-                logits = self.model(**batch, logits_to_keep=1).logits[:, -1, :]
-                pair = torch.stack(
-                    [logits[:, self.no_id], logits[:, self.yes_id]], dim=1
-                ).float()
-                scores.extend(torch.softmax(pair, dim=1)[:, 1].tolist())
-        return scores
-
-
+RERANK_REVISION = "e61197ed45024b0ed8a2d74b80b4d909f1255473"
 def retrieve_with_docs(depth: int):
     """Top-`depth` (key, doc) lists through the production merge rules.
 
@@ -122,6 +73,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None, help="first N queries (smoke test)")
     ap.add_argument("--depth", type=int, default=30)
+    ap.add_argument("--max-length", type=int, default=2560)
+    ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--out", default="experiments/rerank_bench_results.json")
     args = ap.parse_args()
 
@@ -132,10 +85,13 @@ def main() -> None:
         queries = queries[: args.limit]
 
     ops.start_run("rerank-bench", f"{len(queries)} queries, depth {args.depth}")
-    ops.step("rerank", "running", f"max_length {MAX_LENGTH}, batch {BATCH}")
+    ops.step("rerank", "running", f"max_length {args.max_length}, batch {args.batch}")
     resolve = retrieval_gate._live_resolver()
     searchers = retrieve_with_docs(args.depth)
-    reranker = Reranker()
+    from ytk.rerank import QwenReranker
+    reranker = QwenReranker(max_length=args.max_length, batch=args.batch)
+    partial_path = Path(args.out).with_suffix(".partial.jsonl")
+    partial_path.unlink(missing_ok=True)
 
     t_start = time.perf_counter()
     rows: list[dict] = []
@@ -152,15 +108,18 @@ def main() -> None:
         latency = time.perf_counter() - t0
 
         order = sorted(range(len(keys)), key=lambda i: scores[i], reverse=True)
-        after = order.index(before) if before is not None else None
+        after_keys = [keys[i] for i in order]
+        after = after_keys.index(gold) if gold in after_keys else None
         row = {
             "query": q["query"], "bucket": q["bucket"], "gold_id": q["gold_id"],
             "rank_before": before, "rank_after": after,
+            "ranking_before": keys,
+            "ranking_after": after_keys,
             "latency_s": round(latency, 3),
         }
         rows.append(row)
         # stream rows so a killed run keeps its partial data
-        with Path(args.out).with_suffix(".partial.jsonl").open("a", encoding="utf-8") as f:
+        with partial_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")
         if n % 10 == 0 or n == len(queries):
             print(f"  {n}/{len(queries)} reranked", flush=True)
@@ -170,7 +129,9 @@ def main() -> None:
     def hits(rs, field, k):
         return sum(1 for r in rs if r[field] is not None and r[field] < k) / max(len(rs), 1)
 
-    summary = {"n": len(rows), "depth": args.depth, "model": RERANK_MODEL,
+    summary = {"n": len(rows), "depth": args.depth,
+               "max_length": args.max_length, "batch": args.batch,
+               "model": RERANK_MODEL, "model_revision": RERANK_REVISION,
                "overall": {}, "per_bucket": {}, "latency_s": {}}
     for field, tag in (("rank_before", "before"), ("rank_after", "after")):
         summary["overall"][tag] = {f"hit@{k}": round(hits(rows, field, k), 4) for k in (1, 5, 10)}

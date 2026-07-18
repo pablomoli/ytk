@@ -38,3 +38,23 @@ def _pin_v1_epoch(monkeypatch):
     import ytk.store as store
 
     monkeypatch.setattr(store, "EMBEDDING_EPOCH", "v1")
+
+
+@pytest.fixture(autouse=True)
+def _close_chroma_clients_between_tests():
+    """Release Rust/SQLite handles before pytest removes each tmp store.
+
+    Chroma caches every PersistentClient system process-wide. The store tests
+    intentionally create many isolated tmp databases; without explicit close,
+    the suite eventually exhausts SQLite handles and cascades with code 14.
+    """
+    import ytk.store as store
+
+    yield
+
+    client = getattr(store, "_client", None)
+    if client is not None:
+        try:
+            client.close()
+        finally:
+            store._client = None

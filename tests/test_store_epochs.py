@@ -31,7 +31,7 @@ def store_v2(store, monkeypatch):
         # cpu like chroma's stock test EFs: the suite's MPS pool is already
         # near its 20 GiB ceiling and torch never frees models
         "model": "thenlper/gte-small", "fp16": False, "max_seq": 0,
-        "device": "cpu",
+        "device": "cpu", "revision": None,
     })
     monkeypatch.setattr(store, "EMBEDDING_EPOCH", "v2")
     return store
@@ -43,13 +43,35 @@ def test_epoch_suffix_resolves_collection_names(store_v2):
     assert store_v2._segments_collection("v1").name == "ytk_segments"
 
 
-def test_upsert_doc_whole_doc_no_parts(store_v2):
+def test_upsert_doc_overflows_without_truncating(store_v2):
     long_text = "word " * 2000  # far past the v1 split limit
     store_v2.upsert_doc("doc1", long_text, {"source_path": "/x.md"})
     got = store_v2._memories_collection().get()
+    assert sorted(got["ids"]) == ["doc1", "doc1#1"]
+    docs = dict(zip(got["ids"], got["documents"]))
+    recovered = docs["doc1"] + docs["doc1#1"].split("\n\n", 1)[1]
+    assert recovered == long_text
+    assert all("part" in meta for meta in got["metadatas"])
+
+
+def test_upsert_doc_v2_keeps_short_doc_representative_only(store_v2):
+    store_v2.upsert_doc(
+        "doc1", "a compact document that clears the retrieval noise floor",
+        {"source_path": "/x.md"},
+    )
+    got = store_v2._memories_collection().get()
     assert got["ids"] == ["doc1"]
-    assert len(got["documents"][0]) == 8000  # cap stays
     assert "part" not in got["metadatas"][0]
+
+
+def test_upsert_doc_v2_balances_tiny_overflow(store_v2):
+    long_text = "x" * (store_v2._LONG_DOC_PART_LIMIT + 1)
+    store_v2.upsert_doc("doc1", long_text, {"source_path": "/x.md"})
+    got = store_v2._memories_collection().get()
+    docs = dict(zip(got["ids"], got["documents"]))
+    tail = docs["doc1#1"].split("\n\n", 1)[1]
+    assert len(tail) == store_v2._MIN_OVERFLOW_CHARS
+    assert docs["doc1"] + tail == long_text
 
 
 def test_phantom_guard_survives_v2(store_v2):

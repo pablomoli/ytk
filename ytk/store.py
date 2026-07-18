@@ -47,11 +47,13 @@ _EPOCHS: dict[str, dict] = {
         "parts": True,
         "fp16": False,
         "max_seq": 0,
+        "revision": None,
     },
     "v2": {
         # Qwen3-Embedding-0.6B: 1024d native, instruction-aware (docs embed
-        # plain, queries get the retrieval prefix), 32k window — whole-doc
-        # embedding, no parts. fp16 + max_seq 3072 are mandatory on MPS:
+        # plain, queries get the retrieval prefix), 32k native window. The
+        # MPS runtime uses max_seq 3072; overflow notes get retrieval parts.
+        # fp16 + max_seq 3072 are mandatory on MPS:
         # fp32 whole-doc runs get SIGKILLed by macOS memory pressure.
         "model": "Qwen/Qwen3-Embedding-0.6B",
         "query_prefix": (
@@ -62,6 +64,9 @@ _EPOCHS: dict[str, dict] = {
         "parts": False,
         "fp16": True,
         "max_seq": 3072,
+        # Pin the exact encoder snapshot used to build the v2 collections;
+        # otherwise a mutable Hub model silently invalidates eval baselines.
+        "revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
         # encode few docs at a time: attention scores for a batch of
         # max_seq-long docs are batch*heads*3072^2 fp16 — 32 at once asks
         # Metal for a 10 GB buffer and SIGABRTs (migration night finding)
@@ -102,13 +107,15 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
 
     def __init__(self, model_name: str, query_prefix: str,
                  fp16: bool = True, max_seq: int = 0,
-                 device: str | None = None, encode_batch: int = 32):
+                 device: str | None = None, encode_batch: int = 32,
+                 revision: str | None = None):
         self._model_name = model_name
         self._query_prefix = query_prefix
         self._fp16 = fp16
         self._max_seq = max_seq
         self._device = device  # None = auto (MPS); tests pass "cpu"
         self._encode_batch = encode_batch
+        self._revision = revision
         self._model = None
 
     def _load(self):
@@ -121,7 +128,9 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
                 kwargs["model_kwargs"] = {"torch_dtype": torch.float16}
             if self._device:
                 kwargs["device"] = self._device
-            self._model = SentenceTransformer(self._model_name, **kwargs)
+            self._model = SentenceTransformer(
+                self._model_name, revision=self._revision, **kwargs
+            )
             if self._max_seq:
                 self._model.max_seq_length = self._max_seq
         return self._model
@@ -148,6 +157,7 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
             "max_seq": self._max_seq,
             "device": self._device,
             "encode_batch": self._encode_batch,
+            "revision": self._revision,
         }
 
     @staticmethod
@@ -172,6 +182,7 @@ def _get_ef(epoch: str | None = None):
                 fp16=cfg["fp16"], max_seq=cfg["max_seq"],
                 device=cfg.get("device"),
                 encode_batch=cfg.get("encode_batch", 32),
+                revision=cfg.get("revision"),
             )
         else:
             _efs[epoch] = embedding_functions.SentenceTransformerEmbeddingFunction(
@@ -409,7 +420,11 @@ def _with_ingest_time(col, ids: list[str], metas: list[dict]) -> list[dict]:
     ]
 
 
-_DOC_PART_LIMIT = 1800  # chars (~450 tokens): a whole part fits the embedder's 512-token window
+_DOC_PART_LIMIT = 1800  # chars (~450 tokens): fits the v1 512-token window
+# Conservative character proxy for v2's 3,072-token runtime window. Notes
+# beyond it overflow into retrieval-only parts instead of losing their tail.
+_LONG_DOC_PART_LIMIT = 8000
+_MIN_OVERFLOW_CHARS = 400
 
 
 def _split_doc(text: str, limit: int = _DOC_PART_LIMIT) -> list[str]:
@@ -436,6 +451,17 @@ def _split_doc(text: str, limit: int = _DOC_PART_LIMIT) -> list[str]:
     return [p for p in parts if p.strip()]
 
 
+def _split_long_doc(text: str) -> list[str]:
+    """Split for v2 without leaving a useless one-line overflow vector."""
+    chunks = _split_doc(text, _LONG_DOC_PART_LIMIT)
+    if len(chunks) > 1 and len(chunks[-1]) < _MIN_OVERFLOW_CHARS:
+        needed = _MIN_OVERFLOW_CHARS - len(chunks[-1])
+        if len(chunks[-2]) - needed >= _MIN_OVERFLOW_CHARS:
+            chunks[-1] = chunks[-2][-needed:] + chunks[-1]
+            chunks[-2] = chunks[-2][:-needed]
+    return chunks
+
+
 # below this, a text is noise in the retrieval surface, not a card (#87)
 MIN_EMBED_CHARS = 40
 
@@ -450,14 +476,14 @@ def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
     synthesis) use; '#'-suffixed parts exist for retrieval only and are
     collapsed by doc_id at query time. Tail parts are prefixed with the
     note's first line as situating context. Long-context epochs (v2/Qwen3)
-    embed the whole doc as one vector and write no parts.
+    use one vector up to the conservative runtime window, then overflow into
+    retrieval-only parts. No text is silently discarded.
 
     Also guards against double-indexing: any existing vectors that share this
     write's source_path or doc_id but are not part of it are deleted, so a
     note re-indexed under a new id scheme cannot leave phantom copies behind.
     """
     col = _memories_collection()
-    text = text[:8000]
     if len(text.strip()) < MIN_EMBED_CHARS:
         # too short to be a retrieval card ("good good" test memos, #87
         # audit); clear any stale vectors so an edited-down note disappears
@@ -469,7 +495,17 @@ def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
         return
     base = {**metadata, "doc_id": doc_id}
     if _EPOCHS[EMBEDDING_EPOCH]["parts"]:
-        chunks = _split_doc(text)
+        chunks = _split_doc(text, _DOC_PART_LIMIT)
+    else:
+        chunks = _split_long_doc(text)
+
+    if len(chunks) > 1:
+        logging.getLogger(__name__).info(
+            "upsert_doc %s: %d chars overflowed into %d vectors",
+            doc_id, len(text), len(chunks),
+        )
+
+    if _EPOCHS[EMBEDDING_EPOCH]["parts"] or len(chunks) > 1:
         context = next(
             (line.strip().lstrip("# ") for line in text.splitlines() if line.strip()), ""
         )[:120]
@@ -477,9 +513,9 @@ def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
         docs = [chunks[0]] + [f"{context}\n\n{c}" for c in chunks[1:]]
         metas = [{**base, "part": i} for i in range(len(chunks))]
     else:
-        # Long-context epoch: the whole doc fits the window, one vector per
-        # doc. The stale-guard below also clears leftover '#' parts when a
-        # doc last written under a parts epoch is re-upserted.
+        # Long-context epoch and a document inside its conservative window.
+        # The stale guard below clears any old overflow parts after a note is
+        # edited shorter.
         ids = [doc_id]
         docs = [text]
         metas = [base]
@@ -514,6 +550,28 @@ def delete_doc(doc_id: str) -> None:
         _memories_collection().delete(where={"doc_id": doc_id})
     except Exception as exc:
         log.debug("delete_doc parts %s: %s", doc_id, exc)
+
+
+def orphaned_memory_vectors() -> list[dict[str, str]]:
+    """Return memory vectors whose source file no longer exists (#93).
+
+    Chroma may hold the last surviving copy of an orphan's text, so this is
+    deliberately read-only. One row is returned per searchable vector.
+    """
+    col = _memories_collection()
+    if col.count() == 0:
+        return []
+    got = col.get(include=["metadatas"])
+    out: list[dict[str, str]] = []
+    for vector_id, meta in zip(got["ids"], got["metadatas"]):
+        source_path = (meta or {}).get("source_path", "")
+        if not source_path or not Path(source_path).expanduser().exists():
+            out.append({
+                "vector_id": vector_id,
+                "doc_id": (meta or {}).get("doc_id", vector_id),
+                "source_path": source_path,
+            })
+    return out
 
 
 def append_video_take(video_id: str, thought: str) -> None:
@@ -836,10 +894,7 @@ class UnifiedResult:
 
 
 def upsert_memory(doc_id: str, text: str, tags: list[str], source_path: str) -> None:
-    """Embed and store an arbitrary memory note in the ytk_memories collection.
-
-    Text is truncated to 8000 characters via upsert_doc.
-    """
+    """Embed and store an arbitrary memory note in the memories collection."""
     upsert_doc(doc_id, text, {
         "doc_id": doc_id,
         "tags": ", ".join(tags),
