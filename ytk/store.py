@@ -273,6 +273,15 @@ def visual_ids() -> set[str]:
     return set(_visual_collection().get(include=[])["ids"])
 
 
+def update_visual_metadata(item_id: str, metadata: dict) -> bool:
+    """Replace metadata for an existing cover without recomputing its vector."""
+    col = _visual_collection()
+    if not col.get(ids=[item_id], include=[])["ids"]:
+        return False
+    col.update(ids=[item_id], metadatas=[metadata])
+    return True
+
+
 def _visual_pending_collection() -> chromadb.Collection:
     """SigLIP-2 embeddings of pending-queue covers, keyed by item url.
 

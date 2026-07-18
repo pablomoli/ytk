@@ -17,6 +17,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
 MODEL_ID = "google/siglip2-so400m-patch16-384"
 
 _model = None
@@ -154,9 +156,22 @@ def iter_covers() -> list[CoverItem]:
 
     ig_notes = list((sources / "instagram").glob("*.md"))
     seen_ig: set[str] = set()
-    for p in sorted((sources / "instagram").glob("*-img-*.jpg")):
-        shortcode = re.sub(r"-img-\d+\.jpg$", "", p.name)
-        if shortcode in seen_ig or not p.name.endswith("-img-1.jpg"):
+    # Prefer the organized location while retaining a migration fallback.
+    slide_dir = sources / "instagram" / "slides"
+    legacy_dir = sources / "instagram"
+    ig_slides = [
+        *sorted(
+            p for p in slide_dir.glob("*-img-1.*")
+            if p.suffix.lower() in _IMAGE_SUFFIXES
+        ),
+        *sorted(
+            p for p in legacy_dir.glob("*-img-1.*")
+            if p.suffix.lower() in _IMAGE_SUFFIXES
+        ),
+    ]
+    for p in ig_slides:
+        shortcode = re.sub(r"-img-1\.[^.]+$", "", p.name, flags=re.IGNORECASE)
+        if shortcode in seen_ig:
             continue
         seen_ig.add(shortcode)
         note = next((n for n in ig_notes if shortcode in n.name), None)
@@ -227,6 +242,15 @@ def index_covers(
     items = iter_covers()
     if skip_existing:
         have = store.visual_ids()
+        for it in items:
+            if it.item_id in have:
+                store.update_visual_metadata(it.item_id, {
+                    "source": it.source,
+                    "title": it.title,
+                    "url": it.url,
+                    "image_path": str(it.image_path),
+                    "note_path": it.note_path,
+                })
         items = [it for it in items if it.item_id not in have]
     if limit:
         items = items[:limit]

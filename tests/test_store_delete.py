@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import importlib
 
+import pytest
+
 
 def _fresh_store(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
@@ -49,8 +51,17 @@ def test_delete_visual_removes_only_named_ids(tmp_path, monkeypatch):
 
 def test_delete_visual_empty_is_noop(tmp_path, monkeypatch):
     store = _fresh_store(tmp_path, monkeypatch)
-    store._visual_collection().upsert(
+    col = store._visual_collection()
+    col.upsert(
         ids=["ig:keepme"], embeddings=[[0.5, 0.6]], metadatas=[{"source": "instagram"}]
     )
     store.delete_visual([])
-    assert store._visual_collection().get(include=[])["ids"] == ["ig:keepme"]
+    assert col.get(include=[])["ids"] == ["ig:keepme"]
+
+    assert store.update_visual_metadata(
+        "ig:keepme", {"image_path": "/new/path.jpg", "source": "instagram"}
+    )
+    got = col.get(ids=["ig:keepme"], include=["embeddings", "metadatas"])
+    assert got["metadatas"][0]["image_path"] == "/new/path.jpg"
+    assert list(got["embeddings"][0]) == pytest.approx([0.5, 0.6])
+    assert not store.update_visual_metadata("ig:missing", {"image_path": "nope"})

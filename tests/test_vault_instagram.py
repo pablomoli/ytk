@@ -148,7 +148,7 @@ def test_write_instagram_note_downloads_images(tmp_path, monkeypatch):
     assert "![[ABC123-img-1.jpg]]" in content
     assert "![[ABC123-img-2.jpg]]" in content
     assert "image_paths:" in content
-    assert "sources/instagram/ABC123-img-1.jpg" in content
+    assert "sources/instagram/slides/ABC123-img-1.jpg" in content
 
 
 def test_write_instagram_note_no_images_empty_frontmatter(tmp_path, monkeypatch):

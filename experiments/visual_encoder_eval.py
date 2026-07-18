@@ -41,7 +41,7 @@ COVERS = Path(os.path.expanduser("~/.ytk/covers"))
 SIGLIP_REPO = "mlx-community/siglip2-so400m-patch16-384"
 DINO_MODEL = "vit_base_patch14_518.dinov2"
 
-IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+IMG_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
 def collect_corpus():
@@ -79,9 +79,12 @@ def collect_corpus():
                 group = p.parent.name if sub == "frames" else p.stem
                 add(p, f"tt:{group}", src)
 
-    for p in sorted((SOURCES / "instagram").glob("*-img-*.jpg")):
-        shortcode = re.sub(r"-img-\d+\.jpg$", "", p.name)
-        add(p, f"ig:{shortcode}", "instagram-post")
+    for base in (SOURCES / "instagram" / "slides", SOURCES / "instagram"):
+        for p in sorted(base.glob("*-img-*.*")):
+            if p.suffix.lower() not in IMG_EXTS:
+                continue
+            shortcode = re.sub(r"-img-\d+\.[^.]+$", "", p.name, flags=re.IGNORECASE)
+            add(p, f"ig:{shortcode}", "instagram-post")
 
     if COVERS.exists():
         for p in sorted(COVERS.glob("*.jpg")):
