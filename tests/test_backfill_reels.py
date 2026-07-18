@@ -69,7 +69,8 @@ def test_thumbnail_only_p_url_qualifies_as_probable_video(brain):
 
 def test_carousel_with_slides_does_not_qualify(brain):
     _note(brain, "u-2026-07-15-CAR", "https://www.instagram.com/p/CAR/",
-          image_paths=["sources/instagram/CAR-img-1.jpg", "sources/instagram/CAR-img-2.jpg"])
+          image_paths=["sources/instagram/slides/CAR-img-1.jpg",
+                       "sources/instagram/slides/CAR-img-2.jpg"])
     assert find_reel_backfill_candidates() == []
 
 
@@ -94,9 +95,9 @@ def test_known_seven_are_discovered(brain):
     _seed_known_seven(brain)
     # decoys that must not qualify
     _note(brain, "codedex.io-2026-07-06-Dad6x1smPvR", "https://www.instagram.com/p/Dad6x1smPvR/",
-          image_paths=["sources/instagram/Dad6x1smPvR-img-1.jpg"])
+          image_paths=["sources/instagram/slides/Dad6x1smPvR-img-1.jpg"])
     _note(brain, "supercalstudio-2026-06-25-DaATV4rlCC2", "https://www.instagram.com/p/DaATV4rlCC2/",
-          image_paths=["sources/instagram/DaATV4rlCC2-img-1.jpg"])
+          image_paths=["sources/instagram/slides/DaATV4rlCC2-img-1.jpg"])
     found = {c["shortcode"] for c in find_reel_backfill_candidates()}
     assert found == {url.rstrip("/").rsplit("/", 1)[-1] for _, url in KNOWN_SEVEN}
 

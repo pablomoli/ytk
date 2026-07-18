@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -534,11 +535,15 @@ def _user_sections(content: str) -> str:
 
 
 def _save_instagram_images(post: "InstagramPost", note_dir: Path, shortcode: str) -> list[Path]:
-    """Slides (stable {shortcode}-img-N names) plus the cover thumbnail for
-    video-only posts. Overwrites are same-content refetches, so refresh-safe."""
+    """Slides (stable {shortcode}-img-N names, under slides/) plus the cover
+    thumbnail for video-only posts. Overwrites are same-content refetches, so
+    refresh-safe. Nothing is saved flat beside the notes."""
     saved_images: list[Path] = []
+    slide_dir = note_dir / "slides"
+    if post.images:
+        slide_dir.mkdir(parents=True, exist_ok=True)
     for i, img_url in enumerate(post.images or [], start=1):
-        saved = _save_image(img_url, note_dir / f"{shortcode}-img-{i}")
+        saved = _save_image(img_url, slide_dir / f"{shortcode}-img-{i}")
         if saved:
             saved_images.append(saved)
     if not saved_images and getattr(post, "thumbnail_url", None):
@@ -822,6 +827,161 @@ def repair_frame_embeds() -> int:
             note.write_text(content, encoding="utf-8")
             changed += 1
     return changed
+
+
+def relocate_instagram_slides() -> int:
+    """Move flat carousel slides beside the notes into ``slides/`` safely.
+
+    The migration is preflighted before any mutation. Referenced slides are
+    copied into a staging directory and byte-verified, destinations are
+    installed, notes are atomically replaced, and only then are legacy files
+    removed. At every interruption point the path named by each note exists;
+    rerunning completes an interrupted migration.
+
+    A flat ``*-img-1`` left by an upgraded reel is removed only when it is
+    unreferenced and byte-identical to that note's referenced thumbnail.
+    Anything ambiguous aborts the whole preflight without changing the vault.
+    Bare-name Obsidian embeds need no rewrite because filenames do not change.
+    Returns the number of notes rewritten.
+    """
+    note_dir = _get_brain_path() / "sources" / "instagram"
+    if not note_dir.exists():
+        return 0
+    slide_dir = note_dir / "slides"
+    slide_re = re.compile(
+        r"(?P<shortcode>.+)-img-(?P<number>\d+)"
+        r"(?P<ext>\.(?:jpe?g|png|gif|webp))$",
+        re.IGNORECASE,
+    )
+    flat_files = sorted(
+        p for p in note_dir.iterdir()
+        if p.is_file() and slide_re.fullmatch(p.name)
+    )
+    if not flat_files:
+        return 0
+
+    notes = {p: p.read_text(encoding="utf-8") for p in sorted(note_dir.glob("*.md"))}
+    references: dict[str, list[Path]] = {p.name: [] for p in flat_files}
+    for note, content in notes.items():
+        for name in references:
+            if re.search(
+                rf"^  - sources/instagram/{re.escape(name)}$",
+                content,
+                re.MULTILINE,
+            ):
+                references[name].append(note)
+
+    def _same_bytes(a: Path, b: Path) -> bool:
+        if (
+            not a.is_file()
+            or not b.is_file()
+            or a.stat().st_size != b.stat().st_size
+        ):
+            return False
+        return (
+            hashlib.sha256(a.read_bytes()).digest()
+            == hashlib.sha256(b.read_bytes()).digest()
+        )
+
+    moves: list[tuple[Path, Path]] = []
+    duplicate_reel_covers: list[Path] = []
+    for source in flat_files:
+        users = references[source.name]
+        if len(users) > 1:
+            raise RuntimeError(f"Slide is referenced by multiple notes: {source.name}")
+        if not users:
+            match = slide_re.fullmatch(source.name)
+            assert match is not None
+            shortcode = match.group("shortcode")
+            matching_thumbs = [
+                p
+                for p in sorted(
+                    (note_dir / "thumbnails").glob(f"{shortcode}-thumb.*")
+                )
+                if _same_bytes(source, p)
+            ]
+            thumb_refs = [
+                (note, thumb)
+                for note, content in notes.items()
+                for thumb in matching_thumbs
+                if f"sources/instagram/thumbnails/{thumb.name}" in content
+            ]
+            if len(thumb_refs) != 1:
+                raise RuntimeError(
+                    "Unreferenced flat image is not a verified duplicate "
+                    f"reel cover: {source.name}"
+                )
+            duplicate_reel_covers.append(source)
+            continue
+
+        destination = slide_dir / source.name
+        if destination.exists() and not _same_bytes(source, destination):
+            raise FileExistsError(f"Slide destination differs: {destination}")
+        moves.append((source, destination))
+
+    rewritten: dict[Path, str] = {}
+    for note, content in notes.items():
+        new_content = re.sub(
+            r"(^  - )sources/instagram/((?!slides/|thumbnails/|frames/)"
+            r"[^/\n]+-img-\d+\.(?:jpe?g|png|gif|webp))$",
+            r"\1sources/instagram/slides/\2",
+            content,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+        if new_content != content:
+            rewritten[note] = new_content
+
+    referenced_sources = {source.name for source, _ in moves}
+    rewritten_refs = {
+        match.group(1)
+        for content in rewritten.values()
+        for match in re.finditer(
+            r"^  - sources/instagram/slides/([^/\n]+-img-\d+\.[A-Za-z0-9]+)$",
+            content,
+            re.MULTILINE,
+        )
+    }
+    if referenced_sources - rewritten_refs:
+        missing = ", ".join(sorted(referenced_sources - rewritten_refs))
+        raise RuntimeError(f"Referenced slides were not covered by note rewrites: {missing}")
+
+    staging = slide_dir / f".migration-staging-{os.getpid()}"
+    note_tmps: list[Path] = []
+    try:
+        if moves:
+            staging.mkdir(parents=True, exist_ok=False)
+        for source, destination in moves:
+            if destination.exists():
+                continue
+            staged = staging / source.name
+            shutil.copy2(source, staged)
+            if not _same_bytes(source, staged):
+                raise OSError(f"Slide copy verification failed: {source.name}")
+
+        # Install every destination while the legacy sources still exist.
+        for source, destination in moves:
+            if destination.exists():
+                continue
+            os.replace(staging / source.name, destination)
+
+        # Each note switches atomically only after all of its destinations exist.
+        for note, content in rewritten.items():
+            tmp = note.with_name(f".{note.name}.slide-migration-{os.getpid()}.tmp")
+            note_tmps.append(tmp)
+            tmp.write_text(content, encoding="utf-8")
+            os.replace(tmp, note)
+
+        # Both old and new layouts were valid until this final cleanup step.
+        for source, _ in moves:
+            source.unlink(missing_ok=True)
+        for duplicate in duplicate_reel_covers:
+            duplicate.unlink(missing_ok=True)
+    finally:
+        for tmp in note_tmps:
+            tmp.unlink(missing_ok=True)
+        shutil.rmtree(staging, ignore_errors=True)
+
+    return len(rewritten)
 
 
 def write_tiktok_note(
