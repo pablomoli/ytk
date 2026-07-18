@@ -1,13 +1,24 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { apiGet, apiSend, queryClient } from './client'
 
+export type ProfileExemplar = {
+  title: string
+  source: string
+}
+
 export type ProfileTheme = {
   id: string
   label: string
   summary: string
   weight: number
   n_notes: number
-  exemplars: string[]
+  fresh_notes?: number
+  exemplars: ProfileExemplar[]
+}
+
+export type ProfileClaim = {
+  text: string
+  evidence_ids: string[]
 }
 
 export type Profile = {
@@ -17,6 +28,7 @@ export type Profile = {
   reanchored_from?: string | null
   alpha?: number | null
   profile_markdown: string
+  claims?: ProfileClaim[]
   themes: ProfileTheme[]
 }
 

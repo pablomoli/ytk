@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useProfile, useRunProfile } from "../api/profile";
 import { HubControls } from "../components/HubControls";
+import { sourceIcon } from "../components/icons";
 import { ErrorState } from "../components/StateViews";
 import "../styles.css";
 
@@ -33,6 +34,9 @@ function ProfilePage() {
 
   const data = profile.data!;
   const maxWeight = Math.max(...data.themes.map((theme) => theme.weight), 0.0001);
+  const portrait = data.claims?.length
+    ? data.claims.map((claim) => claim.text)
+    : data.profile_markdown.split(/\n\n+/).filter(Boolean);
 
   return (
     <div id="profile-page" className="hub-page">
@@ -49,15 +53,27 @@ function ProfilePage() {
               <summary>
                 <span className="profile-theme-label">{theme.label}</span>
                 <span className="profile-theme-bar"><span style={{ width: `${(theme.weight / maxWeight) * 100}%` }} /></span>
-                <span className="profile-theme-share">{Math.round(theme.weight * 100)}% · {theme.n_notes} notes</span>
+                <span className="profile-theme-share">
+                  {Math.round(theme.weight * 100)}% · {theme.n_notes} notes
+                  {theme.fresh_notes && theme.fresh_notes < theme.n_notes ? ` · ${theme.fresh_notes} recent` : ""}
+                </span>
               </summary>
               <p>{theme.summary}</p>
-              {theme.exemplars.length ? <ul>{theme.exemplars.map((title) => <li key={title}>{title}</li>)}</ul> : null}
+              {theme.exemplars.length ? (
+                <ul>
+                  {theme.exemplars.map((exemplar) => (
+                    <li key={exemplar.title} className="profile-exemplar">
+                      {exemplar.source ? sourceIcon(exemplar.source) : null}
+                      {exemplar.title}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </details>
           ))}
         </section>
         <section className="profile-prose">
-          {data.profile_markdown.split(/\n\n+/).map((paragraph, i) => <p key={i}>{paragraph}</p>)}
+          {portrait.map((paragraph, i) => <p key={i}>{paragraph}</p>)}
         </section>
         {run.isError ? <div className="delete-error" role="alert">synthesis failed: {String(run.error)}</div> : null}
       </div>
