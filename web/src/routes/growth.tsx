@@ -382,7 +382,7 @@ function GrowthWorkbench() {
             reset
           </button>
           <label>
-            abstraction
+            smooth
             <input
               type="range"
               min={0}

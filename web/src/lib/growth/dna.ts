@@ -118,6 +118,47 @@ export function mutateDNA(dna: SeedDNA, mutationSeed: number, constraints: Const
   return applyConstraints(mutated, constraints)
 }
 
+export type RDParams = {
+  feed: number
+  kill: number
+  diffA: number
+  diffB: number
+  steps: number
+  ditherScale: number
+}
+
+// Gray-Scott regime anchors — each dominant operator selects a known-stable
+// morphogenesis family. All anchors are cohesive regimes (connected masses):
+// scattering families like waves/solitons read as confetti, not an organism.
+const RD_REGIMES: Record<OperatorName, { feed: number; kill: number; label: string }> = {
+  DEEPEN: { feed: 0.0545, kill: 0.062, label: 'coral' },
+  BUD: { feed: 0.0367, kill: 0.0649, label: 'mitosis' },
+  LACE: { feed: 0.046, kill: 0.063, label: 'worms' },
+  STIPPLE: { feed: 0.029, kill: 0.057, label: 'maze' },
+  BLEED: { feed: 0.026, kill: 0.055, label: 'flow' },
+  MEMBRANE: { feed: 0.039, kill: 0.058, label: 'holes' },
+}
+
+export function dominantOperator(ops: OperatorWeights): OperatorName {
+  return OPERATORS.reduce((best, op) => (ops[op] > ops[best] ? op : best), OPERATORS[0])
+}
+
+export function dnaToRD(dna: SeedDNA): RDParams {
+  const h = hashString(dna.themeId) ^ 0x9e3779b9
+  const regime = RD_REGIMES[dominantOperator(dna.operators)]
+  const jitter = (base: number, salt: number, amount: number) =>
+    base + (seededRand(h, salt) - 0.5) * 2 * amount
+  return {
+    feed: clamp01(jitter(regime.feed, 51, 0.0035)),
+    kill: clamp01(jitter(regime.kill, 52, 0.002)),
+    diffA: 1,
+    // LACE thins the activator trail into finer vein structure.
+    diffB: 0.55 - dna.operators.LACE * 0.18,
+    steps: 4 + Math.round(dna.params.motion * 8),
+    ditherScale: 1 + Math.round(dna.params.granularity * 2),
+  }
+}
+
 // The old locked direction, demoted to one competing preset.
 export const RELIQUARY: SeedDNA = {
   themeId: 'preset-reliquary',

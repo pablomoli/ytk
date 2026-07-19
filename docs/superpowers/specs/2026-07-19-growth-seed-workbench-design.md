@@ -120,6 +120,25 @@ the gallery, competing in the picker like any other seed.
 - Visual verification is the mutation picker itself; headless screenshot pass
   against real profile data before handoff.
 
+## Addendum (2026-07-19, after user review): reaction-diffusion + dither
+
+User feedback on v1: pixelation/haziness killed the organic feel; the authored
+branch topology read as the grove's pattern again. Direction revised:
+
+- Field dynamics are now Gray-Scott reaction-diffusion (simulated
+  morphogenesis, not authored shape). Dominant operator selects a cohesive
+  regime anchor (coral, mitosis, worms, maze, flow, holes); `dnaToRD` maps DNA
+  to feed/kill/diffusion/steps.
+- The state's alpha channel is a growth domain: the reaction starves outside
+  it, and each note's droplet expands it locally — the silhouette itself is
+  the record of growth. Droplets clamp within reach of the organism centroid.
+- Render is palette quantization through a procedural 8x8 Bayer threshold at
+  screen resolution (crisp by construction); simulation upscaling never
+  reaches the screen. The abstraction slider now blends dither → smooth.
+- Simulation runs continuously (steps-per-frame from DNA motion); resolution
+  raised to 768 stage / 256 tiles.
+- Topology remains only as asymmetric placement of initial droplets.
+
 ## Out of scope (later phases)
 
 - Live ingest events perturbing organisms (needs hub persistence).
