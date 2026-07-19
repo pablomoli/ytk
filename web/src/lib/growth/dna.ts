@@ -124,7 +124,6 @@ export type RDParams = {
   diffA: number
   diffB: number
   steps: number
-  ditherScale: number
 }
 
 // Gray-Scott regime anchors — each dominant operator selects a known-stable
@@ -155,7 +154,6 @@ export function dnaToRD(dna: SeedDNA): RDParams {
     // LACE thins the activator trail into finer vein structure.
     diffB: 0.55 - dna.operators.LACE * 0.18,
     steps: 4 + Math.round(dna.params.motion * 8),
-    ditherScale: 1 + Math.round(dna.params.granularity * 2),
   }
 }
 

@@ -17,7 +17,8 @@ import {
 import { classifyEvent, dominantTags, joinEvidence, tagCountsOf, type LibraryItem } from '../lib/growth/events'
 import { paletteFromCovers } from '../lib/growth/palette'
 import { parsePhilosophy } from '../lib/growth/philosophy'
-import { mountWorkbench, type EventInput, type WorkbenchHandle, type WorkbenchStatus } from '../lib/growth/scene'
+import { mountWorkbench, type WorkbenchHandle, type WorkbenchStatus } from '../lib/growth/scene'
+import type { EventInput } from '../lib/growth/scene'
 import './growth.css'
 
 export const Route = createFileRoute('/growth')({ component: GrowthWorkbench })
@@ -90,7 +91,7 @@ function GrowthWorkbench() {
     replayed: 0,
     total: 0,
     phase: 'resting',
-    message: 'assembling organisms',
+    message: 'assembling cultures',
   })
   const [selected, setSelected] = useState<string | null>(null)
   const [palettes, setPalettes] = useState<Record<string, string[]>>({})
@@ -100,6 +101,7 @@ function GrowthWorkbench() {
   const [paused, setPaused] = useState(false)
   const [abstraction, setAbstraction] = useState(0)
   const [debugOpen, setDebugOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
 
   const constraints = useMemo(
     () => (philosophy.data ? parsePhilosophy(philosophy.data.text) : DEFAULT_CONSTRAINTS),
@@ -272,6 +274,8 @@ function GrowthWorkbench() {
 
   return (
     <main className="growth-page">
+      <canvas ref={canvas} className="growth-canvas" aria-label="Concept culture petri dish" />
+
       <HubControls>
         <button className="fchip" onClick={() => setMutationEpoch((e) => e + 1)} disabled={!current}>
           new mutation set
@@ -294,51 +298,45 @@ function GrowthWorkbench() {
         </button>
       </HubControls>
 
-      <nav className="growth-gallery" aria-label="Organism gallery">
+      <nav className="growth-gallery" aria-label="Culture gallery">
         {[...organisms.entries()].map(([id, org]) => (
           <button
             key={id}
-            className={`growth-thumb${selected === id ? ' on' : ''}`}
+            className={`growth-chip${selected === id ? ' on' : ''}`}
             onClick={() => select(id)}
             title={org.dna.name}
           >
             {thumbs[id] ? (
               <img src={thumbs[id]} alt="" />
             ) : (
-              <span className="growth-thumb-swatches">
-                {org.dna.palette.map((c, i) => (
-                  <i key={i} style={{ background: c }} />
-                ))}
-              </span>
+              <span
+                className="growth-chip-swatch"
+                style={{
+                  background: `conic-gradient(${org.dna.palette
+                    .map((c, i) => `${c} ${i * 72}deg ${(i + 1) * 72}deg`)
+                    .join(', ')})`,
+                }}
+              />
             )}
-            <span className="growth-thumb-name">{org.dna.name}</span>
           </button>
         ))}
-        {loading && <span className="growth-loading">loading vault data...</span>}
+        {loading && <span className="growth-loading">loading cultures...</span>}
       </nav>
 
-      <div className="growth-stage-wrap">
-        <canvas ref={canvas} className="growth-canvas" aria-label="Concept growth workbench" />
-        <div className="growth-mutations" aria-label="Mutation picker">
-          {mutations.map((m, i) => (
-            <div key={i} className="growth-mutation-cell">
-              <span>
-                M{String(i + 1).padStart(2, '0')} · d {m.params.density.toFixed(2)} / m {m.params.motion.toFixed(2)}
-              </span>
-              <button className="fchip" onClick={() => adopt(i)}>
-                adopt
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {current && (
-        <aside className="growth-panel" aria-live="polite">
-          <h2>{current.dna.name}</h2>
-          <p className="growth-panel-status">
-            {status.message} · {status.replayed}/{status.total} notes
-          </p>
+        <div className="growth-caption">
+          <strong>{current.dna.name}</strong>
+          <span>
+            {status.replayed}/{status.total} notes · {status.message}
+          </span>
+          <button className="growth-info-toggle" onClick={() => setInfoOpen((v) => !v)}>
+            {infoOpen ? 'less' : 'info'}
+          </button>
+        </div>
+      )}
+
+      {current && infoOpen && (
+        <aside className="growth-panel">
           <div className="growth-swatches">
             {current.dna.palette.map((c, i) => (
               <i key={i} style={{ background: c }} title={c} />
@@ -362,6 +360,22 @@ function GrowthWorkbench() {
             ))}
           </div>
         </aside>
+      )}
+
+      {current && (
+        <div className="growth-variants" aria-label="Variant cultures — click to adopt">
+          <span className="growth-variants-label">variants · click to adopt</span>
+          <div className="growth-variants-row">
+            {mutations.map((m, i) => (
+              <button
+                key={i}
+                className="growth-variant-dish"
+                onClick={() => adopt(i)}
+                title={`M0${i + 1} · density ${m.params.density.toFixed(2)} · motion ${m.params.motion.toFixed(2)}`}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
       {debugOpen && (

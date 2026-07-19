@@ -1,19 +1,21 @@
 export type Region = { x: number; y: number; w: number; h: number }
 
+// The stage is the whole canvas — a lab bench with the main dish composed in
+// shader. The four variant cultures are small square regions bottom-right;
+// growth.css positions matching click targets with the same formula
+// (side = 0.17 * min(w, h), gap 10, margin 12).
 export function workbenchRegions(
   width: number,
   height: number,
 ): { stage: Region; mutations: Region[] } {
-  const gutter = 8
-  const stageW = Math.floor(width * 0.72)
-  const colX = stageW + gutter
-  const colW = width - colX
-  const tileH = Math.floor((height - gutter * 3) / 4)
+  const side = Math.round(Math.min(width, height) * 0.17)
+  const gap = 10
+  const margin = 12
   const mutations = Array.from({ length: 4 }, (_, i) => ({
-    x: colX,
-    y: i * (tileH + gutter),
-    w: colW,
-    h: tileH,
+    x: width - margin - (4 - i) * side - (3 - i) * gap,
+    y: height - margin - side,
+    w: side,
+    h: side,
   }))
-  return { stage: { x: 0, y: 0, w: stageW, h: height }, mutations }
+  return { stage: { x: 0, y: 0, w: width, h: height }, mutations }
 }
