@@ -41,11 +41,11 @@ export function kmeansPalette(pixels: Uint8ClampedArray, k = 5): string[] {
       s[3] ? ([s[0] / s[3], s[1] / s[3], s[2] / s[3]] as [number, number, number]) : centroids[c],
     )
   }
-  const sizes = new Array<number>(k).fill(0)
-  for (const a of assignment) sizes[a]++
+  // Luminance-ascending so palette indices keep their semantic render roles:
+  // [0] deep field, [1] mid tissue, [2] high tissue, [3] vessel, [4] membrane.
   return centroids
-    .map((c, i) => ({ c, size: sizes[i] }))
-    .sort((a, b) => b.size - a.size)
+    .map((c) => ({ c, lum: 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] }))
+    .sort((a, b) => a.lum - b.lum)
     .map(({ c }) => `#${hex(c[0])}${hex(c[1])}${hex(c[2])}`)
 }
 

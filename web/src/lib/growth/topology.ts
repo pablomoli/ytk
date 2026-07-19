@@ -41,7 +41,9 @@ export function generateTopology(
       const side = c % 2 === 0 ? 1 : -1
       const bend = side * curvature * (0.5 + rand(s + 1) * 0.8)
       const childAngle = angle + bend + (rand(s + 2) - 0.5) * 0.7
-      const reach = radius * (1.5 + rand(s + 3) * 1.3)
+      // Short reach keeps child lobes overlapping the parent: one connected
+      // mass with an irregular silhouette, never islands joined by lines.
+      const reach = radius * (0.95 + rand(s + 3) * 0.65)
       const child: TopologyNode = {
         x: clamp(parent.x + Math.cos(childAngle) * reach, 0.08, 0.92),
         y: clamp(parent.y + Math.sin(childAngle) * reach, 0.08, 0.92),

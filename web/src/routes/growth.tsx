@@ -53,7 +53,9 @@ function buildOrganism(
   constraints: Constraints,
   palette: string[] | null,
 ): Organism {
-  const evidence = joinEvidence(theme.evidence_ids ?? [], library)
+  // note_ids is the theme's full grounding; older hubs only send the
+  // 4-exemplar evidence_ids, which still yields a (short) growth stream.
+  const evidence = joinEvidence(theme.note_ids ?? theme.evidence_ids ?? [], library)
   const dominant = dominantTags(evidence)
   const derived = deriveDNA(
     {
@@ -185,24 +187,19 @@ function GrowthWorkbench() {
     [mutationEpoch, constraints],
   )
 
+  const lastLoaded = useRef<{ id: string; events: number; dna: string } | null>(null)
+
   const select = useCallback(
     (id: string) => {
-      const org = organisms.get(id)
-      if (!org || !handle.current) return
-      if (selected && selected !== id) {
+      if (selected === id) return
+      if (selected && handle.current) {
         persistReplay()
         setThumbs((prev) => ({ ...prev, [selected]: handle.current!.snapshot() }))
       }
+      lastLoaded.current = null
       setSelected(id)
-      handle.current.setOrganism({
-        dna: org.dna,
-        events: org.events,
-        replayFrom: loadReplay(id),
-        constraints,
-      })
-      handle.current.setMutations(mutationsFor(org.dna))
     },
-    [organisms, selected, constraints, mutationsFor, persistReplay],
+    [selected, persistReplay],
   )
 
   // Auto-select the heaviest theme once data lands.
@@ -212,6 +209,26 @@ function GrowthWorkbench() {
     select(first)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organisms, profile.data])
+
+  // Re-sync the workbench when the selected organism deepens after late data
+  // (library page, cover palette) lands — the initial select can race them.
+  useEffect(() => {
+    if (!selected || !handle.current) return
+    const org = organisms.get(selected)
+    if (!org) return
+    const fingerprint = { id: selected, events: org.events.length, dna: JSON.stringify(org.dna) }
+    const prev = lastLoaded.current
+    if (prev && prev.id === fingerprint.id && prev.events === fingerprint.events && prev.dna === fingerprint.dna) return
+    lastLoaded.current = fingerprint
+    const resumeFrom = prev?.id === selected ? handle.current.replayPosition() : loadReplay(selected)
+    handle.current.setOrganism({
+      dna: org.dna,
+      events: org.events,
+      replayFrom: Math.min(resumeFrom, org.events.length),
+      constraints,
+    })
+    handle.current.setMutations(mutationsFor(org.dna))
+  }, [organisms, selected, constraints, mutationsFor])
 
   // Refresh the selected thumb as growth settles.
   useEffect(() => {
