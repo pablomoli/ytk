@@ -352,6 +352,46 @@ async def grove_buckets_put(request: Request):
             "hint": "rebuild to apply: uv run --extra dev python -m scripts.grove_lab.dendro --rebuild"}
 
 
+_GROWTH_PHILOSOPHY_PATH = Path.home() / ".ytk" / "growth_philosophy.md"
+
+_GROWTH_PHILOSOPHY_DEFAULT = """---
+glow_max: 0.35
+asymmetry_min: 0.45
+curvature_min: 0.3
+saturation_max: 0.8
+---
+
+# Growth philosophy
+
+Hard constraints live in the frontmatter above and are enforced by the
+workbench. The prose below is for you (and a future LLM steering layer).
+
+- Never reads as a graph: no hub-and-spoke, no straight radial spokes.
+- Organic before geometric; asymmetric before balanced.
+- Color belongs to the content: palettes come from the notes themselves.
+"""
+
+
+@app.get("/api/growth/philosophy")
+async def growth_philosophy_get():
+    if not _GROWTH_PHILOSOPHY_PATH.exists():
+        _GROWTH_PHILOSOPHY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _GROWTH_PHILOSOPHY_PATH.write_text(_GROWTH_PHILOSOPHY_DEFAULT, encoding="utf-8")
+    return {"text": _GROWTH_PHILOSOPHY_PATH.read_text(encoding="utf-8"),
+            "path": str(_GROWTH_PHILOSOPHY_PATH)}
+
+
+@app.put("/api/growth/philosophy")
+async def growth_philosophy_put(request: Request):
+    """Save verbatim — hand-authored markdown, same contract as grove-buckets."""
+    raw = (await request.json()).get("text", "")
+    if not raw.strip():
+        raise HTTPException(status_code=422, detail="empty philosophy")
+    _GROWTH_PHILOSOPHY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _GROWTH_PHILOSOPHY_PATH.write_text(raw, encoding="utf-8")
+    return {"saved": True}
+
+
 @app.get("/api/cover")
 def cover_api(u: str):
     # sync def: first request per item downloads from the source CDN
@@ -825,7 +865,7 @@ def _spa_redirect(path: str = ""):
 
 # The SPA's client-side routes. Serving index.html only for these (rather
 # than a blanket fallback) keeps real 404s for junk paths and traversal noise.
-_SPA_ROUTES = {"", "library", "inbox", "tags", "map", "grove", "profile", "settings"}
+_SPA_ROUTES = {"", "library", "inbox", "tags", "map", "grove", "growth", "profile", "settings"}
 
 
 # Registered last on purpose: FastAPI matches routes in registration order,
