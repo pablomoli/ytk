@@ -49,6 +49,24 @@ test('mutations are deterministic, distinct, and clamped', () => {
   expect(m1.themeId).toBe(dna.themeId)
 })
 
+test('rd params are deterministic, bounded, and regime-distinct', async () => {
+  const { dnaToRD } = await import('./dna')
+  const dna = deriveDNA(theme, DEFAULT_CONSTRAINTS)
+  const rd = dnaToRD(dna)
+  expect(dnaToRD(dna)).toEqual(rd)
+  expect(rd.feed).toBeGreaterThan(0.005)
+  expect(rd.feed).toBeLessThan(0.08)
+  expect(rd.kill).toBeGreaterThan(0.04)
+  expect(rd.kill).toBeLessThan(0.075)
+  expect(rd.steps).toBeGreaterThanOrEqual(4)
+  expect(rd.steps).toBeLessThanOrEqual(14)
+  expect(rd.ditherScale).toBeGreaterThanOrEqual(1)
+  const fit = deriveDNA({ ...theme, id: 'th-fit2', tagCounts: { fitness: 12 } }, DEFAULT_CONSTRAINTS)
+  const rdFit = dnaToRD(fit)
+  // Different dominant operators land in different Gray-Scott regimes.
+  expect(Math.abs(rdFit.feed - rd.feed)).toBeGreaterThan(0.004)
+})
+
 test('reliquary preset is a valid seed', () => {
   expect(RELIQUARY.palette).toHaveLength(5)
   expect(RELIQUARY.name).toMatch(/reliquary/i)

@@ -16,7 +16,7 @@ import {
   WebGLRenderer,
   WebGLRenderTarget,
 } from 'three'
-import { DEFAULT_CONSTRAINTS, type Constraints, type SeedDNA } from './dna'
+import { DEFAULT_CONSTRAINTS, dnaToRD, type Constraints, type SeedDNA } from './dna'
 import { generateTopology, type TopologyNode } from './topology'
 import { workbenchRegions, type Region } from './layout'
 import { growthRenderFragment, growthUpdateFragment, growthVertex } from './shaders'
@@ -58,50 +58,38 @@ type GrowthEvent = {
   counted: boolean
 }
 
-const STAGE_SIZE = 384
-const TILE_SIZE = 192
-const EVENT_SECONDS = 1.4
+const STAGE_SIZE = 768
+const TILE_SIZE = 256
+const EVENT_SECONDS = 0.9
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 const fract = (v: number) => v - Math.floor(v)
 const randomFrom = (seed: number) => fract(Math.sin(seed * 91.733) * 43758.5453123)
 
-function segmentDistance(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
-  const abx = bx - ax
-  const aby = by - ay
-  const apx = px - ax
-  const apy = py - ay
-  const h = clamp((apx * abx + apy * aby) / Math.max(0.00001, abx * abx + aby * aby), 0, 1)
-  return Math.hypot(apx - abx * h, apy - aby * h)
-}
-
+// Reaction-diffusion initial state: substrate A everywhere, droplets of
+// pattern chemical B at the topology's asymmetric node positions. The RD
+// dynamics immediately take over — the topology only biases where the
+// organism starts, not what it looks like.
 function makeSeedTexture(nodes: TopologyNode[], size: number) {
   const data = new Float32Array(size * size * 4)
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const px = (x + 0.5) / size
       const py = (y + 0.5) / size
-      let body = 0
-      let vessel = 0
+      let b = 0
+      let domain = 0
       for (let index = 0; index < nodes.length; index++) {
         const node = nodes[index]
-        const dx = (px - node.x) / (node.radius * (0.86 + randomFrom(index + 2) * 0.32))
-        const dy = (py - node.y) / (node.radius * (0.72 + randomFrom(index + 9) * 0.44))
-        const ripple = Math.sin((px * 31 + py * 19 + index) * 2.1) * 0.035
-        body = Math.max(body, clamp(1.08 - Math.hypot(dx, dy) + ripple, 0, 1))
-        if (node.parent >= 0) {
-          const parent = nodes[node.parent]
-          const distance = segmentDistance(px, py, parent.x, parent.y, node.x, node.y)
-          const bridge = clamp(1 - distance / (node.radius * 1.05), 0, 1)
-          const vein = clamp(1 - distance / Math.max(0.006, node.radius * 0.09), 0, 1)
-          body = Math.max(body, bridge * 0.92)
-          vessel = Math.max(vessel, vein * 0.55)
-        }
+        const d = Math.hypot(px - node.x, py - node.y) / (node.radius * 0.5)
+        b = Math.max(b, Math.exp(-d * d * 2.5))
+        const dd = Math.hypot(px - node.x, py - node.y) / (node.radius * 1.6)
+        const ragged = 0.8 + 0.4 * randomFrom(index * 3.1 + px * 17 + py * 29)
+        domain = Math.max(domain, Math.exp(-dd * dd * 2.0) * ragged)
       }
       const offset = (y * size + x) * 4
-      data[offset] = body
-      data[offset + 1] = vessel
+      data[offset] = 1 - b * 0.5
+      data[offset + 1] = b > 0.05 ? b : 0
       data[offset + 2] = 0
-      data[offset + 3] = 1
+      data[offset + 3] = domain > 0.04 ? domain : 0
     }
   }
   const texture = new DataTexture(data, size, size, RGBAFormat, FloatType)
@@ -170,8 +158,11 @@ export function mountWorkbench(
     uSeed: { value: 1 },
     uActive: { value: 0 },
     uCopy: { value: 1 },
-    uOpsA: { value: new Vector3(0.5, 0.5, 0.5) },
-    uOpsB: { value: new Vector3(0.5, 0.5, 0.5) },
+    uFeed: { value: 0.03 },
+    uKill: { value: 0.06 },
+    uDiffA: { value: 1 },
+    uDiffB: { value: 0.5 },
+    uStipple: { value: 0.3 },
   }
   type THREE_TEX = WebGLRenderTarget['texture']
   const updateMaterial = new ShaderMaterial({
@@ -196,6 +187,7 @@ export function mountWorkbench(
     uOpsB: { value: new Vector3(0.5, 0.5, 0.5) },
     uGlowMax: { value: DEFAULT_CONSTRAINTS.glow_max },
     uAbstraction: { value: 0 },
+    uDitherScale: { value: 2 },
   }
   const displayMaterial = new ShaderMaterial({
     vertexShader: growthVertex,
@@ -225,8 +217,12 @@ export function mountWorkbench(
 
   const setUpdateDNA = (dna: SeedDNA | null) => {
     if (!dna) return
-    updateUniforms.uOpsA.value.copy(opsA(dna))
-    updateUniforms.uOpsB.value.copy(opsB(dna))
+    const rd = dnaToRD(dna)
+    updateUniforms.uFeed.value = rd.feed
+    updateUniforms.uKill.value = rd.kill
+    updateUniforms.uDiffA.value = rd.diffA
+    updateUniforms.uDiffB.value = rd.diffB
+    updateUniforms.uStipple.value = dna.operators.STIPPLE
   }
 
   const setDisplayDNA = (dna: SeedDNA | null) => {
@@ -239,6 +235,7 @@ export function mountWorkbench(
     displayUniforms.uPalette4.value.set(p[4])
     displayUniforms.uOpsA.value.copy(opsA(dna))
     displayUniforms.uOpsB.value.copy(opsB(dna))
+    displayUniforms.uDitherScale.value = dnaToRD(dna).ditherScale * Math.min(devicePixelRatio || 1, 2)
   }
 
   const simulateSlot = (slot: Slot, source: DataTexture | null = null) => {
@@ -261,19 +258,20 @@ export function mountWorkbench(
     updateUniforms.uCopy.value = 0
   }
 
-  // One-pass reconstruction of a settled stroke: at uProgress=1 the capsule
-  // covers the whole path, so a few passes approximate the animated growth.
-  const replayEventOnSlot = (slot: Slot, ev: GrowthEvent) => {
+  // Settled-event reconstruction: inject the droplet, then free-run the
+  // reaction so the pattern absorbs it before the next event lands.
+  const replayEventOnSlot = (slot: Slot, ev: GrowthEvent, settleSteps = 24) => {
     updateUniforms.uFrom.value.copy(ev.from)
     updateUniforms.uTo.value.copy(ev.to)
     updateUniforms.uRadius.value = ev.radius
     updateUniforms.uSeed.value = ev.seed
     updateUniforms.uActive.value = 1
-    for (const progress of [0.45, 0.75, 1]) {
+    for (const progress of [0.6, 1]) {
       updateUniforms.uProgress.value = progress
       simulateSlot(slot)
     }
     updateUniforms.uActive.value = 0
+    for (let i = 0; i < settleSteps; i++) simulateSlot(slot)
   }
 
   const history: GrowthEvent[] = []
@@ -281,7 +279,7 @@ export function mountWorkbench(
   const catchUpTiles = () => {
     for (const tile of tiles) {
       seedSlot(tile)
-      for (const ev of history) replayEventOnSlot(tile, ev)
+      for (const ev of history) replayEventOnSlot(tile, ev, 10)
     }
   }
 
@@ -316,10 +314,19 @@ export function mountWorkbench(
       distance = 0.12 + randomFrom(seed + 11) * 0.08
     }
     const parent = nodes[parentIndex]
-    const to = new Vector2(
-      clamp(parent.x + Math.cos(angle) * distance, 0.08, 0.92),
-      clamp(parent.y + Math.sin(angle) * distance, 0.08, 0.92),
-    )
+    // Keep droplets within the organism's reach: growth stays one specimen,
+    // never a scatter across the whole field.
+    const cx = nodes.reduce((s, n) => s + n.x, 0) / nodes.length
+    const cy = nodes.reduce((s, n) => s + n.y, 0) / nodes.length
+    let tx = parent.x + Math.cos(angle) * distance
+    let ty = parent.y + Math.sin(angle) * distance
+    const spread = Math.hypot(tx - cx, ty - cy)
+    const maxSpread = 0.3
+    if (spread > maxSpread) {
+      tx = cx + ((tx - cx) / spread) * maxSpread
+      ty = cy + ((ty - cy) / spread) * maxSpread
+    }
+    const to = new Vector2(clamp(tx, 0.08, 0.92), clamp(ty, 0.08, 0.92))
     return {
       kind,
       from: new Vector2(parent.x, parent.y),
@@ -389,7 +396,6 @@ export function mountWorkbench(
         updateUniforms.uProgress.value = progress
         updateUniforms.uActive.value = 1
         pulse = Math.sin(progress * Math.PI)
-        for (const slot of slots) simulateSlot(slot)
         emitStatus(current.label)
         if (progress >= 1) {
           nodes.push({
@@ -405,6 +411,14 @@ export function mountWorkbench(
           updateUniforms.uActive.value = 0
           emitStatus(`${done.kind} settled`)
         }
+      }
+      // The reaction runs every frame, event or not — the organism is alive.
+      // Each slot advances by its own DNA's step count; the active droplet
+      // (if any) injects during the same passes.
+      for (const slot of slots) {
+        if (!slot.dna) continue
+        const steps = slot === stage ? dnaToRD(slot.dna).steps : Math.min(6, dnaToRD(slot.dna).steps)
+        for (let i = 0; i < steps; i++) simulateSlot(slot)
       }
     }
     const height = canvas.clientHeight || innerHeight
