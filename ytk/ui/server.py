@@ -298,7 +298,8 @@ async def profile_api():
                      (t.exemplar_sources + [""] * 3)[:3],
                  )
              ],
-             "evidence_ids": t.evidence_ids}
+             "evidence_ids": t.evidence_ids,
+             "note_ids": t.note_ids}
             for t in snap.themes
         ],
     }

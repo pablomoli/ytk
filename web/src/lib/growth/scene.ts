@@ -91,10 +91,10 @@ function makeSeedTexture(nodes: TopologyNode[], size: number) {
         if (node.parent >= 0) {
           const parent = nodes[node.parent]
           const distance = segmentDistance(px, py, parent.x, parent.y, node.x, node.y)
-          const bridge = clamp(1 - distance / (node.radius * 0.52), 0, 1)
+          const bridge = clamp(1 - distance / (node.radius * 1.05), 0, 1)
           const vein = clamp(1 - distance / Math.max(0.006, node.radius * 0.09), 0, 1)
-          body = Math.max(body, bridge * 0.82)
-          vessel = Math.max(vessel, vein)
+          body = Math.max(body, bridge * 0.92)
+          vessel = Math.max(vessel, vein * 0.55)
         }
       }
       const offset = (y * size + x) * 4

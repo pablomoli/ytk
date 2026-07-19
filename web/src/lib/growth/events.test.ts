@@ -30,6 +30,16 @@ test('unmatched evidence ids are dropped', () => {
   expect(joinEvidence(['note_sources_youtube_missing'], items)).toEqual([])
 })
 
+test('bare video ids match through the note url', () => {
+  const yt: LibraryItem = {
+    ...item('some-title-slug', ['ai'], '2026-04-01'),
+    url: 'https://www.youtube.com/watch?v=r3bkGPobpTw',
+  }
+  expect(joinEvidence(['r3bkGPobpTw'], [yt, ...items]).map((i) => i.stem)).toEqual([
+    'some-title-slug',
+  ])
+})
+
 test('dominant tags rank by frequency', () => {
   expect(dominantTags(items, 2)[0]).toBe('cool-vis')
 })

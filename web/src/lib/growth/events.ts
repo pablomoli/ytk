@@ -10,12 +10,13 @@ export type LibraryItem = {
 }
 
 export function joinEvidence(evidenceIds: string[], items: LibraryItem[]): LibraryItem[] {
-  // Chroma ids come in two schemes (ingest pipeline and vault reindexer); both
-  // end with the note's file stem, and stems are globally unique in the vault.
+  // Evidence ids come in three schemes: note ids from the ingest pipeline and
+  // the vault reindexer (both end with the note's globally-unique file stem),
+  // and bare YouTube video ids, which only appear inside the note's url.
   const matched = new Map<string, LibraryItem>()
   for (const id of evidenceIds) {
     for (const it of items) {
-      if (id.endsWith(it.stem)) {
+      if (id.endsWith(it.stem) || (id.length >= 8 && it.url?.includes(id))) {
         matched.set(it.stem, it)
         break
       }

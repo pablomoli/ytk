@@ -15,6 +15,7 @@ export type ProfileTheme = {
   fresh_notes?: number
   exemplars: ProfileExemplar[]
   evidence_ids?: string[]
+  note_ids?: string[]
 }
 
 export type ProfileClaim = {

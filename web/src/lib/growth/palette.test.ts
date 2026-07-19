@@ -5,7 +5,7 @@ function block(r: number, g: number, b: number, n: number): number[] {
   return Array.from({ length: n }, () => [r, g, b, 255]).flat()
 }
 
-test('recovers dominant colors from synthetic pixels', () => {
+test('recovers dominant colors, luminance-ascending for render roles', () => {
   const pixels = new Uint8ClampedArray([
     ...block(200, 40, 30, 600),
     ...block(20, 30, 40, 300),
@@ -13,9 +13,12 @@ test('recovers dominant colors from synthetic pixels', () => {
   ])
   const palette = kmeansPalette(pixels, 3)
   expect(palette).toHaveLength(3)
-  expect(palette[0]).toMatch(/^#[0-9a-f]{6}$/)
-  const red = parseInt(palette[0].slice(1, 3), 16)
-  expect(red).toBeGreaterThan(150)
+  for (const c of palette) expect(c).toMatch(/^#[0-9a-f]{6}$/)
+  // Darkest cluster first (deep field), brightest last (membrane).
+  const lum = (c: string) =>
+    0.2126 * parseInt(c.slice(1, 3), 16) + 0.7152 * parseInt(c.slice(3, 5), 16) + 0.0722 * parseInt(c.slice(5, 7), 16)
+  expect(lum(palette[0])).toBeLessThan(lum(palette[1]))
+  expect(lum(palette[1])).toBeLessThan(lum(palette[2]))
 })
 
 test('deterministic across calls', () => {
