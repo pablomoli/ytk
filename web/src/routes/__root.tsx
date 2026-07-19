@@ -33,6 +33,9 @@ function RootLayout() {
           <Link to="/grove" activeProps={{ className: "active" }}>
             grove
           </Link>
+          <Link to="/growth" activeProps={{ className: "active" }}>
+            growth
+          </Link>
           <Link to="/profile" activeProps={{ className: "active" }}>
             profile
           </Link>
