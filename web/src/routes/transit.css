@@ -1,0 +1,325 @@
+.transit-page {
+  min-height: calc(100vh - 46px);
+  overflow: hidden;
+  background: radial-gradient(circle at 52% 42%, rgba(58, 63, 75, 0.18), transparent 38%), #09090b;
+  color: var(--ink);
+}
+
+.transit-intro {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 3.1rem 2.8rem 1.25rem;
+}
+
+.transit-kicker,
+.transit-detail-type,
+.transit-evidence > span,
+.transit-why > span,
+.transit-map-hint,
+.station-type {
+  color: var(--accent);
+  font-size: 0.69rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.transit-intro h1 {
+  margin: 0.3rem 0 0.2rem;
+  color: var(--ink);
+  font-size: clamp(2.7rem, 5vw, 5.4rem);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+
+.transit-intro > p:last-child {
+  max-width: 36rem;
+  color: var(--ink2);
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.transit-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20.5rem;
+  gap: 1.3rem;
+  max-width: 86rem;
+  margin: 0 auto;
+  padding: 0 2.8rem 3rem;
+}
+
+.transit-map-wrap {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 1rem;
+  background: rgba(12, 12, 15, 0.82);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+}
+
+.transit-map {
+  display: block;
+  width: 100%;
+  min-height: 33rem;
+}
+
+.transit-legend {
+  position: absolute;
+  z-index: 2;
+  top: 1rem;
+  left: 1.1rem;
+  display: flex;
+  gap: 1rem;
+  color: var(--ink2);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.transit-legend span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.transit-legend i,
+.transit-detail-route > i {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.route-bed,
+.route-glow,
+.route-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.route-bed {
+  stroke: #020204;
+  stroke-width: 22;
+}
+.route-glow {
+  stroke-width: 23;
+  filter: url(#soft-glow);
+}
+.route-line {
+  stroke-width: 10;
+}
+
+.transit-route,
+.transit-station {
+  transition: opacity 0.3s var(--ease);
+}
+
+.transit-route.muted,
+.transit-station.muted {
+  opacity: 0.1;
+}
+
+.transit-station {
+  cursor: pointer;
+  outline: none;
+}
+
+.station-hit {
+  fill: transparent;
+}
+
+.station-ring,
+.station-core {
+  transition:
+    r 0.18s var(--ease),
+    filter 0.18s var(--ease),
+    stroke-width 0.18s var(--ease);
+}
+
+.transit-station:hover .station-ring,
+.transit-station:focus-visible .station-ring,
+.transit-station.selected .station-ring {
+  filter: drop-shadow(0 0 8px rgba(240, 238, 231, 0.65));
+}
+
+.station-label {
+  fill: #d6d3ca;
+  font-family: var(--serif);
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  paint-order: stroke;
+  stroke: #09090b;
+  stroke-width: 5px;
+  stroke-linejoin: round;
+  transition: fill 0.18s var(--ease);
+}
+
+.station-type {
+  fill: #706f6a;
+  font-family: var(--data);
+  font-size: 8px;
+  paint-order: stroke;
+  stroke: #09090b;
+  stroke-width: 4px;
+}
+
+.transit-station:hover .station-label,
+.transit-station.selected .station-label {
+  fill: #fff;
+}
+
+.interchange-halo {
+  fill: rgba(240, 238, 231, 0.04);
+  stroke: rgba(240, 238, 231, 0.13);
+  stroke-width: 1;
+  animation: interchange-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes interchange-pulse {
+  50% {
+    r: 34;
+    opacity: 0.4;
+  }
+}
+
+.transit-map-hint {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.85rem;
+  color: #66645f;
+}
+
+.transit-detail {
+  align-self: stretch;
+  min-height: 30rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 1rem;
+  background: linear-gradient(145deg, rgba(29, 29, 33, 0.96), rgba(18, 18, 21, 0.96));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.25);
+  animation: detail-in 0.28s var(--ease);
+}
+
+@keyframes detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.transit-detail-route {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink2);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.double-dot {
+  display: flex;
+}
+
+.double-dot i {
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 2px solid #1b1b1e;
+  border-radius: 50%;
+}
+
+.double-dot i + i {
+  margin-left: -0.24rem;
+}
+
+.transit-detail-type {
+  margin: 2.6rem 0 0.35rem;
+}
+
+.transit-detail h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 2.1rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.transit-detail-copy {
+  margin-top: 0.9rem;
+  color: var(--ink2);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.transit-evidence,
+.transit-why {
+  margin-top: 1.6rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.transit-evidence p,
+.transit-why p {
+  margin-top: 0.45rem;
+  color: #aaa89f;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.transit-why button,
+.transit-open {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(226, 176, 74, 0.25);
+  border-radius: 0.5rem;
+  background: rgba(226, 176, 74, 0.07);
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.transit-why button span,
+.transit-open span {
+  float: right;
+}
+
+.transit-open {
+  margin-top: 2rem;
+}
+
+@media (max-width: 960px) {
+  .transit-layout {
+    grid-template-columns: 1fr;
+  }
+  .transit-detail {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .transit-intro {
+    padding: 2.4rem 1rem 1rem;
+  }
+  .transit-layout {
+    padding: 0 1rem 2rem;
+  }
+  .transit-map {
+    width: 58rem;
+    min-height: 31rem;
+  }
+  .transit-map-wrap {
+    overflow-x: auto;
+  }
+  .transit-map-hint {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interchange-halo {
+    animation: none;
+  }
+}

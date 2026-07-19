@@ -9,15 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TransitRouteImport } from './routes/transit'
 import { Route as TagsRouteImport } from './routes/tags'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as GrowthRouteImport } from './routes/growth'
 import { Route as GroveRouteImport } from './routes/grove'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TransitRoute = TransitRouteImport.update({
+  id: '/transit',
+  path: '/transit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TagsRoute = TagsRouteImport.update({
   id: '/tags',
   path: '/tags',
@@ -48,6 +55,11 @@ const InboxRoute = InboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GrowthRoute = GrowthRouteImport.update({
+  id: '/growth',
+  path: '/growth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GroveRoute = GroveRouteImport.update({
   id: '/grove',
   path: '/grove',
@@ -62,80 +74,101 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/grove': typeof GroveRoute
+  '/growth': typeof GrowthRoute
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
   '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
+  '/transit': typeof TransitRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/grove': typeof GroveRoute
+  '/growth': typeof GrowthRoute
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
   '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
+  '/transit': typeof TransitRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/grove': typeof GroveRoute
+  '/growth': typeof GrowthRoute
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
   '/profile': typeof ProfileRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
+  '/transit': typeof TransitRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/grove'
+    | '/growth'
     | '/inbox'
     | '/library'
     | '/map'
     | '/profile'
     | '/settings'
     | '/tags'
+    | '/transit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/grove'
+    | '/growth'
     | '/inbox'
     | '/library'
     | '/map'
     | '/profile'
     | '/settings'
     | '/tags'
+    | '/transit'
   id:
     | '__root__'
     | '/'
     | '/grove'
+    | '/growth'
     | '/inbox'
     | '/library'
     | '/map'
     | '/profile'
     | '/settings'
     | '/tags'
+    | '/transit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GroveRoute: typeof GroveRoute
+  GrowthRoute: typeof GrowthRoute
   InboxRoute: typeof InboxRoute
   LibraryRoute: typeof LibraryRoute
   MapRoute: typeof MapRoute
   ProfileRoute: typeof ProfileRoute
   SettingsRoute: typeof SettingsRoute
   TagsRoute: typeof TagsRoute
+  TransitRoute: typeof TransitRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/transit': {
+      id: '/transit'
+      path: '/transit'
+      fullPath: '/transit'
+      preLoaderRoute: typeof TransitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tags': {
       id: '/tags'
       path: '/tags'
@@ -178,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/growth': {
+      id: '/growth'
+      path: '/growth'
+      fullPath: '/growth'
+      preLoaderRoute: typeof GrowthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/grove': {
       id: '/grove'
       path: '/grove'
@@ -198,12 +238,14 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GroveRoute: GroveRoute,
+  GrowthRoute: GrowthRoute,
   InboxRoute: InboxRoute,
   LibraryRoute: LibraryRoute,
   MapRoute: MapRoute,
   ProfileRoute: ProfileRoute,
   SettingsRoute: SettingsRoute,
   TagsRoute: TagsRoute,
+  TransitRoute: TransitRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
