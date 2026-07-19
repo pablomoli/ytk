@@ -200,9 +200,12 @@ void main() {
   vec3 field = uPalette0 * 0.35;
   vec3 color = field;
   color += uPalette0 * 0.25 * (1.0 - length(vUv - 0.5));
-  vec3 tissueShadow = mix(uPalette0, uPalette1, 0.35);
-  color = mix(color, mix(tissueShadow, uPalette1, inner * 0.84), mask * 0.86);
-  color = mix(color, uPalette2, inner * smoothstep(0.6, 0.95, body) * 0.55);
+  vec3 tissueShadow = mix(uPalette0, uPalette1, 0.55);
+  // Tissue climbs the palette with maturity: shadow at the rim, mid tissue
+  // through the body, high tissue where growth has fully settled.
+  vec3 tissueRamp = mix(uPalette1, uPalette2, smoothstep(0.35, 0.85, body));
+  color = mix(color, mix(tissueShadow, tissueRamp, 0.35 + inner * 0.65), mask * 0.9);
+  color = mix(color, uPalette2, inner * 0.35);
   color = mix(color, uPalette1 * 0.68, cellWall * (0.38 + 0.35 * inner));
   color = mix(color, tissueShadow * 0.45, cellWall * 0.33 * (1.0 - vessel));
   // Vessels and glow are clamped by the philosophy's glow ceiling.
