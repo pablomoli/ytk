@@ -1,111 +1,386 @@
-import { useEffect, useRef, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { HubControls } from "../components/HubControls";
-import type { GrowthHandle, GrowthStatus } from "../lib/growth/scene";
-import "./growth.css";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { useLibrary } from '../api/library'
+import { useProfile, type ProfileTheme } from '../api/profile'
+import { useGrowthPhilosophy } from '../api/growth'
+import { HubControls } from '../components/HubControls'
+import {
+  DEFAULT_CONSTRAINTS,
+  OPERATORS,
+  RELIQUARY,
+  deriveDNA,
+  hashString,
+  mutateDNA,
+  type Constraints,
+  type SeedDNA,
+} from '../lib/growth/dna'
+import { classifyEvent, dominantTags, joinEvidence, tagCountsOf, type LibraryItem } from '../lib/growth/events'
+import { paletteFromCovers } from '../lib/growth/palette'
+import { parsePhilosophy } from '../lib/growth/philosophy'
+import { mountWorkbench, type EventInput, type WorkbenchHandle, type WorkbenchStatus } from '../lib/growth/scene'
+import './growth.css'
 
-export const Route = createFileRoute("/growth")({ component: GrowthDemo });
+export const Route = createFileRoute('/growth')({ component: GrowthWorkbench })
 
-const INITIAL_STATUS: GrowthStatus = {
-  count: 0,
-  phase: "resting",
-  message: "preparing organism",
-  progress: 0,
-};
+type Organism = {
+  dna: SeedDNA
+  events: EventInput[]
+  evidence: LibraryItem[]
+  dominant: string[]
+}
 
-function GrowthDemo() {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const handle = useRef<GrowthHandle>(null);
-  const [status, setStatus] = useState(INITIAL_STATUS);
-  const [paused, setPaused] = useState(false);
+const adoptedKey = (id: string) => `growth:adopted:${id}`
+const replayKey = (id: string) => `growth:replay:${id}`
+
+function loadAdopted(id: string): SeedDNA | null {
+  try {
+    const raw = localStorage.getItem(adoptedKey(id))
+    return raw ? (JSON.parse(raw) as SeedDNA) : null
+  } catch {
+    return null
+  }
+}
+
+function loadReplay(id: string): number {
+  const raw = localStorage.getItem(replayKey(id))
+  const n = raw ? Number(raw) : 0
+  return Number.isFinite(n) ? n : 0
+}
+
+function buildOrganism(
+  theme: ProfileTheme,
+  library: LibraryItem[],
+  constraints: Constraints,
+  palette: string[] | null,
+): Organism {
+  const evidence = joinEvidence(theme.evidence_ids ?? [], library)
+  const dominant = dominantTags(evidence)
+  const derived = deriveDNA(
+    {
+      id: theme.id,
+      label: theme.label,
+      weight: theme.weight,
+      n_notes: theme.n_notes,
+      fresh_notes: theme.fresh_notes ?? 0,
+      tagCounts: tagCountsOf(evidence),
+      palette: palette ?? undefined,
+    },
+    constraints,
+  )
+  const dna = loadAdopted(theme.id) ?? derived
+  const events = evidence.map((e) => ({
+    stem: e.stem,
+    title: e.title,
+    kind: classifyEvent(e.tags, dominant),
+  }))
+  return { dna, events, evidence, dominant }
+}
+
+function GrowthWorkbench() {
+  const profile = useProfile()
+  const library = useLibrary(0, undefined, undefined, 900)
+  const philosophy = useGrowthPhilosophy()
+
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const handle = useRef<WorkbenchHandle>(null)
+  const [status, setStatus] = useState<WorkbenchStatus>({
+    themeId: null,
+    replayed: 0,
+    total: 0,
+    phase: 'resting',
+    message: 'assembling organisms',
+  })
+  const [selected, setSelected] = useState<string | null>(null)
+  const [palettes, setPalettes] = useState<Record<string, string[]>>({})
+  const [thumbs, setThumbs] = useState<Record<string, string>>({})
+  const [mutationEpoch, setMutationEpoch] = useState(0)
+  const [adoptedTick, setAdoptedTick] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const [abstraction, setAbstraction] = useState(0)
+  const [debugOpen, setDebugOpen] = useState(false)
+
+  const constraints = useMemo(
+    () => (philosophy.data ? parsePhilosophy(philosophy.data.text) : DEFAULT_CONSTRAINTS),
+    [philosophy.data],
+  )
+
+  const libraryItems: LibraryItem[] = useMemo(
+    () =>
+      (library.data?.items ?? []).map((n) => ({
+        stem: n.stem,
+        title: n.title,
+        url: n.url ?? null,
+        tags: n.tags,
+        date: n.date ?? null,
+        added: n.added,
+        thumbnail: n.thumbnail ?? null,
+        source: n.source,
+      })),
+    [library.data],
+  )
+
+  const organisms: Map<string, Organism> = useMemo(() => {
+    const out = new Map<string, Organism>()
+    if (!profile.data) return out
+    for (const theme of profile.data.themes) {
+      out.set(theme.id, buildOrganism(theme, libraryItems, constraints, palettes[theme.id] ?? null))
+    }
+    out.set(RELIQUARY.themeId, {
+      dna: loadAdopted(RELIQUARY.themeId) ?? RELIQUARY,
+      events: [],
+      evidence: [],
+      dominant: [],
+    })
+    return out
+    // adoptedTick invalidates the memo after an adopt writes localStorage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.data, libraryItems, constraints, palettes, adoptedTick])
+
+  // Extract each theme's palette from its most recent covers, once per theme.
+  useEffect(() => {
+    let alive = true
+    const run = async () => {
+      for (const [id, org] of organisms) {
+        if (palettes[id] || id === RELIQUARY.themeId) continue
+        const urls = org.evidence
+          .filter((e) => e.url)
+          .slice(-3)
+          .map((e) => `/api/cover?u=${encodeURIComponent(e.url as string)}`)
+        if (!urls.length) continue
+        const palette = await paletteFromCovers(urls)
+        if (alive && palette) setPalettes((prev) => ({ ...prev, [id]: palette }))
+      }
+    }
+    void run()
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organisms])
 
   useEffect(() => {
-    let alive = true;
-    void import("../lib/growth/scene").then(({ mountGrowth }) => {
-      if (!alive || !canvas.current) return;
-      handle.current = mountGrowth(canvas.current, (next) => setStatus(next));
-    });
+    if (!canvas.current) return
+    handle.current = mountWorkbench(canvas.current, setStatus)
     return () => {
-      alive = false;
-      handle.current?.destroy();
-      handle.current = null;
-    };
-  }, []);
+      handle.current?.destroy()
+      handle.current = null
+    }
+  }, [])
 
-  const togglePause = () => {
-    const next = !paused;
-    setPaused(next);
-    handle.current?.setPaused(next);
-  };
+  const persistReplay = useCallback(() => {
+    if (!handle.current || !selected) return
+    localStorage.setItem(replayKey(selected), String(handle.current.replayPosition()))
+  }, [selected])
+
+  useEffect(() => {
+    const interval = setInterval(persistReplay, 5000)
+    return () => {
+      clearInterval(interval)
+      persistReplay()
+    }
+  }, [persistReplay])
+
+  const mutationsFor = useCallback(
+    (dna: SeedDNA) => [1, 2, 3, 4].map((s) => mutateDNA(dna, s + mutationEpoch * 4, constraints)),
+    [mutationEpoch, constraints],
+  )
+
+  const select = useCallback(
+    (id: string) => {
+      const org = organisms.get(id)
+      if (!org || !handle.current) return
+      if (selected && selected !== id) {
+        persistReplay()
+        setThumbs((prev) => ({ ...prev, [selected]: handle.current!.snapshot() }))
+      }
+      setSelected(id)
+      handle.current.setOrganism({
+        dna: org.dna,
+        events: org.events,
+        replayFrom: loadReplay(id),
+        constraints,
+      })
+      handle.current.setMutations(mutationsFor(org.dna))
+    },
+    [organisms, selected, constraints, mutationsFor, persistReplay],
+  )
+
+  // Auto-select the heaviest theme once data lands.
+  useEffect(() => {
+    if (selected || !profile.data || !organisms.size || !handle.current) return
+    const first = profile.data.themes[0]?.id ?? RELIQUARY.themeId
+    select(first)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organisms, profile.data])
+
+  // Refresh the selected thumb as growth settles.
+  useEffect(() => {
+    if (!selected || !handle.current) return
+    if (status.phase === 'resting' && status.replayed > 0 && status.replayed % 10 === 0) {
+      setThumbs((prev) => ({ ...prev, [selected]: handle.current!.snapshot() }))
+    }
+  }, [status.replayed, status.phase, selected])
+
+  const current = selected ? organisms.get(selected) : null
+  const mutations = current ? mutationsFor(current.dna) : []
+
+  const adopt = (i: number) => {
+    if (!current || !selected || !handle.current) return
+    const dna = mutations[i]
+    localStorage.setItem(adoptedKey(selected), JSON.stringify(dna))
+    setAdoptedTick((t) => t + 1)
+    handle.current.setOrganism({
+      dna,
+      events: current.events,
+      replayFrom: handle.current.replayPosition(),
+      constraints,
+    })
+    handle.current.setMutations(mutationsFor(dna))
+  }
+
+  const randomSeed = () => {
+    if (!current || !selected || !handle.current) return
+    const dna = mutateDNA(current.dna, 1000 + ((hashString(selected) ^ mutationEpoch) % 8971), constraints)
+    handle.current.setOrganism({
+      dna,
+      events: current.events,
+      replayFrom: handle.current.replayPosition(),
+      constraints,
+    })
+    handle.current.setMutations(mutationsFor(dna))
+    setMutationEpoch((e) => e + 1)
+  }
+
+  const loading = profile.isLoading || library.isLoading || philosophy.isLoading
 
   return (
     <main className="growth-page">
       <HubControls>
-        <button className="fchip" onClick={() => handle.current?.add("related")}>
-          + related note
+        <button className="fchip" onClick={() => setMutationEpoch((e) => e + 1)} disabled={!current}>
+          new mutation set
         </button>
-        <button className="fchip" onClick={() => handle.current?.add("novel")}>
-          + novel note
-        </button>
-        <button className={`fchip${paused ? " on" : ""}`} onClick={togglePause}>
-          {paused ? "resume" : "pause"}
+        <button className="fchip" onClick={randomSeed} disabled={!current}>
+          random dna seed
         </button>
         <button
-          className="fchip"
+          className={`fchip${paused ? ' on' : ''}`}
           onClick={() => {
-            setPaused(false);
-            handle.current?.reset();
+            const next = !paused
+            setPaused(next)
+            handle.current?.setPaused(next)
           }}
         >
-          reset
+          {paused ? 'resume' : 'pause'}
         </button>
-        <span className="count">{status.count} new events</span>
+        <button className={`fchip${debugOpen ? ' on' : ''}`} onClick={() => setDebugOpen((d) => !d)}>
+          debug
+        </button>
       </HubControls>
 
-      <canvas
-        ref={canvas}
-        className="growth-canvas"
-        aria-label="Procedural concept-growth organism"
-      />
+      <nav className="growth-gallery" aria-label="Organism gallery">
+        {[...organisms.entries()].map(([id, org]) => (
+          <button
+            key={id}
+            className={`growth-thumb${selected === id ? ' on' : ''}`}
+            onClick={() => select(id)}
+            title={org.dna.name}
+          >
+            {thumbs[id] ? (
+              <img src={thumbs[id]} alt="" />
+            ) : (
+              <span className="growth-thumb-swatches">
+                {org.dna.palette.map((c, i) => (
+                  <i key={i} style={{ background: c }} />
+                ))}
+              </span>
+            )}
+            <span className="growth-thumb-name">{org.dna.name}</span>
+          </button>
+        ))}
+        {loading && <span className="growth-loading">loading vault data...</span>}
+      </nav>
 
-      <section className="growth-title">
-        <p>concept-growth study · shared shader / persistent state</p>
-        <h1>ytk</h1>
-      </section>
-
-      <aside className="growth-status" aria-live="polite">
-        <div className="growth-status-row">
-          <i className={`growth-live ${status.phase}`} />
-          <span>{status.phase}</span>
-          <time>state {String(status.count).padStart(3, "0")}</time>
+      <div className="growth-stage-wrap">
+        <canvas ref={canvas} className="growth-canvas" aria-label="Concept growth workbench" />
+        <div className="growth-mutations" aria-label="Mutation picker">
+          {mutations.map((m, i) => (
+            <div key={i} className="growth-mutation-cell">
+              <span>
+                M{String(i + 1).padStart(2, '0')} · d {m.params.density.toFixed(2)} / m {m.params.motion.toFixed(2)}
+              </span>
+              <button className="fchip" onClick={() => adopt(i)}>
+                adopt
+              </button>
+            </div>
+          ))}
         </div>
-        <p>{status.message}</p>
-        <div className="growth-progress">
-          <i style={{ transform: `scaleX(${status.phase === "growing" ? status.progress : 1})` }} />
-        </div>
-        <dl>
-          <div>
-            <dt>renderer</dt>
-            <dd>three.js / webgl</dd>
-          </div>
-          <div>
-            <dt>identity</dt>
-            <dd>seed 18421</dd>
-          </div>
-          <div>
-            <dt>memory</dt>
-            <dd>rgba state texture</dd>
-          </div>
-          <div>
-            <dt>update</dt>
-            <dd>localized growth event</dd>
-          </div>
-        </dl>
-      </aside>
+      </div>
 
-      <p className="growth-instruction">
-        add a related note to deepen the body · add a novel note to push the perimeter
-      </p>
+      {current && (
+        <aside className="growth-panel" aria-live="polite">
+          <h2>{current.dna.name}</h2>
+          <p className="growth-panel-status">
+            {status.message} · {status.replayed}/{status.total} notes
+          </p>
+          <div className="growth-swatches">
+            {current.dna.palette.map((c, i) => (
+              <i key={i} style={{ background: c }} title={c} />
+            ))}
+          </div>
+          <div className="growth-ops">
+            {OPERATORS.map((op) => (
+              <div key={op} className="growth-op">
+                <span>{op.toLowerCase()}</span>
+                <div className="growth-op-bar">
+                  <i style={{ transform: `scaleX(${current.dna.operators[op]})` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="growth-tags">
+            {current.dominant.slice(0, 8).map((t) => (
+              <span key={t} className="growth-tag">
+                {t}
+              </span>
+            ))}
+          </div>
+        </aside>
+      )}
+
+      {debugOpen && (
+        <aside className="growth-debug">
+          <button className="fchip" onClick={() => handle.current?.injectDebug('related')}>
+            + related
+          </button>
+          <button className="fchip" onClick={() => handle.current?.injectDebug('novel')}>
+            + novel
+          </button>
+          <button
+            className="fchip"
+            onClick={() => {
+              if (selected) localStorage.removeItem(replayKey(selected))
+              handle.current?.reset()
+            }}
+          >
+            reset
+          </button>
+          <label>
+            abstraction
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={abstraction}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                setAbstraction(v)
+                handle.current?.setAbstraction(v)
+              }}
+            />
+          </label>
+        </aside>
+      )}
     </main>
-  );
+  )
 }
