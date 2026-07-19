@@ -89,8 +89,10 @@ void main() {
     settled = min(settled, 1.0 - bodyInjection * 0.85);
 
     // Only the touched neighborhood relaxes; BLEED sets how far color and
-    // tissue diffuse. Distant tissue stays bit-stable.
-    float bleed = 0.015 + 0.06 * uOpsB.y;
+    // tissue diffuse. Distant tissue stays bit-stable. The rate must stay
+    // small: it runs every simulation frame for the whole event, so values
+    // above ~0.03 melt the interior over a long replay.
+    float bleed = 0.006 + 0.018 * uOpsB.y;
     body += (average.r - body) * bleed * local;
     vessel += (average.g - vessel) * (bleed * 0.4) * local;
   }
