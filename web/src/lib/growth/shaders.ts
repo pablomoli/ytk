@@ -72,9 +72,12 @@ void main() {
     // DEEPEN widens the connective path, BUD inflates the terminal lobe.
     float pathWidth = mix(uRadius * 0.24, uRadius * 0.48, eased) * (0.6 + 0.8 * uOpsA.x);
     float lobeScale = organicRadius * (0.7 + 0.6 * uOpsA.y);
+    // Operators shape stroke geometry (path width, lobe size) but never cap
+    // deposit amplitude — a settled stroke must clear the tissue thresholds
+    // regardless of the theme's operator mix.
     float bodyInjection = max(
-      smoothstep(pathWidth, pathWidth * 0.2, capsule) * (0.5 + 0.5 * uOpsA.x),
-      smoothstep(lobeScale, lobeScale * 0.14, lobe) * (0.5 + 0.5 * uOpsA.y)
+      smoothstep(pathWidth, pathWidth * 0.2, capsule),
+      smoothstep(lobeScale, lobeScale * 0.14, lobe)
     );
     // LACE gates how much vasculature an event lays down.
     float veinInjection = max(
