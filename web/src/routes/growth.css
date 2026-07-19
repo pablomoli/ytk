@@ -1,71 +1,67 @@
 .growth-page {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
+  position: fixed;
+  inset: 0;
   overflow: hidden;
   background: #050607;
   color: #cfd4dd;
   font-family: var(--data, ui-monospace, Menlo, monospace);
-  display: flex;
-  flex-direction: column;
 }
 
-.growth-gallery {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-  padding: 52px 12px 8px;
-  overflow-x: auto;
-  flex: 0 0 auto;
-  scrollbar-width: thin;
-}
-
-.growth-thumb {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  background: #0b0d11;
-  border: 1px solid #1b202a;
-  border-radius: 6px;
-  padding: 6px;
-  cursor: pointer;
-  color: inherit;
-  min-width: 96px;
-}
-
-.growth-thumb.on {
-  border-color: #5a6478;
-  background: #10141b;
-}
-
-.growth-thumb img {
-  width: 84px;
-  height: 63px;
-  object-fit: cover;
-  border-radius: 4px;
+/* The art is the page: one full-bleed canvas, everything else floats over it. */
+.growth-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display: block;
 }
 
-.growth-thumb-swatches {
+.growth-gallery {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  width: 84px;
-  height: 63px;
-  border-radius: 4px;
-  overflow: hidden;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(6, 8, 11, 0.66);
+  backdrop-filter: blur(8px);
+  max-width: calc(100vw - 32px);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.growth-thumb-swatches i {
-  flex: 1;
+.growth-chip {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #232a37;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  background: none;
+  flex: 0 0 auto;
+  opacity: 0.75;
+  transition: opacity 120ms, border-color 120ms;
 }
 
-.growth-thumb-name {
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  max-width: 96px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.growth-chip:hover {
+  opacity: 1;
+}
+
+.growth-chip.on {
+  border-color: #9aa3b5;
+  opacity: 1;
+}
+
+.growth-chip img,
+.growth-chip-swatch {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .growth-loading {
@@ -73,71 +69,56 @@
   font-size: 11px;
   opacity: 0.6;
   padding: 0 8px;
+  white-space: nowrap;
 }
 
-.growth-stage-wrap {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.growth-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-/* Overlay column aligned with the engine's 72% / four-tile split. */
-.growth-mutations {
+.growth-caption {
   position: absolute;
-  top: 0;
-  right: 0;
-  width: calc(28% - 8px);
-  height: 100%;
+  left: 20px;
+  bottom: 18px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  pointer-events: none;
+  gap: 3px;
+  max-width: 340px;
+  font-size: 11px;
+  text-shadow: 0 1px 3px #000;
 }
 
-.growth-mutation-cell {
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 6px 8px;
-  font-size: 10px;
+.growth-caption strong {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.growth-caption span {
+  opacity: 0.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.growth-info-toggle {
+  align-self: flex-start;
+  margin-top: 4px;
+  background: none;
+  border: 1px solid #232a37;
+  border-radius: 999px;
   color: #9aa3b5;
-  text-shadow: 0 1px 2px #000;
-}
-
-.growth-mutation-cell .fchip {
-  pointer-events: auto;
+  font-size: 10px;
+  padding: 2px 10px;
+  cursor: pointer;
 }
 
 .growth-panel {
   position: absolute;
-  left: 16px;
-  bottom: 16px;
-  width: 260px;
+  left: 20px;
+  bottom: 96px;
+  width: 240px;
   background: rgba(8, 10, 14, 0.82);
   border: 1px solid #1b202a;
   border-radius: 8px;
   padding: 12px 14px;
   backdrop-filter: blur(6px);
-}
-
-.growth-panel h2 {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  margin: 0 0 4px;
-}
-
-.growth-panel-status {
-  font-size: 10px;
-  opacity: 0.7;
-  margin: 0 0 8px;
 }
 
 .growth-swatches {
@@ -197,10 +178,52 @@
   color: #9aa3b5;
 }
 
+/* Variant cultures: transparent circular click targets positioned over the
+   four mini dishes the engine draws bottom-right. The geometry mirrors
+   layout.ts exactly: side = 0.17 * min(vw, vh), gap 10px, margin 12px. */
+.growth-variants {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  pointer-events: none;
+  text-align: right;
+}
+
+.growth-variants-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: #9aa3b5;
+  opacity: 0.7;
+  margin-bottom: 4px;
+  margin-right: 4px;
+  text-shadow: 0 1px 3px #000;
+}
+
+.growth-variants-row {
+  display: flex;
+  gap: 10px;
+}
+
+.growth-variant-dish {
+  width: 17vmin;
+  height: 17vmin;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color 120ms;
+}
+
+.growth-variant-dish:hover {
+  border-color: #9aa3b5;
+}
+
 .growth-debug {
   position: absolute;
   right: 16px;
-  bottom: 16px;
+  top: 96px;
   display: flex;
   gap: 8px;
   align-items: center;

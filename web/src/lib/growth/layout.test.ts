@@ -1,24 +1,29 @@
 import { expect, test } from 'vitest'
 import { workbenchRegions } from './layout'
 
-test('stage dominates, four tiles fill the right column', () => {
+test('stage is the full canvas, four variant dishes bottom-right', () => {
   const { stage, mutations } = workbenchRegions(1200, 800)
+  expect(stage).toEqual({ x: 0, y: 0, w: 1200, h: 800 })
   expect(mutations).toHaveLength(4)
-  expect(stage.w).toBeGreaterThan(700)
-  expect(stage.h).toBe(800)
+  const side = Math.round(Math.min(1200, 800) * 0.17)
   for (const m of mutations) {
-    expect(m.x).toBeGreaterThanOrEqual(stage.w)
-    expect(m.w).toBeGreaterThan(100)
+    expect(m.w).toBe(side)
+    expect(m.h).toBe(side)
+    expect(m.y + m.h).toBe(800 - 12)
+    expect(m.x + m.w).toBeLessThanOrEqual(1200 - 12 + 1)
   }
-  const ys = mutations.map((m) => m.y)
-  expect(new Set(ys).size).toBe(4)
+  const xs = mutations.map((m) => m.x)
+  expect(new Set(xs).size).toBe(4)
+  expect(xs[3] + side).toBe(1200 - 12)
 })
 
-test('regions never overlap or exceed bounds', () => {
-  const { stage, mutations } = workbenchRegions(900, 620)
-  for (const m of mutations) {
-    expect(m.x + m.w).toBeLessThanOrEqual(900)
-    expect(m.y + m.h).toBeLessThanOrEqual(620)
-    expect(m.x).toBeGreaterThanOrEqual(stage.x + stage.w)
+test('variant dishes stay inside bounds and never overlap', () => {
+  const { mutations } = workbenchRegions(900, 620)
+  for (let i = 0; i < mutations.length; i++) {
+    expect(mutations[i].x).toBeGreaterThan(0)
+    expect(mutations[i].y).toBeGreaterThan(0)
+    if (i > 0) {
+      expect(mutations[i].x).toBeGreaterThanOrEqual(mutations[i - 1].x + mutations[i - 1].w)
+    }
   }
 })

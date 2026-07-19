@@ -100,10 +100,11 @@ void main() {
   gl_FragColor = clamp(vec4(A, B, activity, domain), 0.0, 1.0);
 }`;
 
-// Dithered palette-quantized display. The pattern field is shaded into the
-// five content-derived palette roles through an ordered-dither threshold —
-// quantization is the aesthetic, applied per screen pixel, so the image is
-// crisp at any canvas size regardless of simulation resolution.
+// Petri-dish display. The whole region is composed in shader: dark lab bench,
+// circular glass dish (rim ring, specular hint, agar tint, drop shadow), and
+// the reaction-diffusion culture inside. Dithering is exactly one device
+// pixel of blue-noise-weighted threshold on the shaded ramp — grain on
+// gradients, never checkerboard on flats.
 export const growthRenderFragment = `
 precision highp float;
 varying vec2 vUv;
@@ -112,7 +113,7 @@ uniform vec2 uTexel;
 uniform float uTime;
 uniform float uAspect;
 uniform float uPulse;
-uniform vec3 uPalette0; // deep field
+uniform vec3 uPalette0; // deep field / agar shadow
 uniform vec3 uPalette1; // low tissue
 uniform vec3 uPalette2; // high tissue
 uniform vec3 uPalette3; // vessel highlight
@@ -120,8 +121,8 @@ uniform vec3 uPalette4; // membrane / brightest
 uniform vec3 uOpsA; // DEEPEN, BUD, LACE
 uniform vec3 uOpsB; // STIPPLE, BLEED, MEMBRANE
 uniform float uGlowMax;
-uniform float uAbstraction; // 0 = full dither, 1 = smooth shaded
-uniform float uDitherScale; // dither cell size in device pixels
+uniform float uAbstraction; // 0 = dithered, 1 = smooth
+uniform float uMini;        // 1 = small variant dish (thicker relative rim)
 
 float hash21(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
@@ -129,7 +130,6 @@ float hash21(vec2 p) {
   return fract(p.x * p.y);
 }
 
-// Xor's recursive Bayer construction: 2x2 base refined to 8x8.
 float bayer2(vec2 a) {
   a = floor(a);
   return fract(a.x / 2.0 + a.y * a.y * 0.75);
@@ -148,46 +148,72 @@ vec3 paletteRamp(float t) {
 }
 
 void main() {
-  float fit = max(1.0, uAspect / 1.45);
-  vec2 q = vec2((vUv.x - 0.5) * fit + 0.5, vUv.y);
-  bool outside = q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0;
-  vec4 state = outside ? vec4(1.0, 0.0, 0.0, 1.0) : texture2D(uState, q);
+  // Aspect-corrected coordinates centered on the region; the dish is a true
+  // circle whatever the region shape, and the whole region is composed.
+  vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0);
+  // The main dish sits left-of-center and clear of the variant strip at
+  // bottom-right; minis stay centered in their own square regions.
+  vec2 dishC = mix(vec2((0.40 - 0.5) * uAspect, -0.02), vec2(0.0), uMini);
+  p -= dishC;
+  float d = length(p);
+  float dishR = mix(0.38, 0.46, uMini);
+  float rimW = mix(0.008, 0.02, uMini);
 
+  // Lab bench: flat near-black plus the dish drop shadow. Flat on purpose —
+  // any positional texture would seam at the mini-dish region borders.
+  vec3 bench = uPalette0 * 0.30;
+  float shadow = smoothstep(dishR + 0.03, dishR + 0.004, length(p + vec2(0.008, -0.012)));
+  bench *= 1.0 - shadow * 0.45;
+
+  if (d > dishR + rimW * 2.5) {
+    gl_FragColor = vec4(bench, 1.0);
+    return;
+  }
+
+  // Culture field: map the dish interior to the square simulation.
+  vec2 suv = p / dishR * 0.5 * 0.96 + 0.5;
+  vec4 state = texture2D(uState, suv);
   float B = state.g;
   float activity = state.b;
+  float domain = smoothstep(0.1, 0.5, state.a);
 
-  float bx = (outside ? 0.0 : texture2D(uState, q + vec2(uTexel.x, 0.0)).g)
-           - (outside ? 0.0 : texture2D(uState, q - vec2(uTexel.x, 0.0)).g);
-  float by = (outside ? 0.0 : texture2D(uState, q + vec2(0.0, uTexel.y)).g)
-           - (outside ? 0.0 : texture2D(uState, q - vec2(0.0, uTexel.y)).g);
+  float bx = texture2D(uState, suv + vec2(uTexel.x, 0.0)).g
+           - texture2D(uState, suv - vec2(uTexel.x, 0.0)).g;
+  float by = texture2D(uState, suv + vec2(0.0, uTexel.y)).g
+           - texture2D(uState, suv - vec2(0.0, uTexel.y)).g;
   float gradient = length(vec2(bx, by));
 
-  // Shape the raw chemical into a display field: pattern body plus a
-  // membrane term riding the gradient, plus recent-event glow.
-  float field = smoothstep(0.04, 0.42, B) * (0.72 + 0.28 * uOpsA.x);
-  float membrane = smoothstep(0.02, 0.14, gradient) * (0.35 + 0.85 * uOpsB.z);
-  float glow = min(uGlowMax, activity * uGlowMax * (1.2 + uPulse));
-  float v = clamp(field + membrane * 0.35 + glow, 0.0, 1.0);
+  // Agar: a barely-lifted ground inside the glass, brightest mid-dish.
+  float agarShade = smoothstep(dishR, dishR * 0.15, d);
+  vec3 agar = mix(uPalette0 * 0.5, mix(uPalette0, uPalette1, 0.22), 0.35 + 0.3 * agarShade);
 
-  // Faint substrate tint inside the domain only: the silhouette reads as a
-  // specimen on a clean dark field, never haze.
-  float domain = smoothstep(0.1, 0.5, state.a);
-  float fieldFloor = 0.06 + 0.02 * sin(uTime * 0.4 + q.x * 3.0 + q.y * 5.0);
-  v = max(v, fieldFloor * domain * (1.0 - smoothstep(0.0, 0.08, B)));
+  // Culture shading: crisp band on the pattern chemical, membrane on its
+  // gradient, warm tinted pulse where a note just landed (never white-out).
+  float field = smoothstep(0.08, 0.26, B);
+  float core = smoothstep(0.26, 0.50, B);
+  float membrane = smoothstep(0.025, 0.12, gradient) * (0.3 + 0.7 * uOpsB.z);
+  float v = clamp(field * (0.52 + 0.38 * core) + membrane * 0.30, 0.0, 1.0);
 
-  // Ordered dither: quantize the display field into palette bands with a
-  // Bayer threshold per dither cell.
-  vec2 cell = floor(gl_FragCoord.xy / max(1.0, uDitherScale));
-  float threshold = bayer8(cell) - 0.5;
-  float shades = 5.0;
-  float quantized = floor(v * shades + 0.5 + threshold) / shades;
-  vec3 dithered = paletteRamp(quantized);
-  vec3 smoothCol = paletteRamp(v);
+  // One-device-pixel blue-noise-weighted dither on the shaded ramp.
+  float noiseT = hash21(gl_FragCoord.xy) * 0.55 + bayer8(gl_FragCoord.xy) * 0.45;
+  float shades = 7.0;
+  float quantized = floor(v * shades + noiseT) / shades;
+  float shade = mix(quantized, v, clamp(uAbstraction, 0.0, 1.0));
+  // Lift the tissue floor so the faintest culture still separates from agar.
+  vec3 culture = paletteRamp(0.12 + shade * 0.88);
 
-  vec3 color = mix(dithered, smoothCol, clamp(uAbstraction, 0.0, 1.0));
+  vec3 inner = mix(agar, culture, smoothstep(0.02, 0.10, B));
+  inner += uPalette3 * activity * min(uGlowMax, 0.22) * (1.0 + uPulse * 0.8);
+  inner = mix(inner, inner * 0.86, smoothstep(dishR * 0.78, dishR, d)); // glass inner shadow
 
-  float vignette = smoothstep(0.95, 0.35, length((vUv - 0.5) * vec2(0.85, 1.0)));
-  color *= 0.78 + 0.22 * vignette;
+  // Glass rim: thin ring with a directional specular hint.
+  float ring = smoothstep(rimW, rimW * 0.25, abs(d - dishR));
+  float spec = pow(max(0.0, dot(normalize(p + vec2(0.0001)), normalize(vec2(-0.6, 0.75)))), 3.0);
+  vec3 rimCol = mix(uPalette1, uPalette4, 0.25 + spec * 0.55);
+
+  vec3 color = mix(bench, inner, smoothstep(dishR + rimW, dishR - rimW * 0.5, d));
+  color = mix(color, rimCol, ring * (0.5 + spec * 0.4));
 
   gl_FragColor = vec4(color, 1.0);
 }`;
+

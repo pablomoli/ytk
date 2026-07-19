@@ -58,7 +58,7 @@ type GrowthEvent = {
   counted: boolean
 }
 
-const STAGE_SIZE = 768
+const STAGE_SIZE = 1024
 const TILE_SIZE = 256
 const EVENT_SECONDS = 0.9
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
@@ -187,7 +187,7 @@ export function mountWorkbench(
     uOpsB: { value: new Vector3(0.5, 0.5, 0.5) },
     uGlowMax: { value: DEFAULT_CONSTRAINTS.glow_max },
     uAbstraction: { value: 0 },
-    uDitherScale: { value: 2 },
+    uMini: { value: 0 },
   }
   const displayMaterial = new ShaderMaterial({
     vertexShader: growthVertex,
@@ -235,7 +235,6 @@ export function mountWorkbench(
     displayUniforms.uPalette4.value.set(p[4])
     displayUniforms.uOpsA.value.copy(opsA(dna))
     displayUniforms.uOpsB.value.copy(opsB(dna))
-    displayUniforms.uDitherScale.value = dnaToRD(dna).ditherScale * Math.min(devicePixelRatio || 1, 2)
   }
 
   const simulateSlot = (slot: Slot, source: DataTexture | null = null) => {
@@ -375,6 +374,7 @@ export function mountWorkbench(
     displayUniforms.uState.value = slot.targets[slot.readIndex].texture
     displayUniforms.uTexel.value.set(1 / slot.size, 1 / slot.size)
     displayUniforms.uAspect.value = region.w / Math.max(1, region.h)
+    displayUniforms.uMini.value = slot.size === STAGE_SIZE ? 0 : 1
     displayUniforms.uPulse.value = pulse
     const glY = height - (region.y + region.h)
     renderer.setViewport(region.x, glY, region.w, region.h)
@@ -489,25 +489,17 @@ export function mountWorkbench(
       this.setOrganism({ ...spec, replayFrom: 0 })
     },
     snapshot() {
+      // Crop the main dish (centered circle, radius 0.42 of region height).
       const region = regions.stage
-      const out = document.createElement('canvas')
       const scale = Math.min(devicePixelRatio || 1, 2)
-      out.width = 160
-      out.height = 120
+      const side = region.h * 0.9 * scale
+      const sx = (region.w * scale - side) / 2
+      const sy = (region.h * scale - side) / 2
+      const out = document.createElement('canvas')
+      out.width = 128
+      out.height = 128
       const ctx = out.getContext('2d')
-      if (ctx) {
-        ctx.drawImage(
-          canvas,
-          region.x * scale,
-          region.y * scale,
-          region.w * scale,
-          region.h * scale,
-          0,
-          0,
-          160,
-          120,
-        )
-      }
+      if (ctx) ctx.drawImage(canvas, sx, sy, side, side, 0, 0, 128, 128)
       return out.toDataURL('image/png')
     },
     replayPosition() {

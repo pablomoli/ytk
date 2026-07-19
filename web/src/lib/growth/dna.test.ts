@@ -60,7 +60,6 @@ test('rd params are deterministic, bounded, and regime-distinct', async () => {
   expect(rd.kill).toBeLessThan(0.075)
   expect(rd.steps).toBeGreaterThanOrEqual(4)
   expect(rd.steps).toBeLessThanOrEqual(14)
-  expect(rd.ditherScale).toBeGreaterThanOrEqual(1)
   const fit = deriveDNA({ ...theme, id: 'th-fit2', tagCounts: { fitness: 12 } }, DEFAULT_CONSTRAINTS)
   const rdFit = dnaToRD(fit)
   // Different dominant operators land in different Gray-Scott regimes.
