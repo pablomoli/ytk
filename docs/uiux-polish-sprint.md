@@ -159,3 +159,40 @@ foundation the Phase 1 morph animates into.
 Estimated total: ~63 focused hours. Order is dependency-driven: 0 before 1 (dialog is
 the morph target), 1 before 2/3 (motion.ts), 4 before 5 (composer learnings on the
 simpler scene first).
+
+---
+
+## As-built notes (sprint completed 2026-07-20)
+
+All six phases shipped across three branches: `feat/uiux-polish` (Phase 0),
+`feat/uiux-motion` (Phases 1-3), `feat/uiux-viz` (Phases 4-5, branched off the
+motion track), merged sequentially into master. 160 tests at completion.
+
+Deviations from plan, discovered and corrected in flight:
+- Native-dialog close semantics: the dialog `close` event fires async (queued
+  task), so callbacks must never wire to it — onCancel + explicit button/backdrop
+  handlers instead. Ref-flag suppression provably fails under StrictMode. Tests
+  must dispatch close via queueMicrotask or they false-pass.
+- GSAP tweens started in effects must be killed in cleanup (StrictMode double
+  mount stacks tweens measured mid-transform).
+- mapInertia pushSample full-prunes the stale window (the plan's own test was
+  vacuous and got a weakened implementation past it once).
+- Growth pixel gate required determinism first: pause now truly freezes the
+  dish (uTime gated) and `?paused=1` enters frozen. Composite refactor needed
+  three three.js corrections vs the plan snippet: single dpr scaling,
+  scissorTest re-enable after setRenderTarget, raw ShaderMaterial blit to
+  avoid sRGB double-encode.
+- pixelateSwap's clock lazy-starts after swap() returns (a heavy synchronous
+  swap otherwise consumes the whole dissolve).
+- MemoWaveform click toggles pause (canvas is the only control).
+- ScrollReveal narrowed to profile prose; SplitHeading ships on transit's h1
+  (the only display heading); Pixel Image + Vertical Tiles consolidated into
+  the PixelDissolve thumbnail treatment; 2D pixelate wipe instead of vendored
+  GLSL (recorded in phase 5 plan).
+- The elapsed clock clamps fractional epochs (formatElapsed).
+- Reticle cursor is localStorage-gated (`ytk:cursor`) via the settings
+  experiments section; renders null under reduced motion.
+
+Every animation honors prefers-reduced-motion at the JS level; verified by
+agent-driven pixel-diff sweeps per phase (mid-transition == settled under
+reduce, 0-pixel tolerance).
