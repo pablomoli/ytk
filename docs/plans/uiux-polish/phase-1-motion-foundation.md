@@ -232,7 +232,7 @@ Animate INTENTIONAL relayouts (children changed: filter, delete, load-more) — 
 ```tsx
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { Flip, reducedMotion } from '../lib/motion'
+import { DUR, Flip, HOUSE_EASE, reducedMotion } from '../lib/motion'
 import { columnSpec, computeMasonryLayout } from '../lib/masonry'
 import '../styles.css'
 
@@ -303,7 +303,7 @@ export function MasonryGrid({ children }: { children: ReactNode }) {
         grid.style.height = `${layout.height}px`
         laidOut.current = true
         if (state) {
-          Flip.from(state, { duration: 0.18, ease: 'house', overwrite: true, onEnter: (els) => els.forEach((el) => ((el as HTMLElement).style.opacity = '1')) })
+          Flip.from(state, { duration: DUR.base, ease: HOUSE_EASE, overwrite: true, onEnter: (els) => els.forEach((el) => ((el as HTMLElement).style.opacity = '1')) })
         }
       })
     }
@@ -551,11 +551,13 @@ Add state `const [revealing, setRevealing] = useState(true)` and extend the moun
 useEffect(() => {
   const dialog = dialogRef.current
   if (!dialog) return
-  dialog.showModal?.()
+  gsap.killTweensOf(dialog)
+  if (!dialog.open) dialog.showModal?.()
+  let tween: ReturnType<typeof gsap.from> | undefined
   if (originRect && !reducedMotion()) {
     const to = dialog.getBoundingClientRect()
     /* transform FLIP: play the panel from the card's rect into place */
-    gsap.from(dialog, {
+    tween = gsap.from(dialog, {
       duration: DUR.morph,
       x: originRect.left + originRect.width / 2 - (to.left + to.width / 2),
       y: originRect.top + originRect.height / 2 - (to.top + to.height / 2),
@@ -564,10 +566,16 @@ useEffect(() => {
       onComplete: () => gsap.set(dialog, { clearProps: 'transform' }),
     })
   }
-  return () => dialog.close?.()
+  return () => {
+    tween?.kill()
+    gsap.set(dialog, { clearProps: 'transform' })
+    dialog.close?.()
+  }
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [])
 ```
+
+StrictMode double-invokes this effect on every mount in dev; without killing the in-flight tween on cleanup and re-entry, a second `gsap.from` can start measuring `dialog.getBoundingClientRect()` mid-transform from the first. `gsap.killTweensOf(dialog)` at the top plus killing the captured `tween` (and clearing the transform) in cleanup closes that path.
 
 In the JSX, wrap the panel content: keep `.note-panel` as is, and as its FIRST child add:
 

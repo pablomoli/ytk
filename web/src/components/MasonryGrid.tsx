@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { Flip, reducedMotion } from '../lib/motion'
+import { DUR, Flip, HOUSE_EASE, reducedMotion } from '../lib/motion'
 import { columnSpec, computeMasonryLayout } from '../lib/masonry'
 import '../styles.css'
 
@@ -71,7 +71,7 @@ export function MasonryGrid({ children }: { children: ReactNode }) {
         grid.style.height = `${layout.height}px`
         laidOut.current = true
         if (state) {
-          Flip.from(state, { duration: 0.18, ease: 'house', overwrite: true, onEnter: (els) => els.forEach((el) => ((el as HTMLElement).style.opacity = '1')) })
+          Flip.from(state, { duration: DUR.base, ease: HOUSE_EASE, overwrite: true, onEnter: (els) => els.forEach((el) => ((el as HTMLElement).style.opacity = '1')) })
         }
       })
     }

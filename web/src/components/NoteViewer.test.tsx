@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeAll, expect, test, vi } from 'vitest'
 import type { FreshNote } from '../api/fresh'
+import { gsap } from '../lib/motion'
 import { NoteViewer } from './NoteViewer'
 
 beforeAll(() => {
@@ -55,10 +56,8 @@ test('escape (cancel event) calls onClose', () => {
 })
 
 test('reveal overlay mounts and clears', () => {
-  vi.stubGlobal('ResizeObserver', class { observe() {}; disconnect() {}; unobserve() {} })
   const { container } = wrap(<NoteViewer note={note} onClose={() => {}} />)
   expect(container.querySelector('.pixel-dissolve')).toBeInTheDocument()
-  vi.unstubAllGlobals()
 })
 
 test('survives StrictMode double-mount without self-closing (async close event)', async () => {
@@ -79,4 +78,26 @@ test('survives StrictMode double-mount without self-closing (async close event)'
   await act(async () => { await Promise.resolve() })
   expect(onClose).not.toHaveBeenCalled()
   expect(screen.getByRole('dialog', { hidden: true })).toBeInTheDocument()
+})
+
+test('StrictMode double-mount with an originRect kills the stale morph tween, not stacks a second one', async () => {
+  const onClose = vi.fn()
+  const originRect = { left: 10, top: 10, width: 200, height: 150 } as DOMRect
+  // StrictMode must wrap QueryClientProvider (matching main.tsx's real nesting)
+  // for React to actually double-invoke effects here — see the test above.
+  render(
+    <StrictMode>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, enabled: false } } })}>
+        <NoteViewer note={note} onClose={onClose} originRect={originRect} />
+      </QueryClientProvider>
+    </StrictMode>,
+  )
+  await act(async () => { await Promise.resolve() })
+  expect(onClose).not.toHaveBeenCalled()
+  const dialog = screen.getByRole('dialog', { hidden: true })
+  expect(dialog).toBeInTheDocument()
+  // The first invocation's mount->cleanup->mount cycle must not leave two
+  // gsap.from tweens racing on the same node — cleanup has to kill the
+  // in-flight tween before the second mount starts a new one.
+  expect(gsap.getTweensOf(dialog).length).toBeLessThanOrEqual(1)
 })
