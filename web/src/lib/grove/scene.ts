@@ -2,6 +2,8 @@
 // shared geometry: botanical foliage and anatomical glow-wire x-ray.
 import { AdditiveBlending, BufferAttribute, BufferGeometry, CircleGeometry, Color, DoubleSide, DynamicDrawUsage, FogExp2, InstancedBufferAttribute, InstancedMesh, LineSegments, Matrix4, Mesh, PerspectiveCamera, Scene, ShaderMaterial, Vector3, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { EffectComposer, EffectPass, RenderPass, SMAAEffect, ToneMappingEffect, ToneMappingMode, VignetteEffect } from 'postprocessing'
+import { SeededGrainEffect } from '../grain'
 import { generateDataTree } from './datatree'
 import type { GrovePayload } from './datatree'
 import { buildLeafGeometry, DEFAULT_LEAF, leafBasis } from './leaf'
@@ -16,7 +18,7 @@ export const LOOKS: GroveLook[] = ['foliage', 'x-ray']
 export type GroveHandle = { regenerate: (params: GroveParams) => void; setEffects: (params: GroveParams) => void; setLook: (look: GroveLook) => void; setData: (payload: GrovePayload | null) => void; replay: () => void; destroy: () => void }
 
 export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look: GroveLook): GroveHandle {
-  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true })
+  const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true })
   const scene = new Scene()
   scene.fog = new FogExp2(new Color('#0a0a0c').getHex(), 0.055)
   const camera = new PerspectiveCamera(46, 1, 0.1, 120)
@@ -25,6 +27,19 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
   controls.target.set(0, 1.4, 0)
   controls.enableDamping = true
   controls.maxPolarAngle = Math.PI * 0.72
+
+  /* Compositor: vignette + filmic tone response + AA + static seeded grain.
+     Output filtering only — nothing new is drawn. Grain never animates so
+     replays reproduce. */
+  const composer = new EffectComposer(renderer)
+  composer.addPass(new RenderPass(scene, camera))
+  composer.addPass(new EffectPass(
+    camera,
+    new SMAAEffect(),
+    new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }),
+    new VignetteEffect({ offset: 0.3, darkness: 0.55 }),
+    new SeededGrainEffect(0.05),
+  ))
 
   const uniforms = {
     uProgress: { value: 0 }, uTime: { value: 0 }, uWind: { value: params.wind },
@@ -203,14 +218,14 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
 
   let frame = 0
   let last = 0
-  const resize = () => { const w = canvas.clientWidth || innerWidth; const h = canvas.clientHeight || innerHeight; renderer.setSize(w, h, false); renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); camera.aspect = w / h; camera.updateProjectionMatrix() }
+  const resize = () => { const w = canvas.clientWidth || innerWidth; const h = canvas.clientHeight || innerHeight; renderer.setSize(w, h, false); renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); camera.aspect = w / h; camera.updateProjectionMatrix(); composer.setSize(w, h) }
   const render = (now = 0) => {
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016
     last = now
     uniforms.uTime.value += dt
     if (uniforms.uProgress.value < progressTarget) uniforms.uProgress.value = Math.min(progressTarget, uniforms.uProgress.value + dt / Math.max(0.5, growSeconds))
     controls.update()
-    renderer.render(scene, camera)
+    composer.render()
     frame = requestAnimationFrame(render)
   }
   resize()
@@ -224,6 +239,6 @@ export function mountGrove(canvas: HTMLCanvasElement, params: GroveParams, look:
     setData: (payload) => { dataPayload = payload; plant(lastParams) },
     setLook: (next) => { currentLook = next; applyLook() },
     replay: () => { uniforms.uProgress.value = 0 },
-    destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); clear(); controls.dispose(); leafGeometry.dispose(); ground.geometry.dispose(); groundMaterial.dispose(); renderer.dispose() },
+    destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); clear(); controls.dispose(); leafGeometry.dispose(); ground.geometry.dispose(); groundMaterial.dispose(); composer.dispose(); renderer.dispose() },
   }
 }
