@@ -5,7 +5,7 @@ export type VelocitySample = { x: number; y: number; t: number };
 
 export function pushSample(buffer: VelocitySample[], sample: VelocitySample, windowMs = 90): void {
   buffer.push(sample);
-  if (buffer.length && sample.t - buffer[0].t > windowMs) buffer.shift();
+  while (buffer.length && sample.t - buffer[0].t > windowMs) buffer.shift();
 }
 
 export function releaseVelocity(buffer: VelocitySample[]): { vx: number; vy: number } {
