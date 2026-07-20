@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useApplyTagMerges, useProposeTagMerges, useTagMergeStatus } from '../api/tagMerge'
 import type { EditableTagProposal } from '../lib/tagMerge'
 import { editableProposals, mappingFromProposals } from '../lib/tagMerge'
+import { useHoverDecode } from '../lib/useHoverDecode'
 import { HubControls } from '../components/HubControls'
 import '../styles.css'
 
@@ -12,6 +13,7 @@ function TagsPage() {
   const status = useTagMergeStatus()
   const propose = useProposeTagMerges()
   const apply = useApplyTagMerges()
+  const decode = useHoverDecode()
   const [groups, setGroups] = useState<EditableTagProposal[]>([])
   const [message, setMessage] = useState('')
 
@@ -95,7 +97,8 @@ function TagsPage() {
                           disabled={canonical}
                           onClick={() => canonical ? undefined : makeCanonical(index, tag)}
                         >
-                          {tag} <span>{group.counts[tag] ?? ''}</span>
+                          <span className="tag-name" onMouseEnter={decode.onMouseEnter}>{tag}</span>{' '}
+                          <span>{group.counts[tag] ?? ''}</span>
                         </button>
                         {!canonical ? <button className="tag-exclude" type="button" aria-label={`Exclude ${tag}`} onClick={() => toggleExcluded(index, tag)}>×</button> : null}
                       </span>
