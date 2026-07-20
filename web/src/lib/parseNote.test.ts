@@ -55,6 +55,7 @@ test('parses a full youtube note: frontmatter, lead, and sections in order with 
   expect(parsed.frontmatter.date).toBe('2026-05-30')
   expect(parsed.frontmatter.duration).toBe('00:09:29')
   expect(parsed.frontmatter.tags).toEqual(['blender', 'geometry-nodes', 'python'])
+  expect(parsed.frontmatter.images).toEqual(['sources/youtube/thumbnails/kWMGG1zdGkA-thumb.jpg'])
 
   expect(parsed.lead).toBe('')
 
@@ -104,6 +105,37 @@ test('note with no frontmatter block at all still parses sections', () => {
   const parsed = parseNote(raw)
   expect(parsed.frontmatter.tags).toEqual([])
   expect(parsed.sections).toEqual([{ heading: 'Thesis', kind: 'thesis', body: 'something happened' }])
+})
+
+test('image_paths block list parses to full vault-relative paths', () => {
+  const raw = `---
+tags: []
+image_paths:
+  - sources/instagram/slides/abc123-img-1.jpg
+  - sources/instagram/slides/abc123-img-2.jpg
+---
+
+lead text
+`
+  const parsed = parseNote(raw)
+  expect(parsed.frontmatter.images).toEqual([
+    'sources/instagram/slides/abc123-img-1.jpg',
+    'sources/instagram/slides/abc123-img-2.jpg',
+  ])
+})
+
+test('note without image_paths yields an empty images array', () => {
+  const raw = `---\ntags: []\n---\n\nlead text\n`
+  const parsed = parseNote(raw)
+  expect(parsed.frontmatter.images).toEqual([])
+})
+
+test('embed inline within a section body is stripped, leaving surrounding text', () => {
+  const raw = `---\ntags: []\n---\n\n## Commentary\nsome text ![[embed.jpg]] more text\n`
+  const parsed = parseNote(raw)
+  expect(parsed.sections[0].body).not.toContain('![[')
+  expect(parsed.sections[0].body).toContain('some text')
+  expect(parsed.sections[0].body).toContain('more text')
 })
 
 test('unrecognized heading maps to generic', () => {

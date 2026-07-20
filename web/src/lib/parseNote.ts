@@ -5,6 +5,7 @@ export type NoteFrontmatter = {
   date?: string
   duration?: string
   tags: string[]
+  images: string[]
 }
 
 export type NoteSectionKind = 'thesis' | 'commentary' | 'insights' | 'concepts' | 'moments' | 'transcript' | 'generic'
@@ -54,6 +55,18 @@ function parseInlineList(value: string): string[] {
   return inner.split(',').map((item) => stripQuotes(item)).filter(Boolean)
 }
 
+/** Collects a YAML block list (`  - item` lines following a bare `key:`).
+    Returns the parsed items and the index of the first line after the list. */
+function collectBlockList(lines: string[], startIndex: number): { items: string[]; nextIndex: number } {
+  const collected: string[] = []
+  let j = startIndex
+  while (j < lines.length && /^\s*-\s*/.test(lines[j])) {
+    collected.push(stripQuotes(lines[j].replace(/^\s*-\s*/, '')))
+    j++
+  }
+  return { items: collected.filter(Boolean), nextIndex: j }
+}
+
 function splitFrontmatter(raw: string): { fm: string | null; rest: string } {
   if (!raw.startsWith('---')) return { fm: null, rest: raw }
   const lines = raw.split('\n')
@@ -69,7 +82,7 @@ function splitFrontmatter(raw: string): { fm: string | null; rest: string } {
 }
 
 function parseFrontmatter(fm: string | null): NoteFrontmatter {
-  const result: NoteFrontmatter = { tags: [] }
+  const result: NoteFrontmatter = { tags: [], images: [] }
   if (!fm) return result
   const lines = fm.split('\n')
   for (let i = 0; i < lines.length; i++) {
@@ -79,29 +92,18 @@ function parseFrontmatter(fm: string | null): NoteFrontmatter {
     const key = match[1].trim().toLowerCase()
     const value = match[2]
 
-    if (key === 'tags') {
+    if (key === 'tags' || key === 'image_paths') {
       const trimmedValue = value.trim()
+      let items: string[] = []
       if (trimmedValue.startsWith('[')) {
-        result.tags = parseInlineList(trimmedValue)
+        items = parseInlineList(trimmedValue)
       } else if (!trimmedValue) {
-        const collected: string[] = []
-        let j = i + 1
-        while (j < lines.length && /^\s*-\s*/.test(lines[j])) {
-          collected.push(stripQuotes(lines[j].replace(/^\s*-\s*/, '')))
-          j++
-        }
-        result.tags = collected.filter(Boolean)
-        i = j - 1
-      } else {
-        result.tags = []
+        const { items: collected, nextIndex } = collectBlockList(lines, i + 1)
+        items = collected
+        i = nextIndex - 1
       }
-      continue
-    }
-
-    if (key === 'image_paths') {
-      let j = i + 1
-      while (j < lines.length && /^\s*-\s*/.test(lines[j])) j++
-      i = j - 1
+      if (key === 'tags') result.tags = items
+      else result.images = items
       continue
     }
 
@@ -115,11 +117,17 @@ function parseFrontmatter(fm: string | null): NoteFrontmatter {
   return result
 }
 
+/** Drops Obsidian embeds (`![[...]]`) so the literal syntax never leaks into
+    rendered text — whole embed-only lines are dropped outright, any embed
+    remaining inline within other text is stripped in place. */
 function stripEmbeds(text: string): string {
-  return text
+  const withoutEmbedLines = text
     .split('\n')
     .filter((line) => !/^\s*!\[\[.*\]\]\s*$/.test(line))
     .join('\n')
+  return withoutEmbedLines
+    .replace(/!\[\[[^\]]*\]\]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
 
@@ -143,7 +151,7 @@ export function parseNote(raw: string): ParsedNote {
     const heading = m[1].trim()
     const start = (m.index ?? 0) + m[0].length
     const end = idx + 1 < matches.length ? matches[idx + 1].index! : body.length
-    const sectionBody = body.slice(start, end).trim()
+    const sectionBody = stripEmbeds(body.slice(start, end))
     return { heading, kind: kindForHeading(heading), body: sectionBody }
   })
 
