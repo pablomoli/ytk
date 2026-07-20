@@ -624,6 +624,32 @@ body {
   float: right;
 }
 
+.note-body { clear: both; }
+.note-header { margin: 0 0 .6rem; }
+.note-title { margin: 0 0 .4rem; }
+.note-meta { color: var(--mute); font-size: 12.5px; letter-spacing: .04em; text-transform: lowercase; font-variant-numeric: tabular-nums; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.note-tags { display: flex; flex-wrap: wrap; gap: .35rem; margin: .6rem 0 1rem; }
+.note-tags .fchip { cursor: default; }
+.note-images { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1rem; }
+.note-images img { max-width: 100%; max-height: 22rem; width: auto; border-radius: var(--r); border: 1px solid var(--line); display: block; }
+.note-lead { margin: 0 0 1rem; color: var(--ink2); }
+.note-lead p { margin: 0 0 .5rem; line-height: 1.5; }
+.note-callout { border-left: 2px solid var(--line); padding: .5rem 0 .5rem .9rem; margin: 0 0 1rem; }
+.note-callout-label { display: block; color: var(--mute); font-size: 12.5px; letter-spacing: .06em; text-transform: lowercase; margin-bottom: .25rem; }
+.note-callout.thesis { border-left-color: var(--accent); }
+.note-callout.thesis p { font-size: 1.05rem; line-height: 1.5; }
+.note-callout.commentary { border-left-color: var(--line); }
+.note-callout.insights { border-left-color: var(--live); }
+.note-callout p { margin: 0 0 .5rem; }
+.note-section { margin: 0 0 1.2rem; }
+.note-section h3 { margin: 0 0 .5rem; font-size: 1rem; text-transform: lowercase; }
+.note-section ul, .note-callout ul { margin: 0; padding-left: 1.1rem; }
+.note-section li, .note-callout li { margin: 0 0 .35rem; line-height: 1.45; }
+.note-ts { color: var(--accent); font-variant-numeric: tabular-nums; text-decoration: none; }
+.note-transcript { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: .8rem; }
+.note-transcript summary { cursor: pointer; color: var(--mute); font-size: 12.5px; letter-spacing: .04em; text-transform: lowercase; }
+.note-transcript-line { color: var(--ink2); line-height: 1.6; margin: .6rem 0; }
+
 .similar-items {
   display: flex;
   align-items: center;
