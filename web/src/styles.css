@@ -866,3 +866,28 @@ body {
 .settings-yaml { width: 100%; font-family: ui-monospace, monospace; font-size: 0.85em; background: none; color: inherit; border: 1px solid var(--line, #3a352c); border-radius: 6px; padding: 0.6rem; }
 .settings-hint { color: var(--dim, #8a8375); font-size: 0.9em; }
 .settings-env { font-family: ui-monospace, monospace; font-size: 0.85em; color: var(--dim, #8a8375); word-break: break-all; }
+
+/* confirm dialog — hairline border, brass action, quiet plane */
+.confirm-dialog {
+  width: min(92vw, 26rem);
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg1);
+  color: var(--ink);
+}
+
+.confirm-dialog::backdrop {
+  background: #000a;
+}
+
+.confirm-dialog p {
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}

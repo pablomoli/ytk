@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useProfile, useRunProfile } from "../api/profile";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HubControls } from "../components/HubControls";
 import { sourceIcon } from "../components/icons";
 import { ErrorState } from "../components/StateViews";
@@ -10,12 +12,11 @@ export const Route = createFileRoute("/profile")({ component: ProfilePage });
 function ProfilePage() {
   const profile = useProfile();
   const run = useRunProfile();
+  const [confirmSynth, setConfirmSynth] = useState(false);
 
   if (profile.isLoading) return <div className="hub-page"><div className="hub-body">loading profile...</div></div>;
 
-  const resynthesize = () => {
-    if (window.confirm("Re-synthesize the interest profile? One Claude call; takes up to a minute.")) run.mutate();
-  };
+  const resynthesize = () => setConfirmSynth(true);
 
   const controls = (
     <HubControls>
@@ -25,11 +26,20 @@ function ProfilePage() {
     </HubControls>
   );
 
+  const confirmDialog = confirmSynth ? (
+    <ConfirmDialog
+      message="re-synthesize the interest profile? one claude call; takes up to a minute."
+      confirmLabel="synthesize"
+      onCancel={() => setConfirmSynth(false)}
+      onConfirm={() => { setConfirmSynth(false); run.mutate(); }}
+    />
+  ) : null;
+
   if (profile.isError) {
     return <div className="hub-page">{controls}<div className="hub-body">
       <ErrorState error={profile.error} />
       <p className="profile-meta">no snapshot yet — re-synthesize to build one.</p>
-    </div></div>;
+    </div>{confirmDialog}</div>;
   }
 
   const data = profile.data!;
@@ -77,6 +87,7 @@ function ProfilePage() {
         </section>
         {run.isError ? <div className="delete-error" role="alert">synthesis failed: {String(run.error)}</div> : null}
       </div>
+      {confirmDialog}
     </div>
   );
 }
