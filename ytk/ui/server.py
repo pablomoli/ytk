@@ -289,6 +289,30 @@ async def channel_status_api(key: str, req: ChannelStatusRequest):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.get("/api/recs")
+async def recs_api(kind: str = ""):
+    """Resolved movie/show/anime/book/manga recommendations for the /recs page."""
+    from ytk.ui import hub
+
+    return {"recs": hub.recs_list(kind or None)}
+
+
+class RecStatusRequest(BaseModel):
+    status: str | None = None
+
+
+@app.post("/api/recs/{key:path}/status")
+async def rec_status_api(key: str, req: RecStatusRequest):
+    """Set a rec's want/seen/skip flag (null clears it)."""
+    from ytk.ui import hub
+
+    try:
+        hub.set_rec_status(key, req.status)
+        return {"ok": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @app.get("/api/profile")
 async def profile_api():
     """The latest interest snapshot, shaped for the /profile page."""
@@ -889,7 +913,7 @@ def _spa_redirect(path: str = ""):
 
 # The SPA's client-side routes. Serving index.html only for these (rather
 # than a blanket fallback) keeps real 404s for junk paths and traversal noise.
-_SPA_ROUTES = {"", "library", "inbox", "tags", "map", "grove", "growth", "profile", "settings", "channels"}
+_SPA_ROUTES = {"", "library", "inbox", "tags", "map", "grove", "growth", "profile", "settings", "channels", "recs"}
 
 
 # Registered last on purpose: FastAPI matches routes in registration order,

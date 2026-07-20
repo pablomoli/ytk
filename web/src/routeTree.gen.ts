@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TransitRouteImport } from './routes/transit'
 import { Route as TagsRouteImport } from './routes/tags'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RecsRouteImport } from './routes/recs'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as LibraryRouteImport } from './routes/library'
@@ -34,6 +35,11 @@ const TagsRoute = TagsRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecsRoute = RecsRouteImport.update({
+  id: '/recs',
+  path: '/recs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
   '/profile': typeof ProfileRoute
+  '/recs': typeof RecsRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
   '/transit': typeof TransitRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
   '/profile': typeof ProfileRoute
+  '/recs': typeof RecsRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
   '/transit': typeof TransitRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
   '/profile': typeof ProfileRoute
+  '/recs': typeof RecsRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
   '/transit': typeof TransitRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/map'
     | '/profile'
+    | '/recs'
     | '/settings'
     | '/tags'
     | '/transit'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/map'
     | '/profile'
+    | '/recs'
     | '/settings'
     | '/tags'
     | '/transit'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/map'
     | '/profile'
+    | '/recs'
     | '/settings'
     | '/tags'
     | '/transit'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   LibraryRoute: typeof LibraryRoute
   MapRoute: typeof MapRoute
   ProfileRoute: typeof ProfileRoute
+  RecsRoute: typeof RecsRoute
   SettingsRoute: typeof SettingsRoute
   TagsRoute: typeof TagsRoute
   TransitRoute: typeof TransitRoute
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recs': {
+      id: '/recs'
+      path: '/recs'
+      fullPath: '/recs'
+      preLoaderRoute: typeof RecsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   LibraryRoute: LibraryRoute,
   MapRoute: MapRoute,
   ProfileRoute: ProfileRoute,
+  RecsRoute: RecsRoute,
   SettingsRoute: SettingsRoute,
   TagsRoute: TagsRoute,
   TransitRoute: TransitRoute,
