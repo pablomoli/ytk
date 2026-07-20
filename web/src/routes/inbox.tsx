@@ -16,6 +16,7 @@ import { EmptyState, ErrorState } from "../components/StateViews";
 import { HubControls } from "../components/HubControls";
 import { CountUp } from "../components/CountUp";
 import { IngestRing } from "../components/IngestRing";
+import { ScrambleStatus } from "../components/ScrambleStatus";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
 import { filterAndSortQueue } from "../lib/queueItems";
 import { formatElapsed } from "../lib/elapsed";
@@ -298,15 +299,15 @@ function InboxPage() {
                   running={job.data.running}
                 />
                 <span>
-                  {job.data.running ? "running · " : "done · "}
-                  {job.data.done}/{job.data.total}
+                  <ScrambleStatus text={job.data.running ? "running" : "done"} />
+                  {" · "}{job.data.done}/{job.data.total}
                   {job.data.running && elapsed ? ` · ${elapsed}` : ""}
                 </span>
               </span>
               {job.data.running ? (
                 <>
                   <span className="progress-current" title={currentTitle}>
-                    {currentTitle}
+                    <ScrambleStatus text={currentTitle} />
                   </span>
                   <span className="progress-hint">enrichment takes ~2 min per item</span>
                 </>

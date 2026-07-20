@@ -1198,3 +1198,7 @@ body {
   opacity: 0;
   transition: opacity 0.12s var(--ease);
 }
+
+.scramble-status {
+  display: inline-block;
+}
