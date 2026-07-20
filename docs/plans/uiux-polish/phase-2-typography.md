@@ -240,7 +240,7 @@ test('returns a stable mouseenter handler', () => {
 ```tsx
 import { useCallback } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
-import { gsap, reducedMotion } from '../lib/motion'
+import { gsap, reducedMotion } from './motion'
 
 const CHARSET = '.: abcdefghijklmnopqrstuvwxyz'
 

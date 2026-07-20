@@ -190,11 +190,13 @@ export function NoteViewer({ note, onClose, originRect }: { note: FreshNote; onC
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
+    gsap.killTweensOf(dialog)
     if (!dialog.open) dialog.showModal?.()
+    let tween: ReturnType<typeof gsap.from> | undefined
     if (originRect && !reducedMotion()) {
       const to = dialog.getBoundingClientRect()
       /* transform FLIP: play the panel from the card's rect into place */
-      gsap.from(dialog, {
+      tween = gsap.from(dialog, {
         duration: DUR.morph,
         x: originRect.left + originRect.width / 2 - (to.left + to.width / 2),
         y: originRect.top + originRect.height / 2 - (to.top + to.height / 2),
@@ -203,7 +205,11 @@ export function NoteViewer({ note, onClose, originRect }: { note: FreshNote; onC
         onComplete: () => gsap.set(dialog, { clearProps: 'transform' }),
       })
     }
-    return () => dialog.close?.()
+    return () => {
+      tween?.kill()
+      gsap.set(dialog, { clearProps: 'transform' })
+      dialog.close?.()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
