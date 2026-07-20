@@ -8,9 +8,37 @@
 }
 
 .skel {
-  background: #1c1c1c;
-  border-radius: 10px;
+  background: var(--bg2);
+  border-radius: var(--r);
+  overflow: hidden;
   animation: pulse 1.4s ease-in-out infinite;
+}
+
+.skel-thumb {
+  background: var(--bg3);
+}
+
+.skel-text {
+  height: 96px;
+  background: var(--bg3);
+  opacity: 0.55;
+}
+
+.skel-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.6rem;
+}
+
+.skel-line {
+  height: 0.7rem;
+  border-radius: 4px;
+  background: var(--bg3);
+}
+
+.skel-line-dim {
+  opacity: 0.6;
 }
 
 .empty {
