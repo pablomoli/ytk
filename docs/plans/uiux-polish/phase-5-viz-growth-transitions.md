@@ -251,9 +251,14 @@ export function pixelateSwap(canvas: HTMLCanvasElement, swap: () => void, opts?:
 
   swap()
 
-  const start = performance.now()
+  /* The clock starts at the first frame AFTER swap() returns: a heavy swap
+     (the growth theme switch replays the whole organism synchronously) would
+     otherwise consume the entire duration before the first tick, removing
+     the overlay after a single blocky flash. */
+  let start = 0
   const step = (now: number) => {
     if (active !== overlay) return
+    if (!start) start = now
     const t = Math.min(1, (now - start) / duration)
     const eased = 0.5 - 0.5 * Math.cos(t * Math.PI) // house-adjacent, dependency-free
     const block = 1 + eased * 31
