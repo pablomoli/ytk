@@ -86,7 +86,12 @@ class HubConfig(BaseModel):
     port: int = Field(default=6969, description="Hub port (memorable on purpose).")
     favicon: str = Field(default="✦", description="Character or emoji rendered as the hub tab icon.")
     cadence_minutes: dict[str, int] = Field(
-        default_factory=lambda: {"instagram": 15, "youtube": 15, "pinterest": 15, "imessage": 15},
+        default_factory=lambda: {
+            "instagram": 15, "youtube": 15, "pinterest": 15, "imessage": 15,
+            # Daily: favorites scraping rides the user's real TikTok session,
+            # so anything page-load-shaped would be bot-shaped traffic.
+            "tiktok": 1440,
+        },
         description="Auto-pull throttle per discovery source, in minutes.",
     )
     imessage_gap_minutes: int = Field(
@@ -114,6 +119,10 @@ class Config(BaseModel):
     filters: FilterConfig = Field(default_factory=FilterConfig)
     hub: HubConfig = Field(default_factory=HubConfig)
     whisper_model: str = Field(default="base", description="faster-whisper model size: base | small | medium | large")
+    tiktok_username: str | None = Field(
+        default=None,
+        description="TikTok handle whose favorites tab the discovery fetcher syncs; unset disables the source.",
+    )
     memo_notify: list[str] = Field(
         default_factory=list,
         description="Memo notification backends (tmux|macos|sketchybar); empty = focus-aware auto",
