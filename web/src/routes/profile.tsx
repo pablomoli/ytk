@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useProfile, useRunProfile } from "../api/profile";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HubControls } from "../components/HubControls";
+import { ScrollReveal } from "../components/ScrollReveal";
 import { sourceIcon } from "../components/icons";
 import { ErrorState } from "../components/StateViews";
 import "../styles.css";
@@ -92,7 +93,7 @@ function ProfilePage() {
           ))}
         </section>
         <section className="profile-prose">
-          {portrait.map((paragraph, i) => <p key={i}>{paragraph}</p>)}
+          {portrait.map((paragraph, i) => <ScrollReveal key={i}>{paragraph}</ScrollReveal>)}
         </section>
         {run.isError ? <div className="delete-error" role="alert">synthesis failed: {String(run.error)}</div> : null}
       </div>
