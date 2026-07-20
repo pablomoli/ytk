@@ -53,9 +53,9 @@ function LibraryPage() {
   if (page.isLoading && !notes.length) {
     body = <MasonryGrid><Skeletons count={12} /></MasonryGrid>;
   } else if (page.isError) {
-    body = <ErrorState error={page.error} />;
+    body = <ErrorState error={page.error} onRetry={() => void page.refetch()} />;
   } else if (!notes.length) {
-    body = <EmptyState label={q ? "nothing matches" : "nothing ingested yet"} />;
+    body = <EmptyState label={q ? "nothing matches" : "nothing ingested yet"} hint={q ? "try a looser query" : undefined} />;
   } else {
     body = <>
       <MasonryGrid>{notes.map((item) => <FreshCard key={item.path} note={item} onOpen={setSelected} onDelete={handleDelete} />)}</MasonryGrid>

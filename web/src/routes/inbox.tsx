@@ -151,9 +151,9 @@ function InboxPage() {
       </MasonryGrid>
     );
   } else if (q.isError) {
-    body = <ErrorState error={q.error} />;
+    body = <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   } else if (items.length === 0) {
-    body = <EmptyState label="nothing in the inbox" />;
+    body = <EmptyState label="nothing in the inbox" hint="paste urls on the right to queue them" />;
   } else {
     body = (
       <>

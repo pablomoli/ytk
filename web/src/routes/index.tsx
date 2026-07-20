@@ -38,9 +38,9 @@ function IndexPage() {
   if (fresh.isLoading) {
     body = <MasonryGrid><Skeletons count={12} /></MasonryGrid>;
   } else if (fresh.isError) {
-    body = <ErrorState error={fresh.error} />;
+    body = <ErrorState error={fresh.error} onRetry={() => void fresh.refetch()} />;
   } else if (!notes.length) {
-    body = <EmptyState label="nothing ingested yet" />;
+    body = <EmptyState label="nothing ingested yet" hint="ingest from the inbox to fill the feed" />;
   } else {
     body = <MasonryGrid>{notes.map((item) => <FreshCard key={item.path} note={item} onOpen={setSelected} onDelete={handleDelete} />)}</MasonryGrid>;
   }
