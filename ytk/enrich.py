@@ -17,7 +17,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from .config import load_config
 from .sdk import run_structured
@@ -28,6 +28,23 @@ class KeyMoment(BaseModel):
     description: str
 
 
+# Recommendation kinds that get their own surface + {kind}-rec tag.
+REC_KINDS = ("movie", "show", "anime", "book", "manga")
+
+
+class Recommendation(BaseModel):
+    kind: str  # one of REC_KINDS
+    title: str
+    creator: str | None = None  # director / author / studio, when stated
+    reason: str | None = None  # why it was recommended, when stated
+
+    @field_validator("kind")
+    @classmethod
+    def _known_kind(cls, kind: str) -> str:
+        k = (kind or "").strip().lower()
+        return k if k in REC_KINDS else "movie"
+
+
 class Enrichment(BaseModel):
     thesis: str
     summary: str
@@ -35,6 +52,7 @@ class Enrichment(BaseModel):
     insights: list[str]
     interest_tags: list[str]
     key_moments: list[KeyMoment]
+    recommendations: list[Recommendation] = []
 
     @field_validator("interest_tags")
     @classmethod
@@ -53,6 +71,20 @@ class Enrichment(BaseModel):
             if t and t not in out:
                 out.append(t)
         return out
+
+    @model_validator(mode="after")
+    def _tag_recommendations(self) -> "Enrichment":
+        """Derive {kind}-rec tags from recommendations deterministically.
+
+        The tag is what a note is filtered by on the recs surface; deriving it in
+        code (rather than trusting the model to also remember to tag) guarantees
+        every note carrying a recommendation carries the matching tag, and that
+        the two never disagree. Tags coexist with the content tags."""
+        for rec in self.recommendations:
+            tag = f"{rec.kind}-rec"
+            if tag not in self.interest_tags:
+                self.interest_tags.append(tag)
+        return self
 
 
 _SCHEMA = Enrichment.model_json_schema()
@@ -89,7 +121,15 @@ interest_tags
 
 key_moments
   Moments worth jumping back to; descriptions specific enough to find from memory (name the thing being \
-  done, not just the topic). Include as many as the content warrants; scale to length.\
+  done, not just the topic). Include as many as the content warrants; scale to length.
+
+recommendations
+  Any specific movie, TV show, anime, book, or manga that the content recommends OR discusses \
+  substantively enough that the user might want to watch/read it. For each: kind (movie | show | anime \
+  | book | manga), title, creator (director/author/studio if stated, else null), and reason (why it was \
+  brought up, if stated, else null). Distinguish anime from live-action show, and manga from book. Use \
+  the title as actually named; do not invent titles. Empty list ([]) when nothing is recommended — this \
+  is the common case, do not force entries.\
 """
 
 _TONE_WRAPPER = "Write in this voice, without sacrificing specificity or faithfulness:\n{tone}\n"
