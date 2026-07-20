@@ -11,6 +11,7 @@ import { useDeleteNote } from "../api/fresh";
 import type { FreshNote } from "../api/fresh";
 import { useLibrary } from "../api/library";
 import { HubControls } from "../components/HubControls";
+import { CountUp } from "../components/CountUp";
 import "../styles.css";
 
 const PAGE = 60;
@@ -80,7 +81,7 @@ function LibraryPage() {
           onKeyDown={(e) => { if (e.key === "Enter") void navigate({ search: { source, q: query.trim() || undefined } }); }}
         />
         <SourceFilter value={source} onChange={(next) => void navigate({ search: { source: next, q } })} />
-        <span className="count">{total} in the store</span>
+        <span className="count"><CountUp value={total} /> in the store</span>
       </HubControls>
       <div className="hub-body">
         {remove.isError ? <div className="delete-error" role="alert">failed to delete note: {String(remove.error)}</div> : null}

@@ -14,6 +14,7 @@ import { MasonryGrid } from "../components/MasonryGrid";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
 import { HubControls } from "../components/HubControls";
+import { CountUp } from "../components/CountUp";
 import { IngestRing } from "../components/IngestRing";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
 import { filterAndSortQueue } from "../lib/queueItems";
@@ -202,8 +203,8 @@ function InboxPage() {
       <HubControls>
         <SourceFilter value={source} onChange={handleSourceChange} />
         <span className="count">
-          {items.length}
-          {q.data && q.data.length !== items.length ? ` of ${q.data.length}` : ""} pending
+          <CountUp value={items.length} />
+          {q.data && q.data.length !== items.length ? <> of <CountUp value={q.data.length} /></> : ""} pending
         </span>
       </HubControls>
       <div className="hub-body hub-row">
