@@ -7,11 +7,13 @@ import { NoteViewer } from "../components/NoteViewer";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
 import { SourceFilter } from "../components/SourceFilter";
+import { TargetCursor } from "../components/TargetCursor";
 import { useDeleteNote } from "../api/fresh";
 import type { FreshNote } from "../api/fresh";
 import { useLibrary } from "../api/library";
 import { HubControls } from "../components/HubControls";
 import { CountUp } from "../components/CountUp";
+import { CURSOR_PREF, getPref } from "../lib/prefs";
 import "../styles.css";
 
 const PAGE = 60;
@@ -88,6 +90,7 @@ function LibraryPage() {
         {body}
       </div>
       {selected ? <NoteViewer note={selected.note} originRect={selected.rect} onClose={() => setSelected(undefined)} /> : null}
+      {getPref(CURSOR_PREF) ? <TargetCursor /> : null}
       {pendingDelete ? (
         <ConfirmDialog
           message="delete this note for good? it leaves the vault and the search index."

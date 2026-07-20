@@ -70,7 +70,7 @@ export function Card({
 
   if (item.source === 'imessage') {
     return (
-      <div className={cardClassName(selected, state, Boolean(profileMatch))} {...interactiveProps}>
+      <div className={cardClassName(selected, state, Boolean(profileMatch))} data-cursor-target="" {...interactiveProps}>
         <PixelBloom />
         {matchBadge}
         <div className="textcard">

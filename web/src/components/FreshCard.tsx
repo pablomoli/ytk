@@ -33,6 +33,7 @@ export function FreshCard({
       ref={cardRef}
       className="card fresh-card"
       onClick={handleClick}
+      data-cursor-target=""
     >
       <PixelBloom />
       <button

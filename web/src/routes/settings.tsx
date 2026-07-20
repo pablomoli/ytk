@@ -6,6 +6,7 @@ import { useSaveSettings, useSettings } from '../api/settings'
 import { useGroveBuckets, useSaveGroveBuckets } from '../api/profile'
 import type { ColorRule, SettingsConfig, SettingsValidationError } from '../api/settings'
 import { cloneSettings, isDirty, validationByPath } from '../lib/settingsDraft'
+import { CURSOR_PREF, getPref, setPref } from '../lib/prefs'
 import { HubControls } from '../components/HubControls'
 import '../styles.css'
 
@@ -79,5 +80,11 @@ function SettingsPage() {
     <details open><summary>Grove buckets</summary><GroveBucketsSection /></details>
     <details><summary>Environment</summary><div className="settings-body">{settings.data?.meta.environment ? Object.entries(settings.data.meta.environment).map(([key, value]) => <label key={key}>{key.replaceAll('_', ' ')}<span className="settings-env">{String(value)}</span></label>) : <span>unavailable</span>}</div></details>
     <details open><summary>Enrichment tone</summary><div className="settings-body"><label>tone<textarea value={draft.hub.enrich_tone} onChange={(e) => set((c) => { c.hub.enrich_tone = e.target.value })} /></label><button className="btn" type="button" onClick={() => preview.mutate(draft.hub.enrich_tone)} disabled={preview.isPending}>Preview on 5 notes</button>{preview.data && <span>winrate {preview.data.winrate.toFixed(2)}, ci {preview.data.ci ? `[${preview.data.ci[0].toFixed(2)}, ${preview.data.ci[1].toFixed(2)}]` : 'n/a'}, faith delta {preview.data.faith_delta.toFixed(2)}, n={preview.data.n}</span>}</div></details>
+    <details open><summary>Experiments</summary><div className="settings-body">
+      <label>reticle cursor (feed + library)
+        <input type="checkbox" defaultChecked={getPref(CURSOR_PREF)} onChange={(e) => setPref(CURSOR_PREF, e.target.checked)} />
+        <span className="settings-pill">takes effect on next route visit</span>
+      </label>
+    </div></details>
   </main>{dirty && <div className="settings-savebar"><button className="btn primary" type="button" onClick={saveDraft} disabled={save.isPending}>Save</button><button className="btn" type="button" onClick={() => { setDraft(cloneSettings(saved)); setErrors({}); setMessage('') }}>Revert</button><span>{message}</span></div>}</div>
 }
