@@ -418,36 +418,54 @@ Claude-Session: https://claude.ai/code/session_01EZs3WKS79bUuoRYWoS2FsY"
 
 - [ ] **Step 1: Write the failing hook test** — replace `web/src/lib/useInfiniteWindow.test.ts` with:
 
-```tsx
-import { renderHook } from '@testing-library/react'
+```ts
+import { renderHook, act } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 import { nextCount, useInfiniteWindow } from './useInfiniteWindow'
 
-vi.stubGlobal('IntersectionObserver', class { observe() {}; disconnect() {}; unobserve() {} })
+// Capture the IntersectionObserver callback so a test can fire it and grow the
+// window past `step`. Without this the count never exceeds step and the reset
+// bug is UNOBSERVABLE — a reset-to-step is a no-op when count is already step,
+// so a test that never grows the window passes both before and after the fix.
+let observerCb: ((entries: { isIntersecting: boolean }[]) => void) | null = null
+vi.stubGlobal('IntersectionObserver', class {
+  constructor(cb: (entries: { isIntersecting: boolean }[]) => void) { observerCb = cb }
+  observe() {}
+  disconnect() {}
+  unobserve() {}
+})
 
 test('nextCount clamps to total', () => {
   expect(nextCount(60, 70, 60)).toBe(70)
 })
 
-test('new items array with same resetKey keeps the window (poll refetch)', () => {
-  const { result, rerender } = renderHook(({ items }) => useInfiniteWindow(items, 2, 'all'), {
-    initialProps: { items: ['a', 'b', 'c'] },
-  })
+test('a poll refetch (new array identity, same resetKey) preserves the grown window', () => {
+  const { result, rerender } = renderHook(
+    ({ items }: { items: string[] }) => useInfiniteWindow(items, 2, 'all'),
+    { initialProps: { items: ['a', 'b', 'c', 'd', 'e'] } },
+  )
+  act(() => result.current.sentinelRef(document.createElement('div')))
   expect(result.current.visible).toEqual(['a', 'b'])
-  rerender({ items: ['a', 'b', 'c', 'd'] }) // fresh array identity, same key
-  expect(result.current.visible).toEqual(['a', 'b']) // window NOT reset (was the bug: identity reset)
+  act(() => observerCb?.([{ isIntersecting: true }]))
+  expect(result.current.visible).toEqual(['a', 'b', 'c', 'd']) // grown 2 -> 4
+  rerender({ items: ['a', 'b', 'c', 'd', 'e', 'f'] }) // same content, fresh array
+  expect(result.current.visible).toEqual(['a', 'b', 'c', 'd']) // window preserved
 })
 
-test('resetKey change resets the window', () => {
-  const { result, rerender } = renderHook(({ key }) => useInfiniteWindow(['a', 'b', 'c'], 2, key), {
-    initialProps: { key: 'all' },
-  })
+test('a resetKey change (filter switch) resets the window to step', () => {
+  const { result, rerender } = renderHook(
+    ({ key }: { key: string }) => useInfiniteWindow(['a', 'b', 'c', 'd', 'e'], 2, key),
+    { initialProps: { key: 'all' } },
+  )
+  act(() => result.current.sentinelRef(document.createElement('div')))
+  act(() => observerCb?.([{ isIntersecting: true }]))
+  expect(result.current.visible).toEqual(['a', 'b', 'c', 'd']) // grown
   rerender({ key: 'youtube' })
-  expect(result.current.visible).toEqual(['a', 'b'])
+  expect(result.current.visible).toEqual(['a', 'b']) // filter change resets
 })
 ```
 
-- [ ] **Step 2: Verify failure** — `cd web && vp test src/lib/useInfiniteWindow.test.ts` → the "poll refetch" test FAILS against the current implementation (count resets on items identity). (If `renderHook` is unavailable, upgrade the import — @testing-library/react ≥13.4 exports it; this repo has 16.x.)
+- [ ] **Step 2: Verify failure** — `cd web && vp test src/lib/useInfiniteWindow.test.ts` → the "poll refetch" test FAILS against the current implementation (the grown window resets to `['a','b']` on the fresh-array rerender). The window MUST be grown past `step` (via the captured observer callback) first, or the reset is a no-op and the test is vacuous. (If `renderHook`/`act` are unavailable, upgrade the import — @testing-library/react ≥13.4 exports them; this repo has 16.x.)
 
 - [ ] **Step 3: Fix the hook** — in `web/src/lib/useInfiniteWindow.ts` change the signature and effect (lines 6-11):
 
