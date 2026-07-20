@@ -20,10 +20,16 @@ iCloud). Files:
 - `Hub.md` — dashboard note. `cssclasses: [no-toolbar]`; collapsible callout
   sections; a jump bar (hot cache, profile, ideas, vault index, latest digest)
   over embedded Bases views.
-- `ytk-sources.base` — views: Fresh (all sources, cards, `file.ctime` desc),
-  YouTube, Instagram, Articles (web/reddit, table), Clips (tiktok/pinterest).
+- One base file per source, each embedded exactly once: `ytk-fresh.base`
+  (image sources, cards, `file.ctime` desc — web excluded so no empty covers),
+  `ytk-youtube.base`, `ytk-instagram.base`, `ytk-articles.base` (web/reddit,
+  table, no images), `ytk-clips.base` (tiktok/pinterest). Split per file
+  because Obsidian mobile stops rendering repeated embeds of one `.base` file
+  (symptom: only the first 1-2 view embeds render).
 - `ytk-projects.base` — Projects (cards) + All notes (table).
-- `.obsidian/snippets/ytk-hub.css` — hides Bases toolbar on `no-toolbar` notes.
+- `.obsidian/snippets/ytk-hub.css` — hides the Bases toolbar and renders the
+  jump-bar link list as a 2-column grid of card buttons (big mobile hit
+  targets) using theme variables. Requires `cssclasses: [hub, no-toolbar]`.
 
 Card covers come from a formula, `firstimage: file.embeds[0]`, reading each
 note's first embedded image — so 135 YouTube + 145 Instagram notes show
