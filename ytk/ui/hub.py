@@ -982,9 +982,11 @@ def profile_rank_status() -> dict:
 
 
 def _rank_pending_for_profile(count: int) -> dict:
-    from ytk.autoingest import run_autoingest
+    from ytk.autoingest import rank_all_pending
 
-    return run_autoingest(count=count, dry_run=True)
+    # `count` is the batch size; rank the whole scorable pool into stratified
+    # blocks of that size so the hub can page ("reroll") through them for free.
+    return rank_all_pending(page_size=count)
 
 
 RUN_PROFILE_RANK = _rank_pending_for_profile  # test seam

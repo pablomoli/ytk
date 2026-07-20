@@ -380,12 +380,26 @@ body {
   font-size: 0.82rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  /* An iMessage session's text is the whole thread; clamp it so a long thread
+     does not blow the card up to full-page height. The complete text lands in
+     the note once ingested — the inbox card is for triage, not reading. */
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.textcard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-top: auto;
 }
 
 .textcard span {
   color: #5fbf76;
   font-size: 0.68rem;
-  margin-top: auto;
 }
 
 .fresh-card .delete-note {
@@ -851,32 +865,68 @@ body {
   outline-color: #e2b04a;
 }
 
+/* A profile match is marked quietly: a faint 1px inset edge, no glow bomb.
+   The theme tag in the meta row carries the real signal. */
 .card.profile-match {
-  box-shadow: inset 0 0 0 1px #4ade8099, 0 0 18px #4ade8014;
+  box-shadow: inset 0 0 0 1px #4ade8033;
 }
 
-.profile-match-badge {
-  position: absolute;
-  top: 0.45rem;
-  right: 0.45rem;
-  z-index: 3;
-  padding: 0.22rem 0.42rem;
-  border: 1px solid #4ade8077;
-  border-radius: 999px;
-  background: #0d2416e8;
-  color: #7ee79d;
-  font-size: 0.7rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  box-shadow: 0 2px 8px #0008;
-}
-
-.profile-match-theme {
+.profile-theme-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
   min-width: 0;
+  max-width: 100%;
+  padding: 0.06rem 0.34rem;
+  border-radius: 5px;
+  background: #4ade8014;
+  color: #7bbf8c;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   overflow: hidden;
-  color: #5fbf76;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.profile-theme-tag::before {
+  content: "#";
+  opacity: 0.55;
+}
+
+.profile-rank-batch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.1rem;
+}
+
+.profile-rank-batch .btn {
+  padding: 0.32rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.btn.ghost {
+  background: none;
+  border: 1px solid var(--line, #3a352c);
+  color: var(--mute, #9a9284);
+}
+
+.btn.ghost:hover {
+  background: #ffffff0d;
+}
+
+.btn.ghost:disabled {
+  background: none;
+  border-color: #ffffff14;
+  color: #555;
+}
+
+.batch-indicator {
+  color: var(--mute, #9a9284);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  margin-right: auto;
 }
 
 .profile-rank-status {

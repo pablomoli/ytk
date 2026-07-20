@@ -98,7 +98,9 @@ test("promotes and highlights cached profile picks before ordinary inbox items",
   const cards = [...container.querySelectorAll(".masonry .card")];
   expect(cards[0].textContent).toContain("Strong profile match");
   expect(cards[0]).toHaveClass("profile-match");
-  expect(screen.getByText("match 0.73")).toBeInTheDocument();
+  // The card carries a quiet theme tag, not a numeric score pill.
+  expect(cards[0].querySelector(".profile-theme-tag")).toHaveTextContent("Creative coding");
+  expect(screen.queryByText(/match 0\.\d+/)).not.toBeInTheDocument();
   expect(screen.getByText(/2 highlighted · 1800 text items scored · updated 2026-07-20/)).toBeInTheDocument();
 });
 
@@ -118,4 +120,50 @@ test("shows transport errors from the profile-rank status endpoint", () => {
   rankQuery = { isError: true };
   renderPage();
   expect(screen.getByText("rank status unavailable")).toBeInTheDocument();
+});
+
+test("reroll pages through stratified batches, moves the highlight, and wraps", () => {
+  const filler = (prefix: string, n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      url: `${prefix}${i}`,
+      title: `${prefix}${i}`,
+      source: "web",
+      theme: "Filler",
+      score: 0.5,
+    }));
+  // 45 picks => two batches of 30. "match" leads batch 1; "other-match" sits at
+  // index 30, so it only appears once the user rerolls to batch 2.
+  rankQuery = {
+    data: {
+      ...completedRank,
+      picks: [
+        { url: "match", title: "Strong profile match", source: "tiktok", theme: "Creative coding", score: 0.9 },
+        ...filler("a", 29),
+        { url: "other-match", title: "Other profile match", source: "reddit", theme: "Design", score: 0.6 },
+        ...filler("b", 14),
+      ],
+    },
+    isError: false,
+  };
+  const { container } = renderPage();
+  const findCard = (text: string) =>
+    [...container.querySelectorAll(".masonry .card")].find((c) => c.textContent?.includes(text));
+
+  expect(screen.getByText("batch 1/2")).toBeInTheDocument();
+  expect(findCard("Strong profile match")).toHaveClass("profile-match");
+  expect(findCard("Other profile match")).not.toHaveClass("profile-match");
+
+  fireEvent.click(screen.getByRole("button", { name: "reroll" }));
+  expect(screen.getByText("batch 2/2")).toBeInTheDocument();
+  expect(findCard("Other profile match")).toHaveClass("profile-match");
+  expect(findCard("Strong profile match")).not.toHaveClass("profile-match");
+
+  // reset returns to the first batch
+  fireEvent.click(screen.getByRole("button", { name: "reset" }));
+  expect(screen.getByText("batch 1/2")).toBeInTheDocument();
+
+  // reroll wraps from the last batch back to the first
+  fireEvent.click(screen.getByRole("button", { name: "reroll" }));
+  fireEvent.click(screen.getByRole("button", { name: "reroll" }));
+  expect(screen.getByText("batch 1/2")).toBeInTheDocument();
 });
