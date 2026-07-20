@@ -13,6 +13,7 @@ import { MasonryGrid } from "../components/MasonryGrid";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
 import { HubControls } from "../components/HubControls";
+import { IngestRing } from "../components/IngestRing";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
 import { filterAndSortQueue } from "../lib/queueItems";
 import { formatElapsed } from "../lib/elapsed";
@@ -234,9 +235,11 @@ function InboxPage() {
           {job.data && (job.data.running || job.data.total > 0) ? (
             <div className={`progress${job.data.running ? " running" : ""}`}>
               <span className="progress-line">
-                {job.data.running ? (
-                  <span className="ingest-spinner" aria-hidden="true" />
-                ) : null}
+                <IngestRing
+                  done={job.data.done}
+                  total={job.data.total}
+                  running={job.data.running}
+                />
                 <span>
                   {job.data.running ? "running · " : "done · "}
                   {job.data.done}/{job.data.total}

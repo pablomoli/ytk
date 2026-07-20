@@ -264,22 +264,6 @@ body {
   gap: 0.4rem;
 }
 
-.ingest-spinner {
-  width: 0.7rem;
-  height: 0.7rem;
-  flex: none;
-  border-radius: 50%;
-  border: 2px solid rgba(226, 176, 74, 0.25);
-  border-top-color: #e2b04a;
-  animation: ingest-spin 0.7s linear infinite;
-}
-
-@keyframes ingest-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* The title can be a full video name; keep the rail from stretching. */
 .progress-current {
   color: #bbb;
@@ -298,12 +282,6 @@ body {
 .progress-failed {
   color: #d08a7a;
   font-size: 0.75rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ingest-spinner {
-    animation: none;
-  }
 }
 
 .sentinel {
@@ -937,4 +915,17 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 0.6rem;
+}
+
+.ingest-ring {
+  flex: none;
+  color: var(--mute);
+}
+
+.ingest-ring.running {
+  color: var(--accent);
+}
+
+.ingest-ring-fill {
+  transition: stroke-dashoffset 0.18s var(--ease);
 }
