@@ -20,3 +20,10 @@ test('renders the discovery sources as filter chips', () => {
     expect(onChange).toHaveBeenCalledWith(s)
   }
 })
+
+test('chips carry aria-pressed reflecting selection', () => {
+  const { rerender } = render(<SourceFilter value={undefined} onChange={() => {}} />)
+  expect(screen.getByRole('button', { name: 'youtube' })).toHaveAttribute('aria-pressed', 'false')
+  rerender(<SourceFilter value="youtube" onChange={() => {}} />)
+  expect(screen.getByRole('button', { name: 'youtube' })).toHaveAttribute('aria-pressed', 'true')
+})
