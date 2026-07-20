@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { KeyboardEvent, MouseEvent } from 'react'
 import type { QueueItem } from '../api/queue'
 import type { ProfileRankPick } from '../api/profileRank'
+import { PixelBloom } from './PixelBloom'
 import { sourceIcon } from './icons'
 
 type ImageStage = 'cover' | 'preview' | 'fallback'
@@ -70,6 +71,7 @@ export function Card({
   if (item.source === 'imessage') {
     return (
       <div className={cardClassName(selected, state, Boolean(profileMatch))} {...interactiveProps}>
+        <PixelBloom />
         {matchBadge}
         <div className="textcard">
           <p>{item.text}</p>
@@ -81,6 +83,7 @@ export function Card({
 
   return (
     <div className={cardClassName(selected, state, Boolean(profileMatch))} {...interactiveProps}>
+      <PixelBloom />
       {matchBadge}
       {stage === 'fallback' ? (
         <div className="noimg">{item.source}</div>
