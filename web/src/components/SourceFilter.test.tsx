@@ -11,3 +11,12 @@ test('toggles source', () => {
   fireEvent.click(screen.getByText('youtube'))
   expect(onChange).toHaveBeenCalledWith(undefined)
 })
+
+test('renders the discovery sources as filter chips', () => {
+  const onChange = vi.fn()
+  render(<SourceFilter value={undefined} onChange={onChange} />)
+  for (const s of ['tiktok', 'reddit', 'instagram', 'youtube']) {
+    fireEvent.click(screen.getByText(s))
+    expect(onChange).toHaveBeenCalledWith(s)
+  }
+})
