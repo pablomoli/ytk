@@ -16,10 +16,12 @@ import {
   WebGLRenderer,
   WebGLRenderTarget,
 } from 'three'
+import { EffectComposer, EffectPass, RenderPass, SMAAEffect, VignetteEffect } from 'postprocessing'
 import { DEFAULT_CONSTRAINTS, dnaToRD, type Constraints, type SeedDNA } from './dna'
 import { generateTopology, type TopologyNode } from './topology'
 import { workbenchRegions, type Region } from './layout'
 import { growthRenderFragment, growthUpdateFragment, growthVertex } from './shaders'
+import { SeededGrainEffect } from '../grain'
 
 export type GrowthKind = 'related' | 'novel'
 export type EventInput = { stem: string; title: string; kind: GrowthKind }
@@ -225,6 +227,30 @@ export function mountWorkbench(
   })
   blitScene.add(new Mesh(geometry, blitMaterial))
 
+  /* Restraint tier only: vignette + static seeded grain + SMAA over the
+     raw blit. No tone mapping (the palette ramp is already authored), and
+     no second dither -- the one-device-pixel rule in shaders.ts stands.
+     postprocessing ships no TexturePass in this pinned version (6.39.3),
+     so the composite is fed through a RenderPass over the existing
+     blitScene/blitMaterial (the same raw passthrough used pre-effects)
+     rather than sampling composite.texture a second time. EffectMaterial
+     defaults to ENCODE_OUTPUT=1 (linear -> renderer.outputColorSpace) --
+     since blitMaterial's output is already the raw device-ready values
+     (never linear-encoded, see blitMaterial above), leaving that on would
+     re-apply the same sRGB double-encode bug the composite-target refactor
+     fixed. encodeOutput is disabled below to keep the composer a pure
+     raw-value pass with SMAA/vignette/grain layered on top. */
+  const composer = new EffectComposer(renderer)
+  composer.addPass(new RenderPass(blitScene, camera))
+  const effectPass = new EffectPass(
+    camera,
+    new SMAAEffect(),
+    new VignetteEffect({ offset: 0.32, darkness: 0.5 }),
+    new SeededGrainEffect(0.04),
+  )
+  effectPass.encodeOutput = false
+  composer.addPass(effectPass)
+
   const stage = makeSlot(STAGE_SIZE)
   const tiles = [makeSlot(TILE_SIZE), makeSlot(TILE_SIZE), makeSlot(TILE_SIZE), makeSlot(TILE_SIZE)]
   const slots = [stage, ...tiles]
@@ -396,6 +422,7 @@ export function mountWorkbench(
     renderer.setSize(width, height, false)
     const dpr = Math.min(devicePixelRatio || 1, 2)
     composite.setSize(Math.max(2, Math.round(width * dpr)), Math.max(2, Math.round(height * dpr)))
+    composer.setSize(width, height)
     regions = workbenchRegions(width, height)
   }
 
@@ -473,7 +500,7 @@ export function mountWorkbench(
     tiles.forEach((tile, i) => drawRegion(tile, regions.mutations[i], height, pulse))
     renderer.setScissorTest(false)
     renderer.setViewport(0, 0, width, height)
-    renderer.render(blitScene, camera)
+    composer.render()
     frame = requestAnimationFrame(render)
   }
 
@@ -564,6 +591,7 @@ export function mountWorkbench(
       displayMaterial.dispose()
       composite.dispose()
       blitMaterial.dispose()
+      composer.dispose()
       geometry.dispose()
       renderer.dispose()
     },
