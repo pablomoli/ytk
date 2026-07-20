@@ -50,7 +50,11 @@ export function TargetCursor() {
     place(IDLE * 2, IDLE * 2)
     addEventListener('mousemove', move)
     addEventListener('mouseover', over)
-    return () => { removeEventListener('mousemove', move); removeEventListener('mouseover', over) }
+    return () => {
+      removeEventListener('mousemove', move)
+      removeEventListener('mouseover', over)
+      gsap.killTweensOf([root, ...corners])
+    }
   }, [])
 
   if (reducedMotion()) return null
