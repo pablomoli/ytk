@@ -24,7 +24,12 @@ iCloud) is the read contract; the hub (FastAPI at `hub.host:hub.port`, launchd
 ## Layer 0 — read layer: Obsidian mobile (zero code)
 
 The vault already syncs through Obsidian's iCloud container. Setup is on-device
-only: install Obsidian iOS, open the existing iCloud vault. Daily digests
+only: install Obsidian iOS, open the existing iCloud vault. On iOS 18+, mark
+the vault folder "Keep Downloaded" in the Files app so iOS never evicts notes
+to placeholders under storage pressure (the main reliability gap of the free
+iCloud route, per r/ObsidianMD — ingested as
+`sources/web/ios-18-finally-introduces-keep-downloaded-option-in-icloud.md`).
+Daily digests
 (`inbox/review-*.md`), the interest profile (`me/profile.md`), and all source
 notes are readable on the phone with no repo changes.
 
@@ -96,6 +101,16 @@ from this brainstorm, so they are not re-derived later:
 - Free dev account = 7-day app expiry; practical use needs the $99/yr account.
 - Risk: scope gravity toward a full native client (search/chat need the hub
   anyway). Decision: revisit after real usage of the layers above.
+- Prior art: "Funnel" (r/ObsidianMD), a quick-capture iOS app writing into an
+  Obsidian vault — evidence the share-extension-into-vault pattern works.
+
+## Test finding: Reddit ingestion (2026-07-20)
+
+`ytk ingest` works on Reddit threads via `old.reddit.com` URLs (verified live);
+`www.reddit.com` 403-blocks generic clients. Limitation: the scrape captures
+the post but few comments — for discussion threads a dedicated `.json` fetch
+path would be the improvement. Out of scope here; noted for a future
+reddit-ingest feature.
 
 ## Non-goals
 
