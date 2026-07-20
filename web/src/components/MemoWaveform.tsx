@@ -1,35 +1,44 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, MouseEvent } from 'react'
 
-let activePlayer: HTMLAudioElement | null = null
-let activeCanvas: HTMLCanvasElement | null = null
-let activePeaks: number[] = []
-let decoderContext: AudioContext | null = null
+/* One shared player across all cards; colors read from the theme at draw
+   time; canvas sized to its CSS box * devicePixelRatio and redrawn on
+   resize. Click seeks (or pauses when already playing this memo). */
+const shared: {
+  player: HTMLAudioElement | null
+  canvas: HTMLCanvasElement | null
+  peaks: number[]
+  decoder: AudioContext | null
+} = { player: null, canvas: null, peaks: [], decoder: null }
 
-function getDecoderContext(): AudioContext {
-  if (!decoderContext) decoderContext = new window.AudioContext()
-  return decoderContext
-}
+const themeColor = (name: string, fallback: string) =>
+  getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 
 function drawWave(canvas: HTMLCanvasElement, peaks: number[], fraction: number) {
   const context = canvas.getContext('2d')
   if (!context || !peaks.length) return
-  const width = canvas.offsetWidth * 2
-  const height = 96
-  canvas.width = width
-  canvas.height = height
+  const ratio = Math.min(devicePixelRatio || 1, 2)
+  const width = Math.max(1, Math.round(canvas.offsetWidth * ratio))
+  const height = Math.max(1, Math.round(canvas.offsetHeight * ratio))
+  if (canvas.width !== width) canvas.width = width
+  if (canvas.height !== height) canvas.height = height
+  const played = themeColor('--live', '#4ade80')
+  const rest = themeColor('--mute', '#83817a')
   const barWidth = width / peaks.length
   context.clearRect(0, 0, width, height)
   peaks.forEach((peak, index) => {
-    context.fillStyle = index / peaks.length < fraction ? '#4ade80' : '#31543f'
+    context.globalAlpha = index / peaks.length < fraction ? 1 : 0.45
+    context.fillStyle = index / peaks.length < fraction ? played : rest
     const barHeight = Math.max(4, peak * height * 0.92)
     context.fillRect(index * barWidth + barWidth * 0.18, (height - barHeight) / 2, barWidth * 0.64, barHeight)
   })
+  context.globalAlpha = 1
 }
 
 async function peaksForAudio(audio: string): Promise<number[]> {
+  shared.decoder ??= new window.AudioContext()
   const buffer = await (await fetch(`/api/memo-audio/${encodeURIComponent(audio)}`)).arrayBuffer()
-  const decoded = await getDecoderContext().decodeAudioData(buffer)
+  const decoded = await shared.decoder.decodeAudioData(buffer)
   const data = decoded.getChannelData(0)
   const bars = 56
   const step = Math.floor(data.length / bars) || 1
@@ -58,49 +67,56 @@ export function MemoWaveform({ audio }: { audio: string }) {
         peaksRef.current = peaks
         drawWave(canvas, peaks, 0)
       })
-      .catch(() => {
-        if (!cancelled) setAvailable(false)
-      })
+      .catch(() => { if (!cancelled) setAvailable(false) })
+
+    const ro = new ResizeObserver(() => {
+      const playing = shared.canvas === canvas && shared.player && !shared.player.paused
+      const fraction = playing && shared.player!.duration ? shared.player!.currentTime / shared.player!.duration : 0
+      drawWave(canvas, peaksRef.current, fraction)
+    })
+    ro.observe(canvas)
 
     return () => {
       cancelled = true
-      if (activeCanvas === canvas && activePlayer) {
-        activePlayer.pause()
-        activePlayer = null
-        activeCanvas = null
-        activePeaks = []
+      ro.disconnect()
+      if (shared.canvas === canvas && shared.player) {
+        shared.player.pause()
+        shared.player = null
+        shared.canvas = null
+        shared.peaks = []
       }
     }
   }, [audio])
 
   if (!available) return null
 
-  const playAt = (fraction: number) => {
+  const playAt = (fraction: number, toggle = false) => {
     const canvas = canvasRef.current
     if (!canvas || !peaksRef.current.length) return
 
-    if (activeCanvas === canvas && activePlayer) {
-      if (Number.isFinite(activePlayer.duration)) activePlayer.currentTime = fraction * activePlayer.duration
-      void activePlayer.play()
+    if (shared.canvas === canvas && shared.player) {
+      if (toggle && !shared.player.paused) { shared.player.pause(); return }
+      if (Number.isFinite(shared.player.duration)) shared.player.currentTime = fraction * shared.player.duration
+      void shared.player.play()
       return
     }
 
-    if (activePlayer && activeCanvas) {
-      activePlayer.pause()
-      drawWave(activeCanvas, activePeaks, 0)
+    if (shared.player && shared.canvas) {
+      shared.player.pause()
+      drawWave(shared.canvas, shared.peaks, 0)
     }
 
     const player = new Audio(`/api/memo-audio/${encodeURIComponent(audio)}`)
-    activePlayer = player
-    activeCanvas = canvas
-    activePeaks = peaksRef.current
+    shared.player = player
+    shared.canvas = canvas
+    shared.peaks = peaksRef.current
     player.addEventListener('timeupdate', () => drawWave(canvas, peaksRef.current, player.currentTime / player.duration))
     player.addEventListener('ended', () => {
       drawWave(canvas, peaksRef.current, 0)
-      if (activePlayer === player) {
-        activePlayer = null
-        activeCanvas = null
-        activePeaks = []
+      if (shared.player === player) {
+        shared.player = null
+        shared.canvas = null
+        shared.peaks = []
       }
     })
     void player.play()
@@ -115,7 +131,7 @@ export function MemoWaveform({ audio }: { audio: string }) {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
     event.stopPropagation()
-    playAt(0)
+    playAt(0, true)
   }
 
   return <canvas ref={canvasRef} className="wave" tabIndex={0} role="button" aria-label="Play memo" onClick={handleClick} onKeyDown={handleKeyDown} title="play memo" />
