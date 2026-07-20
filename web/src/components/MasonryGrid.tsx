@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { Flip, reducedMotion } from '../lib/motion'
 import { columnSpec, computeMasonryLayout } from '../lib/masonry'
 import '../styles.css'
 
@@ -20,15 +21,22 @@ function markWide(img: HTMLImageElement) {
   }
 }
 
+type Reason = 'children' | 'resize' | 'load'
+
 export function MasonryGrid({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
+  const laidOut = useRef(false)
 
   useEffect(() => {
     const grid = ref.current
     if (!grid) return
 
     let raf = 0
-    const relayout = () => {
+    let pendingReason: Reason = 'children'
+    const relayout = (reason: Reason) => {
+      /* Flip only on children changes: resize tweens fight the drag, and
+         image-load relayouts happen mid-scroll where motion is noise. */
+      if (reason === 'children') pendingReason = 'children'
       if (raf) return
       raf = requestAnimationFrame(() => {
         raf = 0
@@ -37,6 +45,9 @@ export function MasonryGrid({ children }: { children: ReactNode }) {
         const items = [...grid.children].filter(
           (el): el is HTMLElement => el instanceof HTMLElement,
         )
+        const animate = pendingReason === 'children' && laidOut.current && !reducedMotion()
+        const state = animate ? Flip.getState(items) : null
+        pendingReason = 'resize'
         /* Two passes because height depends on width: first size every card
            for its span, then measure and place. Cards are absolutely
            positioned with explicit widths, so offsetHeight reflects content
@@ -58,17 +69,21 @@ export function MasonryGrid({ children }: { children: ReactNode }) {
           el.style.width = `${layout.placed[i].width}px`
         })
         grid.style.height = `${layout.height}px`
+        laidOut.current = true
+        if (state) {
+          Flip.from(state, { duration: 0.18, ease: 'house', overwrite: true, onEnter: (els) => els.forEach((el) => ((el as HTMLElement).style.opacity = '1')) })
+        }
       })
     }
 
-    relayout()
+    relayout('children')
 
-    const ro = new ResizeObserver(relayout)
+    const ro = new ResizeObserver(() => relayout('resize'))
     ro.observe(grid)
 
     const onLoad = (e: Event) => {
       markWide(e.target as HTMLImageElement)
-      relayout()
+      relayout('load')
     }
     const images = [...grid.querySelectorAll('img')]
     images.forEach((img) => {
