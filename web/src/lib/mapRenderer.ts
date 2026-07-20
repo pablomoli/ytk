@@ -3,6 +3,8 @@ import { aggFactor, groupStats, pointDomain, pointGroup, subCells } from './mapA
 import type { SubCell } from './mapAggregation'
 import { DIM, focusLevel, groupTargets, pointPhases, ramp as ease } from './mapGroups'
 import type { MapFocus } from './mapGroups'
+import { decay, pushSample, releaseVelocity } from './mapInertia'
+import type { VelocitySample } from './mapInertia'
 
 export type MapHover = { point: MapPoint; x: number; y: number }
 export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setFocus: (focus: MapFocus) => void; setHover: (hover?: MapFocus) => void; setHiddenDomains: (doms: Set<number>) => void; setLegendOpen: (open: boolean) => void; destroy: () => void }
@@ -131,6 +133,10 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   let drag: { x: number; y: number } | undefined
   let moved = 0
   let orbit = false
+  let samples: VelocitySample[] = []
+  let momentum: { vx: number; vy: number } = { vx: 0, vy: 0 }
+  const killMomentum = () => { momentum = { vx: 0, vy: 0 }; samples = [] }
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
   let angle = .5
   let tilt = .3
   let signalOnly = false
@@ -301,6 +307,19 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     const dt = lastFrame ? Math.min(.05, (now - lastFrame) / 1000) : .016; lastFrame = now
     const dm2 = morphTarget - morph; morph = Math.abs(dm2) <= 1e-3 ? morphTarget : morph + dm2 * (1 - Math.exp(-5 * dt))
     const dd = dimTarget - dimVal; dimVal = Math.abs(dd) <= 1e-3 ? dimTarget : dimVal + dd * (1 - Math.exp(-5 * dt))
+    // wheel glide: ease scale to its target, holding the anchor point fixed
+    if (!flyItem && zoomAnchor && Math.abs(scaleTarget - scale) > 1e-3) {
+      const previous = scale
+      scale += (scaleTarget - scale) * (1 - Math.exp(-10 * dt))
+      const ratio = scale / previous
+      offset = [zoomAnchor[0] - (zoomAnchor[0] - offset[0]) * ratio, zoomAnchor[1] - (zoomAnchor[1] - offset[1]) * ratio]
+    } else if (zoomAnchor && Math.abs(scaleTarget - scale) <= 1e-3) { scale = scaleTarget; zoomAnchor = null }
+    // pan coast: integrate momentum with exponential decay to a soft stop
+    if (!drag && (momentum.vx || momentum.vy)) {
+      offset = [offset[0] + momentum.vx * dt, offset[1] + momentum.vy * dt]
+      momentum = { vx: decay(momentum.vx, dt), vy: decay(momentum.vy, dt) }
+      if (Math.hypot(momentum.vx, momentum.vy) < 0.005) killMomentum()
+    }
     focusT = Math.min(1, focusT + dt / .9)
     introT = Math.min(1, introT + dt / 1.5)
     if (introT >= 1 && canvas.dataset.intro) delete canvas.dataset.intro
@@ -340,20 +359,44 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     for (const item of labelItems) { const [x, centerY, depth] = project(blend(item.c3, item.c2)); const spread = item.radius * scale * canvas.clientHeight * .25 / depth; let y = centerY - spread - 22; const width = (item.node.textContent?.length ?? 1) * parseFloat(item.node.style.fontSize) * .72; for (let i = 0; i < 10 && placed.some((other) => Math.abs(other.y - y) < 22 && Math.abs(other.x - x) < (other.width + width) / 2 + 10); i++) y -= 22; const visible = depth > 0 && x >= 0 && y >= 40 && x <= canvas.clientWidth - (legendOpen ? 290 : 70) && y <= canvas.clientHeight && !(item.rank >= 6 && spread < 70); item.node.style.display = visible ? 'block' : 'none'; if (item.line) item.line.style.display = 'none'; if (!visible) continue; y = Math.max(46, y); const size = parseFloat(item.node.style.fontSize); item.node.style.left = `${x}px`; item.node.style.top = `${y}px`; const alpha = item.rank < 6 ? .9 : Math.min(.9, (spread - 70) / 120 + .35); item.node.style.opacity = `${alpha}`; const gap = centerY - y - size; if (item.line && gap > 14) { item.line.style.display = 'block'; item.line.setAttribute('stroke', `rgba(255,255,255,${(.16 * alpha).toFixed(3)})`); item.line.setAttribute('x1', `${x}`); item.line.setAttribute('y1', `${centerY - Math.min(spread * .7, gap - 6)}`); item.line.setAttribute('x2', `${x}`); item.line.setAttribute('y2', `${y + size * .8}`) } placed.push({ x, y, width }) }
   }
   const pick = (event: MouseEvent) => { if (drag) return; const rect = canvas.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) { hoveredPoint = undefined; onHover?.(); return } let best: { point: MapPoint; distance: number } | undefined; for (const item of renderedPoints) { if (signalOnly && item.point.r < 1) continue; const target = item.group >= 0 ? focB.sub[item.group] : item.domain >= 0 ? focB.dom[item.domain] : 1; if ((target ?? 1) < .2) continue; const [x, y] = project(worldOf(item)); const distance = (x - (event.clientX - rect.left)) ** 2 + (y - (event.clientY - rect.top)) ** 2; if (distance < 144 && (!best || distance < best.distance)) best = { point: item.point, distance } } hoveredPoint = best?.point; onHover?.(best ? { point: best.point, x: event.clientX, y: event.clientY } : undefined) }
-  const down = (event: MouseEvent) => { if (event.button !== 0 && event.button !== 2) return; event.preventDefault(); moved = 0; orbit = dimTarget === 1 && event.button === 0 && !event.shiftKey; drag = { x: event.clientX, y: event.clientY }; canvas.classList.add('dragging') }
-  const move = (event: MouseEvent) => { if (!drag) { pick(event); return } const dx = event.clientX - drag.x; const dy = event.clientY - drag.y; moved += Math.abs(dx) + Math.abs(dy); flyItem = undefined; scaleTarget = scale; if (orbit) { angle -= dx * .005; tilt = Math.max(-1.35, Math.min(1.35, tilt + dy * .005)) } else offset = [offset[0] + dx / innerWidth * 2, offset[1] - dy / innerHeight * 2]; drag = { x: event.clientX, y: event.clientY }; onHover?.() }
-  const up = () => { drag = undefined; orbit = false; canvas.classList.remove('dragging') }
+  const down = (event: MouseEvent) => { if (event.button !== 0 && event.button !== 2) return; event.preventDefault(); moved = 0; orbit = dimTarget === 1 && event.button === 0 && !event.shiftKey; drag = { x: event.clientX, y: event.clientY }; canvas.classList.add('dragging'); killMomentum(); samples = [{ x: event.clientX, y: event.clientY, t: performance.now() }] }
+  const move = (event: MouseEvent) => { if (!drag) { pick(event); return } const dx = event.clientX - drag.x; const dy = event.clientY - drag.y; moved += Math.abs(dx) + Math.abs(dy); flyItem = undefined; scaleTarget = scale; momentum = { vx: 0, vy: 0 }; if (orbit) { angle -= dx * .005; tilt = Math.max(-1.35, Math.min(1.35, tilt + dy * .005)) } else { offset = [offset[0] + dx / innerWidth * 2, offset[1] - dy / innerHeight * 2]; pushSample(samples, { x: event.clientX, y: event.clientY, t: performance.now() }) } drag = { x: event.clientX, y: event.clientY }; onHover?.() }
+  const up = () => {
+    if (drag && !orbit && !reduceMotion) {
+      const v = releaseVelocity(samples) // px/ms in screen space
+      // convert to NDC offset units/second: offset spans 2 across the viewport
+      momentum = { vx: v.vx * 1000 * 2 / innerWidth, vy: -v.vy * 1000 * 2 / innerHeight }
+      if (Math.hypot(momentum.vx, momentum.vy) < 0.02) killMomentum()
+    }
+    samples = []
+    drag = undefined; orbit = false; canvas.classList.remove('dragging')
+  }
   // exact cursor-anchored zoom: screen = world*k*scale + pan, so holding the
   // cursor's NDC point fixed means pan' = c - (c - pan) * (scale'/scale)
-  const wheel = (event: WheelEvent) => { event.preventDefault(); flyItem = undefined; const rect = canvas.getBoundingClientRect(); const previous = scale; scale = Math.max(.3, Math.min(12, scale * Math.exp(-event.deltaY * .0012))); scaleTarget = scale; const cx = (event.clientX - rect.left) / rect.width * 2 - 1; const cy = 1 - (event.clientY - rect.top) / rect.height * 2; const ratio = scale / previous; offset = [cx - (cx - offset[0]) * ratio, cy - (cy - offset[1]) * ratio] }
+  let zoomAnchor: [number, number] | null = null
+  const wheel = (event: WheelEvent) => {
+    event.preventDefault(); flyItem = undefined; killMomentum()
+    const rect = canvas.getBoundingClientRect()
+    zoomAnchor = [
+      (event.clientX - rect.left) / rect.width * 2 - 1,
+      1 - (event.clientY - rect.top) / rect.height * 2,
+    ]
+    scaleTarget = Math.max(.3, Math.min(12, (scaleTarget || scale) * Math.exp(-event.deltaY * .0012)))
+    if (reduceMotion) {
+      const ratio = scaleTarget / scale
+      scale = scaleTarget
+      offset = [zoomAnchor[0] - (zoomAnchor[0] - offset[0]) * ratio, zoomAnchor[1] - (zoomAnchor[1] - offset[1]) * ratio]
+      zoomAnchor = null
+    }
+  }
   const contextmenu = (event: MouseEvent) => event.preventDefault()
   const open = () => { if (hoveredPoint?.u) window.open(hoveredPoint.u, '_blank', 'noopener') }
-  const flyTo = (point: MapPoint) => { const item = renderedPoints.find((entry) => entry.point === point); if (item) { scaleTarget = Math.max(scale, 1.8); flyItem = item } }
+  const flyTo = (point: MapPoint) => { const item = renderedPoints.find((entry) => entry.point === point); if (item) { scaleTarget = Math.max(scale, 1.8); flyItem = item; killMomentum() } }
   // Drill-down: overview click focuses the point's domain; a second click
   // inside a focused domain focuses its subtopic (noise keeps domain focus);
   // clicking at subtopic depth or on empty space pops one level. The route
   // owns the focus state — the renderer only reports via onFocus.
   const click = () => { if (moved >= 4) return; if (!hoveredPoint) { flyItem = undefined; scaleTarget = scale; onFocus?.(focus.sub !== undefined ? { dom: focus.dom } : {}); return } if (view === 'content') { const th = hoveredPoint.th ?? -1; if (th < 0) return; flyTo(hoveredPoint); onFocus?.({ dom: th }); return } if (focus.dom === undefined) { onFocus?.({ dom: hoveredPoint.dom }); return } if (focus.sub === undefined) { const sub = hoveredPoint.g >= 0 ? hoveredPoint.g : undefined; if (sub !== undefined) flyTo(hoveredPoint); onFocus?.({ dom: focus.dom, sub }); return } onFocus?.({ dom: focus.dom }) }
   resize(); addEventListener('resize', resize); canvas.addEventListener('mousedown', down); canvas.addEventListener('click', click); canvas.addEventListener('dblclick', open); canvas.addEventListener('contextmenu', contextmenu); addEventListener('mousemove', move); addEventListener('mouseup', up); canvas.addEventListener('wheel', wheel, { passive: false }); render()
-  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { dimTarget = next ? 0 : 1; flyItem = undefined; scaleTarget = scale }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteBuffer(orbBuffer); gl.deleteProgram(program) } }
+  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { dimTarget = next ? 0 : 1; flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteBuffer(orbBuffer); gl.deleteProgram(program); killMomentum() } }
 }
