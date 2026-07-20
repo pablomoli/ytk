@@ -25,7 +25,7 @@ function IndexPage() {
   const navigate = useNavigate({ from: Route.fullPath });
   const fresh = useFreshNotes();
   const remove = useDeleteNote();
-  const [selected, setSelected] = useState<FreshNote>();
+  const [selected, setSelected] = useState<{ note: FreshNote; rect?: DOMRect }>();
   const [pendingDelete, setPendingDelete] = useState<FreshNote>();
   const notes = useMemo(
     () => (fresh.data ?? []).filter((item) => !source || canonicalSource(item.source) === source || item.channel === source),
@@ -42,7 +42,7 @@ function IndexPage() {
   } else if (!notes.length) {
     body = <EmptyState label="nothing ingested yet" hint="ingest from the inbox to fill the feed" />;
   } else {
-    body = <MasonryGrid>{notes.map((item) => <FreshCard key={item.path} note={item} onOpen={setSelected} onDelete={handleDelete} />)}</MasonryGrid>;
+    body = <MasonryGrid>{notes.map((item) => <FreshCard key={item.path} note={item} onOpen={(note, rect) => setSelected({ note, rect })} onDelete={handleDelete} />)}</MasonryGrid>;
   }
 
   return (
@@ -55,7 +55,7 @@ function IndexPage() {
         {remove.isError ? <div className="delete-error" role="alert">failed to delete note: {String(remove.error)}</div> : null}
         {body}
       </div>
-      {selected ? <NoteViewer note={selected} onClose={() => setSelected(undefined)} /> : null}
+      {selected ? <NoteViewer note={selected.note} originRect={selected.rect} onClose={() => setSelected(undefined)} /> : null}
       {pendingDelete ? (
         <ConfirmDialog
           message="delete this note for good? it leaves the vault and the search index."
@@ -63,7 +63,7 @@ function IndexPage() {
           onConfirm={() => {
             const item = pendingDelete;
             setPendingDelete(undefined);
-            remove.mutate(item.path, { onSuccess: () => setSelected((current) => (current?.path === item.path ? undefined : current)) });
+            remove.mutate(item.path, { onSuccess: () => setSelected((current) => (current?.note.path === item.path ? undefined : current)) });
           }}
         />
       ) : null}
