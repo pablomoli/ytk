@@ -19,6 +19,7 @@ import { paletteFromCovers } from '../lib/growth/palette'
 import { parsePhilosophy } from '../lib/growth/philosophy'
 import { mountWorkbench, type WorkbenchHandle, type WorkbenchStatus } from '../lib/growth/scene'
 import type { EventInput } from '../lib/growth/scene'
+import { pixelateSwap } from '../lib/pixelateSwap'
 import './growth.css'
 
 export const Route = createFileRoute('/growth')({ component: GrowthWorkbench })
@@ -194,12 +195,17 @@ function GrowthWorkbench() {
   const select = useCallback(
     (id: string) => {
       if (selected === id) return
-      if (selected && handle.current) {
-        persistReplay()
-        setThumbs((prev) => ({ ...prev, [selected]: handle.current!.snapshot() }))
+      const selectInner = () => {
+        if (selected && handle.current) {
+          persistReplay()
+          setThumbs((prev) => ({ ...prev, [selected]: handle.current!.snapshot() }))
+        }
+        lastLoaded.current = null
+        setSelected(id)
       }
-      lastLoaded.current = null
-      setSelected(id)
+      const canvasEl = canvas.current
+      if (canvasEl) pixelateSwap(canvasEl, selectInner)
+      else selectInner()
     },
     [selected, persistReplay],
   )
@@ -247,16 +253,22 @@ function GrowthWorkbench() {
 
   const adopt = (i: number) => {
     if (!current || !selected || !handle.current) return
-    const dna = mutations[i]
-    localStorage.setItem(adoptedKey(selected), JSON.stringify(dna))
-    setAdoptedTick((t) => t + 1)
-    handle.current.setOrganism({
-      dna,
-      events: current.events,
-      replayFrom: handle.current.replayPosition(),
-      constraints,
-    })
-    handle.current.setMutations(mutationsFor(dna))
+    const events = current.events
+    const adoptInner = () => {
+      const dna = mutations[i]
+      localStorage.setItem(adoptedKey(selected), JSON.stringify(dna))
+      setAdoptedTick((t) => t + 1)
+      handle.current!.setOrganism({
+        dna,
+        events,
+        replayFrom: handle.current!.replayPosition(),
+        constraints,
+      })
+      handle.current!.setMutations(mutationsFor(dna))
+    }
+    const canvasEl = canvas.current
+    if (canvasEl) pixelateSwap(canvasEl, adoptInner)
+    else adoptInner()
   }
 
   const randomSeed = () => {
