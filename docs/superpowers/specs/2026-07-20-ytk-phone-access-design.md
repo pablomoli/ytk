@@ -27,6 +27,11 @@ iCloud). Files:
   because Obsidian mobile stops rendering repeated embeds of one `.base` file
   (symptom: only the first 1-2 view embeds render).
 - `ytk-projects.base` — Projects (cards) + All notes (table).
+
+Every base filters `file.ext == "md"`: Bases includes all files in a folder,
+so without this the `thumbnails/` and `slides/` images appear as their own
+coverless-but-image entries — one phantom card per note. The md filter is
+mandatory, not cosmetic.
 - `.obsidian/snippets/ytk-hub.css` — hides the Bases toolbar and renders the
   jump-bar link list as a 2-column grid of card buttons (big mobile hit
   targets) using theme variables. Requires `cssclasses: [hub, no-toolbar]`.
