@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { FreshCard } from "../components/FreshCard";
 import { MasonryGrid } from "../components/MasonryGrid";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { NoteViewer } from "../components/NoteViewer";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
@@ -25,16 +26,13 @@ function IndexPage() {
   const fresh = useFreshNotes();
   const remove = useDeleteNote();
   const [selected, setSelected] = useState<FreshNote>();
+  const [pendingDelete, setPendingDelete] = useState<FreshNote>();
   const notes = useMemo(
     () => (fresh.data ?? []).filter((item) => !source || canonicalSource(item.source) === source || item.channel === source),
     [fresh.data, source],
   );
 
-  const handleDelete = (item: FreshNote) => {
-    if (window.confirm("Delete this note for good? It leaves the vault and the search index.")) {
-      remove.mutate(item.path, { onSuccess: () => setSelected((current) => (current?.path === item.path ? undefined : current)) });
-    }
-  };
+  const handleDelete = (item: FreshNote) => setPendingDelete(item);
 
   let body;
   if (fresh.isLoading) {
@@ -58,6 +56,17 @@ function IndexPage() {
         {body}
       </div>
       {selected ? <NoteViewer note={selected} onClose={() => setSelected(undefined)} /> : null}
+      {pendingDelete ? (
+        <ConfirmDialog
+          message="delete this note for good? it leaves the vault and the search index."
+          onCancel={() => setPendingDelete(undefined)}
+          onConfirm={() => {
+            const item = pendingDelete;
+            setPendingDelete(undefined);
+            remove.mutate(item.path, { onSuccess: () => setSelected((current) => (current?.path === item.path ? undefined : current)) });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

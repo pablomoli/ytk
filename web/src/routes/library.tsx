@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FreshCard } from "../components/FreshCard";
 import { MasonryGrid } from "../components/MasonryGrid";
 import { NoteViewer } from "../components/NoteViewer";
@@ -31,6 +32,7 @@ function LibraryPage() {
   const page = useLibrary(offset, source, q, PAGE);
   const remove = useDeleteNote();
   const [selected, setSelected] = useState<FreshNote>();
+  const [pendingDelete, setPendingDelete] = useState<FreshNote>();
 
   // filters reset pagination; a fetched page appends to the accumulated grid
   useEffect(() => { setPages([]); setOffset(0); }, [source, q]);
@@ -45,16 +47,7 @@ function LibraryPage() {
   const notes = pages.flat();
   const total = page.data?.total ?? 0;
 
-  const handleDelete = (item: FreshNote) => {
-    if (window.confirm("Delete this note for good? It leaves the vault and the search index.")) {
-      remove.mutate(item.path, {
-        onSuccess: () => {
-          setPages((current) => current.map((chunk) => chunk.filter((n) => n.path !== item.path)));
-          setSelected((current) => (current?.path === item.path ? undefined : current));
-        },
-      });
-    }
-  };
+  const handleDelete = (item: FreshNote) => setPendingDelete(item);
 
   let body;
   if (page.isLoading && !notes.length) {
@@ -94,6 +87,22 @@ function LibraryPage() {
         {body}
       </div>
       {selected ? <NoteViewer note={selected} onClose={() => setSelected(undefined)} /> : null}
+      {pendingDelete ? (
+        <ConfirmDialog
+          message="delete this note for good? it leaves the vault and the search index."
+          onCancel={() => setPendingDelete(undefined)}
+          onConfirm={() => {
+            const item = pendingDelete;
+            setPendingDelete(undefined);
+            remove.mutate(item.path, {
+              onSuccess: () => {
+                setPages((current) => current.map((chunk) => chunk.filter((n) => n.path !== item.path)));
+                setSelected((current) => (current?.path === item.path ? undefined : current));
+              },
+            });
+          }}
+        />
+      ) : null}
     </div>
   );
 }
