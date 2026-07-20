@@ -1,7 +1,42 @@
 # ytk phone access — design
 
 Date: 2026-07-20
-Status: approved pending review
+Status: pivoted — Obsidian-first hub shipped; Tailscale/mobile-lite deferred
+
+## Pivot (2026-07-20)
+
+Priority narrowed to "usable from the phone today, no infrastructure." The
+Obsidian read layer (Layer 0) is promoted from passive reading to an active
+**hub dashboard** built with Bases. Tailscale + mobile-lite pages (Layers 1-2)
+are deferred until the user is home; capture (Layer 3) unchanged and still
+works via existing channels. Everything below Layer 0 stays as designed, just
+scheduled later.
+
+### Shipped: Bases hub (rides iCloud, zero services)
+
+Location: `second-brain/hub/` in the vault (not this git repo — syncs via
+iCloud). Files:
+
+- `Hub.md` — dashboard note. `cssclasses: [no-toolbar]`; collapsible callout
+  sections; a jump bar (hot cache, profile, ideas, vault index, latest digest)
+  over embedded Bases views.
+- `ytk-sources.base` — views: Fresh (all sources, cards, `file.ctime` desc),
+  YouTube, Instagram, Articles (web/reddit, table), Clips (tiktok/pinterest).
+- `ytk-projects.base` — Projects (cards) + All notes (table).
+- `.obsidian/snippets/ytk-hub.css` — hides Bases toolbar on `no-toolbar` notes.
+
+Card covers come from a formula, `firstimage: file.embeds[0]`, reading each
+note's first embedded image — so 135 YouTube + 145 Instagram notes show
+thumbnails with **no backfill and no code change**. This is why the planned
+`cover` frontmatter field in `vault.py` was dropped as unnecessary; revisit
+only if a note's first embed is ever the wrong cover, or to give web/reddit
+notes an image.
+
+On-phone steps (one time): pull the vault so files sync; enable the `ytk-hub`
+CSS snippet in Settings -> Appearance; optionally set `Hub.md` as the mobile
+Homepage via the Homepage plugin; mark the vault "Keep Downloaded" (iOS 18+).
+
+---
 
 ## Goal
 
