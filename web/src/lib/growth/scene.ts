@@ -196,6 +196,35 @@ export function mountWorkbench(
   })
   displayScene.add(new Mesh(geometry, displayMaterial))
 
+  /* Offscreen composite target: drawRegion renders every dish into this
+     texture (same viewports/scissors, now in texture space), and a final
+     pass puts it on screen. Commit 1 = bare copy, pixel-identical. */
+  let composite = new WebGLRenderTarget(2, 2, { depthBuffer: false, stencilBuffer: false })
+  composite.texture.minFilter = LinearFilter
+  composite.texture.magFilter = LinearFilter
+
+  const blitScene = new Scene()
+  // A raw passthrough sample, not MeshBasicMaterial: three.js's built-in
+  // materials run the fragment output through linearToOutputTexel (linear
+  // -> renderer.outputColorSpace) whenever the target is the screen, but
+  // drawRegion's custom ShaderMaterial never applied that encoding when it
+  // wrote into composite — MeshBasicMaterial would silently sRGB-brighten
+  // every pixel on the way out. This mirrors displayMaterial's own raw
+  // gl_FragColor write, so the blit is a bit-for-bit copy.
+  const blitMaterial = new ShaderMaterial({
+    vertexShader: growthVertex,
+    fragmentShader: `
+      precision highp float;
+      varying vec2 vUv;
+      uniform sampler2D uMap;
+      void main() {
+        gl_FragColor = texture2D(uMap, vUv);
+      }
+    `,
+    uniforms: { uMap: { value: composite.texture } },
+  })
+  blitScene.add(new Mesh(geometry, blitMaterial))
+
   const stage = makeSlot(STAGE_SIZE)
   const tiles = [makeSlot(TILE_SIZE), makeSlot(TILE_SIZE), makeSlot(TILE_SIZE), makeSlot(TILE_SIZE)]
   const slots = [stage, ...tiles]
@@ -365,6 +394,8 @@ export function mountWorkbench(
     const height = canvas.clientHeight || innerHeight
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2))
     renderer.setSize(width, height, false)
+    const dpr = Math.min(devicePixelRatio || 1, 2)
+    composite.setSize(Math.max(2, Math.round(width * dpr)), Math.max(2, Math.round(height * dpr)))
     regions = workbenchRegions(width, height)
   }
 
@@ -376,10 +407,20 @@ export function mountWorkbench(
     displayUniforms.uAspect.value = region.w / Math.max(1, region.h)
     displayUniforms.uMini.value = slot.size === STAGE_SIZE ? 0 : 1
     displayUniforms.uPulse.value = pulse
+    // Renderer.setViewport/setScissor multiply by the renderer's pixelRatio
+    // internally regardless of which render target is bound (three.js
+    // WebGLRenderer, confirmed for @0.185.1) — pass logical (CSS) pixels
+    // here exactly as before; composite is sized in device pixels to match.
     const glY = height - (region.y + region.h)
+    renderer.setRenderTarget(composite)
+    // setRenderTarget resets scissorTest to the target's own (default false)
+    // property — re-enable it here or each render()'s implicit autoClear
+    // wipes the whole composite instead of just this region.
+    renderer.setScissorTest(true)
     renderer.setViewport(region.x, glY, region.w, region.h)
     renderer.setScissor(region.x, glY, region.w, region.h)
     renderer.render(displayScene, camera)
+    renderer.setRenderTarget(null)
   }
 
   const render = (now: number) => {
@@ -421,11 +462,18 @@ export function mountWorkbench(
         for (let i = 0; i < steps; i++) simulateSlot(slot)
       }
     }
+    const width = canvas.clientWidth || innerWidth
     const height = canvas.clientHeight || innerHeight
+    renderer.setRenderTarget(composite)
+    renderer.setClearColor(0x050607, 1)
+    renderer.clear()
+    renderer.setRenderTarget(null)
     renderer.setScissorTest(true)
     drawRegion(stage, regions.stage, height, pulse)
     tiles.forEach((tile, i) => drawRegion(tile, regions.mutations[i], height, pulse))
     renderer.setScissorTest(false)
+    renderer.setViewport(0, 0, width, height)
+    renderer.render(blitScene, camera)
     frame = requestAnimationFrame(render)
   }
 
@@ -514,6 +562,8 @@ export function mountWorkbench(
       for (const slot of slots) slot.targets.forEach((t) => t.dispose())
       updateMaterial.dispose()
       displayMaterial.dispose()
+      composite.dispose()
+      blitMaterial.dispose()
       geometry.dispose()
       renderer.dispose()
     },
