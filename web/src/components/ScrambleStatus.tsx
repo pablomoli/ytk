@@ -9,7 +9,7 @@ const CHARSET = '.: abcdefghijklmnopqrstuvwxyz0123456789'
    min-width lock keeps proportional Newsreader from jittering the rail. */
 export function ScrambleStatus({ text, className }: { text: string; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null)
-  const prev = useRef<string>()
+  const prev = useRef<string>(undefined)
 
   useEffect(() => {
     const el = ref.current

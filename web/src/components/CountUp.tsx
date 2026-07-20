@@ -8,7 +8,7 @@ const fmt = new Intl.NumberFormat('en-US')
    perturbs textContent in between (self-correcting on re-render). */
 export function CountUp({ value }: { value: number }) {
   const ref = useRef<HTMLSpanElement>(null)
-  const shown = useRef<number>()
+  const shown = useRef<number>(undefined)
 
   useEffect(() => {
     const el = ref.current
