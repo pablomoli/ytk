@@ -6,6 +6,7 @@ import { useQueue } from "../api/queue";
 import type { QueueItem } from "../api/queue";
 import { useAddUrls, useRefreshSources, useIngest } from "../api/mutations";
 import { useJobStatus } from "../api/job";
+import { useProfileRank, useStartProfileRank } from "../api/profileRank";
 import { apiGet } from "../api/client";
 import { SourceFilter } from "../components/SourceFilter";
 import { Card } from "../components/Card";
@@ -37,15 +38,36 @@ function InboxPage() {
   const refreshSources = useRefreshSources();
   const ingest = useIngest();
   const tags = useQuery({ queryKey: ["tags"], queryFn: fetchTags });
+  const profileRank = useProfileRank();
+  const startProfileRank = useStartProfileRank();
 
   const [urlsText, setUrlsText] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [chosenTags, setChosenTags] = useState<Set<string>>(new Set());
   const [thought, setThought] = useState("");
 
-  const items = useMemo(
-    () => filterAndSortQueue(q.data ?? [], source),
-    [q.data, source],
+  const matchByUrl = useMemo(
+    () => new Map((profileRank.data?.picks ?? []).map((pick, index) => [pick.url, { pick, index }])),
+    [profileRank.data?.picks],
+  );
+  const items = useMemo(() => {
+    const filtered = filterAndSortQueue(q.data ?? [], source);
+    if (matchByUrl.size === 0) return filtered;
+    // Cached picks lead the inbox in the selector's own order. The rest retain
+    // their normal newest-first order, so ranking is useful without hiding
+    // anything that could not be scored.
+    return filtered.toSorted((a, b) => {
+      const ai = matchByUrl.get(a.url)?.index;
+      const bi = matchByUrl.get(b.url)?.index;
+      if (ai === undefined && bi === undefined) return 0;
+      if (ai === undefined) return 1;
+      if (bi === undefined) return -1;
+      return ai - bi;
+    });
+  }, [q.data, source, matchByUrl]);
+  const activeHighlightCount = useMemo(
+    () => (q.data ?? []).filter((item) => matchByUrl.has(item.url)).length,
+    [q.data, matchByUrl],
   );
   // Progressively renders more of `items` as the sentinel scrolls into view;
   // not a bounded/sliding window, the visible count only grows.
@@ -166,6 +188,7 @@ function InboxPage() {
               onOpen={handleToggleSelect}
               selected={sel.has(i.url)}
               state={cardState(i)}
+              profileMatch={matchByUrl.get(i.url)?.pick}
             />
           ))}
         </MasonryGrid>
@@ -202,6 +225,33 @@ function InboxPage() {
             <button className="btn" onClick={handleRefresh} disabled={refreshSources.isPending}>
               refresh
             </button>
+          </div>
+
+          <h2>profile match</h2>
+          <button
+            className="btn"
+            onClick={() => startProfileRank.mutate()}
+            disabled={profileRank.data?.state === "running" || startProfileRank.isPending}
+          >
+            {profileRank.data?.state === "running"
+              ? "ranking by profile..."
+              : profileRank.data?.picks.length
+                ? "re-rank by profile"
+                : "rank by profile"}
+          </button>
+          <div className={`profile-rank-status${profileRank.data?.state === "running" ? " running" : ""}`}>
+            {profileRank.data?.state === "running" ? (
+              <span>scoring the full inbox · this can take a minute or two</span>
+            ) : profileRank.data?.picks.length ? (
+              <span>
+                {activeHighlightCount} highlighted · {profileRank.data.candidates} text items scored
+              </span>
+            ) : (
+              <span>find the 30 pending items that best fit your interest profile</span>
+            )}
+            {profileRank.data?.state === "error" ? (
+              <span className="profile-rank-error">{profileRank.data.detail}</span>
+            ) : null}
           </div>
 
           <h2>ingest</h2>

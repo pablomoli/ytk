@@ -52,6 +52,25 @@ test('applies the queued class without a selected outline', () => {
   expect(container.querySelector('.card')).not.toHaveClass('selected')
 })
 
+test('highlights a profile-ranked card with its score and theme', () => {
+  const { container } = render(
+    <Card
+      item={{ url: 'u', source: 'tiktok', text: 'Shader sketch' }}
+      onOpen={() => {}}
+      profileMatch={{
+        url: 'u',
+        title: 'Shader sketch',
+        source: 'tiktok',
+        theme: 'Creative coding',
+        score: 0.731,
+      }}
+    />,
+  )
+  expect(container.querySelector('.card')).toHaveClass('profile-match')
+  expect(screen.getByText('match 0.73')).toBeInTheDocument()
+  expect(screen.getByText('Creative coding')).toBeInTheDocument()
+})
+
 test('selects a card with the keyboard', () => {
   const onOpen = vi.fn()
   render(<Card item={{ url: 'u', source: 'youtube', text: 'Hello' }} onOpen={onOpen} />)

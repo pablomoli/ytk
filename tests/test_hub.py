@@ -33,6 +33,7 @@ def hub(tmp_path, monkeypatch):
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: brain)
     monkeypatch.setattr(hub_mod, "STATE_PATH", tmp_path / "state.json")
     monkeypatch.setattr(hub_mod, "JOB_PATH", tmp_path / "ingest-job.json")
+    monkeypatch.setattr(hub_mod, "PROFILE_RANK_PATH", tmp_path / "profile-rank.json")
     monkeypatch.setattr(hub_mod, "PACING_SECONDS", 0.0)
     monkeypatch.setattr(hub_mod, "REINDEX", lambda: 0)
     # reset job state between tests
@@ -41,6 +42,9 @@ def hub(tmp_path, monkeypatch):
                         annotated=0, linked=[])
     hub_mod._QUEUE.clear()
     hub_mod._ATTEMPTS.clear()
+    hub_mod._profile_rank_job.update(
+        state="idle", detail="", generated_at=None, candidates=0, picks=[]
+    )
     hub_mod.brain = brain
     return hub_mod
 
@@ -73,6 +77,16 @@ def _wait_current(hub_mod, url, timeout=5.0):
             return hub_mod.job_status()
         time.sleep(0.02)
     raise TimeoutError(f"{url} never went in flight")
+
+
+def _wait_profile_rank(hub_mod, timeout=5.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        status = hub_mod.profile_rank_status()
+        if status["state"] != "running":
+            return status
+        time.sleep(0.02)
+    raise TimeoutError("profile rank job never finished")
 
 
 def test_queue_add_classifies_dedupes_persists(hub):
@@ -341,6 +355,53 @@ def test_api_queue_add_and_list(client, hub):
     assert items[0]["url"] == "https://youtu.be/abc"
     assert items[0]["source"] == "youtube"
     assert items[0]["n"] == 1
+
+
+def test_profile_rank_runs_once_and_caches_result(client, hub, monkeypatch):
+    calls = []
+
+    def fake_rank(count):
+        calls.append(count)
+        return {
+            "candidates": 87,
+            "selected": [
+                {"url": "https://x/top", "theme": "Creative coding", "score": 0.731}
+            ],
+        }
+
+    monkeypatch.setattr(hub, "RUN_PROFILE_RANK", fake_rank)
+    response = client.post("/api/queue/profile-rank")
+    assert response.status_code == 200
+    assert response.json()["started"] is True
+
+    status = _wait_profile_rank(hub)
+    assert calls == [30]
+    assert status["state"] == "done"
+    assert status["candidates"] == 87
+    assert status["picks"][0]["url"] == "https://x/top"
+    assert status["generated_at"]
+    assert hub.PROFILE_RANK_PATH.exists()
+
+    # A fresh hub process can serve the completed ranking without re-embedding.
+    hub._profile_rank_job.update(
+        state="idle", detail="", generated_at=None, candidates=0, picks=[]
+    )
+    cached = client.get("/api/queue/profile-rank/status").json()
+    assert cached["state"] == "done"
+    assert cached["picks"] == status["picks"]
+    assert calls == [30]
+
+
+def test_profile_rank_reports_scorer_error(client, hub, monkeypatch):
+    monkeypatch.setattr(
+        hub,
+        "RUN_PROFILE_RANK",
+        lambda count: {"error": "no interest profile", "selected": [], "candidates": 0},
+    )
+    assert client.post("/api/queue/profile-rank").json()["started"] is True
+    status = _wait_profile_rank(hub)
+    assert status["state"] == "error"
+    assert status["detail"] == "no interest profile"
 
 
 def test_api_ingest_flow_and_status(client, hub):

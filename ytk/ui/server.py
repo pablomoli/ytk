@@ -210,6 +210,22 @@ async def queue_api():
     return {"items": items}
 
 
+@app.post("/api/queue/profile-rank")
+async def queue_profile_rank_api():
+    """Start the expensive, on-demand profile ranking for pending items."""
+    from ytk.ui import hub
+
+    return {"started": hub.start_profile_rank(count=30)}
+
+
+@app.get("/api/queue/profile-rank/status")
+async def queue_profile_rank_status_api():
+    """Return the active rank job or the last result cached on disk."""
+    from ytk.ui import hub
+
+    return hub.profile_rank_status()
+
+
 @app.post("/api/ingest")
 async def ingest_api(req: IngestRequest):
     from ytk.ui import hub

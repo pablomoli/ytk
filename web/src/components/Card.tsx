@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import type { KeyboardEvent, MouseEvent } from 'react'
 import type { QueueItem } from '../api/queue'
+import type { ProfileRankPick } from '../api/profileRank'
 import { sourceIcon } from './icons'
 
 type ImageStage = 'cover' | 'preview' | 'fallback'
 type CardState = 'queued' | 'ingesting'
 
-function cardClassName(selected?: boolean, state?: CardState): string {
+function cardClassName(selected?: boolean, state?: CardState, profileMatch?: boolean): string {
   let cls = 'card'
   if (selected) cls += ' selected'
   if (state) cls += ` ${state}`
+  if (profileMatch) cls += ' profile-match'
   return cls
 }
 
@@ -18,11 +20,13 @@ export function Card({
   onOpen,
   selected,
   state,
+  profileMatch,
 }: {
   item: QueueItem
   onOpen: (i: QueueItem) => void
   selected?: boolean
   state?: CardState
+  profileMatch?: ProfileRankPick
 }) {
   const [stage, setStage] = useState<ImageStage>('cover')
 
@@ -53,9 +57,20 @@ export function Card({
     }
   }
 
+  const matchBadge = profileMatch ? (
+    <span
+      className="profile-match-badge"
+      aria-label={`Profile match ${profileMatch.score.toFixed(2)}: ${profileMatch.theme}`}
+      title={`Matched ${profileMatch.theme}`}
+    >
+      match {profileMatch.score.toFixed(2)}
+    </span>
+  ) : null
+
   if (item.source === 'imessage') {
     return (
-      <div className={cardClassName(selected, state)} {...interactiveProps}>
+      <div className={cardClassName(selected, state, Boolean(profileMatch))} {...interactiveProps}>
+        {matchBadge}
         <div className="textcard">
           <p>{item.text}</p>
           <span>{item.author}</span>
@@ -65,7 +80,8 @@ export function Card({
   }
 
   return (
-    <div className={cardClassName(selected, state)} {...interactiveProps}>
+    <div className={cardClassName(selected, state, Boolean(profileMatch))} {...interactiveProps}>
+      {matchBadge}
       {stage === 'fallback' ? (
         <div className="noimg">{item.source}</div>
       ) : (
@@ -82,6 +98,7 @@ export function Card({
         <div className="sub">
           {sourceIcon(item.source)}
           <span data-testid="card-source">{item.source}</span>
+          {profileMatch ? <span className="profile-match-theme">{profileMatch.theme}</span> : null}
         </div>
       </div>
     </div>
