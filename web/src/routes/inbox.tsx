@@ -15,6 +15,7 @@ import { EmptyState, ErrorState } from "../components/StateViews";
 import { HubControls } from "../components/HubControls";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
 import { filterAndSortQueue } from "../lib/queueItems";
+import { formatElapsed } from "../lib/elapsed";
 import "../styles.css";
 
 export const Route = createFileRoute("/inbox")({
@@ -67,12 +68,10 @@ function InboxPage() {
     const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(id);
   }, [job.data?.running]);
-  const elapsed = useMemo(() => {
-    const startedAt = job.data?.current_started;
-    if (!startedAt) return "";
-    const secs = Math.max(0, nowSec - startedAt);
-    return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
-  }, [job.data?.current_started, nowSec]);
+  const elapsed = useMemo(
+    () => formatElapsed(nowSec, job.data?.current_started),
+    [job.data?.current_started, nowSec],
+  );
 
   const cardState = (item: QueueItem): "queued" | "ingesting" | undefined => {
     if (job.data?.current === item.url) return "ingesting";
