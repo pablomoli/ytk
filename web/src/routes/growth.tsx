@@ -98,7 +98,7 @@ function GrowthWorkbench() {
   const [thumbs, setThumbs] = useState<Record<string, string>>({})
   const [mutationEpoch, setMutationEpoch] = useState(0)
   const [adoptedTick, setAdoptedTick] = useState(0)
-  const [paused, setPaused] = useState(false)
+  const [paused, setPaused] = useState(() => new URLSearchParams(window.location.search).has('paused'))
   const [abstraction, setAbstraction] = useState(0)
   const [debugOpen, setDebugOpen] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
@@ -230,6 +230,8 @@ function GrowthWorkbench() {
       constraints,
     })
     handle.current.setMutations(mutationsFor(org.dna))
+    if (paused) handle.current.setPaused(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organisms, selected, constraints, mutationsFor])
 
   // Refresh the selected thumb as growth settles.
