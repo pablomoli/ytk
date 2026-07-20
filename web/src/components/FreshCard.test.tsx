@@ -43,3 +43,12 @@ test('renders memos as text cards without a vault image', () => {
   expect(screen.getByText('A captured thought')).toBeInTheDocument()
   expect(screen.queryByRole('img')).not.toBeInTheDocument()
 })
+
+test('thumbnail dissolve mounts after image load', () => {
+  vi.stubGlobal('ResizeObserver', class { observe() {}; disconnect() {}; unobserve() {} })
+  const { container } = render(<FreshCard note={{ ...note, thumbnail: 't.jpg' }} onOpen={() => {}} onDelete={() => {}} />)
+  expect(container.querySelector('.pixel-dissolve')).not.toBeInTheDocument()
+  fireEvent.load(container.querySelector('img')!)
+  expect(container.querySelector('.pixel-dissolve')).toBeInTheDocument()
+  vi.unstubAllGlobals()
+})

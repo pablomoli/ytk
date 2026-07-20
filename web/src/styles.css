@@ -301,6 +301,10 @@ body {
   display: block;
 }
 
+.thumb-wrap {
+  position: relative;
+}
+
 .meta {
   padding: 0.5rem 0.6rem 0.6rem;
 }
