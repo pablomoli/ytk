@@ -228,3 +228,54 @@ def run_autoingest(count: int | None = None, dry_run: bool = False) -> dict:
         except Exception as exc:
             failures.append({"url": item.url, "error": str(exc)})
     return {"selected": picks, "candidates": len(scored), "ingested": ingested_urls, "failures": failures}
+
+
+def rank_all_pending(page_size: int = 30) -> dict:
+    """Rank every scorable pending item against the profile, without ingesting.
+
+    Returns ``{"selected": [...picks...], "candidates": int}`` (or an ``error``).
+    Unlike ``run_autoingest(dry_run=True)``, which returns only the single best
+    batch, ``selected`` here is the *whole* scorable pool in ranked order:
+    successive ``page_size`` blocks are each independently theme-stratified. The
+    hub pages through those blocks for "reroll", so every batch stays diverse
+    instead of collapsing onto one theme's long tail once the top picks are gone.
+
+    Scoring (the one encoder-bound step) runs once; the repeated stratify passes
+    are pure Python, so the hub can cache this list and page it for free.
+    """
+    from ytk import channels, interest, reels, store
+    from ytk.ui import hub
+
+    snapshot = interest.load_latest()
+    if snapshot is None:
+        return {"error": "no interest profile — run `ytk profile` first", "selected": [], "candidates": 0}
+    theme_vecs = _theme_vectors(snapshot)
+    if not theme_vecs:
+        return {"error": "profile has no usable theme centroids", "selected": [], "candidates": 0}
+
+    weights = {t.id: t.weight for t, _ in theme_vecs}
+    labels = {t.id: t.label for t, _ in theme_vecs}
+    loved = channels.loved_channels()
+    muted = channels.muted_channels()
+
+    store.warm_text_encoder()
+    scored = score_pending(reels.load_state().pending, theme_vecs, hub.ingested_urls())
+
+    ranked: list[dict] = []
+    seen: set[str] = set()
+    remaining = list(scored)
+    while remaining:
+        page = stratify_select(remaining, page_size, weights, loved_keys=loved, muted_keys=muted)
+        if not page:
+            break  # only muted items left; stratify_select returns nothing
+        for s in page:
+            seen.add(s["url"])
+            ranked.append({
+                "url": s["url"],
+                "title": (s["item"].text or s["item"].author or s["url"])[:70],
+                "source": s["item"].source,
+                "theme": labels.get(s["theme_id"], s["theme_id"]),
+                "score": round(s["eff_score"], 3),
+            })
+        remaining = [s for s in remaining if s["url"] not in seen]
+    return {"selected": ranked, "candidates": len(scored)}

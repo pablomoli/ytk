@@ -31,6 +31,10 @@ export const Route = createFileRoute("/inbox")({
 
 const fetchTags = () => apiGet<{ tags: string[] }>("/api/tags").then((r) => r.tags);
 
+// Must match the backend's page_size (rank_all_pending), so one UI batch equals
+// one stratified block of the ranked pool.
+const PROFILE_BATCH_SIZE = 30;
+
 function InboxPage() {
   const { source } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -47,25 +51,34 @@ function InboxPage() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [chosenTags, setChosenTags] = useState<Set<string>>(new Set());
   const [thought, setThought] = useState("");
+  const [batch, setBatch] = useState(0);
 
+  // The backend ranks the whole scorable pool into stratified blocks of
+  // PROFILE_BATCH_SIZE; the inbox highlights one block at a time. "reroll"
+  // advances a block (wrapping at the end), "reset" returns to the first.
+  // Paging is pure slicing of the already-fetched list — no re-scoring.
+  const allPicks = profileRank.data?.picks ?? [];
+  const batchCount = Math.max(1, Math.ceil(allPicks.length / PROFILE_BATCH_SIZE));
+  const generatedAt = profileRank.data?.generated_at;
+  useEffect(() => setBatch(0), [generatedAt]); // a fresh ranking starts at batch 1
+  const activeBatch = Math.min(batch, batchCount - 1);
+  const batchPicks = useMemo(
+    () => allPicks.slice(activeBatch * PROFILE_BATCH_SIZE, (activeBatch + 1) * PROFILE_BATCH_SIZE),
+    [allPicks, activeBatch],
+  );
   const matchByUrl = useMemo(
-    () => new Map((profileRank.data?.picks ?? []).map((pick, index) => [pick.url, { pick, index }])),
-    [profileRank.data?.picks],
+    () => new Map(batchPicks.map((pick) => [pick.url, pick])),
+    [batchPicks],
   );
   const items = useMemo(() => {
     const filtered = filterAndSortQueue(q.data ?? [], source);
     if (matchByUrl.size === 0) return filtered;
-    // Cached picks lead the inbox in the selector's own order. The rest retain
-    // their normal newest-first order, so ranking is useful without hiding
-    // anything that could not be scored.
-    return filtered.toSorted((a, b) => {
-      const ai = matchByUrl.get(a.url)?.index;
-      const bi = matchByUrl.get(b.url)?.index;
-      if (ai === undefined && bi === undefined) return 0;
-      if (ai === undefined) return 1;
-      if (bi === undefined) return -1;
-      return ai - bi;
-    });
+    // Matched picks lead the inbox; both groups keep filtered's newest-first
+    // order, so the freshest item leads within the highlighted set. Unscored
+    // items are never hidden — they just follow the matches.
+    const matched = filtered.filter((i) => matchByUrl.has(i.url));
+    const rest = filtered.filter((i) => !matchByUrl.has(i.url));
+    return [...matched, ...rest];
   }, [q.data, source, matchByUrl]);
   const activeHighlightCount = useMemo(
     () => items.filter((item) => matchByUrl.has(item.url)).length,
@@ -190,7 +203,7 @@ function InboxPage() {
               onOpen={handleToggleSelect}
               selected={sel.has(i.url)}
               state={cardState(i)}
-              profileMatch={matchByUrl.get(i.url)?.pick}
+              profileMatch={matchByUrl.get(i.url)}
             />
           ))}
         </MasonryGrid>
@@ -237,10 +250,31 @@ function InboxPage() {
           >
             {profileRank.data?.state === "running"
               ? "ranking by profile..."
-              : profileRank.data?.picks.length
+              : allPicks.length
                 ? "re-rank by profile"
                 : "rank by profile"}
           </button>
+          {allPicks.length > 0 && profileRank.data?.state !== "running" ? (
+            <div className="profile-rank-batch">
+              <button
+                className="btn"
+                onClick={() => setBatch((b) => (b + 1) % batchCount)}
+                disabled={batchCount <= 1}
+              >
+                reroll
+              </button>
+              <span className="batch-indicator" aria-live="polite">
+                batch {activeBatch + 1}/{batchCount}
+              </span>
+              <button
+                className="btn ghost"
+                onClick={() => setBatch(0)}
+                disabled={activeBatch === 0}
+              >
+                reset
+              </button>
+            </div>
+          ) : null}
           <div className={`profile-rank-status${profileRank.data?.state === "running" ? " running" : ""}`}>
             {profileRank.data?.state === "running" ? (
               <span>scoring the full inbox · this can take a minute or two</span>

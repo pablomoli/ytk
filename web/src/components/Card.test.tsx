@@ -52,7 +52,7 @@ test('applies the queued class without a selected outline', () => {
   expect(container.querySelector('.card')).not.toHaveClass('selected')
 })
 
-test('highlights a profile-ranked card with its score and theme', () => {
+test('marks a profile-ranked card with a quiet theme tag and no score', () => {
   const { container } = render(
     <Card
       item={{ url: 'u', source: 'tiktok', text: 'Shader sketch' }}
@@ -67,8 +67,10 @@ test('highlights a profile-ranked card with its score and theme', () => {
     />,
   )
   expect(container.querySelector('.card')).toHaveClass('profile-match')
-  expect(screen.getByText('match 0.73')).toBeInTheDocument()
-  expect(screen.getByText('Creative coding')).toBeInTheDocument()
+  expect(container.querySelector('.profile-theme-tag')).toHaveTextContent('Creative coding')
+  // The numeric score pill was removed; no score should render on the card.
+  expect(screen.queryByText(/match 0\.\d+/)).not.toBeInTheDocument()
+  expect(screen.queryByText('0.73')).not.toBeInTheDocument()
 })
 
 test('selects a card with the keyboard', () => {

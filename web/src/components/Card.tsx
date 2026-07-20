@@ -58,13 +58,15 @@ export function Card({
     }
   }
 
-  const matchBadge = profileMatch ? (
+  // The only profile-match signal on a card: a quiet theme tag, no score. The
+  // number ("match 0.73") read as noise; the theme is the useful part.
+  const themeTag = profileMatch ? (
     <span
-      className="profile-match-badge"
-      aria-label={`Profile match ${profileMatch.score.toFixed(2)}: ${profileMatch.theme}`}
+      className="profile-theme-tag"
+      aria-label={`Profile match: ${profileMatch.theme}`}
       title={`Matched ${profileMatch.theme}`}
     >
-      match {profileMatch.score.toFixed(2)}
+      {profileMatch.theme}
     </span>
   ) : null
 
@@ -72,10 +74,12 @@ export function Card({
     return (
       <div className={cardClassName(selected, state, Boolean(profileMatch))} data-cursor-target="" {...interactiveProps}>
         <PixelBloom />
-        {matchBadge}
         <div className="textcard">
           <p>{item.text}</p>
-          <span>{item.author}</span>
+          <div className="textcard-foot">
+            <span>{item.author}</span>
+            {themeTag}
+          </div>
         </div>
       </div>
     )
@@ -84,7 +88,6 @@ export function Card({
   return (
     <div className={cardClassName(selected, state, Boolean(profileMatch))} data-cursor-target="" {...interactiveProps}>
       <PixelBloom />
-      {matchBadge}
       {stage === 'fallback' ? (
         <div className="noimg">{item.source}</div>
       ) : (
@@ -101,7 +104,7 @@ export function Card({
         <div className="sub">
           {sourceIcon(item.source)}
           <span data-testid="card-source">{item.source}</span>
-          {profileMatch ? <span className="profile-match-theme">{profileMatch.theme}</span> : null}
+          {themeTag}
         </div>
       </div>
     </div>
