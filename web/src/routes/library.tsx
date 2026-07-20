@@ -31,7 +31,7 @@ function LibraryPage() {
   const [query, setQuery] = useState(q ?? "");
   const page = useLibrary(offset, source, q, PAGE);
   const remove = useDeleteNote();
-  const [selected, setSelected] = useState<FreshNote>();
+  const [selected, setSelected] = useState<{ note: FreshNote; rect?: DOMRect }>();
   const [pendingDelete, setPendingDelete] = useState<FreshNote>();
 
   // filters reset pagination; a fetched page appends to the accumulated grid
@@ -58,7 +58,7 @@ function LibraryPage() {
     body = <EmptyState label={q ? "nothing matches" : "nothing ingested yet"} hint={q ? "try a looser query" : undefined} />;
   } else {
     body = <>
-      <MasonryGrid>{notes.map((item) => <FreshCard key={item.path} note={item} onOpen={setSelected} onDelete={handleDelete} />)}</MasonryGrid>
+      <MasonryGrid>{notes.map((item) => <FreshCard key={item.path} note={item} onOpen={(note, rect) => setSelected({ note, rect })} onDelete={handleDelete} />)}</MasonryGrid>
       {notes.length < total ? (
         <div className="library-more">
           <button className="btn" type="button" disabled={page.isFetching} onClick={() => setOffset(notes.length)}>
@@ -86,7 +86,7 @@ function LibraryPage() {
         {remove.isError ? <div className="delete-error" role="alert">failed to delete note: {String(remove.error)}</div> : null}
         {body}
       </div>
-      {selected ? <NoteViewer note={selected} onClose={() => setSelected(undefined)} /> : null}
+      {selected ? <NoteViewer note={selected.note} originRect={selected.rect} onClose={() => setSelected(undefined)} /> : null}
       {pendingDelete ? (
         <ConfirmDialog
           message="delete this note for good? it leaves the vault and the search index."
@@ -97,7 +97,7 @@ function LibraryPage() {
             remove.mutate(item.path, {
               onSuccess: () => {
                 setPages((current) => current.map((chunk) => chunk.filter((n) => n.path !== item.path)));
-                setSelected((current) => (current?.path === item.path ? undefined : current));
+                setSelected((current) => (current?.note.path === item.path ? undefined : current));
               },
             });
           }}

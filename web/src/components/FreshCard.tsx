@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import type { FreshNote } from '../api/fresh'
 import { sourceIcon } from './icons'
@@ -10,19 +10,21 @@ export function FreshCard({
   onDelete,
 }: {
   note: FreshNote
-  onOpen: (note: FreshNote) => void
+  onOpen: (note: FreshNote, rect?: DOMRect) => void
   onDelete: (note: FreshNote) => void
 }) {
   const [imageFailed, setImageFailed] = useState(false)
   const isMemo = note.source === 'memo'
+  const cardRef = useRef<HTMLElement>(null)
 
-  const open = () => onOpen(note)
+  const open = () => onOpen(note, cardRef.current?.getBoundingClientRect())
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest('a, button')) return
     open()
   }
   return (
     <article
+      ref={cardRef}
       className="card fresh-card"
       onClick={handleClick}
     >

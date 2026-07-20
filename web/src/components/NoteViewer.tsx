@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FreshNote } from '../api/fresh'
 import { useNote, useSimilarNotes } from '../api/fresh'
 import { sourceIcon } from './icons'
 import { parseNote } from '../lib/parseNote'
 import type { NoteFrontmatter, NoteSection } from '../lib/parseNote'
 import { renderInline } from '../lib/inlineMarkdown'
+import { DUR, gsap, reducedMotion } from '../lib/motion'
+import { PixelDissolve } from './PixelDissolve'
 
 function splitBullets(body: string): string[] {
   return body
@@ -179,16 +181,30 @@ function NoteBody({ raw, note }: { raw: string; note: FreshNote }) {
 /* Native <dialog> gives the platform behaviors the old hand-rolled viewers
    faked or lacked: top-layer stacking, inert background, focus trap, focus
    restore on close, Escape (the dialog fires 'close'), and ::backdrop. */
-export function NoteViewer({ note, onClose }: { note: FreshNote; onClose: () => void }) {
+export function NoteViewer({ note, onClose, originRect }: { note: FreshNote; onClose: () => void; originRect?: DOMRect }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const content = useNote(note.path)
   const similar = useSimilarNotes(note.path)
+  const [revealing, setRevealing] = useState(true)
 
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
     if (!dialog.open) dialog.showModal?.()
+    if (originRect && !reducedMotion()) {
+      const to = dialog.getBoundingClientRect()
+      /* transform FLIP: play the panel from the card's rect into place */
+      gsap.from(dialog, {
+        duration: DUR.morph,
+        x: originRect.left + originRect.width / 2 - (to.left + to.width / 2),
+        y: originRect.top + originRect.height / 2 - (to.top + to.height / 2),
+        scaleX: originRect.width / to.width,
+        scaleY: originRect.height / to.height,
+        onComplete: () => gsap.set(dialog, { clearProps: 'transform' }),
+      })
+    }
     return () => dialog.close?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   /* onClose is driven ONLY by explicit user intent — never by the native
@@ -206,6 +222,7 @@ export function NoteViewer({ note, onClose }: { note: FreshNote; onClose: () => 
       onClick={(event) => { if (event.target === dialogRef.current) onClose() }}
     >
       <div className="note-panel">
+        {revealing ? <PixelDissolve seedKey={note.path} onDone={() => setRevealing(false)} /> : null}
         <button className="btn viewer-close" type="button" onClick={onClose}>close</button>
         {content.isLoading ? <p>loading note...</p> : null}
         {content.isError ? <p>failed to load note: {String(content.error)}</p> : null}

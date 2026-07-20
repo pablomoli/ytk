@@ -54,6 +54,13 @@ test('escape (cancel event) calls onClose', () => {
   expect(onClose).toHaveBeenCalledTimes(1)
 })
 
+test('reveal overlay mounts and clears', () => {
+  vi.stubGlobal('ResizeObserver', class { observe() {}; disconnect() {}; unobserve() {} })
+  const { container } = wrap(<NoteViewer note={note} onClose={() => {}} />)
+  expect(container.querySelector('.pixel-dissolve')).toBeInTheDocument()
+  vi.unstubAllGlobals()
+})
+
 test('survives StrictMode double-mount without self-closing (async close event)', async () => {
   const onClose = vi.fn()
   // StrictMode must wrap QueryClientProvider (matching main.tsx's real nesting)
