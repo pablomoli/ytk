@@ -88,6 +88,7 @@ class ReelsState:
     custom_tags: list[str] = field(default_factory=list)  # UI-created tags
     imessage_seen: list[str] = field(default_factory=list)  # session note_ids already queued/ingested
     tiktok_seen: list[str] = field(default_factory=list)  # favorited video ids already queued/ingested
+    reddit_seen: list[str] = field(default_factory=list)  # subreddit post fullnames already queued/ingested
 
 
 _client_cache: dict[tuple[str, str], object] = {}
@@ -130,6 +131,7 @@ def _parse_state(raw: dict) -> ReelsState:
         custom_tags=raw.get("custom_tags", raw.get("custom_buckets", [])),
         imessage_seen=raw.get("imessage_seen", []),
         tiktok_seen=raw.get("tiktok_seen", []),
+        reddit_seen=raw.get("reddit_seen", []),
     )
 
 

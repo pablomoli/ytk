@@ -123,6 +123,13 @@ class Config(BaseModel):
         default=None,
         description="TikTok handle whose favorites tab the discovery fetcher syncs; unset disables the source.",
     )
+    reddit_subreddits: list[str] = Field(
+        default_factory=list,
+        description="Allowlist of subreddits to browse into the queue. Empty disables the source. Saved posts are never read.",
+    )
+    reddit_sort: str = Field(default="top", description="Reddit listing sort: hot | top | new | rising.")
+    reddit_window: str = Field(default="week", description="Time window for top sort: day | week | month | year | all.")
+    reddit_limit: int = Field(default=25, description="Max posts pulled per subreddit per sync.")
     memo_notify: list[str] = Field(
         default_factory=list,
         description="Memo notification backends (tmux|macos|sketchybar); empty = focus-aware auto",

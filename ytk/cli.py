@@ -123,6 +123,9 @@ def add(ctx: click.Context, url: str, force: bool, note: str):
     if re.search(r"pinterest\.com/", url):
         ctx.invoke(add_pinterest, url=url, note=note)
         return
+    if re.search(r"reddit\.com/r/", url):
+        ctx.invoke(add_reddit, url=url, note=note)
+        return
     if not re.search(r"(?:youtube\.com/|youtu\.be/)", url):
         ctx.invoke(ingest, url=url, force=force, note=note)
         return
@@ -1396,6 +1399,130 @@ def tiktok_sync(pages: int | None, headed: bool):
         f"[green]{added} new favorites queued[/] "
         f"({len(state.pending)} pending total). Pick them at the hub /inbox."
     )
+
+
+@cli.command(name="reddit-sync")
+def reddit_sync():
+    """Browse the allowlisted subreddits into the pending queue.
+
+    Reads public subreddit listings as your logged-in session (cookie from
+    Zen). Configure the allowlist in ~/.ytk/config.yaml under
+    reddit_subreddits. Your saved posts are never read.
+    """
+    from . import reddit_feed, reels
+    from .config import load_config
+    from .ui import hub
+
+    cfg = load_config()
+    if not cfg.reddit_subreddits:
+        raise click.ClickException(
+            "No subreddits configured. Add a reddit_subreddits list to "
+            "~/.ytk/config.yaml (e.g. [TouchDesigner, LocalLLaMA])."
+        )
+    try:
+        cookie = reddit_feed.reddit_cookie_header()
+    except reddit_feed.RedditAuthError as exc:
+        raise click.ClickException(str(exc))
+
+    state = reels.load_state()
+    console.print(
+        f"Browsing {len(cfg.reddit_subreddits)} subreddits "
+        f"({cfg.reddit_sort}/{cfg.reddit_window})..."
+    )
+    added = reddit_feed.sync_subreddits(
+        state, cookie, cfg.reddit_subreddits,
+        sort=cfg.reddit_sort, window=cfg.reddit_window, limit=cfg.reddit_limit,
+        extra_known=hub.ingested_urls(),
+    )
+    state.last_pulls["reddit"] = time.time()
+    reels.save_state(state)
+    console.print(
+        f"[green]{added} new posts queued[/] "
+        f"({len(state.pending)} pending total). Pick them at the hub /inbox."
+    )
+
+
+@cli.command(name="reddit-discover")
+@click.argument("topic")
+@click.option("-n", "--limit", type=int, default=10, help="Max suggestions.")
+def reddit_discover(topic: str, limit: int):
+    """Find subreddits related to a topic to add to your allowlist.
+
+    Uses Reddit's own subreddit search. Copy the ones you want into
+    reddit_subreddits in ~/.ytk/config.yaml.
+    """
+    from . import reddit_feed
+
+    try:
+        cookie = reddit_feed.reddit_cookie_header()
+    except reddit_feed.RedditAuthError as exc:
+        raise click.ClickException(str(exc))
+
+    cfg = load_config()
+    current = {s.lower() for s in cfg.reddit_subreddits}
+    hits = reddit_feed.search_subreddits(topic, cookie, limit=limit)
+    if not hits:
+        console.print(f"No subreddits found for '{topic}'.")
+        return
+    for h in hits:
+        mark = "[dim](in allowlist)[/]" if h["name"].lower() in current else ""
+        nsfw = "[red]nsfw[/] " if h["over_18"] else ""
+        console.print(
+            f"  [bold]r/{h['name']}[/]  {h['subscribers']:,} subs {nsfw}{mark}\n"
+            f"    [dim]{h['description'][:90]}[/]"
+        )
+
+
+@cli.command(name="add-reddit")
+@click.argument("url")
+@click.option("--note", default="", help="Your thought about this save; steers enrichment.")
+def add_reddit(url: str, note: str = ""):
+    """Ingest one Reddit post (self-text or link) with its top comments."""
+    from .config import load_config
+    from .enrich import enrich_content
+    from .reddit_feed import (
+        RedditAuthError,
+        build_content_block,
+        fetch_comments,
+        post_from_thread,
+        reddit_cookie_header,
+        top_comments,
+    )
+    from .store import strip_frontmatter, upsert_doc
+    from .vault import write_reddit_note
+
+    try:
+        cookie = reddit_cookie_header()
+        thread = fetch_comments(url, cookie)
+    except RedditAuthError as exc:
+        raise click.ClickException(str(exc))
+    post = post_from_thread(thread)
+    if not post:
+        raise click.ClickException(f"Could not parse a Reddit post from {url}")
+
+    comments = top_comments(thread)
+    block = build_content_block(post, comments)
+    cfg = load_config()
+
+    with console.status("[bold cyan]Enriching with Claude...[/]"):
+        result = enrich_content(block, "reddit", user_note=note, tone=cfg.hub.enrich_tone)
+
+    console.print(Panel(f"[italic]{result.thesis}[/]", title="[bold]Thesis[/]", box=box.ROUNDED))
+    console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
+
+    try:
+        note_path = write_reddit_note(post, result, comments)
+        console.print(f"\n[bold green]Note written:[/] {note_path}")
+        console.print(LINK_REMINDER, style="dim", markup=False)
+        doc_id = "reddit_" + re.sub(r"[^a-zA-Z0-9_-]", "_", post["id"])
+        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
+        upsert_doc(doc_id, body, {
+            "doc_id": doc_id,
+            "tags": ", ".join(result.interest_tags),
+            "source_path": str(note_path),
+        })
+    except NoteAlreadyExists as exc:
+        console.print(f"\n[yellow]Note already exists:[/] {exc}")
 
 
 def _parse_date(value: str) -> str:

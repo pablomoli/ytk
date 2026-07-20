@@ -127,6 +127,13 @@ SOURCE_BIAS = {
         "SOURCE: a web article (title, author, date, url, body text).\n"
         "key_moments: leave empty ([]). Articles have no timestamps."
     ),
+    "reddit": (
+        "SOURCE: a Reddit post from a subreddit — a title, either self-text or a link to external "
+        "content, plus the top comments. The discussion is first-class: comments often carry the "
+        "correction, the caveat, or the actual answer the thread is remembered for, so weigh them "
+        "alongside the post itself and name specific claims made in them.\n"
+        "key_moments: leave empty ([]). Reddit posts have no timestamps."
+    ),
     "journal": (
         "SOURCE: the user's own self-chat notes, a stream of thoughts/ideas/questions. Preserve the texture "
         "of their thinking; name the specific projects, tools, and ideas they mention. This is their own "

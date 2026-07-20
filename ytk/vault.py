@@ -402,6 +402,47 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
     return note_path
 
 
+def write_reddit_note(post: dict, enrichment: Enrichment, comments: list[dict]) -> Path:
+    """Write an Obsidian note for a Reddit post, discussion included."""
+    note_dir = _get_brain_path() / "sources" / "reddit"
+    note_dir.mkdir(parents=True, exist_ok=True)
+
+    note_path = note_dir / f"{_slug(post['title'])}.md"
+    if note_path.exists():
+        raise NoteAlreadyExists(note_path)
+
+    tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
+    concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
+    insights = "\n".join(f"- {i}" for i in enrichment.insights)
+    date = ""
+    if post.get("created_utc"):
+        from datetime import datetime, timezone
+
+        date = datetime.fromtimestamp(post["created_utc"], tz=timezone.utc).strftime("%Y-%m-%d")
+
+    body = (
+        f"---\nurl: {post['permalink']}\ntitle: {post['title']}\n"
+        f"subreddit: r/{post['subreddit']}\nauthor: u/{post['author']}\n"
+        f"date: {date}\ntags:\n{tags_yaml}\ntype: reddit\n---\n\n"
+        f"## Thesis\n{enrichment.thesis}\n\n"
+        f"## Summary\n{enrichment.summary}\n\n"
+        f"## Key Concepts\n{concepts}\n\n"
+        f"## Insights\n{insights}\n"
+    )
+    if post.get("is_self") and post.get("selftext"):
+        body += f"\n## Post\n{post['selftext']}\n"
+    elif not post.get("is_self"):
+        body += f"\n## Link\n{post['url']}\n"
+    if comments:
+        discussion = "\n".join(
+            f"- **u/{c['author']}** ({c['score']}): {c['body']}" for c in comments
+        )
+        body += f"\n## Discussion\n{discussion}\n"
+
+    note_path.write_text(body, encoding="utf-8")
+    return note_path
+
+
 def write_journal_note(
     thread: "MessageThread", enrichment: Enrichment, suffix: str = ""
 ) -> Path:
