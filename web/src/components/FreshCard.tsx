@@ -4,6 +4,7 @@ import type { FreshNote } from '../api/fresh'
 import { useHoverDecode } from '../lib/useHoverDecode'
 import { sourceIcon } from './icons'
 import { MemoWaveform } from './MemoWaveform'
+import { PixelDissolve } from './PixelDissolve'
 
 export function FreshCard({
   note,
@@ -15,6 +16,8 @@ export function FreshCard({
   onDelete: (note: FreshNote) => void
 }) {
   const [imageFailed, setImageFailed] = useState(false)
+  const [revealed, setRevealed] = useState(false) // image bytes arrived
+  const [reveal, setReveal] = useState(true)      // dissolve still owed
   const isMemo = note.source === 'memo'
   const cardRef = useRef<HTMLElement>(null)
   const decode = useHoverDecode()
@@ -49,12 +52,16 @@ export function FreshCard({
           <button className="card-open" type="button" onClick={open}>open note</button>
         </div>
       ) : note.thumbnail && !imageFailed ? (
-        <img
-          src={`/vault-media/${note.thumbnail}`}
-          loading="lazy"
-          alt=""
-          onError={() => setImageFailed(true)}
-        />
+        <div className="thumb-wrap">
+          <img
+            src={`/vault-media/${note.thumbnail}`}
+            loading="lazy"
+            alt=""
+            onLoad={() => setRevealed(true)}
+            onError={() => setImageFailed(true)}
+          />
+          {!revealed ? null : reveal ? <PixelDissolve seedKey={note.path} cell={22} color="var(--bg2)" onDone={() => setReveal(false)} /> : null}
+        </div>
       ) : (
         <div className="noimg">{note.source}</div>
       )}
