@@ -82,7 +82,7 @@ export function Card({
   }
 
   return (
-    <div className={cardClassName(selected, state, Boolean(profileMatch))} {...interactiveProps}>
+    <div className={cardClassName(selected, state, Boolean(profileMatch))} data-cursor-target="" {...interactiveProps}>
       <PixelBloom />
       {matchBadge}
       {stage === 'fallback' ? (
