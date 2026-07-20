@@ -1,4 +1,4 @@
-const SOURCES = ['instagram', 'youtube', 'pinterest', 'tiktok', 'reddit', 'web', 'memo', 'imessage']
+import { SOURCES } from './icons'
 
 export function SourceFilter({ value, onChange }: { value?: string; onChange: (s?: string) => void }) {
   return (
@@ -7,6 +7,7 @@ export function SourceFilter({ value, onChange }: { value?: string; onChange: (s
         <button
           key={s}
           className={`fchip${value === s ? ' on' : ''}`}
+          aria-pressed={value === s}
           onClick={() => onChange(value === s ? undefined : s)}
         >
           {s}

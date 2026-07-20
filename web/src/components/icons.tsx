@@ -30,6 +30,10 @@ const ICON_ALIASES: Record<string, string> = {
   journal: 'web',
 }
 
+/* The filterable source set — single source of truth for filter chips.
+   imessage has no dedicated icon and falls back to web (by design). */
+export const SOURCES = ['instagram', 'youtube', 'pinterest', 'tiktok', 'reddit', 'web', 'memo', 'imessage']
+
 export function canonicalSource(source: string): string {
   return ICON_ALIASES[source] ?? source
 }
