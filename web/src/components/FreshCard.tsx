@@ -4,6 +4,7 @@ import type { FreshNote } from '../api/fresh'
 import { useHoverDecode } from '../lib/useHoverDecode'
 import { sourceIcon } from './icons'
 import { MemoWaveform } from './MemoWaveform'
+import { PixelBloom } from './PixelBloom'
 import { PixelDissolve } from './PixelDissolve'
 
 export function FreshCard({
@@ -33,6 +34,7 @@ export function FreshCard({
       className="card fresh-card"
       onClick={handleClick}
     >
+      <PixelBloom />
       <button
         className="delete-note"
         type="button"

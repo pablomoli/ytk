@@ -305,6 +305,13 @@ body {
   position: relative;
 }
 
+.pixel-bloom {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .meta {
   padding: 0.5rem 0.6rem 0.6rem;
 }
