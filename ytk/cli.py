@@ -2244,6 +2244,120 @@ def schedule_uninstall():
     console.print(f"[bold green]Uninstalled:[/] {plist_path}")
 
 
+@cli.command(name="autoingest")
+@click.option("--count", type=int, default=None, help="Max items to pull (hard-capped).")
+@click.option("--dry-run", is_flag=True, help="Show what would be ingested without ingesting.")
+def autoingest_cmd(count: int | None, dry_run: bool):
+    """Ingest a small, profile-matched batch of pending items, stratified by theme.
+
+    Scores pending items that carry text against your interest-profile theme
+    centroids, spreads the pick across themes, boosts loved creators and skips
+    muted ones, then ingests the top batch (tagged `auto-ingested`).
+    """
+    from ytk.autoingest import run_autoingest
+
+    report = run_autoingest(count=count, dry_run=dry_run)
+    if report.get("error"):
+        raise click.ClickException(report["error"])
+
+    console.print(
+        f"[bold]{len(report['selected'])} selected[/] from {report['candidates']} "
+        f"scorable pending items" + (" [yellow](dry run)[/]" if dry_run else "")
+    )
+    for p in report["selected"]:
+        console.print(f"  [cyan]{p['score']:+.3f}[/] [dim]{p['source']:9}[/] {p['title']}  [dim]-> {p['theme']}[/]")
+    if not dry_run:
+        msg = f"[green]{len(report['ingested'])} ingested[/]"
+        if report.get("failures"):
+            msg += f", [red]{len(report['failures'])} failed[/]"
+        console.print(msg)
+
+
+@cli.group(name="autoingest-schedule")
+def autoingest_schedule():
+    """Manage the scheduled profile-matched auto-ingest job."""
+
+
+@autoingest_schedule.command(name="install")
+@click.option("--weekday", default=0, show_default=True, help="Day for weekly runs (0=Sun..6=Sat).")
+@click.option("--hour", default=7, show_default=True, help="Hour (0-23) to run.")
+@click.option("--count", type=int, default=None, help="Items per run (defaults to config).")
+def autoingest_schedule_install(weekday: int, hour: int, count: int | None):
+    """Install a launchd job that runs `ytk autoingest` on a schedule.
+
+    Cadence follows config.autoingest_cadence (daily | weekly); weekly runs on
+    the given weekday, daily every day at the given hour.
+    """
+    ytk_bin = shutil.which("ytk")
+    if not ytk_bin:
+        console.print("[red]ytk binary not found in PATH.[/] Run [bold]uv tool install .[/] first.")
+        raise SystemExit(1)
+
+    cadence = load_config().autoingest_cadence.lower()
+    log_path = Path.home() / ".ytk" / "autoingest.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    args = [ytk_bin, "autoingest"]
+    if count is not None:
+        args += ["--count", str(count)]
+    args_xml = "\n".join(f"        <string>{a}</string>" for a in args)
+
+    weekday_xml = "" if cadence == "daily" else f"""        <key>Weekday</key>
+        <integer>{weekday}</integer>
+"""
+    plist_label = "com.ytk.autoingest"
+    plist_path = Path.home() / "Library" / "LaunchAgents" / f"{plist_label}.plist"
+    plist_path.parent.mkdir(parents=True, exist_ok=True)
+    plist_path.write_text(
+        f"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{plist_label}</string>
+    <key>ProgramArguments</key>
+    <array>
+{args_xml}
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+{weekday_xml}        <key>Hour</key>
+        <integer>{hour}</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>{log_path}</string>
+    <key>StandardErrorPath</key>
+    <string>{log_path}</string>
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
+""",
+        encoding="utf-8",
+    )
+    subprocess.run(["launchctl", "unload", str(plist_path)], check=False)
+    subprocess.run(["launchctl", "load", str(plist_path)], check=True)
+    when = "daily" if cadence == "daily" else f"weekly (day {weekday})"
+    console.print(f"[bold green]Installed:[/] {plist_path}")
+    console.print(f"Runs {when} at [bold]{hour:02d}:00[/]. Logs: {log_path}")
+
+
+@autoingest_schedule.command(name="uninstall")
+def autoingest_schedule_uninstall():
+    """Remove the auto-ingest launchd job."""
+    plist_path = Path.home() / "Library" / "LaunchAgents" / "com.ytk.autoingest.plist"
+    if not plist_path.exists():
+        console.print("[yellow]No plist found.[/] Nothing to uninstall.")
+        return
+    subprocess.run(["launchctl", "unload", str(plist_path)], check=False)
+    plist_path.unlink()
+    console.print(f"[bold green]Uninstalled:[/] {plist_path}")
+
+
 _HUB_LABEL = "com.ytk.hub"
 _HUB_PLIST = Path.home() / "Library" / "LaunchAgents" / f"{_HUB_LABEL}.plist"
 

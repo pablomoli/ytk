@@ -130,6 +130,18 @@ class Config(BaseModel):
     reddit_sort: str = Field(default="top", description="Reddit listing sort: hot | top | new | rising.")
     reddit_window: str = Field(default="week", description="Time window for top sort: day | week | month | year | all.")
     reddit_limit: int = Field(default=25, description="Max posts pulled per subreddit per sync.")
+    autoingest_enabled: bool = Field(
+        default=False,
+        description="Enable the scheduled profile-matched auto-ingest of pending items.",
+    )
+    autoingest_count: int = Field(
+        default=30,
+        description="Max items the auto-ingest pulls per run (hard-capped regardless).",
+    )
+    autoingest_cadence: str = Field(
+        default="weekly",
+        description="Auto-ingest schedule: daily | weekly.",
+    )
     memo_notify: list[str] = Field(
         default_factory=list,
         description="Memo notification backends (tmux|macos|sketchybar); empty = focus-aware auto",
