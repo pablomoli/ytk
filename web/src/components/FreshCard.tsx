@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import type { FreshNote } from '../api/fresh'
+import { useHoverDecode } from '../lib/useHoverDecode'
 import { sourceIcon } from './icons'
 import { MemoWaveform } from './MemoWaveform'
 
@@ -16,6 +17,7 @@ export function FreshCard({
   const [imageFailed, setImageFailed] = useState(false)
   const isMemo = note.source === 'memo'
   const cardRef = useRef<HTMLElement>(null)
+  const decode = useHoverDecode()
 
   const open = () => onOpen(note, cardRef.current?.getBoundingClientRect())
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -58,7 +60,7 @@ export function FreshCard({
       )}
       {isMemo ? null : (
         <div className="meta">
-          <div className="title">{note.title}</div>
+          <div className="title" onMouseEnter={decode.onMouseEnter}>{note.title}</div>
           {note.tags.length ? <div className="tags">{note.tags.map((tag) => `#${tag}`).join(' ')}</div> : null}
           <div className="sub">
             {sourceIcon(note.source)}
