@@ -124,7 +124,10 @@ export function MemoWaveform({ audio }: { audio: string }) {
 
   const handleClick = (event: MouseEvent<HTMLCanvasElement>) => {
     event.stopPropagation()
-    playAt(event.nativeEvent.offsetX / event.currentTarget.offsetWidth)
+    // The canvas is the only control (no separate play/pause button), so a
+    // click on the actively-playing waveform must pause it; otherwise it plays
+    // from the clicked position.
+    playAt(event.nativeEvent.offsetX / event.currentTarget.offsetWidth, true)
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLCanvasElement>) => {
