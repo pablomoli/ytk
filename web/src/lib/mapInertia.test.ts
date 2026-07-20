@@ -2,12 +2,21 @@ import { expect, test } from "vitest";
 import { decay, pushSample, releaseVelocity } from "./mapInertia";
 import type { VelocitySample } from "./mapInertia";
 
-test("pushSample drops samples outside the window", () => {
+test("pushSample drops ALL samples outside the window", () => {
   const buffer: VelocitySample[] = [];
   pushSample(buffer, { x: 0, y: 0, t: 0 });
   pushSample(buffer, { x: 1, y: 0, t: 50 });
   pushSample(buffer, { x: 2, y: 0, t: 200 });
-  expect(buffer).toHaveLength(2); // t=0 dropped (200-0 > 90)
+  // both t=0 (200ms old) and t=50 (150ms old) are beyond the 90ms window
+  expect(buffer).toEqual([{ x: 2, y: 0, t: 200 }]);
+});
+
+test("samples inside the window are all kept", () => {
+  const buffer: VelocitySample[] = [];
+  pushSample(buffer, { x: 0, y: 0, t: 100 });
+  pushSample(buffer, { x: 1, y: 0, t: 150 });
+  pushSample(buffer, { x: 2, y: 0, t: 180 });
+  expect(buffer).toHaveLength(3);
 });
 
 test("releaseVelocity averages displacement over time", () => {
