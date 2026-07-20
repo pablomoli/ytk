@@ -154,7 +154,7 @@ function NoteBody({ raw, note }: { raw: string; note: FreshNote }) {
         </div>
       ) : null}
       {frontmatter.images.length ? (
-        <div className="note-images">
+        <div className={`note-images${frontmatter.images.length > 1 ? ' strip' : ''}`}>
           {frontmatter.images.map((path) => (
             <img
               key={path}
