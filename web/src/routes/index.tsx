@@ -11,6 +11,7 @@ import { canonicalSource } from "../components/icons";
 import { useDeleteNote, useFreshNotes } from "../api/fresh";
 import type { FreshNote } from "../api/fresh";
 import { HubControls } from "../components/HubControls";
+import { CountUp } from "../components/CountUp";
 import "../styles.css";
 
 export const Route = createFileRoute("/")({
@@ -49,7 +50,7 @@ function IndexPage() {
     <div id="fresh-page" className="hub-page">
       <HubControls>
         <SourceFilter value={source} onChange={(next) => void navigate({ search: { source: next } })} />
-        <span className="count">{notes.length} recently ingested</span>
+        <span className="count"><CountUp value={notes.length} /> recently ingested</span>
       </HubControls>
       <div className="hub-body">
         {remove.isError ? <div className="delete-error" role="alert">failed to delete note: {String(remove.error)}</div> : null}
