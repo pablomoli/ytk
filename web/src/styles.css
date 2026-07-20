@@ -591,11 +591,18 @@ body {
   text-decoration: none;
 }
 
+/* native <dialog>: the element is the panel wrapper, ::backdrop is the veil */
 .note-viewer {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  padding: 2rem;
+  width: min(100vw - 4rem, 72rem);
+  height: calc(100vh - 4rem);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg1);
+  color: inherit;
+}
+
+.note-viewer::backdrop {
   background: #000d;
 }
 
@@ -604,8 +611,6 @@ body {
   height: 100%;
   box-sizing: border-box;
   padding: 1.2rem;
-  border-radius: 8px;
-  background: #181818;
   overflow: auto;
 }
 
