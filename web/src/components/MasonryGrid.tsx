@@ -81,7 +81,7 @@ export function MasonryGrid({ children }: { children: ReactNode }) {
       images.forEach((img) => img.removeEventListener('load', onLoad))
       if (raf) cancelAnimationFrame(raf)
     }
-  })
+  }, [children])
 
   return (
     <main ref={ref} className="masonry">
