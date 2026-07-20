@@ -30,6 +30,7 @@ from ytk.memo import (
 
 STATE_PATH = reels.STATE_PATH
 JOB_PATH = STATE_PATH.parent / "ingest-job.json"
+PROFILE_RANK_PATH = STATE_PATH.parent / "profile-rank.json"
 PACING_SECONDS = 3.0
 MAX_ATTEMPTS = 3
 
@@ -46,6 +47,17 @@ _JOB: dict = {
     "failures": [],
     "annotated": 0,
     "linked": [],
+}
+
+# Profile ranking is deliberately separate from the ingest job. Scoring a
+# large inbox loads the text encoder and can take a minute or two, so the hub
+# runs it only when asked and persists the last useful result across restarts.
+_profile_rank_job: dict = {
+    "state": "idle",
+    "detail": "",
+    "generated_at": None,
+    "candidates": 0,
+    "picks": [],
 }
 
 
@@ -918,6 +930,86 @@ def job_status() -> dict:
 
 _memo_job: dict = {"state": "idle", "detail": ""}
 _tags_job: dict = {"state": "idle", "detail": "", "proposals": []}
+
+
+def _load_profile_rank() -> dict | None:
+    try:
+        data = json.loads(PROFILE_RANK_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("picks"), list):
+        return None
+    picks = [p for p in data["picks"] if isinstance(p, dict) and p.get("url")]
+    return {
+        "state": "done",
+        "detail": "",
+        "generated_at": data.get("generated_at"),
+        "candidates": int(data.get("candidates") or 0),
+        "picks": picks,
+    }
+
+
+def _write_profile_rank(result: dict) -> None:
+    """Atomically cache a completed ranking; a partial file is never useful."""
+    PROFILE_RANK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = PROFILE_RANK_PATH.with_suffix(PROFILE_RANK_PATH.suffix + ".tmp")
+    tmp.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    tmp.replace(PROFILE_RANK_PATH)
+
+
+def profile_rank_status() -> dict:
+    """Return the active rank job or hydrate the last cached result on demand."""
+    with _LOCK:
+        if _profile_rank_job["state"] == "idle":
+            cached = _load_profile_rank()
+            if cached is not None:
+                _profile_rank_job.update(cached)
+        return dict(_profile_rank_job, picks=list(_profile_rank_job["picks"]))
+
+
+def _rank_pending_for_profile(count: int) -> dict:
+    from ytk.autoingest import run_autoingest
+
+    return run_autoingest(count=count, dry_run=True)
+
+
+RUN_PROFILE_RANK = _rank_pending_for_profile  # test seam
+
+
+def start_profile_rank(count: int = 30) -> bool:
+    """Rank pending items against the profile in one background run.
+
+    The previous picks remain visible while a refresh runs. Returns False when
+    a scorer is already active, so repeated clicks cannot load two encoders.
+    """
+    with _LOCK:
+        if _profile_rank_job["state"] == "running":
+            return False
+        _profile_rank_job.update(state="running", detail="")
+
+    def _run() -> None:
+        from datetime import datetime, timezone
+
+        try:
+            report = RUN_PROFILE_RANK(count)
+            if report.get("error"):
+                raise RuntimeError(str(report["error"]))
+            result = {
+                "state": "done",
+                "detail": "",
+                "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "candidates": int(report.get("candidates") or 0),
+                "picks": report.get("selected") or [],
+            }
+            _write_profile_rank(result)
+            with _LOCK:
+                _profile_rank_job.update(result)
+        except Exception as exc:
+            with _LOCK:
+                _profile_rank_job.update(state="error", detail=str(exc))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
 
 
 def tags_merge_status() -> dict:
