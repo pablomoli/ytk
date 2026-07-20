@@ -170,6 +170,26 @@ def _ig_pull(state: reels.ReelsState) -> int:
     return added
 
 
+def _tt_pull(state: reels.ReelsState) -> int:
+    """Drain new TikTok favorites into the state's pending queue in place.
+
+    Session replay of the user's own web session (ytk.tiktok_fav): headless
+    Playwright with Zen cookies, incremental stop on already-seen video ids.
+    Disabled until config.tiktok_username is set.
+    """
+    from ytk import tiktok_fav
+    from ytk.config import load_config
+
+    username = load_config().tiktok_username
+    if not username:
+        return 0
+    cookies = tiktok_fav.load_tiktok_cookies(tiktok_fav.zen_cookie_db())
+    fetched = tiktok_fav.fetch_favorites(
+        username, cookies, seen=frozenset(state.tiktok_seen)
+    )
+    return tiktok_fav.queue_new(state, fetched, extra_known=INGESTED_URLS())
+
+
 def _yt_fetch() -> list[dict]:
     from ytk.scheduler import authenticate, fetch_playlist_videos
 
@@ -276,6 +296,7 @@ def ingest_imessage_item(item: reels.ReelItem, note: str = "") -> Path | None:
 
 # test seams
 IG_PULL = _ig_pull
+TT_PULL = _tt_pull
 YT_FETCH = _yt_fetch
 YT_IS_PROCESSED = _yt_is_processed
 PIN_FETCH = _pin_fetch
@@ -559,7 +580,11 @@ def _pull_due(state: reels.ReelsState, source: str, cadence_minutes: dict, force
     last = state.last_pulls.get(source, state.last_pull_at)
     if last is None:
         return True
-    return time.time() - last >= cadence_minutes.get(source, 15) * 60
+    # A user-yaml cadence_minutes override replaces the default dict wholesale,
+    # so tiktok needs its own fallback: 15-minute favorites scraping on the
+    # user's real session would be bot-shaped traffic.
+    fallback = 1440 if source == "tiktok" else 15
+    return time.time() - last >= cadence_minutes.get(source, fallback) * 60
 
 
 def refresh_sources(force: bool = False, only: set | None = None) -> dict:
@@ -575,7 +600,7 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
 
     cadence = load_config().hub.cadence_minutes
     result: dict = {
-        "instagram": 0, "youtube": 0, "pinterest": 0, "imessage": 0,
+        "instagram": 0, "youtube": 0, "pinterest": 0, "imessage": 0, "tiktok": 0,
         "errors": [], "skipped": False, "skipped_sources": [],
     }
     auto_ingest_ids: list[str] = []
@@ -585,7 +610,7 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
 
         due = {
             s: (only is None or s in only) and _pull_due(state, s, cadence, force)
-            for s in ("instagram", "youtube", "pinterest", "imessage")
+            for s in ("instagram", "youtube", "pinterest", "imessage", "tiktok")
         }
         if not any(due.values()):
             result["skipped"] = True
@@ -640,6 +665,13 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
                 state.last_pulls["pinterest"] = now
             except Exception as exc:
                 result["errors"].append(f"pinterest: {exc}")
+
+        if due["tiktok"]:
+            try:
+                result["tiktok"] = TT_PULL(state)
+                state.last_pulls["tiktok"] = now
+            except Exception as exc:
+                result["errors"].append(f"tiktok: {exc}")
 
         if due["imessage"]:
             try:

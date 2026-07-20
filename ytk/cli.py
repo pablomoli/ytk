@@ -1348,6 +1348,56 @@ def add_tiktok(url: str, note: str = ""):
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
 
 
+@cli.command(name="tiktok-sync")
+@click.option("--pages", type=int, default=None, help="Cap intercepted favorite pages (default: walk everything).")
+@click.option("--headed", is_flag=True, help="Show the Playwright browser window (debugging).")
+def tiktok_sync(pages: int | None, headed: bool):
+    """Sync TikTok favorites into the pending queue.
+
+    Session replay: a headless Playwright Firefox scrolls your favorites tab
+    with cookies read from Zen, and the signed API responses TikTok's own JS
+    fetches are read off the wire. First run walks the whole backlog; later
+    runs stop at the first already-seen video.
+    """
+    from . import reels, tiktok_fav
+    from .config import load_config
+    from .ui import hub
+
+    cfg = load_config()
+    if not cfg.tiktok_username:
+        raise click.ClickException(
+            "Set tiktok_username in ~/.ytk/config.yaml (your @handle, without the @)."
+        )
+    try:
+        cookies = tiktok_fav.load_tiktok_cookies(tiktok_fav.zen_cookie_db())
+    except tiktok_fav.TikTokAuthError as exc:
+        raise click.ClickException(str(exc))
+
+    state = reels.load_state()
+    console.print(
+        f"Scrolling @{cfg.tiktok_username} favorites "
+        f"({len(state.tiktok_seen)} already seen)..."
+    )
+    try:
+        fetched = tiktok_fav.fetch_favorites(
+            cfg.tiktok_username,
+            cookies,
+            seen=frozenset(state.tiktok_seen),
+            max_pages=pages,
+            headed=headed,
+        )
+    except tiktok_fav.TikTokAuthError as exc:
+        raise click.ClickException(str(exc))
+
+    added = tiktok_fav.queue_new(state, fetched, extra_known=hub.ingested_urls())
+    state.last_pulls["tiktok"] = time.time()
+    reels.save_state(state)
+    console.print(
+        f"[green]{added} new favorites queued[/] "
+        f"({len(state.pending)} pending total). Pick them at the hub /inbox."
+    )
+
+
 def _parse_date(value: str) -> str:
     """Convert natural date shorthands to YYYY-MM-DD. Passes through ISO dates unchanged."""
     from datetime import date, timedelta

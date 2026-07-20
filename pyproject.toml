@@ -25,6 +25,7 @@ dependencies = [
     "uvicorn[standard]>=0.44.0",
     "scikit-learn>=1.8.0",
     "numpy>=1.26.4",
+    "playwright>=1.49",
 ]
 
 [project.optional-dependencies]

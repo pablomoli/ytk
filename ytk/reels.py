@@ -87,6 +87,7 @@ class ReelsState:
     last_pulls: dict = field(default_factory=dict)  # per-source last pull, {source: epoch}
     custom_tags: list[str] = field(default_factory=list)  # UI-created tags
     imessage_seen: list[str] = field(default_factory=list)  # session note_ids already queued/ingested
+    tiktok_seen: list[str] = field(default_factory=list)  # favorited video ids already queued/ingested
 
 
 _client_cache: dict[tuple[str, str], object] = {}
@@ -128,6 +129,7 @@ def _parse_state(raw: dict) -> ReelsState:
         last_pulls=raw.get("last_pulls", {}),
         custom_tags=raw.get("custom_tags", raw.get("custom_buckets", [])),
         imessage_seen=raw.get("imessage_seen", []),
+        tiktok_seen=raw.get("tiktok_seen", []),
     )
 
 
