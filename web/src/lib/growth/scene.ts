@@ -386,9 +386,9 @@ export function mountWorkbench(
     if (destroyed) return
     const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000))
     lastTime = now
-    displayUniforms.uTime.value += dt
     let pulse = 0
     if (!paused && spec) {
+      displayUniforms.uTime.value += dt
       startNext()
       if (current) {
         eventElapsed += dt
