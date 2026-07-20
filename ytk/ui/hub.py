@@ -1201,7 +1201,10 @@ def _drain() -> None:
 # Fresh feed
 # ---------------------------------------------------------------------------
 
-_FM_LINE = re.compile(r"^(url|title|type|date|audio|route|captured|source):\s*(.+)$", re.MULTILINE)
+_FM_LINE = re.compile(
+    r"^(url|title|type|date|audio|route|captured|source|uploader|username|subreddit|author):\s*(.+)$",
+    re.MULTILINE,
+)
 
 
 def _ingested_at(p: Path) -> float:
@@ -1223,6 +1226,23 @@ def _note_pool() -> tuple:
     pool = list(sources.glob("**/*.md")) if sources.exists() else []
     pool += list(memos.glob("*.md")) if memos.exists() else []
     return brain, memos, sorted(pool, key=_ingested_at, reverse=True)
+
+
+def channels_list() -> list[dict]:
+    """Every creator you consume, aggregated from note metadata, loved-first."""
+    from ytk import channels
+
+    brain, memos, pool = _note_pool()
+    cards = [_note_card(md, brain, memos) for md in pool]
+    entries = channels.aggregate(cards)
+    return channels.merge_affinity(entries, channels.load_affinity())
+
+
+def set_channel_status(key: str, status: str | None) -> dict:
+    """Set a creator's loved/muted flag (None clears it)."""
+    from ytk import channels
+
+    return channels.set_status(key, status)
 
 
 def fresh_notes(n: int = 30) -> list[dict]:
@@ -1294,6 +1314,9 @@ def _note_card(md, brain, memos) -> dict:
         "tags": tags,
         "has_take": "## My take" in full,
     }
+    from ytk import channels as _channels
+
+    entry["channel"] = _channels.channel_of(meta, entry["source"], entry["url"])
     if md.parent == memos:
         # memo cards carry their transcript inline; audio (if any) is
         # served by name from AUDIO_DIR via /api/memo-audio
