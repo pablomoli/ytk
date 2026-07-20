@@ -62,7 +62,16 @@ function ProfilePage() {
             <details key={theme.id} className="profile-theme">
               <summary>
                 <span className="profile-theme-label">{theme.label}</span>
-                <span className="profile-theme-bar"><span style={{ width: `${(theme.weight / maxWeight) * 100}%` }} /></span>
+                <span
+                  className="profile-theme-bar"
+                  role="meter"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round((theme.weight / maxWeight) * 100)}
+                  aria-label={`${theme.label} weight`}
+                >
+                  <span style={{ transform: `scaleX(${theme.weight / maxWeight})` }} />
+                </span>
                 <span className="profile-theme-share">
                   {Math.round(theme.weight * 100)}% · {theme.n_notes} notes
                   {theme.fresh_notes && theme.fresh_notes < theme.n_notes ? ` · ${theme.fresh_notes} recent` : ""}

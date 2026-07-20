@@ -66,6 +66,11 @@ test("exemplars carry a provenance icon", () => {
   expect(exemplar?.querySelector("svg")).not.toBeNull();
 });
 
+test("theme weight bar exposes meter semantics", () => {
+  const { container } = renderPage();
+  expect(container.querySelector(".profile-theme-bar")).toHaveAttribute("role", "meter");
+});
+
 test("renders the portrait prose below the categories", () => {
   const { container } = renderPage();
   const prose = container.querySelector(".profile-prose");
