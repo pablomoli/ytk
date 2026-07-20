@@ -94,14 +94,22 @@ import { useNote, useSimilarNotes } from '../api/fresh'
    restore on close, Escape (the dialog fires 'close'), and ::backdrop. */
 export function NoteViewer({ note, onClose }: { note: FreshNote; onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const suppressClose = useRef(false)
   const content = useNote(note.path)
   const similar = useSimilarNotes(note.path)
 
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
+    suppressClose.current = false
     dialog.showModal?.()
-    return () => dialog.close?.()
+    return () => {
+      /* StrictMode runs mount->cleanup->mount: closing during cleanup fires
+         the dialog's close event, which must not bubble into onClose or the
+         parent clears its selection and the remounted viewer dies. */
+      suppressClose.current = true
+      dialog.close?.()
+    }
   }, [])
 
   return (
@@ -109,7 +117,7 @@ export function NoteViewer({ note, onClose }: { note: FreshNote; onClose: () => 
       ref={dialogRef}
       className="note-viewer"
       aria-label={note.title}
-      onClose={onClose}
+      onClose={() => { if (!suppressClose.current) onClose() }}
       onClick={(event) => { if (event.target === dialogRef.current) dialogRef.current?.close() }}
     >
       <div className="note-panel">
