@@ -42,9 +42,28 @@
 }
 
 .empty {
-  color: #888;
-  padding: 2rem 0;
+  color: var(--mute);
+  padding: 3rem 0 2rem;
   text-align: center;
+}
+
+.state-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.state-title {
+  margin: 0;
+  color: var(--ink2);
+}
+
+.state-hint {
+  margin: 0;
+  max-width: 26rem;
+  color: var(--mute);
+  font-size: 0.85rem;
 }
 
 @keyframes pulse {
