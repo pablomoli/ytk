@@ -13,7 +13,11 @@ export function IngestRing({
   total: number;
   running: boolean;
 }) {
-  const fraction = total > 0 ? done / total : 0;
+  // Clamp to [0, total]: a transient done > total (should not happen, but the
+  // backend isn't type-guarded) must not overshoot the ring or report an
+  // aria-valuenow above aria-valuemax.
+  const shown = Math.min(done, total);
+  const fraction = total > 0 ? shown / total : 0;
   return (
     <svg
       className={`ingest-ring${running ? " running" : ""}`}
@@ -23,7 +27,7 @@ export function IngestRing({
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={total}
-      aria-valuenow={done}
+      aria-valuenow={shown}
       aria-label={`ingest progress: ${done} of ${total}`}
     >
       <circle
