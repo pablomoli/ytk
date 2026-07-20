@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -47,7 +47,7 @@ function InboxPage() {
   );
   // Progressively renders more of `items` as the sentinel scrolls into view;
   // not a bounded/sliding window, the visible count only grows.
-  const { visible, sentinelRef } = useInfiniteWindow(items, 60);
+  const { visible, sentinelRef } = useInfiniteWindow(items, 60, source ?? "");
 
   // The in-flight item, named. A batch runs ~2 minutes per video, so a bare
   // "0/3" sits unchanged long enough to read as broken; showing which video is
@@ -59,13 +59,20 @@ function InboxPage() {
     return item?.text || item?.author || url;
   }, [q.data, job.data?.current]);
 
-  // job.data refreshes every second while running, which re-renders this.
+  // A real 1s clock: the memo version stopped ticking whenever job polling
+  // paused, freezing the elapsed readout mid-run.
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    if (!job.data?.running) return;
+    const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [job.data?.running]);
   const elapsed = useMemo(() => {
     const startedAt = job.data?.current_started;
     if (!startedAt) return "";
-    const secs = Math.max(0, Math.floor(Date.now() / 1000 - startedAt));
+    const secs = Math.max(0, nowSec - startedAt);
     return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
-  }, [job.data?.current_started, job.data?.done, job.dataUpdatedAt]);
+  }, [job.data?.current_started, nowSec]);
 
   const cardState = (item: QueueItem): "queued" | "ingesting" | undefined => {
     if (job.data?.current === item.url) return "ingesting";

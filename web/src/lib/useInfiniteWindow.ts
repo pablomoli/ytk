@@ -3,12 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 export const nextCount = (cur: number, total: number, step: number): number =>
   Math.min(cur + step, total)
 
-export function useInfiniteWindow<T>(items: T[], step = 60) {
+export function useInfiniteWindow<T>(items: T[], step = 60, resetKey: unknown = null) {
   const [count, setCount] = useState(step)
 
   useEffect(() => {
     setCount(step)
-  }, [items, step])
+  }, [resetKey, step])
 
   const obs = useRef<IntersectionObserver | null>(null)
 
