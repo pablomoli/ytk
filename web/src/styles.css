@@ -1180,3 +1180,21 @@ body {
   gap: 0.3rem;
   margin-top: 0.2rem;
 }
+
+/* pixel dissolve — cells fade on a per-cell delay set from the Bayer order */
+.pixel-dissolve {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  pointer-events: none;
+}
+
+.pixel-dissolve i {
+  opacity: 1;
+}
+
+.pixel-dissolve.on i {
+  opacity: 0;
+  transition: opacity 0.12s var(--ease);
+}
