@@ -1245,6 +1245,49 @@ def set_channel_status(key: str, status: str | None) -> dict:
     return channels.set_status(key, status)
 
 
+_REC_TITLE_CACHE: dict[str, str] = {}
+
+
+def _note_title(rel_path: str) -> str:
+    """Display title for a note referenced by a rec source (cached, cheap)."""
+    if rel_path in _REC_TITLE_CACHE:
+        return _REC_TITLE_CACHE[rel_path]
+    title = Path(rel_path).stem
+    try:
+        brain = vault._get_brain_path()
+        p = brain.parent / rel_path
+        m = re.search(r"^title:\s*(.+)$", p.read_text(encoding="utf-8")[:1500], re.MULTILINE)
+        if m:
+            title = m.group(1).strip()
+    except OSError:
+        pass
+    _REC_TITLE_CACHE[rel_path] = title
+    return title
+
+
+def recs_list(kind: str | None = None) -> list[dict]:
+    """Resolved movie/show/anime/book/manga recs, most-recommended first.
+
+    The store keeps `sources` as note paths; the surface wants each source named,
+    so paths are resolved to titles here (bounded by the number of rec sources).
+    """
+    from ytk import recs
+
+    out = []
+    for entry in recs.entries(kind):
+        e = dict(entry)
+        e["sources"] = [{"title": _note_title(p), "path": p} for p in entry.get("sources", [])]
+        out.append(e)
+    return out
+
+
+def set_rec_status(key: str, status: str | None) -> dict:
+    """Set a rec's want/seen/skip flag (None clears it)."""
+    from ytk import recs
+
+    return recs.set_status(key, status)
+
+
 def fresh_notes(n: int = 30) -> list[dict]:
     """The most recently ingested source notes, newest first, with thumbnails.
 

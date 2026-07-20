@@ -1525,6 +1525,63 @@ def add_reddit(url: str, note: str = ""):
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
 
 
+@cli.command(name="recs-backfill")
+@click.option("--limit", type=int, default=None, help="Scan at most N unscanned notes this run.")
+@click.option("--all", "rescan_all", is_flag=True, help="Re-scan every note, ignoring the scanned set.")
+def recs_backfill(limit: int | None, rescan_all: bool):
+    """Scan existing notes for movie/show/anime/book/manga recs and resolve them.
+
+    Runs the recommendation extractor over each note body, resolves titles via
+    TMDb / AniList / Open Library, and merges into ~/.ytk/recs.json. Idempotent:
+    scanned notes are tracked so re-runs only touch new ones (unless --all).
+    """
+    import json as _json
+
+    from ytk import recs, vault
+    from ytk.store import strip_frontmatter
+
+    brain = vault._get_brain_path()
+    sources = brain / "sources"
+    notes = sorted(sources.glob("**/*.md")) if sources.exists() else []
+    scanned_path = Path.home() / ".ytk" / "recs-scanned.json"
+    scanned: set[str] = set()
+    if scanned_path.exists() and not rescan_all:
+        try:
+            scanned = set(_json.loads(scanned_path.read_text(encoding="utf-8")))
+        except (ValueError, OSError):
+            scanned = set()
+
+    todo = [md for md in notes if rescan_all or str(md.relative_to(brain.parent)) not in scanned]
+    if limit:
+        todo = todo[:limit]
+    if not todo:
+        console.print("[green]Nothing to scan[/] — all notes already processed.")
+        return
+
+    found = 0
+    with console.status(f"[cyan]Scanning {len(todo)} notes for recs...[/]") as status:
+        for i, md in enumerate(todo, 1):
+            rel = str(md.relative_to(brain.parent))
+            status.update(f"[cyan]{i}/{len(todo)}[/] {md.stem[:50]}  ·  {found} recs so far")
+            try:
+                body = strip_frontmatter(md.read_text(encoding="utf-8"))
+                for r in recs.extract_recommendations(body[:12000]):
+                    entry = recs.record(r["kind"], r["title"], r.get("creator"), rel)
+                    if entry:
+                        found += 1
+            except Exception as exc:
+                console.print(f"[yellow]skip {md.stem}:[/] {exc}")
+            scanned.add(rel)
+            if i % 10 == 0:
+                scanned_path.parent.mkdir(parents=True, exist_ok=True)
+                scanned_path.write_text(_json.dumps(sorted(scanned)), encoding="utf-8")
+
+    scanned_path.parent.mkdir(parents=True, exist_ok=True)
+    scanned_path.write_text(_json.dumps(sorted(scanned)), encoding="utf-8")
+    total = len(recs.entries())
+    console.print(f"[bold green]Done[/] — {found} recommendations recorded, {total} titles in the store.")
+
+
 def _parse_date(value: str) -> str:
     """Convert natural date shorthands to YYYY-MM-DD. Passes through ISO dates unchanged."""
     from datetime import date, timedelta

@@ -30,6 +30,9 @@ function RootLayout() {
           <Link to="/channels" activeProps={{ className: "active" }}>
             creators
           </Link>
+          <Link to="/recs" activeProps={{ className: "active" }}>
+            recs
+          </Link>
           <Link to="/map" activeProps={{ className: "active" }}>
             map
           </Link>
