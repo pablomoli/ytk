@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { HubControls } from "../components/HubControls";
+import { SplitHeading } from "../components/SplitHeading";
 import "./transit.css";
 
 export const Route = createFileRoute("/transit")({ component: TransitDemo });
@@ -200,7 +201,7 @@ function TransitDemo() {
 
       <section className="transit-intro">
         <p className="transit-kicker">knowledge transit · concept 01</p>
-        <h1>connections, not clusters</h1>
+        <SplitHeading>connections, not clusters</SplitHeading>
         <p>Projects are lines. Memories are stations. Shared ideas become interchanges.</p>
       </section>
 
