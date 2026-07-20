@@ -1,11 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
+
+let routeSearch: { source?: string } = {};
 
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (options: unknown) => ({
     options,
     fullPath: "/inbox",
-    useSearch: () => ({}),
+    useSearch: () => routeSearch,
   }),
   useNavigate: () => vi.fn(),
 }));
@@ -29,7 +31,35 @@ const startRank = vi.fn();
 const queue = [
   { url: "new", source: "tiktok", text: "Newest ordinary item", shared_at: "2026-07-20" },
   { url: "match", source: "tiktok", text: "Strong profile match", shared_at: "2026-07-01" },
+  { url: "other-match", source: "reddit", text: "Other profile match", shared_at: "2026-06-01" },
 ];
+
+const completedRank = {
+  state: "done" as const,
+  detail: "",
+  generated_at: "2026-07-20T04:00:00Z",
+  candidates: 1800,
+  picks: [
+    {
+      url: "match",
+      title: "Strong profile match",
+      source: "tiktok",
+      theme: "Creative coding",
+      score: 0.731,
+    },
+    {
+      url: "other-match",
+      title: "Other profile match",
+      source: "reddit",
+      theme: "Design",
+      score: 0.68,
+    },
+  ],
+};
+let rankQuery: { data?: typeof completedRank; isError: boolean } = {
+  data: completedRank,
+  isError: false,
+};
 
 vi.mock("../api/queue", () => ({
   useQueue: () => ({ isLoading: false, isError: false, data: queue }),
@@ -45,23 +75,7 @@ vi.mock("../api/mutations", () => ({
   useIngest: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock("../api/profileRank", () => ({
-  useProfileRank: () => ({
-    data: {
-      state: "done",
-      detail: "",
-      generated_at: "2026-07-20T04:00:00Z",
-      candidates: 1800,
-      picks: [
-        {
-          url: "match",
-          title: "Strong profile match",
-          source: "tiktok",
-          theme: "Creative coding",
-          score: 0.731,
-        },
-      ],
-    },
-  }),
+  useProfileRank: () => rankQuery,
   useStartProfileRank: () => ({ mutate: startRank, isPending: false }),
 }));
 
@@ -73,17 +87,35 @@ function renderPage() {
   return render(<Page />);
 }
 
+beforeEach(() => {
+  routeSearch = {};
+  rankQuery = { data: completedRank, isError: false };
+  startRank.mockClear();
+});
+
 test("promotes and highlights cached profile picks before ordinary inbox items", () => {
   const { container } = renderPage();
   const cards = [...container.querySelectorAll(".masonry .card")];
   expect(cards[0].textContent).toContain("Strong profile match");
   expect(cards[0]).toHaveClass("profile-match");
   expect(screen.getByText("match 0.73")).toBeInTheDocument();
-  expect(screen.getByText("1 highlighted · 1800 text items scored")).toBeInTheDocument();
+  expect(screen.getByText(/2 highlighted · 1800 text items scored · updated 2026-07-20/)).toBeInTheDocument();
 });
 
 test("offers an explicit re-rank action for cached results", () => {
   renderPage();
   fireEvent.click(screen.getByRole("button", { name: "re-rank by profile" }));
   expect(startRank).toHaveBeenCalledTimes(1);
+});
+
+test("highlighted count follows the active source filter", () => {
+  routeSearch = { source: "tiktok" };
+  renderPage();
+  expect(screen.getByText(/1 highlighted · 1800 text items scored/)).toBeInTheDocument();
+});
+
+test("shows transport errors from the profile-rank status endpoint", () => {
+  rankQuery = { isError: true };
+  renderPage();
+  expect(screen.getByText("rank status unavailable")).toBeInTheDocument();
 });

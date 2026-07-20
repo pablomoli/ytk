@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 
 import pytest
@@ -43,7 +44,8 @@ def hub(tmp_path, monkeypatch):
     hub_mod._QUEUE.clear()
     hub_mod._ATTEMPTS.clear()
     hub_mod._profile_rank_job.update(
-        state="idle", detail="", generated_at=None, candidates=0, picks=[]
+        state="idle", detail="", started_at=None, generated_at=None,
+        candidates=0, picks=[]
     )
     hub_mod.brain = brain
     return hub_mod
@@ -402,6 +404,82 @@ def test_profile_rank_reports_scorer_error(client, hub, monkeypatch):
     status = _wait_profile_rank(hub)
     assert status["state"] == "error"
     assert status["detail"] == "no interest profile"
+
+
+def test_profile_rank_hydrates_cached_picks_before_failed_rerank(hub, monkeypatch):
+    cached_pick = {"url": "https://x/cached", "theme": "Design", "score": 0.82}
+    hub._write_profile_rank(
+        {
+            "state": "done",
+            "detail": "",
+            "generated_at": "2026-07-20T12:00:00+00:00",
+            "candidates": 40,
+            "picks": [cached_pick],
+        }
+    )
+    monkeypatch.setattr(
+        hub,
+        "RUN_PROFILE_RANK",
+        lambda count: {"error": "encoder unavailable", "selected": []},
+    )
+
+    assert hub.start_profile_rank() is True
+    status = _wait_profile_rank(hub)
+
+    assert status["state"] == "error"
+    assert status["picks"] == [cached_pick]
+    assert status["generated_at"] == "2026-07-20T12:00:00+00:00"
+
+
+def test_profile_rank_reports_stale_running_job_as_timed_out(hub, monkeypatch):
+    monkeypatch.setattr(hub, "PROFILE_RANK_TIMEOUT_SECONDS", 600)
+    hub._profile_rank_job.update(
+        state="running",
+        detail="",
+        started_at=time.time() - 601,
+        generated_at=None,
+        candidates=0,
+        picks=[],
+    )
+
+    status = hub.profile_rank_status()
+
+    assert status["state"] == "error"
+    assert status["detail"] == "profile ranking timed out"
+
+
+def test_profile_rank_ignores_result_from_timed_out_run(hub, monkeypatch):
+    first_started = threading.Event()
+    release_first = threading.Event()
+    first_finished = threading.Event()
+    calls = 0
+
+    def rank(count):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            first_started.set()
+            release_first.wait(timeout=2)
+            first_finished.set()
+            return {"candidates": 1, "selected": [{"url": "https://x/stale"}]}
+        return {"candidates": 1, "selected": [{"url": "https://x/current"}]}
+
+    monkeypatch.setattr(hub, "RUN_PROFILE_RANK", rank)
+    monkeypatch.setattr(hub, "PROFILE_RANK_TIMEOUT_SECONDS", 0.01)
+    assert hub.start_profile_rank() is True
+    assert first_started.wait(timeout=1)
+    time.sleep(0.02)
+    assert hub.profile_rank_status()["state"] == "error"
+
+    monkeypatch.setattr(hub, "PROFILE_RANK_TIMEOUT_SECONDS", 600)
+    assert hub.start_profile_rank() is True
+    current = _wait_profile_rank(hub)
+    assert current["picks"] == [{"url": "https://x/current"}]
+
+    release_first.set()
+    assert first_finished.wait(timeout=1)
+    time.sleep(0.05)
+    assert hub.profile_rank_status()["picks"] == [{"url": "https://x/current"}]
 
 
 def test_api_ingest_flow_and_status(client, hub):

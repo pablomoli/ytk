@@ -66,8 +66,8 @@ function InboxPage() {
     });
   }, [q.data, source, matchByUrl]);
   const activeHighlightCount = useMemo(
-    () => (q.data ?? []).filter((item) => matchByUrl.has(item.url)).length,
-    [q.data, matchByUrl],
+    () => items.filter((item) => matchByUrl.has(item.url)).length,
+    [items, matchByUrl],
   );
   // Progressively renders more of `items` as the sentinel scrolls into view;
   // not a bounded/sliding window, the visible count only grows.
@@ -245,10 +245,16 @@ function InboxPage() {
             ) : profileRank.data?.picks.length ? (
               <span>
                 {activeHighlightCount} highlighted · {profileRank.data.candidates} text items scored
+                {profileRank.data.generated_at
+                  ? ` · updated ${profileRank.data.generated_at.slice(0, 10)}`
+                  : ""}
               </span>
             ) : (
               <span>find the 30 pending items that best fit your interest profile</span>
             )}
+            {profileRank.isError ? (
+              <span className="profile-rank-error">rank status unavailable</span>
+            ) : null}
             {profileRank.data?.state === "error" ? (
               <span className="profile-rank-error">{profileRank.data.detail}</span>
             ) : null}

@@ -215,7 +215,7 @@ async def queue_profile_rank_api():
     """Start the expensive, on-demand profile ranking for pending items."""
     from ytk.ui import hub
 
-    return {"started": hub.start_profile_rank(count=30)}
+    return {"started": hub.start_profile_rank()}
 
 
 @app.get("/api/queue/profile-rank/status")

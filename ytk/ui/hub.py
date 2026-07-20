@@ -31,6 +31,7 @@ from ytk.memo import (
 STATE_PATH = reels.STATE_PATH
 JOB_PATH = STATE_PATH.parent / "ingest-job.json"
 PROFILE_RANK_PATH = STATE_PATH.parent / "profile-rank.json"
+PROFILE_RANK_TIMEOUT_SECONDS = 10 * 60
 PACING_SECONDS = 3.0
 MAX_ATTEMPTS = 3
 
@@ -55,6 +56,7 @@ _JOB: dict = {
 _profile_rank_job: dict = {
     "state": "idle",
     "detail": "",
+    "started_at": None,
     "generated_at": None,
     "candidates": 0,
     "picks": [],
@@ -943,6 +945,7 @@ def _load_profile_rank() -> dict | None:
     return {
         "state": "done",
         "detail": "",
+        "started_at": None,
         "generated_at": data.get("generated_at"),
         "candidates": int(data.get("candidates") or 0),
         "picks": picks,
@@ -964,6 +967,17 @@ def profile_rank_status() -> dict:
             cached = _load_profile_rank()
             if cached is not None:
                 _profile_rank_job.update(cached)
+        started_at = _profile_rank_job.get("started_at")
+        if (
+            _profile_rank_job["state"] == "running"
+            and started_at is not None
+            and time.time() - started_at > PROFILE_RANK_TIMEOUT_SECONDS
+        ):
+            _profile_rank_job.update(
+                state="error",
+                detail="profile ranking timed out",
+                started_at=None,
+            )
         return dict(_profile_rank_job, picks=list(_profile_rank_job["picks"]))
 
 
@@ -985,7 +999,12 @@ def start_profile_rank(count: int = 30) -> bool:
     with _LOCK:
         if _profile_rank_job["state"] == "running":
             return False
-        _profile_rank_job.update(state="running", detail="")
+        if _profile_rank_job["state"] == "idle":
+            cached = _load_profile_rank()
+            if cached is not None:
+                _profile_rank_job.update(cached)
+        started_at = time.time()
+        _profile_rank_job.update(state="running", detail="", started_at=started_at)
 
     def _run() -> None:
         from datetime import datetime, timezone
@@ -997,16 +1016,34 @@ def start_profile_rank(count: int = 30) -> bool:
             result = {
                 "state": "done",
                 "detail": "",
+                "started_at": None,
                 "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "candidates": int(report.get("candidates") or 0),
                 "picks": report.get("selected") or [],
             }
-            _write_profile_rank(result)
             with _LOCK:
+                if (
+                    _profile_rank_job["state"] != "running"
+                    or _profile_rank_job.get("started_at") != started_at
+                ):
+                    return
+                try:
+                    _write_profile_rank(result)
+                except Exception as exc:
+                    _profile_rank_job.update(
+                        state="error", detail=str(exc), started_at=None
+                    )
+                    return
                 _profile_rank_job.update(result)
         except Exception as exc:
             with _LOCK:
-                _profile_rank_job.update(state="error", detail=str(exc))
+                if (
+                    _profile_rank_job["state"] == "running"
+                    and _profile_rank_job.get("started_at") == started_at
+                ):
+                    _profile_rank_job.update(
+                        state="error", detail=str(exc), started_at=None
+                    )
 
     threading.Thread(target=_run, daemon=True).start()
     return True
