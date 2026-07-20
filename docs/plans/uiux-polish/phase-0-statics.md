@@ -497,15 +497,13 @@ useEffect(() => {
   const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
   return () => clearInterval(id);
 }, [job.data?.running]);
-const elapsed = useMemo(() => {
-  const startedAt = job.data?.current_started;
-  if (!startedAt) return "";
-  const secs = Math.max(0, nowSec - startedAt);
-  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
-}, [job.data?.current_started, nowSec]);
+const elapsed = useMemo(
+  () => formatElapsed(nowSec, job.data?.current_started),
+  [job.data?.current_started, nowSec],
+);
 ```
 
-Add `useEffect` to the react import at line 1.
+Add `useEffect` to the react import at line 1, and import `formatElapsed` from `../lib/elapsed`. Create `web/src/lib/elapsed.ts` (+ test) as a pure helper — `current_started` is a fractional epoch (backend `time.time()`), so the difference MUST be floored (`Math.max(0, Math.floor(nowSec - startedAt))`) or the fraction leaks into the display as `0:12.166681...`. Signature: `formatElapsed(nowSec: number, startedAt?: number | null): string`, returning `""` for a falsy start.
 
 - [ ] **Step 6: Gate** — `cd web && vp test && vp check` → PASS.
 
