@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { FreshCard } from "../components/FreshCard";
 import { MasonryGrid } from "../components/MasonryGrid";
+import { NoteViewer } from "../components/NoteViewer";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
 import { SourceFilter } from "../components/SourceFilter";
-import { useDeleteNote, useNote, useSimilarNotes } from "../api/fresh";
+import { useDeleteNote } from "../api/fresh";
 import type { FreshNote } from "../api/fresh";
 import { useLibrary } from "../api/library";
 import { HubControls } from "../components/HubControls";
@@ -31,9 +31,6 @@ function LibraryPage() {
   const page = useLibrary(offset, source, q, PAGE);
   const remove = useDeleteNote();
   const [selected, setSelected] = useState<FreshNote>();
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const note = useNote(selected?.path);
-  const similar = useSimilarNotes(selected?.path);
 
   // filters reset pagination; a fetched page appends to the accumulated grid
   useEffect(() => { setPages([]); setOffset(0); }, [source, q]);
@@ -57,10 +54,6 @@ function LibraryPage() {
         },
       });
     }
-  };
-
-  const handleDialogKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") { event.preventDefault(); setSelected(undefined); }
   };
 
   let body;
@@ -100,26 +93,7 @@ function LibraryPage() {
         {remove.isError ? <div className="delete-error" role="alert">failed to delete note: {String(remove.error)}</div> : null}
         {body}
       </div>
-      {selected ? (
-        <div ref={dialogRef} className="note-viewer" role="dialog" aria-modal="true" aria-label={selected.title} onKeyDown={handleDialogKeyDown} onClick={() => setSelected(undefined)}>
-          <div className="note-panel" onClick={(event) => event.stopPropagation()}>
-            <button className="btn viewer-close" type="button" onClick={() => setSelected(undefined)}>close</button>
-            {note.isLoading ? <p>loading note...</p> : null}
-            {note.isError ? <p>failed to load note: {String(note.error)}</p> : null}
-            {note.data ? <pre>{note.data.content}</pre> : null}
-            {similar.data?.length ? (
-              <div className="similar-items">
-                <span>visually similar</span>
-                {similar.data.map((item) => (
-                  <a key={item.item_id} href={item.url || "#"} target="_blank" rel="noreferrer" title={item.title || item.item_id}>
-                    <img src={`/api/visual-image?id=${encodeURIComponent(item.item_id)}`} loading="lazy" alt="" />
-                  </a>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {selected ? <NoteViewer note={selected} onClose={() => setSelected(undefined)} /> : null}
     </div>
   );
 }
