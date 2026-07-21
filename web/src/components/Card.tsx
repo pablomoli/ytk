@@ -78,8 +78,8 @@ export function Card({
           <p>{item.text}</p>
           <div className="textcard-foot">
             <span>{item.author}</span>
-            {themeTag}
           </div>
+          {themeTag}
         </div>
       </div>
     )
@@ -104,8 +104,8 @@ export function Card({
         <div className="sub">
           {sourceIcon(item.source)}
           <span data-testid="card-source">{item.source}</span>
-          {themeTag}
         </div>
+        {themeTag}
       </div>
     </div>
   )

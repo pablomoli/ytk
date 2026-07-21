@@ -871,22 +871,28 @@ body {
   box-shadow: inset 0 0 0 1px #4ade8033;
 }
 
+/* Its own line under the card, left-aligned, wrapping so the full theme name
+   is always readable — never truncated to "ai-assisted softw…". */
 .profile-theme-tag {
   display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  min-width: 0;
+  align-self: flex-start;
+  gap: 0.22rem;
   max-width: 100%;
-  padding: 0.06rem 0.34rem;
+  margin-top: 0.35rem;
+  padding: 0.1rem 0.4rem;
   border-radius: 5px;
   background: #4ade8014;
-  color: #7bbf8c;
-  font-size: 0.66rem;
+  color: #86c996;
+  font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.textcard .profile-theme-tag {
+  margin-top: 0.5rem;
 }
 
 .profile-theme-tag::before {
