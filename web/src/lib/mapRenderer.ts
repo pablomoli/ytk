@@ -85,7 +85,7 @@ void main(){ vec3 q=pos;
  gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); c=col; }`
 const webFragment = `precision mediump float; uniform float master; varying vec3 c; varying float depthV;
 void main(){ float fog=smoothstep(-1.2,1.,depthV)*.35+.65; float al=master*fog;
- gl_FragColor=vec4(c*al,al); }`
+ gl_FragColor=vec4(c*al*1.35,al); }`
 // Relief height of the density peak, in layout units (map spans about 2).
 const HSCALE = .22
 
