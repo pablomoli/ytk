@@ -7,6 +7,7 @@ import { NoteViewer } from "../components/NoteViewer";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
 import { SourceFilter } from "../components/SourceFilter";
+import { RecapPanel } from "../components/RecapPanel";
 import { TargetCursor } from "../components/TargetCursor";
 import { canonicalSource } from "../components/icons";
 import { useDeleteNote, useFreshNotes } from "../api/fresh";
@@ -55,6 +56,7 @@ function IndexPage() {
         <span className="count"><CountUp value={notes.length} /> recently ingested</span>
       </HubControls>
       <div className="hub-body">
+        <RecapPanel />
         {remove.isError ? <div className="delete-error" role="alert">failed to delete note: {String(remove.error)}</div> : null}
         {body}
       </div>

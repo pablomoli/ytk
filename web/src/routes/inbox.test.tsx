@@ -87,13 +87,47 @@ function renderPage() {
   return render(<Page />);
 }
 
+const SHOW_MATCHES_KEY = "ytk:inbox:show-profile-matches";
+const enableMatches = () => localStorage.setItem(SHOW_MATCHES_KEY, "1");
+
 beforeEach(() => {
   routeSearch = {};
   rankQuery = { data: completedRank, isError: false };
   startRank.mockClear();
+  localStorage.clear();
+});
+
+test("keeps a cached ranking quiet until the toggle is on", () => {
+  const { container } = renderPage();
+  const cards = [...container.querySelectorAll(".masonry .card")];
+  // Default off: the newest ordinary item leads, no card is promoted or badged.
+  expect(cards[0].textContent).toContain("Newest ordinary item");
+  expect(container.querySelector(".card.profile-match")).toBeNull();
+  expect(container.querySelector(".profile-theme-tag")).toBeNull();
+  expect(screen.queryByRole("button", { name: "reroll" })).not.toBeInTheDocument();
+  // The toggle itself is offered because a ranking exists.
+  expect(screen.getByLabelText("show matches in grid")).not.toBeChecked();
+});
+
+test("the toggle reveals matches and persists the choice", () => {
+  const { container } = renderPage();
+  fireEvent.click(screen.getByLabelText("show matches in grid"));
+  const cards = [...container.querySelectorAll(".masonry .card")];
+  expect(cards[0].textContent).toContain("Strong profile match");
+  expect(cards[0]).toHaveClass("profile-match");
+  expect(localStorage.getItem(SHOW_MATCHES_KEY)).toBe("1");
+});
+
+test("ranking by profile auto-enables the toggle so the result is visible", () => {
+  const { container } = renderPage();
+  expect(container.querySelector(".card.profile-match")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "re-rank by profile" }));
+  expect(startRank).toHaveBeenCalledTimes(1);
+  expect(container.querySelector(".card.profile-match")).not.toBeNull();
 });
 
 test("promotes and highlights cached profile picks before ordinary inbox items", () => {
+  enableMatches();
   const { container } = renderPage();
   const cards = [...container.querySelectorAll(".masonry .card")];
   expect(cards[0].textContent).toContain("Strong profile match");
@@ -111,6 +145,7 @@ test("offers an explicit re-rank action for cached results", () => {
 });
 
 test("highlighted count follows the active source filter", () => {
+  enableMatches();
   routeSearch = { source: "tiktok" };
   renderPage();
   expect(screen.getByText(/1 highlighted · 1800 text items scored/)).toBeInTheDocument();
@@ -133,6 +168,7 @@ test("reroll pages through stratified batches, moves the highlight, and wraps", 
     }));
   // 45 picks => two batches of 30. "match" leads batch 1; "other-match" sits at
   // index 30, so it only appears once the user rerolls to batch 2.
+  enableMatches();
   rankQuery = {
     data: {
       ...completedRank,

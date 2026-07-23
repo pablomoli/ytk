@@ -951,6 +951,141 @@ body {
   color: #d08a7a;
 }
 
+.profile-rank-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0.1rem;
+  color: var(--mute, #9a9284);
+  font-size: 0.78rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.profile-rank-toggle input {
+  accent-color: #e2b04a;
+}
+
+/* Selective source pull: a caret next to "refresh" opens a checkbox popover. */
+.source-pull {
+  position: relative;
+  display: inline-flex;
+}
+
+.btn.caret {
+  padding: 0.32rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.source-pull-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 10rem;
+  padding: 0.5rem;
+  background: var(--panel, #1c1a16);
+  border: 1px solid var(--line, #3a352c);
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px #00000066;
+}
+
+.source-pull-head {
+  color: var(--mute, #9a9284);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.2rem;
+}
+
+.source-pull-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.15rem 0.1rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.source-pull-row input {
+  accent-color: #e2b04a;
+}
+
+.source-pull-menu .btn.primary {
+  margin-top: 0.4rem;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+/* Recap panel on the fresh feed. */
+.recap {
+  margin-bottom: 1rem;
+}
+
+.recap-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.recap-hint {
+  color: var(--mute, #9a9284);
+  font-size: 0.78rem;
+}
+
+.recap-error {
+  margin-top: 0.5rem;
+  color: #d08a7a;
+  font-size: 0.82rem;
+}
+
+.recap-body {
+  margin-top: 0.8rem;
+  padding: 1rem 1.15rem;
+  max-width: 46rem;
+  background: var(--panel, #1c1a16);
+  border: 1px solid var(--line, #3a352c);
+  border-radius: 0.6rem;
+  line-height: 1.55;
+}
+
+.recap-body h3 {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
+  color: #e6ddcb;
+}
+
+.recap-body h3:first-child {
+  margin-top: 0;
+}
+
+.recap-body p {
+  margin: 0.5rem 0;
+  color: #cabfac;
+  font-size: 0.9rem;
+}
+
+.recap-body ul {
+  margin: 0.4rem 0;
+  padding-left: 1.1rem;
+}
+
+.recap-body li {
+  margin: 0.25rem 0;
+  color: #cabfac;
+  font-size: 0.9rem;
+}
+
+.recap-note {
+  color: #e2b04a;
+  border-bottom: 1px dotted #e2b04a66;
+}
+
 .card.card:focus-visible {
   outline-color: #4ade80;
 }

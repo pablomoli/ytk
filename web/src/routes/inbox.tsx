@@ -9,6 +9,7 @@ import { useJobStatus } from "../api/job";
 import { useProfileRank, useStartProfileRank } from "../api/profileRank";
 import { apiGet } from "../api/client";
 import { SourceFilter } from "../components/SourceFilter";
+import { SourcePullMenu } from "../components/SourcePullMenu";
 import { Card } from "../components/Card";
 import { MasonryGrid } from "../components/MasonryGrid";
 import { Skeletons } from "../components/Skeletons";
@@ -20,6 +21,7 @@ import { ScrambleStatus } from "../components/ScrambleStatus";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
 import { filterAndSortQueue } from "../lib/queueItems";
 import { formatElapsed } from "../lib/elapsed";
+import { PROFILE_MATCHES_PREF, getPref, setPref } from "../lib/prefs";
 import "../styles.css";
 
 export const Route = createFileRoute("/inbox")({
@@ -52,6 +54,17 @@ function InboxPage() {
   const [chosenTags, setChosenTags] = useState<Set<string>>(new Set());
   const [thought, setThought] = useState("");
   const [batch, setBatch] = useState(0);
+  // Off by default: a cached ranking stays quiet until asked for. Persisted so
+  // the choice sticks across visits (getPref reads localStorage).
+  const [showMatches, setShowMatches] = useState(() => getPref(PROFILE_MATCHES_PREF));
+  const setShowMatchesPref = (on: boolean) => {
+    setShowMatches(on);
+    setPref(PROFILE_MATCHES_PREF, on);
+  };
+  const handleRankByProfile = () => {
+    setShowMatchesPref(true); // you asked to rank, so surface the result
+    startProfileRank.mutate();
+  };
 
   // The backend ranks the whole scorable pool into stratified blocks of
   // PROFILE_BATCH_SIZE; the inbox highlights one block at a time. "reroll"
@@ -66,9 +79,11 @@ function InboxPage() {
     () => allPicks.slice(activeBatch * PROFILE_BATCH_SIZE, (activeBatch + 1) * PROFILE_BATCH_SIZE),
     [allPicks, activeBatch],
   );
+  // When the toggle is off this resolves to an empty map, so promotion to the
+  // top of the grid and the per-card badge prop both fall away at one gate.
   const matchByUrl = useMemo(
-    () => new Map(batchPicks.map((pick) => [pick.url, pick])),
-    [batchPicks],
+    () => (showMatches ? new Map(batchPicks.map((pick) => [pick.url, pick])) : new Map()),
+    [batchPicks, showMatches],
   );
   const items = useMemo(() => {
     const filtered = filterAndSortQueue(q.data ?? [], source);
@@ -149,7 +164,11 @@ function InboxPage() {
   };
 
   const handleRefresh = () => {
-    refreshSources.mutate();
+    refreshSources.mutate(undefined); // plain refresh: all sources, cadence-respecting
+  };
+
+  const handleSelectivePull = (only: string[]) => {
+    refreshSources.mutate({ only, force: true });
   };
 
   const handleToggleTag = (t: string) => {
@@ -240,12 +259,13 @@ function InboxPage() {
             <button className="btn" onClick={handleRefresh} disabled={refreshSources.isPending}>
               refresh
             </button>
+            <SourcePullMenu onPull={handleSelectivePull} disabled={refreshSources.isPending} />
           </div>
 
           <h2>profile match</h2>
           <button
             className="btn"
-            onClick={() => startProfileRank.mutate()}
+            onClick={handleRankByProfile}
             disabled={profileRank.data?.state === "running" || startProfileRank.isPending}
           >
             {profileRank.data?.state === "running"
@@ -254,7 +274,17 @@ function InboxPage() {
                 ? "re-rank by profile"
                 : "rank by profile"}
           </button>
-          {allPicks.length > 0 && profileRank.data?.state !== "running" ? (
+          {allPicks.length > 0 ? (
+            <label className="profile-rank-toggle">
+              <input
+                type="checkbox"
+                checked={showMatches}
+                onChange={(e) => setShowMatchesPref(e.target.checked)}
+              />
+              show matches in grid
+            </label>
+          ) : null}
+          {showMatches && allPicks.length > 0 && profileRank.data?.state !== "running" ? (
             <div className="profile-rank-batch">
               <button
                 className="btn"

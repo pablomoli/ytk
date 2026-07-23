@@ -31,6 +31,12 @@ from ytk.memo import (
 STATE_PATH = reels.STATE_PATH
 JOB_PATH = STATE_PATH.parent / "ingest-job.json"
 PROFILE_RANK_PATH = STATE_PATH.parent / "profile-rank.json"
+# The discovery sources refresh_sources knows how to pull from. `web` and `memo`
+# in the frontend source filter are ingest *types*, not pull sources, so they
+# are deliberately absent here.
+PULL_SOURCES = frozenset(
+    {"instagram", "youtube", "pinterest", "imessage", "tiktok", "reddit"}
+)
 PROFILE_RANK_TIMEOUT_SECONDS = 10 * 60
 PACING_SECONDS = 3.0
 MAX_ATTEMPTS = 3
@@ -650,7 +656,7 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
 
         due = {
             s: (only is None or s in only) and _pull_due(state, s, cadence, force)
-            for s in ("instagram", "youtube", "pinterest", "imessage", "tiktok", "reddit")
+            for s in sorted(PULL_SOURCES)
         }
         if not any(due.values()):
             result["skipped"] = True

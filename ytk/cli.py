@@ -750,6 +750,34 @@ def profile_cmd(render_only: bool):
     console.print(table)
 
 
+@cli.command(name="recap")
+@click.option("-n", "count", type=int, default=12, help="How many recent ingests to consider.")
+@click.option(
+    "--context",
+    "context_only",
+    is_flag=True,
+    help="Print the gathered material as markdown without the Claude synthesis "
+    "(what the /whats-new skill consumes).",
+)
+def recap_cmd(count: int, context_only: bool):
+    """Recap what was recently ingested and how it ties to your recent work."""
+    from rich.markdown import Markdown
+
+    from . import digest
+
+    ctx = digest.gather_recent(n=count)
+    if not ctx.ingests:
+        console.print("[yellow]Nothing ingested yet.[/] Queue and ingest from the inbox first.")
+        return
+    if context_only:
+        # Plain stdout, not rich: this output is piped into a Claude session.
+        click.echo(digest.render_context(ctx))
+        return
+    with console.status("[bold cyan]Reading the vault and connecting the dots...[/]"):
+        narrative = digest.synthesize(ctx)
+    console.print(Markdown(narrative))
+
+
 @cli.command(name="remember")
 @click.argument("text", required=False, default="")
 @click.option("--tags", "-t", default="", help="Comma-separated tags.")
