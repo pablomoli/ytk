@@ -1,4 +1,4 @@
-import type { MapData, MapPoint, MapTerrain } from '../api/map'
+import type { MapData, MapPoint, MapTerrain, MapWeb } from '../api/map'
 import { aggFactor, groupStats, pointDomain, pointGroup, subCells } from './mapAggregation'
 import type { SubCell } from './mapAggregation'
 import { DIM, focusLevel, groupTargets, pointPhases, ramp as ease } from './mapGroups'
@@ -7,7 +7,7 @@ import { decay, pushSample, releaseVelocity } from './mapInertia'
 import type { VelocitySample } from './mapInertia'
 
 export type MapHover = { point: MapPoint; x: number; y: number }
-export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setFocus: (focus: MapFocus) => void; setHover: (hover?: MapFocus) => void; setHiddenDomains: (doms: Set<number>) => void; setLegendOpen: (open: boolean) => void; setTerrain: (on: boolean) => void; destroy: () => void }
+export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setFocus: (focus: MapFocus) => void; setHover: (hover?: MapFocus) => void; setHiddenDomains: (doms: Set<number>) => void; setLegendOpen: (open: boolean) => void; setTerrain: (on: boolean) => void; setWeb: (on: boolean) => void; destroy: () => void }
 
 // Both layouts ride in the buffer: p0/p1 are the 3D everything/content
 // positions, q0/q1 the dedicated 2D embeddings. The morph uniform blends
@@ -72,6 +72,20 @@ const lineFragment = `precision mediump float; uniform vec3 col; uniform float m
 void main(){ float al=a*master; gl_FragColor=vec4(col*al,al); }`
 const CONTOUR_COL: [number, number, number] = [1, 1, 1]
 const RIDGE_COL: [number, number, number] = [.886, .69, .29] // hub gold
+// Filament web: topic-tinted curves living in the embedding-3D space itself
+// (the z3/c3 coordinates), so they render only as dim approaches volume and
+// share the exact camera transform of the points.
+const webVertex = `attribute vec3 pos; attribute vec3 col;
+uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi;
+varying vec3 c; varying float depthV;
+void main(){ vec3 q=pos;
+ float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi);
+ q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y);
+ float depth=1.35-q.z*.24; depthV=q.z;
+ gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); c=col; }`
+const webFragment = `precision mediump float; uniform float master; varying vec3 c; varying float depthV;
+void main(){ float fog=smoothstep(-1.2,1.,depthV)*.35+.65; float al=master*fog;
+ gl_FragColor=vec4(c*al,al); }`
 // Relief height of the density peak, in layout units (map spans about 2).
 const HSCALE = .22
 
@@ -149,6 +163,38 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     }
     build(data.all.terrain, 'all')
     build(data.content.terrain, 'content')
+  }
+  // --- filament web resources (absent on pre-web map.json builds)
+  let webProgram: WebGLProgram | undefined
+  let webU: Record<'zoom' | 'pan' | 'theta' | 'phi' | 'master', WebGLUniformLocation | null> | undefined
+  let webPos = 0
+  let webCol = 0
+  const webBuffers: Partial<Record<'all' | 'content', { buf: WebGLBuffer; count: number }>> = {}
+  if (data.all.web || data.content.web) {
+    webProgram = gl.createProgram()!
+    gl.attachShader(webProgram, shader(gl, gl.VERTEX_SHADER, webVertex))
+    gl.attachShader(webProgram, shader(gl, gl.FRAGMENT_SHADER, webFragment))
+    gl.linkProgram(webProgram)
+    if (!gl.getProgramParameter(webProgram, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(webProgram) || 'web program link failed')
+    webPos = gl.getAttribLocation(webProgram, 'pos')
+    webCol = gl.getAttribLocation(webProgram, 'col')
+    webU = { zoom: gl.getUniformLocation(webProgram, 'zoom'), pan: gl.getUniformLocation(webProgram, 'pan'), theta: gl.getUniformLocation(webProgram, 'theta'), phi: gl.getUniformLocation(webProgram, 'phi'), master: gl.getUniformLocation(webProgram, 'master') }
+    const build = (web: MapWeb | undefined, key: 'all' | 'content') => {
+      if (!web) return
+      // GL_LINES pairs, 6 floats per vertex (xyz + rgb); the varying blends
+      // colors along each segment so filaments shade smoothly across topic
+      // borders.
+      const colorOf = (label: number): [number, number, number] => label < 0 ? gray : key === 'all' ? rampColor(domainPos(data, label)) : rampColor(label / 7)
+      const segments: number[] = []
+      for (const fil of web.filaments) for (let i = 0; i + 1 < fil.length; i++) { const a = fil[i]; const b = fil[i + 1]; segments.push(a[0], a[1], a[2], ...colorOf(a[3]), b[0], b[1], b[2], ...colorOf(b[3])) }
+      if (!segments.length) return
+      const buf = gl.createBuffer()!
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(segments), gl.STATIC_DRAW)
+      webBuffers[key] = { buf, count: segments.length / 6 }
+    }
+    build(data.all.web, 'all')
+    build(data.content.web, 'content')
   }
   // Bilinear samplers over the terrain height grids lift points onto the
   // relief surface without any per-point data in the payload.
@@ -248,6 +294,8 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   let subColorT = 0
   let terrainOn = false
   let terrainT = 0
+  let webOn = false
+  let webT = 0
   const intro = (opts?.intro ?? false) && !introPlayed
   if (intro) { introPlayed = true; canvas.dataset.intro = '1' }
   let introT = intro ? 0 : 1
@@ -391,6 +439,27 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
       }
       gl.useProgram(program)
     }
+    // filament web: lives in the embedding-3D coordinates, so it appears
+    // only as dim approaches volume (and relief mode, which forces dim flat,
+    // hides it automatically)
+    if (webProgram && webU && webT > .01 && dimVal > .01) {
+      gl.useProgram(webProgram)
+      gl.uniform1f(webU.zoom, scale)
+      gl.uniform2f(webU.pan, offset[0], offset[1])
+      gl.uniform1f(webU.theta, ea)
+      gl.uniform1f(webU.phi, tilt * rot)
+      for (const key of ['all', 'content'] as const) {
+        const weight = key === 'all' ? 1 - morph : morph
+        const bufs = webBuffers[key]
+        if (!bufs || weight <= .01) continue
+        gl.bindBuffer(gl.ARRAY_BUFFER, bufs.buf)
+        gl.enableVertexAttribArray(webPos); gl.vertexAttribPointer(webPos, 3, gl.FLOAT, false, 24, 0)
+        gl.enableVertexAttribArray(webCol); gl.vertexAttribPointer(webCol, 3, gl.FLOAT, false, 24, 12)
+        gl.uniform1f(webU.master, webT * dimVal * weight * .8)
+        gl.drawArrays(gl.LINES, 0, bufs.count)
+      }
+      gl.useProgram(program)
+    }
     gl.uniform1f(morphUniform, morph)
     gl.uniform1f(dimUniform, dimVal)
     gl.uniform1f(zoom, scale)
@@ -450,6 +519,8 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     if (introT >= 1 && canvas.dataset.intro) delete canvas.dataset.intro
     const subColorTarget = view === 'all' && focus.dom !== undefined ? 1 : 0
     const ds = subColorTarget - subColorT; subColorT = Math.abs(ds) <= 1e-3 ? subColorTarget : subColorT + ds * (1 - Math.exp(-4 * dt))
+    const webTarget = webOn ? 1 : 0
+    const dwb = webTarget - webT; webT = Math.abs(dwb) <= 1e-3 ? webTarget : webT + dwb * (1 - Math.exp(-4 * dt))
     const terrainTarget = terrainOn ? 1 : 0
     const dte = terrainTarget - terrainT; terrainT = Math.abs(dte) <= 1e-3 ? terrainTarget : terrainT + dte * (1 - Math.exp(-4 * dt))
     if (flyItem) {
@@ -525,5 +596,5 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   // owns the focus state — the renderer only reports via onFocus.
   const click = () => { if (moved >= 4) return; if (!hoveredPoint) { flyItem = undefined; scaleTarget = scale; onFocus?.(focus.sub !== undefined ? { dom: focus.dom } : {}); return } if (view === 'content') { const th = hoveredPoint.th ?? -1; if (th < 0) return; flyTo(hoveredPoint); onFocus?.({ dom: th }); return } if (focus.dom === undefined) { onFocus?.({ dom: hoveredPoint.dom }); return } if (focus.sub === undefined) { const sub = hoveredPoint.g >= 0 ? hoveredPoint.g : undefined; if (sub !== undefined) flyTo(hoveredPoint); onFocus?.({ dom: focus.dom, sub }); return } onFocus?.({ dom: focus.dom }) }
   resize(); addEventListener('resize', resize); canvas.addEventListener('mousedown', down); canvas.addEventListener('click', click); canvas.addEventListener('dblclick', open); canvas.addEventListener('contextmenu', contextmenu); addEventListener('mousemove', move); addEventListener('mouseup', up); canvas.addEventListener('wheel', wheel, { passive: false }); render()
-  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { requestedDim = next ? 0 : 1; retargetDims(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, setTerrain: (next) => { terrainOn = next; retargetDims() }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteBuffer(orbBuffer); for (const bufs of Object.values(terrainBuffers)) { gl.deleteBuffer(bufs.contours); gl.deleteBuffer(bufs.ridges) } if (lineProgram) gl.deleteProgram(lineProgram); gl.deleteProgram(program); killMomentum() } }
+  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { requestedDim = next ? 0 : 1; retargetDims(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, setTerrain: (next) => { terrainOn = next; retargetDims() }, setWeb: (next) => { webOn = next }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteBuffer(orbBuffer); for (const bufs of Object.values(terrainBuffers)) { gl.deleteBuffer(bufs.contours); gl.deleteBuffer(bufs.ridges) } if (lineProgram) gl.deleteProgram(lineProgram); for (const bufs of Object.values(webBuffers)) gl.deleteBuffer(bufs.buf); if (webProgram) gl.deleteProgram(webProgram); gl.deleteProgram(program); killMomentum() } }
 }

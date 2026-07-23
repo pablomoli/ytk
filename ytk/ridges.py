@@ -21,18 +21,21 @@ _CHUNK = 256  # query rows per block; bounds the (m, n, 2) intermediates
 
 
 def silverman_bandwidth(pts: np.ndarray) -> float:
-    """2D rule of thumb: h = sigma * n^(-1/6), sigma averaged across axes."""
+    """Rule of thumb in d dims: h = sigma * n^(-1/(d+4)), sigma averaged
+    across axes (d=2 gives the familiar n^(-1/6))."""
     pts = np.asarray(pts, float)
+    d = pts.shape[1]
     sigma = float(pts.std(axis=0, ddof=1).mean())
-    return sigma * len(pts) ** (-1 / 6)
+    return sigma * len(pts) ** (-1 / (d + 4))
 
 
 def kde(pts: np.ndarray, h: float, query: np.ndarray) -> np.ndarray:
-    """f(x) = (1/n) sum_i N(x; x_i, h^2 I) evaluated at query rows."""
+    """f(x) = (1/n) sum_i N(x; x_i, h^2 I) evaluated at query rows.
+    Dimension-agnostic: the kernel normalization is (2 pi h^2)^(d/2)."""
     pts = np.asarray(pts, float)
     query = np.asarray(query, float)
     out = np.empty(len(query))
-    norm = len(pts) * 2 * np.pi * h * h
+    norm = len(pts) * (2 * np.pi * h * h) ** (pts.shape[1] / 2)
     for s in range(0, len(query), _CHUNK):
         q = query[s : s + _CHUNK]
         d2 = ((q[:, None, :] - pts[None, :, :]) ** 2).sum(-1)
@@ -64,19 +67,20 @@ def log_density_grad_hess(
     """
     pts = np.asarray(pts, float)
     x = np.asarray(x, float)
-    n = len(pts)
+    n, d = pts.shape
     f = np.empty(len(x))
-    grad = np.empty((len(x), 2))
-    hess = np.empty((len(x), 2, 2))
-    eye = np.eye(2)
+    grad = np.empty((len(x), d))
+    hess = np.empty((len(x), d, d))
+    eye = np.eye(d)
+    norm = n * (2 * np.pi * h * h) ** (d / 2)
     for s in range(0, len(x), _CHUNK):
         q = x[s : s + _CHUNK]
-        diff = pts[None, :, :] - q[:, None, :]  # (m, n, 2) = x_i - x
+        diff = pts[None, :, :] - q[:, None, :]  # (m, n, d) = x_i - x
         w = np.exp(-(diff**2).sum(-1) / (2 * h * h))  # (m, n)
         W = w.sum(1).clip(1e-300)
         m = (w[:, :, None] * diff).sum(1) / W[:, None]
         S = np.einsum("mn,mna,mnb->mab", w, diff, diff) / W[:, None, None]
-        f[s : s + _CHUNK] = W / (n * 2 * np.pi * h * h)
+        f[s : s + _CHUNK] = W / norm
         grad[s : s + _CHUNK] = m / h**2
         hess[s : s + _CHUNK] = (S - m[:, :, None] * m[:, None, :]) / h**4 - eye / h**2
     return f, grad, hess
@@ -344,3 +348,145 @@ def terrain(xy: np.ndarray, grid_n: int = 140, max_seeds: int = 2400) -> dict:
             "z": [round(float(v), 3) for v in gz.ravel()],
         },
     }
+
+
+def eigh3(mats: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Closed-form eigenvalues of symmetric 3x3 matrices, batched, ascending,
+    plus the eigenvector of the LARGEST eigenvalue only.
+
+    Eigenvalues come from the trigonometric form of Cardano's cubic solution:
+    shift by the trace mean, scale to unit Frobenius spread, and the
+    characteristic cubic collapses to 4c^3 - 3c = det(B), solved by three
+    cosines. SCMS in 3D only needs the top eigenvector (the along-filament
+    direction) — the projection subspace is its orthogonal complement, which
+    sidesteps the degeneracy of separating the two most-negative directions.
+    The eigenvector comes from cross products of rows of (A - lambda I): any
+    two independent rows are both orthogonal to v, so their cross product IS v.
+    """
+    a = np.asarray(mats, float)
+    a00, a11, a22 = a[..., 0, 0], a[..., 1, 1], a[..., 2, 2]
+    a01, a02, a12 = a[..., 0, 1], a[..., 0, 2], a[..., 1, 2]
+    q = (a00 + a11 + a22) / 3
+    p1 = a01**2 + a02**2 + a12**2
+    p2 = (a00 - q) ** 2 + (a11 - q) ** 2 + (a22 - q) ** 2 + 2 * p1
+    p = np.sqrt(np.maximum(p2, 0) / 6)
+    ps = np.where(p > 1e-30, p, 1.0)
+    B = (a - q[..., None, None] * np.eye(3)) / ps[..., None, None]
+    detB = (
+        B[..., 0, 0] * (B[..., 1, 1] * B[..., 2, 2] - B[..., 1, 2] * B[..., 2, 1])
+        - B[..., 0, 1] * (B[..., 1, 0] * B[..., 2, 2] - B[..., 1, 2] * B[..., 2, 0])
+        + B[..., 0, 2] * (B[..., 1, 0] * B[..., 2, 1] - B[..., 1, 1] * B[..., 2, 0])
+    )
+    phi = np.arccos(np.clip(detB / 2, -1.0, 1.0)) / 3
+    e_hi = q + 2 * p * np.cos(phi)
+    e_lo = q + 2 * p * np.cos(phi + 2 * np.pi / 3)
+    e_mid = 3 * q - e_hi - e_lo
+    vals = np.stack([e_lo, e_mid, e_hi], axis=-1)
+    C = a - e_hi[..., None, None] * np.eye(3)
+    cands = np.stack(
+        [
+            np.cross(C[..., 0, :], C[..., 1, :]),
+            np.cross(C[..., 0, :], C[..., 2, :]),
+            np.cross(C[..., 1, :], C[..., 2, :]),
+        ],
+        axis=-2,
+    )
+    norms = np.linalg.norm(cands, axis=-1)
+    best = norms.argmax(axis=-1)
+    v = np.take_along_axis(cands, best[..., None, None], axis=-2)[..., 0, :]
+    vn = np.linalg.norm(v, axis=-1, keepdims=True)
+    v = np.where(vn > 1e-12, v / vn.clip(1e-300), np.array([1.0, 0.0, 0.0]))
+    return vals, v
+
+
+def scms3(
+    pts: np.ndarray,
+    h: float,
+    seeds: np.ndarray,
+    max_iter: int = 100,
+    tol: float = 1e-4,
+    floor_frac: float = 0.05,
+) -> np.ndarray:
+    """SCMS in 3D: each walker deletes the along-filament component (the top
+    Hessian eigenvector) from its mean-shift step, so it can only move within
+    its cross-sectional disk — sliding onto the filament centerline and
+    stopping there. Valid filament points have both cross-disk curvatures
+    negative and density above the floor."""
+    pts = np.asarray(pts, float)
+    x = np.array(seeds, float, copy=True)
+    lo = pts.min(0) - 3 * h
+    hi = pts.max(0) + 3 * h
+    floor = floor_frac * kde(pts, h, pts).max()
+    keep = np.ones(len(x), bool)
+    active = np.ones(len(x), bool)
+    for _ in range(max_iter):
+        idx = np.flatnonzero(active)
+        if not len(idx):
+            break
+        f, grad, hess = log_density_grad_hess(pts, h, x[idx])
+        _, v1 = eigh3(hess)
+        ms = grad * h * h
+        step = ms - (ms * v1).sum(1, keepdims=True) * v1
+        x[idx] = np.clip(x[idx] + step, lo, hi)
+        low = f < floor
+        keep[idx[low]] = False
+        done = (np.linalg.norm(step, axis=1) < tol) | low
+        active[idx[done]] = False
+    keep &= ~active
+    idx = np.flatnonzero(keep)
+    if not len(idx):
+        return np.empty((0, 3))
+    f, _, hess = log_density_grad_hess(pts, h, x[idx])
+    vals, _ = eigh3(hess)
+    ok = (vals[:, 0] < 0) & (vals[:, 1] < 0) & (f >= floor)
+    out = x[idx[ok]]
+    if not len(out):
+        return out
+    _, inverse = np.unique(np.round(out, 2), axis=0, return_inverse=True)
+    thin = np.empty((inverse.max() + 1, 3))
+    for axis in range(3):
+        thin[:, axis] = np.bincount(inverse, weights=out[:, axis]) / np.bincount(inverse)
+    return thin
+
+
+def _majority_label(
+    pts: np.ndarray, h: float, verts: np.ndarray, labels: np.ndarray, n_labels: int
+) -> np.ndarray:
+    """Kernel-weighted vote: each filament vertex takes the label whose
+    points contribute the most fog at that spot. Unlabeled points (-1) vote
+    in their own bucket; a vertex they win stays -1."""
+    labels = np.asarray(labels)
+    slot = np.where(labels >= 0, labels, n_labels)
+    onehot = np.zeros((len(labels), n_labels + 1))
+    onehot[np.arange(len(labels)), slot] = 1.0
+    votes = np.empty((len(verts), n_labels + 1))
+    for s in range(0, len(verts), _CHUNK):
+        q = verts[s : s + _CHUNK]
+        d2 = ((q[:, None, :] - pts[None, :, :]) ** 2).sum(-1)
+        votes[s : s + _CHUNK] = np.exp(-d2 / (2 * h * h)) @ onehot
+    best = votes.argmax(1)
+    return np.where(best == n_labels, -1, best)
+
+
+def web(xyz: np.ndarray, labels: list, n_labels: int, max_seeds: int = 2500) -> dict:
+    """Filament skeleton of a 3D embedding: SCMS curves through the point
+    fog, seeded from the points themselves, each vertex tagged with the
+    kernel-weighted majority label (domain or theme) of the notes holding it
+    up. Plain-JSON payload; vertices are [x, y, z, label]."""
+    pts = np.asarray(xyz, float)
+    h = silverman_bandwidth(pts)
+    seeds = pts
+    if len(seeds) > max_seeds:
+        seeds = seeds[:: len(seeds) // max_seeds + 1]
+    ridge_points = scms3(pts, h, seeds)
+    filaments = []
+    for chain in _chain_points(ridge_points):
+        smoothed = _smooth(chain)
+        labs = _majority_label(pts, h, smoothed, np.asarray(labels), n_labels)
+        filaments.append(
+            [
+                [round(float(x), 3), round(float(y), 3), round(float(z), 3), int(lab)]
+                for (x, y, z), lab in zip(smoothed, labs)
+            ]
+        )
+    return {"h": round(h, 4), "filaments": filaments}
