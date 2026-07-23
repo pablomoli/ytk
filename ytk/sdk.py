@@ -43,18 +43,23 @@ def structured[R: BaseModel](
     *,
     model: str = _FAST_MODEL,
     max_input_chars: int = 20_000,
+    max_tokens: int = 1024,
 ) -> R:
     """Schema-forced one-shot classification; returns a validated `result`.
 
     Fast path: direct API when ANTHROPIC_API_KEY is set. Fallback (and the
-    normal path on subscription-only auth): Agent SDK subprocess.
+    normal path on subscription-only auth): Agent SDK subprocess. `max_tokens`
+    bounds the response on the direct-API path; long-form callers (the recap
+    narrative) raise it above the classification default.
     """
     schema = result.model_json_schema()
     user_prompt = user_prompt[:max_input_chars]
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if api_key:
         try:
-            data = _structured_via_api(system_prompt, user_prompt, schema, api_key, model)
+            data = _structured_via_api(
+                system_prompt, user_prompt, schema, api_key, model, max_tokens
+            )
             return result.model_validate(data)
         except Exception:
             log.warning("direct API call failed; falling back to Agent SDK", exc_info=True)
@@ -63,7 +68,7 @@ def structured[R: BaseModel](
 
 
 def _structured_via_api(
-    system: str, user: str, schema: dict, api_key: str, model: str
+    system: str, user: str, schema: dict, api_key: str, model: str, max_tokens: int = 1024
 ) -> dict:
     """Direct Anthropic API call with forced tool-use for structured output.
     ~1.5s round-trip vs ~11s for a Claude Code CLI subprocess; classification
@@ -73,7 +78,7 @@ def _structured_via_api(
 
     body = json.dumps({
         "model": model,
-        "max_tokens": 1024,
+        "max_tokens": max_tokens,
         "system": system,
         "messages": [{"role": "user", "content": user}],
         "tools": [{"name": "emit_result", "description": "Emit the classification.",

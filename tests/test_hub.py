@@ -565,6 +565,45 @@ def test_refresh_sources_pulls_instagram_and_youtube(hub, monkeypatch):
     assert yt.shared_at == "2026-07-04"
 
 
+def test_refresh_sources_only_pulls_selected(hub, monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_SESSIONID", "sess")
+    called = {"ig": 0, "yt": 0}
+
+    def fake_ig_pull(state):
+        called["ig"] += 1
+        return 0
+
+    def fake_yt():
+        called["yt"] += 1
+        return []
+
+    monkeypatch.setattr(hub, "IG_PULL", fake_ig_pull)
+    monkeypatch.setattr(hub, "YT_FETCH", fake_yt)
+    monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
+    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+
+    result = hub.refresh_sources(only={"instagram"})
+
+    # Only the selected source is dispatched; the rest are reported as skipped.
+    assert called == {"ig": 1, "yt": 0}
+    assert result["skipped"] is False
+    assert set(result["skipped_sources"]) == hub.PULL_SOURCES - {"instagram"}
+
+
+def test_refresh_sources_empty_only_pulls_nothing(hub, monkeypatch):
+    # An `only` that survives validation as the empty set (all names were
+    # unknown) must pull nothing — never fall back to pulling everything.
+    called = {"ig": 0}
+    monkeypatch.setattr(hub, "IG_PULL", lambda state: called.__setitem__("ig", called["ig"] + 1))
+    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+
+    result = hub.refresh_sources(only=set())
+
+    assert called["ig"] == 0
+    assert result["skipped"] is True
+
+
 def _quiet_other_sources(hub, monkeypatch):
     monkeypatch.setattr(hub, "IG_PULL", lambda state: 0)
     monkeypatch.setattr(hub, "YT_FETCH", lambda: [])

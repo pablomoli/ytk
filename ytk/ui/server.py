@@ -145,12 +145,19 @@ async def queue_add_api(req: QueueAddRequest):
 
 
 @app.post("/api/queue/refresh")
-def queue_refresh_api(force: bool = False):
+def queue_refresh_api(force: bool = False, only: str | None = None):
     # sync def on purpose: FastAPI runs it in a threadpool, and the source
     # pulls (Instagram private API + YouTube Data API) block for seconds
     from ytk.ui import hub
 
-    return hub.refresh_sources(force=force)
+    # `only` is a comma-separated allow-list from the source-pull menu. Intersect
+    # with the real pull sources so an unknown name can never reach the pull
+    # dispatch; an empty result means "nothing valid asked for", not "pull all",
+    # so we keep it as an empty set rather than collapsing to None.
+    selected: set[str] | None = None
+    if only is not None:
+        selected = {s.strip() for s in only.split(",") if s.strip()} & hub.PULL_SOURCES
+    return hub.refresh_sources(force=force, only=selected)
 
 
 class TagRequest(BaseModel):
@@ -224,6 +231,16 @@ async def queue_profile_rank_status_api():
     from ytk.ui import hub
 
     return hub.profile_rank_status()
+
+
+@app.post("/api/recap")
+def recap_api(n: int = 12):
+    # sync def on purpose: gather_recent hits the embedder and synthesize makes
+    # a Claude call, both blocking for seconds; FastAPI runs it in a threadpool.
+    from ytk import digest
+
+    ctx = digest.gather_recent(n=n)
+    return {"markdown": digest.synthesize(ctx), "count": len(ctx.ingests)}
 
 
 @app.post("/api/ingest")

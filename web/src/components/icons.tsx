@@ -34,6 +34,10 @@ const ICON_ALIASES: Record<string, string> = {
    imessage has no dedicated icon and falls back to web (by design). */
 export const SOURCES = ['instagram', 'youtube', 'pinterest', 'tiktok', 'reddit', 'web', 'memo', 'imessage']
 
+/* The sources the hub can actively pull from (mirrors hub.PULL_SOURCES). A
+   subset of SOURCES: `web` and `memo` are ingest types, not discovery pulls. */
+export const PULL_SOURCES = ['instagram', 'youtube', 'pinterest', 'imessage', 'tiktok', 'reddit']
+
 export function canonicalSource(source: string): string {
   return ICON_ALIASES[source] ?? source
 }
