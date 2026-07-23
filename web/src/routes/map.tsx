@@ -39,6 +39,7 @@ function MapPage() {
   const leaders = useRef<SVGSVGElement>(null)
   const [view, setView] = useState<'all' | 'content'>(location.hash === '#content' ? 'content' : 'all')
   const [flat, setFlat] = useState(location.hash === '#2d')
+  const [terrain, setTerrain] = useState(false)
   const [signal, setSignal] = useState(false)
   const [recent, setRecent] = useState(false)
   const [pointHover, setPointHover] = useState<MapHover>()
@@ -80,6 +81,7 @@ function MapPage() {
   }, [map.data])
   useEffect(() => { renderer.current?.setView(view) }, [view])
   useEffect(() => { renderer.current?.setDimension(flat) }, [flat])
+  useEffect(() => { renderer.current?.setTerrain(terrain) }, [terrain])
   useEffect(() => { renderer.current?.setFilters(signal, recent) }, [signal, recent])
   useEffect(() => { renderer.current?.setFocus(focus) }, [focus])
   useEffect(() => { renderer.current?.setHover(hover) }, [hover])
@@ -98,7 +100,7 @@ function MapPage() {
   const toggleHidden = (dom: number) => setHiddenDoms((current) => { const next = new Set(current); next.has(dom) ? next.delete(dom) : next.add(dom); return next })
   return (
     <div className="map-page">
-      <HubControls><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => resetView('all')}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => resetView('content')}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button><span className="count">{map.data?.points.length ?? 0} notes</span></HubControls>
+      <HubControls><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => resetView('all')}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => resetView('content')}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button>{map.data?.all.terrain || map.data?.content.terrain ? <button className={`fchip${terrain ? ' on' : ''}`} onClick={() => { if (!terrain && !flat) setFlat(true); setTerrain((current) => !current) }}>terrain</button> : null}<span className="count">{map.data?.points.length ?? 0} notes</span></HubControls>
       <div className="map-stage" aria-label="Knowledge map renderer"><canvas ref={canvas} /><svg ref={leaders} className="map-leaders" /><div ref={labels} className="map-labels" />
         <aside className={`map-legend${legendOpen ? '' : ' collapsed'}`}><button className="map-legend-toggle" onClick={() => setLegendOpen((open) => !open)} aria-label={legendOpen ? 'Collapse cluster legend' : 'Expand cluster legend'}>{legendOpen ? '›' : '‹'}</button>{legendOpen ? <>{rows.map((row) => (
           <div key={row.dom}>
