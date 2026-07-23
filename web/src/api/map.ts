@@ -9,7 +9,11 @@ export type MapGroup = { label: string; n: number; x?: number; y?: number; weigh
 // downsampled normalized height grid (row-major, ny rows of nx) for relief.
 export type MapTerrainGrid = { x0: number; x1: number; y0: number; y1: number; nx: number; ny: number; z: number[] }
 export type MapTerrain = { h: number; levels: number[]; fracs?: number[]; contours: Array<{ lv: number; path: number[][] }>; ridges: number[][][]; grid?: MapTerrainGrid }
-export type MapLayout = { groups: MapGroup[]; params: Record<string, number>; terrain?: MapTerrain }
+// Filament web: SCMS ridge curves through the 3D embedding volume; each
+// vertex is [x, y, z, label] where label is a domain (all view) or theme
+// (content view) index, -1 for unlabeled.
+export type MapWeb = { h: number; filaments: number[][][] }
+export type MapLayout = { groups: MapGroup[]; params: Record<string, number>; terrain?: MapTerrain; web?: MapWeb }
 export type MapAllLayout = MapLayout & { domains: MapDomain[] }
 export type MapData = { v?: number; points: MapPoint[]; all: MapAllLayout; content: MapLayout }
 

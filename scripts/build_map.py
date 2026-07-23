@@ -450,6 +450,20 @@ def attach_terrain() -> None:
     data["all"]["terrain"] = ridges.terrain(axy)
     print(f"terrain: content view ({len(cxy)} points)")
     data["content"]["terrain"] = ridges.terrain(cxy)
+    # Filament web: SCMS ridge curves through the 3D embedding volume,
+    # vertices tagged with the kernel-majority domain/theme for coloring.
+    z3 = np.array([p["z3"] for p in data["points"]])
+    doms = [p["dom"] for p in data["points"]]
+    print(f"web: all view ({len(z3)} points)")
+    data["all"]["web"] = ridges.web(z3, doms, len(data["all"]["domains"]))
+    cpts = [p for p in data["points"] if "c3" in p]
+    if cpts:
+        c3 = np.array([p["c3"] for p in cpts])
+        ths = [p.get("th", -1) for p in cpts]
+        print(f"web: content view ({len(c3)} points)")
+        data["content"]["web"] = ridges.web(
+            c3, ths, len(data["content"]["groups"])
+        )
     OUT.write_text(json.dumps(data))
     for view in ("all", "content"):
         t = data[view]["terrain"]

@@ -123,6 +123,93 @@ def test_marching_squares_circle():
     )
 
 
+def _blob3(n, center, sd, seed):
+    rng = np.random.default_rng(seed)
+    return rng.normal(center, sd, size=(n, 3))
+
+
+def test_kde_3d_matches_naive_sum():
+    pts = _blob3(30, (0.1, -0.2, 0.3), 0.5, 11)
+    h = 0.3
+    query = np.array([[0.0, 0.0, 0.0], [0.4, -0.4, 0.2]])
+    f = ridges.kde(pts, h, query)
+    for k, q in enumerate(query):
+        naive = np.exp(-((pts - q) ** 2).sum(1) / (2 * h * h)).sum()
+        naive /= len(pts) * (2 * np.pi * h * h) ** 1.5
+        assert f[k] == pytest.approx(naive, rel=1e-10)
+
+
+def test_grad_hess_3d_match_finite_differences():
+    pts = _blob3(50, (0.1, 0.2, -0.1), 0.6, 12)
+    h = 0.35
+    eps = 1e-5
+    queries = np.array([[0.0, 0.0, 0.0], [0.4, -0.3, 0.5], [-0.5, 0.2, -0.4]])
+    _, grad, hess = ridges.log_density_grad_hess(pts, h, queries)
+
+    def logf(q):
+        return float(np.log(ridges.kde(pts, h, q[None, :])[0]))
+
+    for k, q in enumerate(queries):
+        for a in range(3):
+            e = np.zeros(3)
+            e[a] = eps
+            fd = (logf(q + e) - logf(q - e)) / (2 * eps)
+            assert grad[k, a] == pytest.approx(fd, rel=1e-4, abs=1e-6)
+            for b in range(3):
+                e2 = np.zeros(3)
+                e2[b] = eps
+                fd2 = (
+                    logf(q + e + e2) - logf(q + e - e2)
+                    - logf(q - e + e2) + logf(q - e - e2)
+                ) / (4 * eps * eps)
+                assert hess[k, a, b] == pytest.approx(fd2, rel=1e-3, abs=1e-4)
+
+
+def test_eigh3_matches_numpy():
+    rng = np.random.default_rng(13)
+    m = rng.normal(size=(60, 3, 3))
+    sym = (m + m.transpose(0, 2, 1)) / 2
+    sym[5] = np.diag([3.0, -1.0, 0.5])   # diagonal branch
+    sym[6] = np.eye(3) * -0.7            # isotropic branch
+    vals, v1 = ridges.eigh3(sym)
+    for k in range(len(sym)):
+        ref_vals, ref_vecs = np.linalg.eigh(sym[k])
+        assert vals[k] == pytest.approx(ref_vals, abs=1e-8)  # ascending
+        if ref_vals[2] - ref_vals[1] > 1e-6:  # top eigenvector well-defined
+            assert abs(float(v1[k] @ ref_vecs[:, 2])) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_scms3_finds_axis_filament():
+    # Points strung along the x-axis in 3D: the filament IS the x-axis.
+    rng = np.random.default_rng(14)
+    pts = np.column_stack(
+        [rng.uniform(-1, 1, 900), rng.normal(0, 0.08, 900), rng.normal(0, 0.08, 900)]
+    )
+    h = ridges.silverman_bandwidth(pts)
+    seeds = pts[::3]
+    out = ridges.scms3(pts, h, seeds)
+    assert len(out) > 40
+    assert np.hypot(out[:, 1], out[:, 2]).max() < 3 * h  # on the wire
+    assert np.ptp(out[:, 0]) > 1.0                       # spread along it
+
+
+def test_web_payload_shape():
+    xyz = np.vstack(
+        [_blob3(250, (-0.4, 0.0, 0.1), 0.15, 15), _blob3(250, (0.4, 0.1, -0.2), 0.15, 16)]
+    )
+    labels = [0] * 250 + [1] * 250
+    t = ridges.web(xyz, labels, 2)
+    assert set(t) == {"h", "filaments"}
+    for fil in t["filaments"]:
+        arr = np.asarray(fil)
+        assert len(arr) >= 4
+        assert arr.shape[1] == 4                     # x, y, z, label
+        assert np.all((arr[:, 3] >= -1) & (arr[:, 3] < 2))
+    import json
+
+    json.dumps(t)
+
+
 def test_terrain_payload_shape_and_bounds():
     rng = np.random.default_rng(8)
     xy = np.vstack(
