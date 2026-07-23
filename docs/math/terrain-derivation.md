@@ -105,6 +105,46 @@ inventing boundaries — the connective tissue between regions is a ridge you
 can see, and the absence of a valley between two "clusters" is honest
 evidence they were never separate.
 
+## 8. One dimension up: the filament web (session 034)
+
+Everything above survives promotion to the 3D embedding volume unchanged:
+the KDE normalization becomes (2 pi h^2)^(3/2), Silverman's exponent
+n^(-1/7), and the gradient/Hessian derivations never mentioned dimension
+(the code is now dimension-agnostic and the same finite-difference tests
+pass in both).
+
+What changes is the eigenstructure. The Hessian is symmetric 3x3, so the
+spectral theorem yields THREE orthogonal directions. On a filament (1D
+ridge in 3D): two strongly negative curvatures (the cross-sectional disk)
+and one mild one (along the wire). The ridge condition gains a second
+equation:
+
+    v2^T grad f = 0  AND  v3^T grad f = 0,   lambda2, lambda3 < 0
+
+SCMS projects each mean-shift step onto span{v2, v3} — equivalently, onto
+the orthogonal complement of v1 (the top eigenvector):
+
+    step = m(x) - (v1 . m(x)) v1
+
+Using the complement of the single top eigenvector sidesteps the
+degeneracy of separating v2 from v3 when the cross-disk curvatures are
+nearly equal (their individual directions are unstable but their span is
+not).
+
+Closed-form eigenvalues of a symmetric 3x3 require solving a cubic —
+enter Cardano: shift by the trace mean (q = tr/3), scale by the Frobenius
+spread, and the characteristic polynomial collapses to 4c^3 - 3c = det(B),
+which is the triple-angle identity for cosine; the three roots are three
+cosines at 120-degree offsets. Verified against np.linalg.eigh including
+diagonal and isotropic branches. The top eigenvector comes from cross
+products of rows of (A - lambda I): every row is orthogonal to v, so any
+two independent rows' cross product IS v (pick the largest-norm pair for
+stability).
+
+Filament vertices carry a kernel-weighted majority label (domain/theme) —
+the same weights w_i that build the density also interpolate the topic
+colors, so one field serves both geometry and paint.
+
 ## Failure modes worth remembering
 
 - A sign error in the Hessian sends SCMS walkers off the data (they seek
