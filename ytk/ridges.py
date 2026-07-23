@@ -279,13 +279,18 @@ def _smooth(path: np.ndarray) -> np.ndarray:
     return out
 
 
-_LEVEL_FRACS = (0.08, 0.18, 0.32, 0.5, 0.68, 0.86)
+# Dense, evenly spaced slicing: the stacked contour rings double as the
+# relief surface in 3D, so many thin slices beat few thick ones.
+_LEVEL_FRACS = tuple(round(f, 3) for f in np.linspace(0.06, 0.92, 12))
+_GRID_STRIDE = 2  # payload height grid downsample vs the eval grid
 
 
 def terrain(xy: np.ndarray, grid_n: int = 140, max_seeds: int = 2400) -> dict:
     """Full terrain payload for one 2D layout: contour polylines at fixed
-    fractions of the density peak, plus SCMS ridge polylines. Plain-JSON
-    types only; coordinates rounded to 3 decimals."""
+    fractions of the density peak, SCMS ridge polylines with per-vertex
+    normalized height, and a downsampled normalized height grid (for the
+    relief view and for lifting points onto the surface). Plain-JSON types
+    only; coordinates rounded to 3 decimals."""
     pts = np.asarray(xy, float)
     h = silverman_bandwidth(pts)
     pad = 2 * h
@@ -310,9 +315,32 @@ def terrain(xy: np.ndarray, grid_n: int = 140, max_seeds: int = 2400) -> dict:
     if len(seeds) > max_seeds:
         seeds = seeds[:: len(seeds) // max_seeds + 1]
     ridge_points = scms(pts, h, seeds)
-    ridges = [
-        [[round(float(x), 3), round(float(y), 3)] for x, y in _smooth(chain)]
-        for chain in _chain_points(ridge_points)
-    ]
+    ridges = []
+    for chain in _chain_points(ridge_points):
+        smoothed = _smooth(chain)
+        heights = kde(pts, h, smoothed) / top
+        ridges.append(
+            [
+                [round(float(x), 3), round(float(y), 3), round(float(z), 3)]
+                for (x, y), z in zip(smoothed, heights)
+            ]
+        )
 
-    return {"h": round(h, 4), "levels": [round(lv, 6) for lv in levels], "contours": contours, "ridges": ridges}
+    gz = grid[::_GRID_STRIDE, ::_GRID_STRIDE] / top
+    sgx, sgy = gx[::_GRID_STRIDE], gy[::_GRID_STRIDE]
+    return {
+        "h": round(h, 4),
+        "levels": [round(lv, 6) for lv in levels],
+        "fracs": list(_LEVEL_FRACS),
+        "contours": contours,
+        "ridges": ridges,
+        "grid": {
+            "x0": round(float(sgx[0]), 4),
+            "x1": round(float(sgx[-1]), 4),
+            "y0": round(float(sgy[0]), 4),
+            "y1": round(float(sgy[-1]), 4),
+            "nx": len(sgx),
+            "ny": len(sgy),
+            "z": [round(float(v), 3) for v in gz.ravel()],
+        },
+    }

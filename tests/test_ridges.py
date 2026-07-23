@@ -130,8 +130,8 @@ def test_terrain_payload_shape_and_bounds():
     )
     xy = np.clip(xy, -1, 1)
     t = ridges.terrain(xy)
-    assert set(t) == {"h", "levels", "contours", "ridges"}
-    assert len(t["levels"]) == len(set(c["lv"] for c in t["contours"])) or t["contours"] == []
+    assert set(t) == {"h", "levels", "fracs", "contours", "ridges", "grid"}
+    assert len(t["levels"]) == len(t["fracs"]) == 12
     for c in t["contours"]:
         assert 0 <= c["lv"] < len(t["levels"])
         arr = np.asarray(c["path"])
@@ -140,7 +140,12 @@ def test_terrain_payload_shape_and_bounds():
     for r in t["ridges"]:
         arr = np.asarray(r)
         assert len(arr) >= 4
-        assert np.abs(arr).max() < 1.6
+        assert arr.shape[1] == 3               # x, y, normalized height
+        assert 0.0 <= arr[:, 2].min() and arr[:, 2].max() <= 1.0
+        assert np.abs(arr[:, :2]).max() < 1.6
+    g = t["grid"]
+    assert g["nx"] * g["ny"] == len(g["z"])
+    assert 0.0 <= min(g["z"]) and max(g["z"]) <= 1.0
     import json
 
     json.dumps(t)  # payload must be plain-JSON serializable
