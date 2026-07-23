@@ -27,7 +27,7 @@ from pathlib import Path
 import chromadb
 import numpy as np
 
-from ytk import signals
+from ytk import ridges, signals
 from ytk.mapdomains import CONTENT_CATS as _CATS, domain_labels, index_domains
 
 SNAPSHOT = Path(os.path.expanduser("~/.ytk/interest/latest.json"))
@@ -437,11 +437,41 @@ def group_positions(xy: np.ndarray, labels: list[int], group_meta: list[dict]) -
     return out
 
 
+def attach_terrain() -> None:
+    """Compute density terrain (KDE contours + SCMS ridges, ytk/ridges.py)
+    from the 2D coordinates already stored in map.json and write it back.
+    Never re-runs UMAP: point positions are read, not recomputed."""
+    data = json.loads(OUT.read_text())
+    axy = np.array([[p["x"], p["y"]] for p in data["points"]])
+    cxy = np.array(
+        [[p["cx"], p["cy"]] for p in data["points"] if "cx" in p and "cy" in p]
+    )
+    print(f"terrain: all view ({len(axy)} points)")
+    data["all"]["terrain"] = ridges.terrain(axy)
+    print(f"terrain: content view ({len(cxy)} points)")
+    data["content"]["terrain"] = ridges.terrain(cxy)
+    OUT.write_text(json.dumps(data))
+    for view in ("all", "content"):
+        t = data[view]["terrain"]
+        print(
+            f"  {view}: h={t['h']} {len(t['contours'])} contour paths, "
+            f"{len(t['ridges'])} ridge polylines"
+        )
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sweep", action="store_true", help="fit UMAP params per view")
     ap.add_argument("--no-llm", action="store_true", help="skip Haiku label polish")
+    ap.add_argument(
+        "--attach-terrain",
+        action="store_true",
+        help="only (re)compute density terrain over the existing map.json layout",
+    )
     args = ap.parse_args()
+    if args.attach_terrain:
+        attach_terrain()
+        return
 
     snapshot = json.loads(SNAPSHOT.read_text())
     vecs, meta, docs = load_points()
@@ -559,6 +589,7 @@ def main() -> None:
         )
     )
     print(f"wrote {OUT}: {len(points)} points, {len(cidx)} content members")
+    attach_terrain()
 
 
 if __name__ == "__main__":

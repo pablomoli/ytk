@@ -1,4 +1,4 @@
-import type { MapData, MapPoint } from '../api/map'
+import type { MapData, MapPoint, MapTerrain } from '../api/map'
 import { aggFactor, groupStats, pointDomain, pointGroup, subCells } from './mapAggregation'
 import type { SubCell } from './mapAggregation'
 import { DIM, focusLevel, groupTargets, pointPhases, ramp as ease } from './mapGroups'
@@ -7,7 +7,7 @@ import { decay, pushSample, releaseVelocity } from './mapInertia'
 import type { VelocitySample } from './mapInertia'
 
 export type MapHover = { point: MapPoint; x: number; y: number }
-export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setFocus: (focus: MapFocus) => void; setHover: (hover?: MapFocus) => void; setHiddenDomains: (doms: Set<number>) => void; setLegendOpen: (open: boolean) => void; destroy: () => void }
+export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setFocus: (focus: MapFocus) => void; setHover: (hover?: MapFocus) => void; setHiddenDomains: (doms: Set<number>) => void; setLegendOpen: (open: boolean) => void; setTerrain: (on: boolean) => void; destroy: () => void }
 
 // Both layouts ride in the buffer: p0/p1 are the 3D everything/content
 // positions, q0/q1 the dedicated 2D embeddings. The morph uniform blends
@@ -52,6 +52,23 @@ void main(){ vec2 p=gl_PointCoord*2.-1.; float d2=dot(p,p); float edge=smoothste
  vec3 shaded=c*diff*(.75+.25*z)+vec3(spec)+c*rim;
  float fog=smoothstep(-1.2,1.,depthV)*.35+.65;
  float alpha=a*edge*fog; gl_FragColor=vec4(shaded*alpha,alpha); }`
+// Density-terrain overlay: contour + ridge polylines live in the 2D layout
+// plane (z=0) and ride the same camera transform as the points. The terrain
+// describes the dedicated 2D embedding only, so it fades out with dim (the
+// 3D positions are a different embedding) and crossfades across view morphs.
+const lineVertex = `attribute vec2 pos; attribute float alpha;
+uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi;
+varying float a;
+void main(){ vec3 q=vec3(pos,0.);
+ float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi);
+ q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y);
+ float depth=1.35-q.z*.24;
+ gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); a=alpha; }`
+const lineFragment = `precision mediump float; uniform vec3 col; uniform float master; varying float a;
+void main(){ float al=a*master; gl_FragColor=vec4(col*al,al); }`
+const CONTOUR_COL: [number, number, number] = [1, 1, 1]
+const RIDGE_COL: [number, number, number] = [.886, .69, .29] // hub gold
+
 const ramp = ['#5b7cfa', '#2fb7c9', '#43c26a', '#d9a520', '#e8703a', '#e0507e', '#9d6bf0']
 const gray: [number, number, number] = [.435, .427, .4]
 const rgb = (hex: string): [number, number, number] => [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255) as [number, number, number]
@@ -93,6 +110,36 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
   const buffer = gl.createBuffer()!
   const orbBuffer = gl.createBuffer()!
+  // --- terrain overlay resources (absent on pre-terrain map.json builds)
+  let lineProgram: WebGLProgram | undefined
+  let lineU: Record<'zoom' | 'pan' | 'theta' | 'phi' | 'col' | 'master', WebGLUniformLocation | null> | undefined
+  let linePos = 0
+  let lineAlpha = 0
+  type TerrainBuffers = { contours: WebGLBuffer; contourCount: number; ridges: WebGLBuffer; ridgeCount: number }
+  const terrainBuffers: Partial<Record<'all' | 'content', TerrainBuffers>> = {}
+  if (data.all.terrain || data.content.terrain) {
+    lineProgram = gl.createProgram()!
+    gl.attachShader(lineProgram, shader(gl, gl.VERTEX_SHADER, lineVertex))
+    gl.attachShader(lineProgram, shader(gl, gl.FRAGMENT_SHADER, lineFragment))
+    gl.linkProgram(lineProgram)
+    if (!gl.getProgramParameter(lineProgram, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(lineProgram) || 'terrain program link failed')
+    linePos = gl.getAttribLocation(lineProgram, 'pos')
+    lineAlpha = gl.getAttribLocation(lineProgram, 'alpha')
+    lineU = { zoom: gl.getUniformLocation(lineProgram, 'zoom'), pan: gl.getUniformLocation(lineProgram, 'pan'), theta: gl.getUniformLocation(lineProgram, 'theta'), phi: gl.getUniformLocation(lineProgram, 'phi'), col: gl.getUniformLocation(lineProgram, 'col'), master: gl.getUniformLocation(lineProgram, 'master') }
+    const upload = (segments: number[]) => { const buf = gl.createBuffer()!; gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(segments), gl.STATIC_DRAW); return buf }
+    const build = (terrain: MapTerrain | undefined, key: 'all' | 'content') => {
+      if (!terrain) return
+      // GL_LINES pairs; per-vertex alpha bakes the contour level so one draw
+      // call renders the whole nest (deeper level = brighter line).
+      const contours: number[] = []
+      for (const c of terrain.contours) for (let i = 0; i + 1 < c.path.length; i++) { const a = .05 + c.lv * .022; contours.push(c.path[i][0], c.path[i][1], a, c.path[i + 1][0], c.path[i + 1][1], a) }
+      const ridges: number[] = []
+      for (const r of terrain.ridges) for (let i = 0; i + 1 < r.length; i++) ridges.push(r[i][0], r[i][1], 1, r[i + 1][0], r[i + 1][1], 1)
+      terrainBuffers[key] = { contours: upload(contours), contourCount: contours.length / 3, ridges: upload(ridges), ridgeCount: ridges.length / 3 }
+    }
+    build(data.all.terrain, 'all')
+    build(data.content.terrain, 'content')
+  }
   const position0 = gl.getAttribLocation(program, 'p0')
   const position1 = gl.getAttribLocation(program, 'p1')
   const flat0 = gl.getAttribLocation(program, 'q0')
@@ -162,6 +209,8 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   let focB: { dom: Float32Array; sub: Float32Array } = { dom: new Float32Array(nDom).fill(1), sub: new Float32Array(nSub).fill(1) }
   let focusT = 1
   let subColorT = 0
+  let terrainOn = false
+  let terrainT = 0
   const intro = (opts?.intro ?? false) && !introPlayed
   if (intro) { introPlayed = true; canvas.dataset.intro = '1' }
   let introT = intro ? 0 : 1
@@ -269,6 +318,33 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     if (!contentView) groupStats(worlds, renderedPoints.map((item) => item.group), nSub).map(aggOf).forEach((t, g) => { if (g < 96) aggSubArr[g] = t })
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
+    // terrain underlay: drawn before the points, faded by dim (it describes
+    // the 2D layout only) and crossfaded between the two views' layouts
+    if (lineProgram && lineU && terrainT > .01 && dimVal < .99) {
+      gl.useProgram(lineProgram)
+      gl.uniform1f(lineU.zoom, scale)
+      gl.uniform2f(lineU.pan, offset[0], offset[1])
+      gl.uniform1f(lineU.theta, ea)
+      gl.uniform1f(lineU.phi, tilt * dimVal)
+      for (const key of ['all', 'content'] as const) {
+        const weight = key === 'all' ? 1 - morph : morph
+        const bufs = terrainBuffers[key]
+        if (!bufs || weight <= .01) continue
+        const master = terrainT * (1 - dimVal) * weight
+        const drawLines = (buf: WebGLBuffer, count: number, col: [number, number, number], mult: number) => {
+          if (!count) return
+          gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+          gl.enableVertexAttribArray(linePos); gl.vertexAttribPointer(linePos, 2, gl.FLOAT, false, 12, 0)
+          gl.enableVertexAttribArray(lineAlpha); gl.vertexAttribPointer(lineAlpha, 1, gl.FLOAT, false, 12, 8)
+          gl.uniform3f(lineU!.col, col[0], col[1], col[2])
+          gl.uniform1f(lineU!.master, master * mult)
+          gl.drawArrays(gl.LINES, 0, count)
+        }
+        drawLines(bufs.contours, bufs.contourCount, CONTOUR_COL, .9)
+        drawLines(bufs.ridges, bufs.ridgeCount, RIDGE_COL, .42)
+      }
+      gl.useProgram(program)
+    }
     gl.uniform1f(morphUniform, morph)
     gl.uniform1f(dimUniform, dimVal)
     gl.uniform1f(zoom, scale)
@@ -325,6 +401,8 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     if (introT >= 1 && canvas.dataset.intro) delete canvas.dataset.intro
     const subColorTarget = view === 'all' && focus.dom !== undefined ? 1 : 0
     const ds = subColorTarget - subColorT; subColorT = Math.abs(ds) <= 1e-3 ? subColorTarget : subColorT + ds * (1 - Math.exp(-4 * dt))
+    const terrainTarget = terrainOn ? 1 : 0
+    const dte = terrainTarget - terrainT; terrainT = Math.abs(dte) <= 1e-3 ? terrainTarget : terrainT + dte * (1 - Math.exp(-4 * dt))
     if (flyItem) {
       const e = 1 - Math.exp(-8 * dt)
       scale += (scaleTarget - scale) * e
@@ -398,5 +476,5 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   // owns the focus state — the renderer only reports via onFocus.
   const click = () => { if (moved >= 4) return; if (!hoveredPoint) { flyItem = undefined; scaleTarget = scale; onFocus?.(focus.sub !== undefined ? { dom: focus.dom } : {}); return } if (view === 'content') { const th = hoveredPoint.th ?? -1; if (th < 0) return; flyTo(hoveredPoint); onFocus?.({ dom: th }); return } if (focus.dom === undefined) { onFocus?.({ dom: hoveredPoint.dom }); return } if (focus.sub === undefined) { const sub = hoveredPoint.g >= 0 ? hoveredPoint.g : undefined; if (sub !== undefined) flyTo(hoveredPoint); onFocus?.({ dom: focus.dom, sub }); return } onFocus?.({ dom: focus.dom }) }
   resize(); addEventListener('resize', resize); canvas.addEventListener('mousedown', down); canvas.addEventListener('click', click); canvas.addEventListener('dblclick', open); canvas.addEventListener('contextmenu', contextmenu); addEventListener('mousemove', move); addEventListener('mouseup', up); canvas.addEventListener('wheel', wheel, { passive: false }); render()
-  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { dimTarget = next ? 0 : 1; flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteBuffer(orbBuffer); gl.deleteProgram(program); killMomentum() } }
+  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { dimTarget = next ? 0 : 1; flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, setTerrain: (next) => { terrainOn = next }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteBuffer(orbBuffer); for (const bufs of Object.values(terrainBuffers)) { gl.deleteBuffer(bufs.contours); gl.deleteBuffer(bufs.ridges) } if (lineProgram) gl.deleteProgram(lineProgram); gl.deleteProgram(program); killMomentum() } }
 }
