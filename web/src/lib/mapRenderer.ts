@@ -1,7 +1,5 @@
 import type { MapData, MapFog, MapPoint, MapTerrain, MapWeb } from '../api/map'
-import { aggFactor, groupStats, pointDomain, pointGroup, subCells } from './mapAggregation'
-import type { SubCell } from './mapAggregation'
-import { DIM, focusLevel, groupTargets, pointPhases, ramp as ease } from './mapGroups'
+import { DIM, focusLevel, groupTargets, pointDomain, pointGroup, pointPhases, ramp as ease } from './mapGroups'
 import type { MapFocus } from './mapGroups'
 import { decay, pushSample, releaseVelocity } from './mapInertia'
 import type { VelocitySample } from './mapInertia'
@@ -23,7 +21,6 @@ attribute float hgt0; attribute float hgt1;
 uniform float morph; uniform float dim; uniform float zoom; uniform vec2 pan;
 uniform float theta; uniform float phi; uniform float dpr;
 uniform float relief; uniform float hscale;
-uniform float aggDom[32]; uniform float aggSub[96];
 uniform float focDomA[32]; uniform float focDomB[32];
 uniform float focSubA[96]; uniform float focSubB[96];
 uniform float focusT; uniform float level; uniform float subColorT;
@@ -40,12 +37,11 @@ void main(){
   int di=int(dm+.5); int si=int(max(grp,0.)+.5);
   float r=rampf(focusT*1.6-phase*.6);
   float fa=grp<0. ? mix(focDomA[di],focDomB[di],r) : mix(focSubA[si],focSubB[si],r);
-  float agg=grp<0. ? 1. : (level<.5 ? aggDom[di] : aggSub[si]);
   float grow=rampf(introT*1.8-phase*.8);
   gl_PointSize=clamp(size*zoom/depth*dpr,1.8,26.*dpr)*grow;
   c=mix(mix(color0,colorSub,subColorT),color1,morph);
   float pulse=1.+.12*sin(time*2.2-phase*5.)*step(1.5,level+focusT);
-  a=mix(alpha0,alpha1,morph)*fa*agg*grow*pulse; }`
+  a=mix(alpha0,alpha1,morph)*fa*grow*pulse; }`
 const fragment = `precision mediump float; varying vec3 c; varying float a; varying float depthV;
 void main(){ vec2 p=gl_PointCoord*2.-1.; float d2=dot(p,p); float edge=smoothstep(1.,.82,sqrt(d2)); if(edge<=0.) discard;
  float z=sqrt(max(0.,1.-d2)); vec3 n=vec3(p.x,-p.y,z); vec3 light=normalize(vec3(-.45,.55,.72));
@@ -171,7 +167,6 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   gl.enable(gl.BLEND)
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
   const buffer = gl.createBuffer()!
-  const orbBuffer = gl.createBuffer()!
   // --- terrain overlay resources (absent on pre-terrain map.json builds)
   let lineProgram: WebGLProgram | undefined
   let lineU: Record<'zoom' | 'pan' | 'theta' | 'phi' | 'col' | 'master' | 'relief' | 'hscale', WebGLUniformLocation | null> | undefined
@@ -320,8 +315,6 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   const hgt1Attr = gl.getAttribLocation(program, 'hgt1')
   const reliefU = gl.getUniformLocation(program, 'relief')
   const hscaleU = gl.getUniformLocation(program, 'hscale')
-  const aggDomU = gl.getUniformLocation(program, 'aggDom[0]')
-  const aggSubU = gl.getUniformLocation(program, 'aggSub[0]')
   const focDomAU = gl.getUniformLocation(program, 'focDomA[0]')
   const focDomBU = gl.getUniformLocation(program, 'focDomB[0]')
   const focSubAU = gl.getUniformLocation(program, 'focSubA[0]')
@@ -421,7 +414,6 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
       : groupTargets(nDom, data.all.groups, focus, hover, hiddenDoms)
     focusT = 0
   }
-  const subCache: Record<string, SubCell[]> = {}
 
   const lerp3 = (a: number[], b: number[], t: number) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
   // flat<->volume blend of a morphed 3D position and its 2D counterpart
@@ -481,25 +473,10 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
       gl.enableVertexAttribArray(hgt1Attr); gl.vertexAttribPointer(hgt1Attr, 1, gl.FLOAT, false, 108, 104)
       gl.drawArrays(gl.POINTS, 0, count)
     }
-    // adaptive aggregation: while a domain is small on screen its points fade
-    // out (aggDom/aggSub) and it condenses into one orb per spatial sub-cell;
-    // zooming in dissolves the orbs back into points. Points key on domains
-    // at overview and on subtopics while a domain is focused.
     const contentView = view === 'content'
     const level = !contentView && focusLevel(focus) !== 'overview' ? 1 : 0
-    const m3s: number[][] = []
-    const m2s: number[][] = []
-    const worlds: number[][] = []
-    for (const item of renderedPoints) { const m3 = morph3(item); const m2 = morph2(item); m3s.push(m3); m2s.push(m2); worlds.push(blend(m3, m2)) }
     const rot = Math.max(dimVal, reliefT)
     const ea = angle * rot
-    const right = [Math.cos(ea), 0, Math.sin(ea)]
-    const aggDomArr = new Float32Array(32).fill(1)
-    const aggSubArr = new Float32Array(96).fill(1)
-    const aggOf = (s: { n: number; centroid: [number, number, number]; radius: number }) => { if (!s.n) return 1; const [x0] = project(s.centroid); const [xr] = project([s.centroid[0] + s.radius * right[0], s.centroid[1] + s.radius * right[1], s.centroid[2] + s.radius * right[2]]); return aggFactor(Math.abs(xr - x0)) }
-    const domAggT = groupStats(worlds, renderedPoints.map((item) => item.domain), contentView ? data.content.groups.length : nDom).map(aggOf)
-    domAggT.forEach((t, g) => { if (g < 32) aggDomArr[g] = t; if (contentView && g < 96) aggSubArr[g] = t })
-    if (!contentView) groupStats(worlds, renderedPoints.map((item) => item.group), nSub).map(aggOf).forEach((t, g) => { if (g < 96) aggSubArr[g] = t })
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     // terrain underlay: drawn before the points, faded by dim (it describes
@@ -601,8 +578,6 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     gl.uniform1f(reliefU, reliefT)
     gl.uniform1f(hscaleU, HSCALE)
     gl.uniform1f(dpr, Math.min(devicePixelRatio || 1, 2))
-    gl.uniform1fv(aggDomU, aggDomArr)
-    gl.uniform1fv(aggSubU, aggSubArr)
     gl.uniform1fv(focDomAU, focA.dom)
     gl.uniform1fv(focDomBU, focB.dom)
     gl.uniform1fv(focSubAU, focA.sub)
@@ -613,19 +588,6 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     gl.uniform1f(introTU, introT)
     gl.uniform1f(timeU, time)
     drawSet(buffer, pointCount)
-    const orbs: number[] = []
-    for (const sub of (subCache[view] ??= subCells(data.points, view))) {
-      // orbs carry grp=-1 / dm=group so the shader applies focus dimming for
-      // them too; only the aggregation factor is baked per frame.
-      const orbA = 1 - (domAggT[sub.group] ?? 1)
-      if (orbA < .02) continue
-      let x = 0, y = 0, z = 0, fx = 0, fy = 0
-      for (const i of sub.indices) { x += m3s[i][0]; y += m3s[i][1]; z += m3s[i][2]; fx += m2s[i][0]; fy += m2s[i][1] }
-      const m = sub.indices.length; x /= m; y /= m; z /= m; fx /= m; fy /= m
-      const col = contentView ? rampColor(sub.group / 7) : rampColor(domPosArr[sub.group] ?? 0)
-      orbs.push(x, y, z, x, y, z, fx, fy, fx, fy, ...col, ...col, ...col, orbA * .95, orbA * .95, 4.5 + Math.sqrt(m) * 1.5, -1, sub.group, 0, 0, 0)
-    }
-    if (orbs.length) { gl.bindBuffer(gl.ARRAY_BUFFER, orbBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(orbs), gl.DYNAMIC_DRAW); drawSet(orbBuffer, orbs.length / 27) }
   }
   let lastFrame = 0
   const render = (now = 0) => {
@@ -730,5 +692,5 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   // owns the focus state — the renderer only reports via onFocus.
   const click = () => { if (moved >= 4) return; if (!hoveredPoint) { flyItem = undefined; scaleTarget = scale; onFocus?.(focus.sub !== undefined ? { dom: focus.dom } : {}); return } if (view === 'content') { const th = hoveredPoint.th ?? -1; if (th < 0) return; flyTo(hoveredPoint); onFocus?.({ dom: th }); return } if (focus.dom === undefined) { onFocus?.({ dom: hoveredPoint.dom }); return } if (focus.sub === undefined) { const sub = hoveredPoint.g >= 0 ? hoveredPoint.g : undefined; if (sub !== undefined) flyTo(hoveredPoint); onFocus?.({ dom: focus.dom, sub }); return } onFocus?.({ dom: focus.dom }) }
   resize(); addEventListener('resize', resize); canvas.addEventListener('mousedown', down); canvas.addEventListener('click', click); canvas.addEventListener('dblclick', open); canvas.addEventListener('contextmenu', contextmenu); addEventListener('mousemove', move); addEventListener('mouseup', up); canvas.addEventListener('wheel', wheel, { passive: false }); render()
-  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { requestedDim = next ? 0 : 1; retargetDims(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, setTerrain: (next) => { terrainOn = next; retargetDims() }, setWeb: (next) => { webOn = next }, setFog: (next) => { fogOn = next }, setFogLevel: (next) => { fogLevel = next }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteBuffer(orbBuffer); for (const bufs of Object.values(terrainBuffers)) { gl.deleteBuffer(bufs.contours); gl.deleteBuffer(bufs.ridges) } if (lineProgram) gl.deleteProgram(lineProgram); for (const bufs of Object.values(webBuffers)) gl.deleteBuffer(bufs.buf); if (webProgram) gl.deleteProgram(webProgram); for (const bufs of Object.values(junctionBuffers)) gl.deleteBuffer(bufs.buf); if (junctionProgram) gl.deleteProgram(junctionProgram); for (const bufs of Object.values(fogBuffers)) gl.deleteBuffer(bufs.buf); if (fogProgram) gl.deleteProgram(fogProgram); gl.deleteProgram(program); killMomentum() } }
+  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { requestedDim = next ? 0 : 1; retargetDims(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, setTerrain: (next) => { terrainOn = next; retargetDims() }, setWeb: (next) => { webOn = next }, setFog: (next) => { fogOn = next }, setFogLevel: (next) => { fogLevel = next }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); for (const bufs of Object.values(terrainBuffers)) { gl.deleteBuffer(bufs.contours); gl.deleteBuffer(bufs.ridges) } if (lineProgram) gl.deleteProgram(lineProgram); for (const bufs of Object.values(webBuffers)) gl.deleteBuffer(bufs.buf); if (webProgram) gl.deleteProgram(webProgram); for (const bufs of Object.values(junctionBuffers)) gl.deleteBuffer(bufs.buf); if (junctionProgram) gl.deleteProgram(junctionProgram); for (const bufs of Object.values(fogBuffers)) gl.deleteBuffer(bufs.buf); if (fogProgram) gl.deleteProgram(fogProgram); gl.deleteProgram(program); killMomentum() } }
 }

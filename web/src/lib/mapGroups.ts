@@ -66,6 +66,20 @@ export function parseFocusHash(hash: string, domains: MapDomain[], groups: MapGr
   return sub < 0 ? { dom } : { dom, sub }
 }
 
+// The group a point belongs to in a given view: subtopic id (`g`) for the
+// "everything" layout, theme id (`th`, content-only) for the "content" layout.
+export function pointGroup(point: MapPoint, view: 'all' | 'content'): number {
+  if (view === 'content') return point.c3 !== undefined ? point.th ?? -1 : -1
+  return point.g
+}
+
+// The domain a point belongs to: controlled hierarchy level for the
+// everything view, theme for the content view.
+export function pointDomain(point: MapPoint, view: 'all' | 'content'): number {
+  if (view === 'content') return point.c3 !== undefined ? point.th ?? -1 : -1
+  return point.dom
+}
+
 export function pointPhases(points: MapPoint[]): Float32Array {
   // Centroids in the all-view 3D layout; group payload centroids are 2D, so
   // accumulate from the points themselves.
