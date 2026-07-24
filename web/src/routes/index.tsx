@@ -18,7 +18,7 @@ import { CURSOR_PREF, getPref } from "../lib/prefs";
 import "../styles.css";
 
 export const Route = createFileRoute("/")({
-  validateSearch: (search: Record<string, unknown>): { source?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { source?: string | undefined } => ({
     source: typeof search.source === "string" ? search.source : undefined,
   }),
   component: IndexPage,
@@ -29,7 +29,7 @@ function IndexPage() {
   const navigate = useNavigate({ from: Route.fullPath });
   const fresh = useFreshNotes();
   const remove = useDeleteNote();
-  const [selected, setSelected] = useState<{ note: FreshNote; rect?: DOMRect }>();
+  const [selected, setSelected] = useState<{ note: FreshNote; rect?: DOMRect | undefined }>();
   const [pendingDelete, setPendingDelete] = useState<FreshNote>();
   const notes = useMemo(
     () =>

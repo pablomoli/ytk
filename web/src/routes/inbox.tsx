@@ -25,7 +25,7 @@ import { PROFILE_MATCHES_PREF, getPref, setPref } from "../lib/prefs";
 import "../styles.css";
 
 export const Route = createFileRoute("/inbox")({
-  validateSearch: (s: Record<string, unknown>): { source?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { source?: string | undefined } => ({
     source: typeof s.source === "string" ? s.source : undefined,
   }),
   component: InboxPage,

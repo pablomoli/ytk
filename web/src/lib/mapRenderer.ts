@@ -576,7 +576,7 @@ export function mountMapRenderer(
     c2: number[];
     radius: number;
     node: HTMLDivElement;
-    line?: SVGLineElement;
+    line?: SVGLineElement | undefined;
     rank: number;
     n: number;
   }> = [];

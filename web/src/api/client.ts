@@ -33,11 +33,16 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 export async function apiSend<T>(path: string, method: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  // Built up rather than passed inline: under exactOptionalPropertyTypes an
+  // explicit `undefined` is not the same as an absent key, and RequestInit
+  // declares body/headers as optional-without-undefined. Truthiness check kept
+  // as-is so a falsy body still sends no payload.
+  const init: RequestInit = { method };
+  if (body) {
+    init.headers = { "Content-Type": "application/json" };
+    init.body = JSON.stringify(body);
+  }
+  const res = await fetch(path, init);
   if (!res.ok) throw await apiError(path, res);
   return res.json() as Promise<T>;
 }

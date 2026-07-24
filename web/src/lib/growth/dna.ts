@@ -20,7 +20,7 @@ export type ThemeInput = {
   n_notes: number;
   fresh_notes: number;
   tagCounts: Record<string, number>;
-  palette?: string[];
+  palette?: string[] | undefined;
 };
 export type Constraints = {
   glow_max: number;

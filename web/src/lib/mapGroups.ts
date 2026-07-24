@@ -4,7 +4,7 @@ import type { MapDomain, MapGroup, MapPoint } from "../api/map";
 // top level, subtopics the per-domain HDBSCAN children. All pure - the
 // renderer consumes the Float32Array targets as uniform arrays.
 
-export type MapFocus = { dom?: number; sub?: number };
+export type MapFocus = { dom?: number | undefined; sub?: number | undefined };
 
 export const DIM = 0.08;
 export const SIBLING = 0.25;

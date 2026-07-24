@@ -19,7 +19,9 @@ import "../styles.css";
 const PAGE = 60;
 
 export const Route = createFileRoute("/library")({
-  validateSearch: (search: Record<string, unknown>): { source?: string; q?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { source?: string | undefined; q?: string | undefined } => ({
     source: typeof search.source === "string" ? search.source : undefined,
     q: typeof search.q === "string" ? search.q : undefined,
   }),
@@ -34,7 +36,7 @@ function LibraryPage() {
   const [query, setQuery] = useState(q ?? "");
   const page = useLibrary(offset, source, q, PAGE);
   const remove = useDeleteNote();
-  const [selected, setSelected] = useState<{ note: FreshNote; rect?: DOMRect }>();
+  const [selected, setSelected] = useState<{ note: FreshNote; rect?: DOMRect | undefined }>();
   const [pendingDelete, setPendingDelete] = useState<FreshNote>();
 
   // filters reset pagination; a fetched page appends to the accumulated grid
