@@ -27,7 +27,9 @@ function RecsPage() {
   const [tab, setTab] = useState<Tab>("watch");
   const [kind, setKind] = useState<RecKind | null>(null);
 
-  const recs = q.data ?? [];
+  // Memoised on q.data so the fallback does not mint a fresh [] every render,
+  // which defeated the two memos below while the query was loading.
+  const recs = useMemo(() => q.data ?? [], [q.data]);
 
   const counts = useMemo(() => {
     const byKind = new Map<RecKind, number>();

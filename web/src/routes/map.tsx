@@ -201,7 +201,8 @@ function MapPage() {
   const toggleHidden = (dom: number) =>
     setHiddenDoms((current) => {
       const next = new Set(current);
-      next.has(dom) ? next.delete(dom) : next.add(dom);
+      if (next.has(dom)) next.delete(dom);
+      else next.add(dom);
       return next;
     });
   return (

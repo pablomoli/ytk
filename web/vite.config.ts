@@ -23,10 +23,28 @@ export default defineConfig({
     ignorePatterns: ["dist/**", "src/routeTree.gen.ts"],
   },
   lint: {
+    // Same generated-output exclusions as fmt. This is the whole reason the
+    // lint run looked hopeless: of the 3,735 warnings and 12 errors the
+    // unscoped run reported, 3,702 warnings and all 12 errors came from the
+    // minified bundle in dist/ — the rules complaining about React internals
+    // whose single-letter names they cannot recognise as components.
+    ignorePatterns: ["dist/**", "src/routeTree.gen.ts"],
     plugins: ["react", "typescript", "oxc"],
     rules: {
       "react/rules-of-hooks": "error",
-      "react/only-export-components": ["warn", { allowConstantExport: true }],
+      // Type-aware rules, promoted from warn to error now that the run is
+      // scoped to hand-written source and the count is honest.
+      "typescript/unbound-method": "error",
+      "typescript/no-floating-promises": "error",
+      "typescript/no-implied-eval": "error",
+      "typescript/restrict-template-expressions": "error",
+      "eslint/no-unused-expressions": "error",
+      // Fast-Refresh ergonomics rule. Every one of its 21 hits is a TanStack
+      // Router route module, where exporting `Route` alongside the component
+      // is the shape the framework requires. The rule is structurally wrong
+      // for this codebase, so it is off once here rather than suppressed 21
+      // times inline.
+      "react/only-export-components": "off",
     },
     options: {
       typeAware: true,

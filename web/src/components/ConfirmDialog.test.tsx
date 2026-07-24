@@ -4,6 +4,7 @@ import { beforeAll, expect, test, vi } from "vitest";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 beforeAll(() => {
+  // oxlint-disable-next-line typescript/unbound-method -- installing a jsdom polyfill, not calling the method
   HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
     this.open = true;
   };
@@ -11,6 +12,7 @@ beforeAll(() => {
   // 'close' event on a queued task, not synchronously. A ref-flag guard set in
   // effect cleanup is already reset by StrictMode's remount before this event
   // arrives — a synchronous stub would hide that bug entirely.
+  // oxlint-disable-next-line typescript/unbound-method -- installing a jsdom polyfill, not calling the method
   HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
     this.open = false;
     queueMicrotask(() => this.dispatchEvent(new Event("close")));

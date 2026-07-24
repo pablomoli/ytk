@@ -7,6 +7,7 @@ import { gsap } from "../lib/motion";
 import { NoteViewer } from "./NoteViewer";
 
 beforeAll(() => {
+  // oxlint-disable-next-line typescript/unbound-method -- installing a jsdom polyfill, not calling the method
   HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
     this.open = true;
   };
@@ -16,6 +17,7 @@ beforeAll(() => {
   // arrives — which is why onClose must never be wired to the native close
   // event. The async dispatch here is what makes the StrictMode test below a
   // real reproduction rather than a false positive.
+  // oxlint-disable-next-line typescript/unbound-method -- installing a jsdom polyfill, not calling the method
   HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
     this.open = false;
     queueMicrotask(() => this.dispatchEvent(new Event("close")));

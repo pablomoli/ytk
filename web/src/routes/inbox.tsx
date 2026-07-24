@@ -70,7 +70,9 @@ function InboxPage() {
   // PROFILE_BATCH_SIZE; the inbox highlights one block at a time. "reroll"
   // advances a block (wrapping at the end), "reset" returns to the first.
   // Paging is pure slicing of the already-fetched list — no re-scoring.
-  const allPicks = profileRank.data?.picks ?? [];
+  // Memoised for the same reason as recs.tsx: the ?? [] fallback otherwise
+  // returns a new array identity every render and batchPicks never memoises.
+  const allPicks = useMemo(() => profileRank.data?.picks ?? [], [profileRank.data?.picks]);
   const batchCount = Math.max(1, Math.ceil(allPicks.length / PROFILE_BATCH_SIZE));
   const generatedAt = profileRank.data?.generated_at;
   useEffect(() => setBatch(0), [generatedAt]); // a fresh ranking starts at batch 1
