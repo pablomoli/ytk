@@ -15,8 +15,10 @@ Context: replacing nearest-neighbor chaining of converged SCMS walkers
 along the ridge tangent (top Hessian eigenvector), snap back onto the
 crest with sideways-only mean-shift iterations. Same method astronomers
 use to trace the cosmic web through galaxy surveys. Figure 05 is the
-before/after: 31 fragments (median 8 vertices) -> long tapered strands
-(median 52, longest ~100).
+before/after: 27 fragments (median 7 vertices) -> long tapered strands
+(22 traced, median 57, longest 118; 9 after the figure-07 trim, median
+16). Quote the trimmed pair when describing figure 05 — that is what the
+right-hand panel actually renders.
 
 ## The distance idea (reader-suggested beat: measure your own map)
 
@@ -26,11 +28,13 @@ independently the published methodology: astronomy characterizes
 galaxies by distance-to-nearest-filament.
 
 Result (figure 06): median note sits 0.55 bandwidths from its nearest
-strand; 98.8% of 4,460 notes lie within 2h of a 274-vertex skeleton — a
-16x compression of the map that loses almost nobody. Per-domain medians
-rank territories from highway-hugging (usf 0.21h, hacklytics 0.29h) to
-sprawling (epicmap 0.69h — the biggest, most alive territory sprawls
-widest around its highway). The far tail = frontier notes no highway
+strand; 98.3% of 4,067 notes lie within 2h of a 225-vertex skeleton — an
+18x compression of the map that loses almost nobody. Per-domain medians
+rank territories from highway-hugging (usf 0.28h, hacklytics 0.28h) to
+sprawling (epicmap 0.71h — the biggest, most alive territory sprawls
+widest around its highway, and wider than anything else at its scale;
+only two small domains, agentic-coding tooling at 0.91h and config at
+0.75h, run wider still). The far tail = frontier notes no highway
 reaches.
 
 ## Story beats / one-liners
@@ -122,9 +126,17 @@ about to change, and the two changes are **not** equivalent:
   from positions alone and stay pixel-identical.
 - **#105 (descriptions -> one batched re-embed) re-shapes everything.**
   New vectors -> new UMAP -> new density field -> new strands, junctions
-  and distances. Every figure is stale the moment it lands, and the
-  numbers quoted in this file (median 0.55h, 98.8% within 2h, 10 strands,
-  5 junctions) must be re-read off the new run, not copied forward.
+  and distances. Every figure went stale the moment it landed. Re-read off
+  the 2026-07-24 rebuild rather than copied forward: median 0.548h ->
+  0.551h, 98.8% -> 98.3% within 2h, 10 -> 9 strands, 5 -> 7 junctions,
+  274 -> 225 skeleton vertices, 16.3x -> 18.1x compression.
+
+  One caveat when quoting the point count: it fell 4,460 -> 4,067 for a
+  reason that has nothing to do with the re-embed. 571 stale flat notes
+  under the pre-5J `inbox/memories/` layout left the corpus between the
+  two builds (that directory no longer exists on disk, and the store holds
+  no records from it). Current-layout content grew over the same window,
+  +181. Do not attribute the drop to #105.
 
 So: re-render after #105 **and** #106 are both in, in that order, with
 `uv run --with matplotlib python scripts/plot_assets.py --refresh`. Keep
@@ -137,9 +149,13 @@ bit: notes from one project do **not** have to plot together. They cluster
 only insofar as they *talk about* similar things. A project spanning auth,
 rendering and deploy scatters across three neighbourhoods, while notes
 from three different projects that all discuss embeddings land on top of
-each other. Evidence already in figure 06: epicmap has the highest median
-strand distance (0.69h) — the biggest project is also the most spread out,
-because "epicmap" is a filing decision, not a topic.
+each other. Evidence already in figure 06: epicmap carries the highest
+median strand distance of any large territory (0.71h across 2,062 notes)
+— the biggest project is also the most spread out, because "epicmap" is a
+filing decision, not a topic. The point sharpens after the #105 rebuild:
+the two domains that now sprawl wider than epicmap, agentic-coding tooling
+(0.91h) and config (0.75h), are both an order of magnitude smaller, so
+this is not simply "bigger territories spread more."
 
 ## Figure index
 
@@ -149,6 +165,7 @@ because "epicmap" is a filing decision, not a topic.
 04 filaments: uniform vs adaptive bandwidth (the scale-space verdict)
 05 filaments: chained vs traced (dashes -> strands)
 06 note-to-strand distance (histogram, frontier map, per-domain ranking)
-07 trim forensics (old vs new skeleton: same coverage, 40% less ink)
+07 trim forensics (pre-trim vs trimmed: same coverage, 84% less ink —
+   22 strands / 1,396 vertices down to 9 / 225)
 08 junctions (the crossroads: endpoint-on-trunk detection + gold beacons)
 09 shell-band (fill vs shell, onion nesting, cross-section rings)
