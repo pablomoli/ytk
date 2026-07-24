@@ -218,7 +218,7 @@ export function NoteViewer({
 }: {
   note: FreshNote;
   onClose: () => void;
-  originRect?: DOMRect;
+  originRect?: DOMRect | undefined;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const content = useNote(note.path);

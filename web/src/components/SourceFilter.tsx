@@ -4,8 +4,8 @@ export function SourceFilter({
   value,
   onChange,
 }: {
-  value?: string;
-  onChange: (s?: string) => void;
+  value?: string | undefined;
+  onChange: (s?: string | undefined) => void;
 }) {
   return (
     <span className="filters">

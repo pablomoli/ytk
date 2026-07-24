@@ -26,7 +26,7 @@ function hoverLabels(
   data: MapData,
   view: "all" | "content",
   point: MapPoint,
-): { domain: string; sub?: string } {
+): { domain: string; sub?: string | undefined } {
   if (view === "content") return { domain: data.content.groups[point.th ?? -1]?.label || "dust" };
   return {
     domain: data.all.domains[point.dom]?.label || "dust",
@@ -34,7 +34,15 @@ function hoverLabels(
   };
 }
 
-function MapTooltip({ hover, domain, sub }: { hover: MapHover; domain: string; sub?: string }) {
+function MapTooltip({
+  hover,
+  domain,
+  sub,
+}: {
+  hover: MapHover;
+  domain: string;
+  sub?: string | undefined;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: hover.x + 14, top: hover.y + 14 });
   useLayoutEffect(() => {

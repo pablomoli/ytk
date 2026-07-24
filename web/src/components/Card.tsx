@@ -25,9 +25,9 @@ export function Card({
 }: {
   item: QueueItem;
   onOpen: (i: QueueItem) => void;
-  selected?: boolean;
-  state?: CardState;
-  profileMatch?: ProfileRankPick;
+  selected?: boolean | undefined;
+  state?: CardState | undefined;
+  profileMatch?: ProfileRankPick | undefined;
 }) {
   const [stage, setStage] = useState<ImageStage>("cover");
 

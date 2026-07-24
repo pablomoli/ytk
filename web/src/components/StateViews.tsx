@@ -16,7 +16,7 @@ const Glyph = () => (
   </svg>
 );
 
-export const EmptyState = ({ label, hint }: { label: string; hint?: string }) => (
+export const EmptyState = ({ label, hint }: { label: string; hint?: string | undefined }) => (
   <div className="empty state-view">
     <Glyph />
     <p className="state-title">{label}</p>
