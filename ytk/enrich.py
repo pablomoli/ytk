@@ -140,6 +140,12 @@ SOURCE_BIAS = {
         "Read a frame with the Read tool ONLY when the transcript around that timestamp references "
         "something visual you cannot resolve from text (a diagram, UI state, on-screen code). Skip frames "
         "that only confirm the transcript. Do not read every frame.\n"
+        "The uploader's description, when present, is a mix of real signal (tool and library names, "
+        "repo and doc links, chapter markers, hashtags naming the topic) and boilerplate (sponsor reads, "
+        "affiliate codes, merch, socials, patreon). Mine it for named specifics the spoken transcript "
+        "never spells out — correct spellings, versions, project names, URLs — and ignore the "
+        "promotional filler. Never let a sponsor become a key concept, and never describe the video as "
+        "being about something only the sponsor block mentions.\n"
         "key_moments: use MM:SS timestamps when inferable from chapters or transcript position."
     ),
     "tiktok": (
@@ -213,6 +219,26 @@ def _note_block(user_note: str) -> str:
         "creator's framing lead.\nUser note:\n"
         f"{user_note.strip()}\n"
     )
+
+
+DESCRIPTION_PROMPT_LIMIT = 6000
+
+
+def _description_block(description: str) -> str:
+    """The uploader's description, as prompt input (issue #106).
+
+    This is the only route by which a description's meaning reaches the vector
+    space: the embedded document is thesis + summary, so whatever the model
+    picks up here — tool names, chapter markers, correct spellings — is
+    embedded, while the raw text never is. Long tails of affiliate links and
+    timestamps carry no extra signal, so the block is capped.
+    """
+    text = (description or "").strip()
+    if not text:
+        return ""
+    if len(text) > DESCRIPTION_PROMPT_LIMIT:
+        text = text[:DESCRIPTION_PROMPT_LIMIT] + "\n[... description truncated ...]"
+    return f"\nUploader's description (mixes real signal with sponsor boilerplate):\n{text}\n"
 
 
 _VOCAB_CACHE: list[str] | None = None
@@ -300,7 +326,7 @@ Title: {metadata.get("title", "")}
 Uploader: {metadata.get("uploader", "")}
 Duration: {metadata.get("duration", 0)}s
 Tags: {", ".join(metadata.get("tags", [])[:10])}{chapters_text}
-
+{_description_block(metadata.get("description", ""))}
 Transcript:
 {transcript}
 """
