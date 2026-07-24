@@ -36,7 +36,8 @@ export function SourcePullMenu({
   const toggle = (s: string) =>
     setChosen((prev) => {
       const next = new Set(prev);
-      next.has(s) ? next.delete(s) : next.add(s);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
       return next;
     });
 

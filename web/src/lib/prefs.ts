@@ -15,7 +15,8 @@ export const getPref = (key: string): boolean => {
 
 export const setPref = (key: string, on: boolean): void => {
   try {
-    on ? localStorage.setItem(key, "1") : localStorage.removeItem(key);
+    if (on) localStorage.setItem(key, "1");
+    else localStorage.removeItem(key);
   } catch {
     /* private mode */
   }
