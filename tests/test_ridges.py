@@ -215,11 +215,14 @@ def test_trace_filaments_walks_the_whole_wire():
 
 
 def test_web_payload_shape():
+    # 150-point blobs and capped seeds: the sequential tracer pays Python
+    # overhead per step, and the payload test only checks shape, not scale
+    # (8.2s -> ~2s; the wire test covers tracing behavior).
     xyz = np.vstack(
-        [_blob3(250, (-0.4, 0.0, 0.1), 0.15, 15), _blob3(250, (0.4, 0.1, -0.2), 0.15, 16)]
+        [_blob3(150, (-0.4, 0.0, 0.1), 0.15, 15), _blob3(150, (0.4, 0.1, -0.2), 0.15, 16)]
     )
-    labels = [0] * 250 + [1] * 250
-    t = ridges.web(xyz, labels, 2)
+    labels = [0] * 150 + [1] * 150
+    t = ridges.web(xyz, labels, 2, max_seeds=600)
     assert set(t) == {"h", "filaments"}
     for fil in t["filaments"]:
         arr = np.asarray(fil)
