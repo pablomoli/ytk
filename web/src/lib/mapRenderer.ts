@@ -86,7 +86,24 @@ void main(){ vec3 q=pos;
 const webFragment = `precision mediump float; uniform float master; varying vec3 c; varying float depthV; varying float dn;
 void main(){ float fog=smoothstep(-1.2,1.,depthV)*.35+.65;
  float al=master*fog*(.25+.75*min(dn*1.6,1.));  // strands taper where fog thins
- gl_FragColor=vec4(c*al*1.35,al); }`
+ // trunks earn their glow from density (replaces the accidental
+ // double-draw highlight the trim-dedupe removed)
+ gl_FragColor=vec4(c*al*(1.1+1.3*dn),al); }`
+// Junction beacons: soft sprites where strands meet — the crossroads of
+// the web, future anchor points for the galaxy view (issue #78).
+const junctionVertex = `attribute vec3 pos;
+uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; uniform float dpr;
+varying float depthV;
+void main(){ vec3 q=pos;
+ float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi);
+ q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y);
+ float depth=1.35-q.z*.24; depthV=q.z;
+ gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.);
+ gl_PointSize=clamp(13.*zoom/depth*dpr,4.,34.*dpr); }`
+const junctionFragment = `precision mediump float; uniform float master; varying float depthV;
+void main(){ vec2 p=gl_PointCoord*2.-1.; float g=exp(-3.5*dot(p,p));
+ float fog=smoothstep(-1.2,1.,depthV)*.35+.65; float al=g*master*fog;
+ gl_FragColor=vec4(vec3(.99,.86,.55)*al,al); }`
 // Monte-Carlo fog splats: big soft Gaussian sprites, opacity carrying the
 // sampled density. The level uniform is the threshold scrubber — splats
 // below it fade out, so sweeping the level down replays bubble nucleation
@@ -196,6 +213,10 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   let webCol = 0
   let webDen = 0
   const webBuffers: Partial<Record<'all' | 'content', { buf: WebGLBuffer; count: number }>> = {}
+  let junctionProgram: WebGLProgram | undefined
+  let junctionU: Record<'zoom' | 'pan' | 'theta' | 'phi' | 'dpr' | 'master', WebGLUniformLocation | null> | undefined
+  let junctionPos = 0
+  const junctionBuffers: Partial<Record<'all' | 'content', { buf: WebGLBuffer; count: number }>> = {}
   if (data.all.web || data.content.web) {
     webProgram = gl.createProgram()!
     gl.attachShader(webProgram, shader(gl, gl.VERTEX_SHADER, webVertex))
@@ -222,6 +243,22 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     }
     build(data.all.web, 'all')
     build(data.content.web, 'content')
+    junctionProgram = gl.createProgram()!
+    gl.attachShader(junctionProgram, shader(gl, gl.VERTEX_SHADER, junctionVertex))
+    gl.attachShader(junctionProgram, shader(gl, gl.FRAGMENT_SHADER, junctionFragment))
+    gl.linkProgram(junctionProgram)
+    if (!gl.getProgramParameter(junctionProgram, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(junctionProgram) || 'junction program link failed')
+    junctionPos = gl.getAttribLocation(junctionProgram, 'pos')
+    junctionU = { zoom: gl.getUniformLocation(junctionProgram, 'zoom'), pan: gl.getUniformLocation(junctionProgram, 'pan'), theta: gl.getUniformLocation(junctionProgram, 'theta'), phi: gl.getUniformLocation(junctionProgram, 'phi'), dpr: gl.getUniformLocation(junctionProgram, 'dpr'), master: gl.getUniformLocation(junctionProgram, 'master') }
+    const buildJunctions = (web: MapWeb | undefined, key: 'all' | 'content') => {
+      if (!web?.junctions?.length) return
+      const buf = gl.createBuffer()!
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(web.junctions.flat()), gl.STATIC_DRAW)
+      junctionBuffers[key] = { buf, count: web.junctions.length }
+    }
+    buildJunctions(data.all.web, 'all')
+    buildJunctions(data.content.web, 'content')
   }
   // --- fog splat resources (absent on pre-fog map.json builds)
   let fogProgram: WebGLProgram | undefined
@@ -536,6 +573,23 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
         gl.uniform1f(webU.master, webT * dimVal * weight * .9)
         gl.drawArrays(gl.LINES, 0, bufs.count)
       }
+      if (junctionProgram && junctionU) {
+        gl.useProgram(junctionProgram)
+        gl.uniform1f(junctionU.zoom, scale)
+        gl.uniform2f(junctionU.pan, offset[0], offset[1])
+        gl.uniform1f(junctionU.theta, ea)
+        gl.uniform1f(junctionU.phi, tilt * rot)
+        gl.uniform1f(junctionU.dpr, Math.min(devicePixelRatio || 1, 2))
+        for (const key of ['all', 'content'] as const) {
+          const weight = key === 'all' ? 1 - morph : morph
+          const bufs = junctionBuffers[key]
+          if (!bufs || weight <= .01) continue
+          gl.bindBuffer(gl.ARRAY_BUFFER, bufs.buf)
+          gl.enableVertexAttribArray(junctionPos); gl.vertexAttribPointer(junctionPos, 3, gl.FLOAT, false, 12, 0)
+          gl.uniform1f(junctionU.master, webT * dimVal * weight * .75)
+          gl.drawArrays(gl.POINTS, 0, bufs.count)
+        }
+      }
       gl.useProgram(program)
     }
     gl.uniform1f(morphUniform, morph)
@@ -676,5 +730,5 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   // owns the focus state — the renderer only reports via onFocus.
   const click = () => { if (moved >= 4) return; if (!hoveredPoint) { flyItem = undefined; scaleTarget = scale; onFocus?.(focus.sub !== undefined ? { dom: focus.dom } : {}); return } if (view === 'content') { const th = hoveredPoint.th ?? -1; if (th < 0) return; flyTo(hoveredPoint); onFocus?.({ dom: th }); return } if (focus.dom === undefined) { onFocus?.({ dom: hoveredPoint.dom }); return } if (focus.sub === undefined) { const sub = hoveredPoint.g >= 0 ? hoveredPoint.g : undefined; if (sub !== undefined) flyTo(hoveredPoint); onFocus?.({ dom: focus.dom, sub }); return } onFocus?.({ dom: focus.dom }) }
   resize(); addEventListener('resize', resize); canvas.addEventListener('mousedown', down); canvas.addEventListener('click', click); canvas.addEventListener('dblclick', open); canvas.addEventListener('contextmenu', contextmenu); addEventListener('mousemove', move); addEventListener('mouseup', up); canvas.addEventListener('wheel', wheel, { passive: false }); render()
-  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { requestedDim = next ? 0 : 1; retargetDims(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, setTerrain: (next) => { terrainOn = next; retargetDims() }, setWeb: (next) => { webOn = next }, setFog: (next) => { fogOn = next }, setFogLevel: (next) => { fogLevel = next }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteBuffer(orbBuffer); for (const bufs of Object.values(terrainBuffers)) { gl.deleteBuffer(bufs.contours); gl.deleteBuffer(bufs.ridges) } if (lineProgram) gl.deleteProgram(lineProgram); for (const bufs of Object.values(webBuffers)) gl.deleteBuffer(bufs.buf); if (webProgram) gl.deleteProgram(webProgram); for (const bufs of Object.values(fogBuffers)) gl.deleteBuffer(bufs.buf); if (fogProgram) gl.deleteProgram(fogProgram); gl.deleteProgram(program); killMomentum() } }
+  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { requestedDim = next ? 0 : 1; retargetDims(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, setTerrain: (next) => { terrainOn = next; retargetDims() }, setWeb: (next) => { webOn = next }, setFog: (next) => { fogOn = next }, setFogLevel: (next) => { fogLevel = next }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); gl.deleteBuffer(orbBuffer); for (const bufs of Object.values(terrainBuffers)) { gl.deleteBuffer(bufs.contours); gl.deleteBuffer(bufs.ridges) } if (lineProgram) gl.deleteProgram(lineProgram); for (const bufs of Object.values(webBuffers)) gl.deleteBuffer(bufs.buf); if (webProgram) gl.deleteProgram(webProgram); for (const bufs of Object.values(junctionBuffers)) gl.deleteBuffer(bufs.buf); if (junctionProgram) gl.deleteProgram(junctionProgram); for (const bufs of Object.values(fogBuffers)) gl.deleteBuffer(bufs.buf); if (fogProgram) gl.deleteProgram(fogProgram); gl.deleteProgram(program); killMomentum() } }
 }

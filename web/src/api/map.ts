@@ -12,7 +12,7 @@ export type MapTerrain = { h: number; levels: number[]; fracs?: number[]; contou
 // Filament web: SCMS ridge curves through the 3D embedding volume; each
 // vertex is [x, y, z, label] where label is a domain (all view) or theme
 // (content view) index, -1 for unlabeled.
-export type MapWeb = { h: number; filaments: number[][][] }
+export type MapWeb = { h: number; filaments: number[][][]; junctions?: number[][] }
 // Monte-Carlo fog: splat samples of the 3D density field, [x, y, z, density]
 // with density normalized to the peak over the data (issue #100).
 export type MapFog = { h: number; splats: number[][] }
