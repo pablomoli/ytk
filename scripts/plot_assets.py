@@ -40,9 +40,14 @@ PURPLE = "#9159ff"
 CYAN = "#7fd4ff"
 DIM = "#3a3a42"
 
-TITLE_SIZE = 12.5
+KICKER_SIZE = 9.5
+TITLE_SIZE = 16
+META_SIZE = 10
 PANEL_SIZE = 10.5
 TICK_SIZE = 9
+
+MARGIN = 0.035        # figure-fraction padding on every side
+PANEL_PAD = 0.014     # gap between a panel's frame and its content cell
 
 
 def saturated_magma():
@@ -65,19 +70,44 @@ def punch(den: np.ndarray, gamma: float = 0.72) -> np.ndarray:
     return np.clip(den, 0, 1) ** gamma
 
 
-def figure(w: float, ht: float, title: str):
+def figure(w: float, ht: float, number: int, kicker: str, title: str, meta: str = ""):
+    """Figure with a deliberate header block rather than a centred sentence.
+
+    Left-aligned on the same margin as the panels, stacked as
+    kicker (gold, letterspaced) / title (large) / hairline rule / meta
+    (muted stats). Returns (fig, top) where top is the figure-fraction the
+    panel area may start at — the header reserves real estate in inches, so
+    it stays the same physical size whatever the figure's aspect.
+    """
     import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
 
     fig = plt.figure(figsize=(w, ht), facecolor=BG)
-    fig.suptitle(
-        textwrap.fill(title, 110), color=TEXT, fontsize=TITLE_SIZE, y=0.975
-    )
-    return fig
+    lines = textwrap.wrap(title, 78)
+    inch = lambda v: 1 - v / ht  # inches from the top -> figure fraction
+
+    fig.text(MARGIN, inch(0.40), " ".join(f"FIGURE {number:02d}"),
+             color=GOLD, fontsize=KICKER_SIZE, fontweight="bold", va="baseline")
+    fig.text(MARGIN + 0.088, inch(0.40), kicker.upper(),
+             color=MUTED, fontsize=KICKER_SIZE, va="baseline")
+    y = 0.78
+    for line in lines:
+        fig.text(MARGIN, inch(y), line, color=TEXT, fontsize=TITLE_SIZE, va="baseline")
+        y += 0.30
+    rule = y - 0.09
+    fig.add_artist(Line2D([MARGIN, 1 - MARGIN], [inch(rule)] * 2,
+                          transform=fig.transFigure, color=FRAME, linewidth=1.0))
+    if meta:
+        fig.text(MARGIN, inch(rule + 0.26), meta, color=MUTED, fontsize=META_SIZE,
+                 va="baseline")
+    # leave room for the panel titles that sit under the header
+    header = rule + (0.92 if meta else 0.62)
+    return fig, inch(header)
 
 
 def panel_title(ax, text: str, width: int = 46) -> None:
     ax.set_title(
-        textwrap.fill(text, width), color=TEXT, fontsize=PANEL_SIZE, pad=8
+        textwrap.fill(text, width), color=TEXT, fontsize=PANEL_SIZE, pad=13
     )
 
 
@@ -115,7 +145,7 @@ def style_axes(ax) -> None:
     ax.yaxis.label.set_color(MUTED)
 
 
-def frame_panels(fig, pad: float = 0.008) -> None:
+def frame_panels(fig, pad: float = PANEL_PAD) -> None:
     """Border every panel and the figure itself. 3D axes report a bbox much
     larger than the drawn cube, so the frame is drawn on the subplot cell —
     which is exactly the region we now fill."""
@@ -137,9 +167,10 @@ def frame_panels(fig, pad: float = 0.008) -> None:
                 zorder=-5,
             )
         )
+    edge = MARGIN / 2.4
     fig.add_artist(
         Rectangle(
-            (0.006, 0.006), 0.988, 0.988,
+            (edge, edge), 1 - 2 * edge, 1 - 2 * edge,
             transform=fig.transFigure, facecolor="none",
             edgecolor=FRAME, linewidth=1.4, zorder=10,
         )
@@ -239,8 +270,10 @@ def fig01(data, d, cmap):
     """Uniform fog: first cloud + threshold sweep."""
     splats = np.asarray(d["uniform_fog"])
     xyz, den = splats[:, :3], splats[:, 3]
-    fig = figure(12.6, 12.6, f"the first fog: uniform bandwidth h={d['h']:.3f}, "
-                           f"{len(splats)} Monte-Carlo splats of the 3D density field")
+    fig, top = figure(
+        12.6, 13.1, 1, "the first fog",
+        "One bandwidth everywhere: the density field as Monte-Carlo splats",
+        f"{len(splats)} splats  ·  uniform h = {d['h']:.3f}  ·  threshold sweep left-to-right, top-to-bottom")
     panels = [(0.0, "full fog"), (0.25, "level 0.25 — haze burns off"),
               (0.5, "level 0.5 — cores nucleate"), (0.15, "level 0.15 — the working view")]
     for k, (level, title) in enumerate(panels):
@@ -249,7 +282,7 @@ def fig01(data, d, cmap):
         fog_scatter(ax, xyz[mask], den[mask], cmap)
         fit3d(ax, xyz)
         panel_title(ax, f"{title}  ·  {int(mask.sum())} splats")
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.905, bottom=0.028, wspace=0.03, hspace=0.17)
+    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.05, hspace=0.16)
     save(fig, "01-uniform-fog-panels.png")
 
 
@@ -261,9 +294,11 @@ def fig02(data, d, cmap):
     ada = np.asarray(data["all"]["fog"]["splats"])
     z3 = np.array([p["z3"] for p in data["points"]])
     hi = ridges.knn_bandwidths(z3)
-    fig = figure(15, 8.6,
-                 f"bandwidth is the estimator's only real dial — uniform h={d['h']:.3f} everywhere "
-                 f"vs adaptive h_i in [{hi.min():.3f}, {hi.max():.3f}] (median {np.median(hi):.3f})")
+    fig, top = figure(
+        15, 9.1, 2, "the bandwidth dial",
+        "One width for every note, or a width per note?",
+        f"uniform h = {d['h']:.3f}  ·  adaptive h_i in [{hi.min():.3f}, {hi.max():.3f}], "
+        f"median {np.median(hi):.3f}  ·  kNN-scaled, median-anchored, clamped")
     for k, (arr, title) in enumerate([
         (uni, "uniform bandwidth — one width everywhere; cores smear into their surroundings"),
         (ada, "adaptive bandwidth — kNN-scaled per note; crowded regions sharpen, lonely notes haze"),
@@ -271,8 +306,8 @@ def fig02(data, d, cmap):
         ax = fig.add_subplot(1, 2, k + 1, projection="3d")
         fog_scatter(ax, arr[:, :3], arr[:, 3], cmap)
         fit3d(ax, arr[:, :3])
-        panel_title(ax, f"{title}  ·  {len(arr)} splats", width=52)
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.855, bottom=0.03, wspace=0.04)
+        panel_title(ax, f"{title}  ·  {len(arr)} splats", width=86)
+    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.06)
     save(fig, "02-uniform-vs-adaptive.png")
 
 
@@ -281,9 +316,11 @@ def fig03(data, d, cmap):
     splats = np.asarray(data["all"]["fog"]["splats"])
     xyz, den = splats[:, :3], splats[:, 3]
     fils = data["all"]["web"]["filaments"]
-    fig = figure(12.6, 12.6,
-                 f"adaptive fog after the display-normalization fix — {len(splats)} splats, "
-                 f"median density {np.median(den):.2f}, normalized to the splats' own 99th percentile")
+    fig, top = figure(
+        12.6, 13.1, 3, "adaptive fog, corrected",
+        "The same cloud once the display normalization stops lying",
+        f"{len(splats)} splats  ·  median density {np.median(den):.2f}  ·  scaled to the splats' "
+        f"own 99th percentile, not the peak at the data points")
     for k, (level, title) in enumerate([
         (0.0, "full fog"), (0.25, "level 0.25 — haze gone"), (0.5, "level 0.5 — cores nucleate")
     ]):
@@ -298,7 +335,7 @@ def fig03(data, d, cmap):
     strand_plot(ax, fils)
     fit3d(ax, xyz)
     panel_title(ax, f"fog + filament web  ·  {len(fils)} strands")
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.905, bottom=0.028, wspace=0.03, hspace=0.17)
+    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.05, hspace=0.16)
     save(fig, "03-adaptive-fog-panels.png")
 
 
@@ -308,9 +345,11 @@ def fig04(data, d, cmap):
     keep = splats[:, 3] >= 0.12
     uni = data["all"]["web"]["filaments"]
     ada = d["adaptive_strands"]
-    fig = figure(15, 8.6,
-                 "the scale-space verdict: the estimator must match the question — "
-                 "adaptive bandwidth sharpens the fog and shatters the strands")
+    fig, top = figure(
+        15, 9.1, 4, "the scale-space verdict",
+        "Sharper is not better: adaptive bandwidth shatters the strands",
+        "the estimator must match the question — fog asks a local question, "
+        "the web asks a connectivity question")
     for k, (fils, title) in enumerate([
         (uni, "uniform h — connectivity survives; long spines hold together"),
         (ada, "adaptive h_i — sharper local density, fragmented crests"),
@@ -321,8 +360,8 @@ def fig04(data, d, cmap):
         fit3d(ax, splats[:, :3])
         lens = sorted(len(f) for f in fils)
         panel_title(ax, f"{title}  ·  {len(fils)} strands, longest {lens[-1]}, median {lens[len(lens) // 2]}",
-                    width=54)
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.855, bottom=0.03, wspace=0.04)
+                    width=86)
+    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.06)
     save(fig, "04-filaments-uniform-vs-adaptive.png")
 
 
@@ -330,9 +369,11 @@ def fig05(data, d, cmap):
     """Chaining vs tracing."""
     splats = np.asarray(data["all"]["fog"]["splats"])
     keep = splats[:, 3] >= 0.12
-    fig = figure(15, 8.6,
-                 "connect-the-dots vs walking the wire: nearest-neighbour chaining of converged "
-                 "walkers breaks at every gap; predictor-corrector tracing produces one ordered strand")
+    fig, top = figure(
+        15, 9.1, 5, "dashes into strands",
+        "Connect-the-dots versus walking the wire",
+        "nearest-neighbour chaining breaks at every gap between converged walkers; "
+        "predictor-corrector tracing returns one ordered, evenly spaced strand")
     for k, (fils, title, taper) in enumerate([
         (d["chained"], "chained walkers — gaps render as dashes", False),
         (data["all"]["web"]["filaments"], "traced strands — ordered, uniformly spaced, density-tapered", True),
@@ -343,8 +384,8 @@ def fig05(data, d, cmap):
         fit3d(ax, splats[:, :3])
         lens = sorted(len(f) for f in fils)
         panel_title(ax, f"{title}  ·  {len(fils)} filaments, longest {lens[-1]}, median {lens[len(lens) // 2]}",
-                    width=54)
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.855, bottom=0.03, wspace=0.04)
+                    width=86)
+    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.06)
     save(fig, "05-chained-vs-traced-filaments.png")
 
 
@@ -357,14 +398,16 @@ def fig06(data, d, cmap):
     h = data["all"]["web"]["h"]
     dist = np.sqrt(((z3[:, None, :] - verts[None, :, :]) ** 2).sum(-1).min(1)) / h
 
-    fig = figure(16.5, 6.6,
-                 f"how well does the skeleton stand in for the cloud? distance from each note to its "
-                 f"nearest strand — {len(z3)} notes, {len(verts)} strand vertices, h={h:.3f}")
+    fig, top = figure(
+        16.5, 7.4, 6, "distance to the skeleton",
+        "How well does a handful of strands stand in for the whole cloud?",
+        f"{len(z3)} notes  ·  {len(verts)} strand vertices  ·  h = {h:.3f}  ·  "
+        f"the same measure astronomy uses for galaxy distance-to-filament")
     # The domain names are long; the right panel needs a wide left gutter and
     # the 3D panel's colourbar goes underneath it rather than beside it,
     # where it used to collide with those labels.
     gs = fig.add_gridspec(1, 3, width_ratios=[1.0, 1.18, 1.02],
-                          left=0.052, right=0.942, top=0.79, bottom=0.13, wspace=0.42)
+                          left=0.058, right=1 - MARGIN - 0.018, top=top, bottom=0.215, wspace=0.42)
 
     ax = fig.add_subplot(gs[0])
     ax.hist(dist, bins=60, color=GOLD, alpha=0.92)
@@ -372,7 +415,7 @@ def fig06(data, d, cmap):
     style_axes(ax)
     ax.set_xlabel("distance / h"); ax.set_ylabel("notes")
     panel_title(ax, f"median {np.median(dist):.2f}h — {100 * (dist < 2).mean():.0f}% of notes "
-                    f"lie within 2h of a strand", width=52)
+                    f"lie within 2h of a strand", width=86)
 
     ax = fig.add_subplot(gs[1], projection="3d")
     sc = ax.scatter(z3[:, 0], z3[:, 1], z3[:, 2], c=np.clip(dist, 0, 3),
@@ -381,9 +424,9 @@ def fig06(data, d, cmap):
         f = np.asarray(fil)
         ax.plot(f[:, 0], f[:, 1], f[:, 2], color=CYAN, linewidth=1.1, alpha=0.85)
     fit3d(ax, z3, zoom=1.62)
-    panel_title(ax, "notes coloured by strand distance — bright = frontier", width=52)
+    panel_title(ax, "notes coloured by strand distance — bright = frontier", width=86)
     box = ax.get_position()
-    cax = fig.add_axes([box.x0 + 0.045, 0.075, box.width - 0.09, 0.022])
+    cax = fig.add_axes([box.x0 + 0.045, 0.105, box.width - 0.09, 0.020])
     cb = fig.colorbar(sc, cax=cax, orientation="horizontal")
     cb.set_label("distance / h (capped at 3)", color=MUTED, fontsize=TICK_SIZE)
     cb.ax.tick_params(colors=MUTED, labelsize=TICK_SIZE - 1)
@@ -398,7 +441,7 @@ def fig06(data, d, cmap):
     style_axes(ax)
     ax.set_xlim(0, max(v for _, v, _ in rows) * 1.12)  # headroom so the longest bar clears the frame
     ax.set_xlabel("median distance / h")
-    panel_title(ax, "by domain — low = hugs its highway, high = sprawls", width=52)
+    panel_title(ax, "by domain — low = hugs its highway, high = sprawls", width=86)
 
     save(fig, "06-strand-distance.png")
 
@@ -407,9 +450,11 @@ def fig07(data, d, cmap):
     """Trim forensics."""
     splats = np.asarray(data["all"]["fog"]["splats"])
     keep = splats[:, 3] >= 0.15
-    fig = figure(15, 8.6,
-                 "did the trim lose threads? pre-trim overlapping walks vs the trimmed disjoint "
-                 "skeleton — same crest points, same coverage, far less ink")
+    fig, top = figure(
+        15, 9.1, 7, "trim forensics",
+        "Did trimming lose any threads, or only duplicate ink?",
+        "same crest points and the same coverage on both sides — the trim removes stretches "
+        "already drawn by a longer strand, then reattaches branches at their junction")
     for k, (fils, title) in enumerate([
         (d["pretrim"], "pre-trim — every seed's full walk, strands redrawn on top of each other"),
         (data["all"]["web"]["filaments"], "trimmed — covered stretches removed, branches reattached"),
@@ -419,8 +464,8 @@ def fig07(data, d, cmap):
         strand_plot(ax, fils, taper=False)
         fit3d(ax, splats[:, :3])
         verts = sum(len(f) for f in fils)
-        panel_title(ax, f"{title}  ·  {len(fils)} strands, {verts} vertices", width=54)
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.855, bottom=0.03, wspace=0.04)
+        panel_title(ax, f"{title}  ·  {len(fils)} strands, {verts} vertices", width=86)
+    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.06)
     save(fig, "07-trim-forensics.png")
 
 
@@ -432,9 +477,11 @@ def fig08(data, d, cmap):
     junc = np.asarray(data["all"]["web"].get("junctions", []), float)
     # Landscape frame: the embedding is far wider than it is tall, so a
     # near-square canvas leaves bands of dead space above and below.
-    fig = figure(11.5, 10.4,
-                 f"the crossroads: {len(junc)} junctions where one strand's endpoint lands on another's "
-                 f"trunk — the natural anchors of the map")
+    fig, top = figure(
+        11.5, 11.0, 8, "the crossroads",
+        "Where one strand's endpoint lands on another's trunk",
+        f"{len(junc)} junctions across {len(fils)} strands  ·  candidate anchors for the "
+        f"planets of issue #78")
     ax = fig.add_subplot(1, 1, 1, projection="3d")
     fog_scatter(ax, splats[keep, :3], splats[keep, 3], cmap, alpha=0.20)
     strand_plot(ax, fils)
@@ -444,7 +491,7 @@ def fig08(data, d, cmap):
         ax.scatter(junc[:, 0], junc[:, 1], junc[:, 2], s=30, color="#fff6e0",
                    alpha=1.0, zorder=7)
     fit3d(ax, splats[:, :3], zoom=1.6)
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.90, bottom=0.028)
+    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN)
     save(fig, "08-junctions.png")
 
 
@@ -453,9 +500,11 @@ def fig09(data, d, cmap):
     splats = np.asarray(data["all"]["fog"]["splats"])
     xyz, den = splats[:, :3], splats[:, 3]
     eps, level = 0.06, 0.35
-    fig = figure(12.6, 12.6,
-                 "swap the slider's >= for an absolute value and the fog becomes an onion: "
-                 "|f - c| < eps is the Monte-Carlo preview of a marching-cubes isosurface")
+    fig, top = figure(
+        12.6, 13.1, 9, "shells and onions",
+        "Swap the slider's >= for an absolute value and the fog goes hollow",
+        f"|f - c| < {0.06} is the Monte-Carlo preview of a marching-cubes isosurface  ·  "
+        f"band thickness ~ 2eps / |grad f|, so shells hug steep peaks and puff over saddles")
 
     ax = fig.add_subplot(2, 2, 1, projection="3d")
     mask = den >= level
@@ -494,7 +543,7 @@ def fig09(data, d, cmap):
     panel_title(ax, "cross-section |z| < 0.12 — shells ring the cores")
     ax.legend(loc="upper left", fontsize=TICK_SIZE, framealpha=0.0, labelcolor=TEXT)
 
-    fig.subplots_adjust(left=0.02, right=0.98, top=0.905, bottom=0.028, wspace=0.05, hspace=0.17)
+    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.07, hspace=0.16)
     save(fig, "09-shell-band.png")
 
 
