@@ -553,6 +553,7 @@ def trace_filaments(
     floor_frac: float = 0.05,
     min_len: int = 6,
     seed_sep_steps: float = 4.0,
+    dedupe: bool = True,
 ) -> list[np.ndarray]:
     """Predictor-corrector ridge tracing, batched: every strand front
     advances in lockstep, one vectorized gradient/Hessian call per
@@ -567,7 +568,10 @@ def trace_filaments(
     corrector pulls its step back. Seeds are density-ordered crest points
     thinned to a minimum separation; every seed walks both directions;
     afterwards a strand mostly covered by longer kept strands is dropped —
-    it is the same strand traced from another doorway."""
+    it is the same strand traced from another doorway.
+
+    dedupe=False returns the raw overlapping walks (what the skeleton looks
+    like before trimming) so the comparison figure stays reproducible."""
     pts = np.asarray(pts, float)
     ridge_points = np.asarray(ridge_points, float)
     if not len(ridge_points):
@@ -631,6 +635,8 @@ def trace_filaments(
         walk = trails[m + i][::-1] + [seeds[i]] + trails[i]
         if len(walk) >= min_len:
             strands.append(np.asarray(walk))
+    if not dedupe:
+        return strands  # raw overlapping walks (forensics; see asset 07)
     # Dedupe by TRIMMING, longest first: drop only the stretches already
     # covered by kept strands and keep every uncovered contiguous run long
     # enough to stand alone. Whole-strand dropping would eat branches,

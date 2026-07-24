@@ -82,14 +82,64 @@ Two sessions ran in parallel this night; both feed the report.
   himself, by eye, before any analysis — the intuition the series is
   supposed to build, demonstrably building.
 
-**Graph-tidying session (parallel, flow-pulses worktree, in flight):**
-- `scripts/plot_assets.py` regenerates assets 01-08 with publication
-  layout: square panel cells (figure proportioned to the grid so
-  matplotlib stops matting the sides), cube box-aspect with zoom to eat
-  the default 3D margin dead space, per-figure zoom tuning (08 junctions),
-  text-clipping fixes (06). Final PNGs land on that branch; re-run
-  `plot_assets.py` + `plot_fog.py --shell` (09) after merge so the whole
-  set shares the layout system.
+**Graph-tidying session (parallel, flow-pulses worktree — shipped):**
+- `scripts/plot_assets.py` now regenerates **all nine** figures (09
+  included, so no separate `plot_fog.py --shell` pass is needed) from the
+  live map payload under one house style, replacing nine ad-hoc heredocs.
+  `--only N` for a single figure, `--refresh` to recompute the cached
+  historical geometry (`~/.ytk/fog-assets-cache.json`).
+- The dead space had a specific cause worth keeping for the report: every
+  panel hardcoded `(-1, 1)` limits while the embedding spans x -1.2..0.8,
+  y -0.8..0.7 — the data drew itself into a corner and matplotlib's
+  default 3D margin ate the rest. Fix: cube limits centred on the data
+  plus `set_box_aspect(zoom=)`. A *proportional* box aspect looks like the
+  obvious fix and is a trap — matplotlib shrinks the axes to satisfy it,
+  which mattes the sides and reintroduces the gap; the figure must instead
+  be proportioned so square cells fit.
+- Text clipping (06): titles wrapped, gutters widened, the colourbar moved
+  underneath the 3D panel where it had been colliding with the domain
+  names, and bar-axis headroom so the longest bar clears its frame.
+- Also: frames on every panel + figure, magma with chroma +35% and a gamma
+  lift (the fog's median density is 0.17, near-black on the raw ramp),
+  dpi 110 -> 200 (figures now 2300-3300px wide).
+- `trace_filaments` gained `dedupe=False` so figure 07's pre-trim skeleton
+  stays reproducible rather than being lost history — the forensic
+  comparison regenerates instead of depending on a vanished snapshot.
+
+## TODO — re-render every figure once #105 and #106 land
+
+All nine figures are generated from the live map payload, so they inherit
+whatever the embedding and the grouping axis say at build time. Both are
+about to change, and the two changes are **not** equivalent:
+
+- **#106 (semantic domains) recolours, it does not re-shape.** Positions
+  come from UMAP over the text embeddings — already semantic. Only the
+  *labels* are provenance: `mapdomains.project_from_path` reads the vault
+  path, so a note is filed under `epicmap` because of where it lives, not
+  what it says. Swapping that axis for grove buckets changes panel
+  colours, the per-domain ranking in figure 06, and the majority-vote tint
+  of the strands. Fog geometry, strand geometry and junctions are computed
+  from positions alone and stay pixel-identical.
+- **#105 (descriptions -> one batched re-embed) re-shapes everything.**
+  New vectors -> new UMAP -> new density field -> new strands, junctions
+  and distances. Every figure is stale the moment it lands, and the
+  numbers quoted in this file (median 0.55h, 98.8% within 2h, 10 strands,
+  5 junctions) must be re-read off the new run, not copied forward.
+
+So: re-render after #105 **and** #106 are both in, in that order, with
+`uv run --with matplotlib python scripts/plot_assets.py --refresh`. Keep
+the pre-change PNGs — a before/after of the same map under provenance
+labels vs semantic buckets is itself a figure, and probably the clearest
+illustration in the whole series of why the mismatch mattered.
+
+Worth stating plainly in the post, because it is the counter-intuitive
+bit: notes from one project do **not** have to plot together. They cluster
+only insofar as they *talk about* similar things. A project spanning auth,
+rendering and deploy scatters across three neighbourhoods, while notes
+from three different projects that all discuss embeddings land on top of
+each other. Evidence already in figure 06: epicmap has the highest median
+strand distance (0.69h) — the biggest project is also the most spread out,
+because "epicmap" is a filing decision, not a topic.
 
 ## Figure index
 
