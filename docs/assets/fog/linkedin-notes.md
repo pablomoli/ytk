@@ -106,6 +106,41 @@ Two sessions ran in parallel this night; both feed the report.
   stays reproducible rather than being lost history — the forensic
   comparison regenerates instead of depending on a vanished snapshot.
 
+## TODO — re-render every figure once #105 and #106 land
+
+All nine figures are generated from the live map payload, so they inherit
+whatever the embedding and the grouping axis say at build time. Both are
+about to change, and the two changes are **not** equivalent:
+
+- **#106 (semantic domains) recolours, it does not re-shape.** Positions
+  come from UMAP over the text embeddings — already semantic. Only the
+  *labels* are provenance: `mapdomains.project_from_path` reads the vault
+  path, so a note is filed under `epicmap` because of where it lives, not
+  what it says. Swapping that axis for grove buckets changes panel
+  colours, the per-domain ranking in figure 06, and the majority-vote tint
+  of the strands. Fog geometry, strand geometry and junctions are computed
+  from positions alone and stay pixel-identical.
+- **#105 (descriptions -> one batched re-embed) re-shapes everything.**
+  New vectors -> new UMAP -> new density field -> new strands, junctions
+  and distances. Every figure is stale the moment it lands, and the
+  numbers quoted in this file (median 0.55h, 98.8% within 2h, 10 strands,
+  5 junctions) must be re-read off the new run, not copied forward.
+
+So: re-render after #105 **and** #106 are both in, in that order, with
+`uv run --with matplotlib python scripts/plot_assets.py --refresh`. Keep
+the pre-change PNGs — a before/after of the same map under provenance
+labels vs semantic buckets is itself a figure, and probably the clearest
+illustration in the whole series of why the mismatch mattered.
+
+Worth stating plainly in the post, because it is the counter-intuitive
+bit: notes from one project do **not** have to plot together. They cluster
+only insofar as they *talk about* similar things. A project spanning auth,
+rendering and deploy scatters across three neighbourhoods, while notes
+from three different projects that all discuss embeddings land on top of
+each other. Evidence already in figure 06: epicmap has the highest median
+strand distance (0.69h) — the biggest project is also the most spread out,
+because "epicmap" is a filing decision, not a topic.
+
 ## Figure index
 
 01 uniform fog panels (first cloud + threshold sweep)
