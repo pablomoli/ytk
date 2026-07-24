@@ -54,6 +54,43 @@ reaches.
   shells hug steep peaks and puff out over flat saddles (the coarea
   formula, visible to the naked eye).
 
+## Session snapshot — 2026-07-24 (for the report's closing chapters)
+
+Two sessions ran in parallel this night; both feed the report.
+
+**Main session (map features + planning):**
+- Progressive-clustering orbs removed (6ceee76) — they were a placeholder
+  for the junction-anchored planets (#78) and hid points at overview zoom.
+  Deleting them also deleted a per-frame O(n) allocation and mooted half of
+  the perf issue (#101, trimmed accordingly).
+- Shell-band fog mode shipped (4255078): a `shell` chip swaps the slider
+  from superlevel set to thickened level set |den - level| < 0.06 — the
+  Monte-Carlo preview of marching cubes (#100). Asset 09 is its witness;
+  eps was measured there before the shader hardcoded it. Report beat: band
+  thickness ~ 2eps/|grad f| (coarea formula, visible to the naked eye).
+- Map controls moved off the header into an on-canvas widget (8b94ceb).
+- Planning: epic #107 (typing gate -> shader arc A-G -> volume -> WebGPU);
+  #106 semantic domains — the everything view's grouping axis was
+  provenance (path slugs) for 92% of points while positions were semantic;
+  content collapsed to 2 buckets. Fix: grove buckets become the map's
+  domain axis, gated on #105 (descriptions -> one batched re-embed).
+- Discovery for the debug-stories chapter: grove_buckets.yaml's theme
+  matchers were ALL stale — a profile re-synthesis renamed every theme and
+  nothing noticed. Direction set: centralize theme state (stable IDs, one
+  loader, builds fail loudly on stale references — detail on #106).
+- Meta-beat worth keeping: the user spotted the semantic-vs-label mismatch
+  himself, by eye, before any analysis — the intuition the series is
+  supposed to build, demonstrably building.
+
+**Graph-tidying session (parallel, flow-pulses worktree, in flight):**
+- `scripts/plot_assets.py` regenerates assets 01-08 with publication
+  layout: square panel cells (figure proportioned to the grid so
+  matplotlib stops matting the sides), cube box-aspect with zoom to eat
+  the default 3D margin dead space, per-figure zoom tuning (08 junctions),
+  text-clipping fixes (06). Final PNGs land on that branch; re-run
+  `plot_assets.py` + `plot_fog.py --shell` (09) after merge so the whole
+  set shares the layout system.
+
 ## Figure index
 
 01 uniform fog panels (first cloud + threshold sweep)
