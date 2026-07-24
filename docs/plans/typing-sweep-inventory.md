@@ -190,3 +190,78 @@ Test Files  46 passed (46)
 ```
 
 `cd web && vp build` → green, `web/dist` committed.
+
+### Web — lint (commit 2)
+
+`cd web && vp lint` → exit 0.
+
+```
+src/routes/grove.tsx:326:10: warning react-hooks(exhaustive-deps): ...missing dependency: 'trial'
+src/routes/inbox.tsx:112:17: warning react-hooks(exhaustive-deps): ...missing dependency: 'job.data'
+```
+
+| Rule | Before | After | How |
+|---|---:|---:|---|
+| `react(only-export-components)` | 21 | 0 | off in config, once, with a reason |
+| `typescript(unbound-method)` | 4 | 0 | inline disables, one reason each |
+| `eslint(no-unused-expressions)` | 3 | 0 | fixed in code |
+| `react-hooks(exhaustive-deps)` | 5 | 2 | 3 fixed in code, 2 left standing |
+| **Total** | **33** | **2** | |
+
+The 12 `dist/` errors are gone because `dist/` is no longer linted, and the
+type-aware rules are now errors rather than warnings.
+
+The two surviving warnings are deliberate. Adding the missing dependency
+changes *when* the effect or memo re-runs, which is a behaviour change and
+therefore out of scope for this pass:
+
+- `grove.tsx:326` — the reveal-timer effect keys on `[index, readyCount,
+  canvasCount]`. Adding `trial` would restart the grow timer whenever the
+  trial object identity changes, not only when the trial index does.
+- `inbox.tsx:112` — deps are `[q.data, job.data?.current]` on purpose. The
+  rule wants the whole `job.data`, which would recompute the in-flight title
+  on every poll tick rather than only when the current URL changes. The rule
+  message even concedes the mutable-value problem it is flagging.
+
+### Web — types, three of four flags (commit 3)
+
+`cd web && vp exec tsc -b --force` → exit 0.
+
+`exactOptionalPropertyTypes`, `noImplicitOverride` and `noImplicitReturns`
+produced 26 errors between them, all fixed.
+
+`noUncheckedIndexedAccess` is measured but **not** enabled — see below.
+
+## The `noUncheckedIndexedAccess` chunk (not landed)
+
+Measured, scoped, and left for its own pass. Enabling it alone on top of the
+other three flags takes `tsc` from 0 to **289** errors:
+
+| Error | Count | Meaning |
+|---|---:|---|
+| `TS2532` | 154 | object is possibly undefined |
+| `TS18048` | 72 | value is possibly undefined |
+| `TS2345` | 45 | `T \| undefined` argument |
+| `TS2322` | 22 | `T \| undefined` assignment |
+
+Concentrated in the files the brief predicted:
+
+| File | Errors |
+|---|---:|
+| `src/lib/mapRenderer.ts` | 91 |
+| `src/lib/grove/tree.ts` | 34 |
+| `src/lib/growth/palette.ts` | 30 |
+| `src/lib/growth/scene.ts` | 23 |
+| `src/lib/parseNote.ts` | 11 |
+| `src/routes/transit.tsx` | 10 |
+| `src/lib/masonry.test.ts` | 10 |
+| (rest) | 80 |
+
+This is the flag worth having, and it is also the one that cannot be done
+mechanically: each hit needs a judgement about whether the index can really
+be out of range, and the brief forbids papering over them with `!`. Doing it
+honestly means reading four large files with heavy mutable closure state.
+Left undone rather than done badly.
+
+To reproduce: add `"noUncheckedIndexedAccess": true` to
+`web/tsconfig.app.json` and run `vp exec tsc -b --force`.
