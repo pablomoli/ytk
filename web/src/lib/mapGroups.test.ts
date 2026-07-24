@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { focusHash, focusLevel, groupTargets, legendRows, parseFocusHash, pointPhases, ramp } from './mapGroups'
+import { focusHash, focusLevel, groupTargets, legendRows, parseFocusHash, pointDomain, pointGroup, pointPhases, ramp } from './mapGroups'
 import type { MapDomain, MapGroup, MapPoint } from '../api/map'
 
 const domains: MapDomain[] = [
@@ -92,5 +92,20 @@ describe('pointPhases', () => {
     expect(phases[0]).toBeCloseTo(0.8)
     expect(phases[2]).toBeCloseTo(0.2)
     expect(phases[3]).toBe(0) // sole noise point of its domain sits on its own centroid
+  })
+})
+
+describe('pointGroup / pointDomain', () => {
+  const pt = (over: Partial<MapPoint>): MapPoint => ({ x: 0, y: 0, z3: [0, 0, 0], t: '', c: '', g: 0, r: 0, dom: 0, ...over })
+  it('pointGroup keys off g for all-view and th for content-view', () => {
+    expect(pointGroup(pt({ g: 3 }), 'all')).toBe(3)
+    expect(pointGroup(pt({ g: 3, th: 5, c3: [0, 0, 0] }), 'content')).toBe(5)
+    // a point without a content embedding has no content group
+    expect(pointGroup(pt({ g: 3, th: 5 }), 'content')).toBe(-1)
+  })
+  it('pointDomain returns dom for the all view and theme for the content view', () => {
+    const point = pt({ g: 5, dom: 2, th: 1, c3: [0, 0, 0] })
+    expect(pointDomain(point, 'all')).toBe(2)
+    expect(pointDomain(point, 'content')).toBe(1)
   })
 })
