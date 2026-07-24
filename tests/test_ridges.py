@@ -210,6 +210,34 @@ def test_web_payload_shape():
     json.dumps(t)
 
 
+def test_knn_bandwidths_widen_in_sparse_regions():
+    rng = np.random.default_rng(20)
+    dense = _blob3(400, (0, 0, 0), 0.08, 21)
+    sparse = rng.uniform(0.5, 1.0, size=(40, 3))
+    pts = np.vstack([dense, sparse])
+    h = ridges.silverman_bandwidth(pts)
+    hi = ridges.knn_bandwidths(pts)
+    assert hi.shape == (len(pts),)
+    assert np.median(hi[400:]) > 2 * np.median(hi[:400])  # lonely notes cast wide fog
+    assert hi.min() >= 0.5 * h - 1e-12 and hi.max() <= 3.0 * h + 1e-12  # clamped
+    assert np.median(hi) == pytest.approx(h, rel=0.35)     # anchored near Silverman
+
+
+def test_kde_accepts_per_point_bandwidths():
+    pts = _blob3(30, (0, 0, 0), 0.4, 22)
+    rng = np.random.default_rng(23)
+    hi = rng.uniform(0.2, 0.5, len(pts))
+    query = np.array([[0.1, -0.1, 0.2], [0.5, 0.5, -0.3]])
+    f = ridges.kde(pts, hi, query)
+    for j, q in enumerate(query):
+        d2 = ((pts - q) ** 2).sum(1)
+        naive = (np.exp(-d2 / (2 * hi * hi)) / (2 * np.pi * hi * hi) ** 1.5).sum() / len(pts)
+        assert f[j] == pytest.approx(naive, rel=1e-10)
+    scalar = ridges.kde(pts, 0.3, query)
+    uniform = ridges.kde(pts, np.full(len(pts), 0.3), query)
+    assert scalar == pytest.approx(uniform)  # scalar path unchanged
+
+
 def test_fog_payload_samples_where_density_is():
     xyz = np.vstack(
         [_blob3(300, (-0.5, 0.0, 0.0), 0.12, 17), _blob3(300, (0.5, 0.0, 0.0), 0.12, 18)]
