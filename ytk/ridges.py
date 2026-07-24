@@ -544,6 +544,86 @@ def fog(xyz: np.ndarray, n_samples: int = 6000, jitter: float = 1.6, seed: int =
     }
 
 
+def trace_filaments(
+    pts: np.ndarray,
+    h,
+    ridge_points: np.ndarray,
+    step_frac: float = 0.4,
+    max_steps: int = 400,
+    floor_frac: float = 0.05,
+    min_len: int = 6,
+) -> list[np.ndarray]:
+    """Predictor-corrector ridge tracing: walk each strand end to end.
+
+    From the densest unclaimed crest point, repeatedly step along the
+    ridge tangent (the top Hessian eigenvector v1 — the along-filament
+    direction) by a fixed fraction of h (predictor), then let a few
+    sideways-only SCMS iterations snap back onto the crest (corrector).
+    Sign continuity keeps the walk from doubling back; the walk ends when
+    the density drops below the floor or the cross-disk curvature stops
+    being negative (the ridge genuinely ends). Each finished strand
+    claims nearby crest points so the same strand is never traced twice.
+
+    Ordered, near-uniformly spaced strands by construction — this replaces
+    nearest-neighbor chaining of unordered walkers, whose gaps rendered as
+    dashes."""
+    pts = np.asarray(pts, float)
+    href = float(np.median(np.broadcast_to(np.asarray(h, float), (len(pts),))))
+    step = step_frac * href
+    floor = floor_frac * kde(pts, h, pts).max()
+
+    def crest(x0):
+        """Corrector: project x0 back onto the crest; returns point + state."""
+        x = x0.copy()
+        for _ in range(8):
+            f, grad, hess, scale = log_density_grad_hess(pts, h, x[None], return_scale=True)
+            vals, v1 = eigh3(hess)
+            ms = grad[0] * scale[0]
+            corr = ms - (ms @ v1[0]) * v1[0]
+            x = x + corr
+            if np.linalg.norm(corr) < 1e-4:
+                break
+        return x, f[0], vals[0], v1[0]
+
+    def walk(x0, tangent0):
+        out = []
+        x, tangent = x0, tangent0
+        for _ in range(max_steps):
+            x_pred = x + step * tangent
+            x_new, f, vals, v1 = crest(x_pred)
+            if f < floor or vals[1] >= 0:
+                break
+            moved = x_new - x
+            norm = np.linalg.norm(moved)
+            if norm < 0.25 * step:  # corrector pulled us back: ridge ends
+                break
+            tangent = v1 if v1 @ moved > 0 else -v1  # keep walking forward
+            x = x_new
+            out.append(x)
+        return out
+
+    f_r = kde(pts, h, ridge_points)
+    unclaimed = np.ones(len(ridge_points), bool)
+    claim2 = (2.5 * step) ** 2
+    strands = []
+    for si in np.argsort(-f_r):
+        if not unclaimed[si]:
+            continue
+        seed, f0, vals0, v10 = crest(ridge_points[si])
+        unclaimed[si] = False
+        if f0 < floor or vals0[1] >= 0:
+            continue
+        forward = walk(seed, v10)
+        backward = walk(seed, -v10)
+        strand = np.array(backward[::-1] + [seed] + forward)
+        if len(strand) >= 2:
+            d2 = ((ridge_points[:, None, :] - strand[None, :, :]) ** 2).sum(-1).min(1)
+            unclaimed &= d2 > claim2
+        if len(strand) >= min_len:
+            strands.append(strand)
+    return strands
+
+
 def web(xyz: np.ndarray, labels: list, n_labels: int, max_seeds: int = 2500) -> dict:
     """Filament skeleton of a 3D embedding: SCMS curves through the point
     fog, seeded from the points themselves, each vertex tagged with the
@@ -562,14 +642,16 @@ def web(xyz: np.ndarray, labels: list, n_labels: int, max_seeds: int = 2500) -> 
     if len(seeds) > max_seeds:
         seeds = seeds[:: len(seeds) // max_seeds + 1]
     ridge_points = scms3(pts, h, seeds)
+    top = kde(pts, h, pts).max()
     filaments = []
-    for chain in _chain_points(ridge_points):
-        smoothed = _smooth(chain)
+    for strand in trace_filaments(pts, h, ridge_points):
+        smoothed = _smooth(strand)
         labs = _majority_label(pts, h, smoothed, np.asarray(labels), n_labels)
+        dens = np.minimum(kde(pts, h, smoothed) / top, 1.0)
         filaments.append(
             [
-                [round(float(x), 3), round(float(y), 3), round(float(z), 3), int(lab)]
-                for (x, y, z), lab in zip(smoothed, labs)
+                [round(float(x), 3), round(float(y), 3), round(float(z), 3), int(lab), round(float(v), 3)]
+                for (x, y, z), lab, v in zip(smoothed, labs, dens)
             ]
         )
     return {"h": round(h, 4), "filaments": filaments}

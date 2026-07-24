@@ -193,6 +193,27 @@ def test_scms3_finds_axis_filament():
     assert np.ptp(out[:, 0]) > 1.0                       # spread along it
 
 
+def test_trace_filaments_walks_the_whole_wire():
+    # The chaining approach fragments unevenly-spaced crest points; the
+    # predictor-corrector tracer must walk the wire end to end as one
+    # ordered strand with near-uniform spacing.
+    rng = np.random.default_rng(28)
+    pts = np.column_stack(
+        [rng.uniform(-1, 1, 900), rng.normal(0, 0.08, 900), rng.normal(0, 0.08, 900)]
+    )
+    h = ridges.silverman_bandwidth(pts)
+    seeds = pts[::3]
+    ridge_points = ridges.scms3(pts, h, seeds)
+    strands = ridges.trace_filaments(pts, h, ridge_points)
+    assert 1 <= len(strands) <= 5                    # one wire, not confetti
+    longest = max(strands, key=len)
+    assert len(longest) > 30                         # spans the wire
+    assert np.ptp(longest[:, 0]) > 1.2               # end to end
+    gaps = np.linalg.norm(np.diff(longest, axis=0), axis=1)
+    assert np.median(gaps) < 0.8 * h                 # ordered, near-uniform steps
+    assert np.hypot(longest[:, 1], longest[:, 2]).max() < 3 * h
+
+
 def test_web_payload_shape():
     xyz = np.vstack(
         [_blob3(250, (-0.4, 0.0, 0.1), 0.15, 15), _blob3(250, (0.4, 0.1, -0.2), 0.15, 16)]
@@ -202,9 +223,10 @@ def test_web_payload_shape():
     assert set(t) == {"h", "filaments"}
     for fil in t["filaments"]:
         arr = np.asarray(fil)
-        assert len(arr) >= 4
-        assert arr.shape[1] == 4                     # x, y, z, label
+        assert len(arr) >= 6
+        assert arr.shape[1] == 5                     # x, y, z, label, density
         assert np.all((arr[:, 3] >= -1) & (arr[:, 3] < 2))
+        assert 0.0 <= arr[:, 4].min() and arr[:, 4].max() <= 1.0
     import json
 
     json.dumps(t)
