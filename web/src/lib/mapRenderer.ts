@@ -5,7 +5,7 @@ import { decay, pushSample, releaseVelocity } from './mapInertia'
 import type { VelocitySample } from './mapInertia'
 
 export type MapHover = { point: MapPoint; x: number; y: number }
-export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setFocus: (focus: MapFocus) => void; setHover: (hover?: MapFocus) => void; setHiddenDomains: (doms: Set<number>) => void; setLegendOpen: (open: boolean) => void; setTerrain: (on: boolean) => void; setWeb: (on: boolean) => void; setFog: (on: boolean) => void; setFogLevel: (level: number) => void; destroy: () => void }
+export type MapRenderer = { setView: (view: 'all' | 'content') => void; setDimension: (flat: boolean) => void; setFilters: (signal: boolean, recent: boolean) => void; setFocus: (focus: MapFocus) => void; setHover: (hover?: MapFocus) => void; setHiddenDomains: (doms: Set<number>) => void; setLegendOpen: (open: boolean) => void; setTerrain: (on: boolean) => void; setWeb: (on: boolean) => void; setFog: (on: boolean) => void; setFogLevel: (level: number) => void; setFogShell: (on: boolean) => void; destroy: () => void }
 
 // Both layouts ride in the buffer: p0/p1 are the 3D everything/content
 // positions, q0/q1 the dedicated 2D embeddings. The morph uniform blends
@@ -104,6 +104,10 @@ void main(){ vec2 p=gl_PointCoord*2.-1.; float g=exp(-3.5*dot(p,p));
 // sampled density. The level uniform is the threshold scrubber — splats
 // below it fade out, so sweeping the level down replays bubble nucleation
 // at the density peaks, inflation, and merging, read off the static field.
+// The shell uniform blends the selection from that superlevel set (fill)
+// to the thickened level set |den - level| < .06 — a pseudo-isosurface
+// shell, the Monte-Carlo preview of a marching-cubes surface. The band
+// half-width matches the rung-09 witness (scripts/plot_fog.py --shell).
 const fogVertex = `attribute vec3 pos; attribute float den;
 uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi; uniform float dpr;
 varying float d; varying float depthV;
@@ -113,12 +117,14 @@ void main(){ vec3 q=pos;
  float depth=1.35-q.z*.24; depthV=q.z;
  gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.);
  gl_PointSize=clamp(30.*zoom/depth*dpr,6.,90.*dpr); d=den; }`
-const fogFragment = `precision mediump float; uniform float master; uniform float level;
+const fogFragment = `precision mediump float; uniform float master; uniform float level; uniform float shell;
 varying float d; varying float depthV;
 void main(){ vec2 p=gl_PointCoord*2.-1.; float g=exp(-4.5*dot(p,p));
  float pass=smoothstep(level-.025,level+.025,d);
+ float band=1.-smoothstep(.03,.06,abs(d-level));
+ float sel=mix(pass,band,shell);
  float fogDepth=smoothstep(-1.2,1.,depthV)*.35+.65;
- float al=g*(.05+.32*d)*pass*master*fogDepth;
+ float al=g*(.05+.32*d)*sel*master*fogDepth;
  // 3-stop density ramp, monotone in lightness (magma-spirited):
  // deep indigo haze -> rose mid -> warm cream cores
  vec3 lo=vec3(.20,.16,.42); vec3 mid=vec3(.78,.34,.52); vec3 hi=vec3(.99,.93,.76);
@@ -257,7 +263,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   }
   // --- fog splat resources (absent on pre-fog map.json builds)
   let fogProgram: WebGLProgram | undefined
-  let fogU: Record<'zoom' | 'pan' | 'theta' | 'phi' | 'dpr' | 'master' | 'level', WebGLUniformLocation | null> | undefined
+  let fogU: Record<'zoom' | 'pan' | 'theta' | 'phi' | 'dpr' | 'master' | 'level' | 'shell', WebGLUniformLocation | null> | undefined
   let fogPos = 0
   let fogDen = 0
   const fogBuffers: Partial<Record<'all' | 'content', { buf: WebGLBuffer; count: number }>> = {}
@@ -269,7 +275,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     if (!gl.getProgramParameter(fogProgram, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(fogProgram) || 'fog program link failed')
     fogPos = gl.getAttribLocation(fogProgram, 'pos')
     fogDen = gl.getAttribLocation(fogProgram, 'den')
-    fogU = { zoom: gl.getUniformLocation(fogProgram, 'zoom'), pan: gl.getUniformLocation(fogProgram, 'pan'), theta: gl.getUniformLocation(fogProgram, 'theta'), phi: gl.getUniformLocation(fogProgram, 'phi'), dpr: gl.getUniformLocation(fogProgram, 'dpr'), master: gl.getUniformLocation(fogProgram, 'master'), level: gl.getUniformLocation(fogProgram, 'level') }
+    fogU = { zoom: gl.getUniformLocation(fogProgram, 'zoom'), pan: gl.getUniformLocation(fogProgram, 'pan'), theta: gl.getUniformLocation(fogProgram, 'theta'), phi: gl.getUniformLocation(fogProgram, 'phi'), dpr: gl.getUniformLocation(fogProgram, 'dpr'), master: gl.getUniformLocation(fogProgram, 'master'), level: gl.getUniformLocation(fogProgram, 'level'), shell: gl.getUniformLocation(fogProgram, 'shell') }
     const build = (fogData: MapFog | undefined, key: 'all' | 'content') => {
       if (!fogData?.splats.length) return
       const flat = fogData.splats.flat()
@@ -382,6 +388,8 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   let fogOn = false
   let fogT = 0
   let fogLevel = 0
+  let fogShell = false
+  let shellT = 0
   const intro = (opts?.intro ?? false) && !introPlayed
   if (intro) { introPlayed = true; canvas.dataset.intro = '1' }
   let introT = intro ? 0 : 1
@@ -518,6 +526,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
       gl.uniform1f(fogU.phi, tilt * rot)
       gl.uniform1f(fogU.dpr, Math.min(devicePixelRatio || 1, 2))
       gl.uniform1f(fogU.level, fogLevel)
+      gl.uniform1f(fogU.shell, shellT)
       for (const key of ['all', 'content'] as const) {
         const weight = key === 'all' ? 1 - morph : morph
         const bufs = fogBuffers[key]
@@ -615,6 +624,8 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     const ds = subColorTarget - subColorT; subColorT = Math.abs(ds) <= 1e-3 ? subColorTarget : subColorT + ds * (1 - Math.exp(-4 * dt))
     const fogTarget = fogOn ? 1 : 0
     const dfg = fogTarget - fogT; fogT = Math.abs(dfg) <= 1e-3 ? fogTarget : fogT + dfg * (1 - Math.exp(-4 * dt))
+    const shellTarget = fogShell ? 1 : 0
+    const dsh = shellTarget - shellT; shellT = Math.abs(dsh) <= 1e-3 ? shellTarget : shellT + dsh * (1 - Math.exp(-4 * dt))
     const webTarget = webOn ? 1 : 0
     const dwb = webTarget - webT; webT = Math.abs(dwb) <= 1e-3 ? webTarget : webT + dwb * (1 - Math.exp(-4 * dt))
     const terrainTarget = terrainOn ? 1 : 0
@@ -692,5 +703,5 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   // owns the focus state — the renderer only reports via onFocus.
   const click = () => { if (moved >= 4) return; if (!hoveredPoint) { flyItem = undefined; scaleTarget = scale; onFocus?.(focus.sub !== undefined ? { dom: focus.dom } : {}); return } if (view === 'content') { const th = hoveredPoint.th ?? -1; if (th < 0) return; flyTo(hoveredPoint); onFocus?.({ dom: th }); return } if (focus.dom === undefined) { onFocus?.({ dom: hoveredPoint.dom }); return } if (focus.sub === undefined) { const sub = hoveredPoint.g >= 0 ? hoveredPoint.g : undefined; if (sub !== undefined) flyTo(hoveredPoint); onFocus?.({ dom: focus.dom, sub }); return } onFocus?.({ dom: focus.dom }) }
   resize(); addEventListener('resize', resize); canvas.addEventListener('mousedown', down); canvas.addEventListener('click', click); canvas.addEventListener('dblclick', open); canvas.addEventListener('contextmenu', contextmenu); addEventListener('mousemove', move); addEventListener('mouseup', up); canvas.addEventListener('wheel', wheel, { passive: false }); render()
-  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { requestedDim = next ? 0 : 1; retargetDims(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, setTerrain: (next) => { terrainOn = next; retargetDims() }, setWeb: (next) => { webOn = next }, setFog: (next) => { fogOn = next }, setFogLevel: (next) => { fogLevel = next }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); for (const bufs of Object.values(terrainBuffers)) { gl.deleteBuffer(bufs.contours); gl.deleteBuffer(bufs.ridges) } if (lineProgram) gl.deleteProgram(lineProgram); for (const bufs of Object.values(webBuffers)) gl.deleteBuffer(bufs.buf); if (webProgram) gl.deleteProgram(webProgram); for (const bufs of Object.values(junctionBuffers)) gl.deleteBuffer(bufs.buf); if (junctionProgram) gl.deleteProgram(junctionProgram); for (const bufs of Object.values(fogBuffers)) gl.deleteBuffer(bufs.buf); if (fogProgram) gl.deleteProgram(fogProgram); gl.deleteProgram(program); killMomentum() } }
+  return { setView: (next) => { view = next; morphTarget = next === 'content' ? 1 : 0; focus = {}; hover = undefined; hiddenDoms.clear(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null; retarget(); geometryDirty = true; labelsDirty = true }, setDimension: (next) => { requestedDim = next ? 0 : 1; retargetDims(); flyItem = undefined; scaleTarget = scale; killMomentum(); zoomAnchor = null }, setFilters: (signal, recent) => { signalOnly = signal; recentOnly = recent; geometryDirty = true }, setFocus: (next) => { focus = next; retarget(); labelsDirty = true }, setHover: (next) => { hover = next; retarget() }, setHiddenDomains: (doms) => { hiddenDoms = new Set(doms); retarget(); labelsDirty = true }, setLegendOpen: (open) => { legendOpen = open }, setTerrain: (next) => { terrainOn = next; retargetDims() }, setWeb: (next) => { webOn = next }, setFog: (next) => { fogOn = next }, setFogLevel: (next) => { fogLevel = next }, setFogShell: (next) => { fogShell = next }, destroy: () => { cancelAnimationFrame(frame); removeEventListener('resize', resize); canvas.removeEventListener('mousedown', down); canvas.removeEventListener('click', click); canvas.removeEventListener('dblclick', open); canvas.removeEventListener('contextmenu', contextmenu); removeEventListener('mousemove', move); removeEventListener('mouseup', up); canvas.removeEventListener('wheel', wheel); delete canvas.dataset.intro; labels?.replaceChildren(); leaders?.replaceChildren(); gl.deleteBuffer(buffer); for (const bufs of Object.values(terrainBuffers)) { gl.deleteBuffer(bufs.contours); gl.deleteBuffer(bufs.ridges) } if (lineProgram) gl.deleteProgram(lineProgram); for (const bufs of Object.values(webBuffers)) gl.deleteBuffer(bufs.buf); if (webProgram) gl.deleteProgram(webProgram); for (const bufs of Object.values(junctionBuffers)) gl.deleteBuffer(bufs.buf); if (junctionProgram) gl.deleteProgram(junctionProgram); for (const bufs of Object.values(fogBuffers)) gl.deleteBuffer(bufs.buf); if (fogProgram) gl.deleteProgram(fogProgram); gl.deleteProgram(program); killMomentum() } }
 }
