@@ -145,6 +145,38 @@ Filament vertices carry a kernel-weighted majority label (domain/theme) —
 the same weights w_i that build the density also interpolate the topic
 colors, so one field serves both geometry and paint.
 
+## 9. Adaptive bandwidth (session 036-037)
+
+Sample-point adaptive KDE: each point casts a bump of its own width
+h_i (k-NN-scaled, median-anchored to Silverman, clamped). Every kernel
+now carries its own normalization c_i = (2 pi h_i^2)^(-d/2), so with
+w_i = c_i exp(-|d_i|^2/2h_i^2) and the "pull weights" u_i = w_i/h_i^2:
+
+    grad log f = sum u_i d_i / sum w_i
+    hess log f = sum (w_i/h_i^4) d_i d_i^T / sum w_i
+                 - (sum u_i / sum w_i) I - (grad)(grad)^T
+
+Uniform h collapses these to the section-2/3 forms (checked by test).
+The natural mean-shift step size becomes W/U = sum w_i / sum u_i — a
+density-weighted harmonic-mean h^2 (Comaniciu's variable-bandwidth mean
+shift) — instead of the constant h^2.
+
+**The scale-space lesson (measured, not asserted).** Adaptivity sharpens
+peaks, which is what the fog wants (local thickness, more resolved
+cores) and exactly what ridge tracing does NOT want: on the sharper
+density the long connective crest through the epicmap mass fragmented
+from an 89-vertex chain into ~30-vertex dashes, and milder clamps did
+not recover it. The estimator must match the question: fog = adaptive,
+web = uniform. Record: docs/assets/fog/04-filaments-uniform-vs-adaptive.png.
+
+**Display normalization is part of the transfer function.** Two failed
+normalizations preceded the working one (against max point density, then
+against a percentile of POINT densities — points sit on peaks, samples
+hover off-peak, everything compressed to darkness). Correct reference
+population: the splats actually displayed, scaled to their own 99th
+percentile. The matplotlib witness (scripts/plot_fog.py) caught both
+failures before anything shipped.
+
 ## Failure modes worth remembering
 
 - A sign error in the Hessian sends SCMS walkers off the data (they seek
