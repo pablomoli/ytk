@@ -105,7 +105,10 @@ void main(){ vec2 p=gl_PointCoord*2.-1.; float g=exp(-4.5*dot(p,p));
  float pass=smoothstep(level-.025,level+.025,d);
  float fogDepth=smoothstep(-1.2,1.,depthV)*.35+.65;
  float al=g*(.05+.32*d)*pass*master*fogDepth;
- vec3 col=mix(vec3(.62,.70,.86),vec3(.98,.92,.78),d);
+ // 3-stop density ramp, monotone in lightness (magma-spirited):
+ // deep indigo haze -> rose mid -> warm cream cores
+ vec3 lo=vec3(.20,.16,.42); vec3 mid=vec3(.78,.34,.52); vec3 hi=vec3(.99,.93,.76);
+ vec3 col=d<.5 ? mix(lo,mid,d*2.) : mix(mid,hi,(d-.5)*2.);
  gl_FragColor=vec4(col*al,al); }`
 // Relief height of the density peak, in layout units (map spans about 2).
 const HSCALE = .22
