@@ -47,6 +47,12 @@ reaches.
   (fog = local, web = connectivity).
 - Cardano's 16th-century cubic formula computes the eigenstructure of a
   2026 knowledge graph's density field. Old math doesn't expire.
+- Shells (figure 09): swap the slider's >= for an absolute value and the
+  fog becomes an onion — |f - c| < eps is the poor man's isosurface, the
+  Monte-Carlo preview of marching cubes. Thickness isn't constant: a band
+  of width 2eps in density is a slab of width 2eps/|grad f| in space, so
+  shells hug steep peaks and puff out over flat saddles (the coarea
+  formula, visible to the naked eye).
 
 ## Figure index
 
@@ -56,3 +62,6 @@ reaches.
 04 filaments: uniform vs adaptive bandwidth (the scale-space verdict)
 05 filaments: chained vs traced (dashes -> strands)
 06 note-to-strand distance (histogram, frontier map, per-domain ranking)
+07 trim forensics (old vs new skeleton: same coverage, 40% less ink)
+08 junctions (the crossroads: endpoint-on-trunk detection + gold beacons)
+09 shell-band (fill vs shell, onion nesting, cross-section rings)
