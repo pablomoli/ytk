@@ -49,48 +49,42 @@ Requirements:
   vault note, placed **after `## Key Moments` and before `## Transcript`**
   (so the note's readable summary stays at the top). Wrap it in a
   `<details>` block like the transcript already is, since descriptions can
-  be very long.
+  be very long. Also persist the raw text where the pipeline can reach it
+  without re-fetching — the video's Chroma metadata is the natural home
+  (metadata is not embedded, so this is storage only, exactly as decided).
+  Hashtags and chapter markers survive verbatim; do not strip them.
 - **Idempotent.** A note that already has a `## Description` section is
   skipped, not duplicated. Same rule the "My take" append already follows
   in `store.py`.
 
 Verify on a handful first: `--limit 5 --apply`, then read the notes.
 
-## Decision point — does the description enter the embedding?
+## The decision, already made: store it, enrich with it, do NOT embed it
 
-**This is the part to get right, and it may be worth waking the user for.**
+**Settled by the user 2026-07-24 — do not re-litigate, and do not add
+description text to any embedded document.**
 
-The honest state of the evidence:
+- **Store the raw description.** Descriptions carry real signal the
+  transcript misses — tags, hashtags, chapter markers, tool names, links —
+  alongside sponsor boilerplate. Keeping the raw text costs nothing and
+  makes every future use (a `#d` part, a keyword index, a tags extractor)
+  possible without re-fetching 153 videos.
+- **Feed it to enrichment.** Haiku sees description + transcript, so the
+  thesis, key concepts and moments can pick up what the transcript missed.
+  The embedded doc stays `thesis + summary` — the exact shape the retrieval
+  gate was measured on, just with better content in it.
+- **Never into the embedded doc.** The comment in `store.py::upsert` is
+  explicit that folding extra material into the representative doc is
+  "unmeasured (spec Phase 3)", and raw descriptions are noisy enough to
+  plausibly dilute a clean signal. Not this job.
 
-- The current v2 epoch embeds only `thesis + summary` — a curated, dense
-  ~500-token doc. Descriptions are raw, noisy, and often contain
-  sponsor copy, link dumps, and boilerplate that has nothing to do with
-  the video's content.
-- The code comment in `store.py::upsert` is explicit that folding more
-  material into the representative doc is **"unmeasured (spec Phase 3)"**.
-- So adding raw description text to the embedded doc is a genuine
-  experiment with a plausible downside: diluting a clean signal with
-  boilerplate. It could easily *hurt* hit@1.
+That last rule is what makes this job safe to run unattended: the only way
+the vector space changes is via *better enrichment text*, which the gate
+below still checks, but there is no experimental embedding design in flight.
 
-Two candidate designs, in increasing risk:
-
-1. **Enrichment input only (recommended default).** Feed the description to
-   Haiku alongside the transcript so the *enrichment* is better — thesis,
-   concepts and moments can now pick up tool names and links the transcript
-   missed. The embedded doc stays `thesis + summary`, i.e. the same shape
-   the retrieval gate was measured on, just with better content. This is
-   what issue #105's stated goal ("improving vault searchability and
-   completeness") actually needs, and it is the lower-variance change.
-2. **Description as an extra embedded part.** Add a `#d` part
-   (`video_id#d`) carrying `title + thesis` context plus the description,
-   mirroring how `#c`/`#i` parts work under parts epochs. Retrieval
-   collapses parts by `video_id` at query time, so this adds recall surface
-   without polluting the representative vector. Riskier, but the *right*
-   risky option — strictly better than appending description text to the
-   representative doc, which is the one design to avoid.
-
-**Do not pick option 2 silently.** If the gate is ambiguous, leave the work
-on a branch with the numbers written up and let the user decide.
+If, while working, the case for a `#d` embedded part starts to look
+compelling — write it up, leave it unimplemented, and let the user decide.
+Do not ship it in this pass.
 
 ## Phase 2 — re-enrich / re-embed
 
