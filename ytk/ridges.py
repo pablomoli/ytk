@@ -29,18 +29,40 @@ def silverman_bandwidth(pts: np.ndarray) -> float:
     return sigma * len(pts) ** (-1 / (d + 4))
 
 
-def kde(pts: np.ndarray, h: float, query: np.ndarray) -> np.ndarray:
-    """f(x) = (1/n) sum_i N(x; x_i, h^2 I) evaluated at query rows.
-    Dimension-agnostic: the kernel normalization is (2 pi h^2)^(d/2)."""
+def kde(pts: np.ndarray, h, query: np.ndarray) -> np.ndarray:
+    """f(x) = (1/n) sum_i N(x; x_i, h_i^2 I) evaluated at query rows.
+
+    Dimension-agnostic, and h may be a scalar (classic fixed-bandwidth KDE)
+    or a per-data-point array (sample-point adaptive KDE: each point casts
+    a bump of its own width, so each kernel carries its own normalization
+    (2 pi h_i^2)^(d/2))."""
     pts = np.asarray(pts, float)
     query = np.asarray(query, float)
+    d = pts.shape[1]
+    hs = np.broadcast_to(np.asarray(h, float), (len(pts),))
+    inv2h2 = 1.0 / (2 * hs * hs)
+    knorm = (2 * np.pi * hs * hs) ** (d / 2)
     out = np.empty(len(query))
-    norm = len(pts) * (2 * np.pi * h * h) ** (pts.shape[1] / 2)
     for s in range(0, len(query), _CHUNK):
         q = query[s : s + _CHUNK]
         d2 = ((q[:, None, :] - pts[None, :, :]) ** 2).sum(-1)
-        out[s : s + _CHUNK] = np.exp(-d2 / (2 * h * h)).sum(1) / norm
+        out[s : s + _CHUNK] = (np.exp(-d2 * inv2h2) / knorm).sum(1) / len(pts)
     return out
+
+
+def knn_bandwidths(pts: np.ndarray, k: int = 8) -> np.ndarray:
+    """Per-point adaptive bandwidths: h_i scales with the distance to the
+    k-th nearest neighbor (lonely points cast wide fog, crowded points stay
+    crisp), normalized so the median equals Silverman's global h and
+    clamped to [0.5h, 3h] so no hermit point fogs the whole room."""
+    pts = np.asarray(pts, float)
+    h = silverman_bandwidth(pts)
+    dk = np.empty(len(pts))
+    for s in range(0, len(pts), _CHUNK):
+        d2 = ((pts[s : s + _CHUNK, None, :] - pts[None, :, :]) ** 2).sum(-1)
+        dk[s : s + _CHUNK] = np.sqrt(np.partition(d2, k, axis=1)[:, k])
+    hi = h * dk / np.median(dk)
+    return np.clip(hi, 0.5 * h, 3.0 * h)
 
 
 def kde_grid(pts: np.ndarray, h: float, gx: np.ndarray, gy: np.ndarray) -> np.ndarray:
@@ -479,14 +501,23 @@ def fog(xyz: np.ndarray, n_samples: int = 6000, jitter: float = 1.6, seed: int =
     The seed is fixed: rebuilding the map must not reshuffle the cloud.
     """
     pts = np.asarray(xyz, float)
-    h = silverman_bandwidth(pts)
+    hi = knn_bandwidths(pts)
     rng = np.random.default_rng(seed)
-    centers = pts[rng.integers(0, len(pts), n_samples)]
-    samples = centers + rng.normal(0, jitter * h, (n_samples, pts.shape[1]))
-    dens = kde(pts, h, samples) / kde(pts, h, pts).max()
+    idx = rng.integers(0, len(pts), n_samples)
+    # Each sample jitters by ITS center's bandwidth: lonely notes scatter
+    # their samples wide, dense cores keep theirs tight — the sampling
+    # cloud matches the adaptive fog it measures.
+    samples = pts[idx] + rng.normal(0, 1, (n_samples, pts.shape[1])) * (jitter * hi[idx])[:, None]
+    # Display normalization against the splats' own 99th percentile: the
+    # brightest ~1% of drawn samples saturate at 1.0 and the rest spread
+    # over the range. Normalizing against densities AT the data points
+    # fails (points sit on local peaks, samples hover off-peak, everything
+    # compresses into darkness — caught by the matplotlib witness).
+    raw = kde(pts, hi, samples)
+    dens = np.minimum(raw / np.percentile(raw, 99), 1.0)
     keep = dens >= 0.01
     return {
-        "h": round(h, 4),
+        "h": round(float(np.median(hi)), 4),
         "splats": [
             [round(float(x), 3), round(float(y), 3), round(float(z), 3), round(float(min(v, 1.0)), 3)]
             for (x, y, z), v in zip(samples[keep], dens[keep])
