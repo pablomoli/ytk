@@ -124,19 +124,38 @@ void main(){ vec2 p=gl_PointCoord*2.-1.; float g=exp(-4.5*dot(p,p));
  float band=1.-smoothstep(.03,.06,abs(d-level));
  float sel=mix(pass,band,shell);
  float fogDepth=smoothstep(-1.2,1.,depthV)*.35+.65;
- float al=g*(.05+.32*d)*sel*master*fogDepth;
+ // Gamma-lift the density before it drives colour or alpha: the median is
+ // ~0.17, which the raw ramp renders near-black (same fix as punch() in
+ // scripts/plot_assets.py, so hub and figures agree).
+ float dl=pow(d,.72);
+ float al=g*(.05+.34*dl)*sel*master*fogDepth;
  // 3-stop density ramp, monotone in lightness (magma-spirited):
  // deep indigo haze -> rose mid -> warm cream cores
- vec3 lo=vec3(.20,.16,.42); vec3 mid=vec3(.78,.34,.52); vec3 hi=vec3(.99,.93,.76);
- vec3 col=d<.5 ? mix(lo,mid,d*2.) : mix(mid,hi,(d-.5)*2.);
+ vec3 lo=vec3(.20,.16,.42); vec3 mid=vec3(.82,.32,.54); vec3 hi=vec3(1.,.94,.76);
+ vec3 col=dl<.5 ? mix(lo,mid,dl*2.) : mix(mid,hi,(dl-.5)*2.);
  gl_FragColor=vec4(col*al,al); }`
 // Relief height of the density peak, in layout units (map spans about 2).
 const HSCALE = .22
 
+// Render resolution: MAX_DPR > the display's native ratio supersamples
+// (crisper strand lines and sprite edges at ~2.2x the fill cost on a
+// retina panel). Drop to 2 if the fans ever notice; the idle-stop work
+// in #101 is what keeps a static map from paying for it continuously.
+const MAX_DPR = 3
+const pixelRatio = () => Math.min(devicePixelRatio || 1, MAX_DPR)
+// Domain/subtopic ramp. SAT lifts chroma the same way the matplotlib
+// figures do (scripts/plot_assets.py), so the hub and the published
+// figures read as one palette; it runs inside rampColor so the legend
+// swatches and the vertex buffers can never drift apart.
 const ramp = ['#5b7cfa', '#2fb7c9', '#43c26a', '#d9a520', '#e8703a', '#e0507e', '#9d6bf0']
+const SAT = 1.3
+function saturate(c: [number, number, number]): [number, number, number] {
+  const lum = .2126 * c[0] + .7152 * c[1] + .0722 * c[2]
+  return c.map((ch) => Math.max(0, Math.min(1, lum + (ch - lum) * SAT))) as [number, number, number]
+}
 const gray: [number, number, number] = [.435, .427, .4]
 const rgb = (hex: string): [number, number, number] => [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255) as [number, number, number]
-function rampColor(value: number): [number, number, number] { const x = Math.max(0, Math.min(.9999, value)) * (ramp.length - 1); const i = Math.floor(x); const f = x - i; const a = rgb(ramp[i]); const b = rgb(ramp[i + 1]); return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f] }
+function rampColor(value: number): [number, number, number] { const x = Math.max(0, Math.min(.9999, value)) * (ramp.length - 1); const i = Math.floor(x); const f = x - i; const a = rgb(ramp[i]); const b = rgb(ramp[i + 1]); return saturate([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]) }
 const css = (color: [number, number, number]) => `rgb(${color.map((channel) => Math.round(channel * 255)).join(', ')})`
 // Ramp position of a domain (by size rank) and of a subtopic (its domain's
 // position hue-shifted across +-0.08 by index-within-domain) — the single
@@ -161,7 +180,7 @@ let introPlayed = false
 type RenderedPoint = { point: MapPoint; p3a: number[]; p3b: number[]; p2a: number[]; p2b: number[]; group: number; domain: number; h2a: number; h2b: number }
 
 export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHover?: (hover?: MapHover) => void, labels?: HTMLElement, onFocus?: (focus: MapFocus) => void, leaders?: SVGSVGElement, opts?: { intro?: boolean }): MapRenderer {
-  const gl = canvas.getContext('webgl', { antialias: false, alpha: true, premultipliedAlpha: true })
+  const gl = canvas.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: true })
   if (!gl) throw new Error('WebGL is unavailable in this browser')
   if ((gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS) as number) < 512) console.warn('map: vertex uniform budget below 512 vectors, focus arrays may not fit')
   const program = gl.createProgram()!
@@ -432,7 +451,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   // rotation is live in either 3D: the embedding volume (dim) or the relief
   const project = (world: number[]) => { const [x, y, z] = world; const rot = Math.max(dimVal, reliefT); const ea = angle * rot, et = tilt * rot; const ct = Math.cos(ea), st = Math.sin(ea), cp = Math.cos(et), sp = Math.sin(et); const rx = ct * x + st * z; const rz = -st * x + ct * z; const ry = sp * -rz + cp * y; const depth = 1.35 - (cp * rz + sp * y) * .24; return [(rx * .88 * scale / depth + offset[0] + 1) * canvas.clientWidth / 2, (1 - (ry * .88 * scale / depth + offset[1])) * canvas.clientHeight / 2, depth] }
 
-  const resize = () => { const ratio = Math.min(devicePixelRatio || 1, 2); canvas.width = innerWidth * ratio; canvas.height = innerHeight * ratio; canvas.style.width = `${innerWidth}px`; canvas.style.height = `${innerHeight}px`; gl.viewport(0, 0, canvas.width, canvas.height) }
+  const resize = () => { const ratio = pixelRatio(); canvas.width = innerWidth * ratio; canvas.height = innerHeight * ratio; canvas.style.width = `${innerWidth}px`; canvas.style.height = `${innerHeight}px`; gl.viewport(0, 0, canvas.width, canvas.height) }
   const draw = (time: number) => {
     if (geometryDirty) {
       renderedPoints = []
@@ -524,7 +543,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
       gl.uniform2f(fogU.pan, offset[0], offset[1])
       gl.uniform1f(fogU.theta, ea)
       gl.uniform1f(fogU.phi, tilt * rot)
-      gl.uniform1f(fogU.dpr, Math.min(devicePixelRatio || 1, 2))
+      gl.uniform1f(fogU.dpr, pixelRatio())
       gl.uniform1f(fogU.level, fogLevel)
       gl.uniform1f(fogU.shell, shellT)
       for (const key of ['all', 'content'] as const) {
@@ -565,7 +584,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
         gl.uniform2f(junctionU.pan, offset[0], offset[1])
         gl.uniform1f(junctionU.theta, ea)
         gl.uniform1f(junctionU.phi, tilt * rot)
-        gl.uniform1f(junctionU.dpr, Math.min(devicePixelRatio || 1, 2))
+        gl.uniform1f(junctionU.dpr, pixelRatio())
         for (const key of ['all', 'content'] as const) {
           const weight = key === 'all' ? 1 - morph : morph
           const bufs = junctionBuffers[key]
@@ -586,7 +605,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     gl.uniform1f(phi, tilt * rot)
     gl.uniform1f(reliefU, reliefT)
     gl.uniform1f(hscaleU, HSCALE)
-    gl.uniform1f(dpr, Math.min(devicePixelRatio || 1, 2))
+    gl.uniform1f(dpr, pixelRatio())
     gl.uniform1fv(focDomAU, focA.dom)
     gl.uniform1fv(focDomBU, focB.dom)
     gl.uniform1fv(focSubAU, focA.sub)
