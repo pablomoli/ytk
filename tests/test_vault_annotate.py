@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-
 SAMPLE_NOTE = """---
 url: https://www.instagram.com/reel/abc/
 username: someone
@@ -43,7 +42,9 @@ def note(tmp_path, monkeypatch):
 def test_annotate_adds_bucket_tag_and_take_section(note):
     from ytk.vault import annotate_note
 
-    annotate_note(note, tags=["build-idea", "touchdesigner"], thought="I could make this for my desk.")
+    annotate_note(
+        note, tags=["build-idea", "touchdesigner"], thought="I could make this for my desk."
+    )
     text = note.read_text(encoding="utf-8")
     assert "  - build-idea\n" in text
     assert "  - touchdesigner\n" in text
@@ -94,8 +95,11 @@ def test_annotate_normalizes_bucket(note):
 def test_append_daily_digest_creates_and_appends(tmp_path, monkeypatch, note):
     from ytk.vault import append_daily_digest
 
-    line_path = append_daily_digest(note, tags=["build-idea", "touchdesigner"],
-                                    thought="I could make this for my desk, honestly.")
+    line_path = append_daily_digest(
+        note,
+        tags=["build-idea", "touchdesigner"],
+        thought="I could make this for my desk, honestly.",
+    )
     assert line_path.parent.name == "inbox"
     text = line_path.read_text(encoding="utf-8")
     assert "[[someone-2026-07-01-abc]]" in text

@@ -33,9 +33,7 @@ def _media(**overrides):
 
 
 def test_single_photo_is_image():
-    post = fetch_instagram_auth(
-        "https://www.instagram.com/p/abc/", FakeMediaClient(_media())
-    )
+    post = fetch_instagram_auth("https://www.instagram.com/p/abc/", FakeMediaClient(_media()))
     assert post.media_kind == "image"
 
 
@@ -45,9 +43,7 @@ def test_album_is_carousel():
         thumbnail_url=None,
         resources=[SimpleNamespace(thumbnail_url="https://cdn.example/s1.jpg")],
     )
-    post = fetch_instagram_auth(
-        "https://www.instagram.com/p/abc/", FakeMediaClient(media)
-    )
+    post = fetch_instagram_auth("https://www.instagram.com/p/abc/", FakeMediaClient(media))
     assert post.media_kind == "carousel"
 
 
@@ -60,9 +56,7 @@ def test_reel_is_video_even_if_download_fails(monkeypatch, tmp_path):
         video_url="https://cdn.example/reel.mp4",
         thumbnail_url="https://cdn.example/cover.jpg",
     )
-    post = fetch_instagram_auth(
-        "https://www.instagram.com/reel/abc/", FakeMediaClient(media)
-    )
+    post = fetch_instagram_auth("https://www.instagram.com/reel/abc/", FakeMediaClient(media))
     assert post.media_kind == "video"
 
     # video_url missing entirely: still a video, with no video_path
@@ -83,9 +77,7 @@ def test_anonymous_video_is_video(monkeypatch, tmp_path):
         caption="cap",
         url="https://cdn.example/x.jpg",
     )
-    monkeypatch.setattr(
-        instagram_mod.instaloader.Post, "from_shortcode", lambda ctx, sc: fake_post
-    )
+    monkeypatch.setattr(instagram_mod.instaloader.Post, "from_shortcode", lambda ctx, sc: fake_post)
     monkeypatch.setattr(instagram_mod, "_download_reel", lambda url: tmp_path / "v.mp4")
     post = instagram_mod._fetch_instagram_anonymous("https://www.instagram.com/reel/abc/")
     assert post.media_kind == "video"
@@ -100,8 +92,6 @@ def test_anonymous_sidecar_is_carousel(monkeypatch):
         caption="cap",
         get_sidecar_nodes=lambda: [SimpleNamespace(display_url="https://cdn.example/1.jpg")],
     )
-    monkeypatch.setattr(
-        instagram_mod.instaloader.Post, "from_shortcode", lambda ctx, sc: fake_post
-    )
+    monkeypatch.setattr(instagram_mod.instaloader.Post, "from_shortcode", lambda ctx, sc: fake_post)
     post = instagram_mod._fetch_instagram_anonymous("https://www.instagram.com/p/abc/")
     assert post.media_kind == "carousel"

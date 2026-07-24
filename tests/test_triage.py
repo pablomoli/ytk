@@ -62,8 +62,11 @@ def test_action_item_suggested_repo_defaults_none():
 
 def test_action_item_suggested_repo_set():
     item = ActionItem(
-        title="T", description="D.", priority="high",
-        suggested_route="gh-issue", suggested_repo="pablomoli/epicmap",
+        title="T",
+        description="D.",
+        priority="high",
+        suggested_route="gh-issue",
+        suggested_repo="pablomoli/epicmap",
     )
     assert item.suggested_repo == "pablomoli/epicmap"
 

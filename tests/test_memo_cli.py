@@ -1,6 +1,5 @@
 """ytk memo wiring: pipeline order, dry-run, exit codes."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
@@ -42,15 +41,15 @@ def test_memo_happy_path_exit_0(tmp_path):
 def test_memo_text_skips_recording(tmp_path):
     result, mocks = _run(["memo", "--text", "typed thought"], _patches(tmp_path))
     assert result.exit_code == 0
-    mocks[0].assert_not_called()   # memo_record
-    mocks[1].assert_not_called()   # memo_transcribe
+    mocks[0].assert_not_called()  # memo_record
+    mocks[1].assert_not_called()  # memo_transcribe
 
 
 def test_memo_dry_run_never_executes(tmp_path):
     result, mocks = _run(["memo", "--dry-run", "--text", "x"], _patches(tmp_path))
     assert result.exit_code == 0
-    mocks[4].assert_not_called()   # memo_execute
-    mocks[6].assert_not_called()   # memo_notify
+    mocks[4].assert_not_called()  # memo_execute
+    mocks[6].assert_not_called()  # memo_notify
 
 
 def test_memo_routing_failure_exit_2(tmp_path):

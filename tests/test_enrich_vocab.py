@@ -23,16 +23,20 @@ class _FakeCol:
 
     def get(self, include):
         # real chroma always returns ids alongside any include
-        return {"ids": [f"vid{i}" for i in range(len(self._metas))],
-                "metadatas": self._metas}
+        return {"ids": [f"vid{i}" for i in range(len(self._metas))], "metadatas": self._metas}
 
 
 def test_tag_counts_frequency_ranked_videos_only(monkeypatch):
-    monkeypatch.setattr(store, "_videos_collection",
-                        lambda: _FakeCol(["ai, go", "ai, geospatial", "ai, go"]))
-    monkeypatch.setattr(store, "_memories_collection",
-                        lambda: (_ for _ in ()).throw(AssertionError(
-                            "memories tags are folder paths, not interest tags")))
+    monkeypatch.setattr(
+        store, "_videos_collection", lambda: _FakeCol(["ai, go", "ai, geospatial", "ai, go"])
+    )
+    monkeypatch.setattr(
+        store,
+        "_memories_collection",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("memories tags are folder paths, not interest tags")
+        ),
+    )
 
     assert store.top_tags(2) == ["ai", "go"]
     counts = store.tag_counts()
@@ -46,8 +50,9 @@ def test_vocabulary_curated_first_deduped(monkeypatch):
 
     monkeypatch.setattr(enrich, "_VOCAB_CACHE", None)
     monkeypatch.setattr("ytk.config.load_config", lambda: _Cfg)
-    monkeypatch.setattr("ytk.reels.load_state",
-                        lambda p: type("S", (), {"custom_tags": ["oracle"]})())
+    monkeypatch.setattr(
+        "ytk.reels.load_state", lambda p: type("S", (), {"custom_tags": ["oracle"]})()
+    )
     monkeypatch.setattr("ytk.store.top_tags", lambda n: ["go", "ai", "wasm"])
 
     assert enrich.tag_vocabulary() == ["ai", "creative-coding", "oracle", "go", "wasm"]
@@ -61,8 +66,9 @@ def test_vocab_block_lists_tags(monkeypatch):
 
 
 def test_vocab_block_never_raises(monkeypatch):
-    monkeypatch.setattr(enrich, "tag_vocabulary",
-                        lambda: (_ for _ in ()).throw(RuntimeError("chroma cold")))
+    monkeypatch.setattr(
+        enrich, "tag_vocabulary", lambda: (_ for _ in ()).throw(RuntimeError("chroma cold"))
+    )
     assert enrich._vocab_block() == ""
 
 
@@ -74,8 +80,14 @@ def test_vocab_reaches_web_enrichment_prompt(monkeypatch):
 
     def fake(system, user, schema, add_dirs=None, model=None):
         seen["user"] = user
-        return {"thesis": "t", "summary": "s", "key_concepts": [],
-                "insights": [], "interest_tags": ["taste-modeling"], "key_moments": []}
+        return {
+            "thesis": "t",
+            "summary": "s",
+            "key_concepts": [],
+            "insights": [],
+            "interest_tags": ["taste-modeling"],
+            "key_moments": [],
+        }
 
     monkeypatch.setattr("ytk.sdk.run_structured", fake)
     monkeypatch.setattr("ytk.enrich.run_structured", fake)

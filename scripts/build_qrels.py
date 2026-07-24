@@ -19,7 +19,7 @@ import json
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -70,22 +70,26 @@ def build_pool(benchmark_path: Path) -> dict:
         row = by_query.get(query_id)
         if row is None:
             raise ValueError(f"benchmark has no row for {query_id}")
-        candidates = list(dict.fromkeys(
-            row["ranking_before"][:10]
-            + row["ranking_after"][:10]
-            + live["rankings"].get(query_id, [])[:POOL_DEPTH]
-        ))
+        candidates = list(
+            dict.fromkeys(
+                row["ranking_before"][:10]
+                + row["ranking_after"][:10]
+                + live["rankings"].get(query_id, [])[:POOL_DEPTH]
+            )
+        )
         for doc_id in candidates:
-            pairs.append({
-                "query_id": query_id,
-                "query": query["query"],
-                "bucket": query["bucket"],
-                "doc_id": doc_id,
-                "document": _document(doc_id),
-            })
+            pairs.append(
+                {
+                    "query_id": query_id,
+                    "query": query["query"],
+                    "bucket": query["bucket"],
+                    "doc_id": doc_id,
+                    "document": _document(doc_id),
+                }
+            )
     return {
         "schema_version": 1,
-        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "variants": [
             "v2-bi-encoder",
             "v2-live-production",
@@ -98,9 +102,7 @@ def build_pool(benchmark_path: Path) -> dict:
                 f"-maxlen{benchmark['summary']['max_length']}"
             ),
         ],
-        "provenance": retrieval_gate.live_provenance(
-            retrieval_gate.QUERIES_PATH, top_k=10
-        ),
+        "provenance": retrieval_gate.live_provenance(retrieval_gate.QUERIES_PATH, top_k=10),
         "pairs": pairs,
         # Used to score the exact current production ordering, stripped by
         # public_pool before the repo artifact is written.
@@ -120,35 +122,35 @@ def public_pool(pool: dict) -> dict:
 
 
 def _schema(pair_ids: list[str]) -> str:
-    return json.dumps({
-        "type": "object",
-        "properties": {
-            "labels": {
-                "type": "array",
-                "minItems": len(pair_ids),
-                "maxItems": len(pair_ids),
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "pair_id": {"type": "string", "enum": pair_ids},
-                        "grade": {"type": "integer", "minimum": 0, "maximum": 3},
-                        "reason": {"type": "string"},
-                        "confidence": {
-                            "type": "string", "enum": ["low", "medium", "high"]
+    return json.dumps(
+        {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "array",
+                    "minItems": len(pair_ids),
+                    "maxItems": len(pair_ids),
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "pair_id": {"type": "string", "enum": pair_ids},
+                            "grade": {"type": "integer", "minimum": 0, "maximum": 3},
+                            "reason": {"type": "string"},
+                            "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
                         },
+                        "required": ["pair_id", "grade", "reason", "confidence"],
+                        "additionalProperties": False,
                     },
-                    "required": ["pair_id", "grade", "reason", "confidence"],
-                    "additionalProperties": False,
                 },
             },
+            "required": ["labels"],
+            "additionalProperties": False,
         },
-        "required": ["labels"],
-        "additionalProperties": False,
-    }, separators=(",", ":"))
+        separators=(",", ":"),
+    )
 
 
-def _batches(pairs: list[dict], max_pairs: int = 75,
-             max_chars: int = 180_000) -> list[list[dict]]:
+def _batches(pairs: list[dict], max_pairs: int = 75, max_chars: int = 180_000) -> list[list[dict]]:
     batches: list[list[dict]] = []
     current: list[dict] = []
     chars = 0
@@ -170,23 +172,37 @@ def _judge_batch(pairs: list[dict], model: str) -> list[dict]:
     for index, pair in enumerate(pairs):
         pair_id = f"p{index}"
         pair_ids.append(pair_id)
-        opaque.append({
-            "pair_id": pair_id,
-            "query": pair["query"],
-            "document": pair["document"],
-        })
+        opaque.append(
+            {
+                "pair_id": pair_id,
+                "query": pair["query"],
+                "document": pair["document"],
+            }
+        )
     prompt = (
-        RUBRIC + "\n\nPairs to grade:\n"
+        RUBRIC
+        + "\n\nPairs to grade:\n"
         + json.dumps(opaque, ensure_ascii=False, separators=(",", ":"))
     )
     result = subprocess.run(
         [
-            "claude", "-p", "--safe-mode", "--model", model,
-            "--tools", "", "--no-session-persistence",
-            "--output-format", "json", "--json-schema", _schema(pair_ids),
+            "claude",
+            "-p",
+            "--safe-mode",
+            "--model",
+            model,
+            "--tools",
+            "",
+            "--no-session-persistence",
+            "--output-format",
+            "json",
+            "--json-schema",
+            _schema(pair_ids),
             prompt,
         ],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     outer = json.loads(result.stdout)
     structured = outer.get("structured_output")
@@ -198,8 +214,9 @@ def _judge_batch(pairs: list[dict], model: str) -> list[dict]:
     return [by_id[pair_id] for pair_id in pair_ids]
 
 
-def judge_pool(pool: dict, qrels_path: Path, model: str, review_path: Path,
-               workers: int = 1) -> dict:
+def judge_pool(
+    pool: dict, qrels_path: Path, model: str, review_path: Path, workers: int = 1
+) -> dict:
     pool_stamp = {
         "variants": pool["variants"],
         "provenance": pool["provenance"],
@@ -211,11 +228,13 @@ def judge_pool(pool: dict, qrels_path: Path, model: str, review_path: Path,
             raise ValueError("existing qrels uses a different judge or prompt version")
         prior_pool = qrels.get("pool") or {}
         prior_prov = {
-            key: value for key, value in prior_pool.get("provenance", {}).items()
+            key: value
+            for key, value in prior_pool.get("provenance", {}).items()
             if key != "producing_git_commit"
         }
         current_prov = {
-            key: value for key, value in pool_stamp["provenance"].items()
+            key: value
+            for key, value in pool_stamp["provenance"].items()
             if key != "producing_git_commit"
         }
         if prior_prov != current_prov:
@@ -230,7 +249,7 @@ def judge_pool(pool: dict, qrels_path: Path, model: str, review_path: Path,
     else:
         qrels = {
             "schema_version": 1,
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "judge": {"model": model, "prompt_version": PROMPT_VERSION},
             "rubric": RUBRIC,
             "pool": pool_stamp,
@@ -238,8 +257,7 @@ def judge_pool(pool: dict, qrels_path: Path, model: str, review_path: Path,
         }
 
     done = {(row["query_id"], row["doc_id"]) for row in qrels["labels"]}
-    pending = [pair for pair in pool["pairs"]
-               if (pair["query_id"], pair["doc_id"]) not in done]
+    pending = [pair for pair in pool["pairs"] if (pair["query_id"], pair["doc_id"]) not in done]
     if review_path.exists():
         review = json.loads(review_path.read_text(encoding="utf-8"))
     else:
@@ -248,17 +266,21 @@ def judge_pool(pool: dict, qrels_path: Path, model: str, review_path: Path,
 
     def checkpoint(batch: list[dict], judged: list[dict], number: int) -> None:
         for pair, label in zip(batch, judged):
-            qrels["labels"].append({
-                "query_id": pair["query_id"],
-                "doc_id": pair["doc_id"],
-                "grade": label["grade"],
-                "confidence": label["confidence"],
-            })
-            review.append({
-                "query_id": pair["query_id"],
-                "doc_id": pair["doc_id"],
-                "reason": label["reason"],
-            })
+            qrels["labels"].append(
+                {
+                    "query_id": pair["query_id"],
+                    "doc_id": pair["doc_id"],
+                    "grade": label["grade"],
+                    "confidence": label["confidence"],
+                }
+            )
+            review.append(
+                {
+                    "query_id": pair["query_id"],
+                    "doc_id": pair["doc_id"],
+                    "reason": label["reason"],
+                }
+            )
         qrels["labels"].sort(key=lambda row: (row["query_id"], row["doc_id"]))
         temp = qrels_path.with_suffix(qrels_path.suffix + ".tmp")
         temp.write_text(json.dumps(qrels, indent=2) + "\n", encoding="utf-8")
@@ -288,8 +310,7 @@ def judge_pool(pool: dict, qrels_path: Path, model: str, review_path: Path,
     return qrels
 
 
-def measure_benchmark(benchmark: dict, qrels: dict,
-                      live_rankings: dict[str, list[str]]) -> dict:
+def measure_benchmark(benchmark: dict, qrels: dict, live_rankings: dict[str, list[str]]) -> dict:
     """Score both pooled variants against the frozen labels."""
     queries = retrieval_gate.load_queries(retrieval_gate.QUERIES_PATH)
     after = {row["gold_id"]: row["ranking_after"] for row in benchmark["rows"]}
@@ -302,13 +323,15 @@ def measure_benchmark(benchmark: dict, qrels: dict,
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--benchmark", type=Path, required=True)
-    parser.add_argument("--pool", type=Path,
-                        default=retrieval_gate.DATA_DIR / "candidate_pool.json")
+    parser.add_argument(
+        "--pool", type=Path, default=retrieval_gate.DATA_DIR / "candidate_pool.json"
+    )
     parser.add_argument("--qrels", type=Path, default=retrieval_gate.QRELS_PATH)
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--workers", type=int, default=3)
     parser.add_argument(
-        "--review", type=Path,
+        "--review",
+        type=Path,
         default=Path.home() / ".ytk" / "eval" / "qrels-review.json",
     )
     parser.add_argument("--pool-only", action="store_true")
@@ -317,17 +340,11 @@ def main() -> None:
     benchmark = json.loads(args.benchmark.read_text(encoding="utf-8"))
     pool = build_pool(args.benchmark)
     args.pool.parent.mkdir(parents=True, exist_ok=True)
-    args.pool.write_text(
-        json.dumps(public_pool(pool), indent=2) + "\n", encoding="utf-8"
-    )
+    args.pool.write_text(json.dumps(public_pool(pool), indent=2) + "\n", encoding="utf-8")
     print(f"pool: {len(pool['pairs'])} pairs -> {args.pool}", flush=True)
     if not args.pool_only:
-        qrels = judge_pool(
-            pool, args.qrels, args.model, args.review, workers=args.workers
-        )
-        qrels["evaluations"] = measure_benchmark(
-            benchmark, qrels, pool["live_rankings"]
-        )
+        qrels = judge_pool(pool, args.qrels, args.model, args.review, workers=args.workers)
+        qrels["evaluations"] = measure_benchmark(benchmark, qrels, pool["live_rankings"])
         args.qrels.write_text(json.dumps(qrels, indent=2) + "\n", encoding="utf-8")
         low = sum(row["confidence"] == "low" for row in qrels["labels"])
         print(f"qrels: {len(qrels['labels'])} labels, {low} low-confidence")

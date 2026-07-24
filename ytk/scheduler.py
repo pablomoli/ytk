@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import googleapiclient.discovery
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+from . import db
 from .config import Config
 from .filter import check_post_enrichment, check_pre_transcript
-from . import db
-
 
 _YTK_DIR = Path.home() / ".ytk"
 _CLIENT_SECRETS = _YTK_DIR / "client_secrets.json"
@@ -52,6 +50,7 @@ def authenticate() -> googleapiclient.discovery.Resource:
     if creds is None or not creds.valid:
         if creds is not None and creds.expired and creds.refresh_token:
             import google.auth.transport.requests as tr
+
             creds.refresh(tr.Request())
         else:
             if not _CLIENT_SECRETS.exists():
@@ -59,9 +58,7 @@ def authenticate() -> googleapiclient.discovery.Resource:
                     f"Client secrets file not found: {_CLIENT_SECRETS}\n"
                     "Download it from the Google Cloud Console and place it there."
                 )
-            flow = InstalledAppFlow.from_client_secrets_file(
-                str(_CLIENT_SECRETS), _SCOPES
-            )
+            flow = InstalledAppFlow.from_client_secrets_file(str(_CLIENT_SECRETS), _SCOPES)
             flow.redirect_uri = "http://localhost"
             creds = flow.run_local_server(port=80, open_browser=False)
 
@@ -118,9 +115,7 @@ def fetch_playlist_videos(
     return videos
 
 
-def _find_playlist_id(
-    service: googleapiclient.discovery.Resource, name: str
-) -> str:
+def _find_playlist_id(service: googleapiclient.discovery.Resource, name: str) -> str:
     """Search the user's playlists for one matching `name` (case-insensitive)."""
     page_token: str | None = None
     target = name.lower()
@@ -145,9 +140,7 @@ def _find_playlist_id(
         if not page_token:
             break
 
-    raise RuntimeError(
-        f"No YouTube playlist named '{name}' found in your account."
-    )
+    raise RuntimeError(f"No YouTube playlist named '{name}' found in your account.")
 
 
 def sync(
@@ -167,9 +160,9 @@ def sync(
     If dry_run is True, print what would be processed without running the pipeline.
     Returns a SyncResult with counts: seen, already_processed, skipped, failed, ingested.
     """
+    from .enrich import enrich
     from .metadata import fetch_metadata
     from .transcript import fetch_transcript, segments_to_text
-    from .enrich import enrich
 
     def _log(msg: str) -> None:
         if verbose:
@@ -181,7 +174,9 @@ def sync(
     result.seen = len(videos)
     new_videos = [v for v in videos if not db.is_processed(v["video_id"])]
     result.already_processed = len(videos) - len(new_videos)
-    _log(f"{len(videos)} in playlist - {result.already_processed} already processed, {len(new_videos)} new")
+    _log(
+        f"{len(videos)} in playlist - {result.already_processed} already processed, {len(new_videos)} new"
+    )
     if not dry_run:
         for v in new_videos:
             _log(f"  will process: {v['title']} ({v['video_id']})")
@@ -197,7 +192,7 @@ def sync(
 
         _log(f"processing: {title!r}")
         try:
-            _log(f"  metadata...")
+            _log("  metadata...")
             meta = fetch_metadata(url)
         except Exception as exc:
             reason = f"metadata fetch error: {exc}"
@@ -226,7 +221,7 @@ def sync(
             continue
 
         _log(f"  transcript: {len(segments)} segments via {_source!r}")
-        _log(f"  enrichment...")
+        _log("  enrichment...")
         try:
             enrichment = enrich(segments_to_text(segments), meta)
         except Exception as exc:
@@ -260,7 +255,7 @@ def sync(
             result.failed += 1
             continue
 
-        _log(f"  writing vault note...")
+        _log("  writing vault note...")
         try:
             write_note(meta, enrichment, segments)
         except Exception as exc:
@@ -275,9 +270,10 @@ def sync(
             result.failed += 1
             continue
 
-        _log(f"  embedding...")
+        _log("  embedding...")
         try:
             from .store import upsert as _upsert
+
             _upsert(meta, enrichment, segments)
         except Exception as exc:
             print(f"[ytk] WARNING: embedding failed for {title!r}: {exc}", file=sys.stderr)

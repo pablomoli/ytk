@@ -16,7 +16,7 @@ import json
 import subprocess
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 STATUS = Path.home() / ".ytk" / "ops-status.json"
@@ -29,8 +29,12 @@ BRASS = "\033[33m"
 RED = "\033[31m"
 GREEN = "\033[32m"
 RESET = "\033[0m"
-MARK = {"done": f"{GREEN}[ok]{RESET}", "running": f"{BRASS}[..]{RESET}",
-        "fail": f"{RED}[XX]{RESET}", "skip": f"{DIM}[--]{RESET}"}
+MARK = {
+    "done": f"{GREEN}[ok]{RESET}",
+    "running": f"{BRASS}[..]{RESET}",
+    "fail": f"{RED}[XX]{RESET}",
+    "skip": f"{DIM}[--]{RESET}",
+}
 
 
 def tail(path: Path, n: int) -> list[str]:
@@ -43,15 +47,14 @@ def tail(path: Path, n: int) -> list[str]:
 def age_s(iso: str) -> float:
     try:
         then = datetime.fromisoformat(iso)
-        return (datetime.now(timezone.utc) - then).total_seconds()
+        return (datetime.now(UTC) - then).total_seconds()
     except Exception:
         return -1
 
 
 def hub_state() -> str:
     try:
-        with urllib.request.urlopen("http://127.0.0.1:6969/api/ready",
-                                    timeout=1) as r:
+        with urllib.request.urlopen("http://127.0.0.1:6969/api/ready", timeout=1) as r:
             warm = json.loads(r.read()).get("search")
         return f"{GREEN}up{RESET}" + ("" if warm else f" {DIM}(warming){RESET}")
     except Exception:
@@ -61,8 +64,11 @@ def hub_state() -> str:
 def git_head() -> str:
     try:
         return subprocess.run(
-            ["git", "log", "-1", "--format=%h %s"], capture_output=True,
-            text=True, cwd=Path(__file__).resolve().parents[1], timeout=2,
+            ["git", "log", "-1", "--format=%h %s"],
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).resolve().parents[1],
+            timeout=2,
         ).stdout.strip()[:70]
     except Exception:
         return "?"
@@ -76,8 +82,10 @@ def bar(cur: int, total: int, width: int = 34) -> str:
 def render() -> str:
     lines: list[str] = []
     now = time.strftime("%H:%M:%S")
-    lines.append(f"{BOLD}{BRASS}ytk watchboard{RESET}  {DIM}{now}{RESET}  "
-                 f"hub {hub_state()}  {DIM}{git_head()}{RESET}")
+    lines.append(
+        f"{BOLD}{BRASS}ytk watchboard{RESET}  {DIM}{now}{RESET}  "
+        f"hub {hub_state()}  {DIM}{git_head()}{RESET}"
+    )
     lines.append("")
 
     try:
@@ -86,11 +94,14 @@ def render() -> str:
         st = {}
     if st:
         upd = age_s(st.get("updated", ""))
-        stale = (f"  {RED}stale {int(upd // 60)}m{RESET}"
-                 if upd > 300 and any(s["state"] == "running"
-                                      for s in st.get("steps", [])) else "")
-        lines.append(f"{BOLD}run{RESET} {st.get('run', '?')}"
-                     f"  {DIM}{st.get('intent', '')}{RESET}{stale}")
+        stale = (
+            f"  {RED}stale {int(upd // 60)}m{RESET}"
+            if upd > 300 and any(s["state"] == "running" for s in st.get("steps", []))
+            else ""
+        )
+        lines.append(
+            f"{BOLD}run{RESET} {st.get('run', '?')}  {DIM}{st.get('intent', '')}{RESET}{stale}"
+        )
         for s in st.get("steps", []):
             detail = f"  {DIM}{s.get('detail', '')[:60]}{RESET}" if s.get("detail") else ""
             lines.append(f"  {MARK.get(s['state'], '[??]')} {s['name']}{detail}")
@@ -98,9 +109,11 @@ def render() -> str:
         if p and p.get("total"):
             eta = f"  eta {p['eta_min']:.0f}m" if p.get("eta_min") is not None else ""
             rate = f"  {p['rate']} vec/s" if p.get("rate") else ""
-            lines.append(f"  {BRASS}{bar(p['current'], p['total'])}{RESET} "
-                         f"{p['current']}/{p['total']}{rate}{eta}"
-                         f"  {DIM}{p.get('label', '')}{RESET}")
+            lines.append(
+                f"  {BRASS}{bar(p['current'], p['total'])}{RESET} "
+                f"{p['current']}/{p['total']}{rate}{eta}"
+                f"  {DIM}{p.get('label', '')}{RESET}"
+            )
     else:
         lines.append(f"{DIM}no ops run recorded yet{RESET}")
 

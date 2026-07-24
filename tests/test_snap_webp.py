@@ -1,13 +1,11 @@
 """Screenshots persist as lossless WebP to shrink the synced vault without quality loss."""
 
 import io
-from pathlib import Path
 from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 
-from ytk import snap
-from ytk import visual
+from ytk import snap, visual
 
 
 def _screenshot_png() -> bytes:
@@ -24,9 +22,11 @@ def _screenshot_png() -> bytes:
 def test_save_snap_writes_lossless_webp(tmp_path, monkeypatch):
     brain = tmp_path / "second-brain"
     png = _screenshot_png()
-    with patch("ytk.vault._get_brain_path", return_value=brain), \
-         patch("ytk.store.upsert_memory"), \
-         patch("ytk.visual.embed_cover_for_save", return_value=True):
+    with (
+        patch("ytk.vault._get_brain_path", return_value=brain),
+        patch("ytk.store.upsert_memory"),
+        patch("ytk.visual.embed_cover_for_save", return_value=True),
+    ):
         note = snap.save_snap(png, text="a screenshot")
     imgs = list((brain / "sources" / "screenshots").glob("*.webp"))
     assert len(imgs) == 1, "screenshot should be saved as .webp"

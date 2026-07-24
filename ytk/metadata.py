@@ -22,7 +22,7 @@ def fetch_metadata(url: str) -> dict:
         "title": info.get("title", ""),
         "uploader": info.get("uploader", ""),
         "upload_date": info.get("upload_date", ""),  # YYYYMMDD
-        "duration": info.get("duration", 0),          # seconds
+        "duration": info.get("duration", 0),  # seconds
         "description": info.get("description", ""),
         "tags": info.get("tags") or [],
         "chapters": [

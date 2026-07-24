@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-
 
 _DB_PATH = Path.home() / ".ytk" / "ytk.db"
 _conn: sqlite3.Connection | None = None
@@ -36,14 +35,14 @@ def _get_conn() -> sqlite3.Connection:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def is_processed(video_id: str) -> bool:
     """Return True if the video has a 'processed' record in the database."""
-    row = _get_conn().execute(
-        "SELECT status FROM videos WHERE video_id = ?", (video_id,)
-    ).fetchone()
+    row = (
+        _get_conn().execute("SELECT status FROM videos WHERE video_id = ?", (video_id,)).fetchone()
+    )
     return row is not None and row["status"] == "processed"
 
 
@@ -110,7 +109,5 @@ def get_all(status: str | None = None) -> list[dict]:
             "SELECT * FROM videos WHERE status = ? ORDER BY added_at DESC", (status,)
         ).fetchall()
     else:
-        rows = conn.execute(
-            "SELECT * FROM videos ORDER BY added_at DESC"
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM videos ORDER BY added_at DESC").fetchall()
     return [dict(r) for r in rows]

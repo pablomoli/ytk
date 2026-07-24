@@ -23,11 +23,11 @@ class ReelItem:
     """A queued link plus whatever metadata its discovery source carried."""
 
     url: str
-    author: str | None = None       # content author's username, not the sender
-    shared_at: str | None = None    # YYYY-MM-DD the item entered the queue
+    author: str | None = None  # content author's username, not the sender
+    shared_at: str | None = None  # YYYY-MM-DD the item entered the queue
     preview_url: str | None = None  # cover image (signed CDN URL, expires)
-    source: str = "instagram"       # instagram | tiktok | youtube | web | imessage
-    text: str | None = None         # inline body for text sources (imessage), no URL to fetch
+    source: str = "instagram"  # instagram | tiktok | youtube | web | imessage
+    text: str | None = None  # inline body for text sources (imessage), no URL to fetch
 
 
 def classify_url(url: str) -> str:
@@ -59,7 +59,7 @@ def _as_item(entry) -> ReelItem:
     )
 
 
-def add_urls(state: "ReelsState", urls: list[str]) -> list[ReelItem]:
+def add_urls(state: ReelsState, urls: list[str]) -> list[ReelItem]:
     """Append pasted URLs to the pending queue, classified and deduped.
 
     Returns the items actually added (dupes against the queue and within the
@@ -83,12 +83,18 @@ class ReelsState:
     thread_id: str | None = None
     last_seen_message_id: str | None = None
     pending: list = field(default_factory=list)  # list[ReelItem]
-    last_pull_at: float | None = None            # ingest-hub auto-pull throttle
+    last_pull_at: float | None = None  # ingest-hub auto-pull throttle
     last_pulls: dict = field(default_factory=dict)  # per-source last pull, {source: epoch}
     custom_tags: list[str] = field(default_factory=list)  # UI-created tags
-    imessage_seen: list[str] = field(default_factory=list)  # session note_ids already queued/ingested
-    tiktok_seen: list[str] = field(default_factory=list)  # favorited video ids already queued/ingested
-    reddit_seen: list[str] = field(default_factory=list)  # subreddit post fullnames already queued/ingested
+    imessage_seen: list[str] = field(
+        default_factory=list
+    )  # session note_ids already queued/ingested
+    tiktok_seen: list[str] = field(
+        default_factory=list
+    )  # favorited video ids already queued/ingested
+    reddit_seen: list[str] = field(
+        default_factory=list
+    )  # subreddit post fullnames already queued/ingested
 
 
 _client_cache: dict[tuple[str, str], object] = {}
@@ -239,9 +245,7 @@ def find_self_thread(client):
         pks = [str(u.pk) for u in thread.users]
         if pks in ([], [me]):
             return thread
-    raise ValueError(
-        "No note-to-self thread found (a DM thread whose only participant is you)."
-    )
+    raise ValueError("No note-to-self thread found (a DM thread whose only participant is you).")
 
 
 def find_peer_thread(client, peer: str):

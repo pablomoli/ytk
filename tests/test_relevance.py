@@ -20,9 +20,16 @@ def test_load_qrels_requires_one_stamped_valid_judge(tmp_path):
     with pytest.raises(ValueError, match="judge"):
         load_qrels(path)
 
-    path.write_text(json.dumps(_qrels([
-        {"query_id": "q", "doc_id": "d", "grade": 4},
-    ])), encoding="utf-8")
+    path.write_text(
+        json.dumps(
+            _qrels(
+                [
+                    {"query_id": "q", "doc_id": "d", "grade": 4},
+                ]
+            )
+        ),
+        encoding="utf-8",
+    )
     with pytest.raises(ValueError, match="0-3"):
         load_qrels(path)
 
@@ -32,11 +39,13 @@ def test_ndcg_report_rewards_ideal_order_and_reports_new_pairs():
         {"gold_id": "q1", "bucket": "videos"},
         {"gold_id": "q2", "bucket": "memories"},
     ]
-    qrels = _qrels([
-        {"query_id": "q1", "doc_id": "a", "grade": 3},
-        {"query_id": "q1", "doc_id": "b", "grade": 1},
-        {"query_id": "q2", "doc_id": "c", "grade": 2},
-    ])
+    qrels = _qrels(
+        [
+            {"query_id": "q1", "doc_id": "a", "grade": 3},
+            {"query_id": "q1", "doc_id": "b", "grade": 1},
+            {"query_id": "q2", "doc_id": "c", "grade": 2},
+        ]
+    )
     report = ndcg_report(
         queries,
         {"q1": ["a", "b"], "q2": ["new", "c"]},

@@ -33,15 +33,11 @@ def _text(msg_id: str, text: str):
 
 
 def test_extract_clip_becomes_reel_url():
-    assert extract_links([_clip("1", "AbC-12_x")]) == [
-        "https://www.instagram.com/reel/AbC-12_x/"
-    ]
+    assert extract_links([_clip("1", "AbC-12_x")]) == ["https://www.instagram.com/reel/AbC-12_x/"]
 
 
 def test_extract_media_share_becomes_post_url():
-    assert extract_links([_media_share("1", "XyZ99")]) == [
-        "https://www.instagram.com/p/XyZ99/"
-    ]
+    assert extract_links([_media_share("1", "XyZ99")]) == ["https://www.instagram.com/p/XyZ99/"]
 
 
 def test_extract_bare_links_from_text():
@@ -98,9 +94,7 @@ class FakeClient:
 
 
 def _thread(thread_id: str, user_pks: list[str]):
-    return SimpleNamespace(
-        id=thread_id, users=[SimpleNamespace(pk=pk) for pk in user_pks]
-    )
+    return SimpleNamespace(id=thread_id, users=[SimpleNamespace(pk=pk) for pk in user_pks])
 
 
 def test_find_self_thread_empty_users():
@@ -171,9 +165,7 @@ class NoDiscoveryClient(FakeClient):
 def test_cached_thread_id_skips_thread_discovery():
     msgs = [_clip("3", "ccc"), _clip("2", "bbb")]
     client = NoDiscoveryClient([], {"ts": msgs})
-    links, state = fetch_new_links(
-        client, ReelsState(thread_id="ts", last_seen_message_id="2")
-    )
+    links, state = fetch_new_links(client, ReelsState(thread_id="ts", last_seen_message_id="2"))
     assert links == ["https://www.instagram.com/reel/ccc/"]
     assert state.thread_id == "ts"
     assert state.last_seen_message_id == "3"
@@ -369,9 +361,7 @@ def test_fetch_new_links_uses_peer_thread_when_given():
 
 
 def _xma(msg_id: str, item_type: str, **fields):
-    return SimpleNamespace(
-        id=msg_id, item_type=item_type, xma_share=SimpleNamespace(**fields)
-    )
+    return SimpleNamespace(id=msg_id, item_type=item_type, xma_share=SimpleNamespace(**fields))
 
 
 def test_extract_xma_clip_video_url():
@@ -491,7 +481,6 @@ def test_parse_selection_rejects_out_of_range_and_garbage():
 
 
 def _xma_full(msg_id: str, code: str, author: str, preview: str, ts):
-    from datetime import datetime
 
     return SimpleNamespace(
         id=msg_id,
@@ -512,8 +501,11 @@ def test_extract_items_captures_xma_metadata():
     from ytk.reels import extract_items
 
     msg = _xma_full(
-        "1", "DZr18tXD01B", "hancept_japan",
-        "https://cdn.example/cover.jpg", datetime(2026, 7, 4, 16, 45),
+        "1",
+        "DZr18tXD01B",
+        "hancept_japan",
+        "https://cdn.example/cover.jpg",
+        datetime(2026, 7, 4, 16, 45),
     )
     items = extract_items([msg])
     assert len(items) == 1
@@ -566,8 +558,7 @@ def test_refresh_merges_items_by_url_keeping_metadata():
     from ytk.reels import ReelItem, refresh
 
     msgs = [
-        _xma_full("3", "ccc", "author3", "https://cdn.example/3.jpg",
-                  datetime(2026, 7, 4)),
+        _xma_full("3", "ccc", "author3", "https://cdn.example/3.jpg", datetime(2026, 7, 4)),
     ]
     old = ReelItem(url="https://www.instagram.com/reel/ccc/", author="known")
     state = ReelsState(thread_id="ts", last_seen_message_id="1", pending=[old])
@@ -672,9 +663,9 @@ def test_gallery_cards_select_and_link_separately():
 
     html = gallery_html([ReelItem(url="https://www.instagram.com/reel/aaa/")])
     assert 'data-index="1"' in html
-    assert 'class="open"' in html            # explicit open-reel link per card
-    assert "navigator.clipboard" in html     # copy-selection support
-    assert 'id="selbar"' in html             # sticky selection bar
+    assert 'class="open"' in html  # explicit open-reel link per card
+    assert "navigator.clipboard" in html  # copy-selection support
+    assert 'id="selbar"' in html  # sticky selection bar
 
 
 # --- source-agnostic queue (ingest hub) -----------------------------------------
@@ -700,9 +691,9 @@ def test_add_urls_appends_classified_items_with_dedupe():
     added = add_urls(
         state,
         [
-            "https://youtu.be/abc",                      # dup vs pending
+            "https://youtu.be/abc",  # dup vs pending
             "https://www.tiktok.com/@u/video/1",
-            "https://www.tiktok.com/@u/video/1",         # dup within input
+            "https://www.tiktok.com/@u/video/1",  # dup within input
             "https://example.com/post",
         ],
     )
@@ -722,11 +713,11 @@ def test_item_source_round_trip_and_legacy_classification(tmp_path):
         ReelsState(
             pending=[
                 ReelItem(url="https://youtu.be/abc", source="youtube"),
-                "https://www.tiktok.com/@u/video/1",     # legacy bare string
+                "https://www.tiktok.com/@u/video/1",  # legacy bare string
             ]
         ),
         path,
     )
     loaded = load_state(path)
     assert loaded.pending[0].source == "youtube"
-    assert loaded.pending[1].source == "tiktok"          # classified on migration
+    assert loaded.pending[1].source == "tiktok"  # classified on migration

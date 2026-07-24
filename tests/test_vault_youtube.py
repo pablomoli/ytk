@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 _BASE_META = {
     "id": "dQw4w9WgXcQ",
     "title": "Test Video Title",
@@ -22,6 +21,7 @@ _BASE_ENRICHMENT_KWARGS = dict(
 
 def _enrichment():
     from ytk.enrich import Enrichment
+
     return Enrichment(**_BASE_ENRICHMENT_KWARGS)
 
 
@@ -130,7 +130,7 @@ def test_write_note_thumbnail_and_frames_combined(tmp_path, monkeypatch):
 
 
 def test_write_note_raises_on_duplicate(tmp_path, monkeypatch):
-    from ytk.vault import write_note, NoteAlreadyExists
+    from ytk.vault import NoteAlreadyExists, write_note
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
     monkeypatch.setattr("ytk.vault._save_image", lambda url, dest: None)
@@ -138,5 +138,6 @@ def test_write_note_raises_on_duplicate(tmp_path, monkeypatch):
     write_note({**_BASE_META}, _enrichment(), [])
 
     import pytest
+
     with pytest.raises(NoteAlreadyExists):
         write_note({**_BASE_META}, _enrichment(), [])

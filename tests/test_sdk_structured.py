@@ -17,7 +17,11 @@ class Toy(BaseModel):
 def test_no_key_uses_sdk(monkeypatch):
     calls = []
     monkeypatch.setattr(sdk, "run_structured", lambda *a, **k: calls.append(a) or {"label": "x"})
-    monkeypatch.setattr(sdk, "_structured_via_api", lambda *a: (_ for _ in ()).throw(AssertionError("must not be called")))
+    monkeypatch.setattr(
+        sdk,
+        "_structured_via_api",
+        lambda *a: (_ for _ in ()).throw(AssertionError("must not be called")),
+    )
 
     out = sdk.structured("sys", "user", Toy)
     assert out == Toy(label="x")
@@ -27,14 +31,20 @@ def test_no_key_uses_sdk(monkeypatch):
 def test_key_prefers_api(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
     monkeypatch.setattr(sdk, "_structured_via_api", lambda *a: {"label": "api"})
-    monkeypatch.setattr(sdk, "run_structured", lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not be called")))
+    monkeypatch.setattr(
+        sdk,
+        "run_structured",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not be called")),
+    )
 
     assert sdk.structured("sys", "user", Toy).label == "api"
 
 
 def test_api_failure_falls_back_to_sdk(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
-    monkeypatch.setattr(sdk, "_structured_via_api", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(
+        sdk, "_structured_via_api", lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
     monkeypatch.setattr(sdk, "run_structured", lambda *a, **k: {"label": "fallback"})
 
     assert sdk.structured("sys", "user", Toy).label == "fallback"
@@ -42,9 +52,11 @@ def test_api_failure_falls_back_to_sdk(monkeypatch):
 
 def test_input_truncated(monkeypatch):
     seen = {}
+
     def fake(system, user, schema, model=None):
         seen["user"] = user
         return {"label": "x"}
+
     monkeypatch.setattr(sdk, "run_structured", fake)
 
     sdk.structured("sys", "u" * 50_000, Toy, max_input_chars=100)

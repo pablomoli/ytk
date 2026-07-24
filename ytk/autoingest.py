@@ -26,7 +26,9 @@ HARD_CAP = 50
 LOVED_BOOST = 0.15
 
 
-def allocate_slots(theme_weights: dict[str, float], themes: list[str], count: int) -> dict[str, int]:
+def allocate_slots(
+    theme_weights: dict[str, float], themes: list[str], count: int
+) -> dict[str, int]:
     """Split `count` slots across the present themes, proportional to weight
     with a floor of 1 each. Largest-remainder rounding; may over/undershoot
     count slightly, which the selection step reconciles against availability.
@@ -133,8 +135,7 @@ def score_pending(pending: list, theme_vecs: list[tuple], ingested: set) -> list
     from ytk.channels import channel_key
 
     cand = [
-        it for it in pending
-        if (getattr(it, "text", None) or "").strip() and it.url not in ingested
+        it for it in pending if (getattr(it, "text", None) or "").strip() and it.url not in ingested
     ]
     if not cand or not theme_vecs:
         return []
@@ -149,10 +150,15 @@ def score_pending(pending: list, theme_vecs: list[tuple], ingested: set) -> list
         sims = mat @ np.asarray(v, dtype=float)
         bi = int(np.argmax(sims))
         key = channel_key(it.source, it.author) if it.author else None
-        scored.append({
-            "url": it.url, "item": it, "theme_id": ids[bi],
-            "score": float(sims[bi]), "channel_key": key,
-        })
+        scored.append(
+            {
+                "url": it.url,
+                "item": it,
+                "theme_id": ids[bi],
+                "score": float(sims[bi]),
+                "channel_key": key,
+            }
+        )
     return scored
 
 
@@ -188,10 +194,20 @@ def run_autoingest(count: int | None = None, dry_run: bool = False) -> dict:
 
     snapshot = interest.load_latest()
     if snapshot is None:
-        return {"error": "no interest profile — run `ytk profile` first", "selected": [], "candidates": 0, "ingested": []}
+        return {
+            "error": "no interest profile — run `ytk profile` first",
+            "selected": [],
+            "candidates": 0,
+            "ingested": [],
+        }
     theme_vecs = _theme_vectors(snapshot)
     if not theme_vecs:
-        return {"error": "profile has no usable theme centroids", "selected": [], "candidates": 0, "ingested": []}
+        return {
+            "error": "profile has no usable theme centroids",
+            "selected": [],
+            "candidates": 0,
+            "ingested": [],
+        }
 
     weights = {t.id: t.weight for t, _ in theme_vecs}
     labels = {t.id: t.label for t, _ in theme_vecs}
@@ -201,18 +217,23 @@ def run_autoingest(count: int | None = None, dry_run: bool = False) -> dict:
     store.warm_text_encoder()
     scored = score_pending(state.pending, theme_vecs, ingested)
     selected = stratify_select(
-        scored, n, weights,
+        scored,
+        n,
+        weights,
         loved_keys=channels.loved_channels(),
         muted_keys=channels.muted_channels(),
     )
 
-    picks = [{
-        "url": s["url"],
-        "title": (s["item"].text or s["item"].author or s["url"])[:70],
-        "source": s["item"].source,
-        "theme": labels.get(s["theme_id"], s["theme_id"]),
-        "score": round(s["eff_score"], 3),
-    } for s in selected]
+    picks = [
+        {
+            "url": s["url"],
+            "title": (s["item"].text or s["item"].author or s["url"])[:70],
+            "source": s["item"].source,
+            "theme": labels.get(s["theme_id"], s["theme_id"]),
+            "score": round(s["eff_score"], 3),
+        }
+        for s in selected
+    ]
 
     if dry_run:
         return {"selected": picks, "candidates": len(scored), "ingested": []}
@@ -227,7 +248,12 @@ def run_autoingest(count: int | None = None, dry_run: bool = False) -> dict:
             ingested_urls.append(item.url)
         except Exception as exc:
             failures.append({"url": item.url, "error": str(exc)})
-    return {"selected": picks, "candidates": len(scored), "ingested": ingested_urls, "failures": failures}
+    return {
+        "selected": picks,
+        "candidates": len(scored),
+        "ingested": ingested_urls,
+        "failures": failures,
+    }
 
 
 def rank_all_pending(page_size: int = 30) -> dict:
@@ -248,7 +274,11 @@ def rank_all_pending(page_size: int = 30) -> dict:
 
     snapshot = interest.load_latest()
     if snapshot is None:
-        return {"error": "no interest profile — run `ytk profile` first", "selected": [], "candidates": 0}
+        return {
+            "error": "no interest profile — run `ytk profile` first",
+            "selected": [],
+            "candidates": 0,
+        }
     theme_vecs = _theme_vectors(snapshot)
     if not theme_vecs:
         return {"error": "profile has no usable theme centroids", "selected": [], "candidates": 0}
@@ -270,12 +300,14 @@ def rank_all_pending(page_size: int = 30) -> dict:
             break  # only muted items left; stratify_select returns nothing
         for s in page:
             seen.add(s["url"])
-            ranked.append({
-                "url": s["url"],
-                "title": (s["item"].text or s["item"].author or s["url"])[:70],
-                "source": s["item"].source,
-                "theme": labels.get(s["theme_id"], s["theme_id"]),
-                "score": round(s["eff_score"], 3),
-            })
+            ranked.append(
+                {
+                    "url": s["url"],
+                    "title": (s["item"].text or s["item"].author or s["url"])[:70],
+                    "source": s["item"].source,
+                    "theme": labels.get(s["theme_id"], s["theme_id"]),
+                    "score": round(s["eff_score"], 3),
+                }
+            )
         remaining = [s for s in remaining if s["url"] not in seen]
     return {"selected": ranked, "candidates": len(scored)}

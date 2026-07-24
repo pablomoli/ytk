@@ -5,12 +5,9 @@ All network is mocked by monkeypatching the two transport functions
 extractor is tested against a monkeypatched `run_structured`.
 """
 
-import json
-
 import pytest
 
 from ytk import recs
-
 
 # --------------------------------------------------------------------------- #
 # Fake HTTP transports
@@ -274,7 +271,9 @@ class TestResolveBook:
         assert out["poster"] is None
 
     def test_miss(self, monkeypatch):
-        monkeypatch.setattr(recs, "_http_get", FakeGet({"openlibrary.org/search.json": {"docs": []}}))
+        monkeypatch.setattr(
+            recs, "_http_get", FakeGet({"openlibrary.org/search.json": {"docs": []}})
+        )
         assert recs.resolve("book", "x") is None
 
 
@@ -325,7 +324,9 @@ class TestLoadSave:
 class TestRecord:
     def _movie_routes(self):
         return {
-            "/search/movie": {"results": [{"id": 1, "title": "Dune", "release_date": "2021-01-01"}]},
+            "/search/movie": {
+                "results": [{"id": 1, "title": "Dune", "release_date": "2021-01-01"}]
+            },
             "/movie/1/credits": {"crew": [{"job": "Director", "name": "DV"}]},
         }
 
@@ -383,8 +384,19 @@ class TestRecord:
 
 class TestSetStatus:
     def _seed(self, store_path):
-        recs.save_recs({"k": {"canonical_key": "k", "kind": "movie", "title": "X",
-                              "sources": ["a"], "count": 1, "status": None}}, store_path)
+        recs.save_recs(
+            {
+                "k": {
+                    "canonical_key": "k",
+                    "kind": "movie",
+                    "title": "X",
+                    "sources": ["a"],
+                    "count": 1,
+                    "status": None,
+                }
+            },
+            store_path,
+        )
 
     def test_valid(self, store_path):
         self._seed(store_path)
@@ -473,7 +485,8 @@ class TestExtract:
     def test_bad_kind_coerced(self, monkeypatch):
         # Recommendation validator coerces an unknown kind to "movie"
         monkeypatch.setattr(
-            recs, "run_structured",
+            recs,
+            "run_structured",
             lambda s, u, sc: {"recommendations": [{"kind": "vhs", "title": "X"}]},
         )
         assert recs.extract_recommendations("x")[0]["kind"] == "movie"

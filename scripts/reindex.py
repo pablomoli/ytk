@@ -21,14 +21,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from ytk import db
-from ytk.metadata import fetch_metadata
-from ytk.transcript import fetch_transcript, segments_to_text
 from ytk.enrich import enrich
-from ytk.vault import write_note, NoteAlreadyExists, _get_vault_path, _slug
+from ytk.metadata import fetch_metadata
 from ytk.store import upsert
+from ytk.transcript import fetch_transcript, segments_to_text
+from ytk.vault import _get_vault_path, _slug, write_note
 
 
 def reindex_video(video_id: str, title: str, *, dry_run: bool = False) -> bool:
@@ -74,7 +75,7 @@ def reindex_video(video_id: str, title: str, *, dry_run: bool = False) -> bool:
             print(f"    deleted existing note: {existing_note.name}")
         note_path = write_note(meta, enrichment, segments)
         print(f"    note written: {note_path.name}")
-    except EnvironmentError:
+    except OSError:
         print("    WARNING: vault not configured, skipping note", file=sys.stderr)
     except Exception as exc:
         print(f"    ERROR writing note: {exc}", file=sys.stderr)
@@ -82,7 +83,7 @@ def reindex_video(video_id: str, title: str, *, dry_run: bool = False) -> bool:
 
     try:
         upsert(meta, enrichment, segments)
-        print(f"    embeddings upserted")
+        print("    embeddings upserted")
     except Exception as exc:
         print(f"    ERROR upserting embeddings: {exc}", file=sys.stderr)
         return False

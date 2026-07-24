@@ -155,7 +155,9 @@ def _fit_body(scored_block: str, transcript: str, limit: int = _MAX_INPUT_CHARS)
 def faithfulness(enrichment: Enrichment, transcript: str) -> FaithScore:
     scored_block = "ENRICHMENT:\n" + "\n".join(enrichment.key_concepts + enrichment.insights)
     body = _fit_body(scored_block, transcript)
-    res = structured(_FAITH_SYSTEM, body, _FaithResult, model="claude-opus-4-8", max_input_chars=_MAX_INPUT_CHARS)
+    res = structured(
+        _FAITH_SYSTEM, body, _FaithResult, model="claude-opus-4-8", max_input_chars=_MAX_INPUT_CHARS
+    )
     supported = sum(c.label == "supported" for c in res.claims)
     inflated = sum(c.label == "inflated" for c in res.claims)
     unsupported = sum(c.label == "unsupported" for c in res.claims)
@@ -191,7 +193,9 @@ _JUDGE_SYSTEM = (
 def _one_judgment(first: Enrichment, second: Enrichment, transcript: str) -> _JudgeResult:
     scored_block = f"A:\n{first.model_dump_json()}\n\nB:\n{second.model_dump_json()}"
     body = _fit_body(scored_block, transcript)
-    return structured(_JUDGE_SYSTEM, body, _JudgeResult, model="claude-opus-4-8", max_input_chars=_MAX_INPUT_CHARS)
+    return structured(
+        _JUDGE_SYSTEM, body, _JudgeResult, model="claude-opus-4-8", max_input_chars=_MAX_INPUT_CHARS
+    )
 
 
 def judge(a: Enrichment, b: Enrichment, transcript: str) -> Verdict:
@@ -232,7 +236,9 @@ def ledger_append(entry: dict, path: Path = LEDGER_PATH) -> None:
     os.replace(tmp, path)
 
 
-def bootstrap_winrate(wins: list[float], n_resamples: int = 2000, seed: int = 0) -> tuple[float, float, float]:
+def bootstrap_winrate(
+    wins: list[float], n_resamples: int = 2000, seed: int = 0
+) -> tuple[float, float, float]:
     """Compute seeded bootstrap confidence interval on win-rate.
 
     Args:
@@ -299,7 +305,7 @@ def _default_fixtures(max_notes: int = 5) -> list[Fixture]:
         return []
 
 
-def run_eval(challenger_tone: str, fixtures: list["Fixture"] | None = None) -> dict:
+def run_eval(challenger_tone: str, fixtures: list[Fixture] | None = None) -> dict:
     """Run the champion-vs-challenger enrichment eval across a fixture set.
 
     Champion tone comes from `load_config().hub.enrich_tone`. For each
@@ -333,13 +339,15 @@ def run_eval(challenger_tone: str, fixtures: list["Fixture"] | None = None) -> d
         champion_faith_rates.append(champion_faith.rate)
         challenger_faith_rates.append(challenger_faith.rate)
 
-        per_note.append({
-            "note_path": str(fx.note_path),
-            "source": fx.source,
-            "winner": verdict.winner,
-            "champion_faith_rate": champion_faith.rate,
-            "challenger_faith_rate": challenger_faith.rate,
-        })
+        per_note.append(
+            {
+                "note_path": str(fx.note_path),
+                "source": fx.source,
+                "winner": verdict.winner,
+                "champion_faith_rate": champion_faith.rate,
+                "challenger_faith_rate": challenger_faith.rate,
+            }
+        )
 
     point, lo, hi = bootstrap_winrate(wins)
     faith_delta = statistics.mean(champion_faith_rates) - statistics.mean(challenger_faith_rates)
@@ -352,13 +360,16 @@ def run_eval(challenger_tone: str, fixtures: list["Fixture"] | None = None) -> d
         "per_note": per_note,
     }
 
-    ledger_append({
-        "champion_tone": champion_tone,
-        "challenger_tone": challenger_tone,
-        "winrate": result["winrate"],
-        "ci": result["ci"],
-        "faith_delta": result["faith_delta"],
-        "n": result["n"],
-    }, LEDGER_PATH)
+    ledger_append(
+        {
+            "champion_tone": champion_tone,
+            "challenger_tone": challenger_tone,
+            "winrate": result["winrate"],
+            "ci": result["ci"],
+            "faith_delta": result["faith_delta"],
+            "n": result["n"],
+        },
+        LEDGER_PATH,
+    )
 
     return result

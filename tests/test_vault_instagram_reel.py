@@ -66,7 +66,7 @@ def test_reel_note_persists_transcript_frames_and_capture_metadata(brain):
     frame_dir = brain / "sources" / "instagram" / "frames" / "SC123"
     assert (frame_dir / "SC123-frame-1.jpg").read_bytes() == b"jpeg1"
     assert (frame_dir / "SC123-frame-2.jpg").read_bytes() == b"jpeg2"
-    assert "frames/SC123/SC123-frame-1.jpg" in content   # image_paths entry
+    assert "frames/SC123/SC123-frame-1.jpg" in content  # image_paths entry
     assert "![[SC123-frame-1.jpg]]" in content
     assert "![[frame-1.jpg]]" not in content
 

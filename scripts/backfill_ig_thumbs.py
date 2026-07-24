@@ -27,8 +27,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from ytk import reels, vault  # noqa: E402
-from ytk.instagram import fetch_instagram_auth  # noqa: E402
+from ytk import reels, vault
+from ytk.instagram import fetch_instagram_auth
 
 PACING_SECONDS = 4.0
 IMG_RE = re.compile(r"^image_paths:\n\s+- (.+)$", re.MULTILINE)

@@ -10,10 +10,10 @@ a time.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 import math
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -35,11 +35,7 @@ class ProfileCohort:
 
 
 def _note_visual_map(notes: list[dict], saved: list[dict]) -> dict[str, str]:
-    by_path = {
-        item["note_path"]: item["id"]
-        for item in saved
-        if item.get("note_path")
-    }
+    by_path = {item["note_path"]: item["id"] for item in saved if item.get("note_path")}
     saved_ids = {item["id"] for item in saved}
     out: dict[str, str] = {}
     for note in notes:
@@ -53,8 +49,7 @@ def _note_visual_map(notes: list[dict], saved: list[dict]) -> dict[str, str]:
                     item_id
                     for item_id in saved_ids
                     if item_id.startswith("tt:")
-                    and item_id.removeprefix("tt:").removesuffix("-thumb")
-                    in source_path
+                    and item_id.removeprefix("tt:").removesuffix("-thumb") in source_path
                 ),
                 None,
             )
@@ -80,17 +75,13 @@ def _resolve_previous(
         positives=[saved_by_id[item_id] for item_id in score.positive_ids],
         negatives=[pending_by_id[item_id] for item_id in score.negative_ids],
         heldout_note_ids={
-            visual_to_note[item_id]
-            for item_id in score.positive_ids
-            if item_id in visual_to_note
+            visual_to_note[item_id] for item_id in score.positive_ids if item_id in visual_to_note
         },
         reused_previous=True,
     )
 
 
-def _matched_negatives(
-    positives: list[dict], pending: list[dict], per_positive: int
-) -> list[dict]:
+def _matched_negatives(positives: list[dict], pending: list[dict], per_positive: int) -> list[dict]:
     """Pick unique hard negatives, preferring same-source visual neighbors."""
     chosen: list[dict] = []
     used: set[str] = set()
@@ -111,16 +102,12 @@ def _matched_negatives(
 
         available = [item for item in pending if item["id"] not in used]
         same_source = [
-            item
-            for item in available
-            if item.get("source", "") == positive.get("source", "")
+            item for item in available if item.get("source", "") == positive.get("source", "")
         ]
         selected = ranked(same_source)[:per_positive]
         if len(selected) < per_positive:
             selected_ids = {item["id"] for item in selected}
-            fallback = [
-                item for item in available if item["id"] not in selected_ids
-            ]
+            fallback = [item for item in available if item["id"] not in selected_ids]
             selected.extend(ranked(fallback)[: per_positive - len(selected)])
         chosen.extend(selected)
         used.update(item["id"] for item in selected)
@@ -142,21 +129,13 @@ def build_cohort(
     note_to_visual = _note_visual_map(notes, saved)
     visual_to_note = {v: k for k, v in note_to_visual.items()}
 
-    reused = _resolve_previous(
-        previous, saved_by_id, pending_by_id, visual_to_note
-    )
+    reused = _resolve_previous(previous, saved_by_id, pending_by_id, visual_to_note)
     if reused is not None:
         return reused
 
     cited_ids = {
-        evidence_id
-        for claim in snapshot.portrait_claims
-        for evidence_id in claim.evidence_ids
-    } | {
-        evidence_id
-        for theme in snapshot.themes
-        for evidence_id in theme.evidence_ids
-    }
+        evidence_id for claim in snapshot.portrait_claims for evidence_id in claim.evidence_ids
+    } | {evidence_id for theme in snapshot.themes for evidence_id in theme.evidence_ids}
     eligible = [
         (note, level, note_to_visual.get(note["id"]))
         for note, level in zip(notes, levels)
@@ -182,9 +161,7 @@ def build_cohort(
         return None
 
     positives = [saved_by_id[visual_id] for _, _, visual_id in chosen]
-    negatives = _matched_negatives(
-        positives, pending, cfg.profile_eval_negatives_per_positive
-    )
+    negatives = _matched_negatives(positives, pending, cfg.profile_eval_negatives_per_positive)
     if not negatives:
         return None
     return ProfileCohort(
@@ -217,13 +194,9 @@ def score_claims(
     if not claims or not positives or not negatives:
         raise ValueError("profile evaluation needs claims, positives, and negatives")
     query = np.asarray(embed_texts(claims), dtype=float)
-    candidates = np.asarray(
-        [item["embedding"] for item in positives + negatives], dtype=float
-    )
+    candidates = np.asarray([item["embedding"] for item in positives + negatives], dtype=float)
     query /= np.maximum(np.linalg.norm(query, axis=1, keepdims=True), 1e-12)
-    candidates /= np.maximum(
-        np.linalg.norm(candidates, axis=1, keepdims=True), 1e-12
-    )
+    candidates /= np.maximum(np.linalg.norm(candidates, axis=1, keepdims=True), 1e-12)
     scores = (candidates @ query.T).max(axis=1)
     return _multi_positive_ndcg(scores, len(positives))
 

@@ -15,8 +15,12 @@ LINKS = [
 
 def _items():
     return [
-        reels_mod.ReelItem(url=LINKS[0], author="author_a", shared_at="2026-07-01",
-                           preview_url="https://cdn.example/a.jpg"),
+        reels_mod.ReelItem(
+            url=LINKS[0],
+            author="author_a",
+            shared_at="2026-07-01",
+            preview_url="https://cdn.example/a.jpg",
+        ),
         reels_mod.ReelItem(url=LINKS[1], author="author_b", shared_at="2026-07-02"),
         reels_mod.ReelItem(url=LINKS[2]),
     ]
@@ -29,17 +33,17 @@ def harness(monkeypatch, tmp_path):
 
     monkeypatch.setenv("INSTAGRAM_SESSIONID", "sess-123")
     monkeypatch.setattr(reels_mod, "get_client", lambda sessionid: object())
-    monkeypatch.setattr(reels_mod, "load_state", lambda: reels_mod.ReelsState(
-        thread_id="ts", last_seen_message_id="5"
-    ))
+    monkeypatch.setattr(
+        reels_mod,
+        "load_state",
+        lambda: reels_mod.ReelsState(thread_id="ts", last_seen_message_id="5"),
+    )
     monkeypatch.setattr(reels_mod, "GALLERY_PATH", tmp_path / "gallery.html")
 
     def fake_refresh(client, state, peer=None):
         calls["peer"] = peer
         calls["refresh_state"] = state
-        return reels_mod.ReelsState(
-            thread_id="ts", last_seen_message_id="9", pending=_items()
-        )
+        return reels_mod.ReelsState(thread_id="ts", last_seen_message_id="9", pending=_items())
 
     monkeypatch.setattr(reels_mod, "refresh", fake_refresh)
     monkeypatch.setattr(

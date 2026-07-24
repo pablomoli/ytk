@@ -1,6 +1,4 @@
-import json
 from pathlib import Path
-import pytest
 
 from ytk.cache import file_hash, load_index_cache, save_index_cache, update_cache_entry
 
@@ -32,6 +30,7 @@ def test_file_hash_changes_on_body_change(tmp_path):
 def test_file_hash_no_frontmatter(tmp_path):
     """Files without frontmatter hash the full content."""
     import hashlib
+
     content = "just a plain note"
     f = tmp_path / "plain.md"
     _write(f, content)

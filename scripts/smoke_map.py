@@ -2,6 +2,7 @@
 uv run --with playwright python scripts/smoke_map.py [--base http://localhost:6969]
 Asserts, in both 3D and 2D: legend sorted by size, clicking a domain label
 focuses that domain (not a neighbor), drill-down and pop, intro gating."""
+
 import argparse
 import sys
 
@@ -62,10 +63,16 @@ def main():
         page = browser.new_page(viewport={"width": 1600, "height": 1000})
         page.goto(f"{args.base}/map")
         page.wait_for_selector("canvas")
-        assert page.eval_on_selector("canvas", "e => e.dataset.intro") == "1", "intro should run on hard load"
-        page.click("text=inbox"); page.wait_for_timeout(300); page.click("text=map")
+        assert page.eval_on_selector("canvas", "e => e.dataset.intro") == "1", (
+            "intro should run on hard load"
+        )
+        page.click("text=inbox")
+        page.wait_for_timeout(300)
+        page.click("text=map")
         page.wait_for_selector("canvas")
-        assert page.eval_on_selector("canvas", "e => e.dataset.intro") is None, "intro must not replay on SPA navigation"
+        assert page.eval_on_selector("canvas", "e => e.dataset.intro") is None, (
+            "intro must not replay on SPA navigation"
+        )
         run(page, args.base, "", "3d")
         run(page, args.base, "#2d", "2d")
         browser.close()

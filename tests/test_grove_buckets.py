@@ -75,9 +75,7 @@ def test_first_bucket_wins(tmp_path):
     """A note matching several buckets goes to the earliest one — bucket
     order in the YAML is the user's priority order."""
     cfg = _load(tmp_path)
-    notes = [
-        Note(cat="youtube", project="epicmap", theme="AI-augmented building", path="")
-    ]
+    notes = [Note(cat="youtube", project="epicmap", theme="AI-augmented building", path="")]
     assert assign(notes, cfg) == [0]
 
 
@@ -103,7 +101,5 @@ def test_project_worktree_variant_folds_into_base(tmp_path):
     """epicmap-claude-worktrees-fix is epicmap work; slug variants fold into
     the declared bucket project (mapdomains.normalize_slug semantics)."""
     cfg = _load(tmp_path)
-    notes = [
-        Note(cat="memory", project="epicmap-claude-worktrees-fix", theme=None, path="")
-    ]
+    notes = [Note(cat="memory", project="epicmap-claude-worktrees-fix", theme=None, path="")]
     assert assign(notes, cfg) == [0]

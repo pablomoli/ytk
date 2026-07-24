@@ -26,13 +26,13 @@ import argparse
 import re
 import sys
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ytk.signals import _YT_ID_RE  # noqa: E402
-from ytk.vault import _get_brain_path  # noqa: E402
+from ytk.signals import _YT_ID_RE
+from ytk.vault import _get_brain_path
 
 DIGEST_TOLERANCE_DAYS = 2
 
@@ -44,9 +44,9 @@ def iter_source_notes(brain: Path) -> list[Path]:
     """Vault source notes, mirroring ytk.signals.signal_map's filters."""
     sources = brain / "sources"
     return [
-        md for md in sorted(sources.glob("**/*.md"))
-        if md.parent.name not in ("thumbnails", "channels")
-        and "frames" not in md.parts
+        md
+        for md in sorted(sources.glob("**/*.md"))
+        if md.parent.name not in ("thumbnails", "channels") and "frames" not in md.parts
     ]
 
 
@@ -79,10 +79,10 @@ def note_store_keys(note: Path) -> list[str]:
 
 def capture_time(note: Path, digests: dict[str, str]) -> tuple[str, str | None]:
     """(UTC ISO capture time, anomaly description or None) for one note."""
-    birth = datetime.fromtimestamp(note.stat().st_birthtime, tz=timezone.utc)
+    birth = datetime.fromtimestamp(note.stat().st_birthtime, tz=UTC)
     digest_day = digests.get(note.stem)
     if digest_day:
-        digest_date = datetime.fromisoformat(digest_day).replace(tzinfo=timezone.utc)
+        digest_date = datetime.fromisoformat(digest_day).replace(tzinfo=UTC)
         if abs(birth - digest_date) > timedelta(days=DIGEST_TOLERANCE_DAYS):
             return (
                 digest_date.isoformat(timespec="seconds"),
@@ -105,9 +105,7 @@ def digest_stamps(notes: list[Path], digests: dict[str, str]) -> dict[str, str]:
     for note in notes:
         digest_day = digests.get(note.stem)
         if digest_day:
-            stamp = datetime.fromisoformat(digest_day).replace(
-                tzinfo=timezone.utc
-            )
+            stamp = datetime.fromisoformat(digest_day).replace(tzinfo=UTC)
             out[str(note)] = stamp.isoformat(timespec="seconds")
     return out
 
@@ -132,9 +130,7 @@ def stamp_collection(
         base = item_id.split("#", 1)[0]
         source_path = (meta or {}).get("source_path", "")
         existing = (meta or {}).get("ingested_at", "")
-        correction = (
-            overwrite.get(source_path) if base.startswith("note_sources_") else None
-        )
+        correction = overwrite.get(source_path) if base.startswith("note_sources_") else None
         if correction and existing != correction:
             ids.append(item_id)
             metas.append({**(meta or {}), "ingested_at": correction})
@@ -156,8 +152,9 @@ def stamp_collection(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--dry-run", action="store_true",
-                        help="print the audit report without writing")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="print the audit report without writing"
+    )
     args = parser.parse_args()
 
     brain = _get_brain_path()
@@ -175,8 +172,10 @@ def main() -> int:
         if anomaly:
             anomalies.append((note, anomaly))
 
-    print(f"{len(notes)} source notes, {len(digests)} digest-dated stems, "
-          f"{len(anomalies)} birthtime/digest disagreements")
+    print(
+        f"{len(notes)} source notes, {len(digests)} digest-dated stems, "
+        f"{len(anomalies)} birthtime/digest disagreements"
+    )
     months = Counter(s[:7] for s in note_stamps)
     for month in sorted(months):
         print(f"  {month}  {months[month]:>4}")
@@ -189,23 +188,26 @@ def main() -> int:
 
     overwrite = digest_stamps(notes, digests)
     total_written = total_over = total_kept = 0
-    for name, col in (("videos", _videos_collection()),
-                      ("memories", _memories_collection())):
-        written, overwritten, kept = stamp_collection(
-            col, stamps, overwrite, args.dry_run
-        )
+    for name, col in (("videos", _videos_collection()), ("memories", _memories_collection())):
+        written, overwritten, kept = stamp_collection(col, stamps, overwrite, args.dry_run)
         total_written += written
         total_over += overwritten
         total_kept += kept
         verb = "would stamp" if args.dry_run else "stamped"
-        print(f"\n{name}: {verb} {written}, corrected {overwritten} "
-              f"reindex-era stamps, kept {kept} existing stamps")
+        print(
+            f"\n{name}: {verb} {written}, corrected {overwritten} "
+            f"reindex-era stamps, kept {kept} existing stamps"
+        )
 
-    print(f"\n{'DRY RUN — nothing written' if args.dry_run else 'DONE'}: "
-          f"{total_written} stamped, {total_over} corrected, {total_kept} untouched")
-    print("confound: note_sources_* records with no digest evidence keep their "
-          "reindex-era stamp (wrong by days for the DM-backlog cohort); "
-          "same-day batch dampening bounds their influence")
+    print(
+        f"\n{'DRY RUN — nothing written' if args.dry_run else 'DONE'}: "
+        f"{total_written} stamped, {total_over} corrected, {total_kept} untouched"
+    )
+    print(
+        "confound: note_sources_* records with no digest evidence keep their "
+        "reindex-era stamp (wrong by days for the DM-backlog cohort); "
+        "same-day batch dampening bounds their influence"
+    )
     return 0
 
 

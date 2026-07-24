@@ -4,23 +4,29 @@ import pytest
 from ytk.config import InterestConfig
 from ytk.profile_grounding import check_profile_grounding_text
 from ytk.synthesis import (
-    PortraitClaimOutput, ProfileGroundingError, ProfileSynthesis, ThemeLabel,
+    PortraitClaimOutput,
+    ProfileGroundingError,
+    ProfileSynthesis,
+    ThemeLabel,
+    _slug,
     assemble_snapshot,
-    build_synthesis_prompt, render_profile, _slug,
-    choose_k, cluster_embeddings,
+    build_synthesis_prompt,
+    choose_k,
+    cluster_embeddings,
+    render_profile,
 )
 
 
 def test_choose_k_clamps_small_corpus():
     cfg = InterestConfig()
-    assert choose_k(2, cfg) == 2          # n <= cluster_min -> n
-    assert choose_k(0, cfg) == 1          # never zero
+    assert choose_k(2, cfg) == 2  # n <= cluster_min -> n
+    assert choose_k(0, cfg) == 1  # never zero
 
 
 def test_choose_k_scales_and_caps():
     cfg = InterestConfig(cluster_min=3, cluster_max=24)
-    assert choose_k(50, cfg) == 5         # round(sqrt(50/2)) = 5
-    assert choose_k(100000, cfg) == 24    # capped at cluster_max
+    assert choose_k(50, cfg) == 5  # round(sqrt(50/2)) = 5
+    assert choose_k(100000, cfg) == 24  # capped at cluster_max
 
 
 def test_cluster_embeddings_separates_two_blobs():
@@ -31,9 +37,9 @@ def test_cluster_embeddings_separates_two_blobs():
     labels = cluster_embeddings(embeddings, k=2)
 
     assert len(labels) == 10
-    assert len(set(labels[:5])) == 1      # first blob is one cluster
-    assert len(set(labels[5:])) == 1      # second blob is one cluster
-    assert labels[0] != labels[5]         # the two blobs differ
+    assert len(set(labels[:5])) == 1  # first blob is one cluster
+    assert len(set(labels[5:])) == 1  # second blob is one cluster
+    assert labels[0] != labels[5]  # the two blobs differ
 
 
 def test_clustering_keeps_k_regardless_of_timestamp_coverage():
@@ -53,31 +59,48 @@ def test_clustering_keeps_k_regardless_of_timestamp_coverage():
 
 def _notes():
     return [
-        {"id": "a", "title": "Shader Tricks", "thesis": "GPU shader demo.",
-         "summary": "s", "tags": ["gpu"], "embedding": [0.0],
-         "captured_at": "2026-06-01T00:00:00+00:00"},
-        {"id": "b", "title": "WGSL Intro", "thesis": "WGSL basics.",
-         "summary": "s", "tags": ["gpu"], "embedding": [0.0],
-         "captured_at": "2026-05-31T00:00:00+00:00"},
-        {"id": "c", "title": "Cold Brew", "thesis": "Coffee method.",
-         "summary": "s", "tags": ["coffee"], "embedding": [1.0],
-         "captured_at": "2026-05-30T00:00:00+00:00"},
+        {
+            "id": "a",
+            "title": "Shader Tricks",
+            "thesis": "GPU shader demo.",
+            "summary": "s",
+            "tags": ["gpu"],
+            "embedding": [0.0],
+            "captured_at": "2026-06-01T00:00:00+00:00",
+        },
+        {
+            "id": "b",
+            "title": "WGSL Intro",
+            "thesis": "WGSL basics.",
+            "summary": "s",
+            "tags": ["gpu"],
+            "embedding": [0.0],
+            "captured_at": "2026-05-31T00:00:00+00:00",
+        },
+        {
+            "id": "c",
+            "title": "Cold Brew",
+            "thesis": "Coffee method.",
+            "summary": "s",
+            "tags": ["coffee"],
+            "embedding": [1.0],
+            "captured_at": "2026-05-30T00:00:00+00:00",
+        },
     ]
 
 
-def _synthesis(gpu_label="GPU Graphics", gpu_summary="gpu stuff",
-               claim_evidence=("a", "c")):
+def _synthesis(gpu_label="GPU Graphics", gpu_summary="gpu stuff", claim_evidence=("a", "c")):
     return ProfileSynthesis(
         themes=[
-            ThemeLabel(cluster_index=0, label=gpu_label, summary=gpu_summary,
-                       evidence_ids=["a"]),
-            ThemeLabel(cluster_index=1, label="Coffee", summary="coffee stuff",
-                       evidence_ids=["c"]),
+            ThemeLabel(cluster_index=0, label=gpu_label, summary=gpu_summary, evidence_ids=["a"]),
+            ThemeLabel(cluster_index=1, label="Coffee", summary="coffee stuff", evidence_ids=["c"]),
         ],
-        claims=[PortraitClaimOutput(
-            text="You keep returning to GPU techniques and coffee methods.",
-            evidence_ids=list(claim_evidence),
-        )],
+        claims=[
+            PortraitClaimOutput(
+                text="You keep returning to GPU techniques and coffee methods.",
+                evidence_ids=list(claim_evidence),
+            )
+        ],
     )
 
 
@@ -97,9 +120,17 @@ def test_build_synthesis_prompt_rejects_mismatched_signal_levels():
 
 
 def test_build_synthesis_prompt_handles_empty_title():
-    notes = [{"id": "m", "title": "", "thesis": "A boxing footwork drill.",
-              "summary": "", "tags": ["boxing"], "embedding": [0.0],
-              "captured_at": "2026-06-01T00:00:00+00:00"}]
+    notes = [
+        {
+            "id": "m",
+            "title": "",
+            "thesis": "A boxing footwork drill.",
+            "summary": "",
+            "tags": ["boxing"],
+            "embedding": [0.0],
+            "captured_at": "2026-06-01T00:00:00+00:00",
+        }
+    ]
     prompt = build_synthesis_prompt(notes, [0])
     assert "[m] A boxing footwork drill." in prompt
     assert "  -  — " not in prompt
@@ -113,18 +144,17 @@ def test_assemble_snapshot_maps_clusters_to_themes():
     gpu = next(t for t in snap.themes if t.label == "GPU Graphics")
     assert gpu.note_ids == ["a", "b"]
     assert gpu.weight == round(2 / 3, 4)
-    assert snap.themes[0].label == "GPU Graphics"   # sorted by weight desc
-    assert snap.profile_markdown == (
-        "You keep returning to GPU techniques and coffee methods."
-    )
+    assert snap.themes[0].label == "GPU Graphics"  # sorted by weight desc
+    assert snap.profile_markdown == ("You keep returning to GPU techniques and coffee methods.")
     assert snap.portrait_claims[0].evidence_ids == ["a", "c"]
-    assert gpu.fresh_note_count == 2                # all captures within half-life
+    assert gpu.fresh_note_count == 2  # all captures within half-life
     assert set(snap.evidence_signals) == {"a", "c"}
 
 
 def test_render_profile_has_frontmatter_and_xml_themes():
     snap = assemble_snapshot(
-        _notes(), [0, 0, 1],
+        _notes(),
+        [0, 0, 1],
         _synthesis(gpu_summary="gpu"),
         "2026-06-02T00:00:00+00:00",
     )
@@ -143,7 +173,8 @@ def test_render_profile_has_frontmatter_and_xml_themes():
 
 def test_render_profile_escapes_xml_special_chars():
     snap = assemble_snapshot(
-        _notes(), [0, 0, 1],
+        _notes(),
+        [0, 0, 1],
         _synthesis(gpu_label="GPU & Shaders", gpu_summary="a < b"),
         "2026-06-02T00:00:00+00:00",
     )
@@ -157,15 +188,15 @@ def test_grounding_rejects_wrong_cluster_and_stale_only_claim_evidence():
     wrong = _synthesis()
     wrong.themes[0].evidence_ids = ["c"]
     with pytest.raises(ProfileGroundingError, match="outside its allowed set"):
-        assemble_snapshot(
-            _notes(), [0, 0, 1], wrong, "2026-06-02T00:00:00+00:00"
-        )
+        assemble_snapshot(_notes(), [0, 0, 1], wrong, "2026-06-02T00:00:00+00:00")
 
     stale = _notes()
     stale[2]["captured_at"] = "2025-01-01T00:00:00+00:00"
     with pytest.raises(ProfileGroundingError, match="decay half-life"):
         assemble_snapshot(
-            stale, [0, 0, 1], _synthesis(claim_evidence=("c",)),
+            stale,
+            [0, 0, 1],
+            _synthesis(claim_evidence=("c",)),
             "2026-06-02T00:00:00+00:00",
         )
 
@@ -209,7 +240,7 @@ def test_prompt_lists_clusters_newest_first_and_carries_previous_portrait():
     assert prompt.index("[a]") < prompt.index("[b]")  # newest capture first
     assert "Previous portrait (evolve, do not rewrite):" in prompt
     assert "You are an engineer-maker." in prompt
-    assert "[a]" not in prompt[prompt.index("Previous portrait"):]
+    assert "[a]" not in prompt[prompt.index("Previous portrait") :]
 
     without = build_synthesis_prompt(notes, [0, 0, 1])
     assert "Previous portrait" not in without
@@ -219,43 +250,48 @@ def test_exemplars_are_nearest_centroid_not_insertion_order():
     """Insertion order used to make every theme showcase the oldest videos;
     exemplars must instead be the members closest to the theme centroid."""
     notes = [
-        {"id": f"n{i}", "title": f"t{i}", "thesis": "x", "summary": "s",
-         "tags": [], "embedding": None,
-         "captured_at": "2026-06-01T00:00:00+00:00"}
+        {
+            "id": f"n{i}",
+            "title": f"t{i}",
+            "thesis": "x",
+            "summary": "s",
+            "tags": [],
+            "embedding": None,
+            "captured_at": "2026-06-01T00:00:00+00:00",
+        }
         for i in range(4)
     ]
     # n0 is an outlier; n1-n3 sit together, so the centroid favors them.
     emb = np.asarray([[0.0, 1.0], [1.0, 0.0], [1.0, 0.05], [1.0, -0.05]])
     synth = ProfileSynthesis(
-        themes=[ThemeLabel(cluster_index=0, label="A", summary="a",
-                           evidence_ids=["n0"])],
-        claims=[PortraitClaimOutput(text="You return to A.",
-                                    evidence_ids=["n1"])],
+        themes=[ThemeLabel(cluster_index=0, label="A", summary="a", evidence_ids=["n0"])],
+        claims=[PortraitClaimOutput(text="You return to A.", evidence_ids=["n1"])],
     )
     snap = assemble_snapshot(
-        notes, [0, 0, 0, 0], synth, "2026-06-02T00:00:00+00:00",
-        embeddings=emb, weights=[1.0] * 4, levels=[0] * 4,
+        notes,
+        [0, 0, 0, 0],
+        synth,
+        "2026-06-02T00:00:00+00:00",
+        embeddings=emb,
+        weights=[1.0] * 4,
+        levels=[0] * 4,
     )
     assert "t0" not in snap.themes[0].exemplar_titles
     assert len(snap.themes[0].exemplar_titles) == 3
 
 
 def test_rendered_profile_passes_standalone_grounding_checker():
-    snap = assemble_snapshot(
-        _notes(), [0, 0, 1], _synthesis(), "2026-06-02T00:00:00+00:00"
-    )
+    snap = assemble_snapshot(_notes(), [0, 0, 1], _synthesis(), "2026-06-02T00:00:00+00:00")
     assert check_profile_grounding_text(render_profile(snap)) == []
 
-    broken = render_profile(snap).replace(' evidence="a c"', '', 1)
+    broken = render_profile(snap).replace(' evidence="a c"', "", 1)
     assert any("no evidence refs" in e for e in check_profile_grounding_text(broken))
 
 
 def test_checker_allows_stale_theme_summary_but_enforces_claim_freshness():
     notes = _notes()
     notes[2]["captured_at"] = ""  # Coffee's only evidence has no capture time
-    snap = assemble_snapshot(
-        notes, [0, 0, 1], _synthesis(), "2026-06-02T00:00:00+00:00"
-    )
+    snap = assemble_snapshot(notes, [0, 0, 1], _synthesis(), "2026-06-02T00:00:00+00:00")
     out = render_profile(snap)
     assert check_profile_grounding_text(out) == []  # category survives
 

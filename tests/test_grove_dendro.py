@@ -64,8 +64,13 @@ def test_attach_new_notes_goes_to_nearest_node_and_grows_mass():
     a = rng.normal(0, 1, (4, 8)) + np.array([10] + [0] * 7)
     b = rng.normal(0, 1, (4, 8)) + np.array([0] * 7 + [10])
     nodes = [
-        {"id": 0, "parent": -1, "mass": 8, "persistence": 1.0,
-         "centroid": ((a.mean(0) + b.mean(0)) / 2).tolist()},
+        {
+            "id": 0,
+            "parent": -1,
+            "mass": 8,
+            "persistence": 1.0,
+            "centroid": ((a.mean(0) + b.mean(0)) / 2).tolist(),
+        },
         {"id": 1, "parent": 0, "mass": 4, "persistence": 1.0, "centroid": a.mean(0).tolist()},
         {"id": 2, "parent": 0, "mass": 4, "persistence": 1.0, "centroid": b.mean(0).tolist()},
     ]
@@ -80,8 +85,7 @@ def test_attach_new_notes_goes_to_nearest_node_and_grows_mass():
 
 
 def test_attach_is_idempotent_for_known_notes():
-    nodes = [{"id": 0, "parent": -1, "mass": 3, "persistence": 1.0,
-              "centroid": [1.0, 0.0]}]
+    nodes = [{"id": 0, "parent": -1, "mass": 3, "persistence": 1.0, "centroid": [1.0, 0.0]}]
     members = {"known": 0}
     added = attach_new_notes(nodes, members, np.array([[1.0, 0.0]]), ["known"])
     assert added == 0
@@ -101,19 +105,22 @@ def test_anchor_nodes_keeps_ids_by_member_overlap():
 def test_palette_change_updates_snapshot_without_rebuilding_topology(tmp_path, monkeypatch):
     monkeypatch.setattr(dendro, "GROVE_DIR", tmp_path)
     original_nodes = [
-        {"id": 0, "parent": -1, "mass": 1, "persistence": 1.0,
-         "centroid": [1.0, 0.0]}
+        {"id": 0, "parent": -1, "mass": 1, "persistence": 1.0, "centroid": [1.0, 0.0]}
     ]
     path = tmp_path / "visual-craft.tree.json"
-    path.write_text(json.dumps({
-        "version": 1,
-        "bucket": "visual-craft",
-        "palette": "verdigris",
-        "embedding_model": dendro._TEXT_MODEL,
-        "n_notes": 1,
-        "nodes": original_nodes,
-        "members": {"note.md": 0},
-    }))
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "bucket": "visual-craft",
+                "palette": "verdigris",
+                "embedding_model": dendro._TEXT_MODEL,
+                "n_notes": 1,
+                "nodes": original_nodes,
+                "members": {"note.md": 0},
+            }
+        )
+    )
 
     dendro.build_bucket(
         "visual-craft",

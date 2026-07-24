@@ -32,8 +32,11 @@ TOP_N = 5
 
 def run(alphas: list[float]) -> list[dict]:
     cfg = load_config()
-    notes = [n for n in get_all_videos() + get_content_memories(cfg.interest.content_sources)
-             if n.get("embedding")]
+    notes = [
+        n
+        for n in get_all_videos() + get_content_memories(cfg.interest.content_sources)
+        if n.get("embedding")
+    ]
     emb = np.array([n["embedding"] for n in notes], dtype=float)
     emb /= np.linalg.norm(emb, axis=1, keepdims=True)
     levels = signals.signal_levels(notes)
@@ -53,8 +56,9 @@ def run(alphas: list[float]) -> list[dict]:
             train = [i for i in range(len(notes)) if i not in held]
             w = [1.0 + alpha * levels[i] for i in train]
             k = choose_k(len(train), cfg.interest) if multi else 1
-            labels = (cluster_embeddings(emb[train], k, sample_weight=w)
-                      if multi else [0] * len(train))
+            labels = (
+                cluster_embeddings(emb[train], k, sample_weight=w) if multi else [0] * len(train)
+            )
             cents = []
             for c in set(labels):
                 idx = [train[j] for j, l in enumerate(labels) if l == c]
@@ -74,8 +78,10 @@ def run(alphas: list[float]) -> list[dict]:
         for multi in (False, True):
             r = condition(alpha, multi)
             results.append({"alpha": alpha, "multi": multi, **r})
-            print(f"alpha={alpha:>5} {'multi ' if multi else 'single'}: "
-                  f"mean_pct={r['mean_pct']:.3f} top{TOP_N}={r[f'top{TOP_N}']:.2f}")
+            print(
+                f"alpha={alpha:>5} {'multi ' if multi else 'single'}: "
+                f"mean_pct={r['mean_pct']:.3f} top{TOP_N}={r[f'top{TOP_N}']:.2f}"
+            )
     return results
 
 

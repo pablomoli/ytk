@@ -45,6 +45,7 @@ def test_decode_empty_or_garbage():
 def _make_chatdb(path, rows, self_id="+1555"):
     """rows: list of (chat_identifier, apple_date, text, blob, is_from_me)."""
     import sqlite3
+
     con = sqlite3.connect(path)
     con.executescript(
         "CREATE TABLE message (ROWID INTEGER PRIMARY KEY, date INTEGER, text TEXT, "
@@ -57,8 +58,10 @@ def _make_chatdb(path, rows, self_id="+1555"):
         if chat_id not in chats:
             chats[chat_id] = len(chats) + 1
             con.execute("INSERT INTO chat VALUES (?, ?)", (chats[chat_id], chat_id))
-        con.execute("INSERT INTO message (ROWID, date, text, attributedBody, is_from_me) VALUES (?,?,?,?,?)",
-                    (i, date, text, blob, mine))
+        con.execute(
+            "INSERT INTO message (ROWID, date, text, attributedBody, is_from_me) VALUES (?,?,?,?,?)",
+            (i, date, text, blob, mine),
+        )
         con.execute("INSERT INTO chat_message_join VALUES (?, ?)", (chats[chat_id], i))
     con.commit()
     con.close()
@@ -66,19 +69,23 @@ def _make_chatdb(path, rows, self_id="+1555"):
 
 def test_read_recent_decodes_and_isolates_self_chat(tmp_path):
     from ytk.imessage import _APPLE_EPOCH
+
     now = datetime(2026, 4, 19, 20, 0, 0)
 
     def apple(mins_ago):
         return int((now - timedelta(minutes=mins_ago)).timestamp() - _APPLE_EPOCH) * 1_000_000_000
 
     db = tmp_path / "chat.db"
-    _make_chatdb(db, [
-        ("+1555", apple(30), "plain note", None, 1),          # text column
-        ("+1555", apple(20), None, _blob("blob note"), 1),    # decoded from blob
-        ("+1555", apple(10), None, _blob("￼"), 1),            # attachment-only -> skipped
-        ("+1999", apple(15), "someone else", None, 1),        # different chat -> excluded
-        ("+1555", apple(9999), "too old", None, 1),           # outside window -> excluded
-    ])
+    _make_chatdb(
+        db,
+        [
+            ("+1555", apple(30), "plain note", None, 1),  # text column
+            ("+1555", apple(20), None, _blob("blob note"), 1),  # decoded from blob
+            ("+1555", apple(10), None, _blob("￼"), 1),  # attachment-only -> skipped
+            ("+1999", apple(15), "someone else", None, 1),  # different chat -> excluded
+            ("+1555", apple(9999), "too old", None, 1),  # outside window -> excluded
+        ],
+    )
     thread = read_recent(days=3, now=now, self_id="+1555", db_path=db)
     assert [m.text for m in thread.messages] == ["plain note", "blob note"]
 

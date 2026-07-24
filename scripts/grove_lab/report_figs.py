@@ -57,17 +57,37 @@ def fig_census(cfg, meta, labels) -> None:
     left = np.zeros(len(names))
     for ci, cat in enumerate(CATS):
         widths = np.array([counts[i].get(cat, 0) for i in range(len(names))], float)
-        ax.barh(y, widths, left=left, height=0.62, color=SLOTS[ci], label=cat,
-                edgecolor=SURFACE, linewidth=1.5)
+        ax.barh(
+            y,
+            widths,
+            left=left,
+            height=0.62,
+            color=SLOTS[ci],
+            label=cat,
+            edgecolor=SURFACE,
+            linewidth=1.5,
+        )
         left += widths
     for i, total in enumerate(left):
-        ax.text(total + 14, y[i], f"{int(total):,}", va="center", fontsize=9,
-                color=INK, fontweight="bold")
+        ax.text(
+            total + 14,
+            y[i],
+            f"{int(total):,}",
+            va="center",
+            fontsize=9,
+            color=INK,
+            fontweight="bold",
+        )
     ax.set_yticks(y, names, color=INK, fontsize=9.5)
     ax.set_xlim(0, left.max() * 1.09)
     ax.xaxis.set_major_formatter(lambda v, _: f"{int(v):,}")
-    ax.set_title("Grove buckets: notes per topic by source category",
-                 loc="left", color=INK, fontsize=11, pad=14)
+    ax.set_title(
+        "Grove buckets: notes per topic by source category",
+        loc="left",
+        color=INK,
+        fontsize=11,
+        pad=14,
+    )
     ax.legend(loc="lower right", frameon=False, fontsize=8.5, labelcolor=INK2)
     fig.tight_layout()
     fig.savefig(OUT / "bucket-census.png", facecolor=SURFACE)
@@ -92,17 +112,36 @@ def fig_temporal(cfg, meta, labels) -> None:
         if dates:
             x = mdates.date2num([d.astype("datetime64[D]").astype(object) for d in dates])
             jitter = rng.uniform(-0.18, 0.18, len(x))
-            ax.plot(x, np.full(len(x), r) + jitter, ".", color=SLOTS[0],
-                    markersize=3.2, alpha=0.35, markeredgewidth=0)
+            ax.plot(
+                x,
+                np.full(len(x), r) + jitter,
+                ".",
+                color=SLOTS[0],
+                markersize=3.2,
+                alpha=0.35,
+                markeredgewidth=0,
+            )
         tag = f"{nm}  (n={n}" + (f", {undated} undated)" if undated else ")")
-        ax.text(0.005, (r + 0.38) / len(rows), tag, transform=ax.transAxes,
-                fontsize=8.5, color=INK, va="bottom")
+        ax.text(
+            0.005,
+            (r + 0.38) / len(rows),
+            tag,
+            transform=ax.transAxes,
+            fontsize=8.5,
+            color=INK,
+            va="bottom",
+        )
     ax.set_yticks([])
     ax.set_ylim(-0.6, len(rows) - 0.2)
     ax.xaxis.set_major_locator(mdates.AutoDateLocator())
     ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(mdates.AutoDateLocator()))
-    ax.set_title("When each topic's notes were written (one dot per dated note)",
-                 loc="left", color=INK, fontsize=11, pad=14)
+    ax.set_title(
+        "When each topic's notes were written (one dot per dated note)",
+        loc="left",
+        color=INK,
+        fontsize=11,
+        pad=14,
+    )
     fig.tight_layout()
     fig.savefig(OUT / "bucket-temporal.png", facecolor=SURFACE)
     plt.close(fig)
