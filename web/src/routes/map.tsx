@@ -41,6 +41,8 @@ function MapPage() {
   const [flat, setFlat] = useState(location.hash === '#2d')
   const [terrain, setTerrain] = useState(false)
   const [web, setWeb] = useState(false)
+  const [fog, setFog] = useState(false)
+  const [fogLevel, setFogLevel] = useState(0)
   const [signal, setSignal] = useState(false)
   const [recent, setRecent] = useState(false)
   const [pointHover, setPointHover] = useState<MapHover>()
@@ -84,6 +86,8 @@ function MapPage() {
   useEffect(() => { renderer.current?.setDimension(flat) }, [flat])
   useEffect(() => { renderer.current?.setTerrain(terrain) }, [terrain])
   useEffect(() => { renderer.current?.setWeb(web) }, [web])
+  useEffect(() => { renderer.current?.setFog(fog) }, [fog])
+  useEffect(() => { renderer.current?.setFogLevel(fogLevel) }, [fogLevel])
   useEffect(() => { renderer.current?.setFilters(signal, recent) }, [signal, recent])
   useEffect(() => { renderer.current?.setFocus(focus) }, [focus])
   useEffect(() => { renderer.current?.setHover(hover) }, [hover])
@@ -102,7 +106,7 @@ function MapPage() {
   const toggleHidden = (dom: number) => setHiddenDoms((current) => { const next = new Set(current); next.has(dom) ? next.delete(dom) : next.add(dom); return next })
   return (
     <div className="map-page">
-      <HubControls><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => resetView('all')}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => resetView('content')}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button>{map.data?.all.terrain || map.data?.content.terrain ? <button className={`fchip${terrain ? ' on' : ''}`} onClick={() => { setWeb(false); setTerrain((current) => !current) }}>terrain</button> : null}{map.data?.all.web || map.data?.content.web ? <button className={`fchip${web ? ' on' : ''}`} onClick={() => { if (!web) { setTerrain(false); setFlat(false) } setWeb((current) => !current) }}>web</button> : null}<span className="count">{map.data?.points.length ?? 0} notes</span></HubControls>
+      <HubControls><button className={`fchip${view === 'all' ? ' on' : ''}`} onClick={() => resetView('all')}>everything</button><button className={`fchip${view === 'content' ? ' on' : ''}`} onClick={() => resetView('content')}>content</button><button className={`fchip${signal ? ' on' : ''}`} onClick={() => setSignal((current) => !current)}>signal</button><button className={`fchip${recent ? ' on' : ''}`} onClick={() => setRecent((current) => !current)}>recent</button><button className="fchip" onClick={() => setFlat((current) => !current)}>{flat ? '3d' : '2d'}</button>{map.data?.all.terrain || map.data?.content.terrain ? <button className={`fchip${terrain ? ' on' : ''}`} onClick={() => { setWeb(false); setTerrain((current) => !current) }}>terrain</button> : null}{map.data?.all.web || map.data?.content.web ? <button className={`fchip${web ? ' on' : ''}`} onClick={() => { if (!web) { setTerrain(false); setFlat(false) } setWeb((current) => !current) }}>web</button> : null}{map.data?.all.fog || map.data?.content.fog ? <button className={`fchip${fog ? ' on' : ''}`} onClick={() => { if (!fog) { setTerrain(false); setFlat(false) } setFog((current) => !current) }}>fog</button> : null}{fog ? <input className="fog-level" type="range" min={0} max={0.9} step={0.01} value={fogLevel} onChange={(event) => setFogLevel(Number(event.target.value))} title="density threshold: slide up to shrink the fog to its cores" /> : null}<span className="count">{map.data?.points.length ?? 0} notes</span></HubControls>
       <div className="map-stage" aria-label="Knowledge map renderer"><canvas ref={canvas} /><svg ref={leaders} className="map-leaders" /><div ref={labels} className="map-labels" />
         <aside className={`map-legend${legendOpen ? '' : ' collapsed'}`}><button className="map-legend-toggle" onClick={() => setLegendOpen((open) => !open)} aria-label={legendOpen ? 'Collapse cluster legend' : 'Expand cluster legend'}>{legendOpen ? '›' : '‹'}</button>{legendOpen ? <>{rows.map((row) => (
           <div key={row.dom}>

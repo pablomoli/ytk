@@ -13,7 +13,10 @@ export type MapTerrain = { h: number; levels: number[]; fracs?: number[]; contou
 // vertex is [x, y, z, label] where label is a domain (all view) or theme
 // (content view) index, -1 for unlabeled.
 export type MapWeb = { h: number; filaments: number[][][] }
-export type MapLayout = { groups: MapGroup[]; params: Record<string, number>; terrain?: MapTerrain; web?: MapWeb }
+// Monte-Carlo fog: splat samples of the 3D density field, [x, y, z, density]
+// with density normalized to the peak over the data (issue #100).
+export type MapFog = { h: number; splats: number[][] }
+export type MapLayout = { groups: MapGroup[]; params: Record<string, number>; terrain?: MapTerrain; web?: MapWeb; fog?: MapFog }
 export type MapAllLayout = MapLayout & { domains: MapDomain[] }
 export type MapData = { v?: number; points: MapPoint[]; all: MapAllLayout; content: MapLayout }
 

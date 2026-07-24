@@ -182,6 +182,13 @@ body {
   font-size: 0.82rem;
 }
 
+.fog-level {
+  width: 110px;
+  accent-color: #e2b04a;
+  cursor: pointer;
+  align-self: center;
+}
+
 .fchip.on {
   background: #e2b04a;
   border-color: #e2b04a;
