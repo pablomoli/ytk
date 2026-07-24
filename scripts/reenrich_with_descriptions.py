@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run python
-"""Re-enrich already-ingested videos now that enrichment reads the description (#106).
+"""Re-enrich already-ingested videos now that enrichment reads the description (#105).
 
 Phase 2 of the description backfill. `scripts/backfill_descriptions.py` stores the
 raw description; this script is how its *meaning* reaches the vector space.

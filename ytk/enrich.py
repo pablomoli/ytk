@@ -225,7 +225,7 @@ DESCRIPTION_PROMPT_LIMIT = 6000
 
 
 def _description_block(description: str) -> str:
-    """The uploader's description, as prompt input (issue #106).
+    """The uploader's description, as prompt input (issue #105).
 
     This is the only route by which a description's meaning reaches the vector
     space: the embedded document is thesis + summary, so whatever the model
