@@ -237,7 +237,15 @@ function InboxPage() {
         <SourceFilter value={source} onChange={handleSourceChange} />
         <span className="count">
           <CountUp value={items.length} />
-          {q.data && q.data.length !== items.length ? <> of <CountUp value={q.data.length} /></> : ""} pending
+          {q.data && q.data.length !== items.length ? (
+            <>
+              {" "}
+              of <CountUp value={q.data.length} />
+            </>
+          ) : (
+            ""
+          )}{" "}
+          pending
         </span>
       </HubControls>
       <div className="hub-body hub-row">
@@ -305,7 +313,9 @@ function InboxPage() {
               </button>
             </div>
           ) : null}
-          <div className={`profile-rank-status${profileRank.data?.state === "running" ? " running" : ""}`}>
+          <div
+            className={`profile-rank-status${profileRank.data?.state === "running" ? " running" : ""}`}
+          >
             {profileRank.data?.state === "running" ? (
               <span>scoring the full inbox · this can take a minute or two</span>
             ) : profileRank.data?.picks.length ? (
@@ -364,7 +374,8 @@ function InboxPage() {
                 />
                 <span>
                   <ScrambleStatus text={job.data.running ? "running" : "done"} />
-                  {" · "}{job.data.done}/{job.data.total}
+                  {" · "}
+                  {job.data.done}/{job.data.total}
                   {job.data.running && elapsed ? ` · ${elapsed}` : ""}
                 </span>
               </span>
@@ -377,9 +388,7 @@ function InboxPage() {
                 </>
               ) : null}
               {job.data.failures.length > 0 ? (
-                <span className="progress-failed">
-                  {job.data.failures.length} failed
-                </span>
+                <span className="progress-failed">{job.data.failures.length} failed</span>
               ) : null}
             </div>
           ) : null}
