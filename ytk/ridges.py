@@ -75,37 +75,49 @@ def kde_grid(pts: np.ndarray, h: float, gx: np.ndarray, gy: np.ndarray) -> np.nd
 
 
 def log_density_grad_hess(
-    pts: np.ndarray, h: float, x: np.ndarray
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    pts: np.ndarray, h, x: np.ndarray, return_scale: bool = False
+):
     """Density f, gradient and Hessian of log f, batched over query rows.
+    h may be a scalar or a per-data-point array (adaptive KDE).
 
-    With w_i = exp(-|x - x_i|^2 / 2h^2), W = sum w_i and
-    m = sum w_i (x_i - x) / W (the mean-shift vector):
+    With per-kernel normalization c_i = (2 pi h_i^2)^(-d/2), weights
+    w_i = c_i exp(-|d_i|^2 / 2h_i^2) (d_i = x_i - x), W = sum w_i and the
+    "pull weights" u_i = w_i / h_i^2, U = sum u_i:
 
-        grad log f = m / h^2
-        hess log f = (S - m m^T) / h^4 - I / h^2,  S = sum w_i d_i d_i^T / W
+        grad log f = sum u_i d_i / W
+        hess log f = sum (w_i/h_i^4) d_i d_i^T / W - (U/W) I
+                     - (grad log f)(grad log f)^T
 
-    where d_i = x_i - x. Verified against finite differences in tests.
+    Uniform h collapses these to the classic m/h^2 and (S - m m^T)/h^4
+    - I/h^2 forms. With return_scale the natural mean-shift step size
+    W/U (= h^2 when uniform; Comaniciu's variable-bandwidth step) is
+    returned as a fourth array. Verified against finite differences.
     """
     pts = np.asarray(pts, float)
     x = np.asarray(x, float)
     n, d = pts.shape
+    hs = np.broadcast_to(np.asarray(h, float), (n,))
+    inv_h2 = 1.0 / (hs * hs)
+    knorm = (2 * np.pi * hs * hs) ** (d / 2)
     f = np.empty(len(x))
     grad = np.empty((len(x), d))
     hess = np.empty((len(x), d, d))
+    scale = np.empty(len(x))
     eye = np.eye(d)
-    norm = n * (2 * np.pi * h * h) ** (d / 2)
     for s in range(0, len(x), _CHUNK):
         q = x[s : s + _CHUNK]
         diff = pts[None, :, :] - q[:, None, :]  # (m, n, d) = x_i - x
-        w = np.exp(-(diff**2).sum(-1) / (2 * h * h))  # (m, n)
+        w = np.exp(-(diff**2).sum(-1) * inv_h2 / 2) / knorm  # (m, n)
         W = w.sum(1).clip(1e-300)
-        m = (w[:, :, None] * diff).sum(1) / W[:, None]
-        S = np.einsum("mn,mna,mnb->mab", w, diff, diff) / W[:, None, None]
-        f[s : s + _CHUNK] = W / norm
-        grad[s : s + _CHUNK] = m / h**2
-        hess[s : s + _CHUNK] = (S - m[:, :, None] * m[:, None, :]) / h**4 - eye / h**2
-    return f, grad, hess
+        u = w * inv_h2
+        U = u.sum(1).clip(1e-300)
+        g = (u[:, :, None] * diff).sum(1) / W[:, None]
+        V = np.einsum("mn,mna,mnb->mab", u * inv_h2, diff, diff) / W[:, None, None]
+        f[s : s + _CHUNK] = W / n
+        grad[s : s + _CHUNK] = g
+        hess[s : s + _CHUNK] = V - (U / W)[:, None, None] * eye - g[:, :, None] * g[:, None, :]
+        scale[s : s + _CHUNK] = W / U
+    return (f, grad, hess, scale) if return_scale else (f, grad, hess)
 
 
 def eigh2(mats: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -149,8 +161,9 @@ def scms(
     on a crest. Returns the deduplicated converged ridge points."""
     pts = np.asarray(pts, float)
     x = np.array(seeds, float, copy=True)
-    lo = pts.min(0) - 3 * h
-    hi = pts.max(0) + 3 * h
+    href = float(np.max(np.broadcast_to(np.asarray(h, float), (len(pts),))))
+    lo = pts.min(0) - 3 * href
+    hi = pts.max(0) + 3 * href
     floor = floor_frac * kde(pts, h, pts).max()
     keep = np.ones(len(x), bool)
     active = np.ones(len(x), bool)
@@ -158,10 +171,10 @@ def scms(
         idx = np.flatnonzero(active)
         if not len(idx):
             break
-        f, grad, hess = log_density_grad_hess(pts, h, x[idx])
+        f, grad, hess, scale = log_density_grad_hess(pts, h, x[idx], return_scale=True)
         _, vecs = eigh2(hess)
         v2 = vecs[:, :, 0]
-        ms = grad * h * h  # mean-shift vector m(x) = h^2 grad log f
+        ms = grad * scale[:, None]  # natural mean-shift step (h^2 when uniform)
         step = (ms * v2).sum(1, keepdims=True) * v2
         x[idx] = np.clip(x[idx] + step, lo, hi)
         low = f < floor
@@ -436,8 +449,9 @@ def scms3(
     negative and density above the floor."""
     pts = np.asarray(pts, float)
     x = np.array(seeds, float, copy=True)
-    lo = pts.min(0) - 3 * h
-    hi = pts.max(0) + 3 * h
+    href = float(np.max(np.broadcast_to(np.asarray(h, float), (len(pts),))))
+    lo = pts.min(0) - 3 * href
+    hi = pts.max(0) + 3 * href
     floor = floor_frac * kde(pts, h, pts).max()
     keep = np.ones(len(x), bool)
     active = np.ones(len(x), bool)
@@ -445,9 +459,9 @@ def scms3(
         idx = np.flatnonzero(active)
         if not len(idx):
             break
-        f, grad, hess = log_density_grad_hess(pts, h, x[idx])
+        f, grad, hess, scale = log_density_grad_hess(pts, h, x[idx], return_scale=True)
         _, v1 = eigh3(hess)
-        ms = grad * h * h
+        ms = grad * scale[:, None]  # natural mean-shift step (h^2 when uniform)
         step = ms - (ms * v1).sum(1, keepdims=True) * v1
         x[idx] = np.clip(x[idx] + step, lo, hi)
         low = f < floor
@@ -472,12 +486,17 @@ def scms3(
 
 
 def _majority_label(
-    pts: np.ndarray, h: float, verts: np.ndarray, labels: np.ndarray, n_labels: int
+    pts: np.ndarray, h, verts: np.ndarray, labels: np.ndarray, n_labels: int
 ) -> np.ndarray:
     """Kernel-weighted vote: each filament vertex takes the label whose
-    points contribute the most fog at that spot. Unlabeled points (-1) vote
-    in their own bucket; a vertex they win stays -1."""
+    points contribute the most fog at that spot (same adaptive weights as
+    the density). Unlabeled points (-1) vote in their own bucket; a vertex
+    they win stays -1."""
+    pts = np.asarray(pts, float)
     labels = np.asarray(labels)
+    hs = np.broadcast_to(np.asarray(h, float), (len(pts),))
+    inv2h2 = 1.0 / (2 * hs * hs)
+    knorm = (2 * np.pi * hs * hs) ** (pts.shape[1] / 2)
     slot = np.where(labels >= 0, labels, n_labels)
     onehot = np.zeros((len(labels), n_labels + 1))
     onehot[np.arange(len(labels)), slot] = 1.0
@@ -485,7 +504,7 @@ def _majority_label(
     for s in range(0, len(verts), _CHUNK):
         q = verts[s : s + _CHUNK]
         d2 = ((q[:, None, :] - pts[None, :, :]) ** 2).sum(-1)
-        votes[s : s + _CHUNK] = np.exp(-d2 / (2 * h * h)) @ onehot
+        votes[s : s + _CHUNK] = (np.exp(-d2 * inv2h2) / knorm) @ onehot
     best = votes.argmax(1)
     return np.where(best == n_labels, -1, best)
 
@@ -529,7 +548,14 @@ def web(xyz: np.ndarray, labels: list, n_labels: int, max_seeds: int = 2500) -> 
     """Filament skeleton of a 3D embedding: SCMS curves through the point
     fog, seeded from the points themselves, each vertex tagged with the
     kernel-weighted majority label (domain or theme) of the notes holding it
-    up. Plain-JSON payload; vertices are [x, y, z, label]."""
+    up. Plain-JSON payload; vertices are [x, y, z, label].
+
+    Deliberately UNIFORM bandwidth, unlike the fog: measured 2026-07-24,
+    adaptive h_i (even mildly clamped) fragments the long connective
+    threads (longest chain 89 -> ~30) because sharper local density means
+    more textured crests. The web answers a connectivity question, which
+    wants more smoothing; the fog answers a local-thickness question,
+    which wants adaptivity. docs/assets/fog/04-*.png is the record."""
     pts = np.asarray(xyz, float)
     h = silverman_bandwidth(pts)
     seeds = pts

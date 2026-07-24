@@ -238,6 +238,61 @@ def test_kde_accepts_per_point_bandwidths():
     assert scalar == pytest.approx(uniform)  # scalar path unchanged
 
 
+def test_adaptive_grad_hess_match_finite_differences():
+    # The adaptive Hessian is the easiest place to silently drop a term:
+    # every kernel carries its own width AND normalization, so the clean
+    # m/h^2 identities pick up per-point weights. Finite differences are
+    # the referee, exactly as for the uniform case.
+    pts = _blob3(40, (0.1, 0.0, -0.2), 0.5, 24)
+    rng = np.random.default_rng(25)
+    hi = rng.uniform(0.2, 0.5, len(pts))
+    eps = 1e-5
+    queries = np.array([[0.0, 0.0, 0.0], [0.4, -0.2, 0.3], [-0.3, 0.5, -0.4]])
+    _, grad, hess = ridges.log_density_grad_hess(pts, hi, queries)
+
+    def logf(q):
+        return float(np.log(ridges.kde(pts, hi, q[None, :])[0]))
+
+    for k, q in enumerate(queries):
+        for a in range(3):
+            e = np.zeros(3)
+            e[a] = eps
+            fd = (logf(q + e) - logf(q - e)) / (2 * eps)
+            assert grad[k, a] == pytest.approx(fd, rel=1e-4, abs=1e-6)
+            for b in range(3):
+                e2 = np.zeros(3)
+                e2[b] = eps
+                fd2 = (
+                    logf(q + e + e2) - logf(q + e - e2)
+                    - logf(q - e + e2) + logf(q - e - e2)
+                ) / (4 * eps * eps)
+                assert hess[k, a, b] == pytest.approx(fd2, rel=1e-3, abs=1e-4)
+
+
+def test_adaptive_grad_hess_reduce_to_uniform():
+    pts = _blob3(50, (0, 0, 0), 0.4, 26)
+    x = np.array([[0.2, -0.1, 0.3], [0.5, 0.5, -0.5]])
+    f_s, g_s, h_s = ridges.log_density_grad_hess(pts, 0.3, x)
+    f_v, g_v, h_v = ridges.log_density_grad_hess(pts, np.full(len(pts), 0.3), x)
+    assert f_s == pytest.approx(f_v)
+    assert g_s == pytest.approx(g_v)
+    assert h_s == pytest.approx(h_v)
+
+
+def test_scms3_adaptive_finds_axis_filament():
+    # Density varies along the wire (points thin out toward +x) — the
+    # regime adaptive bandwidths exist for. The crest must still be found.
+    rng = np.random.default_rng(27)
+    xs = -1 + 2 * rng.power(2.0, 900)  # denser near +1, sparse near -1
+    pts = np.column_stack([xs, rng.normal(0, 0.08, 900), rng.normal(0, 0.08, 900)])
+    hi = ridges.knn_bandwidths(pts)
+    seeds = pts[::3]
+    out = ridges.scms3(pts, hi, seeds)
+    assert len(out) > 40
+    assert np.hypot(out[:, 1], out[:, 2]).max() < 3 * ridges.silverman_bandwidth(pts)
+    assert np.ptp(out[:, 0]) > 1.0
+
+
 def test_fog_payload_samples_where_density_is():
     xyz = np.vstack(
         [_blob3(300, (-0.5, 0.0, 0.0), 0.12, 17), _blob3(300, (0.5, 0.0, 0.0), 0.12, 18)]
