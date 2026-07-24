@@ -82,14 +82,29 @@ Two sessions ran in parallel this night; both feed the report.
   himself, by eye, before any analysis — the intuition the series is
   supposed to build, demonstrably building.
 
-**Graph-tidying session (parallel, flow-pulses worktree, in flight):**
-- `scripts/plot_assets.py` regenerates assets 01-08 with publication
-  layout: square panel cells (figure proportioned to the grid so
-  matplotlib stops matting the sides), cube box-aspect with zoom to eat
-  the default 3D margin dead space, per-figure zoom tuning (08 junctions),
-  text-clipping fixes (06). Final PNGs land on that branch; re-run
-  `plot_assets.py` + `plot_fog.py --shell` (09) after merge so the whole
-  set shares the layout system.
+**Graph-tidying session (parallel, flow-pulses worktree — shipped):**
+- `scripts/plot_assets.py` now regenerates **all nine** figures (09
+  included, so no separate `plot_fog.py --shell` pass is needed) from the
+  live map payload under one house style, replacing nine ad-hoc heredocs.
+  `--only N` for a single figure, `--refresh` to recompute the cached
+  historical geometry (`~/.ytk/fog-assets-cache.json`).
+- The dead space had a specific cause worth keeping for the report: every
+  panel hardcoded `(-1, 1)` limits while the embedding spans x -1.2..0.8,
+  y -0.8..0.7 — the data drew itself into a corner and matplotlib's
+  default 3D margin ate the rest. Fix: cube limits centred on the data
+  plus `set_box_aspect(zoom=)`. A *proportional* box aspect looks like the
+  obvious fix and is a trap — matplotlib shrinks the axes to satisfy it,
+  which mattes the sides and reintroduces the gap; the figure must instead
+  be proportioned so square cells fit.
+- Text clipping (06): titles wrapped, gutters widened, the colourbar moved
+  underneath the 3D panel where it had been colliding with the domain
+  names, and bar-axis headroom so the longest bar clears its frame.
+- Also: frames on every panel + figure, magma with chroma +35% and a gamma
+  lift (the fog's median density is 0.17, near-black on the raw ramp),
+  dpi 110 -> 200 (figures now 2300-3300px wide).
+- `trace_filaments` gained `dedupe=False` so figure 07's pre-trim skeleton
+  stays reproducible rather than being lost history — the forensic
+  comparison regenerates instead of depending on a vanished snapshot.
 
 ## Figure index
 
