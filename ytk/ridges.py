@@ -468,6 +468,32 @@ def _majority_label(
     return np.where(best == n_labels, -1, best)
 
 
+def fog(xyz: np.ndarray, n_samples: int = 6000, jitter: float = 1.6, seed: int = 7) -> dict:
+    """Monte-Carlo fog: soft samples of the 3D density field for direct
+    splat rendering.
+
+    Importance sampling instead of a lattice: each sample position is a
+    random data point jittered by jitter*h, so samples land where fog
+    exists and empty space costs nothing. Each splat carries the exact
+    density at its spot, normalized so the peak over the data is 1.0.
+    The seed is fixed: rebuilding the map must not reshuffle the cloud.
+    """
+    pts = np.asarray(xyz, float)
+    h = silverman_bandwidth(pts)
+    rng = np.random.default_rng(seed)
+    centers = pts[rng.integers(0, len(pts), n_samples)]
+    samples = centers + rng.normal(0, jitter * h, (n_samples, pts.shape[1]))
+    dens = kde(pts, h, samples) / kde(pts, h, pts).max()
+    keep = dens >= 0.01
+    return {
+        "h": round(h, 4),
+        "splats": [
+            [round(float(x), 3), round(float(y), 3), round(float(z), 3), round(float(min(v, 1.0)), 3)]
+            for (x, y, z), v in zip(samples[keep], dens[keep])
+        ],
+    }
+
+
 def web(xyz: np.ndarray, labels: list, n_labels: int, max_seeds: int = 2500) -> dict:
     """Filament skeleton of a 3D embedding: SCMS curves through the point
     fog, seeded from the points themselves, each vertex tagged with the

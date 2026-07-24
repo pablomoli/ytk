@@ -210,6 +210,35 @@ def test_web_payload_shape():
     json.dumps(t)
 
 
+def test_fog_payload_samples_where_density_is():
+    xyz = np.vstack(
+        [_blob3(300, (-0.5, 0.0, 0.0), 0.12, 17), _blob3(300, (0.5, 0.0, 0.0), 0.12, 18)]
+    )
+    t = ridges.fog(xyz, n_samples=2000)
+    assert set(t) == {"h", "splats"}
+    arr = np.asarray(t["splats"])
+    assert len(arr) > 500                       # importance sampling keeps most
+    assert arr.shape[1] == 4                    # x, y, z, normalized density
+    assert 0.0 < arr[:, 3].min() and arr[:, 3].max() <= 1.0
+    # splats concentrate around the two blobs, not in the gap or outside
+    near = np.minimum(
+        np.abs(arr[:, 0] - -0.5), np.abs(arr[:, 0] - 0.5)
+    )
+    assert np.median(near) < 0.3
+    dense = arr[arr[:, 3] > 0.5]
+    assert len(dense) > 50                      # cores are represented
+    import json
+
+    json.dumps(t)
+
+
+def test_fog_is_deterministic():
+    xyz = _blob3(200, (0, 0, 0), 0.3, 19)
+    a = ridges.fog(xyz, n_samples=500)
+    b = ridges.fog(xyz, n_samples=500)
+    assert a == b  # fixed seed: rebuilds must not reshuffle the cloud
+
+
 def test_terrain_payload_shape_and_bounds():
     rng = np.random.default_rng(8)
     xy = np.vstack(
