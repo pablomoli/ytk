@@ -214,6 +214,25 @@ def test_trace_filaments_walks_the_whole_wire():
     assert np.hypot(longest[:, 1], longest[:, 2]).max() < 3 * h
 
 
+def test_web_finds_the_junction_of_a_T():
+    # A trunk along x with a branch along +y from the origin: the web must
+    # report a junction near where they meet.
+    rng = np.random.default_rng(29)
+    trunk = np.column_stack(
+        [rng.uniform(-1, 1, 700), rng.normal(0, 0.07, 700), rng.normal(0, 0.07, 700)]
+    )
+    branch = np.column_stack(
+        [rng.normal(0, 0.07, 350), rng.uniform(0.05, 1.0, 350), rng.normal(0, 0.07, 350)]
+    )
+    pts = np.vstack([trunk, branch])
+    t = ridges.web(pts, [0] * 700 + [1] * 350, 2)
+    h = ridges.silverman_bandwidth(pts)
+    junctions = np.asarray(t["junctions"])
+    assert len(junctions) >= 1
+    d_origin = np.linalg.norm(junctions - np.array([0.0, 0.0, 0.0]), axis=1)
+    assert d_origin.min() < 4 * h  # a junction sits near the meeting point
+
+
 def test_web_payload_shape():
     # 150-point blobs and capped seeds: the sequential tracer pays Python
     # overhead per step, and the payload test only checks shape, not scale
@@ -223,7 +242,7 @@ def test_web_payload_shape():
     )
     labels = [0] * 150 + [1] * 150
     t = ridges.web(xyz, labels, 2, max_seeds=600)
-    assert set(t) == {"h", "filaments"}
+    assert set(t) == {"h", "filaments", "junctions"}
     for fil in t["filaments"]:
         arr = np.asarray(fil)
         assert len(arr) >= 6

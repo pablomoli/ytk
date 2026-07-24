@@ -677,8 +677,26 @@ def web(xyz: np.ndarray, labels: list, n_labels: int, max_seeds: int = 2500) -> 
         seeds = seeds[:: len(seeds) // max_seeds + 1]
     ridge_points = scms3(pts, h, seeds)
     top = kde(pts, h, pts).max()
+    strands = trace_filaments(pts, h, ridge_points)
+    # Junctions: a strand endpoint sitting on another strand's interior is,
+    # by construction of the trim-dedupe, the point where a branch was cut
+    # and re-extended to touch its trunk — the crossroads of the web.
+    join = 2.5 * 0.4 * h
+    raw_junctions = []
+    for i, strand in enumerate(strands):
+        others = [s for j, s in enumerate(strands) if j != i]
+        if not others:
+            break
+        cloud = np.vstack(others)
+        for end in (strand[0], strand[-1]):
+            if np.sqrt(((cloud - end) ** 2).sum(1).min()) <= join:
+                raw_junctions.append(end)
+    junctions: list[np.ndarray] = []
+    for p in raw_junctions:  # merge junction pairs found from both sides
+        if not junctions or (((np.asarray(junctions) - p) ** 2).sum(1) > join * join).all():
+            junctions.append(p)
     filaments = []
-    for strand in trace_filaments(pts, h, ridge_points):
+    for strand in strands:
         smoothed = _smooth(strand)
         labs = _majority_label(pts, h, smoothed, np.asarray(labels), n_labels)
         dens = np.minimum(kde(pts, h, smoothed) / top, 1.0)
@@ -688,4 +706,10 @@ def web(xyz: np.ndarray, labels: list, n_labels: int, max_seeds: int = 2500) -> 
                 for (x, y, z), lab, v in zip(smoothed, labs, dens)
             ]
         )
-    return {"h": round(h, 4), "filaments": filaments}
+    return {
+        "h": round(h, 4),
+        "filaments": filaments,
+        "junctions": [
+            [round(float(x), 3), round(float(y), 3), round(float(z), 3)] for x, y, z in junctions
+        ],
+    }
