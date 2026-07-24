@@ -464,6 +464,12 @@ def attach_terrain() -> None:
         data["content"]["web"] = ridges.web(
             c3, ths, len(data["content"]["groups"])
         )
+    # Monte-Carlo fog splats of the same 3D density field the web's
+    # filaments were traced through (issue #100, rungs 1-2).
+    print(f"fog: all view ({len(z3)} points)")
+    data["all"]["fog"] = ridges.fog(z3)
+    if cpts:
+        data["content"]["fog"] = ridges.fog(np.array([p["c3"] for p in cpts]), n_samples=2000)
     OUT.write_text(json.dumps(data))
     for view in ("all", "content"):
         t = data[view]["terrain"]
