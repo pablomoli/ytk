@@ -724,6 +724,11 @@ def upsert(meta: dict, enrichment: Enrichment, segments: list[dict]) -> None:
         "tags": ", ".join(enrichment.interest_tags),
         "thesis": enrichment.thesis,
         "summary": enrichment.summary,
+        # Stored, never embedded (decision 2026-07-24): metadata is not part of
+        # any document, so keeping the raw description here costs nothing at
+        # query time and spares every future consumer a re-fetch. Its semantics
+        # reach the vectors through enrichment, which now reads it.
+        "description": meta.get("description", "") or "",
     }
     vcol = _videos_collection()
     vcol.upsert(

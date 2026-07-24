@@ -111,6 +111,27 @@ def _build_transcript(video_id: str, segments: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
+def _build_description(description: str) -> str:
+    """The `## Description` section, or "" when the video has no description.
+
+    Kept verbatim — hashtags, chapter markers and links are exactly the signal
+    the transcript misses — and collapsed behind `<details>` because
+    descriptions are often longer than the note's readable part. Stored, never
+    embedded: the description reaches the vector space only through
+    enrichment (decision 2026-07-24, see scripts/backfill_descriptions.py).
+    """
+    text = (description or "").strip()
+    if not text:
+        return ""
+    return (
+        "## Description\n"
+        "<details>\n"
+        "<summary>Video description</summary>\n\n"
+        f"{text}\n"
+        "</details>\n\n"
+    )
+
+
 def _build_note(
     meta: dict,
     enrichment: Enrichment,
@@ -133,6 +154,7 @@ def _build_note(
         f"- **{km.timestamp}** — {km.description}" for km in enrichment.key_moments
     )
     transcript_body = _build_transcript(video_id, segments)
+    description_section = _build_description(meta.get("description", ""))
 
     frame_embeds = (
         "\n".join(f"![[{p.name}]]" for p in saved_frames) + "\n\n"
@@ -166,7 +188,7 @@ image_paths:{image_paths_yaml}
 ## Key Moments
 {moments}
 
-## Transcript
+{description_section}## Transcript
 <details>
 <summary>Raw transcript</summary>
 
