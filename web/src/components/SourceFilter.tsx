@@ -4,8 +4,10 @@ export function SourceFilter({
   value,
   onChange,
 }: {
+  // The property needs the explicit `| undefined` under
+  // exactOptionalPropertyTypes; the callback parameter does not.
   value?: string | undefined;
-  onChange: (s?: string | undefined) => void;
+  onChange: (s?: string) => void;
 }) {
   return (
     <span className="filters">

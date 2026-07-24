@@ -413,3 +413,49 @@ reformatting stalled at the same test (239 dots, identical position), and
 (`ytk/ridges.py`). It most likely passes on a machine with working network
 access and only hangs in a sandbox — but either way it is a missing stub,
 and a test that reaches the network is a test that can hang CI.
+
+### F7 — `test_per_source_cadence` is stale on master
+
+`tests/test_settings.py::test_per_source_cadence` fails:
+
+```
+At index 2 diff: 'reddit' != 'youtube'
+Left contains 2 more items, first extra item: 'tiktok'
+```
+
+The test asserts `skipped_sources == ["imessage", "pinterest", "youtube"]`,
+but the hub has six sources. It was never updated when `reddit` and `tiktok`
+were added.
+
+Not caused by this branch, and provable without running master:
+
+- `tests/test_settings.py` is **AST-identical** to the merge base.
+- `ytk/ui/hub.py` differs from the merge base only by
+  `from datetime import datetime, timezone` → `from datetime import datetime`
+  inside one `try:` body (`UP017`), and master's `hub.py` already contains
+  all six source names.
+
+So the expected list is simply out of date. Fixing it means asserting the
+current six-source behaviour — a test change, and one this pass left alone
+because it is not a formatting or typing concern.
+
+## Test results
+
+`uv run --extra dev pytest -q --ignore=tests/test_hub.py`
+
+```
+1 failed, 697 passed, 1 deselected in 44.97s
+```
+
+The single failure is F7, pre-existing. `tests/test_hub.py` is excluded
+because of F6 — two of its `refresh_sources` tests reach the network and
+hang indefinitely rather than failing, so the suite never terminates with
+that file included. Excluding it, the suite runs in 45 s.
+
+Note for anyone re-running this: a second agent was running a YouTube
+re-enrichment job on the same 16 GB machine during this sweep, and the
+Python suite loads the Qwen3 encoder plus torch/umap/sklearn. Two concurrent
+runs exhaust memory and macOS kills one. The 697-passed run above completed
+normally (exit 1 from the assertion, in 45 s) rather than being killed, so
+it is a real result — but a run that dies partway through on this machine is
+an environment symptom, not a test result.
