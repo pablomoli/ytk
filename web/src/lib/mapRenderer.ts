@@ -75,16 +75,17 @@ const RIDGE_COL: [number, number, number] = [.886, .69, .29] // hub gold
 // Filament web: topic-tinted curves living in the embedding-3D space itself
 // (the z3/c3 coordinates), so they render only as dim approaches volume and
 // share the exact camera transform of the points.
-const webVertex = `attribute vec3 pos; attribute vec3 col;
+const webVertex = `attribute vec3 pos; attribute vec3 col; attribute float den;
 uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi;
-varying vec3 c; varying float depthV;
+varying vec3 c; varying float depthV; varying float dn;
 void main(){ vec3 q=pos;
  float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi);
  q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y);
  float depth=1.35-q.z*.24; depthV=q.z;
- gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); c=col; }`
-const webFragment = `precision mediump float; uniform float master; varying vec3 c; varying float depthV;
-void main(){ float fog=smoothstep(-1.2,1.,depthV)*.35+.65; float al=master*fog;
+ gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); c=col; dn=den; }`
+const webFragment = `precision mediump float; uniform float master; varying vec3 c; varying float depthV; varying float dn;
+void main(){ float fog=smoothstep(-1.2,1.,depthV)*.35+.65;
+ float al=master*fog*(.25+.75*min(dn*1.6,1.));  // strands taper where fog thins
  gl_FragColor=vec4(c*al*1.35,al); }`
 // Monte-Carlo fog splats: big soft Gaussian sprites, opacity carrying the
 // sampled density. The level uniform is the threshold scrubber — splats
@@ -193,6 +194,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
   let webU: Record<'zoom' | 'pan' | 'theta' | 'phi' | 'master', WebGLUniformLocation | null> | undefined
   let webPos = 0
   let webCol = 0
+  let webDen = 0
   const webBuffers: Partial<Record<'all' | 'content', { buf: WebGLBuffer; count: number }>> = {}
   if (data.all.web || data.content.web) {
     webProgram = gl.createProgram()!
@@ -202,6 +204,7 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
     if (!gl.getProgramParameter(webProgram, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(webProgram) || 'web program link failed')
     webPos = gl.getAttribLocation(webProgram, 'pos')
     webCol = gl.getAttribLocation(webProgram, 'col')
+    webDen = gl.getAttribLocation(webProgram, 'den')
     webU = { zoom: gl.getUniformLocation(webProgram, 'zoom'), pan: gl.getUniformLocation(webProgram, 'pan'), theta: gl.getUniformLocation(webProgram, 'theta'), phi: gl.getUniformLocation(webProgram, 'phi'), master: gl.getUniformLocation(webProgram, 'master') }
     const build = (web: MapWeb | undefined, key: 'all' | 'content') => {
       if (!web) return
@@ -210,12 +213,12 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
       // borders.
       const colorOf = (label: number): [number, number, number] => label < 0 ? gray : key === 'all' ? rampColor(domainPos(data, label)) : rampColor(label / 7)
       const segments: number[] = []
-      for (const fil of web.filaments) for (let i = 0; i + 1 < fil.length; i++) { const a = fil[i]; const b = fil[i + 1]; segments.push(a[0], a[1], a[2], ...colorOf(a[3]), b[0], b[1], b[2], ...colorOf(b[3])) }
+      for (const fil of web.filaments) for (let i = 0; i + 1 < fil.length; i++) { const a = fil[i]; const b = fil[i + 1]; segments.push(a[0], a[1], a[2], ...colorOf(a[3]), a[4] ?? 1, b[0], b[1], b[2], ...colorOf(b[3]), b[4] ?? 1) }
       if (!segments.length) return
       const buf = gl.createBuffer()!
       gl.bindBuffer(gl.ARRAY_BUFFER, buf)
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(segments), gl.STATIC_DRAW)
-      webBuffers[key] = { buf, count: segments.length / 6 }
+      webBuffers[key] = { buf, count: segments.length / 7 }
     }
     build(data.all.web, 'all')
     build(data.content.web, 'content')
@@ -527,9 +530,10 @@ export function mountMapRenderer(canvas: HTMLCanvasElement, data: MapData, onHov
         const bufs = webBuffers[key]
         if (!bufs || weight <= .01) continue
         gl.bindBuffer(gl.ARRAY_BUFFER, bufs.buf)
-        gl.enableVertexAttribArray(webPos); gl.vertexAttribPointer(webPos, 3, gl.FLOAT, false, 24, 0)
-        gl.enableVertexAttribArray(webCol); gl.vertexAttribPointer(webCol, 3, gl.FLOAT, false, 24, 12)
-        gl.uniform1f(webU.master, webT * dimVal * weight * .8)
+        gl.enableVertexAttribArray(webPos); gl.vertexAttribPointer(webPos, 3, gl.FLOAT, false, 28, 0)
+        gl.enableVertexAttribArray(webCol); gl.vertexAttribPointer(webCol, 3, gl.FLOAT, false, 28, 12)
+        gl.enableVertexAttribArray(webDen); gl.vertexAttribPointer(webDen, 1, gl.FLOAT, false, 28, 24)
+        gl.uniform1f(webU.master, webT * dimVal * weight * .9)
         gl.drawArrays(gl.LINES, 0, bufs.count)
       }
       gl.useProgram(program)
