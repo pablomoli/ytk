@@ -4,8 +4,9 @@ Self-contained brief. Written 2026-07-24. Agent-agnostic.
 
 Long-running, IO-bound, safe to leave unattended — but it touches the
 embedding space, so the retrieval eval gate is a **hard** stop-or-go, not a
-formality. Read the "decision point" section before starting; the job has a
-branch in it that a human may need to settle.
+formality. The one design question this job could have raised is already
+settled (see "The decision, already made"); nothing here needs a human
+mid-flight.
 
 ## What is actually missing (verified, not assumed)
 
@@ -21,8 +22,8 @@ branch in it that a human may need to settle.
   `second-brain/sources/youtube/`.
 
 So this job is: fetch descriptions for 153 existing videos → persist them →
-decide whether they enter the embedding → re-embed if so → prove retrieval
-did not regress.
+re-enrich with them → re-embed the improved enrichment → prove retrieval did
+not regress.
 
 ## Phase 1 — backfill descriptions (safe, additive, no embedding change)
 
@@ -69,10 +70,14 @@ description text to any embedded document.**
   alongside sponsor boilerplate. Keeping the raw text costs nothing and
   makes every future use (a `#d` part, a keyword index, a tags extractor)
   possible without re-fetching 153 videos.
-- **Feed it to enrichment.** Haiku sees description + transcript, so the
-  thesis, key concepts and moments can pick up what the transcript missed.
-  The embedded doc stays `thesis + summary` — the exact shape the retrieval
-  gate was measured on, just with better content in it.
+- **Feed it to enrichment — this is how the semantics get absorbed.** The
+  goal is not to store text next to the vectors; it is for the description's
+  meaning to end up *inside* them. Haiku sees description + transcript, and
+  the tools, hashtags and chapter markers it surfaces flow into the thesis,
+  summary and key concepts — which are exactly what gets embedded. So the
+  description's semantics do reach the vector space, laundered through
+  enrichment instead of dumped in raw. The embedded doc keeps the shape the
+  retrieval gate was measured on; only its content improves.
 - **Never into the embedded doc.** The comment in `store.py::upsert` is
   explicit that folding extra material into the representative doc is
   "unmeasured (spec Phase 3)", and raw descriptions are noisy enough to
