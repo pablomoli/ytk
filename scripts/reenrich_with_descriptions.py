@@ -223,13 +223,14 @@ def main() -> int:
         (vid, doc, meta) for vid, doc, meta in videos
         if ledger["videos"].get(vid, {}).get("status") not in done
     ]
+    outstanding = len(pending)
     if args.limit:
         pending = pending[: args.limit]
 
     mode = "APPLY" if args.apply else "DRY RUN"
     print(f"{mode}: {len(videos)} videos, {len(transcripts)} with segment transcripts")
-    print(f"  {len(videos) - len(pending)} settled or out of scope, "
-          f"{len(pending)} to process")
+    print(f"  {len(videos) - outstanding} settled in the ledger, "
+          f"{outstanding} outstanding, {len(pending)} this run")
     if not args.apply:
         print("  (no writes; re-run with --apply)")
     print()
