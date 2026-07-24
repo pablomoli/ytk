@@ -552,76 +552,110 @@ def trace_filaments(
     max_steps: int = 400,
     floor_frac: float = 0.05,
     min_len: int = 6,
+    seed_sep_steps: float = 4.0,
 ) -> list[np.ndarray]:
-    """Predictor-corrector ridge tracing: walk each strand end to end.
+    """Predictor-corrector ridge tracing, batched: every strand front
+    advances in lockstep, one vectorized gradient/Hessian call per
+    corrector iteration (the sequential version paid Python overhead per
+    front per step).
 
-    From the densest unclaimed crest point, repeatedly step along the
-    ridge tangent (the top Hessian eigenvector v1 — the along-filament
-    direction) by a fixed fraction of h (predictor), then let a few
-    sideways-only SCMS iterations snap back onto the crest (corrector).
-    Sign continuity keeps the walk from doubling back; the walk ends when
-    the density drops below the floor or the cross-disk curvature stops
-    being negative (the ridge genuinely ends). Each finished strand
-    claims nearby crest points so the same strand is never traced twice.
-
-    Ordered, near-uniformly spaced strands by construction — this replaces
-    nearest-neighbor chaining of unordered walkers, whose gaps rendered as
-    dashes."""
+    Predictor: step 0.4h along the ridge tangent (top Hessian eigenvector,
+    sign-continuous so a walk never doubles back). Corrector: 8 lockstep
+    sideways-only SCMS iterations snap all fronts back onto their crests.
+    A front dies when its density drops below the floor, its cross-disk
+    curvature stops being negative (the ridge genuinely ends), or the
+    corrector pulls its step back. Seeds are density-ordered crest points
+    thinned to a minimum separation; every seed walks both directions;
+    afterwards a strand mostly covered by longer kept strands is dropped —
+    it is the same strand traced from another doorway."""
     pts = np.asarray(pts, float)
+    ridge_points = np.asarray(ridge_points, float)
+    if not len(ridge_points):
+        return []
     href = float(np.median(np.broadcast_to(np.asarray(h, float), (len(pts),))))
     step = step_frac * href
     floor = floor_frac * kde(pts, h, pts).max()
 
-    def crest(x0):
-        """Corrector: project x0 back onto the crest; returns point + state."""
-        x = x0.copy()
+    def crest_batch(x0):
+        """Batched corrector + final ridge state for every row of x0."""
+        x = np.array(x0, float)
         for _ in range(8):
-            f, grad, hess, scale = log_density_grad_hess(pts, h, x[None], return_scale=True)
-            vals, v1 = eigh3(hess)
-            ms = grad[0] * scale[0]
-            corr = ms - (ms @ v1[0]) * v1[0]
-            x = x + corr
-            if np.linalg.norm(corr) < 1e-4:
-                break
-        return x, f[0], vals[0], v1[0]
+            _, grad, hess, scale = log_density_grad_hess(pts, h, x, return_scale=True)
+            _, v1 = eigh3(hess)
+            ms = grad * scale[:, None]
+            x = x + ms - (ms * v1).sum(1, keepdims=True) * v1
+        f, _, hess = log_density_grad_hess(pts, h, x)
+        vals, v1 = eigh3(hess)
+        return x, f, vals, v1
 
-    def walk(x0, tangent0):
-        out = []
-        x, tangent = x0, tangent0
-        for _ in range(max_steps):
-            x_pred = x + step * tangent
-            x_new, f, vals, v1 = crest(x_pred)
-            if f < floor or vals[1] >= 0:
-                break
-            moved = x_new - x
-            norm = np.linalg.norm(moved)
-            if norm < 0.25 * step:  # corrector pulled us back: ridge ends
-                break
-            tangent = v1 if v1 @ moved > 0 else -v1  # keep walking forward
-            x = x_new
-            out.append(x)
-        return out
-
+    # density-ordered greedy seed thinning: one seed per seed_sep_steps
+    # worth of crest, densest first
     f_r = kde(pts, h, ridge_points)
-    unclaimed = np.ones(len(ridge_points), bool)
-    claim2 = (2.5 * step) ** 2
-    strands = []
+    sep2 = (seed_sep_steps * step) ** 2
+    chosen: list[np.ndarray] = []
     for si in np.argsort(-f_r):
-        if not unclaimed[si]:
-            continue
-        seed, f0, vals0, v10 = crest(ridge_points[si])
-        unclaimed[si] = False
-        if f0 < floor or vals0[1] >= 0:
-            continue
-        forward = walk(seed, v10)
-        backward = walk(seed, -v10)
-        strand = np.array(backward[::-1] + [seed] + forward)
-        if len(strand) >= 2:
-            d2 = ((ridge_points[:, None, :] - strand[None, :, :]) ** 2).sum(-1).min(1)
-            unclaimed &= d2 > claim2
-        if len(strand) >= min_len:
-            strands.append(strand)
-    return strands
+        p = ridge_points[si]
+        if not chosen or (((np.asarray(chosen) - p) ** 2).sum(1) > sep2).all():
+            chosen.append(p)
+    seeds, f0, vals0, v10 = crest_batch(np.asarray(chosen))
+    ok = (f0 >= floor) & (vals0[:, 1] < 0)
+    seeds, tangents = seeds[ok], v10[ok]
+    m = len(seeds)
+    if not m:
+        return []
+
+    # two fronts per seed (rows [0, m) forward, [m, 2m) backward), lockstep
+    x = np.vstack([seeds, seeds])
+    t = np.vstack([tangents, -tangents])
+    active = np.ones(2 * m, bool)
+    trails: list[list[np.ndarray]] = [[] for _ in range(2 * m)]
+    for _ in range(max_steps):
+        idx = np.flatnonzero(active)
+        if not len(idx):
+            break
+        new_x, f, vals, v1 = crest_batch(x[idx] + step * t[idx])
+        moved = new_x - x[idx]
+        norm = np.linalg.norm(moved, axis=1)
+        alive = (f >= floor) & (vals[:, 1] < 0) & (norm >= 0.25 * step)
+        active[idx[~alive]] = False
+        live = idx[alive]
+        v_live, m_live = v1[alive], moved[alive]
+        flip = (v_live * m_live).sum(1) < 0
+        t[live] = np.where(flip[:, None], -v_live, v_live)
+        x[live] = new_x[alive]
+        for row, xi in zip(live, new_x[alive]):
+            trails[row].append(xi)
+
+    strands = []
+    for i in range(m):
+        walk = trails[m + i][::-1] + [seeds[i]] + trails[i]
+        if len(walk) >= min_len:
+            strands.append(np.asarray(walk))
+    # Dedupe by TRIMMING, longest first: drop only the stretches already
+    # covered by kept strands and keep every uncovered contiguous run long
+    # enough to stand alone. Whole-strand dropping would eat branches,
+    # whose walks legitimately merge into the main strand at junctions.
+    strands.sort(key=len, reverse=True)
+    kept: list[np.ndarray] = []
+    claim2 = (2.5 * step) ** 2
+    for strand in strands:
+        if kept:
+            cloud = np.vstack(kept)
+            d2 = ((strand[:, None, :] - cloud[None, :, :]) ** 2).sum(-1).min(1)
+            uncovered = d2 > claim2
+        else:
+            uncovered = np.ones(len(strand), bool)
+        run_start = None
+        for j, u in enumerate(list(uncovered) + [False]):
+            if u and run_start is None:
+                run_start = j
+            elif not u and run_start is not None:
+                if j - run_start >= min_len:
+                    # extend one vertex into covered territory on each side
+                    # so a branch visually touches the strand it joins
+                    kept.append(strand[max(0, run_start - 1) : min(len(strand), j + 1)])
+                run_start = None
+    return kept
 
 
 def web(xyz: np.ndarray, labels: list, n_labels: int, max_seeds: int = 2500) -> dict:
