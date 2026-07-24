@@ -29,11 +29,7 @@ export function useRecs() {
 export function useSetRecStatus() {
   return useMutation({
     mutationFn: ({ key, status }: { key: string; status: RecStatus }) =>
-      apiSend<{ ok: true }>(
-        `/api/recs/${encodeURIComponent(key)}/status`,
-        "POST",
-        { status },
-      ),
+      apiSend<{ ok: true }>(`/api/recs/${encodeURIComponent(key)}/status`, "POST", { status }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["recs"] }),
   });
 }

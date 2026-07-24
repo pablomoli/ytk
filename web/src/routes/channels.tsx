@@ -25,7 +25,8 @@ function ChannelsPage() {
       groups.set(c.source, list);
     }
     return [...groups.entries()].sort(
-      (a, b) => (SOURCE_ORDER.indexOf(a[0]) + 100) % 100 - (SOURCE_ORDER.indexOf(b[0]) + 100) % 100,
+      (a, b) =>
+        ((SOURCE_ORDER.indexOf(a[0]) + 100) % 100) - ((SOURCE_ORDER.indexOf(b[0]) + 100) % 100),
     );
   }, [q.data]);
 

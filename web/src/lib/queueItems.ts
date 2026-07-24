@@ -1,5 +1,5 @@
-import type { QueueItem } from '../api/queue'
-import { canonicalSource } from '../components/icons'
+import type { QueueItem } from "../api/queue";
+import { canonicalSource } from "../components/icons";
 
 export function filterAndSortQueue(items: QueueItem[], source?: string): QueueItem[] {
   // Newest-first for every source. `shared_at` is date-only, so a same-day
@@ -11,8 +11,8 @@ export function filterAndSortQueue(items: QueueItem[], source?: string): QueueIt
     .map((item, i) => ({ item, i }))
     .filter(({ item }) => !source || canonicalSource(item.source) === source)
     .sort((a, b) => {
-      const byDate = (b.item.shared_at ?? '').localeCompare(a.item.shared_at ?? '')
-      return byDate !== 0 ? byDate : b.i - a.i
+      const byDate = (b.item.shared_at ?? "").localeCompare(a.item.shared_at ?? "");
+      return byDate !== 0 ? byDate : b.i - a.i;
     })
-    .map(({ item }) => item)
+    .map(({ item }) => item);
 }

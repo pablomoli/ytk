@@ -32,7 +32,10 @@ function IndexPage() {
   const [selected, setSelected] = useState<{ note: FreshNote; rect?: DOMRect }>();
   const [pendingDelete, setPendingDelete] = useState<FreshNote>();
   const notes = useMemo(
-    () => (fresh.data ?? []).filter((item) => !source || canonicalSource(item.source) === source || item.channel === source),
+    () =>
+      (fresh.data ?? []).filter(
+        (item) => !source || canonicalSource(item.source) === source || item.channel === source,
+      ),
     [fresh.data, source],
   );
 
@@ -40,27 +43,59 @@ function IndexPage() {
 
   let body;
   if (fresh.isLoading) {
-    body = <MasonryGrid><Skeletons count={12} /></MasonryGrid>;
+    body = (
+      <MasonryGrid>
+        <Skeletons count={12} />
+      </MasonryGrid>
+    );
   } else if (fresh.isError) {
     body = <ErrorState error={fresh.error} onRetry={() => void fresh.refetch()} />;
   } else if (!notes.length) {
-    body = <EmptyState label="nothing ingested yet" hint="ingest from the inbox to fill the feed" />;
+    body = (
+      <EmptyState label="nothing ingested yet" hint="ingest from the inbox to fill the feed" />
+    );
   } else {
-    body = <MasonryGrid>{notes.map((item) => <FreshCard key={item.path} note={item} onOpen={(note, rect) => setSelected({ note, rect })} onDelete={handleDelete} />)}</MasonryGrid>;
+    body = (
+      <MasonryGrid>
+        {notes.map((item) => (
+          <FreshCard
+            key={item.path}
+            note={item}
+            onOpen={(note, rect) => setSelected({ note, rect })}
+            onDelete={handleDelete}
+          />
+        ))}
+      </MasonryGrid>
+    );
   }
 
   return (
     <div id="fresh-page" className="hub-page">
       <HubControls>
-        <SourceFilter value={source} onChange={(next) => void navigate({ search: { source: next } })} />
-        <span className="count"><CountUp value={notes.length} /> recently ingested</span>
+        <SourceFilter
+          value={source}
+          onChange={(next) => void navigate({ search: { source: next } })}
+        />
+        <span className="count">
+          <CountUp value={notes.length} /> recently ingested
+        </span>
       </HubControls>
       <div className="hub-body">
         <RecapPanel />
-        {remove.isError ? <div className="delete-error" role="alert">failed to delete note: {String(remove.error)}</div> : null}
+        {remove.isError ? (
+          <div className="delete-error" role="alert">
+            failed to delete note: {String(remove.error)}
+          </div>
+        ) : null}
         {body}
       </div>
-      {selected ? <NoteViewer note={selected.note} originRect={selected.rect} onClose={() => setSelected(undefined)} /> : null}
+      {selected ? (
+        <NoteViewer
+          note={selected.note}
+          originRect={selected.rect}
+          onClose={() => setSelected(undefined)}
+        />
+      ) : null}
       {getPref(CURSOR_PREF) ? <TargetCursor /> : null}
       {pendingDelete ? (
         <ConfirmDialog
@@ -69,7 +104,10 @@ function IndexPage() {
           onConfirm={() => {
             const item = pendingDelete;
             setPendingDelete(undefined);
-            remove.mutate(item.path, { onSuccess: () => setSelected((current) => (current?.note.path === item.path ? undefined : current)) });
+            remove.mutate(item.path, {
+              onSuccess: () =>
+                setSelected((current) => (current?.note.path === item.path ? undefined : current)),
+            });
           }}
         />
       ) : null}

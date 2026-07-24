@@ -47,8 +47,8 @@ vi.mock("../api/profile", () => ({
 import { Route } from "./profile";
 
 function renderPage() {
-  const Page = (Route as unknown as { options: { component: React.ComponentType } })
-    .options.component;
+  const Page = (Route as unknown as { options: { component: React.ComponentType } }).options
+    .component;
   return render(<Page />);
 }
 
@@ -78,9 +78,7 @@ test("renders the portrait prose below the categories", () => {
   expect(prose?.querySelectorAll("p")).toHaveLength(2);
   expect(screen.getByText("You are an engineer-maker.")).toBeInTheDocument();
   const themes = container.querySelector(".profile-themes");
-  expect(
-    themes!.compareDocumentPosition(prose!) & Node.DOCUMENT_POSITION_FOLLOWING,
-  ).toBeTruthy();
+  expect(themes!.compareDocumentPosition(prose!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test("has no onboarding/self-explanation block", () => {

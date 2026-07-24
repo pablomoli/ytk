@@ -15,7 +15,12 @@ function ProfilePage() {
   const run = useRunProfile();
   const [confirmSynth, setConfirmSynth] = useState(false);
 
-  if (profile.isLoading) return <div className="hub-page"><div className="hub-body">loading profile...</div></div>;
+  if (profile.isLoading)
+    return (
+      <div className="hub-page">
+        <div className="hub-body">loading profile...</div>
+      </div>
+    );
 
   const resynthesize = () => setConfirmSynth(true);
 
@@ -32,15 +37,24 @@ function ProfilePage() {
       message="re-synthesize the interest profile? one claude call; takes up to a minute."
       confirmLabel="synthesize"
       onCancel={() => setConfirmSynth(false)}
-      onConfirm={() => { setConfirmSynth(false); run.mutate(); }}
+      onConfirm={() => {
+        setConfirmSynth(false);
+        run.mutate();
+      }}
     />
   ) : null;
 
   if (profile.isError) {
-    return <div className="hub-page">{controls}<div className="hub-body">
-      <ErrorState error={profile.error} />
-      <p className="profile-meta">no snapshot yet — re-synthesize to build one.</p>
-    </div>{confirmDialog}</div>;
+    return (
+      <div className="hub-page">
+        {controls}
+        <div className="hub-body">
+          <ErrorState error={profile.error} />
+          <p className="profile-meta">no snapshot yet — re-synthesize to build one.</p>
+        </div>
+        {confirmDialog}
+      </div>
+    );
   }
 
   const data = profile.data!;
@@ -54,7 +68,8 @@ function ProfilePage() {
       {controls}
       <div className="hub-body profile-body">
         <p className="profile-meta">
-          {data.note_count} notes · {data.themes.length} themes · synthesized {data.generated_at.slice(0, 16).replace("T", " ")}
+          {data.note_count} notes · {data.themes.length} themes · synthesized{" "}
+          {data.generated_at.slice(0, 16).replace("T", " ")}
           {data.embedding_model ? ` · ${data.embedding_model.split("/").pop()}` : ""}
           {data.reanchored_from ? " · re-anchored across an encoder swap" : ""}
         </p>
@@ -75,7 +90,9 @@ function ProfilePage() {
                 </span>
                 <span className="profile-theme-share">
                   {Math.round(theme.weight * 100)}% · {theme.n_notes} notes
-                  {theme.fresh_notes && theme.fresh_notes < theme.n_notes ? ` · ${theme.fresh_notes} recent` : ""}
+                  {theme.fresh_notes && theme.fresh_notes < theme.n_notes
+                    ? ` · ${theme.fresh_notes} recent`
+                    : ""}
                 </span>
               </summary>
               <p>{theme.summary}</p>
@@ -93,9 +110,15 @@ function ProfilePage() {
           ))}
         </section>
         <section className="profile-prose">
-          {portrait.map((paragraph, i) => <ScrollReveal key={i}>{paragraph}</ScrollReveal>)}
+          {portrait.map((paragraph, i) => (
+            <ScrollReveal key={i}>{paragraph}</ScrollReveal>
+          ))}
         </section>
-        {run.isError ? <div className="delete-error" role="alert">synthesis failed: {String(run.error)}</div> : null}
+        {run.isError ? (
+          <div className="delete-error" role="alert">
+            synthesis failed: {String(run.error)}
+          </div>
+        ) : null}
       </div>
       {confirmDialog}
     </div>

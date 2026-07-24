@@ -153,11 +153,7 @@ function RecCardView({
           {rec.year != null ? <span className="rec-year">{rec.year}</span> : null}
           {rec.creator ? <span className="rec-creator">{rec.creator}</span> : null}
         </div>
-        <button
-          className="rec-count"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-        >
+        <button className="rec-count" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
           recommended in {rec.count} {rec.count === 1 ? "note" : "notes"}
         </button>
         {open ? (

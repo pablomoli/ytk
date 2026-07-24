@@ -115,9 +115,7 @@ export function RecapPanel() {
           recap failed: {String(recap.error)}
         </div>
       ) : null}
-      {recap.data ? (
-        <div className="recap-body">{renderMarkdown(recap.data.markdown)}</div>
-      ) : null}
+      {recap.data ? <div className="recap-body">{renderMarkdown(recap.data.markdown)}</div> : null}
     </div>
   );
 }

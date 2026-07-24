@@ -135,7 +135,9 @@ test("promotes and highlights cached profile picks before ordinary inbox items",
   // The card carries a quiet theme tag, not a numeric score pill.
   expect(cards[0].querySelector(".profile-theme-tag")).toHaveTextContent("Creative coding");
   expect(screen.queryByText(/match 0\.\d+/)).not.toBeInTheDocument();
-  expect(screen.getByText(/2 highlighted · 1800 text items scored · updated 2026-07-20/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/2 highlighted · 1800 text items scored · updated 2026-07-20/),
+  ).toBeInTheDocument();
 });
 
 test("offers an explicit re-rank action for cached results", () => {
@@ -173,9 +175,21 @@ test("reroll pages through stratified batches, moves the highlight, and wraps", 
     data: {
       ...completedRank,
       picks: [
-        { url: "match", title: "Strong profile match", source: "tiktok", theme: "Creative coding", score: 0.9 },
+        {
+          url: "match",
+          title: "Strong profile match",
+          source: "tiktok",
+          theme: "Creative coding",
+          score: 0.9,
+        },
         ...filler("a", 29),
-        { url: "other-match", title: "Other profile match", source: "reddit", theme: "Design", score: 0.6 },
+        {
+          url: "other-match",
+          title: "Other profile match",
+          source: "reddit",
+          theme: "Design",
+          score: 0.6,
+        },
         ...filler("b", 14),
       ],
     },
