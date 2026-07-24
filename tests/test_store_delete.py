@@ -10,6 +10,7 @@ import pytest
 def _fresh_store(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     import ytk.store as store
+
     importlib.reload(store)
     store.EMBEDDING_EPOCH = "v1"  # reload resets to the production default
     return store
@@ -52,9 +53,7 @@ def test_delete_visual_removes_only_named_ids(tmp_path, monkeypatch):
 def test_delete_visual_empty_is_noop(tmp_path, monkeypatch):
     store = _fresh_store(tmp_path, monkeypatch)
     col = store._visual_collection()
-    col.upsert(
-        ids=["ig:keepme"], embeddings=[[0.5, 0.6]], metadatas=[{"source": "instagram"}]
-    )
+    col.upsert(ids=["ig:keepme"], embeddings=[[0.5, 0.6]], metadatas=[{"source": "instagram"}])
     store.delete_visual([])
     assert col.get(include=[])["ids"] == ["ig:keepme"]
 

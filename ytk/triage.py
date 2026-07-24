@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 from .sdk import structured
 
-
 _SYSTEM_TRIAGE_BASE = """\
 You are extracting concrete, actionable tasks from a personal knowledge note.
 The note may be a journal entry, article summary, or video note.

@@ -4,6 +4,7 @@ The enrichment now routes through `run_structured`. When visual_blocks are
 present, image bytes are materialized into a temp dir and its path is added
 to `add_dirs`. When absent, `add_dirs` is empty and no temp dir is created.
 """
+
 from __future__ import annotations
 
 import base64

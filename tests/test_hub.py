@@ -9,7 +9,6 @@ import pytest
 
 from ytk import reels
 
-
 NOTE_TEMPLATE = """---
 url: {url}
 title: A note
@@ -38,14 +37,21 @@ def hub(tmp_path, monkeypatch):
     monkeypatch.setattr(hub_mod, "PACING_SECONDS", 0.0)
     monkeypatch.setattr(hub_mod, "REINDEX", lambda: 0)
     # reset job state between tests
-    hub_mod._JOB.update(running=False, total=0, done=0, current=None,
-                        current_started=None, queued=[], failures=[],
-                        annotated=0, linked=[])
+    hub_mod._JOB.update(
+        running=False,
+        total=0,
+        done=0,
+        current=None,
+        current_started=None,
+        queued=[],
+        failures=[],
+        annotated=0,
+        linked=[],
+    )
     hub_mod._QUEUE.clear()
     hub_mod._ATTEMPTS.clear()
     hub_mod._profile_rank_job.update(
-        state="idle", detail="", started_at=None, generated_at=None,
-        candidates=0, picks=[]
+        state="idle", detail="", started_at=None, generated_at=None, candidates=0, picks=[]
     )
     hub_mod.brain = brain
     return hub_mod
@@ -58,9 +64,17 @@ def _simulate_restart(hub_mod):
     """
     hub_mod._QUEUE.clear()
     hub_mod._ATTEMPTS.clear()
-    hub_mod._JOB.update(running=False, total=0, done=0, current=None,
-                        current_started=None, queued=[], failures=[],
-                        annotated=0, linked=[])
+    hub_mod._JOB.update(
+        running=False,
+        total=0,
+        done=0,
+        current=None,
+        current_started=None,
+        queued=[],
+        failures=[],
+        annotated=0,
+        linked=[],
+    )
 
 
 def _wait_done(hub_mod, timeout=5.0):
@@ -207,10 +221,12 @@ def test_restart_mid_batch_resumes_the_unfinished_items(hub):
     _wait_done(hub)
 
     # the file the killed process left behind: two videos still owed
-    hub._write_persisted([
-        {"url": u, "tags": ["learning"], "thought": "watch later", "attempts": 1}
-        for u in urls[1:]
-    ])
+    hub._write_persisted(
+        [
+            {"url": u, "tags": ["learning"], "thought": "watch later", "attempts": 1}
+            for u in urls[1:]
+        ]
+    )
     _simulate_restart(hub)
     assert hub.job_status()["running"] is False
 
@@ -246,9 +262,7 @@ def test_resume_abandons_an_item_that_keeps_killing_the_hub(hub):
     hub.start_ingest([url], tags=[], thought="")
     _wait_done(hub)
     # rewrite the file as if the hub had died on this item MAX_ATTEMPTS times
-    hub._write_persisted([
-        {"url": url, "tags": [], "thought": "", "attempts": hub.MAX_ATTEMPTS}
-    ])
+    hub._write_persisted([{"url": url, "tags": [], "thought": "", "attempts": hub.MAX_ATTEMPTS}])
     _simulate_restart(hub)
     hub.queue_add([url])
 
@@ -277,6 +291,7 @@ def test_fresh_notes_lists_recent_with_thumbnails(hub):
     assert notes[-1]["stem"] == "older"
     # 'added' reflects ingestion time (mtime) — the ordering key shown on cards
     import datetime
+
     assert notes[0]["added"] == datetime.date.today().isoformat()
     assert notes[-1]["added"] == datetime.date.fromtimestamp(1).isoformat()
 
@@ -295,20 +310,27 @@ def client(hub):
 
 def test_imessage_warm_returns_only_open_sessions(hub, monkeypatch):
     from datetime import datetime, timedelta
+
     from ytk.imessage import MessageEntry, MessageThread
 
     now = datetime.now()
+
     def ts(mins):
         return (now - timedelta(minutes=mins)).strftime("%b %d, %Y %I:%M:%S %p")
 
-    thread = MessageThread(contact="+1555", date="", messages=[
-        MessageEntry("Me", ts(120), "old closed note"),  # 2h ago -> closed session
-        MessageEntry("Me", ts(5), "fresh warm note"),    # 5 min ago -> still warm
-    ])
+    thread = MessageThread(
+        contact="+1555",
+        date="",
+        messages=[
+            MessageEntry("Me", ts(120), "old closed note"),  # 2h ago -> closed session
+            MessageEntry("Me", ts(5), "fresh warm note"),  # 5 min ago -> still warm
+        ],
+    )
     monkeypatch.setattr("ytk.imessage.read_recent", lambda **k: thread)
     # pin the silence window: imessage_warm reads the user's real config,
     # and a gap of 0 there closes every session instantly
     from ytk.config import Config
+
     monkeypatch.setattr("ytk.ui.hub.load_config", lambda: Config())
 
     warm = hub.imessage_warm()
@@ -319,13 +341,18 @@ def test_imessage_warm_returns_only_open_sessions(hub, monkeypatch):
 
 
 def test_imessage_warm_endpoint(client, hub, monkeypatch):
-    monkeypatch.setattr("ytk.imessage.read_recent",
-                        lambda **k: __import__("ytk.imessage", fromlist=["MessageThread"]).MessageThread("+1", "", []))
+    monkeypatch.setattr(
+        "ytk.imessage.read_recent",
+        lambda **k: __import__("ytk.imessage", fromlist=["MessageThread"]).MessageThread(
+            "+1", "", []
+        ),
+    )
     assert client.get("/api/imessage-warm").json() == {"warm": []}
 
 
 def test_ready_endpoint_reflects_search_flag(client, hub):
     import ytk.ui.hub as hm
+
     prev = hm._READY["search"]
     try:
         hm._READY["search"] = False
@@ -340,6 +367,7 @@ def test_ready_endpoint_reflects_search_flag(client, hub):
 
 def test_warm_search_noop_when_already_ready(hub):
     import ytk.ui.hub as hm
+
     prev = hm._READY["search"]
     try:
         hm._READY["search"] = True
@@ -366,9 +394,7 @@ def test_profile_rank_runs_once_and_caches_result(client, hub, monkeypatch):
         calls.append(count)
         return {
             "candidates": 87,
-            "selected": [
-                {"url": "https://x/top", "theme": "Creative coding", "score": 0.731}
-            ],
+            "selected": [{"url": "https://x/top", "theme": "Creative coding", "score": 0.731}],
         }
 
     monkeypatch.setattr(hub, "RUN_PROFILE_RANK", fake_rank)
@@ -385,9 +411,7 @@ def test_profile_rank_runs_once_and_caches_result(client, hub, monkeypatch):
     assert hub.PROFILE_RANK_PATH.exists()
 
     # A fresh hub process can serve the completed ranking without re-embedding.
-    hub._profile_rank_job.update(
-        state="idle", detail="", generated_at=None, candidates=0, picks=[]
-    )
+    hub._profile_rank_job.update(state="idle", detail="", generated_at=None, candidates=0, picks=[])
     cached = client.get("/api/queue/profile-rank/status").json()
     assert cached["state"] == "done"
     assert cached["picks"] == status["picks"]
@@ -491,9 +515,7 @@ def test_api_ingest_flow_and_status(client, hub):
         p.write_text(NOTE_TEMPLATE.format(url=u), encoding="utf-8")
 
     hub.INGEST = fake_ingest
-    r = client.post(
-        "/api/ingest", json={"urls": [url], "tags": ["design"], "thought": "nice"}
-    )
+    r = client.post("/api/ingest", json={"urls": [url], "tags": ["design"], "thought": "nice"})
     assert r.status_code == 200
     assert r.json()["started"] == 1
     _wait_done(hub)
@@ -544,7 +566,8 @@ def test_refresh_sources_pulls_instagram_and_youtube(hub, monkeypatch):
 
     monkeypatch.setattr(hub, "IG_PULL", fake_ig_pull)
     monkeypatch.setattr(
-        hub, "YT_FETCH",
+        hub,
+        "YT_FETCH",
         lambda: [
             {"video_id": "new1", "title": "A new video", "added_at": "2026-07-04T01:00:00Z"},
             {"video_id": "old1", "title": "Old", "added_at": "2026-07-01T01:00:00Z"},
@@ -612,12 +635,14 @@ def _quiet_other_sources(hub, monkeypatch):
 
 
 def test_refresh_sources_queues_imessage_sessions(hub, monkeypatch):
-    from ytk.imessage import MessageEntry, MessageThread, sessionize
     from datetime import datetime
+
+    from ytk.imessage import MessageEntry, MessageThread, sessionize
 
     _quiet_other_sources(hub, monkeypatch)
     thread = MessageThread(
-        contact="+1555", date="Apr 19, 2026",
+        contact="+1555",
+        date="Apr 19, 2026",
         messages=[MessageEntry("Me", "Apr 19, 2026 7:00:00 PM", "a walk thought")],
     )
     sessions = sessionize(thread, gap_minutes=20, now=datetime(2030, 1, 1))
@@ -636,12 +661,14 @@ def test_refresh_sources_queues_imessage_sessions(hub, monkeypatch):
 
 
 def _im_session(hub, monkeypatch, text, now=None):
-    from ytk.imessage import MessageEntry, MessageThread, sessionize
     from datetime import datetime
+
+    from ytk.imessage import MessageEntry, MessageThread, sessionize
 
     _quiet_other_sources(hub, monkeypatch)
     thread = MessageThread(
-        contact="+1555", date="Apr 19, 2026",
+        contact="+1555",
+        date="Apr 19, 2026",
         messages=[MessageEntry("Me", "Apr 19, 2026 7:00:00 PM", text)],
     )
     sessions = sessionize(thread, gap_minutes=20, now=now or datetime(2030, 1, 1))
@@ -662,16 +689,20 @@ def test_link_with_prose_stays_one_note_with_link_embedded(hub, monkeypatch):
 
 def test_imessage_ingest_pairs_link_via_add(hub, monkeypatch):
     called = {}
+
     def fake_ingest(url, note=""):
         called["url"] = url
         called["note"] = note
         p = hub.brain / "sources" / "youtube" / "vid.md"
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(f"---\nurl: {url}\n---\nbody", encoding="utf-8")
+
     monkeypatch.setattr(hub, "INGEST", fake_ingest)
 
     item = reels.ReelItem(
-        url="imessage:session:x", source="imessage", author="Apr 19, 2026",
+        url="imessage:session:x",
+        source="imessage",
+        author="Apr 19, 2026",
         text="must watch https://youtu.be/abc great point",
     )
     note = hub.ingest_imessage_item(item, "inbox thought")
@@ -685,22 +716,28 @@ def test_imessage_ingest_pairs_link_via_add(hub, monkeypatch):
 
 def test_imessage_ingest_routes_like_a_memo(hub, monkeypatch):
     calls = {}
+
     def fake_write(transcript, audio, source="voice"):
         calls["write"] = (transcript, audio, source)
         p = hub.brain / "inbox" / "memos" / "note.md"
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text("---\nroute: pending\n---\nbody", encoding="utf-8")
         return p
+
     class R:  # minimal MemoResult stand-in
         kind = "thought"
+
     monkeypatch.setattr(hub, "memo_write_note", fake_write)
-    monkeypatch.setattr(hub, "memo_route", lambda t, repos=None: calls.setdefault("route", t) and R or R)
+    monkeypatch.setattr(
+        hub, "memo_route", lambda t, repos=None: (calls.setdefault("route", t) and R) or R
+    )
     monkeypatch.setattr(hub, "memo_execute", lambda r, t, repos: [])
     monkeypatch.setattr(hub, "memo_finalize", lambda p, k, lines: calls.setdefault("finalize", k))
     monkeypatch.setattr(hub, "memo_index", lambda p, t, k: calls.setdefault("index", k))
 
-    item = reels.ReelItem(url="imessage:session:x", source="imessage",
-                          text="just a thought\n\nsecond note")
+    item = reels.ReelItem(
+        url="imessage:session:x", source="imessage", text="just a thought\n\nsecond note"
+    )
     path = hub.ingest_imessage_item(item, "picked note")
 
     assert path and path.name == "note.md"
@@ -716,7 +753,9 @@ def test_fresh_notes_includes_memos(hub):
     (memo_dir / "2026-07-05-1512-test.md").write_text(
         "---\ncaptured: 2026-07-05T15:12:01\nsource: voice\n"
         "audio: /Users/x/.ytk/audio/memos/rec.wav\nroute: thought\n---\n\n"
-        "And it starts listening to me.\n", encoding="utf-8")
+        "And it starts listening to me.\n",
+        encoding="utf-8",
+    )
     notes = hub.fresh_notes()
     memos = [n for n in notes if n["source"] == "memo"]
     assert len(memos) == 1
@@ -729,9 +768,10 @@ def test_fresh_notes_includes_memos(hub):
 
     (memo_dir / "2026-07-05-2318-texted.md").write_text(
         "---\ncaptured: 2026-07-05T23:18:00\nsource: imessage\nroute: action\n---\n\n"
-        "make rae an emulator game\n", encoding="utf-8")
-    texted = [n for n in hub.fresh_notes() if n["source"] == "memo"
-              and n["channel"] == "imessage"]
+        "make rae an emulator game\n",
+        encoding="utf-8",
+    )
+    texted = [n for n in hub.fresh_notes() if n["source"] == "memo" and n["channel"] == "imessage"]
     assert len(texted) == 1
     assert texted[0]["audio"] is None
 
@@ -756,12 +796,14 @@ def test_bare_link_becomes_fetch_item(hub, monkeypatch):
 
 
 def test_refresh_sources_autoingests_marked_session(hub, monkeypatch):
-    from ytk.imessage import MARKER, MessageEntry, MessageThread, sessionize
     from datetime import datetime
+
+    from ytk.imessage import MARKER, MessageEntry, MessageThread, sessionize
 
     _quiet_other_sources(hub, monkeypatch)
     thread = MessageThread(
-        contact="+1555", date="Apr 19, 2026",
+        contact="+1555",
+        date="Apr 19, 2026",
         messages=[MessageEntry("Me", "Apr 19, 2026 7:00:00 PM", f"ship it {MARKER}")],
     )
     # Warm (now == last message) but MARKER forces the session through.
@@ -770,12 +812,14 @@ def test_refresh_sources_autoingests_marked_session(hub, monkeypatch):
     monkeypatch.setattr(hub, "IM_FETCH", lambda: sessions)
 
     ingested = []
+
     def fake_text_ingest(item, note=""):
         p = hub.brain / "sources" / "journal" / "note.md"
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text("---\ntype: journal\n---\nbody", encoding="utf-8")
         ingested.append(item.url)
         return p
+
     monkeypatch.setattr(hub, "INGEST_TEXT", fake_text_ingest)
 
     hub.refresh_sources()
@@ -786,17 +830,22 @@ def test_refresh_sources_autoingests_marked_session(hub, monkeypatch):
 
 
 def test_refresh_sources_only_filter_pulls_single_source(hub, monkeypatch):
-    from ytk.imessage import MessageEntry, MessageThread, sessionize
     from datetime import datetime
+
+    from ytk.imessage import MessageEntry, MessageThread, sessionize
 
     ig_called = []
     monkeypatch.setattr(hub, "IG_PULL", lambda state: ig_called.append(1) or 0)
     monkeypatch.setattr(hub, "YT_FETCH", lambda: (_ for _ in ()).throw(AssertionError("yt pulled")))
     monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
-    thread = MessageThread(contact="+1555", date="Apr 19, 2026",
-                           messages=[MessageEntry("Me", "Apr 19, 2026 7:00:00 PM", "note")])
-    monkeypatch.setattr(hub, "IM_FETCH",
-                        lambda: sessionize(thread, gap_minutes=20, now=datetime(2030, 1, 1)))
+    thread = MessageThread(
+        contact="+1555",
+        date="Apr 19, 2026",
+        messages=[MessageEntry("Me", "Apr 19, 2026 7:00:00 PM", "note")],
+    )
+    monkeypatch.setattr(
+        hub, "IM_FETCH", lambda: sessionize(thread, gap_minutes=20, now=datetime(2030, 1, 1))
+    )
 
     result = hub.refresh_sources(force=True, only={"imessage"})
     assert result["imessage"] == 1
@@ -860,11 +909,11 @@ def test_refresh_sources_throttled_by_ttl(hub, monkeypatch):
     first = hub.refresh_sources()
     assert first.get("skipped") is not True
 
-    second = hub.refresh_sources()          # immediately after: throttled
+    second = hub.refresh_sources()  # immediately after: throttled
     assert second["skipped"] is True
     assert second["instagram"] == 0
 
-    third = hub.refresh_sources(force=True) # force bypasses the TTL
+    third = hub.refresh_sources(force=True)  # force bypasses the TTL
     assert third.get("skipped") is not True
 
     st = reels.load_state(hub.STATE_PATH)
@@ -880,8 +929,8 @@ def test_custom_tags_persist_and_merge(client, hub):
 
     r = client.get("/api/tags")
     tags = r.json()["tags"]
-    assert "design" in tags              # config-defined
-    assert "anime-recs" in tags          # UI-created
+    assert "design" in tags  # config-defined
+    assert "anime-recs" in tags  # UI-created
     # re-adding is a no-op, not a duplicate
     client.post("/api/tags", json={"name": "anime-recs"})
     assert reels.load_state(hub.STATE_PATH).custom_tags.count("anime-recs") == 1
@@ -892,13 +941,16 @@ def test_refresh_sources_pulls_pinterest_feeds(hub, monkeypatch):
     monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
     monkeypatch.setattr(
-        hub, "PIN_FETCH",
-        lambda: [{
-            "url": "https://www.pinterest.com/pin/12345/",
-            "title": "A cool pin",
-            "image": "https://i.pinimg.com/x.jpg",
-            "date": "2026-07-04",
-        }],
+        hub,
+        "PIN_FETCH",
+        lambda: [
+            {
+                "url": "https://www.pinterest.com/pin/12345/",
+                "title": "A cool pin",
+                "image": "https://i.pinimg.com/x.jpg",
+                "date": "2026-07-04",
+            }
+        ],
     )
     result = hub.refresh_sources(force=True)
     assert result["pinterest"] == 1
@@ -980,6 +1032,7 @@ def spy_store(monkeypatch):
     """Record store deletions without touching ChromaDB."""
     calls = {"docs": [], "videos": [], "visual": []}
     import ytk.store as store
+
     monkeypatch.setattr(store, "delete_doc", lambda d: calls["docs"].append(d))
     monkeypatch.setattr(store, "delete_video", lambda v: calls["videos"].append(v))
     monkeypatch.setattr(store, "delete_visual", lambda ids: calls["visual"].append(list(ids)))
@@ -1017,7 +1070,7 @@ def test_delete_note_removes_youtube_video_and_visual(hub, spy_store):
 
     assert not note.exists()
     assert "dQw4w9WgXcQ" in spy_store["videos"]
-    assert ["yt:dQw4w9WgXcQ"] == spy_store["visual"][0]
+    assert spy_store["visual"][0] == ["yt:dQw4w9WgXcQ"]
 
 
 def test_delete_note_removes_instagram_doc_and_visual(hub, spy_store):
@@ -1030,14 +1083,16 @@ def test_delete_note_removes_instagram_doc_and_visual(hub, spy_store):
 
     assert not note.exists()
     assert "note_sources_instagram_someone-abc" in spy_store["docs"]
-    assert ["ig:abc123"] == spy_store["visual"][0]
+    assert spy_store["visual"][0] == ["ig:abc123"]
 
 
 def test_delete_note_prefers_frontmatter_id(hub, spy_store):
     mem = hub.brain / "inbox" / "memories" / "ytk"
     mem.mkdir(parents=True)
     note = mem / "state.md"
-    note.write_text("---\nid: memory_2026_ytk_state_ab12\ntype: memory\n---\n\nstate\n", encoding="utf-8")
+    note.write_text(
+        "---\nid: memory_2026_ytk_state_ab12\ntype: memory\n---\n\nstate\n", encoding="utf-8"
+    )
 
     hub.delete_note(_rel(hub, note))
 
@@ -1078,13 +1133,22 @@ def test_grove_api_aggregates_snapshots_without_attach_machinery(client, tmp_pat
     import ytk.ui.server as server
 
     snap = {
-        "version": 1, "bucket": "visual-craft", "embedding_model": "thenlper/gte-small",
-        "built": "2026-07-12T20:45:00+00:00", "n_notes": 86,
+        "version": 1,
+        "bucket": "visual-craft",
+        "embedding_model": "thenlper/gte-small",
+        "built": "2026-07-12T20:45:00+00:00",
+        "n_notes": 86,
         "params": {"kind": "linkage", "method": "average-cosine", "k_main": 3},
         "stability": {"kind": "temporal", "ari": 0.813, "span_days": 337},
         "nodes": [
-            {"id": 0, "parent": -1, "mass": 86, "persistence": 0.1,
-             "centroid": [0.0] * 384, "exemplars": ["a title"]},
+            {
+                "id": 0,
+                "parent": -1,
+                "mass": 86,
+                "persistence": 0.1,
+                "centroid": [0.0] * 384,
+                "exemplars": ["a title"],
+            },
         ],
         "members": {"some/note.md": 0},
     }
@@ -1122,14 +1186,29 @@ def e7_grove(client, tmp_path, monkeypatch):
     grove = tmp_path / "grove"
     grove.mkdir()
     manifest = {
-        "version": 2, "sha256": "abc", "analysis_version": "e7-prereg-2",
-        "stimuli": [{"id": "s00", "nodes": [], "n_notes": 5,
-                     "geometry_seed": 7, "camera_azimuth": 1.2}],
+        "version": 2,
+        "sha256": "abc",
+        "analysis_version": "e7-prereg-2",
+        "stimuli": [
+            {"id": "s00", "nodes": [], "n_notes": 5, "geometry_seed": 7, "camera_azimuth": 1.2}
+        ],
         "trials": [
-            {"trial": "T1-x-0", "task": "semantic-readback", "bucket": "x",
-             "left": "s00", "right": "s00", "prompt": "?"},
-            {"trial": "T3-x-0", "task": "identification-exploratory", "bucket": "x",
-             "single": "s00", "options": ["x", "y", "z"], "prompt": "?"},
+            {
+                "trial": "T1-x-0",
+                "task": "semantic-readback",
+                "bucket": "x",
+                "left": "s00",
+                "right": "s00",
+                "prompt": "?",
+            },
+            {
+                "trial": "T3-x-0",
+                "task": "identification-exploratory",
+                "bucket": "x",
+                "single": "s00",
+                "options": ["x", "y", "z"],
+                "prompt": "?",
+            },
         ],
     }
     (grove / "e7-manifest.json").write_text(json.dumps(manifest))
@@ -1143,8 +1222,10 @@ def test_e7_get_serves_manifest_with_completed_list(client, e7_grove):
     data = r.json()
     assert data["sha256"] == "abc"
     assert data["completed"] == []
-    client.post("/api/grove/e7/response", json={
-        "trial": "T1-x-0", "choice": "left", "confidence": 4, "rt_ms": 2100})
+    client.post(
+        "/api/grove/e7/response",
+        json={"trial": "T1-x-0", "choice": "left", "confidence": 4, "rt_ms": 2100},
+    )
     assert client.get("/api/grove/e7").json()["completed"] == ["T1-x-0"]
 
 
@@ -1157,8 +1238,7 @@ def test_e7_post_validates_and_is_idempotent(client, e7_grove):
     dup = client.post("/api/grove/e7/response", json=ok)
     assert dup.status_code == 200 and dup.json().get("duplicate") is True
     # conflicting duplicate: rejected
-    conflict = client.post("/api/grove/e7/response",
-                           json={**ok, "choice": "right"})
+    conflict = client.post("/api/grove/e7/response", json={**ok, "choice": "right"})
     assert conflict.status_code == 409
     log = (e7_grove / "e7-responses.jsonl").read_text().strip().splitlines()
     assert len(log) == 1 and json.loads(log[0])["choice"] == "left"
@@ -1168,16 +1248,17 @@ def test_e7_post_validates_and_is_idempotent(client, e7_grove):
 
 def test_e7_post_rejects_invalid_trials_choices_and_bounds(client, e7_grove):
     base = {"trial": "T1-x-0", "choice": "left", "confidence": 4, "rt_ms": 100}
-    assert client.post("/api/grove/e7/response",
-                       json={**base, "trial": "NOPE"}).status_code == 404
-    assert client.post("/api/grove/e7/response",
-                       json={**base, "choice": "up"}).status_code == 400
+    assert client.post("/api/grove/e7/response", json={**base, "trial": "NOPE"}).status_code == 404
+    assert client.post("/api/grove/e7/response", json={**base, "choice": "up"}).status_code == 400
     # 3-AFC choices come from the trial's options
-    assert client.post("/api/grove/e7/response",
-                       json={**base, "trial": "T3-x-0", "choice": "y"}).status_code == 200
-    assert client.post("/api/grove/e7/response",
-                       json={**base, "trial": "T3-x-0", "choice": "left"}).status_code in (400, 409)
-    assert client.post("/api/grove/e7/response",
-                       json={**base, "confidence": 9}).status_code == 422
-    assert client.post("/api/grove/e7/response",
-                       json={**base, "rt_ms": -5}).status_code == 422
+    assert (
+        client.post(
+            "/api/grove/e7/response", json={**base, "trial": "T3-x-0", "choice": "y"}
+        ).status_code
+        == 200
+    )
+    assert client.post(
+        "/api/grove/e7/response", json={**base, "trial": "T3-x-0", "choice": "left"}
+    ).status_code in (400, 409)
+    assert client.post("/api/grove/e7/response", json={**base, "confidence": 9}).status_code == 422
+    assert client.post("/api/grove/e7/response", json={**base, "rt_ms": -5}).status_code == 422

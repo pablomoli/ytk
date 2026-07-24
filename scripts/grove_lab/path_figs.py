@@ -23,8 +23,14 @@ CELLS = LAB / "replay-cells"
 SURFACE = "#fcfcfb"
 INK = "#0b0b0b"
 INK2 = "#52514e"
-SLOTS = {"never": "#e34948", "cm": "#4a3aa7", "1.0": "#e87ba4",
-         "0.5": "#eda100", "0.25": "#1baf7a", "0.1": "#2a78d6"}
+SLOTS = {
+    "never": "#e34948",
+    "cm": "#4a3aa7",
+    "1.0": "#e87ba4",
+    "0.5": "#eda100",
+    "0.25": "#1baf7a",
+    "0.1": "#2a78d6",
+}
 # intrinsic cross-half triplet floors (shootout-v3): divergence below the
 # floor is indistinguishable from the bucket's own instability
 FLOORS = {"epicmap": 0.596, "ai-building": 0.752, "visual-craft": 0.738}
@@ -70,29 +76,34 @@ def fig_divergence(cells, metric: str, fname: str, title: str, floors=False):
             # curves use the base-0.5 arms; base-fraction sensitivity is tabular
             if c["bucket"] != bucket or c.get("base_frac", 0.5) != 0.5:
                 continue
-            pts = [(cp["frac"], metric_value(cp, metric)) for cp in c["checkpoints"]
-                   if metric_value(cp, metric) is not None]
+            pts = [
+                (cp["frac"], metric_value(cp, metric))
+                for cp in c["checkpoints"]
+                if metric_value(cp, metric) is not None
+            ]
             if pts:
                 series[(theta_key(c), c["order"] == "date")].append(pts)
         for (theta, is_date), runs in sorted(series.items()):
             xs = [p[0] for p in runs[0]]
             ys = np.array([[dict(r).get(x, np.nan) for x in xs] for r in runs], float)
             mean = np.nanmean(ys, axis=0)
-            style = dict(color=SLOTS.get(theta, INK2), linewidth=2 if is_date else 1,
-                         alpha=1.0 if is_date else 0.45,
-                         linestyle="-" if is_date else "--")
+            style = dict(
+                color=SLOTS.get(theta, INK2),
+                linewidth=2 if is_date else 1,
+                alpha=1.0 if is_date else 0.45,
+                linestyle="-" if is_date else "--",
+            )
             label = f"{theta}{'' if is_date else ' (rand)'}"
             ax.plot(xs, mean, marker="o", markersize=3, label=label, **style)
         if floors and bucket in FLOORS:
-            ax.axhline(FLOORS[bucket], color=INK2, linewidth=0.8, linestyle=":",
-                       alpha=0.7)
-            ax.text(0.62, FLOORS[bucket], "intrinsic floor", fontsize=7,
-                    color=INK2, va="bottom")
+            ax.axhline(FLOORS[bucket], color=INK2, linewidth=0.8, linestyle=":", alpha=0.7)
+            ax.text(0.62, FLOORS[bucket], "intrinsic floor", fontsize=7, color=INK2, va="bottom")
         ax.set_title(bucket, loc="left", fontsize=10, color=INK)
         ax.set_xlabel("fraction of notes arrived", fontsize=8.5, color=INK2)
     np.atleast_1d(axes)[0].set_ylabel(metric, fontsize=8.5, color=INK2)
-    np.atleast_1d(axes)[-1].legend(frameon=False, fontsize=7, labelcolor=INK2,
-                                   title="rebuild theta", title_fontsize=7)
+    np.atleast_1d(axes)[-1].legend(
+        frameon=False, fontsize=7, labelcolor=INK2, title="rebuild theta", title_fontsize=7
+    )
     fig.suptitle(title, x=0.01, ha="left", fontsize=11, color=INK)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(LAB / fname, facecolor=SURFACE)
@@ -109,16 +120,33 @@ def fig_frontier(cells):
         if c["order"] != "date" or c.get("base_frac", 0.5) != 0.5 or not c["checkpoints"]:
             continue
         y = metric_value(c["checkpoints"][-1], "assignment_ari")
-        ax.scatter(c["rebuilds"], y,
-                   color=SLOTS.get(theta_key(c), INK2), s=70,
-                   marker=markers.get(c["bucket"], "o"),
-                   edgecolor=SURFACE, linewidth=1.2, zorder=3)
-        ax.annotate(f"{c['bucket'][:4]} {theta_key(c)}", (c["rebuilds"], y),
-                    textcoords="offset points", xytext=(7, 4), fontsize=7, color=INK2)
+        ax.scatter(
+            c["rebuilds"],
+            y,
+            color=SLOTS.get(theta_key(c), INK2),
+            s=70,
+            marker=markers.get(c["bucket"], "o"),
+            edgecolor=SURFACE,
+            linewidth=1.2,
+            zorder=3,
+        )
+        ax.annotate(
+            f"{c['bucket'][:4]} {theta_key(c)}",
+            (c["rebuilds"], y),
+            textcoords="offset points",
+            xytext=(7, 4),
+            fontsize=7,
+            color=INK2,
+        )
     ax.set_xlabel("rebuilds incurred (cost)", fontsize=9, color=INK2)
     ax.set_ylabel("final assignment agreement vs fresh rebuild", fontsize=9, color=INK2)
-    ax.set_title("Rebuild policy frontier (date-ordered arrival, base 0.5)",
-                 loc="left", fontsize=11, color=INK, pad=12)
+    ax.set_title(
+        "Rebuild policy frontier (date-ordered arrival, base 0.5)",
+        loc="left",
+        fontsize=11,
+        color=INK,
+        pad=12,
+    )
     fig.tight_layout()
     fig.savefig(LAB / "path-policy-frontier.png", facecolor=SURFACE)
     plt.close(fig)
@@ -128,11 +156,19 @@ def main() -> None:
     cells = load_cells()
     if not cells:
         raise SystemExit("no replay cells found")
-    fig_divergence(cells, "triplet_agreement", "path-divergence-triplet.png",
-                   "Incremental tree vs fresh rebuild: hierarchy agreement",
-                   floors=True)
-    fig_divergence(cells, "assignment_ari", "path-divergence-ari.png",
-                   "Incremental tree vs fresh rebuild: assignment agreement")
+    fig_divergence(
+        cells,
+        "triplet_agreement",
+        "path-divergence-triplet.png",
+        "Incremental tree vs fresh rebuild: hierarchy agreement",
+        floors=True,
+    )
+    fig_divergence(
+        cells,
+        "assignment_ari",
+        "path-divergence-ari.png",
+        "Incremental tree vs fresh rebuild: assignment agreement",
+    )
     fig_frontier(cells)
     print(f"wrote 3 figures to {LAB} from {len(cells)} cells")
 

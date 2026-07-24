@@ -96,8 +96,10 @@ def interpret(thought: str) -> Directive:
     system = _SYSTEM.format(max_links=MAX_LINKS)
     prompt = (
         f"NOTE:\n{thought.strip()}\n\n"
-        "CANDIDATE NOTES:\n" + "\n".join(f"- {s}" for s in candidates)
-        + "\n\nPROJECT SLUGS:\n" + "\n".join(f"- {s}" for s in slugs)
+        "CANDIDATE NOTES:\n"
+        + "\n".join(f"- {s}" for s in candidates)
+        + "\n\nPROJECT SLUGS:\n"
+        + "\n".join(f"- {s}" for s in slugs)
     )
     d = structured(system, prompt, Directive)
 
@@ -129,7 +131,9 @@ def apply(note_path: Path, directive: Directive, thought: str) -> list[str]:
             snippet = snippet[:120].rstrip() + "..."
         existing = vault.read_atom(directive.project, "state") or ""
         pointer = f"- [[{note_path.stem}]] (via ingest hub): {snippet}"
-        vault.write_atom(directive.project, "state", (existing.rstrip("\n") + "\n" + pointer + "\n").lstrip("\n"))
+        vault.write_atom(
+            directive.project, "state", (existing.rstrip("\n") + "\n" + pointer + "\n").lstrip("\n")
+        )
         applied.append(f"pointed {directive.project}/state at [[{note_path.stem}]]")
 
     return applied

@@ -55,9 +55,15 @@ def _blobs(n=200, dim=12, seed=5):
 
 def _cell(theta, policy="rebuild", base_frac=0.5, n=200):
     vecs = _blobs(n)
-    return replay_cell(vecs, order=list(range(n)), theta=theta, policy=policy,
-                       checkpoints=(0.8, 1.0), base_frac=base_frac,
-                       rng=np.random.default_rng(0))
+    return replay_cell(
+        vecs,
+        order=list(range(n)),
+        theta=theta,
+        policy=policy,
+        checkpoints=(0.8, 1.0),
+        base_frac=base_frac,
+        rng=np.random.default_rng(0),
+    )
 
 
 def test_trigger_positions_use_last_rebuild_denominator():
@@ -107,6 +113,7 @@ def test_checkpoints_carry_both_references_and_triplet_accounting():
 
 # --- Codex v5 corrections (K2 init bug, K6 floor policy) --------------------
 
+
 def test_internal_node_centroids_init_from_descendants():
     """K2: a node with no DIRECT members (e.g. a limb whose notes all live
     in its sub-branches) must start with the centroid of its descendant
@@ -127,8 +134,7 @@ def test_internal_node_centroids_init_from_descendants():
             direct = sum(1 for v in membership.values() if v == n["id"])
             assert n["_count"] == child_counts + direct
             # centroid is the (unnormalized-mean) of descendant sums
-            expect = sum((by_id[c]["_sum"] for c in kids[n["id"]]),
-                         np.zeros_like(n["_sum"]))
+            expect = sum((by_id[c]["_sum"] for c in kids[n["id"]]), np.zeros_like(n["_sum"]))
             assert np.allclose(n["_sum"], expect, atol=1e-6) or direct > 0
 
 
@@ -139,17 +145,29 @@ def test_absolute_debt_floor_delays_small_triggers():
     vecs = _blobs(n=200)
     from scripts.grove_lab.replay import replay_cell
 
-    pure = replay_cell(vecs, order=list(range(200)), theta=0.25,
-                       checkpoints=(1.0,), base_frac=0.5,
-                       rng=np.random.default_rng(0))
-    hybrid = replay_cell(vecs, order=list(range(200)), theta=0.25, floor=40,
-                         checkpoints=(1.0,), base_frac=0.5,
-                         rng=np.random.default_rng(0))
+    pure = replay_cell(
+        vecs,
+        order=list(range(200)),
+        theta=0.25,
+        checkpoints=(1.0,),
+        base_frac=0.5,
+        rng=np.random.default_rng(0),
+    )
+    hybrid = replay_cell(
+        vecs,
+        order=list(range(200)),
+        theta=0.25,
+        floor=40,
+        checkpoints=(1.0,),
+        base_frac=0.5,
+        rng=np.random.default_rng(0),
+    )
     assert pure["rebuild_events"][0]["n"] == 125
     assert hybrid["rebuild_events"][0]["n"] == 140
 
 
 # --- replay v3 (Codex v6: one engine, production semantics, new arms) -------
+
 
 def test_production_centroid_mode_matches_dendro_semantics():
     """v6 finding 1: production mode = direct-member means, empty nodes get
@@ -162,6 +180,7 @@ def test_production_centroid_mode_matches_dendro_semantics():
     prod = [dict(n) for n in nodes]
     _stamp_centroids(vecs, prod, membership, mode="production")
     from scripts.grove_lab.dendro import _labels_of, _unit
+
     u = _unit(vecs)
     lab = _labels_of(membership, len(vecs))
     for n in prod:
@@ -176,9 +195,15 @@ def test_terminal_only_attach_never_targets_internal_nodes():
     from scripts.grove_lab.replay import replay_cell
 
     vecs = _blobs(n=200)
-    cell = replay_cell(vecs, order=list(range(200)), theta=None,
-                       policy="terminal", checkpoints=(1.0,), base_frac=0.5,
-                       rng=np.random.default_rng(0))
+    cell = replay_cell(
+        vecs,
+        order=list(range(200)),
+        theta=None,
+        policy="terminal",
+        checkpoints=(1.0,),
+        base_frac=0.5,
+        rng=np.random.default_rng(0),
+    )
     # every attached note must live on a node with no children
     final = cell["checkpoints"][-1]
     assert final["production"]["incremental_nodes"] >= 3
@@ -191,20 +216,30 @@ def test_persistence_staleness_metric_present():
     from scripts.grove_lab.replay import replay_cell
 
     vecs = _blobs(n=200)
-    cell = replay_cell(vecs, order=list(range(200)), theta=None,
-                       checkpoints=(1.0,), base_frac=0.5,
-                       rng=np.random.default_rng(0))
+    cell = replay_cell(
+        vecs,
+        order=list(range(200)),
+        theta=None,
+        checkpoints=(1.0,),
+        base_frac=0.5,
+        rng=np.random.default_rng(0),
+    )
     p = cell["checkpoints"][-1]["production"]["persistence"]
     assert set(p) >= {"spearman", "l1_mean", "matched"}
     assert p["matched"] >= 2
-    assert 0.0 <= p["l1_mean"]
+    assert p["l1_mean"] >= 0.0
 
 
 def test_cells_carry_schema_and_engine_stamp():
     from scripts.grove_lab.replay import SCHEMA_VERSION, replay_cell
 
     vecs = _blobs(n=200)
-    cell = replay_cell(vecs, order=list(range(200)), theta=None,
-                       checkpoints=(1.0,), base_frac=0.5,
-                       rng=np.random.default_rng(0))
+    cell = replay_cell(
+        vecs,
+        order=list(range(200)),
+        theta=None,
+        checkpoints=(1.0,),
+        base_frac=0.5,
+        rng=np.random.default_rng(0),
+    )
     assert cell["schema_version"] == SCHEMA_VERSION >= 3

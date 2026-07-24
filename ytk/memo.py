@@ -11,8 +11,8 @@ import os
 import re
 import shutil
 import subprocess
-from datetime import datetime
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
@@ -160,15 +160,28 @@ def execute_route(result: MemoResult, transcript: str, github_repos: list[str]) 
         if item.suggested_route == "gh-issue" and item.suggested_repo in github_repos:
             try:
                 gh = subprocess.run(
-                    ["gh", "issue", "create", "--title", item.title,
-                     "--body", item.description, "--repo", item.suggested_repo],
-                    capture_output=True, text=True,
-                    timeout=30, stdin=subprocess.DEVNULL,
+                    [
+                        "gh",
+                        "issue",
+                        "create",
+                        "--title",
+                        item.title,
+                        "--body",
+                        item.description,
+                        "--repo",
+                        item.suggested_repo,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    stdin=subprocess.DEVNULL,
                 )
             except (FileNotFoundError, subprocess.TimeoutExpired):
                 gh = None
             if gh is not None and gh.returncode == 0:
-                lines.append(f"gh-issue -> {item.suggested_repo}: {item.title} ({gh.stdout.strip()})")
+                lines.append(
+                    f"gh-issue -> {item.suggested_repo}: {item.title} ({gh.stdout.strip()})"
+                )
             else:
                 lines.append(_append_idea(item, "gh failed"))
         elif item.suggested_route == "investigate":
@@ -186,10 +199,26 @@ def record(out_path: Path, max_seconds: int = 300, wait=input) -> Path:
     """Record mic audio via ffmpeg avfoundation until Enter (or max_seconds)."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     proc = subprocess.Popen(
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-         "-f", "avfoundation", "-i", ":default",
-         "-t", str(max_seconds), "-ar", "16000", "-ac", "1", str(out_path)],
-        stdin=subprocess.PIPE, stderr=subprocess.PIPE,
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "avfoundation",
+            "-i",
+            ":default",
+            "-t",
+            str(max_seconds),
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            str(out_path),
+        ],
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
     try:
         wait("Recording... press Enter to stop. ")
@@ -215,9 +244,22 @@ def ensure_wav(path: Path) -> Path:
         return path
     out = path.with_suffix(".wav")
     result = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-         "-i", str(path), "-ar", "16000", "-ac", "1", str(out)],
-        capture_output=True, text=True,
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(path),
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg conversion failed: {result.stderr.strip()}")
@@ -243,8 +285,11 @@ class StageLog:
         self.prev = now
         stamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         with LOG_PATH.open("a") as f:
-            f.write(f"{stamp} [{self.run_id}] +{delta:6.2f}s {state}"
-                    + (f" {detail}" if detail else "") + "\n")
+            f.write(
+                f"{stamp} [{self.run_id}] +{delta:6.2f}s {state}"
+                + (f" {detail}" if detail else "")
+                + "\n"
+            )
 
 
 _MODEL_CACHE: dict = {}
@@ -289,9 +334,10 @@ def _terminal_visible() -> bool | None:
         return None
     try:
         out = subprocess.run(
-            [aerospace, "list-windows", "--workspace", "visible",
-             "--format", "%{app-name}"],
-            capture_output=True, text=True, timeout=2,
+            [aerospace, "list-windows", "--workspace", "visible", "--format", "%{app-name}"],
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
         if out.returncode != 0:
             return None
@@ -304,10 +350,18 @@ def _fire(backend: str, summary: str, kind: str) -> bool:
     msg = f"ytk memo [{kind}]: {summary}"
     cmds = {
         "tmux": ["tmux", "display-message", "-d", "4000", msg],
-        "macos": ["terminal-notifier", "-title", "ytk memo", "-subtitle", kind,
-                  "-message", summary, "-group", "ytk-memo"],
-        "sketchybar": ["sketchybar", "--trigger", "ytk_memo",
-                       f"RESULT={summary}", f"ROUTE={kind}"],
+        "macos": [
+            "terminal-notifier",
+            "-title",
+            "ytk memo",
+            "-subtitle",
+            kind,
+            "-message",
+            summary,
+            "-group",
+            "ytk-memo",
+        ],
+        "sketchybar": ["sketchybar", "--trigger", "ytk_memo", f"RESULT={summary}", f"ROUTE={kind}"],
     }
     cmd = cmds.get(backend)
     if cmd is None:

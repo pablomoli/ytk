@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-from build_map import _ctfidf_names, assemble_all_view  # noqa: E402
+from build_map import _ctfidf_names, assemble_all_view
 
 
 def test_assemble_all_view_schema():
@@ -39,8 +39,6 @@ def test_ctfidf_names_two_clusters_returns_distinct_terms():
     # Shared vocabulary (each term appears in both docs, satisfying min_df=2)
     # with different per-doc term frequencies, so the ranked term order -
     # and thus the joined string - differs between clusters.
-    names = _ctfidf_names(
-        ["alpha alpha alpha beta beta gamma", "beta beta beta gamma gamma alpha"]
-    )
+    names = _ctfidf_names(["alpha alpha alpha beta beta gamma", "beta beta beta gamma gamma alpha"])
     assert len(names) == 2
     assert names[0] != names[1]

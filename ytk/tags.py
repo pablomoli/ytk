@@ -18,7 +18,6 @@ The 439-tag vocabulary is ~83% singletons, much of it synonym drift
 
 from __future__ import annotations
 
-import re
 from pydantic import BaseModel, Field
 
 from . import store
@@ -86,8 +85,7 @@ def propose_merges() -> list[MergeGroup]:
         return []
 
     listing = "\n\n".join(
-        "CANDIDATE GROUP:\n" + "\n".join(f"- {t} (used {counts[t]}x)" for t in c)
-        for c in clusters
+        "CANDIDATE GROUP:\n" + "\n".join(f"- {t} (used {counts[t]}x)" for t in c) for c in clusters
     )
     refined = structured(_SYSTEM, listing, _Refinement, max_input_chars=60_000)
 
@@ -101,11 +99,13 @@ def propose_merges() -> list[MergeGroup]:
             continue
         canonical = g.canonical if g.canonical in members else members[0]
         variants = [t for t in members if t != canonical]
-        out.append(MergeGroup(
-            canonical=canonical,
-            variants=variants,
-            counts={t: counts[t] for t in members},
-        ))
+        out.append(
+            MergeGroup(
+                canonical=canonical,
+                variants=variants,
+                counts={t: counts[t] for t in members},
+            )
+        )
     return out
 
 

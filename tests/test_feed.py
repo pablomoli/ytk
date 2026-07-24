@@ -10,7 +10,7 @@ def test_collect_merges_args_and_file_dedupes(tmp_path):
         "https://www.tiktok.com/@x/video/1\n"
         "\n"
         "https://www.tiktok.com/@x/video/2\n"
-        "https://www.tiktok.com/@x/video/1\n",   # duplicate
+        "https://www.tiktok.com/@x/video/1\n",  # duplicate
         encoding="utf-8",
     )
     urls = _collect_feed_urls(str(f), ("https://www.tiktok.com/@x/video/2",))

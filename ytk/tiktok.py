@@ -1,9 +1,9 @@
 """TikTok ingestion via yt-dlp (metadata + video) and faster-whisper (audio)."""
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import yt_dlp
 
@@ -13,10 +13,10 @@ class TikTokPost:
     url: str
     video_id: str
     username: str
-    timestamp: str               # YYYY-MM-DD
+    timestamp: str  # YYYY-MM-DD
     title: str
     description: str
-    duration: int                # seconds
+    duration: int  # seconds
     thumbnail_url: str | None = None
     view_count: int | None = None
     like_count: int | None = None
@@ -24,9 +24,7 @@ class TikTokPost:
     tags: list[str] = field(default_factory=list)
 
 
-_VIDEO_URL_RE = re.compile(
-    r"tiktok\.com/(?:@[^/]+/video|t|v)/(\d+|[A-Za-z0-9]+)"
-)
+_VIDEO_URL_RE = re.compile(r"tiktok\.com/(?:@[^/]+/video|t|v)/(\d+|[A-Za-z0-9]+)")
 
 
 def fetch_tiktok(url: str) -> TikTokPost:
@@ -47,8 +45,7 @@ def fetch_tiktok(url: str) -> TikTokPost:
 
     upload_date = info.get("upload_date", "") or ""
     timestamp = (
-        f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
-        if len(upload_date) == 8 else ""
+        f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}" if len(upload_date) == 8 else ""
     )
 
     artists = info.get("artists") or []
@@ -81,6 +78,7 @@ def transcribe_tiktok(url: str, whisper_model: str = "base") -> list[dict]:
     Returns [] if transcription fails or audio is too short.
     """
     from . import transcript as transcript_mod
+
     try:
         audio_path = transcript_mod._download_audio(url)
     except Exception:

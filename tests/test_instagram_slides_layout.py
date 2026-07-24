@@ -18,8 +18,12 @@ def brain(tmp_path, monkeypatch):
 
 def _enrichment():
     return Enrichment(
-        thesis="t", summary="s", key_concepts=[], insights=[],
-        interest_tags=["x"], key_moments=[],
+        thesis="t",
+        summary="s",
+        key_concepts=[],
+        insights=[],
+        interest_tags=["x"],
+        key_moments=[],
     )
 
 
@@ -35,8 +39,10 @@ def test_writer_saves_slides_into_slides_subdir(brain, monkeypatch):
 
     monkeypatch.setattr(vault_mod, "_save_image", fake_save)
     post = InstagramPost(
-        url="https://www.instagram.com/p/CAR1/", username="u",
-        timestamp="2026-07-15", caption="c",
+        url="https://www.instagram.com/p/CAR1/",
+        username="u",
+        timestamp="2026-07-15",
+        caption="c",
         images=["https://cdn.example/1.jpg", "https://cdn.example/2.jpg"],
         media_kind="carousel",
     )
@@ -77,7 +83,7 @@ def test_relocate_moves_flat_slides_and_rewrites_notes(brain):
     assert "sources/instagram/SC9-img-1.jpg" not in content.replace(
         "sources/instagram/slides/SC9-img-1.jpg", ""
     )
-    assert "![[SC9-img-1.jpg]]" in content       # embeds untouched, filename same
+    assert "![[SC9-img-1.jpg]]" in content  # embeds untouched, filename same
 
 
 def test_relocate_is_idempotent(brain):
@@ -115,8 +121,7 @@ def test_relocate_aborts_before_changes_on_destination_collision(brain):
     destination.write_bytes(b"different")
     note = note_dir / "u-2026-07-15-SC9.md"
     original = (
-        "---\nurl: u\ntype: instagram\nimage_paths:\n"
-        "  - sources/instagram/SC9-img-1.jpg\n---\n"
+        "---\nurl: u\ntype: instagram\nimage_paths:\n  - sources/instagram/SC9-img-1.jpg\n---\n"
     )
     note.write_text(original, encoding="utf-8")
 
@@ -128,17 +133,14 @@ def test_relocate_aborts_before_changes_on_destination_collision(brain):
     assert note.read_text(encoding="utf-8") == original
 
 
-def test_relocate_interruption_keeps_old_path_valid_and_rerun_recovers(
-    brain, monkeypatch
-):
+def test_relocate_interruption_keeps_old_path_valid_and_rerun_recovers(brain, monkeypatch):
     note_dir = brain / "sources" / "instagram"
     note_dir.mkdir(parents=True)
     source = note_dir / "SC9-img-1.jpg"
     source.write_bytes(b"slide")
     note = note_dir / "u-2026-07-15-SC9.md"
     original = (
-        "---\nurl: u\ntype: instagram\nimage_paths:\n"
-        "  - sources/instagram/SC9-img-1.jpg\n---\n"
+        "---\nurl: u\ntype: instagram\nimage_paths:\n  - sources/instagram/SC9-img-1.jpg\n---\n"
     )
     note.write_text(original, encoding="utf-8")
     real_replace = vault_mod.os.replace
@@ -153,7 +155,7 @@ def test_relocate_interruption_keeps_old_path_valid_and_rerun_recovers(
         relocate_instagram_slides()
 
     destination = note_dir / "slides" / source.name
-    assert source.exists()                 # old frontmatter still resolves
+    assert source.exists()  # old frontmatter still resolves
     assert destination.read_bytes() == b"slide"
     assert note.read_text(encoding="utf-8") == original
     assert not list(note_dir.rglob("*.tmp"))
@@ -239,9 +241,7 @@ def test_visual_cover_discovery_supports_webp_and_prefers_slides(monkeypatch, tm
     assert ig[0].image_path == organized
 
 
-def test_skip_existing_visual_index_refreshes_metadata_without_embedding(
-    monkeypatch, tmp_path
-):
+def test_skip_existing_visual_index_refreshes_metadata_without_embedding(monkeypatch, tmp_path):
     import ytk.store as store_mod
     import ytk.visual as visual_mod
 
@@ -249,26 +249,37 @@ def test_skip_existing_visual_index_refreshes_metadata_without_embedding(
     image.parent.mkdir()
     image.write_bytes(b"x")
     item = visual_mod.CoverItem(
-        item_id="ig:SC5", image_path=image, source="instagram",
-        title="title", url="https://instagram.com/p/SC5/", note_path="note.md",
+        item_id="ig:SC5",
+        image_path=image,
+        source="instagram",
+        title="title",
+        url="https://instagram.com/p/SC5/",
+        note_path="note.md",
     )
     updates = []
     monkeypatch.setattr(visual_mod, "iter_covers", lambda: [item])
     monkeypatch.setattr(store_mod, "visual_ids", lambda: {"ig:SC5"})
     monkeypatch.setattr(
-        store_mod, "update_visual_metadata",
+        store_mod,
+        "update_visual_metadata",
         lambda item_id, metadata: updates.append((item_id, metadata)) or True,
     )
     monkeypatch.setattr(
-        visual_mod, "embed_images",
+        visual_mod,
+        "embed_images",
         lambda paths: pytest.fail("existing covers must not be re-embedded"),
     )
 
     assert visual_mod.index_covers(skip_existing=True) == 0
-    assert updates == [("ig:SC5", {
-        "source": "instagram",
-        "title": "title",
-        "url": "https://instagram.com/p/SC5/",
-        "image_path": str(image),
-        "note_path": "note.md",
-    })]
+    assert updates == [
+        (
+            "ig:SC5",
+            {
+                "source": "instagram",
+                "title": "title",
+                "url": "https://instagram.com/p/SC5/",
+                "image_path": str(image),
+                "note_path": "note.md",
+            },
+        )
+    ]

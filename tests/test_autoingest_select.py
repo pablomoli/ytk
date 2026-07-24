@@ -40,15 +40,19 @@ class TestStratifySelect:
         assert len(stratify_select(scored, 30, {"a": 1.0})) == 30
 
     def test_muted_channel_excluded(self):
-        scored = [_s("keep", "a", 0.5, channel="youtube:ok"),
-                  _s("drop", "a", 0.99, channel="youtube:muted")]
+        scored = [
+            _s("keep", "a", 0.5, channel="youtube:ok"),
+            _s("drop", "a", 0.99, channel="youtube:muted"),
+        ]
         picked = stratify_select(scored, 5, {"a": 1.0}, muted_keys={"youtube:muted"})
         urls = {p["url"] for p in picked}
         assert "keep" in urls and "drop" not in urls
 
     def test_loved_channel_boosted_over_better_stranger(self):
-        scored = [_s("stranger", "a", 0.60, channel="youtube:x"),
-                  _s("loved", "a", 0.50, channel="youtube:fav")]
+        scored = [
+            _s("stranger", "a", 0.60, channel="youtube:x"),
+            _s("loved", "a", 0.50, channel="youtube:fav"),
+        ]
         picked = stratify_select(scored, 1, {"a": 1.0}, loved_keys={"youtube:fav"})
         assert picked[0]["url"] == "loved"
         assert picked[0]["eff_score"] == 0.50 + LOVED_BOOST

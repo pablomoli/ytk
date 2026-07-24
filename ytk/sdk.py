@@ -76,21 +76,30 @@ def _structured_via_api(
     import json
     import urllib.request
 
-    body = json.dumps({
-        "model": model,
-        "max_tokens": max_tokens,
-        "system": system,
-        "messages": [{"role": "user", "content": user}],
-        "tools": [{"name": "emit_result", "description": "Emit the classification.",
-                   "input_schema": schema}],
-        "tool_choice": {"type": "tool", "name": "emit_result"},
-    }).encode()
+    body = json.dumps(
+        {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": [{"role": "user", "content": user}],
+            "tools": [
+                {
+                    "name": "emit_result",
+                    "description": "Emit the classification.",
+                    "input_schema": schema,
+                }
+            ],
+            "tool_choice": {"type": "tool", "name": "emit_result"},
+        }
+    ).encode()
     req = urllib.request.Request(
         "https://api.anthropic.com/v1/messages",
         data=body,
-        headers={"content-type": "application/json",
-                 "x-api-key": api_key,
-                 "anthropic-version": "2023-06-01"},
+        headers={
+            "content-type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+        },
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
         payload = json.loads(resp.read())
@@ -98,6 +107,7 @@ def _structured_via_api(
         if block.get("type") == "tool_use":
             return block["input"]
     raise RuntimeError(f"no tool_use block in response: {payload.get('stop_reason')}")
+
 
 # The Agent SDK's _find_cli() prefers its own bundled `claude` binary over the
 # system one. The bundled binary does not share the user's OAuth credentials,
@@ -121,9 +131,7 @@ def run_structured(
     `add_dirs` to grant filesystem Read access to extracted frames/slides.
     """
     return asyncio.run(
-        _run_structured_async(
-            system_prompt, user_prompt, schema, add_dirs or [], max_turns, model
-        )
+        _run_structured_async(system_prompt, user_prompt, schema, add_dirs or [], max_turns, model)
     )
 
 

@@ -57,8 +57,22 @@ def test_normalize_slug_no_collapse_without_established_match():
 
 def test_domain_labels_end_to_end():
     metas = (
-        [{"cat": "memory", "path": f"second-brain/inbox/memories/claude-mem/summaries/summary-2026-01-0{i % 9 + 1}-epicmap-{i}.md", "title": ""} for i in range(50)]
-        + [{"cat": "memory", "path": f"second-brain/inbox/memories/claude-mem/summaries/summary-2026-01-0{i % 9 + 1}-tinyproj-{i}.md", "title": ""} for i in range(3)]
+        [
+            {
+                "cat": "memory",
+                "path": f"second-brain/inbox/memories/claude-mem/summaries/summary-2026-01-0{i % 9 + 1}-epicmap-{i}.md",
+                "title": "",
+            }
+            for i in range(50)
+        ]
+        + [
+            {
+                "cat": "memory",
+                "path": f"second-brain/inbox/memories/claude-mem/summaries/summary-2026-01-0{i % 9 + 1}-tinyproj-{i}.md",
+                "title": "",
+            }
+            for i in range(3)
+        ]
         + [{"cat": "youtube", "path": "", "title": "video"} for _ in range(45)]
         + [{"cat": "memo", "path": "second-brain/inbox/memos/m.md", "title": ""}]
     )
@@ -66,10 +80,10 @@ def test_domain_labels_end_to_end():
     content_theme = {50 + 3 + i: (1 if i < 40 else -1) for i in range(45)}
     labels = domain_labels(metas, content_theme, ["go", "creative coding"], min_size=40)
     assert labels[:50] == ["epicmap"] * 50
-    assert labels[50] == "other"          # tinyproj: 3 points, below min_size
+    assert labels[50] == "other"  # tinyproj: 3 points, below min_size
     assert labels[53] == "creative coding"  # themed content
-    assert labels[93] == "other"          # unthemed content
-    assert labels[98] == "other"          # memo category
+    assert labels[93] == "other"  # unthemed content
+    assert labels[98] == "other"  # memo category
 
 
 def test_index_domains_orders_by_count_desc():

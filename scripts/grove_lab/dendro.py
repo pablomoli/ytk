@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -42,8 +42,8 @@ import numpy as np
 from ytk.store import _TEXT_MODEL
 
 GROVE_DIR = Path.home() / ".ytk" / "grove"
-MIN_CLUSTER_NOTES = 30   # below this a tree is a trunk + n leaves (sapling)
-MIN_SPAN_DAYS = 21       # temporal halves only where real time passed
+MIN_CLUSTER_NOTES = 30  # below this a tree is a trunk + n leaves (sapling)
+MIN_SPAN_DAYS = 21  # temporal halves only where real time passed
 SAPLING_ROOT = 0
 
 
@@ -54,6 +54,7 @@ def _unit(m: np.ndarray) -> np.ndarray:
 # --------------------------------------------------------------------------
 # pure topology functions (tested)
 # --------------------------------------------------------------------------
+
 
 def _formation_heights(Z: np.ndarray, labels: np.ndarray) -> dict[int, float]:
     """Height at which each labeled cluster finishes forming: the highest
@@ -98,10 +99,14 @@ def fit_nodes(vecs: np.ndarray):
         idx = np.flatnonzero(main == c)
         limb_id = next_id
         next_id += 1
-        nodes.append({
-            "id": limb_id, "parent": 0, "mass": int(len(idx)),
-            "persistence": max(root_h - form[c], root_h * 0.05),
-        })
+        nodes.append(
+            {
+                "id": limb_id,
+                "parent": 0,
+                "mass": len(idx),
+                "persistence": max(root_h - form[c], root_h * 0.05),
+            }
+        )
         if len(idx) >= 60:
             Zl = linkage(pdist(u[idx], metric="cosine"), method="average")
             k_sub = int(np.clip(len(idx) // 60, 2, 5))
@@ -110,19 +115,29 @@ def fit_nodes(vecs: np.ndarray):
             sub_form = _formation_heights(Zl, sub)
             for sc in sorted(set(sub.tolist())):
                 sidx = idx[np.flatnonzero(sub == sc)]
-                nodes.append({
-                    "id": next_id, "parent": limb_id, "mass": int(len(sidx)),
-                    "persistence": max(limb_h - sub_form[sc], limb_h * 0.05),
-                })
+                nodes.append(
+                    {
+                        "id": next_id,
+                        "parent": limb_id,
+                        "mass": len(sidx),
+                        "persistence": max(limb_h - sub_form[sc], limb_h * 0.05),
+                    }
+                )
                 for p in sidx:
                     membership[int(p)] = next_id
                 next_id += 1
         else:
             for p in idx:
                 membership[int(p)] = limb_id
-    return nodes, membership, {
-        "kind": "linkage", "method": "average-cosine", "k_main": k,
-    }
+    return (
+        nodes,
+        membership,
+        {
+            "kind": "linkage",
+            "method": "average-cosine",
+            "k_main": k,
+        },
+    )
 
 
 def attach_new_notes(nodes, members, vecs: np.ndarray, keys: list[str]) -> int:
@@ -176,6 +191,7 @@ def anchor_nodes(old_members: dict, new_members: dict) -> dict[int, int]:
 # stability (integration; exercised by the driver)
 # --------------------------------------------------------------------------
 
+
 def _labels_of(membership: dict[int, int], n: int) -> np.ndarray:
     return np.array([membership.get(i, -1) for i in range(n)])
 
@@ -224,13 +240,13 @@ def stability(vecs: np.ndarray, dates: list[str], rng) -> dict:
     if min(len(a), len(b)) < MIN_CLUSTER_NOTES:
         return {"kind": kind, "ari": None, "note": "halves below clustering floor"}
     ari = _transfer_ari(vecs[a], vecs[b])
-    return {"kind": kind, "ari": None if np.isnan(ari) else round(ari, 3),
-            "span_days": int(span)}
+    return {"kind": kind, "ari": None if np.isnan(ari) else round(ari, 3), "span_days": int(span)}
 
 
 # --------------------------------------------------------------------------
 # snapshot driver
 # --------------------------------------------------------------------------
+
 
 def _note_key(m: dict) -> str:
     return m.get("url") or m.get("path") or m.get("title") or ""
@@ -248,8 +264,7 @@ def _exemplars(meta_idx, membership, meta, k=3):
     return out
 
 
-def build_bucket(name, vecs, meta_idx, meta, rebuild, run_stability, rng,
-                 palette=None):
+def build_bucket(name, vecs, meta_idx, meta, rebuild, run_stability, rng, palette=None):
     """Build or update one bucket snapshot; returns a status line."""
     GROVE_DIR.mkdir(parents=True, exist_ok=True)
     path = GROVE_DIR / f"{name}.tree.json"
@@ -268,7 +283,7 @@ def build_bucket(name, vecs, meta_idx, meta, rebuild, run_stability, rng,
         # changing taste must not reshuffle the measured tree structure.
         prev["palette"] = palette
         prev["n_notes"] = len(members)
-        prev["updated"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        prev["updated"] = datetime.now(UTC).isoformat(timespec="seconds")
         path.write_text(json.dumps(prev))
         return f"{name}: +{added} attached ({len(members)} total)"
 
@@ -301,27 +316,29 @@ def build_bucket(name, vecs, meta_idx, meta, rebuild, run_stability, rng,
         "bucket": name,
         "palette": palette,
         "embedding_model": _TEXT_MODEL,
-        "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "built": datetime.now(UTC).isoformat(timespec="seconds"),
         "n_notes": len(keys),
         "params": params,
-        "stability": stability(
-            vecs, [meta[i]["date"] for i in meta_idx], rng
-        ) if run_stability else None,
+        "stability": stability(vecs, [meta[i]["date"] for i in meta_idx], rng)
+        if run_stability
+        else None,
         "nodes": nodes,
         "members": members,
     }
     path.write_text(json.dumps(snap))
     anchored = " (anchored to previous)" if prev else ""
-    return (f"{name}: {len(nodes)} nodes, {len(keys)} notes, "
-            f"{params['kind']}{anchored}, stability={snap['stability']}")
+    return (
+        f"{name}: {len(nodes)} nodes, {len(keys)} notes, "
+        f"{params['kind']}{anchored}, stability={snap['stability']}"
+    )
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--rebuild", action="store_true",
-                    help="re-derive topology (anchored to previous snapshot)")
-    ap.add_argument("--stability", action="store_true",
-                    help="run the split-half transfer-ARI gate")
+    ap.add_argument(
+        "--rebuild", action="store_true", help="re-derive topology (anchored to previous snapshot)"
+    )
+    ap.add_argument("--stability", action="store_true", help="run the split-half transfer-ARI gate")
     ap.add_argument("--bucket", help="only this bucket")
     args = ap.parse_args()
 
@@ -338,8 +355,9 @@ def main() -> None:
         if not idx:
             print(f"{b.name}: empty, skipped")
             continue
-        print(build_bucket(b.name, vecs[idx], idx, meta, args.rebuild,
-                           args.stability, rng, b.palette))
+        print(
+            build_bucket(b.name, vecs[idx], idx, meta, args.rebuild, args.stability, rng, b.palette)
+        )
 
 
 if __name__ == "__main__":

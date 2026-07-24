@@ -27,7 +27,7 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 STATUS_PATH = Path.home() / ".ytk" / "ops-status.json"
@@ -37,7 +37,7 @@ _STATES = ("running", "done", "fail", "skip")
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _read() -> dict:
@@ -57,26 +57,22 @@ def _write(status: dict) -> None:
 
 def start_run(name: str, intent: str = "") -> None:
     """Begin a fresh run: resets steps and progress, keeps nothing."""
-    _write({"run": name, "intent": intent, "started": _now(),
-            "steps": [], "progress": None})
-    journal(f"run started: {name}" + (f" — {intent}" if intent else ""),
-            header=True)
+    _write({"run": name, "intent": intent, "started": _now(), "steps": [], "progress": None})
+    journal(f"run started: {name}" + (f" — {intent}" if intent else ""), header=True)
 
 
 def step(name: str, state: str, detail: str = "", notify: bool = False) -> None:
     """Upsert a named step. Failures always notify; completions when asked."""
     if state not in _STATES:
         raise ValueError(f"state must be one of {_STATES}")
-    status = _read() or {"run": "adhoc", "started": _now(), "steps": [],
-                         "progress": None}
+    status = _read() or {"run": "adhoc", "started": _now(), "steps": [], "progress": None}
     steps = status.setdefault("steps", [])
     for s in steps:
         if s["name"] == name:
             s.update(state=state, detail=detail, at=_now())
             break
     else:
-        steps.append({"name": name, "state": state, "detail": detail,
-                      "at": _now()})
+        steps.append({"name": name, "state": state, "detail": detail, "at": _now()})
     if state in ("done", "fail"):
         status["progress"] = None  # a finished step's bar is stale by definition
     _write(status)
@@ -86,15 +82,16 @@ def step(name: str, state: str, detail: str = "", notify: bool = False) -> None:
         _notify(f"[ytk ops] {name}: {state}", detail)
 
 
-def progress(current: int, total: int, rate: float | None = None,
-             label: str = "") -> None:
+def progress(current: int, total: int, rate: float | None = None, label: str = "") -> None:
     """Update the live progress bar (attach to whichever step is running)."""
     status = _read()
     if not status:
         return
     eta_min = (total - current) / rate / 60 if rate else None
     status["progress"] = {
-        "label": label, "current": int(current), "total": int(total),
+        "label": label,
+        "current": int(current),
+        "total": int(total),
         "rate": round(rate, 2) if rate else None,
         "eta_min": round(eta_min, 1) if eta_min is not None else None,
     }
@@ -134,9 +131,12 @@ def main(argv: list[str] | None = None) -> int:
     elif cmd == "step" and len(rest) >= 2:
         step(rest[0], rest[1], rest[2] if len(rest) > 2 else "", notify=notify)
     elif cmd == "progress" and len(rest) >= 2:
-        progress(int(rest[0]), int(rest[1]),
-                 float(rest[2]) if len(rest) > 2 else None,
-                 rest[3] if len(rest) > 3 else "")
+        progress(
+            int(rest[0]),
+            int(rest[1]),
+            float(rest[2]) if len(rest) > 2 else None,
+            rest[3] if len(rest) > 3 else "",
+        )
     elif cmd == "journal" and rest:
         journal(rest[0])
     else:

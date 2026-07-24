@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-from build_map import anchor_names  # noqa: E402
+from build_map import anchor_names
 
 
 def _meta(titles):

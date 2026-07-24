@@ -59,12 +59,11 @@ def test_bad_state_rejected(paths):
 def test_probe_capture_health_reports_unreadable_chatdb(tmp_path, monkeypatch):
     import ytk.ui.hub as hub
 
-    monkeypatch.setattr("ytk.imessage.chatdb_path",
-                        lambda: tmp_path / "nope" / "chat.db")
+    monkeypatch.setattr("ytk.imessage.chatdb_path", lambda: tmp_path / "nope" / "chat.db")
     monkeypatch.setattr("ytk.ops.journal", lambda *a, **k: None)
     problems = hub.probe_capture_health()
     assert problems and "chat.db unreadable" in problems[0]
-    assert hub._CAPTURE_PROBLEMS == problems
+    assert problems == hub._CAPTURE_PROBLEMS
 
 
 def test_probe_capture_health_ok(tmp_path, monkeypatch):

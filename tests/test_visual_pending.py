@@ -11,9 +11,11 @@ def _cover_name(url: str) -> str:
 def test_sync_pending_visual_embeds_and_evicts(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     import ytk.store as store
+
     importlib.reload(store)
     store.EMBEDDING_EPOCH = "v1"  # reload resets to the production default
     import ytk.visual as visual
+
     importlib.reload(visual)
     from ytk import reels
 
@@ -22,10 +24,8 @@ def test_sync_pending_visual_embeds_and_evicts(tmp_path, monkeypatch):
     monkeypatch.setattr(reels, "STATE_PATH", state_path)
     state = reels.ReelsState()
     state.pending = [
-        reels.ReelItem(url="https://www.instagram.com/reel/aaa/", author="ana",
-                       source="instagram"),
-        reels.ReelItem(url="https://youtu.be/bbb", author="A Title",
-                       source="youtube"),
+        reels.ReelItem(url="https://www.instagram.com/reel/aaa/", author="ana", source="instagram"),
+        reels.ReelItem(url="https://youtu.be/bbb", author="A Title", source="youtube"),
     ]
     reels.save_state(state, state_path)
 

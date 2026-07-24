@@ -71,16 +71,14 @@ def test_refresh_replaces_generated_content_at_same_path(brain):
 def test_refresh_unions_old_tags_including_slop(brain):
     old_path = _seed_v1_note(brain)
     content = old_path.read_text(encoding="utf-8")
-    old_path.write_text(
-        content.replace("tags:\n", "tags:\n  - slop?\n"), encoding="utf-8"
-    )
+    old_path.write_text(content.replace("tags:\n", "tags:\n  - slop?\n"), encoding="utf-8")
     new_path = refresh_instagram_note(
         _post(), _enrichment(tags=("build-idea",)), transcript_status="ok"
     )
     content = new_path.read_text(encoding="utf-8")
     assert "  - slop?" in content
     assert "  - build-idea" in content
-    assert "  - ai-coding" in content       # original enrichment tag survives too
+    assert "  - ai-coding" in content  # original enrichment tag survives too
 
 
 def test_refresh_preserves_user_sections(brain):

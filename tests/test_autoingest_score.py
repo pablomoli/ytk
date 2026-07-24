@@ -25,8 +25,8 @@ class TestScorePending:
         pending = [
             _item("u1", "ai agents", author="bob"),
             _item("u2", "pretty art", source="reddit", author="r/art"),
-            _item("u3", ""),                       # no text -> skipped
-            _item("u4", "ai stuff", author="y"),   # already ingested -> skipped
+            _item("u3", ""),  # no text -> skipped
+            _item("u4", "ai stuff", author="y"),  # already ingested -> skipped
         ]
         scored = autoingest.score_pending(pending, theme_vecs, ingested={"u4"})
 
@@ -39,11 +39,16 @@ class TestScorePending:
         assert by_url["u1"]["score"] > 0.9  # cosine with aligned centroid
 
     def test_no_candidates_returns_empty(self, monkeypatch):
-        monkeypatch.setattr("ytk.store._get_ef", lambda: (lambda texts: [[1.0]] * len(texts)))
-        assert autoingest.score_pending([_item("u", "")], [(SimpleNamespace(id="a"), np.array([1.0]))], set()) == []
+        monkeypatch.setattr("ytk.store._get_ef", lambda: lambda texts: [[1.0]] * len(texts))
+        assert (
+            autoingest.score_pending(
+                [_item("u", "")], [(SimpleNamespace(id="a"), np.array([1.0]))], set()
+            )
+            == []
+        )
 
     def test_missing_author_yields_no_channel_key(self, monkeypatch):
-        monkeypatch.setattr("ytk.store._get_ef", lambda: (lambda texts: [[1.0, 0.0] for _ in texts]))
+        monkeypatch.setattr("ytk.store._get_ef", lambda: lambda texts: [[1.0, 0.0] for _ in texts])
         tv = [(SimpleNamespace(id="a"), np.array([1.0, 0.0]))]
         (s,) = autoingest.score_pending([_item("u", "hi", author=None)], tv, set())
         assert s["channel_key"] is None
@@ -56,7 +61,9 @@ class TestRunGuards:
         assert "error" in report and report["selected"] == []
 
     def test_no_centroids_returns_error(self, monkeypatch):
-        monkeypatch.setattr("ytk.interest.load_latest", lambda: SimpleNamespace(themes=[], embedding_model=None))
+        monkeypatch.setattr(
+            "ytk.interest.load_latest", lambda: SimpleNamespace(themes=[], embedding_model=None)
+        )
         monkeypatch.setattr("ytk.autoingest._theme_vectors", lambda snap: [])
         report = autoingest.run_autoingest(dry_run=True)
         assert "error" in report

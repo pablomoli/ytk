@@ -57,10 +57,14 @@ def save_snap(image_bytes: bytes, text: str = "", tags: list[str] | None = None)
     )
 
     upsert_memory(f"shot_{ts}", text or f"screenshot {ts}", tags, str(note_path))
-    embed_cover_for_save(img_path, f"shot:{ts}", {
-        "source": "screenshot",
-        "title": text[:80],
-        "url": "",
-        "note_path": str(note_path),
-    })
+    embed_cover_for_save(
+        img_path,
+        f"shot:{ts}",
+        {
+            "source": "screenshot",
+            "title": text[:80],
+            "url": "",
+            "note_path": str(note_path),
+        },
+    )
     return note_path

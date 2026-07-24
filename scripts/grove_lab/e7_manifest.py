@@ -21,14 +21,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
 
 GROVE_DIR = Path.home() / ".ytk" / "grove"
-MANIFEST = GROVE_DIR / "e7-manifest.json"        # public, truth-free (H1)
-ANSWER_KEY = GROVE_DIR / "e7-answer-key.json"    # private, never served
+MANIFEST = GROVE_DIR / "e7-manifest.json"  # public, truth-free (H1)
+ANSWER_KEY = GROVE_DIR / "e7-answer-key.json"  # private, never served
 BUCKETS = ("epicmap", "ai-building", "visual-craft")
 TASK1_TRIALS_PER_BUCKET = 3
 TASK2_TRIALS_PER_BUCKET = 3
@@ -39,6 +39,7 @@ ANALYSIS_VERSION = "e7-prereg-2"
 # --------------------------------------------------------------------------
 # pure topology functions (tested)
 # --------------------------------------------------------------------------
+
 
 def _depths(nodes: list[dict]) -> dict[int, int]:
     parent = {n["id"]: n["parent"] for n in nodes}
@@ -120,12 +121,16 @@ def shuffle_topology(nodes: list[dict], rng, max_draws: int = 50) -> list[dict]:
         control = []
         for n in nodes:
             mass, persistence = new_payload.get(n["id"], orig_payload[n["id"]])
-            control.append({**n, "parent": new_parent.get(n["id"], n["parent"]),
-                            "mass": mass, "persistence": persistence})
+            control.append(
+                {
+                    **n,
+                    "parent": new_parent.get(n["id"], n["parent"]),
+                    "mass": mass,
+                    "persistence": persistence,
+                }
+            )
         parents_moved = any(n["parent"] != orig_parent[n["id"]] for n in control)
-        payload_moved = any(
-            (n["mass"], n["persistence"]) != orig_payload[n["id"]] for n in control
-        )
+        payload_moved = any((n["mass"], n["persistence"]) != orig_payload[n["id"]] for n in control)
         # adjacency-breaking controls are the stronger construct (Codex H8):
         # accept the first parent-moving draw; keep a payload-only draw as
         # fallback for identity-locked topologies
@@ -149,6 +154,7 @@ def parents_differ(a: list[dict], b: list[dict]) -> bool:
 # manifest assembly
 # --------------------------------------------------------------------------
 
+
 def _synthetic_practice(rng) -> list[dict]:
     """Two small random trees unrelated to any bucket, for warm-up."""
     trees = []
@@ -156,14 +162,25 @@ def _synthetic_practice(rng) -> list[dict]:
         nodes = [{"id": 0, "parent": -1, "mass": 40, "persistence": 0.3}]
         nid = 1
         for limb in range(int(3 + rng.integers(0, 2))):
-            nodes.append({"id": nid, "parent": 0, "mass": int(10 + rng.integers(0, 15)),
-                          "persistence": float(0.4 + rng.random() * 0.6)})
+            nodes.append(
+                {
+                    "id": nid,
+                    "parent": 0,
+                    "mass": int(10 + rng.integers(0, 15)),
+                    "persistence": float(0.4 + rng.random() * 0.6),
+                }
+            )
             limb_id = nid
             nid += 1
             for _ in range(int(rng.integers(0, 3))):
-                nodes.append({"id": nid, "parent": limb_id,
-                              "mass": int(3 + rng.integers(0, 6)),
-                              "persistence": float(0.2 + rng.random() * 0.4)})
+                nodes.append(
+                    {
+                        "id": nid,
+                        "parent": limb_id,
+                        "mass": int(3 + rng.integers(0, 6)),
+                        "persistence": float(0.2 + rng.random() * 0.4),
+                    }
+                )
                 nid += 1
         trees.append(nodes)
     return trees
@@ -186,13 +203,19 @@ def build_manifest(snapshots: dict[str, dict], seed: int = 71) -> tuple[dict, di
     answers: dict[str, str] = {}
 
     def add_stim(label, nodes, n_notes, geometry_seed=None, azimuth=None):
-        private.append({
-            "label": label, "nodes": nodes, "n_notes": n_notes,
-            "geometry_seed": int(geometry_seed if geometry_seed is not None
-                                 else rng.integers(1, 1_000_000)),
-            "camera_azimuth": round(float(azimuth if azimuth is not None
-                                          else rng.random() * 2 * np.pi), 4),
-        })
+        private.append(
+            {
+                "label": label,
+                "nodes": nodes,
+                "n_notes": n_notes,
+                "geometry_seed": int(
+                    geometry_seed if geometry_seed is not None else rng.integers(1, 1_000_000)
+                ),
+                "camera_azimuth": round(
+                    float(azimuth if azimuth is not None else rng.random() * 2 * np.pi), 4
+                ),
+            }
+        )
         return label
 
     def balanced_sides(n):
@@ -208,9 +231,16 @@ def build_manifest(snapshots: dict[str, dict], seed: int = 71) -> tuple[dict, di
         a = add_stim(f"practice{i}-a", tree, 40, gseed, az)
         b = add_stim(f"practice{i}-b", shuffle_topology(tree, rng), 40, gseed, az)
         flip = rng.random() < 0.5
-        practice.append({"trial": f"P{i}", "task": "practice", "bucket": None,
-                         "left": b if flip else a, "right": a if flip else b,
-                         "prompt": "warm-up: pick either tree"})
+        practice.append(
+            {
+                "trial": f"P{i}",
+                "task": "practice",
+                "bucket": None,
+                "left": b if flip else a,
+                "right": a if flip else b,
+                "prompt": "warm-up: pick either tree",
+            }
+        )
 
     # task 1: 9 trials, sides balanced; pairs share geometry seed + azimuth
     t1_sides = balanced_sides(len(BUCKETS) * TASK1_TRIALS_PER_BUCKET)
@@ -231,14 +261,18 @@ def build_manifest(snapshots: dict[str, dict], seed: int = 71) -> tuple[dict, di
             side_i += 1
             trial_id = f"T1-{bucket}-{k}"
             answers[trial_id] = side
-            t1_by_bucket[bucket].append({
-                "trial": trial_id, "task": "semantic-readback", "bucket": bucket,
-                "primary": k == 0,
-                "construct": "adjacency" if parents_differ(true_nodes, control) else "payload",
-                "left": true_id if side == "left" else ctrl_id,
-                "right": ctrl_id if side == "left" else true_id,
-                "prompt": f"which is your {bucket} tree?",
-            })
+            t1_by_bucket[bucket].append(
+                {
+                    "trial": trial_id,
+                    "task": "semantic-readback",
+                    "bucket": bucket,
+                    "primary": k == 0,
+                    "construct": "adjacency" if parents_differ(true_nodes, control) else "payload",
+                    "left": true_id if side == "left" else ctrl_id,
+                    "right": ctrl_id if side == "left" else true_id,
+                    "prompt": f"which is your {bucket} tree?",
+                }
+            )
 
     # task 2: anchor + rerender vs control; three distinct geometry seeds
     t2_sides = balanced_sides(len(BUCKETS) * TASK2_TRIALS_PER_BUCKET)
@@ -256,13 +290,17 @@ def build_manifest(snapshots: dict[str, dict], seed: int = 71) -> tuple[dict, di
             side_i += 1
             trial_id = f"T2-{bucket}-{k}"
             answers[trial_id] = side
-            t2.append({
-                "trial": trial_id, "task": "topology-invariance", "bucket": bucket,
-                "top": anchor,
-                "left": rerender if side == "left" else ctrl,
-                "right": ctrl if side == "left" else rerender,
-                "prompt": "which candidate shares the anchor's structure?",
-            })
+            t2.append(
+                {
+                    "trial": trial_id,
+                    "task": "topology-invariance",
+                    "bucket": bucket,
+                    "top": anchor,
+                    "left": rerender if side == "left" else ctrl,
+                    "right": ctrl if side == "left" else rerender,
+                    "prompt": "which candidate shares the anchor's structure?",
+                }
+            )
 
     # task 3: exploratory 3-AFC identification, strictly last
     t3: list[dict] = []
@@ -272,11 +310,16 @@ def build_manifest(snapshots: dict[str, dict], seed: int = 71) -> tuple[dict, di
             sid = add_stim(f"{bucket}-t3-{k}", strip(snap["nodes"]), snap["n_notes"])
             trial_id = f"T3-{bucket}-{k}"
             answers[trial_id] = bucket
-            t3.append({
-                "trial": trial_id, "task": "identification-exploratory",
-                "bucket": bucket, "single": sid, "options": list(BUCKETS),
-                "prompt": "which of your topics is this tree?",
-            })
+            t3.append(
+                {
+                    "trial": trial_id,
+                    "task": "identification-exploratory",
+                    "bucket": bucket,
+                    "single": sid,
+                    "options": list(BUCKETS),
+                    "prompt": "which of your topics is this tree?",
+                }
+            )
 
     # block order (H2/H6): primaries first in randomized bucket order, then
     # remaining task-1 repeats, then task 2, then exploratory — randomized
@@ -293,8 +336,13 @@ def build_manifest(snapshots: dict[str, dict], seed: int = 71) -> tuple[dict, di
     perm = rng.permutation(len(private))
     public_id = {private[int(p)]["label"]: f"s{i:02d}" for i, p in enumerate(perm)}
     stimuli = [
-        {"id": public_id[s["label"]], "nodes": s["nodes"], "n_notes": s["n_notes"],
-         "geometry_seed": s["geometry_seed"], "camera_azimuth": s["camera_azimuth"]}
+        {
+            "id": public_id[s["label"]],
+            "nodes": s["nodes"],
+            "n_notes": s["n_notes"],
+            "geometry_seed": s["geometry_seed"],
+            "camera_azimuth": s["camera_azimuth"],
+        }
         for s in sorted(private, key=lambda s: public_id[s["label"]])
     ]
     for t in ordered:
@@ -305,22 +353,27 @@ def build_manifest(snapshots: dict[str, dict], seed: int = 71) -> tuple[dict, di
     public = {
         "version": 2,
         "analysis_version": ANALYSIS_VERSION,
-        "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated": datetime.now(UTC).isoformat(timespec="seconds"),
         "seed": seed,
-        "buckets": {b: {"built": snapshots[b].get("built"),
-                        "embedding_model": snapshots[b].get("embedding_model")}
-                    for b in BUCKETS},
-        "render": {"neutral_tint": True, "normalized_scale": True,
-                   "note": "task-1 pairs share geometry seed + camera azimuth "
-                           "so only structure differs; task-2 stimuli carry "
-                           "independent geometry seeds (render invariance is "
-                           "the construct) - preregistration amendment 4"},
+        "buckets": {
+            b: {
+                "built": snapshots[b].get("built"),
+                "embedding_model": snapshots[b].get("embedding_model"),
+            }
+            for b in BUCKETS
+        },
+        "render": {
+            "neutral_tint": True,
+            "normalized_scale": True,
+            "note": "task-1 pairs share geometry seed + camera azimuth "
+            "so only structure differs; task-2 stimuli carry "
+            "independent geometry seeds (render invariance is "
+            "the construct) - preregistration amendment 4",
+        },
         "stimuli": stimuli,
         "trials": ordered,
     }
-    public["sha256"] = hashlib.sha256(
-        json.dumps(public, sort_keys=True).encode()
-    ).hexdigest()
+    public["sha256"] = hashlib.sha256(json.dumps(public, sort_keys=True).encode()).hexdigest()
     key = {
         "public_sha256": public["sha256"],
         "seed": seed,
@@ -332,8 +385,11 @@ def build_manifest(snapshots: dict[str, dict], seed: int = 71) -> tuple[dict, di
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--force", action="store_true",
-                    help="overwrite an existing manifest (voids naive-subject status)")
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite an existing manifest (voids naive-subject status)",
+    )
     ap.add_argument("--seed", type=int, default=71)
     args = ap.parse_args()
 
@@ -350,8 +406,10 @@ def main() -> None:
     MANIFEST.write_text(json.dumps(public))
     ANSWER_KEY.write_text(json.dumps(key))
     n_main = sum(1 for t in public["trials"] if t["task"] != "practice")
-    print(f"wrote {MANIFEST}{forced} + answer key: {len(public['stimuli'])} stimuli, "
-          f"{n_main} scored trials + practice, sha256 {public['sha256'][:16]}")
+    print(
+        f"wrote {MANIFEST}{forced} + answer key: {len(public['stimuli'])} stimuli, "
+        f"{n_main} scored trials + practice, sha256 {public['sha256'][:16]}"
+    )
 
 
 if __name__ == "__main__":

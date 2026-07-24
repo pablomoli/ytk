@@ -413,7 +413,9 @@ def set_status(key, status, path=RECS_PATH) -> dict:
     """Set the watch/read status of an entry. Raises ``ValueError`` on an
     invalid status and ``KeyError`` when the entry does not exist."""
     if status not in VALID_STATUS:
-        raise ValueError(f"invalid status: {status!r} (allowed: {sorted(s for s in VALID_STATUS if s)})")
+        raise ValueError(
+            f"invalid status: {status!r} (allowed: {sorted(s for s in VALID_STATUS if s)})"
+        )
     data = load_recs(path)
     entry = data.get(key)
     if entry is None:

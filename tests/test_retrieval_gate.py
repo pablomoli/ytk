@@ -23,8 +23,10 @@ YTK_ROOT = Path(__file__).resolve().parents[1] / "ytk"
 
 def _searchers(results_by_query: dict[str, list[str]]):
     """All buckets share one fake searcher returning a fixed ranked key list."""
+
     def search(query: str) -> list[str]:
         return results_by_query.get(query, [])
+
     return {"videos": search, "memories": search, "segments": search}
 
 
@@ -34,11 +36,13 @@ def test_evaluate_ranks_and_hits():
         {"query": "q2", "gold_id": "mem::b", "bucket": "memories"},
         {"query": "q3", "gold_id": "vid::c", "bucket": "videos"},
     ]
-    searchers = _searchers({
-        "q1": ["vid::a", "vid::x"],                     # rank 0
-        "q2": ["mem::x", "mem::y", "mem::z", "mem::w", "mem::b"],  # rank 4
-        "q3": ["vid::x", "vid::y"],                     # absent
-    })
+    searchers = _searchers(
+        {
+            "q1": ["vid::a", "vid::x"],  # rank 0
+            "q2": ["mem::x", "mem::y", "mem::z", "mem::w", "mem::b"],  # rank 4
+            "q3": ["vid::x", "vid::y"],  # absent
+        }
+    )
     report = evaluate(queries, searchers, resolve_gold=lambda g: g, top_k=10)
 
     assert report["n_queries"] == 3
@@ -58,7 +62,8 @@ def test_evaluate_missing_gold_excluded_from_metrics():
     ]
     searchers = _searchers({"q1": ["vid::a"]})
     report = evaluate(
-        queries, searchers,
+        queries,
+        searchers,
         resolve_gold=lambda g: None if g == "mem::gone" else g,
     )
 
@@ -74,11 +79,13 @@ def test_evaluate_misses_include_slipped_and_absent():
         {"query": "q2", "gold_id": "vid::b", "bucket": "videos"},
         {"query": "q3", "gold_id": "vid::c", "bucket": "videos"},
     ]
-    searchers = _searchers({
-        "q1": ["vid::a"],                                # rank 0: not a miss
-        "q2": ["vid::x"] * 7 + ["vid::b"],               # rank 7: out of top-5
-        "q3": ["vid::x"],                                # absent
-    })
+    searchers = _searchers(
+        {
+            "q1": ["vid::a"],  # rank 0: not a miss
+            "q2": ["vid::x"] * 7 + ["vid::b"],  # rank 7: out of top-5
+            "q3": ["vid::x"],  # absent
+        }
+    )
     report = evaluate(queries, searchers, resolve_gold=lambda g: g)
 
     misses = {m["gold_id"]: m["rank"] for m in report["misses"]}
@@ -100,10 +107,14 @@ def test_load_queries_skips_blank_lines(tmp_path):
 
 def test_make_baseline_stamps_provenance():
     report = {
-        "top_k": 10, "n_queries": 3, "n_evaluated": 3, "missing_gold": [],
+        "top_k": 10,
+        "n_queries": 3,
+        "n_evaluated": 3,
+        "missing_gold": [],
         "overall": {"hit@1": 0.5, "hit@5": 0.9, "hit@10": 0.95},
         "per_bucket": {"videos": {"hit@1": 0.5, "hit@5": 0.9, "hit@10": 0.95, "n": 3}},
-        "misses": [], "provenance": {"corpus_fingerprint": "abc"},
+        "misses": [],
+        "provenance": {"corpus_fingerprint": "abc"},
     }
     baseline = make_baseline(report, epoch="v2", authored="2026-07-17")
     assert baseline["epoch"] == "v2"
@@ -116,16 +127,22 @@ def test_make_baseline_stamps_provenance():
 
 def _report(hit5=0.9, hit10=0.95, n=100, missing=()):
     return {
-        "top_k": 10, "n_queries": n + len(missing), "n_evaluated": n,
+        "top_k": 10,
+        "n_queries": n + len(missing),
+        "n_evaluated": n,
         "missing_gold": list(missing),
         "overall": {"hit@1": 0.5, "hit@5": hit5, "hit@10": hit10},
-        "per_bucket": {}, "misses": [],
+        "per_bucket": {},
+        "misses": [],
     }
 
 
 def _baseline(hit5=0.9, hit10=0.95, tolerance=0.02):
     return {
-        "epoch": "v2", "authored": "2026-07-17", "top_k": 10, "n_queries": 100,
+        "epoch": "v2",
+        "authored": "2026-07-17",
+        "top_k": 10,
+        "n_queries": 100,
         "tolerance": tolerance,
         "overall": {"hit@1": 0.5, "hit@5": hit5, "hit@10": hit10},
         "per_bucket": {},
@@ -211,9 +228,7 @@ def test_eval_cli_fails_on_regression(eval_cli, monkeypatch):
 
     invoke, baseline_path = eval_cli
     baseline_path.write_text(json.dumps(_baseline()))
-    monkeypatch.setattr(
-        retrieval_gate, "run_live_gate", lambda top_k=10: _cli_report(hit5=0.80)
-    )
+    monkeypatch.setattr(retrieval_gate, "run_live_gate", lambda top_k=10: _cli_report(hit5=0.80))
     result = invoke()
     assert result.exit_code == 1
     assert "regressed" in result.output
@@ -263,7 +278,10 @@ def test_live_gate_passes_against_baseline():
 
     result = subprocess.run(
         ["uv", "run", "ytk", "eval"],
-        cwd=YTK_ROOT.parent, capture_output=True, text=True, timeout=600,
+        cwd=YTK_ROOT.parent,
+        capture_output=True,
+        text=True,
+        timeout=600,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 

@@ -17,7 +17,7 @@ import json
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 CLAUDE_DIR = Path.home() / ".claude" / "projects"
@@ -132,7 +132,9 @@ def update_project_atoms(
 
     existing_block = ""
     for atom, content in existing.items():
-        existing_block += f"\n### {atom}\n{content if content else '_missing — treat as first run_'}\n"
+        existing_block += (
+            f"\n### {atom}\n{content if content else '_missing — treat as first run_'}\n"
+        )
 
     atom_template_block = ""
     for atom, template in ATOM_TEMPLATES.items():
@@ -185,7 +187,10 @@ Respond with valid JSON only. No markdown wrapper. No explanation outside the JS
     result = json.loads(raw)
     # Enforce recent always updates regardless of model response
     if not result.get("recent", {}).get("changed"):
-        result["recent"] = {"changed": True, "content": result.get("recent", {}).get("content", "_no signal_")}
+        result["recent"] = {
+            "changed": True,
+            "content": result.get("recent", {}).get("content", "_no signal_"),
+        }
     return result
 
 
@@ -233,10 +238,18 @@ def _migrate_flat_memories(vault_path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-sessions", type=int, default=3)
-    parser.add_argument("--max-turns", type=int, default=0,
-                        help="Cap turns sent to Haiku (0 = no cap). Use ~50 for stop-hook runs.")
-    parser.add_argument("--min-interval", type=int, default=0,
-                        help="Skip if recent.md was written less than N minutes ago (0 = no limit).")
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=0,
+        help="Cap turns sent to Haiku (0 = no cap). Use ~50 for stop-hook runs.",
+    )
+    parser.add_argument(
+        "--min-interval",
+        type=int,
+        default=0,
+        help="Skip if recent.md was written less than N minutes ago (0 = no limit).",
+    )
     parser.add_argument("--force", action="store_true", help="Re-generate existing memories")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
@@ -251,9 +264,11 @@ def main() -> None:
         sys.exit(1)
 
     from dotenv import load_dotenv
+
     load_dotenv()
 
     import os
+
     vault_raw = os.getenv("OBSIDIAN_VAULT_PATH")
     if not vault_raw:
         print("ERROR: OBSIDIAN_VAULT_PATH not set in .env", file=sys.stderr)
@@ -262,6 +277,7 @@ def main() -> None:
 
     if not args.dry_run:
         import anthropic
+
         client = anthropic.Anthropic()
     else:
         client = None
@@ -293,7 +309,9 @@ def main() -> None:
             if recent_atom.exists():
                 age_minutes = (time.time() - recent_atom.stat().st_mtime) / 60
                 if age_minutes < args.min_interval:
-                    print(f"--recent: seeded {age_minutes:.0f}m ago, skipping (min-interval={args.min_interval}m).")
+                    print(
+                        f"--recent: seeded {age_minutes:.0f}m ago, skipping (min-interval={args.min_interval}m)."
+                    )
                     return
 
         print(f"--recent: reseeding {project_name_from_dir(most_recent_proj.name)}")
@@ -328,9 +346,11 @@ def main() -> None:
             continue
 
         if args.max_turns and len(all_turns) > args.max_turns:
-            all_turns = all_turns[-args.max_turns:]
+            all_turns = all_turns[-args.max_turns :]
 
-        print(f"  Processing: {project_display} ({len(all_turns)} turns from {min(len(jsonl_files), args.max_sessions)} sessions)")
+        print(
+            f"  Processing: {project_display} ({len(all_turns)} turns from {min(len(jsonl_files), args.max_sessions)} sessions)"
+        )
 
         if args.dry_run:
             for t in all_turns[:2]:
@@ -339,8 +359,10 @@ def main() -> None:
 
         try:
             from ytk.vault import (
-                write_atom, read_atom, write_project_hub,
                 _get_vault_path,
+                read_atom,
+                write_atom,
+                write_project_hub,
             )
 
             existing = {
@@ -356,9 +378,9 @@ def main() -> None:
                     write_atom(dir_name_slug, atom, result["content"])
                     atoms_written.append(atom)
 
-            most_recent_mtime = max(jf.stat().st_mtime for jf in jsonl_files[:args.max_sessions])
+            most_recent_mtime = max(jf.stat().st_mtime for jf in jsonl_files[: args.max_sessions])
             status = _infer_status(most_recent_mtime)
-            last_active = datetime.fromtimestamp(most_recent_mtime, tz=timezone.utc).strftime("%Y-%m-%d")
+            last_active = datetime.fromtimestamp(most_recent_mtime, tz=UTC).strftime("%Y-%m-%d")
 
             tech_content = updates.get("tech", {}).get("content") or existing.get("tech") or ""
             tech_tags = re.findall(r"\[\[([^\]]+)\]\]", tech_content)
@@ -367,30 +389,40 @@ def main() -> None:
             refs = _session_refs(vault_path_obj, dir_name_slug)
 
             write_project_hub(
-                dir_name_slug, project_display, status, tech_tags,
-                last_active, refs,
+                dir_name_slug,
+                project_display,
+                status,
+                tech_tags,
+                last_active,
+                refs,
             )
 
             print(f"    Updated atoms: {', '.join(atoms_written) if atoms_written else 'none'}")
             print(f"    Hub written: {status}, {len(tech_tags)} tech links")
 
-            purpose_line = (updates.get("purpose", {}).get("content") or existing.get("purpose") or "")
+            purpose_line = (
+                updates.get("purpose", {}).get("content") or existing.get("purpose") or ""
+            )
             purpose_line = purpose_line.split("\n")[0][:80].rstrip(".")
-            processed_projects.append({
-                "slug": dir_name_slug,
-                "display": project_display,
-                "status": status,
-                "purpose_line": purpose_line,
-            })
+            processed_projects.append(
+                {
+                    "slug": dir_name_slug,
+                    "display": project_display,
+                    "status": status,
+                    "purpose_line": purpose_line,
+                }
+            )
 
         except Exception as exc:
             print(f"    ERROR: {exc}", file=sys.stderr)
-            import traceback; traceback.print_exc(file=sys.stderr)
+            import traceback
 
+            traceback.print_exc(file=sys.stderr)
 
     if processed_projects and not args.dry_run:
         try:
             from ytk.vault import write_memories_moc
+
             moc_path = write_memories_moc(processed_projects)
             print(f"\nMOC written: {moc_path}")
         except Exception as exc:
@@ -398,6 +430,7 @@ def main() -> None:
 
     if not args.dry_run:
         from ytk.vault import _get_vault_path
+
         _migrate_flat_memories(_get_vault_path())
 
 

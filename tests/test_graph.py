@@ -1,7 +1,4 @@
-from unittest.mock import patch, MagicMock
-from pathlib import Path
-import pytest
-import json
+from unittest.mock import MagicMock, patch
 
 
 def _mock_collection(docs: list[dict]) -> MagicMock:
@@ -22,6 +19,7 @@ def _mock_collection(docs: list[dict]) -> MagicMock:
             "metadatas": [[d["metadata"] for d in results]],
             "documents": [[d["document"] for d in results]],
         }
+
     col.query.side_effect = _query
     return col
 
@@ -30,24 +28,33 @@ SAMPLE_DOCS = [
     {
         "id": "note_projects_ytk",
         "document": "ytk knowledge system",
-        "metadata": {"doc_id": "note_projects_ytk", "tags": "projects", "source_path": "/vault/projects/ytk.md"},
+        "metadata": {
+            "doc_id": "note_projects_ytk",
+            "tags": "projects",
+            "source_path": "/vault/projects/ytk.md",
+        },
     },
     {
         "id": "note_projects_epicmap",
         "document": "epicmap mapping tool",
-        "metadata": {"doc_id": "note_projects_epicmap", "tags": "projects", "source_path": "/vault/projects/epicmap.md"},
+        "metadata": {
+            "doc_id": "note_projects_epicmap",
+            "tags": "projects",
+            "source_path": "/vault/projects/epicmap.md",
+        },
     },
 ]
 
 
 def test_build_graph_creates_nodes():
     """build_graph creates one node per indexed document."""
-    import networkx as nx
     from ytk.graph import build_graph
 
-    with patch("ytk.graph._memories_collection", return_value=_mock_collection(SAMPLE_DOCS)), \
-         patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
-         patch("ytk.graph._read_note_concepts", return_value=[]):
+    with (
+        patch("ytk.graph._memories_collection", return_value=_mock_collection(SAMPLE_DOCS)),
+        patch("ytk.graph._videos_collection", return_value=_mock_collection([])),
+        patch("ytk.graph._read_note_concepts", return_value=[]),
+    ):
         G = build_graph(threshold=0.5)
 
     assert len(G.nodes) == 2
@@ -58,16 +65,22 @@ def test_build_graph_shared_tag_edge():
     """Two notes with the same tag get an EXTRACTED edge."""
     from ytk.graph import build_graph
 
-    with patch("ytk.graph._memories_collection", return_value=_mock_collection(SAMPLE_DOCS)), \
-         patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
-         patch("ytk.graph._read_note_concepts", return_value=[]):
+    with (
+        patch("ytk.graph._memories_collection", return_value=_mock_collection(SAMPLE_DOCS)),
+        patch("ytk.graph._videos_collection", return_value=_mock_collection([])),
+        patch("ytk.graph._read_note_concepts", return_value=[]),
+    ):
         # threshold=0.95 excludes semantic edges (similarity=0.9 from distance=0.1)
         G = build_graph(threshold=0.95)
 
-    assert G.has_edge("note_projects_ytk", "note_projects_epicmap") or \
-           G.has_edge("note_projects_epicmap", "note_projects_ytk")
-    edge_data = (G["note_projects_ytk"].get("note_projects_epicmap") or
-                 G["note_projects_epicmap"].get("note_projects_ytk") or {})
+    assert G.has_edge("note_projects_ytk", "note_projects_epicmap") or G.has_edge(
+        "note_projects_epicmap", "note_projects_ytk"
+    )
+    edge_data = (
+        G["note_projects_ytk"].get("note_projects_epicmap")
+        or G["note_projects_epicmap"].get("note_projects_ytk")
+        or {}
+    )
     assert edge_data.get("type") == "EXTRACTED"
     assert edge_data.get("weight") == 1.0
 
@@ -89,15 +102,19 @@ def test_build_graph_semantic_edge_below_threshold():
         },
     ]
 
-    with patch("ytk.graph._memories_collection", return_value=_mock_collection(no_tag_docs)), \
-         patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
-         patch("ytk.graph._read_note_concepts", return_value=[]):
+    with (
+        patch("ytk.graph._memories_collection", return_value=_mock_collection(no_tag_docs)),
+        patch("ytk.graph._videos_collection", return_value=_mock_collection([])),
+        patch("ytk.graph._read_note_concepts", return_value=[]),
+    ):
         # distance=0.1 -> similarity=0.9. threshold=0.95 means 0.9 < 0.95 -> no edge
         G_strict = build_graph(threshold=0.95)
         # threshold=0.5 means 0.9 >= 0.5 -> edge exists
         G_loose = build_graph(threshold=0.5)
 
-    assert not G_strict.has_edge("note_a", "note_b"), "similarity 0.9 should be below threshold 0.95"
+    assert not G_strict.has_edge("note_a", "note_b"), (
+        "similarity 0.9 should be below threshold 0.95"
+    )
     assert G_loose.has_edge("note_a", "note_b"), "similarity 0.9 should be above threshold 0.5"
 
 
@@ -113,23 +130,34 @@ def test_build_graph_skips_structural_tags():
         {
             "id": "note_1",
             "document": "first memory",
-            "metadata": {"doc_id": "note_1", "tags": "inbox, claude-mem", "source_path": "/vault/1.md"},
+            "metadata": {
+                "doc_id": "note_1",
+                "tags": "inbox, claude-mem",
+                "source_path": "/vault/1.md",
+            },
         },
         {
             "id": "note_2",
             "document": "second memory",
-            "metadata": {"doc_id": "note_2", "tags": "inbox, claude-mem", "source_path": "/vault/2.md"},
+            "metadata": {
+                "doc_id": "note_2",
+                "tags": "inbox, claude-mem",
+                "source_path": "/vault/2.md",
+            },
         },
     ]
 
-    with patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)), \
-         patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
-         patch("ytk.graph._read_note_concepts", return_value=[]):
+    with (
+        patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)),
+        patch("ytk.graph._videos_collection", return_value=_mock_collection([])),
+        patch("ytk.graph._read_note_concepts", return_value=[]),
+    ):
         # threshold=0.95 excludes semantic edges (distance=0.1 -> similarity=0.9)
         G = build_graph(threshold=0.95)
 
-    assert not G.has_edge("note_1", "note_2"), \
+    assert not G.has_edge("note_1", "note_2"), (
         "structural tags (inbox, claude-mem) must not create tag edges"
+    )
 
 
 def test_build_graph_caps_large_tag_groups():
@@ -138,7 +166,7 @@ def test_build_graph_caps_large_tag_groups():
     A tag on hundreds of notes is not a meaningful link; cliquing on it is
     O(n^2) and explodes the edge count. Such groups are skipped entirely.
     """
-    from ytk.graph import build_graph, _MAX_TAG_GROUP
+    from ytk.graph import _MAX_TAG_GROUP, build_graph
 
     n = _MAX_TAG_GROUP + 5
     docs = [
@@ -150,38 +178,48 @@ def test_build_graph_caps_large_tag_groups():
         for i in range(n)
     ]
 
-    with patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)), \
-         patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
-         patch("ytk.graph._read_note_concepts", return_value=[]):
+    with (
+        patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)),
+        patch("ytk.graph._videos_collection", return_value=_mock_collection([])),
+        patch("ytk.graph._read_note_concepts", return_value=[]),
+    ):
         # threshold=0.95 excludes semantic edges so only tag edges could appear
         G = build_graph(threshold=0.95)
 
-    assert G.number_of_edges() == 0, \
+    assert G.number_of_edges() == 0, (
         f"a tag group of {n} (> cap {_MAX_TAG_GROUP}) must not create edges"
+    )
 
 
 def test_build_graph_keeps_small_meaningful_tag_groups():
     """A small group sharing a real topic tag still gets connected."""
-    from ytk.graph import build_graph, _MAX_TAG_GROUP
+    from ytk.graph import _MAX_TAG_GROUP, build_graph
 
     n = min(5, _MAX_TAG_GROUP)
     docs = [
         {
             "id": f"note_{i}",
             "document": f"doc {i}",
-            "metadata": {"doc_id": f"note_{i}", "tags": "geospatial", "source_path": f"/vault/{i}.md"},
+            "metadata": {
+                "doc_id": f"note_{i}",
+                "tags": "geospatial",
+                "source_path": f"/vault/{i}.md",
+            },
         }
         for i in range(n)
     ]
 
-    with patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)), \
-         patch("ytk.graph._videos_collection", return_value=_mock_collection([])), \
-         patch("ytk.graph._read_note_concepts", return_value=[]):
+    with (
+        patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)),
+        patch("ytk.graph._videos_collection", return_value=_mock_collection([])),
+        patch("ytk.graph._read_note_concepts", return_value=[]),
+    ):
         G = build_graph(threshold=0.95)
 
     # a clique of n nodes has n*(n-1)/2 edges
-    assert G.number_of_edges() == n * (n - 1) // 2, \
+    assert G.number_of_edges() == n * (n - 1) // 2, (
         "small meaningful tag groups should still form a clique"
+    )
 
 
 def test_parse_key_concepts():
@@ -206,6 +244,7 @@ def test_parse_key_concepts():
 def test_detect_communities_returns_mapping():
     """detect_communities returns a dict mapping every node to an int."""
     import networkx as nx
+
     from ytk.graph import detect_communities
 
     G = nx.Graph()
@@ -218,7 +257,6 @@ def test_detect_communities_returns_mapping():
 
 def test_build_graph_concept_edge(tmp_path):
     """Two notes sharing a key concept get an EXTRACTED edge with weight 0.9."""
-    import networkx as nx
     from ytk.graph import build_graph
 
     # Create real note files with a shared concept
@@ -246,13 +284,16 @@ def test_build_graph_concept_edge(tmp_path):
         },
     ]
 
-    with patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)), \
-         patch("ytk.graph._videos_collection", return_value=_mock_collection([])):
+    with (
+        patch("ytk.graph._memories_collection", return_value=_mock_collection(docs)),
+        patch("ytk.graph._videos_collection", return_value=_mock_collection([])),
+    ):
         # threshold=0.95 to exclude semantic edges (distance=0.1 -> similarity=0.9 < 0.95)
         G = build_graph(threshold=0.95)
 
-    assert G.has_edge("note_a", "note_b") or G.has_edge("note_b", "note_a"), \
+    assert G.has_edge("note_a", "note_b") or G.has_edge("note_b", "note_a"), (
         "notes sharing 'chromadb' concept should have an edge"
+    )
     edge_data = G["note_a"].get("note_b") or G["note_b"].get("note_a") or {}
     assert edge_data.get("type") == "EXTRACTED"
     assert abs(edge_data.get("weight", 0) - 0.9) < 0.01
@@ -261,17 +302,23 @@ def test_build_graph_concept_edge(tmp_path):
 def test_export_json(tmp_path):
     """export_json writes a valid JSON file with nodes and edges."""
     import networkx as nx
+
     from ytk.graph import export_json
 
     G = nx.Graph()
-    G.add_node("a", title="Note A", url="https://example.com", note_type="memory", tags="ai", community=0)
-    G.add_node("b", title="Note B", url="https://youtube.com", note_type="video", tags="ai", community=0)
+    G.add_node(
+        "a", title="Note A", url="https://example.com", note_type="memory", tags="ai", community=0
+    )
+    G.add_node(
+        "b", title="Note B", url="https://youtube.com", note_type="video", tags="ai", community=0
+    )
     G.add_edge("a", "b", weight=0.9, type="EXTRACTED", label="tag:ai")
 
     out = tmp_path / "graph.json"
     export_json(G, out)
 
     import json as _json
+
     data = _json.loads(out.read_text())
     assert len(data["nodes"]) == 2
     assert len(data["edges"]) == 1
@@ -281,10 +328,13 @@ def test_export_json(tmp_path):
 def test_export_html(tmp_path):
     """export_html writes a self-contained HTML file with vis.js."""
     import networkx as nx
+
     from ytk.graph import export_html
 
     G = nx.Graph()
-    G.add_node("a", title="Note A", url="https://example.com", note_type="memory", tags="ai", community=0)
+    G.add_node(
+        "a", title="Note A", url="https://example.com", note_type="memory", tags="ai", community=0
+    )
 
     out = tmp_path / "graph.html"
     export_html(G, out)

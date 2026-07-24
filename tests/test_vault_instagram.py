@@ -2,8 +2,8 @@ from __future__ import annotations
 
 
 def test_write_instagram_note_creates_file(tmp_path, monkeypatch):
-    from ytk.instagram import InstagramPost
     from ytk.enrich import Enrichment, KeyMoment
+    from ytk.instagram import InstagramPost
     from ytk.vault import write_instagram_note
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
@@ -40,8 +40,8 @@ def test_write_instagram_note_creates_file(tmp_path, monkeypatch):
 
 
 def test_write_instagram_note_filename_uses_username_date_slug(tmp_path, monkeypatch):
-    from ytk.instagram import InstagramPost
     from ytk.enrich import Enrichment
+    from ytk.instagram import InstagramPost
     from ytk.vault import write_instagram_note
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
@@ -68,8 +68,8 @@ def test_write_instagram_note_filename_uses_username_date_slug(tmp_path, monkeyp
 
 
 def test_write_instagram_note_no_moments_omits_section(tmp_path, monkeypatch):
-    from ytk.instagram import InstagramPost
     from ytk.enrich import Enrichment
+    from ytk.instagram import InstagramPost
     from ytk.vault import write_instagram_note
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
@@ -91,8 +91,8 @@ def test_write_instagram_note_no_moments_omits_section(tmp_path, monkeypatch):
 
 
 def test_write_instagram_note_empty_caption_uses_username_fallback(tmp_path, monkeypatch):
-    from ytk.instagram import InstagramPost
     from ytk.enrich import Enrichment
+    from ytk.instagram import InstagramPost
     from ytk.vault import write_instagram_note
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
@@ -113,8 +113,8 @@ def test_write_instagram_note_empty_caption_uses_username_fallback(tmp_path, mon
 
 
 def test_write_instagram_note_downloads_images(tmp_path, monkeypatch):
-    from ytk.instagram import InstagramPost
     from ytk.enrich import Enrichment
+    from ytk.instagram import InstagramPost
     from ytk.vault import write_instagram_note
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
@@ -152,8 +152,8 @@ def test_write_instagram_note_downloads_images(tmp_path, monkeypatch):
 
 
 def test_write_instagram_note_no_images_empty_frontmatter(tmp_path, monkeypatch):
-    from ytk.instagram import InstagramPost
     from ytk.enrich import Enrichment
+    from ytk.instagram import InstagramPost
     from ytk.vault import write_instagram_note
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
@@ -177,8 +177,8 @@ def test_write_instagram_note_no_images_empty_frontmatter(tmp_path, monkeypatch)
 
 
 def test_write_instagram_note_failed_download_skipped(tmp_path, monkeypatch):
-    from ytk.instagram import InstagramPost
     from ytk.enrich import Enrichment
+    from ytk.instagram import InstagramPost
     from ytk.vault import write_instagram_note
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
@@ -203,8 +203,8 @@ def test_write_instagram_note_failed_download_skipped(tmp_path, monkeypatch):
 
 
 def test_write_instagram_note_shortcode_prevents_overwrite(tmp_path, monkeypatch):
-    from ytk.instagram import InstagramPost
     from ytk.enrich import Enrichment
+    from ytk.instagram import InstagramPost
     from ytk.vault import write_instagram_note
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
@@ -238,9 +238,7 @@ def test_write_instagram_note_saves_reel_thumbnail(tmp_path, monkeypatch):
     from ytk.vault import write_instagram_note
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
-    monkeypatch.setattr(
-        "ytk.vault._save_image", lambda url, dest: Path(str(dest) + ".jpg")
-    )
+    monkeypatch.setattr("ytk.vault._save_image", lambda url, dest: Path(str(dest) + ".jpg"))
 
     post = InstagramPost(
         url="https://www.instagram.com/reel/abc123/",
@@ -252,8 +250,12 @@ def test_write_instagram_note_saves_reel_thumbnail(tmp_path, monkeypatch):
         thumbnail_url="https://cdn.example/cover.jpg",
     )
     enrichment = Enrichment(
-        thesis="t", summary="s", key_concepts=[], insights=[],
-        interest_tags=["x"], key_moments=[],
+        thesis="t",
+        summary="s",
+        key_concepts=[],
+        insights=[],
+        interest_tags=["x"],
+        key_moments=[],
     )
     path = write_instagram_note(post, enrichment)
     text = path.read_text(encoding="utf-8")

@@ -16,7 +16,7 @@ from ytk.reddit_feed import (
     sync_subreddits,
     top_comments,
 )
-from ytk.reels import ReelItem, ReelsState, load_state, save_state
+from ytk.reels import ReelsState, load_state, save_state
 
 
 def _listing(*posts):
@@ -35,7 +35,13 @@ def _post(pid, title="A post", is_self=False, url=None, domain="example.com", su
         "num_comments": 10,
         "is_self": is_self,
         "selftext": "body text" if is_self else "",
-        "url": url if url is not None else (f"https://old.reddit.com/r/{sub}/comments/{pid}/slug/" if is_self else "https://example.com/x"),
+        "url": url
+        if url is not None
+        else (
+            f"https://old.reddit.com/r/{sub}/comments/{pid}/slug/"
+            if is_self
+            else "https://example.com/x"
+        ),
         "domain": ("self." + sub) if is_self else domain,
         "thumbnail": "https://b.thumbs.redditmedia.com/x.jpg",
         "created_utc": 1752900000,
@@ -53,10 +59,14 @@ class TestParsePosts:
         assert p["thumbnail"] == "https://b.thumbs.redditmedia.com/x.jpg"
 
     def test_skips_non_t3_and_missing_ids(self):
-        listing = {"data": {"children": [
-            {"kind": "t1", "data": {"id": "c1"}},
-            {"kind": "t3", "data": {"title": "no id"}},
-        ]}}
+        listing = {
+            "data": {
+                "children": [
+                    {"kind": "t1", "data": {"id": "c1"}},
+                    {"kind": "t3", "data": {"title": "no id"}},
+                ]
+            }
+        }
         assert parse_posts(listing) == []
 
     def test_non_http_thumbnail_becomes_none(self):
@@ -135,7 +145,9 @@ class TestBuildContentBlock:
         assert "u/z (9): insight" in block
 
     def test_link_post_block_names_target(self):
-        (p,) = parse_posts(_listing(_post("abc", url="https://example.com/x", domain="example.com")))
+        (p,) = parse_posts(
+            _listing(_post("abc", url="https://example.com/x", domain="example.com"))
+        )
         block = build_content_block(p, [])
         assert "Links to: https://example.com/x" in block
 
@@ -143,8 +155,9 @@ class TestBuildContentBlock:
 class TestSyncSubreddits:
     def test_dedupes_and_records_seen(self, monkeypatch):
         listings = {
-            "TouchDesigner": _listing(_post("a1", url="https://ex.com/1", domain="ex.com"),
-                                      _post("a2", is_self=True)),
+            "TouchDesigner": _listing(
+                _post("a1", url="https://ex.com/1", domain="ex.com"), _post("a2", is_self=True)
+            ),
             "LocalLLaMA": _listing(_post("b1", url="https://ex.com/2", domain="ex.com")),
         }
         monkeypatch.setattr(
@@ -163,6 +176,7 @@ class TestSyncSubreddits:
             if sub == "Broken":
                 raise RuntimeError("boom")
             return _listing(_post("ok1", is_self=True))
+
         monkeypatch.setattr("ytk.reddit_feed.fetch_listing", fake)
         state = ReelsState()
         assert sync_subreddits(state, "c=1", ["Broken", "Fine"]) == 1
@@ -170,7 +184,9 @@ class TestSyncSubreddits:
     def test_dedupes_against_extra_known_urls(self, monkeypatch):
         monkeypatch.setattr(
             "ytk.reddit_feed.fetch_listing",
-            lambda sub, cookie, **kw: _listing(_post("a1", url="https://ex.com/1", domain="ex.com")),
+            lambda sub, cookie, **kw: _listing(
+                _post("a1", url="https://ex.com/1", domain="ex.com")
+            ),
         )
         state = ReelsState()
         added = sync_subreddits(state, "c=1", ["Sub"], extra_known={"https://ex.com/1"})
@@ -184,9 +200,7 @@ def _cookie_db(path, rows):
         "CREATE TABLE moz_cookies (name TEXT, value TEXT, host TEXT, path TEXT,"
         " expiry INTEGER, isSecure INTEGER, isHttpOnly INTEGER, sameSite INTEGER)"
     )
-    con.executemany(
-        "INSERT INTO moz_cookies (name, value, host) VALUES (?,?,?)", rows
-    )
+    con.executemany("INSERT INTO moz_cookies (name, value, host) VALUES (?,?,?)", rows)
     con.commit()
     con.close()
 
@@ -194,8 +208,9 @@ def _cookie_db(path, rows):
 class TestCookieHeader:
     def test_builds_header_when_session_present(self, tmp_path):
         db = tmp_path / "cookies.sqlite"
-        _cookie_db(db, [("reddit_session", "abc", ".reddit.com"),
-                        ("token_v2", "xyz", ".reddit.com")])
+        _cookie_db(
+            db, [("reddit_session", "abc", ".reddit.com"), ("token_v2", "xyz", ".reddit.com")]
+        )
         hdr = reddit_cookie_header(db)
         assert "reddit_session=abc" in hdr and "token_v2=xyz" in hdr
 

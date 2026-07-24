@@ -30,7 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 graph = ["graspologic"]
-dev = ["pytest>=8.0", "umap-learn>=0.5.12"]
+dev = ["pytest>=8.0", "umap-learn>=0.5.12", "ruff>=0.14", "pyright>=1.1.400"]
 
 [project.scripts]
 ytk = "ytk.cli:cli"
@@ -45,6 +45,73 @@ build-backend = "hatchling.build"
 # wheel at ytk/ui/webdist, where server.py's _WEB_DIST looks for it.
 [tool.hatch.build.targets.wheel.force-include]
 "web/dist" = "ytk/ui/webdist"
+
+[tool.ruff]
+line-length = 100
+# Pinned rather than inferred from requires-python. ytk/sdk.py uses PEP 695
+# type-parameter syntax (`def structured[R: BaseModel]`), which is 3.12+, so
+# inferring py311 from requires-python makes Ruff fail to parse the file.
+# The requires-python floor is wrong and is tracked in
+# docs/plans/typing-sweep-inventory.md (F3); this pin keeps the linter honest
+# about the interpreter the project actually runs on.
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# Counts below are the hits at adoption (#101 Phase 0). The E/F/I/UP core is
+# fully enforced — the whole F family is clean, which is what matters most.
+# Everything listed here is either wrong for this codebase or cannot be fixed
+# without changing runtime behaviour, which this pass is not allowed to do.
+# See docs/plans/typing-sweep-inventory.md for the full disposition.
+ignore = [
+    "E501", # the formatter owns line length
+
+    # --- Wrong for this codebase; off permanently ---
+    "RUF001", # 8: em dashes and typographic quotes in prose strings are deliberate
+    "E402",   # 15: scripts/ bootstrap sys.path before importing ytk, by design
+    "RUF012", # 4: ClassVar annotations on Pydantic/dataclass config would be noise
+
+    # --- Real signal, but every fix changes behaviour. Deferred, not dismissed ---
+    "B905",   # 52: zip(strict=True) raises on length mismatch; strict=False is a no-op edit
+    "B904",   # 44: `raise ... from` rewrites __cause__ and the printed traceback
+    "SIM105", # 5: contextlib.suppress swallows differently than a bare try/except pass
+    "SIM115", # 2: converting to a context manager moves when the file handle closes
+    "B023",   # 4: closures capturing a loop variable — a real bug class; fixing it
+              #    changes what the closure sees, so it needs its own reviewed pass
+    "B007",   # 4: renaming an unused loop variable is safe but churns hot loops
+    "B008",   # 1: call-in-default is load-bearing for the CLI's lazy config
+    "B017",   # 1: a test asserting on bare Exception; tightening it changes the test
+    "E731",   # 4: lambda assignment
+    "E741",   # 4: `l`/`I` names inside the numpy math core, where they match the paper
+    "RUF005", # 3
+    "RUF015", # 4
+    "RUF043", # 1
+    "RUF059", # 9: unused unpacked values in tuple returns
+    "SIM108", # 2
+    "SIM110", # 1
+    "SIM113", # 1
+    "UP047",  # 1: PEP 695 generics; see F3 in the inventory (requires-python is 3.11)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pyright]
+# Scoped to the math core on purpose, and this scope is a *gate*: it passes
+# today and must keep passing. ytk/ridges.py is what the rest of the shader
+# arc (#107) builds on, and it is the module that was already annotated.
+#
+# Widening is the follow-up, and the cost is measured rather than guessed
+# (see docs/plans/typing-sweep-inventory.md):
+#   - basic across ytk + scripts + tests -> 308 errors
+#   - strict on ridges.py alone          -> 328 errors, all but 3 of them the
+#     reportUnknown* family, because numpy's stubs return
+#     ndarray[Unknown, Unknown] from nearly every call. Clearing those means
+#     annotating each local as npt.NDArray[np.float64] throughout the module.
+# Both are real work with real value; neither is a no-behaviour-change edit,
+# which is all this pass was allowed to make.
+include = ["ytk/ridges.py"]
+typeCheckingMode = "basic"
 
 [tool.pytest.ini_options]
 # eval marks live retrieval-gate runs (loads the encoder, hits the real

@@ -38,8 +38,11 @@ def test_upsert_doc_tiny_text_clears_stale_vectors(store):
 
 
 def test_upsert_doc_keeps_normal_text(store):
-    store.upsert_doc("norm", "a normal memory note about chroma internals and dedup",
-                     {"doc_id": "norm", "source_path": "/v/n.md"})
+    store.upsert_doc(
+        "norm",
+        "a normal memory note about chroma internals and dedup",
+        {"doc_id": "norm", "source_path": "/v/n.md"},
+    )
     assert store._memories_collection().get(where={"doc_id": "norm"})["ids"] == ["norm"]
 
 
@@ -51,14 +54,17 @@ def test_reindex_skips_memory_moc_index_files(store, tmp_path, monkeypatch):
     atoms = brain / "inbox" / "memories" / "someproject"
     atoms.mkdir(parents=True)
     (brain / "inbox" / "memories" / "index.md").write_text(
-        "# Memory MOC\n\n- [[someproject/index]]\n", encoding="utf-8")
+        "# Memory MOC\n\n- [[someproject/index]]\n", encoding="utf-8"
+    )
     (atoms / "index.md").write_text(
-        "# someproject\n\n- [[purpose]]\n- [[tech]]\n- [[state]]\n", encoding="utf-8")
+        "# someproject\n\n- [[purpose]]\n- [[tech]]\n- [[state]]\n", encoding="utf-8"
+    )
     (atoms / "purpose.md").write_text(
-        "This project exists to test that real atoms still get indexed properly.",
-        encoding="utf-8")
+        "This project exists to test that real atoms still get indexed properly.", encoding="utf-8"
+    )
 
     import ytk.vault as vault
+
     monkeypatch.setattr(vault, "_get_brain_path", lambda: brain)
     monkeypatch.setattr("ytk.cache.load_index_cache", lambda: {})
     monkeypatch.setattr("ytk.cache.save_index_cache", lambda cache: None)
@@ -80,6 +86,7 @@ def test_reindex_skips_archived_memories(store, tmp_path, monkeypatch):
     )
 
     import ytk.vault as vault
+
     monkeypatch.setattr(vault, "_get_brain_path", lambda: brain)
     monkeypatch.setattr("ytk.cache.load_index_cache", lambda: {})
     monkeypatch.setattr("ytk.cache.save_index_cache", lambda cache: None)
@@ -95,10 +102,15 @@ def _seed_video(store, video_id="vidtake"):
     from ytk.enrich import Enrichment
 
     store.upsert(
-        {"id": video_id, "title": "T", "url": "u", "uploader": "x",
-         "upload_date": "20260101"},
-        Enrichment(thesis="A talk about reranking.", summary="Summary here.",
-                   key_concepts=[], insights=[], interest_tags=[], key_moments=[]),
+        {"id": video_id, "title": "T", "url": "u", "uploader": "x", "upload_date": "20260101"},
+        Enrichment(
+            thesis="A talk about reranking.",
+            summary="Summary here.",
+            key_concepts=[],
+            insights=[],
+            interest_tags=[],
+            key_moments=[],
+        ),
         segments=[],
     )
 
@@ -127,8 +139,9 @@ def test_hub_embed_take_routes_youtube_only(monkeypatch, tmp_path):
     from ytk.ui import hub
 
     calls = []
-    monkeypatch.setattr("ytk.store.append_video_take",
-                        lambda vid, thought: calls.append((vid, thought)))
+    monkeypatch.setattr(
+        "ytk.store.append_video_take", lambda vid, thought: calls.append((vid, thought))
+    )
 
     yt = tmp_path / "sources" / "youtube" / "note.md"
     ig = tmp_path / "sources" / "instagram" / "note.md"
