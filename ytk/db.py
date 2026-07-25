@@ -1,6 +1,3 @@
-# pyright: basic
-# Not strict-clean yet (#122). Delete these two lines once the module
-# passes strict — the list of files carrying them only shrinks.
 """SQLite wrapper for tracking processed videos in the ytk ingestion pipeline."""
 
 from __future__ import annotations
@@ -101,7 +98,7 @@ def mark_failed(video_id: str, title: str, reason: str) -> None:
     conn.commit()
 
 
-def get_all(status: str | None = None) -> list[dict]:
+def get_all(status: str | None = None) -> list[dict[str, object]]:
     """
     Return all video records as plain dicts.
     If status is given, filter to that status ('processed', 'skipped', 'failed').
