@@ -63,8 +63,7 @@ Declare the sticky stack height once as a custom property and derive from it:
 }
 ```
 
-The sticky elements composing the stack consume the same variable, so the rail and the
-things above it can never disagree. This resolves both failure modes with one value.
+This resolves both failure modes with one value.
 
 `--sticky-top` is a single declared constant, not a computed one. CSS cannot sum the
 rendered heights of two sticky elements, and measuring them in JS with a `ResizeObserver`

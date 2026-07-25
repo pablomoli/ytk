@@ -8,15 +8,15 @@ never runs past the fold, and the ingest action is genuinely clickable.
 Not part of the pytest suite on purpose: it needs a browser and a running
 hub, and tests/conftest.py fails any test that reaches Playwright (#114).
 
-Run: uv run python scripts/probe_inbox_rail.py
+Run: uv run python scripts/probe_inbox_rail.py [--base http://127.0.0.1:6969]
 """
 
+import argparse
 import sys
 
 from playwright.sync_api import sync_playwright
 
-URL = "http://127.0.0.1:6969/inbox"
-VIEWPORTS = [(1440, 900), (1280, 800), (1280, 700), (1152, 620)]
+VIEWPORTS = [(1440, 900), (1280, 800), (1280, 700), (1152, 620), (1024, 576)]
 
 PROBE = """
 () => {
@@ -56,6 +56,11 @@ def check(page, label: str, failures: list[str]) -> None:
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--base", default="http://127.0.0.1:6969")
+    args = ap.parse_args()
+    url = f"{args.base}/inbox"
+
     failures: list[str] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -67,7 +72,7 @@ def main() -> int:
                     reduced_motion=motion,
                 )
                 page = ctx.new_page()
-                page.goto(URL)
+                page.goto(url)
                 page.wait_for_selector(".rail", timeout=20000)
                 page.wait_for_timeout(2000)
                 check(page, f"{width}x{height} motion={motion}", failures)
