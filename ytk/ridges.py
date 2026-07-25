@@ -707,7 +707,7 @@ def web(xyz: np.ndarray, labels: list, n_labels: int, max_seeds: int = 2500) -> 
     threads (longest chain 89 -> ~30) because sharper local density means
     more textured crests. The web answers a connectivity question, which
     wants more smoothing; the fog answers a local-thickness question,
-    which wants adaptivity. docs/assets/fog/04-*.png is the record."""
+    which wants adaptivity. docs/assets/01-fog/04-*.png is the record."""
     pts = np.asarray(xyz, float)
     h = silverman_bandwidth(pts)
     seeds = pts

@@ -167,7 +167,7 @@ cores) and exactly what ridge tracing does NOT want: on the sharper
 density the long connective crest through the epicmap mass fragmented
 from an 89-vertex chain into ~30-vertex dashes, and milder clamps did
 not recover it. The estimator must match the question: fog = adaptive,
-web = uniform. Record: docs/assets/fog/04-filaments-uniform-vs-adaptive.png.
+web = uniform. Record: docs/assets/01-fog/04-filaments-uniform-vs-adaptive.png.
 
 **Display normalization is part of the transfer function.** Two failed
 normalizations preceded the working one (against max point density, then

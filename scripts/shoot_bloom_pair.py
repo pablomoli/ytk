@@ -13,7 +13,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-OUT = Path(__file__).resolve().parents[1] / "docs" / "assets" / "bloom"
+OUT = Path(__file__).resolve().parents[1] / "docs" / "assets" / "05-bloom"
 SETTLE_MS = 6500
 
 SHOW_WEB_JS = """

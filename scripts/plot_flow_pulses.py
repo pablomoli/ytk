@@ -15,7 +15,7 @@ Rungs:
   04  shortlist — the settings worth choosing between, side by side
 
 Usage: uv run --with matplotlib --with numpy python scripts/plot_flow_pulses.py
-Figures land in docs/assets/flow-pulses/.
+Figures land in docs/assets/03-flow-pulses/.
 """
 
 import json
@@ -45,7 +45,7 @@ from plot_assets import (
     style_axes,
 )
 
-OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "flow-pulses"
+OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "03-flow-pulses"
 MAP = Path.home() / ".ytk" / "map.json"
 
 BASE, AMP = 0.65, 0.35  # the shader's actual brightness envelope

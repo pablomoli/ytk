@@ -56,7 +56,7 @@ CONTENT_CATS = _CATS
 # change is a stability fix and not a silent reshuffle (measured: 295/393
 # content notes placed, identical to the percentile it replaces).
 #
-# Deliberately NOT set from the null in docs/assets/semantic-domains/
+# Deliberately NOT set from the null in docs/assets/06-semantic-domains/
 # 02-theme-floor-null.png: a null-calibrated floor lands at 0.34-0.41 in the
 # content-centred space and would place 120/393. The null says the themes
 # beat chance by 1.00 sd — against 0.65 sd for source platform, a partition

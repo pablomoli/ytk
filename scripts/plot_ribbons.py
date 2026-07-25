@@ -11,7 +11,7 @@ Rungs:
   02  taper — the real web as hairlines against the same web as ribbons
 
 Usage: uv run --with matplotlib --with numpy python scripts/plot_ribbons.py
-Figures land in docs/assets/ribbons/.
+Figures land in docs/assets/04-ribbons/.
 """
 
 import json
@@ -42,7 +42,7 @@ from plot_assets import (
     style_axes,
 )
 
-OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "ribbons"
+OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "04-ribbons"
 MAP = Path.home() / ".ytk" / "map.json"
 
 # Mirrors mapRenderer.ts: hw = width * (.35 + .65 * min(den * 1.6, 1)) / depth

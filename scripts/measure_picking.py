@@ -1,8 +1,8 @@
 """Measure #101's two fixes in a real browser, headless.
 
-The figures in docs/assets/picking/ 01-03 are models. This one is not: it
+The figures in docs/assets/02-picking/ 01-03 are models. This one is not: it
 drives the actual bundle and records what the map does at rest and under the
-cursor. Writes docs/assets/picking/measured.json, which fig04 renders.
+cursor. Writes docs/assets/02-picking/measured.json, which fig04 renders.
 
 Two hub instances are started on scratch ports so the user's own hub on 6969
 is never touched: one from this worktree (the fixes) and one from a checkout
@@ -20,7 +20,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-OUT = Path(__file__).resolve().parents[1] / "docs" / "assets" / "picking" / "measured.json"
+OUT = Path(__file__).resolve().parents[1] / "docs" / "assets" / "02-picking" / "measured.json"
 
 IDLE_SECONDS = 4.0
 HOVER_EVENTS = 400

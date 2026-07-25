@@ -9,10 +9,10 @@ Rung 01 is the answer, and it vetoed the obvious design: the dates are not
 spread across the vault's life, they are piled at one end of it.
 
 House style is imported from plot_assets rather than restated, so these can
-never drift from docs/assets/fog/.
+never drift from docs/assets/01-fog/.
 
 Usage: uv run --with matplotlib --with numpy python scripts/plot_timemachine.py
-Figures land in docs/assets/time-machine/.
+Figures land in docs/assets/07-time-machine/.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ from plot_assets import (
     style_axes,
 )
 
-OUTDIR = ROOT / "docs" / "assets" / "time-machine"
+OUTDIR = ROOT / "docs" / "assets" / "07-time-machine"
 MAP = Path(os.path.expanduser("~/.ytk/map.json"))
 
 
