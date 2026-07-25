@@ -8,9 +8,8 @@ changed=$(git diff --cached --name-only)
 
 # Python quality gate (#101): lint and format only the staged .py files, so
 # the hook stays in the hundreds of milliseconds and never becomes something
-# worth bypassing. Pyright runs only when the one module it is scoped to
-# changes (see [tool.pyright] in pyproject.toml), which keeps it off the path
-# of every ordinary commit.
+# worth bypassing. Pyright then runs whenever any ytk/ module changes — it is
+# scoped to the whole package now (#122), not one file.
 py_changed=$(printf '%s\n' "$changed" | grep -E '^(ytk|scripts|tests)/.*\.py$')
 if [ -n "$py_changed" ]; then
     # shellcheck disable=SC2086 # word splitting is how the file list is passed
@@ -29,11 +28,12 @@ if [ -n "$py_changed" ]; then
     }
 fi
 
-if printf '%s\n' "$changed" | grep -qE '^ytk/ridges\.py$'; then
-    echo "pre-commit: math core changed — type checking ytk/ridges.py"
+if printf '%s\n' "$changed" | grep -qE '^ytk/.*\.py$'; then
+    echo "pre-commit: type checking ytk/ (pyright, basic)"
     uv run --extra dev pyright || {
-        echo "pre-commit: pyright FAILED on the math core. Fix the types," >&2
-        echo "or bypass with --no-verify." >&2
+        echo "pre-commit: pyright FAILED. The package is at zero errors and" >&2
+        echo "the gate exists to keep it there — fix the types, or bypass" >&2
+        echo "with --no-verify." >&2
         exit 1
     }
 fi

@@ -104,20 +104,16 @@ ignore = [
 quote-style = "double"
 
 [tool.pyright]
-# Scoped to the math core on purpose, and this scope is a *gate*: it passes
-# today and must keep passing. ytk/ridges.py is what the rest of the shader
-# arc (#107) builds on, and it is the module that was already annotated.
+# The whole package, not one file. ytk/ridges.py alone used to pass while the
+# package carried 120 errors, so `uv run pyright` reported a truthful-looking
+# zero for a scope nobody assumes (#122). Keeping the scope honest is the point:
+# the number only means something if it covers what people think it covers.
 #
-# Widening is the follow-up, and the cost is measured rather than guessed
-# (see docs/plans/typing-sweep-inventory.md):
-#   - basic across ytk + scripts + tests -> 308 errors
-#   - strict on ridges.py alone          -> 328 errors, all but 3 of them the
-#     reportUnknown* family, because numpy's stubs return
-#     ndarray[Unknown, Unknown] from nearly every call. Clearing those means
-#     annotating each local as npt.NDArray[np.float64] throughout the module.
-# Both are real work with real value; neither is a no-behaviour-change edit,
-# which is all this pass was allowed to make.
-include = ["ytk/ridges.py"]
+# Still basic, not strict: strict on ridges.py alone produced 328 diagnostics,
+# all but 3 the reportUnknown* family, because numpy's stubs return
+# ndarray[Unknown, Unknown] from nearly every call. Ratcheting to strict is a
+# separate, per-module job.
+include = ["ytk"]
 typeCheckingMode = "basic"
 
 [tool.pytest.ini_options]
