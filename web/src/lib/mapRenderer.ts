@@ -47,8 +47,8 @@ uniform float focDomA[32]; uniform float focDomB[32];
 uniform float focSubA[96]; uniform float focSubB[96];
 uniform float focusT; uniform float level; uniform float subColorT;
 uniform float introT; uniform float time;
-attribute float id; uniform float pickMode; uniform float pickPad;
-varying vec3 c; varying float a; varying float depthV; varying float vId;
+attribute float id; uniform mediump float pickMode; uniform float pickPad;
+varying vec3 c; varying float a; varying float depthV; varying vec3 pickC;
 float rampf(float p){ return .5 - .5*cos(clamp(p,0.,1.)*3.14159265); }
 void main(){
   vec3 p3=mix(p0,p1,morph); vec2 p2=mix(q0,q1,morph); vec3 q=mix(vec3(p2,0.),p3,dim);
@@ -64,17 +64,21 @@ void main(){
   gl_PointSize=clamp(size*zoom/depth*dpr,1.8,26.*dpr)*grow+pickPad*pickMode;
   c=mix(mix(color0,colorSub,subColorT),color1,morph);
   float pulse=1.+.12*sin(time*2.2-phase*5.)*step(1.5,level+focusT);
-  a=mix(alpha0,alpha1,morph)*fa*grow*pulse; vId=id; }`;
+  a=mix(alpha0,alpha1,morph)*fa*grow*pulse;
+  // Encode the id here, not in the fragment shader. A float varying carrying
+  // 4,067 would arrive as mediump downstream, which is only exact to ~1024,
+  // so the id would quietly corrupt. Three bytes already scaled to 0..1
+  // survive mediump with room to spare.
+  pickC=vec3(mod(id,256.),mod(floor(id/256.),256.),mod(floor(id/65536.),256.))/255.; }`;
 const fragment = `precision mediump float; varying vec3 c; varying float a; varying float depthV;
-uniform float pickMode; varying float vId;
+uniform mediump float pickMode; varying vec3 pickC;
 void main(){ vec2 p=gl_PointCoord*2.-1.; float d2=dot(p,p); float edge=smoothstep(1.,.82,sqrt(d2)); if(edge<=0.) discard;
  if(pickMode>.5){
-  // Colour is an integer wearing a costume: vId (1-based, 0 = background)
-  // split into three bytes. No blending, no AA on this pass — a filtered
-  // edge pixel would decode to an unrelated id.
+  // Colour is an integer wearing a costume: the 1-based id (0 = background)
+  // already split into three bytes by the vertex shader. No blending, no AA
+  // on this pass — a filtered edge pixel would decode to an unrelated id.
   if(a<.06) discard;  // invisible to the eye must be invisible to the cursor
-  float k=vId;
-  gl_FragColor=vec4(mod(k,256.)/255., mod(floor(k/256.),256.)/255., mod(floor(k/65536.),256.)/255., 1.);
+  gl_FragColor=vec4(pickC,1.);
   return; }
  float z=sqrt(max(0.,1.-d2)); vec3 n=vec3(p.x,-p.y,z); vec3 light=normalize(vec3(-.45,.55,.72));
  float wrap=(dot(n,light)+.6)/1.6; float diff=.35+.65*clamp(wrap,0.,1.);
