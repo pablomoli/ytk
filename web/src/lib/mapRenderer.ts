@@ -256,10 +256,25 @@ const css = (color: [number, number, number]) =>
 // Ramp position of a domain (by size rank) and of a subtopic (its domain's
 // position hue-shifted across +-0.08 by index-within-domain) — the single
 // source of truth for both the vertex buffer and the legend swatches.
+// Notes matching no bucket (#106). Not a topic, so it never takes a ramp
+// slot — it renders grey, and it is excluded from the size ranking so that
+// adding or losing unplaced mass cannot shift every other domain's hue.
+export const UNPLACED_LABEL = "unplaced";
+const isUnplaced = (data: MapData, index: number): boolean =>
+  data.all.domains[index]?.label === UNPLACED_LABEL;
+
 function domainPos(data: MapData, index: number): number {
-  const order = data.all.domains.map((domain, i) => ({ i, n: domain.n })).sort((a, b) => b.n - a.n);
+  const order = data.all.domains
+    .map((domain, i) => ({ i, n: domain.n }))
+    .filter((item) => !isUnplaced(data, item.i))
+    .sort((a, b) => b.n - a.n);
   const rank = order.findIndex((item) => item.i === index);
   return Math.max(0, rank) / Math.max(1, order.length - 1);
+}
+// Domain colour with the unplaced class folded in, so every caller that
+// paints by domain agrees without restating the rule.
+function domainColor(data: MapData, index: number): [number, number, number] {
+  return isUnplaced(data, index) ? gray : rampColor(domainPos(data, index));
 }
 function subPos(data: MapData, index: number): number {
   const domain = data.all.groups[index]?.domain ?? -1;
@@ -269,10 +284,11 @@ function subPos(data: MapData, index: number): number {
   return Math.max(0, Math.min(0.9999, domainPos(data, domain) + spread));
 }
 export function mapDomainColor(data: MapData, index: number): string {
-  return css(rampColor(domainPos(data, index)));
+  return css(domainColor(data, index));
 }
 export function mapSubColor(data: MapData, index: number): string {
-  return css(rampColor(subPos(data, index)));
+  const domain = data.all.groups[index]?.domain ?? -1;
+  return css(isUnplaced(data, domain) ? gray : rampColor(subPos(data, index)));
 }
 export function mapGroupColor(data: MapData, view: "all" | "content", index: number): string {
   return view === "content" ? css(rampColor(index / 7)) : mapSubColor(data, index);
@@ -476,7 +492,7 @@ export function mountMapRenderer(
       // edge of the ribbon. Colour, density and arc length are this vertex's
       // own, so the existing varyings still blend along the strand.
       const colorOf = (label: number): [number, number, number] =>
-        label < 0 ? gray : key === "all" ? rampColor(domainPos(data, label)) : rampColor(label / 7);
+        label < 0 ? gray : key === "all" ? domainColor(data, label) : rampColor(label / 7);
       const segments: number[] = [];
       for (const fil of web.filaments) {
         // Distance travelled along this strand, in layout units. Absolute and
@@ -728,8 +744,12 @@ export function mountMapRenderer(
   }
   let introT = intro ? 0 : 1;
   const phases = pointPhases(data.points);
-  const domPosArr = data.all.domains.map((_, index) => domainPos(data, index));
-  const subPosArr = data.all.groups.map((_, index) => subPos(data, index));
+  // Colours, not ramp positions: `unplaced` has no position on the ramp, and
+  // its subtopics inherit the grey rather than falling back to the hot end.
+  const domColorArr = data.all.domains.map((_, index) => domainColor(data, index));
+  const subColorArr = data.all.groups.map((group, index) =>
+    isUnplaced(data, group.domain ?? -1) ? gray : rampColor(subPos(data, index)),
+  );
   // Themes act as single-level domains in the content view; theme dims ride
   // both arrays because content points carry the theme in grp AND dm.
   // dom is sized by the all-view domain count: themes beyond nDom would be
@@ -823,8 +843,8 @@ export function mountMapRenderer(
         const recency = recentOnly ? Math.max(0.12, Math.pow(0.5, Math.max(0, days) / 90)) : 1;
         const sig = signalOnly && point.r < 1 ? 0.04 : recency;
         const alphaFor = (base: number) => (sig === 0.04 ? 0.04 : base * sig);
-        const domColor = point.dom >= 0 ? rampColor(domPosArr[point.dom] ?? 0) : gray;
-        const subColor = point.g >= 0 ? rampColor(subPosArr[point.g] ?? 0) : domColor;
+        const domColor = point.dom >= 0 ? (domColorArr[point.dom] ?? gray) : gray;
+        const subColor = point.g >= 0 ? (subColorArr[point.g] ?? domColor) : domColor;
         const themeColor = point.th !== undefined && point.th >= 0 ? rampColor(point.th / 7) : gray;
         const alpha0 = alphaFor(point.g < 0 ? 0.4 : 1);
         const alpha1 = alphaFor(point.c3 ? 0.95 : 0);
