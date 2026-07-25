@@ -47,7 +47,8 @@ uniform float focDomA[32]; uniform float focDomB[32];
 uniform float focSubA[96]; uniform float focSubB[96];
 uniform float focusT; uniform float level; uniform float subColorT;
 uniform float introT; uniform float time;
-varying vec3 c; varying float a; varying float depthV;
+attribute float id; uniform mediump float pickMode; uniform float pickPad;
+varying vec3 c; varying float a; varying float depthV; varying vec3 pickC;
 float rampf(float p){ return .5 - .5*cos(clamp(p,0.,1.)*3.14159265); }
 void main(){
   vec3 p3=mix(p0,p1,morph); vec2 p2=mix(q0,q1,morph); vec3 q=mix(vec3(p2,0.),p3,dim);
@@ -60,12 +61,25 @@ void main(){
   float r=rampf(focusT*1.6-phase*.6);
   float fa=grp<0. ? mix(focDomA[di],focDomB[di],r) : mix(focSubA[si],focSubB[si],r);
   float grow=rampf(introT*1.8-phase*.8);
-  gl_PointSize=clamp(size*zoom/depth*dpr,1.8,26.*dpr)*grow;
+  gl_PointSize=clamp(size*zoom/depth*dpr,1.8,26.*dpr)*grow+pickPad*pickMode;
   c=mix(mix(color0,colorSub,subColorT),color1,morph);
   float pulse=1.+.12*sin(time*2.2-phase*5.)*step(1.5,level+focusT);
-  a=mix(alpha0,alpha1,morph)*fa*grow*pulse; }`;
+  a=mix(alpha0,alpha1,morph)*fa*grow*pulse;
+  // Encode the id here, not in the fragment shader. A float varying carrying
+  // 4,067 would arrive as mediump downstream, which is only exact to ~1024,
+  // so the id would quietly corrupt. Three bytes already scaled to 0..1
+  // survive mediump with room to spare.
+  pickC=vec3(mod(id,256.),mod(floor(id/256.),256.),mod(floor(id/65536.),256.))/255.; }`;
 const fragment = `precision mediump float; varying vec3 c; varying float a; varying float depthV;
+uniform mediump float pickMode; varying vec3 pickC;
 void main(){ vec2 p=gl_PointCoord*2.-1.; float d2=dot(p,p); float edge=smoothstep(1.,.82,sqrt(d2)); if(edge<=0.) discard;
+ if(pickMode>.5){
+  // Colour is an integer wearing a costume: the 1-based id (0 = background)
+  // already split into three bytes by the vertex shader. No blending, no AA
+  // on this pass — a filtered edge pixel would decode to an unrelated id.
+  if(a<.06) discard;  // invisible to the eye must be invisible to the cursor
+  gl_FragColor=vec4(pickC,1.);
+  return; }
  float z=sqrt(max(0.,1.-d2)); vec3 n=vec3(p.x,-p.y,z); vec3 light=normalize(vec3(-.45,.55,.72));
  float wrap=(dot(n,light)+.6)/1.6; float diff=.35+.65*clamp(wrap,0.,1.);
  float spec=pow(max(dot(reflect(-light,n),vec3(0.,0.,1.)),0.),12.)*.10;
@@ -528,6 +542,9 @@ export function mountMapRenderer(
   const phaseAttr = gl.getAttribLocation(program, "phase");
   const hgt0Attr = gl.getAttribLocation(program, "hgt0");
   const hgt1Attr = gl.getAttribLocation(program, "hgt1");
+  const idAttr = gl.getAttribLocation(program, "id");
+  const pickModeU = gl.getUniformLocation(program, "pickMode");
+  const pickPadU = gl.getUniformLocation(program, "pickPad");
   const reliefU = gl.getUniformLocation(program, "relief");
   const hscaleU = gl.getUniformLocation(program, "hscale");
   const focDomAU = gl.getUniformLocation(program, "focDomA[0]");
@@ -706,7 +723,9 @@ export function mountMapRenderer(
     canvas.style.height = `${innerHeight}px`;
     gl.viewport(0, 0, canvas.width, canvas.height);
   };
+  let lastDrawTime = 0;
   const draw = (time: number) => {
+    if (!pickPass) lastDrawTime = time;
     if (geometryDirty) {
       renderedPoints = [];
       const points = data.points.flatMap((point, index) => {
@@ -747,9 +766,13 @@ export function mountMapRenderer(
           phases[index],
           h2a,
           h2b,
+          // 1-based so 0 stays reserved for "background" in the pick buffer.
+          // renderedPoints is pushed in this same order, so decoding id - 1
+          // indexes straight back into it.
+          renderedPoints.length,
         ];
       });
-      pointCount = points.length / 27;
+      pointCount = points.length / 28;
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
       geometryDirty = false;
@@ -757,35 +780,37 @@ export function mountMapRenderer(
     const drawSet = (buf: WebGLBuffer, count: number) => {
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.enableVertexAttribArray(position0);
-      gl.vertexAttribPointer(position0, 3, gl.FLOAT, false, 108, 0);
+      gl.vertexAttribPointer(position0, 3, gl.FLOAT, false, 112, 0);
       gl.enableVertexAttribArray(position1);
-      gl.vertexAttribPointer(position1, 3, gl.FLOAT, false, 108, 12);
+      gl.vertexAttribPointer(position1, 3, gl.FLOAT, false, 112, 12);
       gl.enableVertexAttribArray(flat0);
-      gl.vertexAttribPointer(flat0, 2, gl.FLOAT, false, 108, 24);
+      gl.vertexAttribPointer(flat0, 2, gl.FLOAT, false, 112, 24);
       gl.enableVertexAttribArray(flat1);
-      gl.vertexAttribPointer(flat1, 2, gl.FLOAT, false, 108, 32);
+      gl.vertexAttribPointer(flat1, 2, gl.FLOAT, false, 112, 32);
       gl.enableVertexAttribArray(color0);
-      gl.vertexAttribPointer(color0, 3, gl.FLOAT, false, 108, 40);
+      gl.vertexAttribPointer(color0, 3, gl.FLOAT, false, 112, 40);
       gl.enableVertexAttribArray(color1);
-      gl.vertexAttribPointer(color1, 3, gl.FLOAT, false, 108, 52);
+      gl.vertexAttribPointer(color1, 3, gl.FLOAT, false, 112, 52);
       gl.enableVertexAttribArray(colorSub);
-      gl.vertexAttribPointer(colorSub, 3, gl.FLOAT, false, 108, 64);
+      gl.vertexAttribPointer(colorSub, 3, gl.FLOAT, false, 112, 64);
       gl.enableVertexAttribArray(alpha0);
-      gl.vertexAttribPointer(alpha0, 1, gl.FLOAT, false, 108, 76);
+      gl.vertexAttribPointer(alpha0, 1, gl.FLOAT, false, 112, 76);
       gl.enableVertexAttribArray(alpha1);
-      gl.vertexAttribPointer(alpha1, 1, gl.FLOAT, false, 108, 80);
+      gl.vertexAttribPointer(alpha1, 1, gl.FLOAT, false, 112, 80);
       gl.enableVertexAttribArray(size);
-      gl.vertexAttribPointer(size, 1, gl.FLOAT, false, 108, 84);
+      gl.vertexAttribPointer(size, 1, gl.FLOAT, false, 112, 84);
       gl.enableVertexAttribArray(grp);
-      gl.vertexAttribPointer(grp, 1, gl.FLOAT, false, 108, 88);
+      gl.vertexAttribPointer(grp, 1, gl.FLOAT, false, 112, 88);
       gl.enableVertexAttribArray(dm);
-      gl.vertexAttribPointer(dm, 1, gl.FLOAT, false, 108, 92);
+      gl.vertexAttribPointer(dm, 1, gl.FLOAT, false, 112, 92);
       gl.enableVertexAttribArray(phaseAttr);
-      gl.vertexAttribPointer(phaseAttr, 1, gl.FLOAT, false, 108, 96);
+      gl.vertexAttribPointer(phaseAttr, 1, gl.FLOAT, false, 112, 96);
       gl.enableVertexAttribArray(hgt0Attr);
-      gl.vertexAttribPointer(hgt0Attr, 1, gl.FLOAT, false, 108, 100);
+      gl.vertexAttribPointer(hgt0Attr, 1, gl.FLOAT, false, 112, 100);
       gl.enableVertexAttribArray(hgt1Attr);
-      gl.vertexAttribPointer(hgt1Attr, 1, gl.FLOAT, false, 108, 104);
+      gl.vertexAttribPointer(hgt1Attr, 1, gl.FLOAT, false, 112, 104);
+      gl.enableVertexAttribArray(idAttr);
+      gl.vertexAttribPointer(idAttr, 1, gl.FLOAT, false, 112, 108);
       gl.drawArrays(gl.POINTS, 0, count);
     };
     const contentView = view === "content";
@@ -796,7 +821,7 @@ export function mountMapRenderer(
     gl.clear(gl.COLOR_BUFFER_BIT);
     // terrain underlay: drawn before the points, faded by dim (it describes
     // the 2D layout only) and crossfaded between the two views' layouts
-    if (lineProgram && lineU && terrainT > 0.01 && dimVal < 0.99) {
+    if (!pickPass && lineProgram && lineU && terrainT > 0.01 && dimVal < 0.99) {
       gl.useProgram(lineProgram);
       gl.uniform1f(lineU.zoom, scale);
       gl.uniform2f(lineU.pan, offset[0], offset[1]);
@@ -833,7 +858,7 @@ export function mountMapRenderer(
       gl.useProgram(program);
     }
     // fog splats: drawn first (behind web and points), embedding-3D only
-    if (fogProgram && fogU && fogT > 0.01 && dimVal > 0.01) {
+    if (!pickPass && fogProgram && fogU && fogT > 0.01 && dimVal > 0.01) {
       gl.useProgram(fogProgram);
       gl.uniform1f(fogU.zoom, scale);
       gl.uniform2f(fogU.pan, offset[0], offset[1]);
@@ -859,7 +884,7 @@ export function mountMapRenderer(
     // filament web: lives in the embedding-3D coordinates, so it appears
     // only as dim approaches volume (and relief mode, which forces dim flat,
     // hides it automatically)
-    if (webProgram && webU && webT > 0.01 && dimVal > 0.01) {
+    if (!pickPass && webProgram && webU && webT > 0.01 && dimVal > 0.01) {
       gl.useProgram(webProgram);
       gl.uniform1f(webU.zoom, scale);
       gl.uniform2f(webU.pan, offset[0], offset[1]);
@@ -914,12 +939,158 @@ export function mountMapRenderer(
     gl.uniform1fv(focSubBU, focB.sub);
     gl.uniform1f(focusTU, focusT);
     gl.uniform1f(levelU, level);
+    gl.uniform1f(pickModeU, pickPass ? 1 : 0);
+    gl.uniform1f(pickPadU, pickPass ? PICK_PAD * pixelRatio() : 0);
     gl.uniform1f(subColorTU, subColorT);
     gl.uniform1f(introTU, introT);
     gl.uniform1f(timeU, time);
     drawSet(buffer, pointCount);
   };
+  // Off-screen colour-ID pass (#101 fix 2). The GPU already worked out which
+  // pixel every point covers in order to draw it; picking reads that answer
+  // back instead of re-deriving it on the CPU for all ~4k points per
+  // mousemove. Cost stops scaling with the corpus.
+  //
+  // PICK_PAD keeps hovering as forgiving as the old 12px-radius scan: the
+  // sprite is grown in the pick pass only, so the hit area survives while the
+  // visible size does not change.
+  //
+  // Kept small on purpose. Forgiveness comes from the block search below, not
+  // from inflating sprites: padding them to a 12px radius made every crowded
+  // neighbourhood overlap, and overlaps resolve by draw order rather than by
+  // distance. scripts/plot_picking.py measured that at 647 of 963 hits landing
+  // on a different point. A couple of pixels only guarantees the smallest
+  // points (2.4px across) paint enough to be found. See docs/assets/picking/.
+  const PICK_PAD = 2;
+  // The old scan's tolerance, now the block-read radius.
+  const SCAN_RADIUS = 12;
+  let pickPass = false;
+  let pickFb: WebGLFramebuffer | null = null;
+  let pickTex: WebGLTexture | null = null;
+  let pickW = 0;
+  let pickH = 0;
+  const pickTarget = () => {
+    const w = Math.max(1, gl.drawingBufferWidth);
+    const h = Math.max(1, gl.drawingBufferHeight);
+    if (pickFb && pickW === w && pickH === h) return;
+    if (pickTex) gl.deleteTexture(pickTex);
+    if (pickFb) gl.deleteFramebuffer(pickFb);
+    pickW = w;
+    pickH = h;
+    pickTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, pickTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    // NEAREST throughout: these bytes are an integer, and any filtering would
+    // blend two ids into a third that names nothing.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    pickFb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pickFb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pickTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  };
+  let pickBlock = new Uint8Array((2 * SCAN_RADIUS + 1) ** 2 * 4);
+  /** Index into renderedPoints under a CSS-pixel coordinate, or -1. */
+  const pickAt = (cssX: number, cssY: number): number => {
+    pickTarget();
+    if (!pickFb) return -1;
+    const ratio = pixelRatio();
+    const px = Math.round(cssX * ratio);
+    // readPixels counts from the bottom-left; DOM coordinates from the top.
+    const py = Math.round(pickH - cssY * ratio);
+    if (px < 0 || py < 0 || px >= pickW || py >= pickH) return -1;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pickFb);
+    pickPass = true;
+    // Blending would average neighbouring ids into a meaningless third value.
+    const blendWas = gl.isEnabled(gl.BLEND);
+    gl.disable(gl.BLEND);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    // Same draw path, so pick geometry can never drift from what is on
+    // screen; draw() skips the terrain/web/fog/junction passes while
+    // pickPass is set, since only the points carry ids.
+    draw(lastDrawTime);
+    pickPass = false;
+    if (blendWas) gl.enable(gl.BLEND);
+    // Read a block, not a single pixel. One pixel answers "what is directly
+    // under the cursor", but the scan this replaces answered "what is nearest
+    // within 12px" — and with no depth test, a lone pixel resolves overlaps by
+    // draw order instead of by distance. scripts/plot_picking.py measured that
+    // divergence at 647 of 963 hits. Scanning the block for the nearest
+    // painted pixel restores the original semantic; it is still one readback
+    // and still independent of how many points exist.
+    const r = Math.max(1, Math.round(SCAN_RADIUS * ratio));
+    const x0 = Math.max(0, px - r);
+    const y0 = Math.max(0, py - r);
+    const x1 = Math.min(pickW, px + r + 1);
+    const y1 = Math.min(pickH, py + r + 1);
+    const w = x1 - x0;
+    const h = y1 - y0;
+    if (w <= 0 || h <= 0) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return -1;
+    }
+    const need = w * h * 4;
+    if (pickBlock.length < need) pickBlock = new Uint8Array(need);
+    gl.readPixels(x0, y0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pickBlock);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    let best = -1;
+    let bestD = (r + 1) * (r + 1);
+    for (let y = 0; y < h; y++) {
+      const dy = y0 + y - py;
+      for (let x = 0; x < w; x++) {
+        const o = (y * w + x) * 4;
+        const id = pickBlock[o]! + (pickBlock[o + 1]! << 8) + (pickBlock[o + 2]! << 16);
+        if (id === 0) continue;
+        const dx = x0 + x - px;
+        const d = dx * dx + dy * dy;
+        if (d < bestD) {
+          bestD = d;
+          best = id - 1;
+        }
+      }
+    }
+    return best;
+  };
   let lastFrame = 0;
+  // Every eased value in render() decays toward an explicit target, so "is
+  // anything still moving" is decidable and the loop can park itself (#101).
+  //
+  // The one animation that never settles is the focus pulse in the point
+  // shader — step(1.5, level + focusT), where level is 1 only outside the
+  // content view with a domain or subtopic focused. At overview the gate is
+  // 1.0 and never fires, which is exactly the resting state that was burning
+  // a core repainting identical frames. While focused the pulse is a
+  // deliberate visual, so the loop has to stay awake or it would freeze
+  // mid-breath.
+  const settled = (a: number, b: number) => Math.abs(a - b) <= 1e-3;
+  const animating = () => {
+    if (geometryDirty || labelsDirty) return true;
+    if (drag || flyItem || zoomAnchor) return true;
+    if (introT < 1 || focusT < 1) return true;
+    if (momentum.vx || momentum.vy) return true;
+    if (!settled(scale, scaleTarget)) return true;
+    if (!settled(morph, morphTarget)) return true;
+    if (!settled(dimVal, dimTarget)) return true;
+    if (!settled(reliefT, reliefTarget)) return true;
+    if (!settled(fogT, fogOn ? 1 : 0)) return true;
+    if (!settled(shellT, fogShell ? 1 : 0)) return true;
+    if (!settled(webT, webOn ? 1 : 0)) return true;
+    if (!settled(terrainT, terrainOn ? 1 : 0)) return true;
+    if (!settled(subColorT, view === "all" && focus.dom !== undefined ? 1 : 0)) return true;
+    return view !== "content" && focusLevel(focus) !== "overview";
+  };
+  // Restart a parked loop. lastFrame resets so the first frame back uses the
+  // nominal dt instead of the whole idle gap, which would jump every easing
+  // straight to its target.
+  const wake = () => {
+    if (frame) return;
+    lastFrame = 0;
+    frame = requestAnimationFrame(render);
+  };
   const render = (now = 0) => {
     const dt = lastFrame ? Math.min(0.05, (now - lastFrame) / 1000) : 0.016;
     lastFrame = now;
@@ -984,7 +1155,7 @@ export function mountMapRenderer(
     }
     draw(now * 0.001);
     placeLabels();
-    frame = requestAnimationFrame(render);
+    frame = animating() ? requestAnimationFrame(render) : 0;
   };
   const placeLabels = () => {
     if (!labels) return;
@@ -1144,20 +1315,15 @@ export function mountMapRenderer(
       onHover?.();
       return;
     }
-    let best: { point: MapPoint; distance: number } | undefined;
-    for (const item of renderedPoints) {
-      if (signalOnly && item.point.r < 1) continue;
-      const target =
-        item.group >= 0 ? focB.sub[item.group] : item.domain >= 0 ? focB.dom[item.domain] : 1;
-      if ((target ?? 1) < 0.2) continue;
-      const [x, y] = project(worldOf(item));
-      const distance =
-        (x - (event.clientX - rect.left)) ** 2 + (y - (event.clientY - rect.top)) ** 2;
-      if (distance < 144 && (!best || distance < best.distance))
-        best = { point: item.point, distance };
-    }
-    hoveredPoint = best?.point;
-    onHover?.(best ? { point: best.point, x: event.clientX, y: event.clientY } : undefined);
+    // One pixel read replaces projecting every point (#101 fix 2). The
+    // visibility rules the old scan applied by hand — signalOnly, and focus
+    // attenuation under 0.2 — are enforced in the pick fragment shader by
+    // discarding on the alpha it already computes, so hovering can never
+    // catch something the eye cannot see.
+    const index = pickAt(event.clientX - rect.left, event.clientY - rect.top);
+    const hit = index >= 0 ? renderedPoints[index] : undefined;
+    hoveredPoint = hit?.point;
+    onHover?.(hit ? { point: hit.point, x: event.clientX, y: event.clientY } : undefined);
   };
   const down = (event: MouseEvent) => {
     if (event.button !== 0 && event.button !== 2) return;
@@ -1272,14 +1438,46 @@ export function mountMapRenderer(
     onFocus?.({ dom: focus.dom });
   };
   resize();
-  addEventListener("resize", resize);
-  canvas.addEventListener("mousedown", down);
-  canvas.addEventListener("click", click);
-  canvas.addEventListener("dblclick", open);
+  // Every input path must wake a parked loop (#101). Wrapped once here and
+  // held in consts so destroy() unregisters these exact references rather
+  // than the unwrapped originals. contextmenu only calls preventDefault, so
+  // it changes no state and needs no wake.
+  const onResize = () => {
+    resize();
+    wake();
+  };
+  const onDown = (event: MouseEvent) => {
+    down(event);
+    wake();
+  };
+  const onClick = () => {
+    click();
+    wake();
+  };
+  const onOpen = () => {
+    open();
+    wake();
+  };
+  const onMove = (event: MouseEvent) => {
+    move(event);
+    wake();
+  };
+  const onUp = () => {
+    up();
+    wake();
+  };
+  const onWheel = (event: WheelEvent) => {
+    wheel(event);
+    wake();
+  };
+  addEventListener("resize", onResize);
+  canvas.addEventListener("mousedown", onDown);
+  canvas.addEventListener("click", onClick);
+  canvas.addEventListener("dblclick", onOpen);
   canvas.addEventListener("contextmenu", contextmenu);
-  addEventListener("mousemove", move);
-  addEventListener("mouseup", up);
-  canvas.addEventListener("wheel", wheel, { passive: false });
+  addEventListener("mousemove", onMove);
+  addEventListener("mouseup", onUp);
+  canvas.addEventListener("wheel", onWheel, { passive: false });
   render();
   return {
     setView: (next) => {
@@ -1295,6 +1493,7 @@ export function mountMapRenderer(
       retarget();
       geometryDirty = true;
       labelsDirty = true;
+      wake();
     },
     setDimension: (next) => {
       requestedDim = next ? 0 : 1;
@@ -1303,59 +1502,76 @@ export function mountMapRenderer(
       scaleTarget = scale;
       killMomentum();
       zoomAnchor = null;
+      wake();
     },
     setFilters: (signal, recent) => {
       signalOnly = signal;
       recentOnly = recent;
       geometryDirty = true;
+      wake();
     },
     setFocus: (next) => {
       focus = next;
       retarget();
       labelsDirty = true;
+      wake();
     },
     setHover: (next) => {
       hover = next;
       retarget();
+      wake();
     },
     setHiddenDomains: (doms) => {
       hiddenDoms = new Set(doms);
       retarget();
       labelsDirty = true;
+      wake();
     },
+    // legendOpen and fogLevel feed the shaders directly rather than easing
+    // toward a target, so animating() stays false for them. Waking still
+    // paints exactly one frame and parks again, which is what they need.
     setLegendOpen: (open) => {
       legendOpen = open;
+      wake();
     },
     setTerrain: (next) => {
       terrainOn = next;
       retargetDims();
+      wake();
     },
     setWeb: (next) => {
       webOn = next;
+      wake();
     },
     setFog: (next) => {
       fogOn = next;
+      wake();
     },
     setFogLevel: (next) => {
       fogLevel = next;
+      wake();
     },
     setFogShell: (next) => {
       fogShell = next;
+      wake();
     },
     destroy: () => {
       cancelAnimationFrame(frame);
-      removeEventListener("resize", resize);
-      canvas.removeEventListener("mousedown", down);
-      canvas.removeEventListener("click", click);
-      canvas.removeEventListener("dblclick", open);
+      frame = 0;
+      removeEventListener("resize", onResize);
+      canvas.removeEventListener("mousedown", onDown);
+      canvas.removeEventListener("click", onClick);
+      canvas.removeEventListener("dblclick", onOpen);
       canvas.removeEventListener("contextmenu", contextmenu);
-      removeEventListener("mousemove", move);
-      removeEventListener("mouseup", up);
-      canvas.removeEventListener("wheel", wheel);
+      removeEventListener("mousemove", onMove);
+      removeEventListener("mouseup", onUp);
+      canvas.removeEventListener("wheel", onWheel);
       delete canvas.dataset.intro;
       labels?.replaceChildren();
       leaders?.replaceChildren();
       gl.deleteBuffer(buffer);
+      if (pickTex) gl.deleteTexture(pickTex);
+      if (pickFb) gl.deleteFramebuffer(pickFb);
       for (const bufs of Object.values(terrainBuffers)) {
         gl.deleteBuffer(bufs.contours);
         gl.deleteBuffer(bufs.ridges);
