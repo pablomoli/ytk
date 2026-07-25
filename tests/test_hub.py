@@ -574,7 +574,7 @@ def test_refresh_sources_pulls_instagram_and_youtube(hub, monkeypatch):
         ],
     )
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: vid == "old1")
-    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "PIN_FETCH", list)
 
     result = hub.refresh_sources()
 
@@ -603,7 +603,7 @@ def test_refresh_sources_only_pulls_selected(hub, monkeypatch):
     monkeypatch.setattr(hub, "IG_PULL", fake_ig_pull)
     monkeypatch.setattr(hub, "YT_FETCH", fake_yt)
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
-    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "PIN_FETCH", list)
 
     result = hub.refresh_sources(only={"instagram"})
 
@@ -618,8 +618,8 @@ def test_refresh_sources_empty_only_pulls_nothing(hub, monkeypatch):
     # unknown) must pull nothing — never fall back to pulling everything.
     called = {"ig": 0}
     monkeypatch.setattr(hub, "IG_PULL", lambda state: called.__setitem__("ig", called["ig"] + 1))
-    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
-    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_FETCH", list)
+    monkeypatch.setattr(hub, "PIN_FETCH", list)
 
     result = hub.refresh_sources(only=set())
 
@@ -629,9 +629,9 @@ def test_refresh_sources_empty_only_pulls_nothing(hub, monkeypatch):
 
 def _quiet_other_sources(hub, monkeypatch):
     monkeypatch.setattr(hub, "IG_PULL", lambda state: 0)
-    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_FETCH", list)
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
-    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "PIN_FETCH", list)
 
 
 def test_refresh_sources_queues_imessage_sessions(hub, monkeypatch):
@@ -837,7 +837,7 @@ def test_refresh_sources_only_filter_pulls_single_source(hub, monkeypatch):
     ig_called = []
     monkeypatch.setattr(hub, "IG_PULL", lambda state: ig_called.append(1) or 0)
     monkeypatch.setattr(hub, "YT_FETCH", lambda: (_ for _ in ()).throw(AssertionError("yt pulled")))
-    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "PIN_FETCH", list)
     thread = MessageThread(
         contact="+1555",
         date="Apr 19, 2026",
@@ -857,7 +857,7 @@ def test_refresh_sources_only_filter_pulls_single_source(hub, monkeypatch):
 
 def test_refresh_prunes_already_ingested_urls(hub, monkeypatch):
     _quiet_other_sources(hub, monkeypatch)
-    monkeypatch.setattr(hub, "IM_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "IM_FETCH", list)
     hub.queue_add(["https://youtu.be/done", "https://youtu.be/fresh"])
     monkeypatch.setattr(hub, "INGESTED_URLS", lambda: {"https://youtu.be/done"})
 
@@ -873,9 +873,9 @@ def test_refresh_sources_survives_one_source_failing(hub, monkeypatch):
         raise RuntimeError("login dead")
 
     monkeypatch.setattr(hub, "IG_PULL", broken)
-    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_FETCH", list)
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
-    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "PIN_FETCH", list)
 
     result = hub.refresh_sources()
     assert result["youtube"] == 0
@@ -884,9 +884,9 @@ def test_refresh_sources_survives_one_source_failing(hub, monkeypatch):
 
 def test_api_refresh_and_buckets(client, hub, monkeypatch):
     monkeypatch.setattr(hub, "IG_PULL", lambda state: 0)
-    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_FETCH", list)
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
-    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "PIN_FETCH", list)
     monkeypatch.delenv("INSTAGRAM_SESSIONID", raising=False)
 
     r = client.post("/api/queue/refresh")
@@ -904,9 +904,9 @@ def test_refresh_sources_throttled_by_ttl(hub, monkeypatch):
     import time as _time
 
     monkeypatch.setattr(hub, "IG_PULL", lambda state: 1)
-    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_FETCH", list)
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
-    monkeypatch.setattr(hub, "PIN_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "PIN_FETCH", list)
 
     first = hub.refresh_sources()
     assert first.get("skipped") is not True
@@ -940,7 +940,7 @@ def test_custom_tags_persist_and_merge(client, hub):
 
 def test_refresh_sources_pulls_pinterest_feeds(hub, monkeypatch):
     monkeypatch.setattr(hub, "IG_PULL", lambda state: 0)
-    monkeypatch.setattr(hub, "YT_FETCH", lambda: [])
+    monkeypatch.setattr(hub, "YT_FETCH", list)
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
     monkeypatch.setattr(
         hub,

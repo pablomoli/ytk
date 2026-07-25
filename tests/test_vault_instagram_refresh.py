@@ -17,14 +17,14 @@ def brain(tmp_path, monkeypatch):
 
 
 def _post(**overrides):
-    base = dict(
-        url="https://www.instagram.com/reel/SC123/",
-        username="elif.codes",
-        timestamp="2026-07-15",
-        caption="Comment judge",
-        images=[],
-        media_kind="video",
-    )
+    base = {
+        "url": "https://www.instagram.com/reel/SC123/",
+        "username": "elif.codes",
+        "timestamp": "2026-07-15",
+        "caption": "Comment judge",
+        "images": [],
+        "media_kind": "video",
+    }
     base.update(overrides)
     return InstagramPost(**base)
 
@@ -94,11 +94,11 @@ def test_refresh_preserves_user_sections(brain):
 
 def test_refresh_is_idempotent(brain):
     _seed_v1_note(brain)
-    kwargs = dict(
-        transcript_segments=[{"start": 0, "duration": 1.0, "text": "x"}],
-        transcript_status="ok",
-        frame_bytes=[b"f"],
-    )
+    kwargs = {
+        "transcript_segments": [{"start": 0, "duration": 1.0, "text": "x"}],
+        "transcript_status": "ok",
+        "frame_bytes": [b"f"],
+    }
     p1 = refresh_instagram_note(_post(), _enrichment(thesis="n"), **kwargs)
     first = p1.read_text(encoding="utf-8")
     p2 = refresh_instagram_note(_post(), _enrichment(thesis="n"), **kwargs)

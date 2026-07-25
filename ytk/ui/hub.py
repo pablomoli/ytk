@@ -875,7 +875,7 @@ def cover_for(item_url: str) -> Path | None:
     """Local cover path for a queue item, downloading on first request."""
     import hashlib
 
-    key = hashlib.sha1(item_url.encode()).hexdigest()[:20] + ".jpg"
+    key = hashlib.sha1(item_url.encode(), usedforsecurity=False).hexdigest()[:20] + ".jpg"
     dest = COVERS_DIR / key
     if dest.exists():
         return dest

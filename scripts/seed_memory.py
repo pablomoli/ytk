@@ -132,9 +132,7 @@ def update_project_atoms(
 
     existing_block = ""
     for atom, content in existing.items():
-        existing_block += (
-            f"\n### {atom}\n{content if content else '_missing — treat as first run_'}\n"
-        )
+        existing_block += f"\n### {atom}\n{content or '_missing — treat as first run_'}\n"
 
     atom_template_block = ""
     for atom, template in ATOM_TEMPLATES.items():

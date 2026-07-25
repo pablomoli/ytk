@@ -209,12 +209,12 @@ def test_write_instagram_note_shortcode_prevents_overwrite(tmp_path, monkeypatch
 
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: tmp_path)
 
-    base = dict(
-        username="user",
-        timestamp="2026-04-19",
-        caption="same caption",
-        images=[],
-    )
+    base = {
+        "username": "user",
+        "timestamp": "2026-04-19",
+        "caption": "same caption",
+        "images": [],
+    }
     enrichment = Enrichment(
         thesis="t", summary="s", key_concepts=[], insights=[], interest_tags=[], key_moments=[]
     )

@@ -28,6 +28,17 @@ if [ -n "$py_changed" ]; then
     }
 fi
 
+# Editing the lint config changes what every file is judged by, so the staged
+# check above cannot see the damage. Lint the whole repo when it moves (#122).
+if printf '%s\n' "$changed" | grep -qE '^pyproject\.toml$'; then
+    echo "pre-commit: lint config changed — checking ytk/ scripts/ tests/"
+    uv run --extra dev ruff check ytk/ scripts/ tests/ || {
+        echo "pre-commit: the new lint config fails elsewhere in the repo." >&2
+        echo "Fix those files, narrow the rule, or bypass with --no-verify." >&2
+        exit 1
+    }
+fi
+
 if printf '%s\n' "$changed" | grep -qE '^ytk/.*\.py$'; then
     echo "pre-commit: type checking ytk/ (pyright, basic)"
     uv run --extra dev pyright || {

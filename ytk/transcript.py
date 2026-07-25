@@ -86,7 +86,7 @@ def _download_audio(url: str) -> Path:
     import yt_dlp
 
     _AUDIO_CACHE.mkdir(parents=True, exist_ok=True)
-    url_hash = hashlib.sha1(url.encode()).hexdigest()[:12]
+    url_hash = hashlib.sha1(url.encode(), usedforsecurity=False).hexdigest()[:12]
 
     for ext in (".m4a", ".opus", ".mp3", ".ogg", ".wav", ".webm"):
         candidate = _AUDIO_CACHE / f"yt_{url_hash}{ext}"

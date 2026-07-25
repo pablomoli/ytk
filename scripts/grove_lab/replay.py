@@ -69,7 +69,7 @@ def fit_nodes_capacity(vecs: np.ndarray, k_main: int | None = None):
     if n < MIN_CLUSTER_NOTES:
         return (
             [{"id": 0, "parent": -1, "mass": n, "persistence": 1.0}],
-            {i: 0 for i in range(n)},
+            dict.fromkeys(range(n), 0),
             {"k_main_requested": requested, "k_main_used": 1, "n": n},
         )
     u = _unit(vecs)

@@ -137,7 +137,7 @@ def test_run_eval_aggregates_and_writes_ledger(monkeypatch, tmp_path):
 def test_run_eval_raises_when_no_fixtures_available(monkeypatch):
     from ytk import enrich_eval as ev
 
-    monkeypatch.setattr(ev, "_default_fixtures", lambda: [])
+    monkeypatch.setattr(ev, "_default_fixtures", list)
     with pytest.raises(ValueError):
         ev.run_eval("terse", fixtures=None)
 

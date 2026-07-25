@@ -1224,7 +1224,7 @@ def add_instagram(url: str, note: str = "", refresh: bool = False):
         blocks = image_blocks(frame_bytes=capture.frame_bytes)
     else:
         with console.status("[bold cyan]Preparing visual content...[/]"):
-            blocks = image_blocks(urls=post.images if post.images else None, force_base64=True)
+            blocks = image_blocks(urls=post.images or None, force_base64=True)
 
     with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
         try:
@@ -1238,7 +1238,7 @@ def add_instagram(url: str, note: str = "", refresh: bool = False):
                     frame_count=len(capture.frame_bytes),
                     transcript_segments=capture.transcript_segments,
                     transcript_status=capture.transcript_status,
-                    visual_blocks=blocks if blocks else [],
+                    visual_blocks=blocks or [],
                     user_note=note,
                 )
             else:
@@ -1246,7 +1246,7 @@ def add_instagram(url: str, note: str = "", refresh: bool = False):
                     caption=post.caption,
                     username=post.username,
                     slide_count=len(post.images),
-                    visual_blocks=blocks if blocks else [],
+                    visual_blocks=blocks or [],
                     user_note=note,
                 )
         except Exception as exc:
@@ -2152,11 +2152,10 @@ def triage(note_path: str, interactive: bool):
                         console.print(f"  [green]Issue created:[/] {gh_result.stdout.strip()}")
                         routed["gh"] += 1
                         break
-                    else:
-                        console.print(f"  [red]gh failed:[/] {gh_result.stderr.strip()}")
-                        continue
+                    console.print(f"  [red]gh failed:[/] {gh_result.stderr.strip()}")
+                    continue
 
-                elif choice == "2":
+                if choice == "2":
                     due = click.prompt("  Due date (YYYY-MM-DD or blank)", default="")
                     entry = f"\n- [ ] {item.title}"
                     if due:
@@ -2168,7 +2167,7 @@ def triage(note_path: str, interactive: bool):
                     routed["ideas"] += 1
                     break
 
-                elif choice == "3":
+                if choice == "3":
                     date_str = datetime.now().strftime("%Y-%m-%d")
                     entry = f"\n- [ ] {item.title} — *{target.stem}* ({date_str})\n  {item.description}\n"
                     with review_path.open("a", encoding="utf-8") as f:
@@ -2177,9 +2176,8 @@ def triage(note_path: str, interactive: bool):
                     routed["review"] += 1
                     break
 
-                else:
-                    routed["skip"] += 1
-                    break
+                routed["skip"] += 1
+                break
 
             console.print()
 

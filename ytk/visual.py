@@ -177,8 +177,8 @@ def _vault() -> Path:
     )
 
 
-_FM_URL = re.compile(r"^url:\s*(\S+)", re.M)
-_FM_TITLE = re.compile(r"^title:\s*(.+)$", re.M)
+_FM_URL = re.compile(r"^url:\s*(\S+)", re.MULTILINE)
+_FM_TITLE = re.compile(r"^title:\s*(.+)$", re.MULTILINE)
 
 
 def _frontmatter(note: Path) -> tuple[str, str]:
@@ -403,7 +403,9 @@ def sync_pending_visual() -> tuple[int, int]:
     for it in pending:
         if it.url in have:
             continue
-        cover = covers_dir / (hashlib.sha1(it.url.encode()).hexdigest()[:20] + ".jpg")
+        cover = covers_dir / (
+            hashlib.sha1(it.url.encode(), usedforsecurity=False).hexdigest()[:20] + ".jpg"
+        )
         if cover.exists():
             todo.append((it, cover))
 

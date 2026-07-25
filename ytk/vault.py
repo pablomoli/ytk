@@ -276,7 +276,7 @@ def remember(text: str, tags: list[str] | None = None) -> tuple[Path, str]:
     tags = tags or []
     date_str = datetime.now().strftime("%Y-%m-%d")
     slug = re.sub(r"[^a-z0-9]+", "-", text[:50].lower()).strip("-")
-    text_hash = hashlib.sha1(text.encode("utf-8")).hexdigest()[:6]
+    text_hash = hashlib.sha1(text.encode("utf-8"), usedforsecurity=False).hexdigest()[:6]
     filename = f"{date_str}-{slug}-{text_hash}.md"
 
     note_dir = _get_brain_path() / "inbox" / "memories"
@@ -1348,9 +1348,7 @@ def rebuild_index() -> None:
     # inbox/
     inbox_dir = vault_path / "inbox"
     if inbox_dir.exists():
-        inbox_files = [
-            p for p in sorted(inbox_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
-        ]
+        inbox_files = sorted(inbox_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
         memory_files = sorted(
             (inbox_dir / "memories").glob("*.md") if (inbox_dir / "memories").exists() else [],
             key=lambda p: p.stat().st_mtime,

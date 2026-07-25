@@ -64,11 +64,22 @@ line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
-# Counts below are the hits at adoption (#101 Phase 0). The E/F/I/UP core is
+# Core (#101) plus the families adopted in #122. Each addition below was
+# measured across ytk/ + scripts/ + tests/ before being turned on, and every
+# finding it produced is fixed — none of these are selected-but-ignored.
+#   C4   13 · comprehension rewrites        PIE  23 · dead/duplicated syntax
+#   RET   2 · redundant returns             PERF 16 · avoidable per-item work
+#   FURB 10 · outdated idioms               LOG   0 · logging misuse (clean)
+#   G     0 · logging format (clean)        S324  6 · insecure hash
+select = [
+    "E", "F", "I", "UP", "B", "SIM", "RUF",
+    "C4", "PIE", "RET", "PERF", "FURB", "LOG", "G",
+    "S324",
+]
+# Counts are the hits at adoption (#101 Phase 0). The E/F/I/UP core is
 # fully enforced — the whole F family is clean, which is what matters most.
 # Everything listed here is either wrong for this codebase or cannot be fixed
-# without changing runtime behaviour, which this pass is not allowed to do.
+# without changing runtime behaviour, which that pass was not allowed to do.
 # See docs/plans/typing-sweep-inventory.md for the full disposition.
 ignore = [
     "E501", # the formatter owns line length
@@ -77,9 +88,12 @@ ignore = [
     "RUF001", # 8: em dashes and typographic quotes in prose strings are deliberate
     "E402",   # 15: scripts/ bootstrap sys.path before importing ytk, by design
     "RUF012", # 4: ClassVar annotations on Pydantic/dataclass config would be noise
+    "PERF401", # 16: the loops it targets carry guard clauses; ruff cannot autofix
+               #     them for that reason, and hand-rolling the comprehension
+               #     trades a readable loop for a dense one
 
     # --- Real signal, but every fix changes behaviour. Deferred, not dismissed ---
-    "B905",   # 52: zip(strict=True) raises on length mismatch; strict=False is a no-op edit
+    "B905",   # 29: zip(strict=True) raises on length mismatch; strict=False is a no-op edit
     "B904",   # 44: `raise ... from` rewrites __cause__ and the printed traceback
     "SIM105", # 5: contextlib.suppress swallows differently than a bare try/except pass
     "SIM115", # 2: converting to a context manager moves when the file handle closes
@@ -88,9 +102,9 @@ ignore = [
     "B007",   # 4: renaming an unused loop variable is safe but churns hot loops
     "B008",   # 1: call-in-default is load-bearing for the CLI's lazy config
     "B017",   # 1: a test asserting on bare Exception; tightening it changes the test
-    "E731",   # 4: lambda assignment
+    "E731",   # 1: lambda assignment
     "E741",   # 4: `l`/`I` names inside the numpy math core, where they match the paper
-    "RUF005", # 3
+    "RUF005", # 2
     "RUF015", # 4
     "RUF043", # 1
     "RUF059", # 9: unused unpacked values in tuple returns
@@ -98,6 +112,41 @@ ignore = [
     "SIM110", # 1
     "SIM113", # 1
     "UP047",  # 1: PEP 695 generics; see F3 in the inventory
+]
+
+# Measured and deliberately NOT selected. Recorded so the next person does not
+# re-derive the counts, and so "not adopted" never reads as "not considered":
+#
+#   ANN  2569 — duplicates the pyright strict ratchet ([tool.pyright] below).
+#               reportMissingParameterType already covers this, per-module and
+#               with an opt-out list; a second mechanism at a different scope
+#               would fight it rather than tighten it.
+#   S    1924 — 1812 are S101 (assert) in tests/, where asserting is the point.
+#               In ytk/ it is 97, of which S603/S607/S310 are ytk shelling out
+#               and fetching arbitrary URLs on purpose (68 noqa comments for no
+#               safety gain). S324 was the fixable part and is now selected;
+#               S110/S112 (17) are the error-handling work below.
+#   D    1409 — docstring house style. Worth a deliberate yes/no, not a default.
+#   PL   1160 — 321 are PLC0415 (import-outside-top-level), and ytk defers heavy
+#               imports on purpose: graph.py imports store inside build_graph so
+#               drawing a graph does not load the encoder stack. The useful
+#               subset is PLW1510 (16, subprocess without check=) and the
+#               PLR09xx size limits (69), which belong with the work below.
+#   ARG   350, SLF 148, EM 135, N 69, DTZ 53 — unreviewed.
+#   BLE   119 + TRY 145 + S110 — the broad-exception work #122 describes.
+#   C901   22 + PLR09xx 69 — the monolith work #122 describes. Both are code
+#               changes, not config, and each wants its own reviewed pass.
+
+[tool.ruff.lint.per-file-ignores]
+# Narrow, path-scoped, and reasoned — the alternative is a global ignore that
+# silently covers production code too (#122).
+"tests/**" = [
+    "S101", # asserting is what a test does
+    "S108", # /tmp paths in fixtures are fixtures, not deployments
+]
+"scripts/**" = [
+    "S101", # one-off analysis scripts assert their own preconditions
+    "S108",
 ]
 
 [tool.ruff.format]

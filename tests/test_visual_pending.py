@@ -5,7 +5,7 @@ import importlib
 
 
 def _cover_name(url: str) -> str:
-    return hashlib.sha1(url.encode()).hexdigest()[:20] + ".jpg"
+    return hashlib.sha1(url.encode(), usedforsecurity=False).hexdigest()[:20] + ".jpg"
 
 
 def test_sync_pending_visual_embeds_and_evicts(tmp_path, monkeypatch):

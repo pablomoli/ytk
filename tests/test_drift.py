@@ -28,7 +28,7 @@ def _theme(label, weight, centroid, note_ids=None):
 
 @pytest.fixture(autouse=True)
 def _no_chroma(monkeypatch):
-    monkeypatch.setattr(synthesis, "_embeddings_by_id", lambda: {})
+    monkeypatch.setattr(synthesis, "_embeddings_by_id", dict)
 
 
 def test_match_birth_death():

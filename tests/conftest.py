@@ -75,10 +75,10 @@ _SEAM_STUBS = {
     "IG_PULL": lambda: lambda state: 0,
     "TT_PULL": lambda: lambda state: 0,
     "REDDIT_PULL": lambda: lambda state: 0,
-    "YT_FETCH": lambda: lambda: [],
+    "YT_FETCH": lambda: list,
     "YT_IS_PROCESSED": lambda: lambda vid: False,
-    "PIN_FETCH": lambda: lambda: [],
-    "IM_FETCH": lambda: lambda: [],
+    "PIN_FETCH": lambda: list,
+    "IM_FETCH": lambda: list,
 }
 
 

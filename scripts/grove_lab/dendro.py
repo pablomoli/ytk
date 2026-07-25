@@ -79,7 +79,7 @@ def fit_nodes(vecs: np.ndarray):
     if n < MIN_CLUSTER_NOTES:
         return (
             [{"id": SAPLING_ROOT, "parent": -1, "mass": n, "persistence": 1.0}],
-            {i: SAPLING_ROOT for i in range(n)},
+            dict.fromkeys(range(n), SAPLING_ROOT),
             {"kind": "sapling"},
         )
     from scipy.cluster.hierarchy import fcluster, linkage
@@ -299,7 +299,7 @@ def build_bucket(name, vecs, meta_idx, meta, rebuild, run_stability, rng, palett
         node["exemplars"] = ex.get(node["id"], [])
     if prev:  # anchored rebuild: keep old node ids where members overlap
         mapping = anchor_nodes(
-            {k: v for k, v in prev["members"].items()},
+            dict(prev["members"].items()),
             members,
         )
         taken = set(mapping.values())

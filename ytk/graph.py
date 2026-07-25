@@ -346,7 +346,7 @@ def export_json(G: nx.Graph, output: Path) -> None:
     """Write graph as JSON {nodes: [...], edges: [...]} for programmatic querying."""
     Path(output).parent.mkdir(parents=True, exist_ok=True)
     data = {
-        "nodes": [{"id": n, **{k: v for k, v in attrs.items()}} for n, attrs in G.nodes(data=True)],
+        "nodes": [{"id": n, **dict(attrs.items())} for n, attrs in G.nodes(data=True)],
         "edges": [{"from": src, "to": dst, **attrs} for src, dst, attrs in G.edges(data=True)],
     }
     Path(output).write_text(json.dumps(data, indent=2), encoding="utf-8")

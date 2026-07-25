@@ -24,7 +24,7 @@ def test_upsert_doc_stamps_ingested_at_once(tmp_path, monkeypatch):
     )
     got = store._memories_collection().get(ids=["m1"], include=["metadatas"])
     first = got["metadatas"][0]["ingested_at"]
-    assert first.endswith("+00:00") or first.endswith("Z")
+    assert first.endswith(("+00:00", "Z"))
 
     # edit + reindex: text changes, stamp must not
     store.upsert_doc(

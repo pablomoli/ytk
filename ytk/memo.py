@@ -102,7 +102,7 @@ def write_memo_note(transcript: str, audio_path: Path | None, source: str = "voi
     """
     now = datetime.now()
     slug = re.sub(r"[^a-z0-9]+", "-", transcript[:40].lower()).strip("-") or "memo"
-    text_hash = hashlib.sha1(transcript.encode("utf-8")).hexdigest()[:6]
+    text_hash = hashlib.sha1(transcript.encode("utf-8"), usedforsecurity=False).hexdigest()[:6]
     note_dir = _get_brain_path() / "inbox" / "memos"
     note_dir.mkdir(parents=True, exist_ok=True)
 
