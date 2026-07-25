@@ -38,19 +38,19 @@ def _():
         live. The pipeline below is the same one the shader will run.
         """
     )
-    return FRAME, Image, Path, REPO, frame, mo, np
+    return Image, frame, mo, np
 
 
 @app.cell
 def _(mo):
     threshold = mo.ui.slider(
-        0.0, 1.0, 0.02, value=0.34, label="bright-pass threshold", show_value=True
+        0.0, 1.0, 0.02, value=0.20, label="bright-pass threshold", show_value=True
     )
-    knee = mo.ui.slider(0.0, 0.5, 0.01, value=0.12, label="knee (soft cutoff)", show_value=True)
-    sigma = mo.ui.slider(1.0, 24.0, 0.5, value=7.0, label="blur radius σ (px)", show_value=True)
+    knee = mo.ui.slider(0.0, 0.5, 0.01, value=0.16, label="knee (soft cutoff)", show_value=True)
+    sigma = mo.ui.slider(1.0, 24.0, 0.5, value=12.0, label="blur radius σ (px)", show_value=True)
     passes = mo.ui.slider(1, 4, 1, value=2, label="blur passes (ping-pong)", show_value=True)
     intensity = mo.ui.slider(
-        0.0, 3.0, 0.05, value=1.15, label="composite intensity", show_value=True
+        0.0, 3.0, 0.05, value=1.90, label="composite intensity", show_value=True
     )
     downsample = mo.ui.slider(1, 8, 1, value=2, label="downsample factor", show_value=True)
 
@@ -133,14 +133,7 @@ def _(np):
         xi = np.clip((np.arange(shape[1]) / fx).astype(int), 0, img.shape[1] - 1)
         return img[yi][:, xi]
 
-    return (
-        blur_separable,
-        box_down,
-        bright_pass,
-        gaussian_1d,
-        luma,
-        upsample_to,
-    )
+    return blur_separable, box_down, bright_pass, upsample_to
 
 
 @app.cell
@@ -165,7 +158,7 @@ def _(
     composed = np.clip(frame + intensity.value * blurred, 0, 1)
 
     lit = float((bright.max(axis=2) > 0.01).mean() * 100)
-    return blurred, blurred_small, bright, composed, lit, small
+    return bright, composed, lit
 
 
 @app.cell
@@ -181,15 +174,13 @@ def _(Image, np):
 
 @app.cell
 def _(lit, mo):
-    mo.md(
-        f"""
-        ## Result
+    mo.md(f"""
+    ## Result
 
-        **{lit:.1f}%** of the frame passes the bright-pass. Under ~1% and the
-        bloom is invisible; over ~15% and the map starts to look foggy rather
-        than lit.
-        """
-    )
+    **{lit:.1f}%** of the frame passes the bright-pass. Under ~1% and the
+    bloom is invisible; over ~15% and the map starts to look foggy rather
+    than lit.
+    """)
     return
 
 
@@ -208,28 +199,28 @@ def _(bright, composed, frame, mo, to_png):
 
 @app.cell
 def _(downsample, intensity, knee, mo, passes, sigma, threshold):
-    mo.md(
-        f"""
-        ## Constants for the shader
+    mo.md(f"""
+    ## Constants for the shader
 
-        Paste these into `mapRenderer.ts` when the look is right:
+    Paste these into `mapRenderer.ts` when the look is right:
 
-        ```glsl
-        // bright-pass
-        const float BLOOM_THRESHOLD = {threshold.value:.2f};
-        const float BLOOM_KNEE      = {knee.value:.2f};
-        // blur
-        const float BLOOM_SIGMA     = {sigma.value:.1f};   // px, at full res
-        const int   BLOOM_PASSES    = {passes.value};
-        const int   BLOOM_DOWNSAMPLE= {downsample.value};
-        // composite
-        const float BLOOM_INTENSITY = {intensity.value:.2f};
-        ```
+    ```glsl
+    // bright-pass
+    const float BLOOM_THRESHOLD = {threshold.value:.2f};
+    const float BLOOM_KNEE      = {knee.value:.2f};
+    // blur
+    const float BLOOM_SIGMA     = {sigma.value:.1f};   // px, at full res
+    const int   BLOOM_PASSES    = {passes.value};
+    const int   BLOOM_DOWNSAMPLE= {downsample.value};
+    // composite
+    const float BLOOM_INTENSITY = {intensity.value:.2f};
+    ```
 
-        Suggested starting point if you want somewhere to return to:
-        threshold 0.34, knee 0.12, σ 7.0, 2 passes, downsample 2, intensity 1.15.
-        """
-    )
+    Deliberately loud to start — easier to judge a look by pulling it back
+    than by creeping up on it. Return point: threshold 0.20, knee 0.16,
+    σ 12.0, 2 passes, downsample 2, intensity 1.90.
+    Restrained alternative: 0.34 / 0.12 / 7.0 / 2 / 2 / 1.15.
+    """)
     return
 
 
