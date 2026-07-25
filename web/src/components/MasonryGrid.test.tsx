@@ -16,6 +16,21 @@ vi.mock("../lib/motion", () => ({
   Flip: flip,
 }));
 
+/* Counts layout passes while leaving the real packer in place, so placement
+   assertions still exercise the genuine algorithm. */
+const layoutPasses = vi.hoisted(() => vi.fn());
+
+vi.mock("../lib/masonry", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/masonry")>();
+  return {
+    ...actual,
+    computeMasonryLayout: (...args: Parameters<typeof actual.computeMasonryLayout>) => {
+      layoutPasses();
+      return actual.computeMasonryLayout(...args);
+    },
+  };
+});
+
 /* jsdom reports clientWidth 0, which makes relayout bail before it writes any
    styles, and never schedules a real frame. Both stubs must be in place before
    the effect runs its first layout pass. */
@@ -43,6 +58,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   flip.from.mockClear();
   flip.getState.mockClear();
+  layoutPasses.mockClear();
 });
 
 function cards(ids: string[]) {
@@ -151,6 +167,7 @@ test("appending a page animates only the cards that were already placed", () => 
   const first = ["a", "b", "c"];
   const { rerender } = render(<MasonryGrid>{cards(first)}</MasonryGrid>);
   flip.getState.mockClear();
+  layoutPasses.mockClear();
 
   // Pagination: the next page arrives while the current one stays put.
   rerender(<MasonryGrid>{cards([...first, "d", "e", "f"])}</MasonryGrid>);
@@ -170,6 +187,39 @@ test("the very first layout animates nothing", () => {
   render(<MasonryGrid>{cards(["a", "b", "c"])}</MasonryGrid>);
 
   expect(flip.from).not.toHaveBeenCalled();
+});
+
+/* The regression guard for #22 — the one that would have failed the 2026-07-19
+   commit that claimed to stop relayouts on every render and did not.
+
+   It counts layout passes, not style writes. Counting writes was the obvious
+   design and it is worthless here: jsdom emits no attribute mutation when a
+   style property is set to the value it already holds, so the original
+   component — which rewrote every card's position on every render — passes a
+   write-counting assertion cleanly. A real browser does record those writes
+   (1286 of them per click, measured), which is what scripts/probe_masonry.py
+   is for. This is the hermetic half, and it has teeth: verified failing
+   against the pre-fix component. */
+test("a no-op re-render runs no layout pass at all", () => {
+  stubLayoutEnvironment();
+  const { rerender } = render(<MasonryGrid>{cards(["a", "b", "c"])}</MasonryGrid>);
+  layoutPasses.mockClear();
+
+  for (let i = 0; i < 10; i++) {
+    rerender(<MasonryGrid>{cards(["a", "b", "c"])}</MasonryGrid>);
+  }
+
+  expect(layoutPasses).not.toHaveBeenCalled();
+});
+
+test("a structural change runs exactly one layout pass", () => {
+  stubLayoutEnvironment();
+  const { rerender } = render(<MasonryGrid>{cards(["a", "b", "c"])}</MasonryGrid>);
+  layoutPasses.mockClear();
+
+  rerender(<MasonryGrid>{cards(["a", "b", "c", "d"])}</MasonryGrid>);
+
+  expect(layoutPasses).toHaveBeenCalledTimes(1);
 });
 
 test("every card still gets placed after a no-op re-render", () => {
