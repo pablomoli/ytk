@@ -878,11 +878,15 @@ def cover_for(item_url: str) -> Path | None:
         return dest
 
     item = next((i for i in queue_items() if i.url == item_url and i.preview_url), None)
-    if item is None:
+    # Bound to a local rather than re-read off the item: the generator above
+    # already filtered out empty previews, but that narrowing does not survive
+    # into `item`, and preview_url is genuinely optional on a ReelItem.
+    preview = item.preview_url if item else None
+    if not preview:
         return None
     COVERS_DIR.mkdir(parents=True, exist_ok=True)
     try:
-        DOWNLOAD_COVER(item.preview_url, dest)
+        DOWNLOAD_COVER(preview, dest)
     except Exception:
         dest.unlink(missing_ok=True)
         return None
