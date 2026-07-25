@@ -74,7 +74,13 @@ The habits that would have caught each:
 ## The unknowns
 
 Ranked by (value of the answer) x (tractability). Do them in order unless one
-blocks you.
+blocks you — with two exceptions:
+
+- **#2 (the suite hang) comes first.** Everything you conclude about the Python
+  side is unverifiable until a full run can complete.
+- **#7 is not an unknown, it is a known-broken figure**, and it is the public
+  evidence for an issue that has already merged. It has a diagnosed cause and a
+  bounded fix, so it is cheap. Do it early rather than last.
 
 ### 1. The bloom model over-predicts the GPU by ~1.8x — cause unknown
 
@@ -276,6 +282,72 @@ drive-by: `project_from_path` is imported by `scripts/grove_lab/buckets.py`, and
 the grove's tree topology is cached and expected to grow incrementally rather
 than reshuffle. Any change there needs a before/after count of grove membership,
 reported explicitly.
+
+---
+
+### 7. Figure 01 of the semantic-domains series is wrong, and it is the evidence for a merged issue
+
+**Status:** confirmed defect, cause diagnosed, not fixed. Reported by the user
+on sight, which is itself the lesson — nobody re-read the figure after the
+config it reads changed underneath it.
+
+`docs/assets/06-semantic-domains/01-before-after-histogram.png` is the witness
+that justified #106. It currently **contradicts what #106 actually shipped**.
+Three separate problems, compounding:
+
+**a. Panels 2 and 3 are the same chart with different titles.**
+
+They are meant to contrast "hackathons left unplaced" against "hackathons as
+their own bucket". `after_counts(with_hackathons: bool)` reads the proposal at
+`docs/plans/106-buckets-proposal.yaml` and *appends* a hackathons bucket when the
+flag is true. That worked when the proposal had no such bucket. After the user
+approved adding one, the proposal contains it permanently — so the `False` arm no
+longer excludes anything, and both panels render the bucketed case.
+
+The `True` arm is worse than redundant: it appends a **second** `hackathons`
+bucket, and because `assign()` is first-match-wins the duplicate matches nothing.
+Panel 3 carries a phantom zero-height `hackathons` row. `counts.json` shows the
+label twice.
+
+**b. The totals do not reconcile, so every percentage is suspect.**
+
+```
+before           sum 4067   9 rows
+after_excluded   sum 4650  11 rows
+after_bucketed   sum 4650  12 rows      corpus total recorded as 4650
+```
+
+The `before` panel is the live map's 4067 points, but its percentages are divided
+by 4650. Worse, the live map reports `unplaced 662` and `hackathons 620` while
+the figure claims `unplaced 1237`. **The figure disagrees with the shipped map.**
+4650 vs the 4068 measured earlier in the session is unexplained — find out
+whether the corpus grew, whether `resolve_notes()`'s dedupe stopped firing, or
+whether the two arms are being summed into one denominator, before trusting any
+number in that file.
+
+**c. No legend, and the styling does not carry its own meaning.**
+
+The colour encoding — gold = grouped by topic, blue = grouped by path or project
+slug, grey = other/unplaced — exists only as a sentence in the header meta. The
+panels have no legend, so the figure cannot be read on its own, which defeats the
+point of a checkpoint meant to survive into a writeup. Panel 3's title also
+asserts "84% placed" against data showing 1237 unplaced.
+
+**Method:** fix the data first, then the styling — a pretty chart of wrong
+numbers is worse than an ugly one. Decide whether the two "after" arms are still
+worth contrasting at all now that the hackathons question is settled; if not, the
+honest figure is before-vs-after with one after panel, and the variant comparison
+becomes a sentence.
+
+**What counts as an answer:** the panels differ, the sums reconcile against a
+stated corpus size, the numbers match `~/.ytk/map.json`, and a legend makes the
+colour encoding readable without the caption. Regenerate with `--refresh`, then
+**open the PNG and read it** rather than trusting the exit code.
+
+**Trap while fixing:** `before_counts()` reads the live `~/.ytk/map.json`, which
+*is* the bucket axis now, so the "before" panel is deliberately frozen in
+`counts.json` (see item 4). Do not unfreeze it to make the sums line up — the
+frozen values are the only surviving record of the provenance axis.
 
 ---
 
