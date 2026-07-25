@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 
 let routeSearch: { source?: string } = {};
@@ -225,16 +225,12 @@ test("the rail splits into four independently collapsible widgets", async () => 
 });
 
 test("queue and ingest start open, match and job start collapsed", async () => {
-  const { container } = renderPage();
-  await screen.findByText("add to queue");
-  // Scoped to .rail-scroll: "ingest" is also the pinned footer button's label
-  // (that's the point of the task), so an unscoped query is ambiguous between
-  // the widget summary and the footer button.
-  const scroll = container.querySelector(".rail-scroll") as HTMLElement;
+  renderPage();
   const openOf = (t: string) =>
-    (within(scroll).getByText(t).closest("details") as HTMLDetailsElement).open;
+    (screen.getByText(t).closest("details") as HTMLDetailsElement).open;
+  await screen.findByText("add to queue");
   expect(openOf("add to queue")).toBe(true);
-  expect(openOf("ingest")).toBe(true);
+  expect(openOf("ingest selection")).toBe(true);
   expect(openOf("profile match")).toBe(false);
   expect(openOf("job progress")).toBe(false);
 });
