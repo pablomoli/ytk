@@ -87,12 +87,12 @@ def fig_divergence(cells, metric: str, fname: str, title: str, floors=False):
             xs = [p[0] for p in runs[0]]
             ys = np.array([[dict(r).get(x, np.nan) for x in xs] for r in runs], float)
             mean = np.nanmean(ys, axis=0)
-            style = dict(
-                color=SLOTS.get(theta, INK2),
-                linewidth=2 if is_date else 1,
-                alpha=1.0 if is_date else 0.45,
-                linestyle="-" if is_date else "--",
-            )
+            style = {
+                "color": SLOTS.get(theta, INK2),
+                "linewidth": 2 if is_date else 1,
+                "alpha": 1.0 if is_date else 0.45,
+                "linestyle": "-" if is_date else "--",
+            }
             label = f"{theta}{'' if is_date else ' (rand)'}"
             ax.plot(xs, mean, marker="o", markersize=3, label=label, **style)
         if floors and bucket in FLOORS:

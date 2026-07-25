@@ -66,7 +66,7 @@ def test_reindex_skips_memory_moc_index_files(store, tmp_path, monkeypatch):
     import ytk.vault as vault
 
     monkeypatch.setattr(vault, "_get_brain_path", lambda: brain)
-    monkeypatch.setattr("ytk.cache.load_index_cache", lambda: {})
+    monkeypatch.setattr("ytk.cache.load_index_cache", dict)
     monkeypatch.setattr("ytk.cache.save_index_cache", lambda cache: None)
 
     vault.reindex_vault(force=True)
@@ -88,7 +88,7 @@ def test_reindex_skips_archived_memories(store, tmp_path, monkeypatch):
     import ytk.vault as vault
 
     monkeypatch.setattr(vault, "_get_brain_path", lambda: brain)
-    monkeypatch.setattr("ytk.cache.load_index_cache", lambda: {})
+    monkeypatch.setattr("ytk.cache.load_index_cache", dict)
     monkeypatch.setattr("ytk.cache.save_index_cache", lambda cache: None)
 
     assert vault.reindex_vault(force=True) == 0

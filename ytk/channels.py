@@ -54,7 +54,7 @@ def channel_of(meta: dict, source: str, url: str | None = None) -> str | None:
     u = url or meta.get("url")
     if u:
         host = urlparse(u).netloc.lower()
-        host = host[4:] if host.startswith("www.") else host
+        host = host.removeprefix("www.")
         if host:
             return host
     return None

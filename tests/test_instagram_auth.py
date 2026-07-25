@@ -22,15 +22,15 @@ class FakeMediaClient:
 
 
 def _media(**overrides):
-    base = dict(
-        media_type=1,
-        user=SimpleNamespace(username="quirkypobs"),
-        taken_at=datetime(2026, 7, 1, 12, 0),
-        caption_text="a caption",
-        thumbnail_url="https://cdn.example/photo.jpg",
-        video_url=None,
-        resources=[],
-    )
+    base = {
+        "media_type": 1,
+        "user": SimpleNamespace(username="quirkypobs"),
+        "taken_at": datetime(2026, 7, 1, 12, 0),
+        "caption_text": "a caption",
+        "thumbnail_url": "https://cdn.example/photo.jpg",
+        "video_url": None,
+        "resources": [],
+    }
     base.update(overrides)
     return SimpleNamespace(**base)
 

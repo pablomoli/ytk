@@ -9,14 +9,14 @@ _BASE_META = {
     "duration": 213,
 }
 
-_BASE_ENRICHMENT_KWARGS = dict(
-    thesis="A test thesis.",
-    summary="A test summary.",
-    key_concepts=["concept: explanation"],
-    insights=["insight one"],
-    interest_tags=["test"],
-    key_moments=[],
-)
+_BASE_ENRICHMENT_KWARGS = {
+    "thesis": "A test thesis.",
+    "summary": "A test summary.",
+    "key_concepts": ["concept: explanation"],
+    "insights": ["insight one"],
+    "interest_tags": ["test"],
+    "key_moments": [],
+}
 
 
 def _enrichment():

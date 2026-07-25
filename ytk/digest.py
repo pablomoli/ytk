@@ -87,7 +87,7 @@ def _parse_frontmatter(fm: str) -> dict:
         m = re.match(r"(\w[\w-]*):\s*(.*)", line)
         if m:
             key, val = m.group(1), m.group(2).strip()
-            data[key] = val if val else []
+            data[key] = val or []
     return data
 
 

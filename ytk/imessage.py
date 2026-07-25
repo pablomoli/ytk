@@ -180,7 +180,7 @@ class Session:
         """URL-shaped, content-derived id so it flows through the URL-keyed
         pending queue and dedupes deterministically across pulls."""
         raw = "|".join(m.timestamp for m in self.messages)
-        digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+        digest = hashlib.sha1(raw.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
         return f"imessage:session:{digest}"
 
     @property
