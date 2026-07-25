@@ -19,7 +19,7 @@ The execution contract is:
 2. Otherwise start the lowest `Order` item in `Ready`.
 3. Do not start `Needs evidence`, `Triage`, `Verify`, blocked work, or parent initiatives as implementation tickets.
 
-The current P0 integration item is #127. The next Ready sequence is:
+#127 is implemented and in `Verify`. The next Ready sequence is:
 
 1. #114 — stop the test suite from launching a real Playwright browser.
 2. #124 — make profile prose readable with full and reduced motion.
@@ -82,7 +82,7 @@ Focused CLI/workboard tests       36 passed
 Broad suite excluding #114 file   730 passed, 1 deselected
 Configured Pyright scope          0 errors
 Source and wheel build            passed
-Live CLI snapshot                 current #127, next #114
+Pre-Verify live CLI snapshot      current #127, next #114
 Live MCP snapshot                 next #114
 Codex/Claude hook JSON            parsed and returned expected context
 ```
