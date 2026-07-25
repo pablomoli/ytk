@@ -2,7 +2,7 @@
 name = "ytk"
 version = "0.1.0"
 description = "Personal YouTube knowledge system"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "click>=8.1",
     "yt-dlp>=2024.1.1",
@@ -48,12 +48,10 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 100
-# Pinned rather than inferred from requires-python. ytk/sdk.py uses PEP 695
-# type-parameter syntax (`def structured[R: BaseModel]`), which is 3.12+, so
-# inferring py311 from requires-python makes Ruff fail to parse the file.
-# The requires-python floor is wrong and is tracked in
-# docs/plans/typing-sweep-inventory.md (F3); this pin keeps the linter honest
-# about the interpreter the project actually runs on.
+# Pinned to the interpreter this project is developed and run on, which is
+# ahead of the requires-python floor (3.12, set by ytk/sdk.py's PEP 695
+# type-parameter syntax). Ruff will therefore suggest idioms newer than the
+# floor guarantees; anything it proposes must still parse on 3.12.
 target-version = "py313"
 
 [tool.ruff.lint]
@@ -90,7 +88,7 @@ ignore = [
     "SIM108", # 2
     "SIM110", # 1
     "SIM113", # 1
-    "UP047",  # 1: PEP 695 generics; see F3 in the inventory (requires-python is 3.11)
+    "UP047",  # 1: PEP 695 generics; see F3 in the inventory
 ]
 
 [tool.ruff.format]

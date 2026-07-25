@@ -46,12 +46,12 @@ import random
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ytk.vault import _get_brain_path  # noqa: E402
+from ytk.vault import _get_brain_path
 
 LEDGER_PATH = Path.home() / ".ytk" / "reenrich-descriptions.json"
 
@@ -82,7 +82,7 @@ def load_ledger(path: Path) -> dict:
 
 
 def save_ledger(path: Path, ledger: dict) -> None:
-    ledger["updated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ledger["updated_at"] = datetime.now(UTC).isoformat(timespec="seconds")
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(ledger, indent=2, sort_keys=True), encoding="utf-8")
@@ -92,7 +92,7 @@ def save_ledger(path: Path, ledger: dict) -> None:
 def record(ledger: dict, video_id: str, status: str, **fields) -> None:
     ledger["videos"][video_id] = {
         "status": status,
-        "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
         **fields,
     }
 
@@ -126,10 +126,7 @@ def transcripts_by_video(store) -> dict[str, str]:
         if not vid or not doc:
             continue
         blocks.setdefault(vid, []).append((float((meta or {}).get("start", 0.0)), doc))
-    return {
-        vid: " ".join(text for _, text in sorted(parts))
-        for vid, parts in blocks.items()
-    }
+    return {vid: " ".join(text for _, text in sorted(parts)) for vid, parts in blocks.items()}
 
 
 def fetch_with_backoff(url: str, attempts: int = MAX_ATTEMPTS) -> dict:
@@ -155,13 +152,11 @@ def fetch_with_backoff(url: str, attempts: int = MAX_ATTEMPTS) -> dict:
 
 def replace_section(content: str, name: str, body: str) -> tuple[str, bool]:
     """Replace one `## name` section's body, leaving every other byte alone."""
-    pattern = re.compile(
-        rf"^## {re.escape(name)}\n(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL
-    )
+    pattern = re.compile(rf"^## {re.escape(name)}\n(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL)
     m = pattern.search(content)
     if not m:
         return content, False
-    return content[: m.start()] + f"## {name}\n{body}\n\n" + content[m.end():], True
+    return content[: m.start()] + f"## {name}\n{body}\n\n" + content[m.end() :], True
 
 
 def rewrite_note(content: str, enrichment) -> tuple[str, list[str]]:
@@ -188,8 +183,9 @@ def rewrite_note(content: str, enrichment) -> tuple[str, list[str]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--apply", action="store_true",
-                        help="write notes and re-embed (default: dry run)")
+    parser.add_argument(
+        "--apply", action="store_true", help="write notes and re-embed (default: dry run)"
+    )
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--sleep", type=float, default=DEFAULT_SLEEP)
     parser.add_argument("--retry-failed", action="store_true")
@@ -220,7 +216,8 @@ def main() -> int:
         done |= {"failed"}
 
     pending = [
-        (vid, doc, meta) for vid, doc, meta in videos
+        (vid, doc, meta)
+        for vid, doc, meta in videos
         if ledger["videos"].get(vid, {}).get("status") not in done
     ]
     outstanding = len(pending)
@@ -229,8 +226,10 @@ def main() -> int:
 
     mode = "APPLY" if args.apply else "DRY RUN"
     print(f"{mode}: {len(videos)} videos, {len(transcripts)} with segment transcripts")
-    print(f"  {len(videos) - outstanding} settled in the ledger, "
-          f"{outstanding} outstanding, {len(pending)} this run")
+    print(
+        f"  {len(videos) - outstanding} settled in the ledger, "
+        f"{outstanding} outstanding, {len(pending)} this run"
+    )
     if not args.apply:
         print("  (no writes; re-run with --apply)")
     print()
@@ -286,8 +285,10 @@ def main() -> int:
             continue
 
         fresh["url"] = url
-        print(f"      description {len(description)} chars, "
-              f"transcript {len(transcript)} chars — enriching...")
+        print(
+            f"      description {len(description)} chars, "
+            f"transcript {len(transcript)} chars — enriching..."
+        )
         t0 = time.time()
         try:
             if args.apply:
@@ -317,25 +318,36 @@ def main() -> int:
         # builds it. A user's take was appended to the old document by
         # append_video_take and would be lost by a naive rebuild.
         new_doc = result.thesis + "\n\n" + result.summary
-        if (take := re.search(r"\n\nMy take: (.+)\Z", doc, re.DOTALL)):
+        if take := re.search(r"\n\nMy take: (.+)\Z", doc, re.DOTALL):
             new_doc += f"\n\nMy take: {take.group(1)}"
         col.upsert(
             ids=[vid],
             documents=[new_doc],
-            metadatas=[{
-                **meta,
-                "thesis": result.thesis,
-                "summary": result.summary,
-                "description": description,
-            }],
+            metadatas=[
+                {
+                    **meta,
+                    "thesis": result.thesis,
+                    "summary": result.summary,
+                    "description": description,
+                }
+            ],
         )
 
         counts["ok"] = counts.get("ok", 0) + 1
-        print(f"      re-embedded in {elapsed:.0f}s"
-              + (f"  (sections missing from note: {missed})" if missed else ""))
-        record(ledger, vid, "ok", url=url, seconds=round(elapsed, 1),
-               description_chars=len(description), kept_take=bool(take),
-               missed_sections=missed)
+        print(
+            f"      re-embedded in {elapsed:.0f}s"
+            + (f"  (sections missing from note: {missed})" if missed else "")
+        )
+        record(
+            ledger,
+            vid,
+            "ok",
+            url=url,
+            seconds=round(elapsed, 1),
+            description_chars=len(description),
+            kept_take=bool(take),
+            missed_sections=missed,
+        )
         save_ledger(args.ledger, ledger)
         time.sleep(args.sleep)
 

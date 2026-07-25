@@ -122,11 +122,7 @@ def _build_description(description: str) -> str:
     if not text:
         return ""
     return (
-        "## Description\n"
-        "<details>\n"
-        "<summary>Video description</summary>\n\n"
-        f"{text}\n"
-        "</details>\n\n"
+        f"## Description\n<details>\n<summary>Video description</summary>\n\n{text}\n</details>\n\n"
     )
 
 
