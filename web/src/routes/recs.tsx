@@ -27,7 +27,9 @@ function RecsPage() {
   const [tab, setTab] = useState<Tab>("watch");
   const [kind, setKind] = useState<RecKind | null>(null);
 
-  const recs = q.data ?? [];
+  // Memoised on q.data so the fallback does not mint a fresh [] every render,
+  // which defeated the two memos below while the query was loading.
+  const recs = useMemo(() => q.data ?? [], [q.data]);
 
   const counts = useMemo(() => {
     const byKind = new Map<RecKind, number>();
@@ -153,11 +155,7 @@ function RecCardView({
           {rec.year != null ? <span className="rec-year">{rec.year}</span> : null}
           {rec.creator ? <span className="rec-creator">{rec.creator}</span> : null}
         </div>
-        <button
-          className="rec-count"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-        >
+        <button className="rec-count" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
           recommended in {rec.count} {rec.count === 1 ? "note" : "notes"}
         </button>
         {open ? (

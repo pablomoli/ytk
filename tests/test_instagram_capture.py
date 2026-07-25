@@ -3,8 +3,6 @@ hard lifecycle guarantee — the temp video is always deleted."""
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 import ytk.instagram as instagram_mod
@@ -43,7 +41,9 @@ def test_success_path_transcribes_local_file_and_unlinks(monkeypatch, mp4):
         )
 
     monkeypatch.setattr(instagram_mod, "transcribe_file", fake_transcribe)
-    monkeypatch.setattr(instagram_mod, "extract_frames", lambda p, timestamps, baseline_n=4: [b"f1", b"f2"])
+    monkeypatch.setattr(
+        instagram_mod, "extract_frames", lambda p, timestamps, baseline_n=4: [b"f1", b"f2"]
+    )
     monkeypatch.setattr(instagram_mod, "probe_duration", lambda p: 42.0)
 
     cap = capture_reel_media(_reel(mp4), whisper_model="small")
@@ -56,7 +56,7 @@ def test_success_path_transcribes_local_file_and_unlinks(monkeypatch, mp4):
     assert cap.transcript_segments[0]["text"] == "hi"
     assert cap.duration == 42.0
     assert cap.warnings == []
-    assert not mp4.exists()          # deleted in the outer finally
+    assert not mp4.exists()  # deleted in the outer finally
 
 
 def test_no_video_path_is_skipped_with_warning():

@@ -24,8 +24,8 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 # hit@k reported everywhere; hit@5 and hit@10 gate pass/fail, hit@1 is
 # informational (too noisy at ~150 queries to gate on)
@@ -78,10 +78,14 @@ def evaluate(
         results = searchers[q["bucket"]](q["query"])[:top_k]
         rankings[q["gold_id"]] = results
         rank = results.index(gold_key) if gold_key in results else None
-        outcomes.append({
-            "query": q["query"], "bucket": q["bucket"],
-            "gold_id": q["gold_id"], "rank": rank,
-        })
+        outcomes.append(
+            {
+                "query": q["query"],
+                "bucket": q["bucket"],
+                "gold_id": q["gold_id"],
+                "rank": rank,
+            }
+        )
 
     def hits(rows: list[dict], k: int) -> float:
         if not rows:
@@ -102,9 +106,7 @@ def evaluate(
             b: {**{f"hit@{k}": hits(rows, k) for k in _KS}, "n": len(rows)}
             for b, rows in sorted(by_bucket.items())
         },
-        "misses": [
-            r for r in outcomes if r["rank"] is None or r["rank"] >= 5
-        ],
+        "misses": [r for r in outcomes if r["rank"] is None or r["rank"] >= 5],
         "rankings": rankings,
     }
 
@@ -149,9 +151,15 @@ def compare_to_baseline(report: dict, baseline: dict) -> list[str]:
             # baseline necessarily survives later commits. Everything that
             # determines the measured query/corpus/model surface must match.
             for field in (
-                "query_file_sha256", "query_count", "corpus_fingerprint",
-                "collection_epoch", "embedding_model", "embedding_revision",
-                "query_instruction", "max_seq_length", "top_k",
+                "query_file_sha256",
+                "query_count",
+                "corpus_fingerprint",
+                "collection_epoch",
+                "embedding_model",
+                "embedding_revision",
+                "query_instruction",
+                "max_seq_length",
+                "top_k",
             ):
                 if report_prov.get(field) != baseline_prov.get(field):
                     failures.append(
@@ -191,9 +199,7 @@ def _live_resolver() -> Callable[[str], str | None]:
     """
     from ytk import store
 
-    video_ids = {
-        i for i in store._videos_collection().get(include=[])["ids"] if "#" not in i
-    }
+    video_ids = {i for i in store._videos_collection().get(include=[])["ids"] if "#" not in i}
     segment_ids = set(store._segments_collection().get(include=[])["ids"])
 
     mem = store._memories_collection().get(include=["metadatas"])
@@ -231,10 +237,7 @@ def _live_searchers(top_k: int) -> dict[str, Callable[[str], list[str]]]:
 
     def unified(query: str) -> list[str]:
         prefix = {"video": "vid", "memory": "mem"}
-        return [
-            f"{prefix[r.type]}::{r.doc_id}"
-            for r in store.search_all(query, n=top_k)
-        ]
+        return [f"{prefix[r.type]}::{r.doc_id}" for r in store.search_all(query, n=top_k)]
 
     def segments(query: str) -> list[str]:
         col = store._segments_collection()
@@ -262,21 +265,27 @@ def live_provenance(queries_path: Path | str, top_k: int) -> dict:
         ("segments", store._segments_collection()),
     ):
         got = col.get(include=["documents", "metadatas"])
-        rows = sorted(zip(got["ids"], got["documents"], got["metadatas"]),
-                      key=lambda row: row[0])
+        rows = sorted(zip(got["ids"], got["documents"], got["metadatas"]), key=lambda row: row[0])
         counts[name] = len(rows)
         for vector_id, document, metadata in rows:
-            digest.update(json.dumps(
-                [name, vector_id, document or "", metadata or {}],
-                sort_keys=True, ensure_ascii=True, separators=(",", ":"),
-            ).encode("utf-8"))
+            digest.update(
+                json.dumps(
+                    [name, vector_id, document or "", metadata or {}],
+                    sort_keys=True,
+                    ensure_ascii=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            )
             digest.update(b"\n")
 
     cfg = store._EPOCHS[store.EMBEDDING_EPOCH]
     try:
         commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT,
-            capture_output=True, text=True, check=True,
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         commit = "unknown"
@@ -303,7 +312,5 @@ def run_live_gate(queries_path: Path | str = QUERIES_PATH, top_k: int = 10) -> d
     if QRELS_PATH.exists() and top_k >= 10:
         from .relevance import load_qrels, ndcg_report
 
-        report["graded"] = ndcg_report(
-            queries, report["rankings"], load_qrels(QRELS_PATH), k=10
-        )
+        report["graded"] = ndcg_report(queries, report["rankings"], load_qrels(QRELS_PATH), k=10)
     return report

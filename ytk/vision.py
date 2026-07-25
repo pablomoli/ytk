@@ -1,4 +1,5 @@
 """Visual analysis primitives: hint detection, frame extraction, image blocks."""
+
 from __future__ import annotations
 
 import base64
@@ -10,12 +11,23 @@ from pathlib import Path
 
 from .sdk import run_structured
 
-
 _VISUAL_CUE_PHRASES = [
-    "as you can see", "on screen", "in this diagram", "let me show",
-    "the code here", "look at this", "over here", "in the image",
-    "on the left", "on the right", "shown here", "displayed here",
-    "in this chart", "in this graph", "in the terminal", "in the output",
+    "as you can see",
+    "on screen",
+    "in this diagram",
+    "let me show",
+    "the code here",
+    "look at this",
+    "over here",
+    "in the image",
+    "on the left",
+    "on the right",
+    "shown here",
+    "displayed here",
+    "in this chart",
+    "in this graph",
+    "in the terminal",
+    "in the output",
 ]
 
 
@@ -29,9 +41,7 @@ def hint_detect(segments: list[dict]) -> list[float]:
     if not any(phrase in full_text for phrase in _VISUAL_CUE_PHRASES):
         return []
 
-    transcript_with_ts = "\n".join(
-        f"[{s['start']:.1f}s] {s.get('text', '')}" for s in segments
-    )
+    transcript_with_ts = "\n".join(f"[{s['start']:.1f}s] {s.get('text', '')}" for s in segments)
     transcript_with_ts = transcript_with_ts[:30000]
 
     system = (
@@ -66,10 +76,17 @@ def probe_duration(video_path: Path) -> float | None:
     try:
         probe = subprocess.run(
             [
-                "ffprobe", "-v", "quiet", "-print_format", "json",
-                "-show_format", str(video_path),
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                str(video_path),
             ],
-            capture_output=True, text=True, check=True,
+            capture_output=True,
+            text=True,
+            check=True,
         )
         return float(json.loads(probe.stdout)["format"]["duration"])
     except (subprocess.CalledProcessError, KeyError, ValueError, FileNotFoundError):
@@ -99,11 +116,22 @@ def extract_frames(
         try:
             subprocess.run(
                 [
-                    "ffmpeg", "-v", "quiet", "-ss", str(ts),
-                    "-i", str(video_path), "-frames:v", "1",
-                    "-f", "image2", str(tmp_path), "-y",
+                    "ffmpeg",
+                    "-v",
+                    "quiet",
+                    "-ss",
+                    str(ts),
+                    "-i",
+                    str(video_path),
+                    "-frames:v",
+                    "1",
+                    "-f",
+                    "image2",
+                    str(tmp_path),
+                    "-y",
                 ],
-                capture_output=True, check=True,
+                capture_output=True,
+                check=True,
             )
             frames.append(tmp_path.read_bytes())
         except (subprocess.CalledProcessError, FileNotFoundError):
@@ -140,9 +168,10 @@ def image_blocks(
     Silently skips images that cannot be loaded.
     """
     from urllib.parse import urlparse
+
     blocks: list[dict] = []
 
-    for url in (urls or []):
+    for url in urls or []:
         if urlparse(url).scheme not in ("http", "https"):
             continue
         if not force_base64:
@@ -159,22 +188,26 @@ def image_blocks(
                 ct = resp.headers.get("Content-Type", "image/jpeg")
                 media_type = _media_type_from_content_type(ct)
                 data = base64.standard_b64encode(resp.read()).decode()
-            blocks.append({
-                "type": "image",
-                "source": {"type": "base64", "media_type": media_type, "data": data},
-            })
+            blocks.append(
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": media_type, "data": data},
+                }
+            )
         except Exception:
             pass
 
-    for raw in (frame_bytes or []):
-        blocks.append({
-            "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": "image/jpeg",
-                "data": base64.standard_b64encode(raw).decode(),
-            },
-        })
+    for raw in frame_bytes or []:
+        blocks.append(
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/jpeg",
+                    "data": base64.standard_b64encode(raw).decode(),
+                },
+            }
+        )
 
     return blocks
 
@@ -187,14 +220,20 @@ def download_video_temp(url: str) -> Path:
     """
     fd, tmp_name = tempfile.mkstemp(suffix=".mp4")
     import os as _os
+
     _os.close(fd)
     _os.unlink(tmp_name)
     tmp_path = Path(tmp_name)
     try:
         subprocess.run(
             [
-                "yt-dlp", "-f", "bestvideo[ext=mp4]/best[ext=mp4]/best",
-                "-o", str(tmp_path), "--no-playlist", url,
+                "yt-dlp",
+                "-f",
+                "bestvideo[ext=mp4]/best[ext=mp4]/best",
+                "-o",
+                str(tmp_path),
+                "--no-playlist",
+                url,
             ],
             capture_output=True,
             check=True,

@@ -1,5 +1,6 @@
 """Instagram media fetcher: authenticated via instagrapi when INSTAGRAM_SESSIONID
 is set, else anonymous instaloader (which Instagram now often 403s)."""
+
 from __future__ import annotations
 
 import os
@@ -18,21 +19,22 @@ from .vision import extract_frames, probe_duration
 class InstagramPost:
     url: str
     username: str
-    timestamp: str              # YYYY-MM-DD
+    timestamp: str  # YYYY-MM-DD
     caption: str
     images: list[str] = field(default_factory=list)  # CDN URLs; empty for video-only reels
-    video_path: Path | None = None                   # temp .mp4; caller must unlink
-    thumbnail_url: str | None = None                 # cover image for video reels
-    media_kind: str = "image"                        # image | carousel | video — set from the
-                                                     # API media type, never from len(images)
+    video_path: Path | None = None  # temp .mp4; caller must unlink
+    thumbnail_url: str | None = None  # cover image for video reels
+    media_kind: str = "image"  # image | carousel | video — set from the
+    # API media type, never from len(images)
 
 
 @dataclass
 class ReelCapture:
     """What was actually recovered from a reel's video, plus every failure."""
+
     frame_bytes: list[bytes] = field(default_factory=list)
     transcript_segments: list[dict] = field(default_factory=list)
-    transcript_status: str = "skipped"   # ok | no_speech | failed | skipped
+    transcript_status: str = "skipped"  # ok | no_speech | failed | skipped
     duration: float | None = None
     warnings: list[str] = field(default_factory=list)
 
@@ -195,6 +197,7 @@ def _extract_shortcode(url: str) -> str:
 def _download_reel(url: str) -> Path:
     """Download a reel to a temp .mp4 via yt-dlp. Returns the path. Caller must unlink."""
     from .vision import download_video_temp
+
     try:
         return download_video_temp(url)
     except Exception as exc:

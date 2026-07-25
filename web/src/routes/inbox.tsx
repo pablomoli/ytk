@@ -25,7 +25,7 @@ import { PROFILE_MATCHES_PREF, getPref, setPref } from "../lib/prefs";
 import "../styles.css";
 
 export const Route = createFileRoute("/inbox")({
-  validateSearch: (s: Record<string, unknown>): { source?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { source?: string | undefined } => ({
     source: typeof s.source === "string" ? s.source : undefined,
   }),
   component: InboxPage,
@@ -70,7 +70,9 @@ function InboxPage() {
   // PROFILE_BATCH_SIZE; the inbox highlights one block at a time. "reroll"
   // advances a block (wrapping at the end), "reset" returns to the first.
   // Paging is pure slicing of the already-fetched list — no re-scoring.
-  const allPicks = profileRank.data?.picks ?? [];
+  // Memoised for the same reason as recs.tsx: the ?? [] fallback otherwise
+  // returns a new array identity every render and batchPicks never memoises.
+  const allPicks = useMemo(() => profileRank.data?.picks ?? [], [profileRank.data?.picks]);
   const batchCount = Math.max(1, Math.ceil(allPicks.length / PROFILE_BATCH_SIZE));
   const generatedAt = profileRank.data?.generated_at;
   useEffect(() => setBatch(0), [generatedAt]); // a fresh ranking starts at batch 1
@@ -237,7 +239,15 @@ function InboxPage() {
         <SourceFilter value={source} onChange={handleSourceChange} />
         <span className="count">
           <CountUp value={items.length} />
-          {q.data && q.data.length !== items.length ? <> of <CountUp value={q.data.length} /></> : ""} pending
+          {q.data && q.data.length !== items.length ? (
+            <>
+              {" "}
+              of <CountUp value={q.data.length} />
+            </>
+          ) : (
+            ""
+          )}{" "}
+          pending
         </span>
       </HubControls>
       <div className="hub-body hub-row">
@@ -305,7 +315,9 @@ function InboxPage() {
               </button>
             </div>
           ) : null}
-          <div className={`profile-rank-status${profileRank.data?.state === "running" ? " running" : ""}`}>
+          <div
+            className={`profile-rank-status${profileRank.data?.state === "running" ? " running" : ""}`}
+          >
             {profileRank.data?.state === "running" ? (
               <span>scoring the full inbox · this can take a minute or two</span>
             ) : profileRank.data?.picks.length ? (
@@ -364,7 +376,8 @@ function InboxPage() {
                 />
                 <span>
                   <ScrambleStatus text={job.data.running ? "running" : "done"} />
-                  {" · "}{job.data.done}/{job.data.total}
+                  {" · "}
+                  {job.data.done}/{job.data.total}
                   {job.data.running && elapsed ? ` · ${elapsed}` : ""}
                 </span>
               </span>
@@ -377,9 +390,7 @@ function InboxPage() {
                 </>
               ) : null}
               {job.data.failures.length > 0 ? (
-                <span className="progress-failed">
-                  {job.data.failures.length} failed
-                </span>
+                <span className="progress-failed">{job.data.failures.length} failed</span>
               ) : null}
             </div>
           ) : null}

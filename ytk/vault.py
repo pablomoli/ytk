@@ -7,18 +7,18 @@ import os
 import re
 import shutil
 import urllib.request
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from dotenv import load_dotenv
-
 from typing import TYPE_CHECKING
 
+from dotenv import load_dotenv
+
 from ytk.enrich import Enrichment
-from ytk.store import upsert_doc, strip_frontmatter
+from ytk.store import strip_frontmatter, upsert_doc
 
 if TYPE_CHECKING:
-    from ytk.instagram import InstagramPost
     from ytk.imessage import MessageThread
+    from ytk.instagram import InstagramPost
     from ytk.tiktok import TikTokPost
 
 load_dotenv(Path.home() / ".ytk" / ".env")
@@ -35,9 +35,7 @@ class NoteAlreadyExists(Exception):
 def _get_vault_path() -> Path:
     raw = os.getenv("OBSIDIAN_VAULT_PATH")
     if not raw:
-        raise EnvironmentError(
-            "OBSIDIAN_VAULT_PATH is not set. Add it to your .env file."
-        )
+        raise OSError("OBSIDIAN_VAULT_PATH is not set. Add it to your .env file.")
     return Path(raw).expanduser()
 
 
@@ -145,20 +143,18 @@ def _build_note(
     tags_yaml = "\n".join(f"  - {_normalize_tag(t)}" for t in enrichment.interest_tags)
     image_paths_yaml = (
         "\n" + "\n".join(f"  - {p.relative_to(_get_brain_path())}" for p in saved_frames)
-        if saved_frames else " []"
+        if saved_frames
+        else " []"
     )
 
     concepts = "\n".join(f"- {c}" for c in enrichment.key_concepts)
     insights = "\n".join(f"- {i}" for i in enrichment.insights)
-    moments = "\n".join(
-        f"- **{km.timestamp}** — {km.description}" for km in enrichment.key_moments
-    )
+    moments = "\n".join(f"- **{km.timestamp}** — {km.description}" for km in enrichment.key_moments)
     transcript_body = _build_transcript(video_id, segments)
     description_section = _build_description(meta.get("description", ""))
 
     frame_embeds = (
-        "\n".join(f"![[{p.name}]]" for p in saved_frames) + "\n\n"
-        if saved_frames else ""
+        "\n".join(f"![[{p.name}]]" for p in saved_frames) + "\n\n" if saved_frames else ""
     )
 
     return f"""\
@@ -207,8 +203,6 @@ def _update_index(vault_path: Path, video_id: str, title: str, date: str) -> Non
 
     row = f"| [[sources/youtube/{video_id}]] | {title} | {date} |"
 
-    table_header = "## sources/youtube/"
-
     # Table already has a markdown table — just append a row.
     header_re = re.compile(
         r"(## sources/youtube/\n\|[^\n]+\|\n\|[-| ]+\|\n)((?:\|[^\n]+\|\n)*)",
@@ -230,25 +224,17 @@ def _update_index(vault_path: Path, video_id: str, title: str, date: str) -> Non
     placeholder_match = placeholder_re.search(content)
     if placeholder_match:
         new_table = (
-            "## sources/youtube/\n"
-            "| Note | Title | Date |\n"
-            "|------|-------|------|\n"
-            f"{row}\n"
+            f"## sources/youtube/\n| Note | Title | Date |\n|------|-------|------|\n{row}\n"
         )
         new_content = (
-            content[: placeholder_match.start()]
-            + new_table
-            + content[placeholder_match.end() :]
+            content[: placeholder_match.start()] + new_table + content[placeholder_match.end() :]
         )
         index_path.write_text(new_content, encoding="utf-8")
         return
 
     # Section not found — append it at the end of the file.
     new_section = (
-        "\n## sources/youtube/\n"
-        "| Note | Title | Date |\n"
-        "|------|-------|------|\n"
-        f"{row}\n"
+        f"\n## sources/youtube/\n| Note | Title | Date |\n|------|-------|------|\n{row}\n"
     )
     index_path.write_text(content.rstrip() + "\n" + new_section, encoding="utf-8")
 
@@ -319,7 +305,7 @@ def read_atom(project_slug: str, atom: str) -> str | None:
     if text.startswith("---"):
         end = text.find("---", 3)
         if end != -1:
-            return text[end + 3:].strip()
+            return text[end + 3 :].strip()
     return text.strip()
 
 
@@ -356,9 +342,10 @@ def write_project_hub(
     hub_dir.mkdir(parents=True, exist_ok=True)
 
     tech_yaml = ", ".join(tech) if tech else ""
-    session_log = "\n".join(
-        f"- [[{ref}]] — {date}" for ref, date in session_refs
-    ) or "_no sessions indexed yet_"
+    session_log = (
+        "\n".join(f"- [[{ref}]] — {date}" for ref, date in session_refs)
+        or "_no sessions indexed yet_"
+    )
 
     content = (
         f"---\ntype: project-hub\nstatus: {status}\ntech: [{tech_yaml}]\n"
@@ -392,8 +379,7 @@ def write_memories_moc(projects: list[dict]) -> Path:
         if not group:
             continue
         rows = "\n".join(
-            f"- [[{p['slug']}/index|{p['display']}]] — {p['purpose_line']}"
-            for p in group
+            f"- [[{p['slug']}/index|{p['display']}]] — {p['purpose_line']}" for p in group
         )
         sections.append(f"## {status_label.capitalize()}\n{rows}\n")
 
@@ -438,9 +424,9 @@ def write_reddit_note(post: dict, enrichment: Enrichment, comments: list[dict]) 
     insights = "\n".join(f"- {i}" for i in enrichment.insights)
     date = ""
     if post.get("created_utc"):
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        date = datetime.fromtimestamp(post["created_utc"], tz=timezone.utc).strftime("%Y-%m-%d")
+        date = datetime.fromtimestamp(post["created_utc"], tz=UTC).strftime("%Y-%m-%d")
 
     body = (
         f"---\nurl: {post['permalink']}\ntitle: {post['title']}\n"
@@ -465,9 +451,7 @@ def write_reddit_note(post: dict, enrichment: Enrichment, comments: list[dict]) 
     return note_path
 
 
-def write_journal_note(
-    thread: "MessageThread", enrichment: Enrichment, suffix: str = ""
-) -> Path:
+def write_journal_note(thread: MessageThread, enrichment: Enrichment, suffix: str = "") -> Path:
     """Write an Obsidian note for an iMessage journal thread. Returns the path written.
 
     `suffix` (e.g. a session start time "HHMM") disambiguates multiple sessions
@@ -520,6 +504,7 @@ _CT_TO_EXT = {
 def _save_image(url: str, dest: Path) -> Path | None:
     """Download an image URL to dest (no extension). Returns final path or None on failure."""
     from urllib.parse import urlparse
+
     if urlparse(url).scheme not in ("http", "https"):
         return None
     try:
@@ -538,7 +523,13 @@ INSTAGRAM_CAPTURE_SCHEMA = 2  # bump when the reel capture pipeline changes shap
 # Sections owned by the pipeline; anything else in a note is user-authored
 # and must survive a refresh.
 _GENERATED_IG_SECTIONS = {
-    "Caption", "Thesis", "Summary", "Key Concepts", "Insights", "Key Moments", "Transcript",
+    "Caption",
+    "Thesis",
+    "Summary",
+    "Key Concepts",
+    "Insights",
+    "Key Moments",
+    "Transcript",
 }
 
 
@@ -567,7 +558,7 @@ def _parse_note_tags(content: str) -> list[str]:
     round-trip byte-exact, so no re-normalization here."""
     if not content.startswith("---"):
         return []
-    fm = content[3:content.index("\n---", 3)]
+    fm = content[3 : content.index("\n---", 3)]
     tags: list[str] = []
     in_tags = False
     for line in fm.splitlines():
@@ -586,7 +577,7 @@ def _user_sections(content: str) -> str:
     """Extract note sections the pipeline does not generate (e.g. ## My take)."""
     body = content
     if content.startswith("---"):
-        body = content[content.index("\n---", 3) + 4:]
+        body = content[content.index("\n---", 3) + 4 :]
     kept: list[str] = []
     for block in re.split(r"\n(?=## )", body):
         if not block.startswith("## "):
@@ -597,7 +588,7 @@ def _user_sections(content: str) -> str:
     return ("\n" + "\n\n".join(kept) + "\n") if kept else ""
 
 
-def _save_instagram_images(post: "InstagramPost", note_dir: Path, shortcode: str) -> list[Path]:
+def _save_instagram_images(post: InstagramPost, note_dir: Path, shortcode: str) -> list[Path]:
     """Slides (stable {shortcode}-img-N names, under slides/) plus the cover
     thumbnail for video-only posts. Overwrites are same-content refetches, so
     refresh-safe. Nothing is saved flat beside the notes."""
@@ -619,7 +610,7 @@ def _save_instagram_images(post: "InstagramPost", note_dir: Path, shortcode: str
 
 
 def _render_instagram_note(
-    post: "InstagramPost",
+    post: InstagramPost,
     enrichment: Enrichment,
     *,
     tags: list[str],
@@ -635,8 +626,7 @@ def _render_instagram_note(
 
     brain = _get_brain_path()
     image_paths_yaml = (
-        "\n" + "\n".join(f"  - {p.relative_to(brain)}" for p in assets)
-        if assets else " []"
+        "\n" + "\n".join(f"  - {p.relative_to(brain)}" for p in assets) if assets else " []"
     )
 
     media_kind = getattr(post, "media_kind", "image")
@@ -670,9 +660,7 @@ def _render_instagram_note(
         content += f"\n## Key Moments\n{moments}\n"
 
     if transcript_segments:
-        lines = "\n".join(
-            f"[{_fmt_seg_ts(s['start'])}] {s['text']}" for s in transcript_segments
-        )
+        lines = "\n".join(f"[{_fmt_seg_ts(s['start'])}] {s['text']}" for s in transcript_segments)
         content += (
             f"\n## Transcript\n<details>\n<summary>Whisper transcript</summary>\n\n"
             f"{lines}\n</details>\n"
@@ -682,7 +670,7 @@ def _render_instagram_note(
 
 
 def write_instagram_note(
-    post: "InstagramPost",
+    post: InstagramPost,
     enrichment: Enrichment,
     transcript_segments: list[dict] | None = None,
     transcript_status: str | None = None,
@@ -718,7 +706,8 @@ def write_instagram_note(
             saved_frames.append(fp)
 
     content = _render_instagram_note(
-        post, enrichment,
+        post,
+        enrichment,
         tags=[_normalize_tag(t) for t in enrichment.interest_tags],
         assets=[*saved_images, *saved_frames],
         frame_count=len(saved_frames),
@@ -730,7 +719,7 @@ def write_instagram_note(
 
 
 def refresh_instagram_note(
-    post: "InstagramPost",
+    post: InstagramPost,
     enrichment: Enrichment,
     transcript_segments: list[dict] | None = None,
     transcript_status: str | None = None,
@@ -750,7 +739,8 @@ def refresh_instagram_note(
     existing = find_instagram_note(shortcode)
     if existing is None:
         return write_instagram_note(
-            post, enrichment,
+            post,
+            enrichment,
             transcript_segments=transcript_segments,
             transcript_status=transcript_status,
             frame_bytes=frame_bytes,
@@ -785,7 +775,8 @@ def refresh_instagram_note(
     tags = list(dict.fromkeys([*new_tags, *old_tags]))
 
     content = _render_instagram_note(
-        post, enrichment,
+        post,
+        enrichment,
         tags=tags,
         assets=[*saved_images, *saved_frames],
         frame_count=len(saved_frames),
@@ -820,7 +811,7 @@ def find_reel_backfill_candidates() -> list[dict]:
         content = path.read_text(encoding="utf-8")
         if not content.startswith("---"):
             continue
-        fm = content[3:content.index("\n---", 3)]
+        fm = content[3 : content.index("\n---", 3)]
 
         def _field(key: str) -> str | None:
             m = re.search(rf"^{key}: (.+)$", fm, re.MULTILINE)
@@ -844,15 +835,17 @@ def find_reel_backfill_candidates() -> list[dict]:
         else:
             continue
 
-        candidates.append({
-            "path": path,
-            "url": url,
-            "username": _field("username") or "",
-            "shortcode": instagram_shortcode(url),
-            "reason": reason,
-            "has_transcript": "## Transcript" in content,
-            "has_frames": any("/frames/" in p for p in image_paths),
-        })
+        candidates.append(
+            {
+                "path": path,
+                "url": url,
+                "username": _field("username") or "",
+                "shortcode": instagram_shortcode(url),
+                "reason": reason,
+                "has_transcript": "## Transcript" in content,
+                "has_frames": any("/frames/" in p for p in image_paths),
+            }
+        )
     return candidates
 
 
@@ -873,9 +866,7 @@ def repair_frame_embeds() -> int:
             continue
         for note in sorted(note_dir.glob("*.md")):
             content = note.read_text(encoding="utf-8")
-            hits = set(re.findall(
-                rf"sources/{source}/frames/([^/\s]+)/(frame-\d+\.jpg)", content
-            ))
+            hits = set(re.findall(rf"sources/{source}/frames/([^/\s]+)/(frame-\d+\.jpg)", content))
             if not hits:
                 continue
             for key, fname in hits:
@@ -883,9 +874,7 @@ def repair_frame_embeds() -> int:
                 new_name = f"{key}-{fname}"
                 if old_file.exists():
                     old_file.rename(old_file.with_name(new_name))
-                content = content.replace(
-                    f"frames/{key}/{fname}", f"frames/{key}/{new_name}"
-                )
+                content = content.replace(f"frames/{key}/{fname}", f"frames/{key}/{new_name}")
                 content = content.replace(f"![[{fname}]]", f"![[{new_name}]]")
             note.write_text(content, encoding="utf-8")
             changed += 1
@@ -916,10 +905,7 @@ def relocate_instagram_slides() -> int:
         r"(?P<ext>\.(?:jpe?g|png|gif|webp))$",
         re.IGNORECASE,
     )
-    flat_files = sorted(
-        p for p in note_dir.iterdir()
-        if p.is_file() and slide_re.fullmatch(p.name)
-    )
+    flat_files = sorted(p for p in note_dir.iterdir() if p.is_file() and slide_re.fullmatch(p.name))
     if not flat_files:
         return 0
 
@@ -935,16 +921,9 @@ def relocate_instagram_slides() -> int:
                 references[name].append(note)
 
     def _same_bytes(a: Path, b: Path) -> bool:
-        if (
-            not a.is_file()
-            or not b.is_file()
-            or a.stat().st_size != b.stat().st_size
-        ):
+        if not a.is_file() or not b.is_file() or a.stat().st_size != b.stat().st_size:
             return False
-        return (
-            hashlib.sha256(a.read_bytes()).digest()
-            == hashlib.sha256(b.read_bytes()).digest()
-        )
+        return hashlib.sha256(a.read_bytes()).digest() == hashlib.sha256(b.read_bytes()).digest()
 
     moves: list[tuple[Path, Path]] = []
     duplicate_reel_covers: list[Path] = []
@@ -958,9 +937,7 @@ def relocate_instagram_slides() -> int:
             shortcode = match.group("shortcode")
             matching_thumbs = [
                 p
-                for p in sorted(
-                    (note_dir / "thumbnails").glob(f"{shortcode}-thumb.*")
-                )
+                for p in sorted((note_dir / "thumbnails").glob(f"{shortcode}-thumb.*"))
                 if _same_bytes(source, p)
             ]
             thumb_refs = [
@@ -971,8 +948,7 @@ def relocate_instagram_slides() -> int:
             ]
             if len(thumb_refs) != 1:
                 raise RuntimeError(
-                    "Unreferenced flat image is not a verified duplicate "
-                    f"reel cover: {source.name}"
+                    f"Unreferenced flat image is not a verified duplicate reel cover: {source.name}"
                 )
             duplicate_reel_covers.append(source)
             continue
@@ -1048,7 +1024,7 @@ def relocate_instagram_slides() -> int:
 
 
 def write_tiktok_note(
-    post: "TikTokPost",
+    post: TikTokPost,
     enrichment: Enrichment,
     transcript: str = "",
     frame_bytes: list[bytes] | None = None,
@@ -1086,7 +1062,8 @@ def write_tiktok_note(
     media_paths = [p for p in [saved_thumb, *saved_frames] if p]
     media_yaml = (
         "\n" + "\n".join(f"  - {p.relative_to(brain)}" for p in media_paths)
-        if media_paths else " []"
+        if media_paths
+        else " []"
     )
 
     content = (
@@ -1223,7 +1200,17 @@ def reindex_vault(force: bool = False) -> int:
     from .cache import file_hash, load_index_cache, save_index_cache, update_cache_entry
 
     brain = _get_brain_path()
-    scan_dirs = ["inbox/memories", "inbox", "projects", "decisions", "debugging", "tools", "sources/instagram", "sources/web", "sources/journal"]
+    scan_dirs = [
+        "inbox/memories",
+        "inbox",
+        "projects",
+        "decisions",
+        "debugging",
+        "tools",
+        "sources/instagram",
+        "sources/web",
+        "sources/journal",
+    ]
     seen_paths: set[str] = set()
     count = 0
 
@@ -1245,9 +1232,7 @@ def reindex_vault(force: bool = False) -> int:
             # Memory-atom MOCs are wikilink boilerplate. Archived memories
             # are intentionally outside the searchable surface (#93).
             is_memory = rel.parts[:2] == ("inbox", "memories")
-            if is_memory and (
-                md_file.name == "index.md" or "archived" in rel.parts[2:-1]
-            ):
+            if is_memory and (md_file.name == "index.md" or "archived" in rel.parts[2:-1]):
                 continue
 
             if not force:
@@ -1263,11 +1248,15 @@ def reindex_vault(force: bool = False) -> int:
                 continue
             parts = str(rel).split("/")
             tags = parts[:-1]
-            upsert_doc(doc_id, body, {
-                "doc_id": doc_id,
-                "tags": ", ".join(tags),
-                "source_path": str_path,
-            })
+            upsert_doc(
+                doc_id,
+                body,
+                {
+                    "doc_id": doc_id,
+                    "tags": ", ".join(tags),
+                    "source_path": str_path,
+                },
+            )
             update_cache_entry(md_file, cache)
             count += 1
 
@@ -1291,10 +1280,7 @@ def vault_note_doc_id(note_path: Path, brain: Path, content: str | None = None) 
     if id_match:
         return id_match.group(1).strip()
     rel = note_path.relative_to(brain)
-    return (
-        "note_"
-        + str(rel).replace("/", "_").replace(".md", "").replace(" ", "_")
-    )
+    return "note_" + str(rel).replace("/", "_").replace(".md", "").replace(" ", "_")
 
 
 def rebuild_index() -> None:
@@ -1405,9 +1391,7 @@ def write_note(
     filename = _slug(title)
     note_path = note_dir / f"{filename}.md"
     if note_path.exists():
-        raise NoteAlreadyExists(
-            f"Note already exists for '{title}': {note_path}"
-        )
+        raise NoteAlreadyExists(f"Note already exists for '{title}': {note_path}")
 
     # Save thumbnail + any extracted frames before building note
     saved_frames: list[Path] = []

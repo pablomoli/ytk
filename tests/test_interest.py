@@ -13,13 +13,19 @@ def _sample() -> InterestSnapshot:
     return InterestSnapshot(
         generated_at="2026-06-02T00:00:00+00:00",
         note_count=2,
-        themes=[Theme(id="creative-coding", label="Creative coding", summary="s",
-                      weight=1.0, note_ids=["a", "b"], exemplar_titles=["A", "B"])],
+        themes=[
+            Theme(
+                id="creative-coding",
+                label="Creative coding",
+                summary="s",
+                weight=1.0,
+                note_ids=["a", "b"],
+                exemplar_titles=["A", "B"],
+            )
+        ],
         connections=[],
         profile_markdown="You are into creative coding.",
-        portrait_claims=[
-            PortraitClaim(text="You build creative tools.", evidence_ids=["a"])
-        ],
+        portrait_claims=[PortraitClaim(text="You build creative tools.", evidence_ids=["a"])],
         evidence_captured_at={"a": "2026-06-01T00:00:00+00:00"},
         decay_half_life_days=90,
         profile_score=ProfileScore(

@@ -11,9 +11,14 @@ from pydantic import BaseModel, Field
 
 class FilterConfig(BaseModel):
     min_duration: int = Field(default=60, description="Minimum video duration in seconds.")
-    max_duration: int | None = Field(default=None, description="Maximum video duration in seconds. Null means no limit.")
+    max_duration: int | None = Field(
+        default=None, description="Maximum video duration in seconds. Null means no limit."
+    )
     require_captions: bool = Field(default=True, description="Reject videos with no captions.")
-    interest_tags: list[str] = Field(default_factory=list, description="At least one tag must match enrichment output. Empty list allows all.")
+    interest_tags: list[str] = Field(
+        default_factory=list,
+        description="At least one tag must match enrichment output. Empty list allows all.",
+    )
 
 
 class InterestConfig(BaseModel):
@@ -62,7 +67,9 @@ class ColorRule(BaseModel):
     Rules are ordered; the first matching rule wins (Obsidian Groups model).
     """
 
-    query: str = Field(description="Substring/tag query matched against a note's path, title, and tags.")
+    query: str = Field(
+        description="Substring/tag query matched against a note's path, title, and tags."
+    )
     color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$", description="Hex color, e.g. #e2b04a.")
 
 
@@ -84,10 +91,15 @@ class HubConfig(BaseModel):
 
     host: str = Field(default="127.0.0.1", description="Hub bind address.")
     port: int = Field(default=6969, description="Hub port (memorable on purpose).")
-    favicon: str = Field(default="✦", description="Character or emoji rendered as the hub tab icon.")
+    favicon: str = Field(
+        default="✦", description="Character or emoji rendered as the hub tab icon."
+    )
     cadence_minutes: dict[str, int] = Field(
         default_factory=lambda: {
-            "instagram": 15, "youtube": 15, "pinterest": 15, "imessage": 15,
+            "instagram": 15,
+            "youtube": 15,
+            "pinterest": 15,
+            "imessage": 15,
             # Daily: favorites scraping rides the user's real TikTok session,
             # so anything page-load-shaped would be bot-shaped traffic.
             "tiktok": 1440,
@@ -100,8 +112,14 @@ class HubConfig(BaseModel):
     )
     tags: list[str] = Field(
         default_factory=lambda: [
-            "design", "music", "build-idea", "dev-tools",
-            "movies", "anime", "fitness", "reference",
+            "design",
+            "music",
+            "build-idea",
+            "dev-tools",
+            "movies",
+            "anime",
+            "fitness",
+            "reference",
         ],
         description="Predefined annotation tags shown as chips in /inbox.",
     )
@@ -118,7 +136,9 @@ class HubConfig(BaseModel):
 class Config(BaseModel):
     filters: FilterConfig = Field(default_factory=FilterConfig)
     hub: HubConfig = Field(default_factory=HubConfig)
-    whisper_model: str = Field(default="base", description="faster-whisper model size: base | small | medium | large")
+    whisper_model: str = Field(
+        default="base", description="faster-whisper model size: base | small | medium | large"
+    )
     tiktok_username: str | None = Field(
         default=None,
         description="TikTok handle whose favorites tab the discovery fetcher syncs; unset disables the source.",
@@ -127,8 +147,12 @@ class Config(BaseModel):
         default_factory=list,
         description="Allowlist of subreddits to browse into the queue. Empty disables the source. Saved posts are never read.",
     )
-    reddit_sort: str = Field(default="top", description="Reddit listing sort: hot | top | new | rising.")
-    reddit_window: str = Field(default="week", description="Time window for top sort: day | week | month | year | all.")
+    reddit_sort: str = Field(
+        default="top", description="Reddit listing sort: hot | top | new | rising."
+    )
+    reddit_window: str = Field(
+        default="week", description="Time window for top sort: day | week | month | year | all."
+    )
     reddit_limit: int = Field(default=25, description="Max posts pulled per subreddit per sync.")
     autoingest_enabled: bool = Field(
         default=False,
@@ -146,7 +170,10 @@ class Config(BaseModel):
         default_factory=list,
         description="Memo notification backends (tmux|macos|sketchybar); empty = focus-aware auto",
     )
-    github_repos: list[str] = Field(default_factory=list, description="GitHub repos (owner/name) available when creating issues via ytk triage.")
+    github_repos: list[str] = Field(
+        default_factory=list,
+        description="GitHub repos (owner/name) available when creating issues via ytk triage.",
+    )
     interest: InterestConfig = Field(default_factory=InterestConfig)
     map: MapConfig = Field(default_factory=MapConfig)
 

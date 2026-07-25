@@ -12,19 +12,36 @@ import json
 import re
 import threading
 import time
+from datetime import UTC
 from pathlib import Path
 
 from ytk import directives, reels, vault
 from ytk.config import load_config
 from ytk.memo import (
     AUDIO_DIR as MEMO_AUDIO_DIR,
+)
+from ytk.memo import (
     ensure_wav as memo_ensure_wav,
+)
+from ytk.memo import (
     execute_route as memo_execute,
+)
+from ytk.memo import (
     finalize_memo_note as memo_finalize,
+)
+from ytk.memo import (
     index_memo_note as memo_index,
+)
+from ytk.memo import (
     notify as memo_notify,
+)
+from ytk.memo import (
     route as memo_route,
+)
+from ytk.memo import (
     transcribe as memo_transcribe,
+)
+from ytk.memo import (
     write_memo_note as memo_write_note,
 )
 
@@ -34,9 +51,7 @@ PROFILE_RANK_PATH = STATE_PATH.parent / "profile-rank.json"
 # The discovery sources refresh_sources knows how to pull from. `web` and `memo`
 # in the frontend source filter are ingest *types*, not pull sources, so they
 # are deliberately absent here.
-PULL_SOURCES = frozenset(
-    {"instagram", "youtube", "pinterest", "imessage", "tiktok", "reddit"}
-)
+PULL_SOURCES = frozenset({"instagram", "youtube", "pinterest", "imessage", "tiktok", "reddit"})
 PROFILE_RANK_TIMEOUT_SECONDS = 10 * 60
 PACING_SECONDS = 3.0
 MAX_ATTEMPTS = 3
@@ -121,7 +136,12 @@ def delete_note(rel_path: str) -> dict:
         raise FileNotFoundError(rel_path)
 
     text = target.read_text(encoding="utf-8", errors="ignore")
-    summary: dict = {"file": str(target.relative_to(brain.parent)), "docs": [], "video": None, "visual": []}
+    summary: dict = {
+        "file": str(target.relative_to(brain.parent)),
+        "docs": [],
+        "video": None,
+        "visual": [],
+    }
 
     # text vectors: id: frontmatter, memo id, and the path-derived note id all
     # get deleted (delete_doc is a no-op for ids that aren't present).
@@ -131,7 +151,9 @@ def delete_note(rel_path: str) -> dict:
     if target.parent == brain / "inbox" / "memos":
         doc_ids.append(f"memo_{target.stem}")
     rel_to_brain = target.relative_to(brain)
-    doc_ids.append("note_" + str(rel_to_brain).replace("/", "_").replace(".md", "").replace(" ", "_"))
+    doc_ids.append(
+        "note_" + str(rel_to_brain).replace("/", "_").replace(".md", "").replace(" ", "_")
+    )
     for did in dict.fromkeys(doc_ids):
         store.delete_doc(did)
         summary["docs"].append(did)
@@ -204,9 +226,7 @@ def _tt_pull(state: reels.ReelsState) -> int:
     if not username:
         return 0
     cookies = tiktok_fav.load_tiktok_cookies(tiktok_fav.zen_cookie_db())
-    fetched = tiktok_fav.fetch_favorites(
-        username, cookies, seen=frozenset(state.tiktok_seen)
-    )
+    fetched = tiktok_fav.fetch_favorites(username, cookies, seen=frozenset(state.tiktok_seen))
     return tiktok_fav.queue_new(state, fetched, extra_known=INGESTED_URLS())
 
 
@@ -363,16 +383,21 @@ def log_search_query(endpoint: str, q: str) -> None:
     the next eval with real usage. ensure_ascii guards U+2028 in pasted
     text. Logging must never fail the search itself.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     try:
         _SEARCH_LOG.parent.mkdir(parents=True, exist_ok=True)
         with _SEARCH_LOG.open("a", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                "endpoint": endpoint,
-                "q": q,
-            }) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
+                        "endpoint": endpoint,
+                        "q": q,
+                    }
+                )
+                + "\n"
+            )
     except Exception:
         pass
 
@@ -445,12 +470,14 @@ def imessage_warm() -> list[dict]:
         if s.note_id in closed or s.note_id in seen:
             continue
         mins_left = max(0.0, gap - (now - s.end).total_seconds() / 60)
-        out.append({
-            "note_id": s.note_id,
-            "count": len(s.messages),
-            "text": "\n\n".join(m.text for m in s.messages),
-            "minutes_left": round(mins_left),
-        })
+        out.append(
+            {
+                "note_id": s.note_id,
+                "count": len(s.messages),
+                "text": "\n\n".join(m.text for m in s.messages),
+                "minutes_left": round(mins_left),
+            }
+        )
     return out
 
 
@@ -558,8 +585,11 @@ def start_sync_catchup(check_every_s: float = 1800.0, stale_after_h: float = 20.
                     res = sync(authenticate(), load_config(), verbose=False)
                     if res.failed == 0:
                         _SYNC_MARKER.touch()
-                    print(f"[sync catchup] ingested={res.ingested} "
-                          f"failed={res.failed} seen={res.seen}", flush=True)
+                    print(
+                        f"[sync catchup] ingested={res.ingested} "
+                        f"failed={res.failed} seen={res.seen}",
+                        flush=True,
+                    )
             except Exception as exc:
                 print(f"[sync catchup] {type(exc).__name__}: {exc}", flush=True)
             time.sleep(check_every_s)
@@ -646,8 +676,15 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
 
     cadence = load_config().hub.cadence_minutes
     result: dict = {
-        "instagram": 0, "youtube": 0, "pinterest": 0, "imessage": 0, "tiktok": 0, "reddit": 0,
-        "errors": [], "skipped": False, "skipped_sources": [],
+        "instagram": 0,
+        "youtube": 0,
+        "pinterest": 0,
+        "imessage": 0,
+        "tiktok": 0,
+        "reddit": 0,
+        "errors": [],
+        "skipped": False,
+        "skipped_sources": [],
     }
     auto_ingest_ids: list[str] = []
     with _LOCK:
@@ -827,9 +864,7 @@ def cover_for(item_url: str) -> Path | None:
     if dest.exists():
         return dest
 
-    item = next(
-        (i for i in queue_items() if i.url == item_url and i.preview_url), None
-    )
+    item = next((i for i in queue_items() if i.url == item_url and i.preview_url), None)
     if item is None:
         return None
     COVERS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1015,7 +1050,7 @@ def start_profile_rank(count: int = 30) -> bool:
         _profile_rank_job.update(state="running", detail="", started_at=started_at)
 
     def _run() -> None:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         try:
             report = RUN_PROFILE_RANK(count)
@@ -1025,7 +1060,7 @@ def start_profile_rank(count: int = 30) -> bool:
                 "state": "done",
                 "detail": "",
                 "started_at": None,
-                "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
                 "candidates": int(report.get("candidates") or 0),
                 "picks": report.get("selected") or [],
             }
@@ -1038,9 +1073,7 @@ def start_profile_rank(count: int = 30) -> bool:
                 try:
                     _write_profile_rank(result)
                 except Exception as exc:
-                    _profile_rank_job.update(
-                        state="error", detail=str(exc), started_at=None
-                    )
+                    _profile_rank_job.update(state="error", detail=str(exc), started_at=None)
                     return
                 _profile_rank_job.update(result)
         except Exception as exc:
@@ -1049,9 +1082,7 @@ def start_profile_rank(count: int = 30) -> bool:
                     _profile_rank_job["state"] == "running"
                     and _profile_rank_job.get("started_at") == started_at
                 ):
-                    _profile_rank_job.update(
-                        state="error", detail=str(exc), started_at=None
-                    )
+                    _profile_rank_job.update(state="error", detail=str(exc), started_at=None)
 
     threading.Thread(target=_run, daemon=True).start()
     return True
@@ -1071,6 +1102,7 @@ def start_tag_proposals() -> bool:
 
     def _run():
         from ytk import tags as ytags
+
         try:
             proposals = [g.model_dump() for g in ytags.propose_merges()]
             with _LOCK:
@@ -1106,9 +1138,7 @@ def start_memo(audio_bytes: bytes, filename: str, text: str) -> bool:
         if _memo_job["state"] == "running":
             return False
         _memo_job.update(state="running", detail="")
-    threading.Thread(
-        target=_memo_worker, args=(audio_bytes, filename, text), daemon=True
-    ).start()
+    threading.Thread(target=_memo_worker, args=(audio_bytes, filename, text), daemon=True).start()
     return True
 
 
@@ -1168,15 +1198,17 @@ def _write_persisted(entries: list[dict]) -> None:
 
 def _persist_locked() -> None:
     """Snapshot _QUEUE to disk. Caller must hold _LOCK."""
-    _write_persisted([
-        {
-            "url": item.url,
-            "tags": tags,
-            "thought": thought,
-            "attempts": _ATTEMPTS.get(item.url, 0),
-        }
-        for item, tags, thought in _QUEUE
-    ])
+    _write_persisted(
+        [
+            {
+                "url": item.url,
+                "tags": tags,
+                "thought": thought,
+                "attempts": _ATTEMPTS.get(item.url, 0),
+            }
+            for item, tags, thought in _QUEUE
+        ]
+    )
 
 
 def _load_persisted() -> list[dict]:
@@ -1226,8 +1258,13 @@ def resume_ingest() -> int:
 
         _QUEUE.extend(revived)
         _JOB.update(
-            running=True, total=len(revived), done=0, current=None,
-            current_started=None, annotated=0, linked=[],
+            running=True,
+            total=len(revived),
+            done=0,
+            current=None,
+            current_started=None,
+            annotated=0,
+            linked=[],
             failures=[
                 {"url": url, "error": "abandoned: kept killing the hub mid-ingest"}
                 for url in abandoned
@@ -1261,8 +1298,14 @@ def start_ingest(urls: list[str], tags: list[str], thought: str) -> int:
             _JOB["total"] += len(fresh)
         else:
             _JOB.update(
-                running=True, total=len(fresh), done=0, current=None,
-                current_started=None, failures=[], annotated=0, linked=[],
+                running=True,
+                total=len(fresh),
+                done=0,
+                current=None,
+                current_started=None,
+                failures=[],
+                annotated=0,
+                linked=[],
             )
             threading.Thread(target=_drain, daemon=True).start()
         _JOB["queued"] = [e[0].url for e in _QUEUE]
@@ -1438,8 +1481,7 @@ def fresh_notes(n: int = 30) -> list[dict]:
 _LIB_CACHE: tuple[float, int, list[dict]] | None = None
 
 
-def library_notes(n: int = 60, offset: int = 0, source: str = "",
-                  match: str = "") -> dict:
+def library_notes(n: int = 60, offset: int = 0, source: str = "", match: str = "") -> dict:
     """Every ingested note as cards, filtered and paginated (/library).
 
     The fresh feed is a recency window; this is the whole store. Cards for
@@ -1449,20 +1491,24 @@ def library_notes(n: int = 60, offset: int = 0, source: str = "",
     global _LIB_CACHE
     brain, memos, pool = _note_pool()
     now = time.time()
-    if (_LIB_CACHE is None or now - _LIB_CACHE[0] > 60
-            or _LIB_CACHE[1] != len(pool)):
+    if _LIB_CACHE is None or now - _LIB_CACHE[0] > 60 or _LIB_CACHE[1] != len(pool):
         _LIB_CACHE = (now, len(pool), [_note_card(md, brain, memos) for md in pool])
     items = _LIB_CACHE[2]
     if source:
         s = source.lower()
-        items = [i for i in items
-                 if i["source"].lower() == s or (i.get("channel") or "").lower() == s]
+        items = [
+            i for i in items if i["source"].lower() == s or (i.get("channel") or "").lower() == s
+        ]
     if match:
         q = match.lower()
-        items = [i for i in items
-                 if q in i["title"].lower() or q in i["stem"].lower()
-                 or any(q in t.lower() for t in i["tags"])]
-    return {"total": len(items), "items": items[offset:offset + n]}
+        items = [
+            i
+            for i in items
+            if q in i["title"].lower()
+            or q in i["stem"].lower()
+            or any(q in t.lower() for t in i["tags"])
+        ]
+    return {"total": len(items), "items": items[offset : offset + n]}
 
 
 def _note_card(md, brain, memos) -> dict:

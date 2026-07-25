@@ -1,6 +1,5 @@
 """Shared local-media Whisper transcription: transcribe_file()."""
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -54,6 +53,7 @@ def test_transcribes_local_file_with_timestamped_segments(monkeypatch, media_fil
 
 def test_no_download_machinery_is_touched(monkeypatch, media_file):
     """transcribe_file operates on the already-downloaded file only."""
+
     def boom(*a, **kw):
         raise AssertionError("must not download")
 
@@ -73,9 +73,7 @@ def test_no_speech_is_a_valid_result(monkeypatch, media_file):
     assert result.error is None
 
 
-def test_video_only_container_is_no_speech_without_loading_whisper(
-    monkeypatch, media_file
-):
+def test_video_only_container_is_no_speech_without_loading_whisper(monkeypatch, media_file):
     monkeypatch.setattr(transcript_mod, "_has_audio_stream", lambda path: False)
     monkeypatch.setattr(
         transcript_mod,
@@ -132,9 +130,7 @@ def test_transcribe_tiktok_reuses_shared_helper(monkeypatch, media_file):
     """TikTok path: download audio once, then hand the local file to transcribe_file."""
     import ytk.tiktok as tiktok_mod
 
-    monkeypatch.setattr(
-        transcript_mod, "_download_audio", lambda url: media_file
-    )
+    monkeypatch.setattr(transcript_mod, "_download_audio", lambda url: media_file)
     monkeypatch.setattr(
         transcript_mod,
         "WhisperModel",

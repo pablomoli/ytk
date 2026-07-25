@@ -5,8 +5,13 @@ from ytk.enrich import Enrichment, Recommendation
 
 def _enrichment(tags, recs):
     return Enrichment(
-        thesis="t", summary="s", key_concepts=[], insights=[],
-        interest_tags=list(tags), key_moments=[], recommendations=recs,
+        thesis="t",
+        summary="s",
+        key_concepts=[],
+        insights=[],
+        interest_tags=list(tags),
+        key_moments=[],
+        recommendations=recs,
     )
 
 
@@ -26,8 +31,10 @@ class TestDerivedTags:
     def test_rec_tags_appended_per_kind(self):
         e = _enrichment(
             ["touchdesigner"],
-            [Recommendation(kind="movie", title="Dune"),
-             Recommendation(kind="anime", title="Frieren")],
+            [
+                Recommendation(kind="movie", title="Dune"),
+                Recommendation(kind="anime", title="Frieren"),
+            ],
         )
         assert "movie-rec" in e.interest_tags
         assert "anime-rec" in e.interest_tags
@@ -48,8 +55,10 @@ class TestDerivedTags:
     def test_multiple_same_kind_one_tag(self):
         e = _enrichment(
             [],
-            [Recommendation(kind="book", title="Dune"),
-             Recommendation(kind="book", title="Blindsight")],
+            [
+                Recommendation(kind="book", title="Dune"),
+                Recommendation(kind="book", title="Blindsight"),
+            ],
         )
         assert e.interest_tags.count("book-rec") == 1
 
@@ -57,8 +66,12 @@ class TestDerivedTags:
 class TestSchemaAndDefaults:
     def test_recommendations_defaults_empty(self):
         e = Enrichment(
-            thesis="t", summary="s", key_concepts=[], insights=[],
-            interest_tags=[], key_moments=[],
+            thesis="t",
+            summary="s",
+            key_concepts=[],
+            insights=[],
+            interest_tags=[],
+            key_moments=[],
         )
         assert e.recommendations == []
 

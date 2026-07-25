@@ -35,9 +35,12 @@ def _download_weights():
 
     env = {k: v for k, v in os.environ.items() if k != "HF_HUB_OFFLINE"}
     subprocess.run(
-        [sys.executable, "-c",
-         "from huggingface_hub import snapshot_download; "
-         f"snapshot_download('{MODEL_ID}', revision='{MODEL_REVISION}')"],
+        [
+            sys.executable,
+            "-c",
+            "from huggingface_hub import snapshot_download; "
+            f"snapshot_download('{MODEL_ID}', revision='{MODEL_REVISION}')",
+        ],
         check=True,
         env=env,
     )
@@ -122,9 +125,7 @@ def _vault() -> Path:
     return Path(
         os.environ.get(
             "OBSIDIAN_VAULT_PATH",
-            os.path.expanduser(
-                "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault"
-            ),
+            os.path.expanduser("~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault"),
         )
     )
 
@@ -160,11 +161,16 @@ def iter_covers() -> list[CoverItem]:
         vid = p.name.removesuffix("-thumb.jpg")
         note = yt_notes.get(vid)
         url, title = _frontmatter(note) if note else ("", "")
-        items.append(CoverItem(
-            item_id=f"yt:{vid}", image_path=p, source="youtube",
-            title=title, url=url or f"https://www.youtube.com/watch?v={vid}",
-            note_path=str(note) if note else "",
-        ))
+        items.append(
+            CoverItem(
+                item_id=f"yt:{vid}",
+                image_path=p,
+                source="youtube",
+                title=title,
+                url=url or f"https://www.youtube.com/watch?v={vid}",
+                note_path=str(note) if note else "",
+            )
+        )
 
     ig_notes = list((sources / "instagram").glob("*.md"))
     seen_ig: set[str] = set()
@@ -172,14 +178,8 @@ def iter_covers() -> list[CoverItem]:
     slide_dir = sources / "instagram" / "slides"
     legacy_dir = sources / "instagram"
     ig_slides = [
-        *sorted(
-            p for p in slide_dir.glob("*-img-1.*")
-            if p.suffix.lower() in _IMAGE_SUFFIXES
-        ),
-        *sorted(
-            p for p in legacy_dir.glob("*-img-1.*")
-            if p.suffix.lower() in _IMAGE_SUFFIXES
-        ),
+        *sorted(p for p in slide_dir.glob("*-img-1.*") if p.suffix.lower() in _IMAGE_SUFFIXES),
+        *sorted(p for p in legacy_dir.glob("*-img-1.*") if p.suffix.lower() in _IMAGE_SUFFIXES),
     ]
     for p in ig_slides:
         shortcode = re.sub(r"-img-1\.[^.]+$", "", p.name, flags=re.IGNORECASE)
@@ -188,10 +188,16 @@ def iter_covers() -> list[CoverItem]:
         seen_ig.add(shortcode)
         note = next((n for n in ig_notes if shortcode in n.name), None)
         url, title = _frontmatter(note) if note else ("", "")
-        items.append(CoverItem(
-            item_id=f"ig:{shortcode}", image_path=p, source="instagram",
-            title=title, url=url, note_path=str(note) if note else "",
-        ))
+        items.append(
+            CoverItem(
+                item_id=f"ig:{shortcode}",
+                image_path=p,
+                source="instagram",
+                title=title,
+                url=url,
+                note_path=str(note) if note else "",
+            )
+        )
     # video-only reels: no carousel slides, cover lives in thumbnails/
     for p in sorted((sources / "instagram" / "thumbnails").glob("*-thumb.jpg")):
         shortcode = p.name.removesuffix("-thumb.jpg")
@@ -200,10 +206,16 @@ def iter_covers() -> list[CoverItem]:
         seen_ig.add(shortcode)
         note = next((n for n in ig_notes if shortcode in n.name), None)
         url, title = _frontmatter(note) if note else ("", "")
-        items.append(CoverItem(
-            item_id=f"ig:{shortcode}", image_path=p, source="instagram",
-            title=title, url=url, note_path=str(note) if note else "",
-        ))
+        items.append(
+            CoverItem(
+                item_id=f"ig:{shortcode}",
+                image_path=p,
+                source="instagram",
+                title=title,
+                url=url,
+                note_path=str(note) if note else "",
+            )
+        )
 
     tt_thumbs = sources / "tiktok" / "thumbnails"
     if tt_thumbs.exists():
@@ -217,30 +229,46 @@ def iter_covers() -> list[CoverItem]:
                 video_id = p.stem.removesuffix("-thumb")
                 note = tt_notes.get(video_id)
                 url, title = _frontmatter(note) if note else ("", "")
-                items.append(CoverItem(
-                    item_id=f"tt:{p.stem}", image_path=p, source="tiktok",
-                    title=title, url=url, note_path=str(note) if note else "",
-                ))
+                items.append(
+                    CoverItem(
+                        item_id=f"tt:{p.stem}",
+                        image_path=p,
+                        source="tiktok",
+                        title=title,
+                        url=url,
+                        note_path=str(note) if note else "",
+                    )
+                )
 
     shots = sources / "screenshots"
     if shots.exists():
         shot_imgs = [q for q in shots.iterdir() if q.suffix.lower() in (".png", ".webp")]
         for p in sorted(shot_imgs):
             note = p.with_suffix(".md")
-            items.append(CoverItem(
-                item_id=f"shot:{p.stem}", image_path=p, source="screenshot",
-                note_path=str(note) if note.exists() else "",
-            ))
+            items.append(
+                CoverItem(
+                    item_id=f"shot:{p.stem}",
+                    image_path=p,
+                    source="screenshot",
+                    note_path=str(note) if note.exists() else "",
+                )
+            )
 
     pin_notes = list((sources / "pinterest").glob("*.md"))
     for p in sorted((sources / "pinterest").glob("*-img.jpg")):
         pin_id = p.name.removesuffix("-img.jpg")
         note = next((n for n in pin_notes if pin_id in n.name), None)
         url, title = _frontmatter(note) if note else ("", "")
-        items.append(CoverItem(
-            item_id=f"pin:{pin_id}", image_path=p, source="pinterest",
-            title=title, url=url, note_path=str(note) if note else "",
-        ))
+        items.append(
+            CoverItem(
+                item_id=f"pin:{pin_id}",
+                image_path=p,
+                source="pinterest",
+                title=title,
+                url=url,
+                note_path=str(note) if note else "",
+            )
+        )
 
     # NOTE: ~/.ytk/covers (pending-queue thumbnail cache) is deliberately NOT
     # indexed: those files are keyed by sha1(url) with no recoverable metadata,
@@ -250,9 +278,7 @@ def iter_covers() -> list[CoverItem]:
     return items
 
 
-def index_covers(
-    limit: int | None = None, progress=None, skip_existing: bool = False
-) -> int:
+def index_covers(limit: int | None = None, progress=None, skip_existing: bool = False) -> int:
     """Backfill/refresh the visual collection. Idempotent. Returns count indexed.
 
     With skip_existing=True, only covers not already in the collection are
@@ -265,13 +291,16 @@ def index_covers(
         have = store.visual_ids()
         for it in items:
             if it.item_id in have:
-                store.update_visual_metadata(it.item_id, {
-                    "source": it.source,
-                    "title": it.title,
-                    "url": it.url,
-                    "image_path": str(it.image_path),
-                    "note_path": it.note_path,
-                })
+                store.update_visual_metadata(
+                    it.item_id,
+                    {
+                        "source": it.source,
+                        "title": it.title,
+                        "url": it.url,
+                        "image_path": str(it.image_path),
+                        "note_path": it.note_path,
+                    },
+                )
         items = [it for it in items if it.item_id not in have]
     if limit:
         items = items[:limit]
@@ -287,13 +316,17 @@ def index_covers(
             logger.exception("visual embedding batch failed")
             continue
         for it, emb in zip(chunk, embeddings):
-            store.upsert_visual(it.item_id, emb, {
-                "source": it.source,
-                "title": it.title,
-                "url": it.url,
-                "image_path": str(it.image_path),
-                "note_path": it.note_path,
-            })
+            store.upsert_visual(
+                it.item_id,
+                emb,
+                {
+                    "source": it.source,
+                    "title": it.title,
+                    "url": it.url,
+                    "image_path": str(it.image_path),
+                    "note_path": it.note_path,
+                },
+            )
             done += 1
         if progress:
             progress(done, len(items))
@@ -337,11 +370,15 @@ def sync_pending_visual() -> tuple[int, int]:
             logger.exception("pending visual embedding batch failed")
             continue
         for (it, cover), emb in zip(chunk, embeddings):
-            store.upsert_pending_visual(it.url, emb, {
-                "source": it.source,
-                "title": it.author or "",
-                "image_path": str(cover),
-            })
+            store.upsert_pending_visual(
+                it.url,
+                emb,
+                {
+                    "source": it.source,
+                    "title": it.author or "",
+                    "image_path": str(cover),
+                },
+            )
             done += 1
     return done, len(stale)
 

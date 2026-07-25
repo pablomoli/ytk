@@ -43,9 +43,9 @@ def main() -> None:
 
     import chromadb
 
-    client = chromadb.PersistentClient(path=os.path.expanduser(
-        os.environ.get("CHROMA_PATH", "~/.ytk/chroma")
-    ))
+    client = chromadb.PersistentClient(
+        path=os.path.expanduser(os.environ.get("CHROMA_PATH", "~/.ytk/chroma"))
+    )
     from ytk.store import epoch_collection_name
 
     col = client.get_collection(epoch_collection_name("ytk_memories"))

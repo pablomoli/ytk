@@ -1,10 +1,7 @@
 """Tests for the authenticated (instagrapi) Instagram fetch path."""
 
 from datetime import datetime
-from pathlib import Path
 from types import SimpleNamespace
-
-import pytest
 
 import ytk.instagram as instagram_mod
 from ytk.instagram import fetch_instagram_auth
@@ -75,9 +72,7 @@ def test_auth_fetch_reel_downloads_video_from_cdn(monkeypatch, tmp_path):
         video_url="https://cdn.example/reel.mp4?sig=x",
         caption_text=None,
     )
-    post = fetch_instagram_auth(
-        "https://www.instagram.com/reel/abc/", FakeMediaClient(media)
-    )
+    post = fetch_instagram_auth("https://www.instagram.com/reel/abc/", FakeMediaClient(media))
     assert downloaded == ["https://cdn.example/reel.mp4?sig=x"]
     assert post.video_path == tmp_path / "reel.mp4"
     assert post.images == []

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from xml.sax.saxutils import escape, quoteattr
 
@@ -130,13 +130,11 @@ def _parse_timestamp(value: str) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
-def evidence_is_fresh(
-    captured_at: str, generated_at: str, half_life_days: float
-) -> bool:
+def evidence_is_fresh(captured_at: str, generated_at: str, half_life_days: float) -> bool:
     """Whether capture time is known and no older than one decay half-life."""
     captured = _parse_timestamp(captured_at)
     generated = _parse_timestamp(generated_at)
@@ -155,7 +153,7 @@ def build_synthesis_prompt(
     previous_portrait: str | None = None,
 ) -> str:
     """Render the clustered notes into a compact prompt for the synthesis call."""
-    generated_at = generated_at or datetime.now(timezone.utc).isoformat()
+    generated_at = generated_at or datetime.now(UTC).isoformat()
     if levels is None:
         levels = [0] * len(notes)
     if len(levels) != len(notes):
@@ -173,15 +171,16 @@ def build_synthesis_prompt(
         # Newest first so the model reads a cluster's present before its past;
         # store insertion order used to head every list with the oldest items,
         # and lazy evidence selection mirrored whatever came first.
-        for i in sorted(idxs, key=lambda i: notes[i].get("captured_at", ""),
-                        reverse=True):
+        for i in sorted(idxs, key=lambda i: notes[i].get("captured_at", ""), reverse=True):
             n = notes[i]
             tags = ", ".join(n["tags"])
             label = f"{n['title']} — {n['thesis']}" if n.get("title") else n["thesis"]
             captured = n.get("captured_at") or "unknown"
-            citable = "yes" if evidence_is_fresh(
-                n.get("captured_at", ""), generated_at, half_life_days
-            ) else "no"
+            citable = (
+                "yes"
+                if evidence_is_fresh(n.get("captured_at", ""), generated_at, half_life_days)
+                else "no"
+            )
             lines.append(
                 f"  - [{n['id']}] {label} "
                 f"[tags: {tags}; captured: {captured}; citable: {citable}; "
@@ -199,10 +198,7 @@ def build_synthesis_prompt(
         + "\n\n".join(blocks)
     )
     if previous_portrait and previous_portrait.strip():
-        prompt += (
-            "\n\nPrevious portrait (evolve, do not rewrite):\n"
-            + previous_portrait.strip()
-        )
+        prompt += "\n\nPrevious portrait (evolve, do not rewrite):\n" + previous_portrait.strip()
     return prompt
 
 
@@ -227,9 +223,7 @@ def _require_grounded(
             f"{what} cites evidence outside its allowed set: {sorted(unknown)}"
         )
     if fresh_ids is not None and not set(evidence_ids) & fresh_ids:
-        raise ProfileGroundingError(
-            f"{what} has no evidence captured within the decay half-life"
-        )
+        raise ProfileGroundingError(f"{what} has no evidence captured within the decay half-life")
 
 
 def _exemplar_indices(
@@ -279,14 +273,11 @@ def assemble_snapshot(
     label_by_index = {t.cluster_index: t for t in synthesis.themes}
     grouped = _group_by_cluster(labels)
     all_ids = {n["id"] for n in notes}
-    signal_by_id = {
-        notes[i]["id"]: (levels[i] if levels else 0) for i in range(n)
-    }
+    signal_by_id = {notes[i]["id"]: (levels[i] if levels else 0) for i in range(n)}
     fresh_ids = {
-        item["id"] for item in notes
-        if evidence_is_fresh(
-            item.get("captured_at", ""), generated_at, decay_half_life_days
-        )
+        item["id"]
+        for item in notes
+        if evidence_is_fresh(item.get("captured_at", ""), generated_at, decay_half_life_days)
     }
     for c, idxs in grouped.items():
         tl = label_by_index.get(c)
@@ -299,9 +290,7 @@ def assemble_snapshot(
     if not synthesis.claims:
         raise ProfileGroundingError("portrait has no claims")
     for i, claim in enumerate(synthesis.claims, start=1):
-        _require_grounded(
-            f"portrait claim {i}", claim.evidence_ids, all_ids, fresh_ids
-        )
+        _require_grounded(f"portrait claim {i}", claim.evidence_ids, all_ids, fresh_ids)
 
     total_w = sum(weights) if weights else n
     themes: list[Theme] = []
@@ -312,7 +301,8 @@ def assemble_snapshot(
         cluster_w = sum(weights[i] for i in idxs) if weights else len(idxs)
         centroid = (
             weighted_centroid(embeddings[idxs], [weights[i] for i in idxs])
-            if embeddings is not None and weights else None
+            if embeddings is not None and weights
+            else None
         )
         exemplar_idx = _exemplar_indices(
             embeddings,
@@ -321,18 +311,20 @@ def assemble_snapshot(
             [i for i in idxs if notes[i]["title"].strip()] or idxs,
             centroid,
         )
-        themes.append(Theme(
-            id=_slug(label),
-            label=label,
-            summary=summary,
-            weight=round(cluster_w / total_w, 4),
-            note_ids=[notes[i]["id"] for i in idxs],
-            exemplar_titles=[notes[i]["title"] for i in exemplar_idx],
-            exemplar_sources=[notes[i].get("source", "") for i in exemplar_idx],
-            evidence_ids=tl.evidence_ids if tl else [],
-            fresh_note_count=sum(1 for i in idxs if notes[i]["id"] in fresh_ids),
-            centroid=centroid,
-        ))
+        themes.append(
+            Theme(
+                id=_slug(label),
+                label=label,
+                summary=summary,
+                weight=round(cluster_w / total_w, 4),
+                note_ids=[notes[i]["id"] for i in idxs],
+                exemplar_titles=[notes[i]["title"] for i in exemplar_idx],
+                exemplar_sources=[notes[i].get("source", "") for i in exemplar_idx],
+                evidence_ids=tl.evidence_ids if tl else [],
+                fresh_note_count=sum(1 for i in idxs if notes[i]["id"] in fresh_ids),
+                centroid=centroid,
+            )
+        )
     themes.sort(key=lambda t: t.weight, reverse=True)
 
     explicit = None
@@ -348,14 +340,8 @@ def assemble_snapshot(
     from collections import Counter
 
     cited_ids = {
-        evidence_id
-        for claim in synthesis.claims
-        for evidence_id in claim.evidence_ids
-    } | {
-        evidence_id
-        for theme in synthesis.themes
-        for evidence_id in theme.evidence_ids
-    }
+        evidence_id for claim in synthesis.claims for evidence_id in claim.evidence_ids
+    } | {evidence_id for theme in synthesis.themes for evidence_id in theme.evidence_ids}
     return InterestSnapshot(
         generated_at=generated_at,
         note_count=n,
@@ -367,13 +353,9 @@ def assemble_snapshot(
             for c in synthesis.claims
         ],
         evidence_captured_at={
-            item["id"]: item.get("captured_at", "")
-            for item in notes
-            if item["id"] in cited_ids
+            item["id"]: item.get("captured_at", "") for item in notes if item["id"] in cited_ids
         },
-        evidence_signals={
-            item_id: signal_by_id.get(item_id, 0) for item_id in sorted(cited_ids)
-        },
+        evidence_signals={item_id: signal_by_id.get(item_id, 0) for item_id in sorted(cited_ids)},
         alpha=alpha,
         decay_half_life_days=decay_half_life_days,
         signal_counts=dict(Counter(levels)) if levels else {},
@@ -453,8 +435,7 @@ def render_profile(snapshot: InterestSnapshot) -> str:
     still behaves like a normal Obsidian file.
     """
     score_attr = (
-        f" profile-score=\"{snapshot.profile_score.score:.4f}\""
-        if snapshot.profile_score else ""
+        f' profile-score="{snapshot.profile_score.score:.4f}"' if snapshot.profile_score else ""
     )
     half_life = snapshot.decay_half_life_days or 90.0
     lines = [
@@ -465,16 +446,15 @@ def render_profile(snapshot: InterestSnapshot) -> str:
         "---",
         "",
         f"<interest-profile generated={quoteattr(snapshot.generated_at)} "
-        f"notes=\"{snapshot.note_count}\" themes=\"{len(snapshot.themes)}\" "
-        f"evidence-half-life-days=\"{half_life:g}\"{score_attr}>",
+        f'notes="{snapshot.note_count}" themes="{len(snapshot.themes)}" '
+        f'evidence-half-life-days="{half_life:g}"{score_attr}>',
         "  <portrait>",
     ]
     if snapshot.portrait_claims:
         for claim in snapshot.portrait_claims:
             evidence = " ".join(claim.evidence_ids)
             lines.append(
-                f"    <claim evidence={quoteattr(evidence)}>"
-                f"{escape(claim.text.strip())}</claim>"
+                f"    <claim evidence={quoteattr(evidence)}>{escape(claim.text.strip())}</claim>"
             )
     elif snapshot.profile_markdown.strip():
         # Old snapshots remain renderable, but the checker intentionally fails
@@ -484,15 +464,14 @@ def render_profile(snapshot: InterestSnapshot) -> str:
     for rank, t in enumerate(snapshot.themes, start=1):
         pct = round(t.weight * 100)
         lines.append(
-            f"    <theme rank=\"{rank}\" id={quoteattr(t.id)} "
-            f"weight=\"{t.weight}\" share=\"{pct}%\" notes=\"{len(t.note_ids)}\" "
-            f"fresh-notes=\"{t.fresh_note_count}\">"
+            f'    <theme rank="{rank}" id={quoteattr(t.id)} '
+            f'weight="{t.weight}" share="{pct}%" notes="{len(t.note_ids)}" '
+            f'fresh-notes="{t.fresh_note_count}">'
         )
         lines.append(f"      <label>{escape(t.label)}</label>")
         evidence = " ".join(t.evidence_ids)
         lines.append(
-            f"      <summary evidence={quoteattr(evidence)}>"
-            f"{escape(t.summary.strip())}</summary>"
+            f"      <summary evidence={quoteattr(evidence)}>{escape(t.summary.strip())}</summary>"
         )
         exemplars = [e.strip() for e in t.exemplar_titles if e.strip()]
         if exemplars:
@@ -507,7 +486,7 @@ def render_profile(snapshot: InterestSnapshot) -> str:
         signal = snapshot.evidence_signals.get(evidence_id, 0)
         lines.append(
             f"    <evidence id={quoteattr(evidence_id)} "
-            f"captured-at={quoteattr(captured_at)} signal=\"{signal}\" />"
+            f'captured-at={quoteattr(captured_at)} signal="{signal}" />'
         )
     lines.append("  </evidence-catalog>")
     lines.append("</interest-profile>")
@@ -524,12 +503,16 @@ def _indent(text: str, spaces: int) -> str:
 def _embeddings_by_id() -> dict[str, list[float]]:
     """Current embedding for every profile-eligible record, keyed by id."""
     cfg = load_config()
-    return {n["id"]: n["embedding"]
-            for n in get_all_videos() + get_content_memories(cfg.interest.content_sources)
-            if n.get("embedding")}
+    return {
+        n["id"]: n["embedding"]
+        for n in get_all_videos() + get_content_memories(cfg.interest.content_sources)
+        if n.get("embedding")
+    }
 
 
-def _theme_centroids(snapshot: InterestSnapshot, emb_by_id: dict | None = None) -> list[np.ndarray | None]:
+def _theme_centroids(
+    snapshot: InterestSnapshot, emb_by_id: dict | None = None
+) -> list[np.ndarray | None]:
     """Centroid per theme, backfilling pre-v2 snapshots from note_ids.
 
     Backfill uses the CURRENT embedder for old snapshots — required anyway,
@@ -553,7 +536,9 @@ def _theme_centroids(snapshot: InterestSnapshot, emb_by_id: dict | None = None) 
     return out
 
 
-def diff_snapshots(old: InterestSnapshot, new: InterestSnapshot, floor: float = 0.75) -> SnapshotDiff:
+def diff_snapshots(
+    old: InterestSnapshot, new: InterestSnapshot, floor: float = 0.75
+) -> SnapshotDiff:
     """Match themes across two runs by centroid cosine; the rest is drift.
 
     Greedy one-to-one matching, highest similarity first, cut off at ``floor``
@@ -578,11 +563,15 @@ def diff_snapshots(old: InterestSnapshot, new: InterestSnapshot, floor: float = 
             continue
         used_old.add(i)
         used_new.add(j)
-        matched.append(ThemeMatch(
-            old_label=old.themes[i].label, new_label=new.themes[j].label,
-            old_weight=old.themes[i].weight, new_weight=new.themes[j].weight,
-            similarity=round(sim, 3),
-        ))
+        matched.append(
+            ThemeMatch(
+                old_label=old.themes[i].label,
+                new_label=new.themes[j].label,
+                old_weight=old.themes[i].weight,
+                new_weight=new.themes[j].weight,
+                similarity=round(sim, 3),
+            )
+        )
     return SnapshotDiff(
         old_generated_at=old.generated_at,
         new_generated_at=new.generated_at,
@@ -642,7 +631,7 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
 
     from . import signals
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     embeddings = np.array([n["embedding"] for n in notes], dtype=float)
     levels = signals.signal_levels(notes)
     weights = signals.decayed_weights(
@@ -674,18 +663,28 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     snapshot = None
     grounding_error: ProfileGroundingError | None = None
     for _ in range(2):
-        attempt_prompt = prompt if grounding_error is None else (
-            f"{prompt}\n\nYour previous attempt was rejected by a validator: "
-            f"{grounding_error}. Cite only exact ids listed in the relevant "
-            "cluster."
+        attempt_prompt = (
+            prompt
+            if grounding_error is None
+            else (
+                f"{prompt}\n\nYour previous attempt was rejected by a validator: "
+                f"{grounding_error}. Cite only exact ids listed in the relevant "
+                "cluster."
+            )
         )
         data = run_structured(system, attempt_prompt, _PROFILE_SCHEMA)
         synthesis = ProfileSynthesis.model_validate(data)
         try:
             snapshot = assemble_snapshot(
-                notes, labels, synthesis, now.isoformat(),
-                embeddings=embeddings, weights=weights, levels=levels,
-                alpha=cfg.interest.alpha, explicit_min=cfg.interest.explicit_min,
+                notes,
+                labels,
+                synthesis,
+                now.isoformat(),
+                embeddings=embeddings,
+                weights=weights,
+                levels=levels,
+                alpha=cfg.interest.alpha,
+                explicit_min=cfg.interest.explicit_min,
                 decay_half_life_days=cfg.interest.decay_half_life_days,
             )
             break
@@ -697,9 +696,7 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     from .store import _TEXT_MODEL
 
     snapshot.embedding_model = _TEXT_MODEL
-    snapshot.profile_score = evaluate_snapshot(
-        snapshot, notes, levels, cfg.interest, previous
-    )
+    snapshot.profile_score = evaluate_snapshot(snapshot, notes, levels, cfg.interest, previous)
     if snapshot.profile_score is None:
         raise ProfileEvaluationUnavailable(
             "no evidence-disjoint saved/pending visual cohort; run "

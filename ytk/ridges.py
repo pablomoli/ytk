@@ -15,7 +15,18 @@ All coordinates are in the map's normalized layout space (roughly [-1, 1]).
 
 from __future__ import annotations
 
+from typing import Literal, overload
+
 import numpy as np
+
+# A bandwidth is either a scalar (classic fixed-bandwidth KDE) or one value
+# per data point (sample-point adaptive KDE). Every kernel routine here
+# broadcasts it to (n,), so the two forms are interchangeable at call sites.
+Bandwidth = float | np.ndarray
+
+# A 2D point in layout space. Contour code passes these as plain tuples so
+# they stay hashable for the endpoint-matching dict in _chain_segments.
+Point = tuple[float, float]
 
 _CHUNK = 256  # query rows per block; bounds the (m, n, 2) intermediates
 
@@ -29,7 +40,7 @@ def silverman_bandwidth(pts: np.ndarray) -> float:
     return sigma * len(pts) ** (-1 / (d + 4))
 
 
-def kde(pts: np.ndarray, h, query: np.ndarray) -> np.ndarray:
+def kde(pts: np.ndarray, h: Bandwidth, query: np.ndarray) -> np.ndarray:
     """f(x) = (1/n) sum_i N(x; x_i, h_i^2 I) evaluated at query rows.
 
     Dimension-agnostic, and h may be a scalar (classic fixed-bandwidth KDE)
@@ -65,7 +76,7 @@ def knn_bandwidths(pts: np.ndarray, k: int = 8) -> np.ndarray:
     return np.clip(hi, 0.5 * h, 3.0 * h)
 
 
-def kde_grid(pts: np.ndarray, h: float, gx: np.ndarray, gy: np.ndarray) -> np.ndarray:
+def kde_grid(pts: np.ndarray, h: Bandwidth, gx: np.ndarray, gy: np.ndarray) -> np.ndarray:
     """Density on a regular grid; grid[j, i] = f(gx[i], gy[j])."""
     out = np.empty((len(gy), len(gx)))
     for j, y in enumerate(gy):
@@ -74,9 +85,21 @@ def kde_grid(pts: np.ndarray, h: float, gx: np.ndarray, gy: np.ndarray) -> np.nd
     return out
 
 
+@overload
 def log_density_grad_hess(
-    pts: np.ndarray, h, x: np.ndarray, return_scale: bool = False
-):
+    pts: np.ndarray, h: Bandwidth, x: np.ndarray, return_scale: Literal[False] = False
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
+
+
+@overload
+def log_density_grad_hess(
+    pts: np.ndarray, h: Bandwidth, x: np.ndarray, return_scale: Literal[True]
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: ...
+
+
+def log_density_grad_hess(
+    pts: np.ndarray, h: Bandwidth, x: np.ndarray, return_scale: bool = False
+) -> tuple[np.ndarray, ...]:
     """Density f, gradient and Hessian of log f, batched over query rows.
     h may be a scalar or a per-data-point array (adaptive KDE).
 
@@ -149,7 +172,7 @@ def eigh2(mats: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 def scms(
     pts: np.ndarray,
-    h: float,
+    h: Bandwidth,
     seeds: np.ndarray,
     max_iter: int = 120,
     tol: float = 1e-4,
@@ -201,7 +224,7 @@ def scms(
     return thin
 
 
-def _interp(p1: tuple, v1: float, p2: tuple, v2: float, level: float) -> tuple:
+def _interp(p1: Point, v1: float, p2: Point, v2: float, level: float) -> Point:
     t = 0.5 if v2 == v1 else (level - v1) / (v2 - v1)
     return (p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t)
 
@@ -215,18 +238,13 @@ def marching_squares(
     saddle cells are disambiguated by the cell-center value. Segments are
     chained into polylines by matching endpoints.
     """
-    segs: list[tuple[tuple, tuple]] = []
+    segs: list[tuple[Point, Point]] = []
     for j in range(grid.shape[0] - 1):
         y0, y1 = gy[j], gy[j + 1]
         for i in range(grid.shape[1] - 1):
             v00, v10 = grid[j, i], grid[j, i + 1]
             v01, v11 = grid[j + 1, i], grid[j + 1, i + 1]
-            case = (
-                (v00 >= level)
-                | (v10 >= level) << 1
-                | (v11 >= level) << 2
-                | (v01 >= level) << 3
-            )
+            case = (v00 >= level) | (v10 >= level) << 1 | (v11 >= level) << 2 | (v01 >= level) << 3
             if case in (0, 15):
                 continue
             x0, x1 = gx[i], gx[i + 1]
@@ -235,9 +253,18 @@ def marching_squares(
             W = _interp((x0, y0), v00, (x0, y1), v01, level)
             E = _interp((x1, y0), v10, (x1, y1), v11, level)
             table = {
-                1: [(W, S)], 2: [(S, E)], 3: [(W, E)], 4: [(E, N)],
-                6: [(S, N)], 7: [(W, N)], 8: [(N, W)], 9: [(S, N)],
-                11: [(E, N)], 12: [(W, E)], 13: [(S, E)], 14: [(W, S)],
+                1: [(W, S)],
+                2: [(S, E)],
+                3: [(W, E)],
+                4: [(E, N)],
+                6: [(S, N)],
+                7: [(W, N)],
+                8: [(N, W)],
+                9: [(S, N)],
+                11: [(E, N)],
+                12: [(W, E)],
+                13: [(S, E)],
+                14: [(W, S)],
             }
             if case in (5, 10):
                 center = (v00 + v10 + v01 + v11) / 4 >= level
@@ -251,9 +278,9 @@ def marching_squares(
     return _chain_segments(segs)
 
 
-def _chain_segments(segs: list[tuple[tuple, tuple]]) -> list[np.ndarray]:
+def _chain_segments(segs: list[tuple[Point, Point]]) -> list[np.ndarray]:
     key = lambda p: (round(p[0], 7), round(p[1], 7))
-    adj: dict[tuple, list[int]] = {}
+    adj: dict[Point, list[int]] = {}
     for k, (p, q) in enumerate(segs):
         adj.setdefault(key(p), []).append(k)
         adj.setdefault(key(q), []).append(k)
@@ -436,7 +463,7 @@ def eigh3(mats: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 def scms3(
     pts: np.ndarray,
-    h: float,
+    h: Bandwidth,
     seeds: np.ndarray,
     max_iter: int = 100,
     tol: float = 1e-4,
@@ -486,7 +513,7 @@ def scms3(
 
 
 def _majority_label(
-    pts: np.ndarray, h, verts: np.ndarray, labels: np.ndarray, n_labels: int
+    pts: np.ndarray, h: Bandwidth, verts: np.ndarray, labels: np.ndarray, n_labels: int
 ) -> np.ndarray:
     """Kernel-weighted vote: each filament vertex takes the label whose
     points contribute the most fog at that spot (same adaptive weights as
@@ -538,7 +565,12 @@ def fog(xyz: np.ndarray, n_samples: int = 6000, jitter: float = 1.6, seed: int =
     return {
         "h": round(float(np.median(hi)), 4),
         "splats": [
-            [round(float(x), 3), round(float(y), 3), round(float(z), 3), round(float(min(v, 1.0)), 3)]
+            [
+                round(float(x), 3),
+                round(float(y), 3),
+                round(float(z), 3),
+                round(float(min(v, 1.0)), 3),
+            ]
             for (x, y, z), v in zip(samples[keep], dens[keep])
         ],
     }
@@ -546,7 +578,7 @@ def fog(xyz: np.ndarray, n_samples: int = 6000, jitter: float = 1.6, seed: int =
 
 def trace_filaments(
     pts: np.ndarray,
-    h,
+    h: Bandwidth,
     ridge_points: np.ndarray,
     step_frac: float = 0.4,
     max_steps: int = 400,
@@ -580,7 +612,7 @@ def trace_filaments(
     step = step_frac * href
     floor = floor_frac * kde(pts, h, pts).max()
 
-    def crest_batch(x0):
+    def crest_batch(x0: np.ndarray) -> tuple[np.ndarray, ...]:
         """Batched corrector + final ridge state for every row of x0."""
         x = np.array(x0, float)
         for _ in range(8):
@@ -708,7 +740,13 @@ def web(xyz: np.ndarray, labels: list, n_labels: int, max_seeds: int = 2500) -> 
         dens = np.minimum(kde(pts, h, smoothed) / top, 1.0)
         filaments.append(
             [
-                [round(float(x), 3), round(float(y), 3), round(float(z), 3), int(lab), round(float(v), 3)]
+                [
+                    round(float(x), 3),
+                    round(float(y), 3),
+                    round(float(z), 3),
+                    int(lab),
+                    round(float(v), 3),
+                ]
                 for (x, y, z), lab, v in zip(smoothed, labs, dens)
             ]
         )

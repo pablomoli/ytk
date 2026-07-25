@@ -135,9 +135,7 @@ def resolve_notes():
     snapshot = json.loads(Path(os.path.expanduser(SNAPSHOT)).read_text())
     theme_labels = [t["label"] for t in snapshot["themes"]]
     vecs, meta, _docs = load_points()
-    keep = dedupe_indices(
-        [m.get("url") or m.get("path") or m.get("title") or "" for m in meta]
-    )
+    keep = dedupe_indices([m.get("url") or m.get("path") or m.get("title") or "" for m in meta])
     if len(keep) < len(meta):
         print(f"deduped {len(meta) - len(keep)} double-indexed notes")
     vecs = vecs[keep]
@@ -169,8 +167,10 @@ def main() -> None:
 
     total = len(notes)
     matched = sum(1 for x in labels if x >= 0)
-    print(f"{total} notes, {matched} matched ({100 * matched / total:.0f}%), "
-          f"{total - matched} unmatched (render nothing)\n")
+    print(
+        f"{total} notes, {matched} matched ({100 * matched / total:.0f}%), "
+        f"{total - matched} unmatched (render nothing)\n"
+    )
     print(f"{'bucket':<18} {'n':>5}  categories")
     print("-" * 60)
     for i, b in enumerate(cfg.buckets):
@@ -182,8 +182,7 @@ def main() -> None:
     for k, x in enumerate(labels):
         if x < 0:
             un[notes[k].project or notes[k].cat] += 1
-    print(f"\nunmatched mass (top 10): "
-          + ", ".join(f"{s}:{n}" for s, n in un.most_common(10)))
+    print("\nunmatched mass (top 10): " + ", ".join(f"{s}:{n}" for s, n in un.most_common(10)))
 
 
 if __name__ == "__main__":

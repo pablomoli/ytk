@@ -10,10 +10,26 @@ vi.mock("../components/HubControls", () => ({
 
 const mutate = vi.fn();
 const channels = [
-  { key: "youtube:syntax", source: "youtube", channel: "Syntax", count: 8,
-    last_seen: "2026-07-10", top_tags: ["css", "ai"], notes: [], status: null },
-  { key: "instagram:rndyrbrts", source: "instagram", channel: "rndyrbrts", count: 6,
-    last_seen: "2026-07-09", top_tags: ["ai"], notes: [], status: "loved" },
+  {
+    key: "youtube:syntax",
+    source: "youtube",
+    channel: "Syntax",
+    count: 8,
+    last_seen: "2026-07-10",
+    top_tags: ["css", "ai"],
+    notes: [],
+    status: null,
+  },
+  {
+    key: "instagram:rndyrbrts",
+    source: "instagram",
+    channel: "rndyrbrts",
+    count: 6,
+    last_seen: "2026-07-09",
+    top_tags: ["ai"],
+    notes: [],
+    status: "loved",
+  },
 ];
 
 vi.mock("../api/channels", () => ({
@@ -24,8 +40,8 @@ vi.mock("../api/channels", () => ({
 import { Route } from "./channels";
 
 function renderPage() {
-  const Page = (Route as unknown as { options: { component: React.ComponentType } })
-    .options.component;
+  const Page = (Route as unknown as { options: { component: React.ComponentType } }).options
+    .component;
   return render(<Page />);
 }
 

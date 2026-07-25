@@ -53,6 +53,7 @@ SCHEMA_VERSION = 3
 # derivation with capacity control (P2)
 # --------------------------------------------------------------------------
 
+
 def fit_nodes_capacity(vecs: np.ndarray, k_main: int | None = None):
     """dendro.fit_nodes's linkage topology with an optional frozen k_main.
     Returns (nodes, membership, info) where info records requested vs used
@@ -66,9 +67,11 @@ def fit_nodes_capacity(vecs: np.ndarray, k_main: int | None = None):
     requested = int(np.clip(n // 80, 3, 9))
     k = requested if k_main is None else k_main
     if n < MIN_CLUSTER_NOTES:
-        return ([{"id": 0, "parent": -1, "mass": n, "persistence": 1.0}],
-                {i: 0 for i in range(n)},
-                {"k_main_requested": requested, "k_main_used": 1, "n": n})
+        return (
+            [{"id": 0, "parent": -1, "mass": n, "persistence": 1.0}],
+            {i: 0 for i in range(n)},
+            {"k_main_requested": requested, "k_main_used": 1, "n": n},
+        )
     u = _unit(vecs)
     Z = linkage(pdist(u, metric="cosine"), method="average")
     main = fcluster(Z, k, criterion="maxclust")
@@ -81,8 +84,14 @@ def fit_nodes_capacity(vecs: np.ndarray, k_main: int | None = None):
         idx = np.flatnonzero(main == c)
         limb_id = next_id
         next_id += 1
-        nodes.append({"id": limb_id, "parent": 0, "mass": int(len(idx)),
-                      "persistence": max(root_h - form[c], root_h * 0.05)})
+        nodes.append(
+            {
+                "id": limb_id,
+                "parent": 0,
+                "mass": len(idx),
+                "persistence": max(root_h - form[c], root_h * 0.05),
+            }
+        )
         if len(idx) >= 60:
             Zl = linkage(pdist(u[idx], metric="cosine"), method="average")
             k_sub = int(np.clip(len(idx) // 60, 2, 5))
@@ -91,22 +100,32 @@ def fit_nodes_capacity(vecs: np.ndarray, k_main: int | None = None):
             sub_form = _formation_heights(Zl, sub)
             for sc in sorted(set(sub.tolist())):
                 sidx = idx[np.flatnonzero(sub == sc)]
-                nodes.append({"id": next_id, "parent": limb_id,
-                              "mass": int(len(sidx)),
-                              "persistence": max(limb_h - sub_form[sc], limb_h * 0.05)})
+                nodes.append(
+                    {
+                        "id": next_id,
+                        "parent": limb_id,
+                        "mass": len(sidx),
+                        "persistence": max(limb_h - sub_form[sc], limb_h * 0.05),
+                    }
+                )
                 for p in sidx:
                     membership[int(p)] = next_id
                 next_id += 1
         else:
             for p in idx:
                 membership[int(p)] = limb_id
-    return nodes, membership, {
-        "k_main_requested": requested, "k_main_used": k, "n": n,
-    }
+    return (
+        nodes,
+        membership,
+        {
+            "k_main_requested": requested,
+            "k_main_used": k,
+            "n": n,
+        },
+    )
 
 
-def _stamp_centroids(vecs: np.ndarray, nodes, membership,
-                     mode: str = "production") -> None:
+def _stamp_centroids(vecs: np.ndarray, nodes, membership, mode: str = "production") -> None:
     """Centroid semantics are a PARAMETER (Codex v6 finding 1):
 
     production - direct-member means; nodes without direct members get the
@@ -125,8 +144,11 @@ def _stamp_centroids(vecs: np.ndarray, nodes, membership,
         node["_count"] = int(mask.sum())
     if mode == "production":
         for node in nodes:
-            node["centroid"] = ((node["_sum"] / node["_count"]).astype(float)
-                                if node["_count"] else u.mean(axis=0).astype(float))
+            node["centroid"] = (
+                (node["_sum"] / node["_count"]).astype(float)
+                if node["_count"]
+                else u.mean(axis=0).astype(float)
+            )
         return
     # descendant mode: accumulate child sums into parents, deepest first
     depth: dict[int, int] = {}
@@ -155,6 +177,7 @@ def _stamp_centroids(vecs: np.ndarray, nodes, membership,
 # --------------------------------------------------------------------------
 # pure metric helpers (tested)
 # --------------------------------------------------------------------------
+
 
 def lca_distance_table(nodes: list[dict]) -> dict[tuple[int, int], float]:
     """Node-pair ultrametric: height (max_depth - depth) of the LCA; 0 for
@@ -203,7 +226,9 @@ def _triplets(labels_a, table_a, labels_b, table_b, samples) -> dict:
         hits += int(int(np.argmin(da)) == int(np.argmin(db)))
         usable += 1
     return {
-        "attempted": len(samples), "usable": usable, "ties": ties,
+        "attempted": len(samples),
+        "usable": usable,
+        "ties": ties,
         "noninjective": 0,
         "agreement": round(hits / usable, 3) if usable >= USABLE_FLOOR else None,
     }
@@ -266,14 +291,20 @@ def descendant_mass_metric(nodes_a, members_a, nodes_b, members_b) -> dict:
     else:
         rho = None
     coverage = sum(len(da[a]) for a, _ in matched) / max(1, sum(len(s) for s in da.values()))
-    return {"matched_nodes": len(matched), "coverage": round(float(coverage), 3),
-            "spearman": rho, "mass_l1": round(l1, 3),
-            "unmatched_a": len(da) - len(matched), "unmatched_b": len(db) - len(matched)}
+    return {
+        "matched_nodes": len(matched),
+        "coverage": round(float(coverage), 3),
+        "spearman": rho,
+        "mass_l1": round(l1, 3),
+        "unmatched_a": len(da) - len(matched),
+        "unmatched_b": len(db) - len(matched),
+    }
 
 
 # --------------------------------------------------------------------------
 # replay
 # --------------------------------------------------------------------------
+
 
 def _attach(nodes, members, by_id, vec_unit, key, policy) -> tuple[int, bool]:
     """Attach one note. Policies (Codex v6 finding 9 ordering):
@@ -285,8 +316,7 @@ def _attach(nodes, members, by_id, vec_unit, key, policy) -> tuple[int, bool]:
     terminal_only = policy in ("terminal", "terminal-cm")
     maintain = policy in ("centroid-maintain", "terminal-cm")
     has_kids = {n["parent"] for n in nodes if n["parent"] != -1}
-    candidates = ([n for n in nodes if n["id"] not in has_kids]
-                  if terminal_only else nodes)
+    candidates = [n for n in nodes if n["id"] not in has_kids] if terminal_only else nodes
     cents = np.array([n["centroid"] for n in candidates])
     cents = cents / np.linalg.norm(cents, axis=1, keepdims=True).clip(1e-12)
     target = candidates[int(np.argmax(cents @ vec_unit))]
@@ -365,10 +395,17 @@ def _compare(nodes, members, k, vecs, samples, ref) -> dict:
     }
 
 
-def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
-                policy: str = "rebuild", checkpoints=CHECKPOINTS,
-                base_frac: float = 0.5, rng=None, refs: dict | None = None,
-                floor: int = 0) -> dict:
+def replay_cell(
+    vecs: np.ndarray,
+    order: list[int],
+    theta: float | None,
+    policy: str = "rebuild",
+    checkpoints=CHECKPOINTS,
+    base_frac: float = 0.5,
+    rng=None,
+    refs: dict | None = None,
+    floor: int = 0,
+) -> dict:
     """One (order, theta, policy, base_frac) cell. refs may carry
     precomputed production references and shared triplet samples keyed by
     checkpoint n (P7); missing entries are computed locally."""
@@ -379,8 +416,7 @@ def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
     k0 = max(int(n * base_frac), MIN_CLUSTER_NOTES)
     u_all = _unit(vecs[seq])
 
-    centroid_mode = ("descendant" if policy in ("centroid-maintain", "terminal-cm")
-                     else "production")
+    centroid_mode = "descendant" if policy in ("centroid-maintain", "terminal-cm") else "production"
     nodes, membership, base_info = fit_nodes_capacity(vecs[seq[:k0]])
     _stamp_centroids(vecs[seq[:k0]], nodes, membership, mode=centroid_mode)
     members = {str(i): nid for i, nid in membership.items()}
@@ -394,8 +430,7 @@ def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
     def production_ref(k):
         if refs and str(k) in refs.get("production", {}):
             r = refs["production"][str(k)]
-            return (r["nodes"], {int(i): v for i, v in r["membership"].items()},
-                    r["info"])
+            return (r["nodes"], {int(i): v for i, v in r["membership"].items()}, r["info"])
         rn, rm, ri = fit_nodes_capacity(vecs[seq[:k]])
         return rn, rm, ri
 
@@ -414,14 +449,16 @@ def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
 
         # hybrid trigger (Codex v5 K6): debt threshold with an absolute
         # note floor - max(theta * n_at_last, floor) notes must accumulate
-        if (policy == "rebuild" and theta is not None
-                and attached_since >= max(theta * n_at_last, floor)):
+        if (
+            policy == "rebuild"
+            and theta is not None
+            and attached_since >= max(theta * n_at_last, floor)
+        ):
             samples = sample_triplets(k)
             ref = production_ref(k)
             pre = _compare(nodes, members, k, vecs, samples, ref)
             fresh_nodes, fresh_membership, _ = fit_nodes_capacity(vecs[seq[:k]])
-            _stamp_centroids(vecs[seq[:k]], fresh_nodes, fresh_membership,
-                             mode=centroid_mode)
+            _stamp_centroids(vecs[seq[:k]], fresh_nodes, fresh_membership, mode=centroid_mode)
             fresh_members = {str(i): nid for i, nid in fresh_membership.items()}
             mapping = anchor_nodes(members, fresh_members)
             taken = set(mapping.values())
@@ -442,42 +479,58 @@ def replay_cell(vecs: np.ndarray, order: list[int], theta: float | None,
         if k in marks:
             samples = sample_triplets(k)
             cp = {
-                "frac": marks[k], "n": k,
-                "production": _compare(nodes, members, k, vecs, samples,
-                                       production_ref(k)),
+                "frac": marks[k],
+                "n": k,
+                "production": _compare(nodes, members, k, vecs, samples, production_ref(k)),
                 "matched_capacity": _compare(
-                    nodes, members, k, vecs, samples,
-                    fit_nodes_capacity(vecs[seq[:k]],
-                                       k_main=base_info["k_main_used"])),
+                    nodes,
+                    members,
+                    k,
+                    vecs,
+                    samples,
+                    fit_nodes_capacity(vecs[seq[:k]], k_main=base_info["k_main_used"]),
+                ),
                 "attach_depth_last": depth,
             }
             checkpoints_out.append(cp)
 
     prod_ari = [c["production"]["assignment_ari"] for c in checkpoints_out]
-    prod_tri = [c["production"]["triplets"]["agreement"] for c in checkpoints_out
-                if c["production"]["triplets"]["agreement"] is not None]
+    prod_tri = [
+        c["production"]["triplets"]["agreement"]
+        for c in checkpoints_out
+        if c["production"]["triplets"]["agreement"] is not None
+    ]
     return {
         "schema_version": SCHEMA_VERSION,
         "centroid_mode": centroid_mode,
-        "theta": theta, "policy": policy, "base_frac": base_frac, "n": n,
+        "theta": theta,
+        "policy": policy,
+        "base_frac": base_frac,
+        "n": n,
         "base_k_main": base_info["k_main_used"],
         "attach_internal_targets": internal_targets,
         "rebuild_events": rebuild_events,
         "rebuilds": len(rebuild_events),
         "checkpoints": checkpoints_out,
-        "auc": {"assignment_ari": round(float(np.mean(prod_ari)), 3) if prod_ari else None,
-                "triplet": round(float(np.mean(prod_tri)), 3) if prod_tri else None},
+        "auc": {
+            "assignment_ari": round(float(np.mean(prod_ari)), 3) if prod_ari else None,
+            "triplet": round(float(np.mean(prod_tri)), 3) if prod_tri else None,
+        },
         "worst_pre_rebuild": min(
-            (e["pre"]["assignment_ari"] for e in rebuild_events), default=None),
+            (e["pre"]["assignment_ari"] for e in rebuild_events), default=None
+        ),
         "cost": {"wall_s": round(time.monotonic() - t0, 1), "work_n2": work},
-        "final_centroids": [list(map(float, by_id[nd["id"]]["centroid"]))
-                            for nd in sorted(nodes, key=lambda x: x["id"])],
+        "final_centroids": [
+            list(map(float, by_id[nd["id"]]["centroid"]))
+            for nd in sorted(nodes, key=lambda x: x["id"])
+        ],
     }
 
 
 # --------------------------------------------------------------------------
 # frozen inputs, shared refs, CLI (P7)
 # --------------------------------------------------------------------------
+
 
 def _order_indices(meta_dates: list[str], order: str, n: int, seed: int) -> list[int]:
     """P3: 'date' = date-ordered with randomized ties, undated interleaved
@@ -510,11 +563,18 @@ def freeze() -> None:
         dates = [meta[k]["date"] for k in idx]
         sha = hashlib.sha256(v.tobytes()).hexdigest()
         np.savez_compressed(INPUT_DIR / f"{b.name}.npz", vecs=v)
-        (INPUT_DIR / f"{b.name}.json").write_text(json.dumps({
-            "bucket": b.name, "n": len(idx), "dates": dates,
-            "dated": sum(1 for d in dates if d),
-            "embedding_model": _TEXT_MODEL, "vec_sha256": sha,
-        }))
+        (INPUT_DIR / f"{b.name}.json").write_text(
+            json.dumps(
+                {
+                    "bucket": b.name,
+                    "n": len(idx),
+                    "dates": dates,
+                    "dated": sum(1 for d in dates if d),
+                    "embedding_model": _TEXT_MODEL,
+                    "vec_sha256": sha,
+                }
+            )
+        )
         print(f"froze {b.name}: n={len(idx)}, dated={sum(1 for d in dates if d)}, sha={sha[:12]}")
 
 
@@ -524,18 +584,24 @@ def build_refs(bucket: str, order: str) -> None:
     seed = int(hashlib.sha256(f"{bucket}|{order}".encode()).hexdigest()[:8], 16)
     order_idx = _order_indices(meta["dates"], order, meta["n"], seed)
     seq = np.asarray(order_idx)
-    refs: dict = {"production": {}, "samples": {}, "order_indices": order_idx,
-                  "vec_sha256": meta["vec_sha256"]}
+    refs: dict = {
+        "production": {},
+        "samples": {},
+        "order_indices": order_idx,
+        "vec_sha256": meta["vec_sha256"],
+    }
     ks = sorted({max(int(meta["n"] * f), MIN_CLUSTER_NOTES) for f in CHECKPOINTS})
     for k in ks:
         rn, rm, ri = fit_nodes_capacity(vecs[seq[:k]])
         refs["production"][str(k)] = {
-            "nodes": [{kk: n[kk] for kk in ("id", "parent", "mass", "persistence")}
-                      for n in rn],
-            "membership": {str(i): v for i, v in rm.items()}, "info": ri}
+            "nodes": [{kk: n[kk] for kk in ("id", "parent", "mass", "persistence")} for n in rn],
+            "membership": {str(i): v for i, v in rm.items()},
+            "info": ri,
+        }
         r = np.random.default_rng(k * 7919 + 13)
         refs["samples"][str(k)] = [
-            [int(x) for x in r.choice(k, 3, replace=False)] for _ in range(N_TRIPLETS)]
+            [int(x) for x in r.choice(k, 3, replace=False)] for _ in range(N_TRIPLETS)
+        ]
     REFS_DIR.mkdir(parents=True, exist_ok=True)
     (REFS_DIR / f"{bucket}-{order}.json").write_text(json.dumps(refs))
     print(f"refs {bucket}-{order}: prefixes {ks}")
@@ -548,11 +614,15 @@ def main() -> None:
     ap.add_argument("--bucket")
     ap.add_argument("--order", help="'date' or an integer seed")
     ap.add_argument("--theta", default="never")
-    ap.add_argument("--policy", default="rebuild",
-                    choices=["rebuild", "centroid-maintain", "terminal", "terminal-cm"])
+    ap.add_argument(
+        "--policy",
+        default="rebuild",
+        choices=["rebuild", "centroid-maintain", "terminal", "terminal-cm"],
+    )
     ap.add_argument("--base-frac", type=float, default=0.5)
-    ap.add_argument("--floor", type=int, default=0,
-                    help="absolute debt floor in notes (hybrid trigger, K6)")
+    ap.add_argument(
+        "--floor", type=int, default=0, help="absolute debt floor in notes (hybrid trigger, K6)"
+    )
     ap.add_argument("--out")
     args = ap.parse_args()
 
@@ -569,34 +639,59 @@ def main() -> None:
     refs = json.loads(refs_path.read_text()) if refs_path.exists() else None
     if refs and refs["vec_sha256"] != meta["vec_sha256"]:
         raise SystemExit("refs/input hash mismatch - refreeze")
-    order_idx = (refs["order_indices"] if refs else _order_indices(
-        meta["dates"], args.order, meta["n"],
-        int(hashlib.sha256(f"{args.bucket}|{args.order}".encode()).hexdigest()[:8], 16)))
+    order_idx = (
+        refs["order_indices"]
+        if refs
+        else _order_indices(
+            meta["dates"],
+            args.order,
+            meta["n"],
+            int(hashlib.sha256(f"{args.bucket}|{args.order}".encode()).hexdigest()[:8], 16),
+        )
+    )
     theta = None if args.theta == "never" else float(args.theta)
-    cell_seed = int(hashlib.sha256(
-        f"{args.bucket}|{args.order}|{args.theta}|{args.policy}|{args.base_frac}|{args.floor}"
-        .encode()).hexdigest()[:8], 16)
-    cell = replay_cell(vecs, order_idx, theta, policy=args.policy,
-                       base_frac=args.base_frac, floor=args.floor,
-                       rng=np.random.default_rng(cell_seed))
+    cell_seed = int(
+        hashlib.sha256(
+            f"{args.bucket}|{args.order}|{args.theta}|{args.policy}|{args.base_frac}|{args.floor}".encode()
+        ).hexdigest()[:8],
+        16,
+    )
+    cell = replay_cell(
+        vecs,
+        order_idx,
+        theta,
+        policy=args.policy,
+        base_frac=args.base_frac,
+        floor=args.floor,
+        rng=np.random.default_rng(cell_seed),
+    )
     import subprocess
 
-    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
-                            capture_output=True, text=True,
-                            cwd=Path(__file__).parent).stdout.strip()
+    commit = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).parent,
+    ).stdout.strip()
     cell.pop("final_centroids", None)  # test/debug payload, not an artifact
-    cell.update({"engine_commit": commit,
-                 "bucket": args.bucket, "order": args.order, "floor": args.floor,
-                 "embedding_model": meta["embedding_model"],
-                 "vec_sha256": meta["vec_sha256"],
-                 "dated": meta["dated"], "undated": meta["n"] - meta["dated"]})
+    cell.update(
+        {
+            "engine_commit": commit,
+            "bucket": args.bucket,
+            "order": args.order,
+            "floor": args.floor,
+            "embedding_model": meta["embedding_model"],
+            "vec_sha256": meta["vec_sha256"],
+            "dated": meta["dated"],
+            "undated": meta["n"] - meta["dated"],
+        }
+    )
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp")
     tmp.write_text(json.dumps(cell))
     tmp.rename(out)
-    print(f"wrote {out}: rebuilds={cell['rebuilds']} auc={cell['auc']} "
-          f"cost={cell['cost']}")
+    print(f"wrote {out}: rebuilds={cell['rebuilds']} auc={cell['auc']} cost={cell['cost']}")
 
 
 if __name__ == "__main__":

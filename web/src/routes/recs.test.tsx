@@ -62,8 +62,8 @@ vi.mock("../api/recs", () => ({
 import { Route } from "./recs";
 
 function renderPage() {
-  const Page = (Route as unknown as { options: { component: React.ComponentType } })
-    .options.component;
+  const Page = (Route as unknown as { options: { component: React.ComponentType } }).options
+    .component;
   return render(<Page />);
 }
 

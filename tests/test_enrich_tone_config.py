@@ -18,15 +18,17 @@ def test_enrich_content_pulls_tone_from_config(monkeypatch):
     monkeypatch.setattr(
         e,
         "run_structured",
-        lambda s, u, sc, add_dirs=None, **kw: captured.update(system=s)
-        or {
-            "thesis": "t",
-            "summary": "s",
-            "key_concepts": [],
-            "insights": [],
-            "interest_tags": [],
-            "key_moments": [],
-        },
+        lambda s, u, sc, add_dirs=None, **kw: (
+            captured.update(system=s)
+            or {
+                "thesis": "t",
+                "summary": "s",
+                "key_concepts": [],
+                "insights": [],
+                "interest_tags": [],
+                "key_moments": [],
+            }
+        ),
     )
     e.enrich_content("body", "web")
     assert "terse and technical" in captured["system"]
@@ -41,15 +43,17 @@ def test_explicit_tone_overrides_config(monkeypatch):
     monkeypatch.setattr(
         e,
         "run_structured",
-        lambda s, u, sc, add_dirs=None, **kw: captured.update(system=s)
-        or {
-            "thesis": "t",
-            "summary": "s",
-            "key_concepts": [],
-            "insights": [],
-            "interest_tags": [],
-            "key_moments": [],
-        },
+        lambda s, u, sc, add_dirs=None, **kw: (
+            captured.update(system=s)
+            or {
+                "thesis": "t",
+                "summary": "s",
+                "key_concepts": [],
+                "insights": [],
+                "interest_tags": [],
+                "key_moments": [],
+            }
+        ),
     )
     e.enrich_content("body", "web", tone="explicit")
     assert "explicit" in captured["system"] and "from config" not in captured["system"]

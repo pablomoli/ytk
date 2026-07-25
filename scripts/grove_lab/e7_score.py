@@ -33,9 +33,7 @@ def _binom_tail(k: int, n: int, p: float) -> float:
 
 
 def _cell(trials, responses, answers) -> dict:
-    correct = sum(
-        1 for t in trials if responses[t["trial"]]["choice"] == answers[t["trial"]]
-    )
+    correct = sum(1 for t in trials if responses[t["trial"]]["choice"] == answers[t["trial"]])
     conf = [responses[t["trial"]]["confidence"] for t in trials]
     rt = [responses[t["trial"]]["rt_ms"] for t in trials]
     return {
@@ -56,9 +54,7 @@ def score(grove_dir: Path = GROVE_DIR, partial: bool = False) -> dict:
         for line in (grove_dir / "e7-responses.jsonl").read_text().splitlines()
         if line.strip()
     ]
-    responses = {
-        r["trial"]: r for r in rows if r.get("manifest_sha") == manifest["sha256"]
-    }
+    responses = {r["trial"]: r for r in rows if r.get("manifest_sha") == manifest["sha256"]}
     scored = [t for t in manifest["trials"] if t["task"] != "practice"]
     missing = [t["trial"] for t in scored if t["trial"] not in responses]
     if missing and not partial:
@@ -88,7 +84,9 @@ def score(grove_dir: Path = GROVE_DIR, partial: bool = False) -> dict:
         "semantic_readback": {
             "primary": _cell([t for t in t1 if t.get("primary")], responses, answers),
             "secondary": _cell([t for t in t1 if not t.get("primary")], responses, answers),
-            "adjacency": _cell([t for t in t1 if t["construct"] == "adjacency"], responses, answers),
+            "adjacency": _cell(
+                [t for t in t1 if t["construct"] == "adjacency"], responses, answers
+            ),
             "payload": _cell([t for t in t1 if t["construct"] == "payload"], responses, answers),
             "per_bucket": per_bucket,
         },
@@ -110,8 +108,7 @@ def score(grove_dir: Path = GROVE_DIR, partial: bool = False) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--partial", action="store_true",
-                    help="salvage analysis of an aborted session")
+    ap.add_argument("--partial", action="store_true", help="salvage analysis of an aborted session")
     args = ap.parse_args()
     result = score(partial=args.partial)
     out = Path(__file__).resolve().parents[2] / "docs" / "grove-lab" / "e7-results.json"

@@ -73,7 +73,7 @@ class Enrichment(BaseModel):
         return out
 
     @model_validator(mode="after")
-    def _tag_recommendations(self) -> "Enrichment":
+    def _tag_recommendations(self) -> Enrichment:
         """Derive {kind}-rec tags from recommendations deterministically.
 
         The tag is what a note is filtered by on the recs surface; deriving it in
@@ -184,9 +184,10 @@ SOURCE_BIAS = {
         "SOURCE: the user's own self-chat notes, a stream of thoughts/ideas/questions. Preserve the texture "
         "of their thinking; name the specific projects, tools, and ideas they mention. This is their own "
         "capture, not third-party content.\n"
-        "key_moments: use \"note N\" as the timestamp field, quoting or closely paraphrasing the thought."
+        'key_moments: use "note N" as the timestamp field, quoting or closely paraphrasing the thought.'
     ),
 }
+
 
 def _build_system(source: str, tone: str = "") -> str:
     bias = SOURCE_BIAS[source]  # KeyError on unknown source is intentional
@@ -348,7 +349,8 @@ def enrich_tiktok(
     """
     transcript_block = (
         f"Whisper transcript (may be inaccurate or sparse):\n{transcript}"
-        if transcript.strip() else "Whisper transcript: (none — likely no speech or music-only)"
+        if transcript.strip()
+        else "Whisper transcript: (none — likely no speech or music-only)"
     )
     music_line = f"Music: {post['music']}\n" if post.get("music") else ""
     content_block = (
@@ -403,12 +405,12 @@ def enrich_instagram_reel(
     carousel-shaped prompt that was lying about the medium.
     """
     if transcript_status == "ok" and transcript_segments:
-        lines = "\n".join(
-            f"[{_fmt_ts(s['start'])}] {s['text']}" for s in transcript_segments
-        )
+        lines = "\n".join(f"[{_fmt_ts(s['start'])}] {s['text']}" for s in transcript_segments)
         transcript_block = f"Whisper transcript (may be inaccurate or sparse):\n{lines}"
     elif transcript_status == "no_speech":
-        transcript_block = "Whisper transcript: (none — no speech detected; likely music-only or silent)"
+        transcript_block = (
+            "Whisper transcript: (none — no speech detected; likely music-only or silent)"
+        )
     elif transcript_status == "failed":
         transcript_block = "Whisper transcript: (unavailable — transcription failed; do not assume the video had no speech)"
     else:

@@ -9,16 +9,30 @@ from pathlib import Path
 import networkx as nx
 
 _PALETTE = [
-    "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
-    "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
+    "#4e79a7",
+    "#f28e2b",
+    "#e15759",
+    "#76b7b2",
+    "#59a14f",
+    "#edc948",
+    "#b07aa1",
+    "#ff9da7",
+    "#9c755f",
+    "#bab0ac",
 ]
 
 # Tags that describe where a note lives (its storage bucket), not what it is
 # about. Nearly every note carries these, so cliquing on them connects almost
 # every note to every other one — an O(n^2) edge explosion with no signal.
-_STRUCTURAL_TAGS = frozenset({
-    "inbox", "memories", "claude-mem", "summaries", "project-context",
-})
+_STRUCTURAL_TAGS = frozenset(
+    {
+        "inbox",
+        "memories",
+        "claude-mem",
+        "summaries",
+        "project-context",
+    }
+)
 
 # A tag or concept shared by more notes than this is not a meaningful link.
 # Cliquing on such a group costs n*(n-1)/2 edges, so we skip it entirely.
@@ -27,11 +41,13 @@ _MAX_TAG_GROUP = 30
 
 def _memories_collection():
     from .store import _memories_collection as _mc
+
     return _mc()
 
 
 def _videos_collection():
     from .store import _videos_collection as _vc
+
     return _vc()
 
 
@@ -61,30 +77,30 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
     mem_col = _memories_collection()
     if mem_col.count() > 0:
         result = mem_col.get()
-        for doc_id, doc_text, meta in zip(
-            result["ids"], result["documents"], result["metadatas"]
-        ):
-            all_docs.append({
-                "id": doc_id,
-                "text": doc_text,
-                "meta": meta,
-                "collection": "memory",
-            })
+        for doc_id, doc_text, meta in zip(result["ids"], result["documents"], result["metadatas"]):
+            all_docs.append(
+                {
+                    "id": doc_id,
+                    "text": doc_text,
+                    "meta": meta,
+                    "collection": "memory",
+                }
+            )
 
     vid_col = _videos_collection()
     if vid_col.count() > 0:
         result = vid_col.get()
-        for doc_id, doc_text, meta in zip(
-            result["ids"], result["documents"], result["metadatas"]
-        ):
+        for doc_id, doc_text, meta in zip(result["ids"], result["documents"], result["metadatas"]):
             if "#" in doc_id:  # retrieval-only part vector; one node per video
                 continue
-            all_docs.append({
-                "id": doc_id,
-                "text": doc_text,
-                "meta": meta,
-                "collection": "video",
-            })
+            all_docs.append(
+                {
+                    "id": doc_id,
+                    "text": doc_text,
+                    "meta": meta,
+                    "collection": "video",
+                }
+            )
 
     if not all_docs:
         return G
@@ -133,7 +149,9 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
             continue
         for i in range(len(node_ids)):
             for j in range(i + 1, len(node_ids)):
-                _add_or_upgrade_edge(G, node_ids[i], node_ids[j], 0.9, "EXTRACTED", f"concept:{concept}")
+                _add_or_upgrade_edge(
+                    G, node_ids[i], node_ids[j], 0.9, "EXTRACTED", f"concept:{concept}"
+                )
 
     # Semantic edges — queried within each collection only (cross-collection pairs
     # are covered by tag/concept edges; cross-collection ChromaDB queries would
@@ -151,9 +169,12 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
                     continue
                 similarity = 1.0 - distance
                 if similarity >= threshold:
-                    _add_or_upgrade_edge(G, doc["id"], neighbor_id, similarity, "INFERRED", "semantic")
+                    _add_or_upgrade_edge(
+                        G, doc["id"], neighbor_id, similarity, "INFERRED", "semantic"
+                    )
         except Exception as exc:
             import sys
+
             print(f"[ytk] semantic edge query failed for {doc['id']!r}: {exc}", file=sys.stderr)
             continue
 
@@ -184,8 +205,8 @@ def detect_communities(G: nx.Graph) -> dict:
     if len(G.nodes) == 0:
         return {}
     try:
-        import graspologic
         from graspologic.partition import leiden
+
         # leiden returns Dict[node, int] directly
         communities_list = leiden(G)
         mapping = dict(communities_list)
@@ -198,6 +219,7 @@ def detect_communities(G: nx.Graph) -> dict:
         return mapping
     except (ImportError, Exception):
         from networkx.algorithms.community import greedy_modularity_communities
+
         communities_list = list(greedy_modularity_communities(G))
         mapping = {}
         for i, community in enumerate(communities_list):
@@ -264,26 +286,30 @@ def export_html(G: nx.Graph, output: Path) -> None:
         community = attrs.get("community", 0)
         color = _PALETTE[community % len(_PALETTE)]
         degree = G.degree(node_id)
-        vis_nodes.append({
-            "id": node_id,
-            "label": attrs.get("title", node_id)[:40],
-            "title": attrs.get("title", node_id),
-            "value": degree,
-            "color": color,
-            "url": attrs.get("url", ""),
-        })
+        vis_nodes.append(
+            {
+                "id": node_id,
+                "label": attrs.get("title", node_id)[:40],
+                "title": attrs.get("title", node_id),
+                "value": degree,
+                "color": color,
+                "url": attrs.get("url", ""),
+            }
+        )
 
     vis_edges = []
     for i, (src, dst, attrs) in enumerate(G.edges(data=True)):
         edge_type = attrs.get("type", "INFERRED")
         opacity = min(1.0, max(0.2, attrs.get("weight", 0.5)))
-        vis_edges.append({
-            "id": i,
-            "from": src,
-            "to": dst,
-            "color": {"color": _EDGE_COLORS.get(edge_type, "#888"), "opacity": opacity},
-            "title": attrs.get("label", edge_type),
-        })
+        vis_edges.append(
+            {
+                "id": i,
+                "from": src,
+                "to": dst,
+                "color": {"color": _EDGE_COLORS.get(edge_type, "#888"), "opacity": opacity},
+                "title": attrs.get("label", edge_type),
+            }
+        )
 
     n_communities = len(set(communities.values())) if communities else 0
     html = _HTML_TEMPLATE.format(
@@ -301,13 +327,7 @@ def export_json(G: nx.Graph, output: Path) -> None:
     """Write graph as JSON {nodes: [...], edges: [...]} for programmatic querying."""
     Path(output).parent.mkdir(parents=True, exist_ok=True)
     data = {
-        "nodes": [
-            {"id": n, **{k: v for k, v in attrs.items()}}
-            for n, attrs in G.nodes(data=True)
-        ],
-        "edges": [
-            {"from": src, "to": dst, **attrs}
-            for src, dst, attrs in G.edges(data=True)
-        ],
+        "nodes": [{"id": n, **{k: v for k, v in attrs.items()}} for n, attrs in G.nodes(data=True)],
+        "edges": [{"from": src, "to": dst, **attrs} for src, dst, attrs in G.edges(data=True)],
     }
     Path(output).write_text(json.dumps(data, indent=2), encoding="utf-8")

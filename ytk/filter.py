@@ -31,16 +31,20 @@ def check_pre_transcript(meta: dict, cfg: Config) -> FilterResult:
     duration = meta.get("duration", 0) or 0
 
     if f.min_duration and duration < f.min_duration:
-        failures.append(FilterFailure(
-            reason="min_duration",
-            detail=f"Duration {_fmt(duration)} is below minimum {_fmt(f.min_duration)}.",
-        ))
+        failures.append(
+            FilterFailure(
+                reason="min_duration",
+                detail=f"Duration {_fmt(duration)} is below minimum {_fmt(f.min_duration)}.",
+            )
+        )
 
     if f.max_duration is not None and duration > f.max_duration:
-        failures.append(FilterFailure(
-            reason="max_duration",
-            detail=f"Duration {_fmt(duration)} exceeds maximum {_fmt(f.max_duration)}.",
-        ))
+        failures.append(
+            FilterFailure(
+                reason="max_duration",
+                detail=f"Duration {_fmt(duration)} exceeds maximum {_fmt(f.max_duration)}.",
+            )
+        )
 
     return FilterResult(passed=not failures, failures=failures)
 
@@ -55,6 +59,7 @@ def check_post_enrichment(enrichment: Enrichment, cfg: Config) -> FilterResult:
     allowed = cfg.filters.interest_tags
 
     if allowed:
+
         def _norm(t: str) -> str:
             return t.lower().replace("-", " ").replace("_", " ")
 
@@ -62,14 +67,16 @@ def check_post_enrichment(enrichment: Enrichment, cfg: Config) -> FilterResult:
         matched = [t for t in enrichment.interest_tags if _norm(t) in allowed_norm]
 
         if not matched:
-            failures.append(FilterFailure(
-                reason="interest_tags",
-                detail=(
-                    f"No interest tags matched. "
-                    f"Video tags: {enrichment.interest_tags or ['(none)']}. "
-                    f"Your tags: {allowed}."
-                ),
-            ))
+            failures.append(
+                FilterFailure(
+                    reason="interest_tags",
+                    detail=(
+                        f"No interest tags matched. "
+                        f"Video tags: {enrichment.interest_tags or ['(none)']}. "
+                        f"Your tags: {allowed}."
+                    ),
+                )
+            )
 
     return FilterResult(passed=not failures, failures=failures)
 

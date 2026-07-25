@@ -19,7 +19,9 @@ import "../styles.css";
 const PAGE = 60;
 
 export const Route = createFileRoute("/library")({
-  validateSearch: (search: Record<string, unknown>): { source?: string; q?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { source?: string | undefined; q?: string | undefined } => ({
     source: typeof search.source === "string" ? search.source : undefined,
     q: typeof search.q === "string" ? search.q : undefined,
   }),
@@ -34,17 +36,21 @@ function LibraryPage() {
   const [query, setQuery] = useState(q ?? "");
   const page = useLibrary(offset, source, q, PAGE);
   const remove = useDeleteNote();
-  const [selected, setSelected] = useState<{ note: FreshNote; rect?: DOMRect }>();
+  const [selected, setSelected] = useState<{ note: FreshNote; rect?: DOMRect | undefined }>();
   const [pendingDelete, setPendingDelete] = useState<FreshNote>();
 
   // filters reset pagination; a fetched page appends to the accumulated grid
-  useEffect(() => { setPages([]); setOffset(0); }, [source, q]);
   useEffect(() => {
-    if (page.data) setPages((current) => {
-      const next = current.slice(0, offset / PAGE);
-      next[offset / PAGE] = page.data.items;
-      return next;
-    });
+    setPages([]);
+    setOffset(0);
+  }, [source, q]);
+  useEffect(() => {
+    if (page.data)
+      setPages((current) => {
+        const next = current.slice(0, offset / PAGE);
+        next[offset / PAGE] = page.data.items;
+        return next;
+      });
   }, [page.data, offset]);
 
   const notes = pages.flat();
@@ -54,22 +60,47 @@ function LibraryPage() {
 
   let body;
   if (page.isLoading && !notes.length) {
-    body = <MasonryGrid><Skeletons count={12} /></MasonryGrid>;
+    body = (
+      <MasonryGrid>
+        <Skeletons count={12} />
+      </MasonryGrid>
+    );
   } else if (page.isError) {
     body = <ErrorState error={page.error} onRetry={() => void page.refetch()} />;
   } else if (!notes.length) {
-    body = <EmptyState label={q ? "nothing matches" : "nothing ingested yet"} hint={q ? "try a looser query" : undefined} />;
+    body = (
+      <EmptyState
+        label={q ? "nothing matches" : "nothing ingested yet"}
+        hint={q ? "try a looser query" : undefined}
+      />
+    );
   } else {
-    body = <>
-      <MasonryGrid>{notes.map((item) => <FreshCard key={item.path} note={item} onOpen={(note, rect) => setSelected({ note, rect })} onDelete={handleDelete} />)}</MasonryGrid>
-      {notes.length < total ? (
-        <div className="library-more">
-          <button className="btn" type="button" disabled={page.isFetching} onClick={() => setOffset(notes.length)}>
-            {page.isFetching ? "loading..." : `load more (${notes.length} of ${total})`}
-          </button>
-        </div>
-      ) : null}
-    </>;
+    body = (
+      <>
+        <MasonryGrid>
+          {notes.map((item) => (
+            <FreshCard
+              key={item.path}
+              note={item}
+              onOpen={(note, rect) => setSelected({ note, rect })}
+              onDelete={handleDelete}
+            />
+          ))}
+        </MasonryGrid>
+        {notes.length < total ? (
+          <div className="library-more">
+            <button
+              className="btn"
+              type="button"
+              disabled={page.isFetching}
+              onClick={() => setOffset(notes.length)}
+            >
+              {page.isFetching ? "loading..." : `load more (${notes.length} of ${total})`}
+            </button>
+          </div>
+        ) : null}
+      </>
+    );
   }
 
   return (
@@ -80,16 +111,34 @@ function LibraryPage() {
           value={query}
           placeholder="filter title or tag..."
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") void navigate({ search: { source, q: query.trim() || undefined } }); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter")
+              void navigate({ search: { source, q: query.trim() || undefined } });
+          }}
         />
-        <SourceFilter value={source} onChange={(next) => void navigate({ search: { source: next, q } })} />
-        <span className="count"><CountUp value={total} /> in the store</span>
+        <SourceFilter
+          value={source}
+          onChange={(next) => void navigate({ search: { source: next, q } })}
+        />
+        <span className="count">
+          <CountUp value={total} /> in the store
+        </span>
       </HubControls>
       <div className="hub-body">
-        {remove.isError ? <div className="delete-error" role="alert">failed to delete note: {String(remove.error)}</div> : null}
+        {remove.isError ? (
+          <div className="delete-error" role="alert">
+            failed to delete note: {String(remove.error)}
+          </div>
+        ) : null}
         {body}
       </div>
-      {selected ? <NoteViewer note={selected.note} originRect={selected.rect} onClose={() => setSelected(undefined)} /> : null}
+      {selected ? (
+        <NoteViewer
+          note={selected.note}
+          originRect={selected.rect}
+          onClose={() => setSelected(undefined)}
+        />
+      ) : null}
       {getPref(CURSOR_PREF) ? <TargetCursor /> : null}
       {pendingDelete ? (
         <ConfirmDialog
@@ -100,7 +149,9 @@ function LibraryPage() {
             setPendingDelete(undefined);
             remove.mutate(item.path, {
               onSuccess: () => {
-                setPages((current) => current.map((chunk) => chunk.filter((n) => n.path !== item.path)));
+                setPages((current) =>
+                  current.map((chunk) => chunk.filter((n) => n.path !== item.path)),
+                );
                 setSelected((current) => (current?.note.path === item.path ? undefined : current));
               },
             });

@@ -44,7 +44,7 @@ def check_profile_grounding_text(text: str) -> list[str]:
     if not theme_summaries:
         errors.append("profile has no theme summaries")
 
-    def check_refs(label: str, node: "ElementTree.Element") -> list[str] | None:
+    def check_refs(label: str, node: ElementTree.Element) -> list[str] | None:
         """Shared ref checks; returns the evidence ids or None on failure."""
         if not (node.text or "").strip():
             errors.append(f"{label} is empty")
@@ -71,12 +71,9 @@ def check_profile_grounding_text(text: str) -> list[str]:
         if evidence_ids is None:
             continue
         if not any(
-            evidence_is_fresh(catalog[e], generated_at, half_life_days)
-            for e in evidence_ids
+            evidence_is_fresh(catalog[e], generated_at, half_life_days) for e in evidence_ids
         ):
-            errors.append(
-                f"{label} has no evidence captured within the decay half-life"
-            )
+            errors.append(f"{label} has no evidence captured within the decay half-life")
     return errors
 
 

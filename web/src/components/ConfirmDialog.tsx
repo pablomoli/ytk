@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef } from "react";
 
 /* Themed replacement for window.confirm, built on native <dialog> like
    NoteViewer. onConfirm/onCancel are driven ONLY by explicit user intent —
@@ -10,34 +10,48 @@ import { useEffect, useRef } from 'react'
    the cancel button and backdrop call onCancel directly; the confirm button
    calls onConfirm directly. React unmount then closes the dialog in cleanup
    with nothing wired to that close. */
-export function ConfirmDialog({ message, confirmLabel = 'delete', onConfirm, onCancel }: {
-  message: string
-  confirmLabel?: string
-  onConfirm: () => void
-  onCancel: () => void
+export function ConfirmDialog({
+  message,
+  confirmLabel = "delete",
+  onConfirm,
+  onCancel,
+}: {
+  message: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    if (!dialog.open) dialog.showModal?.()
-    return () => dialog.close?.()
-  }, [])
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (!dialog.open) dialog.showModal?.();
+    return () => dialog.close?.();
+  }, []);
 
   return (
     <dialog
       ref={dialogRef}
       className="confirm-dialog"
       aria-label={message}
-      onCancel={(event) => { event.preventDefault(); onCancel() }}
-      onClick={(event) => { if (event.target === dialogRef.current) onCancel() }}
+      onCancel={(event) => {
+        event.preventDefault();
+        onCancel();
+      }}
+      onClick={(event) => {
+        if (event.target === dialogRef.current) onCancel();
+      }}
     >
       <p>{message}</p>
       <div className="confirm-actions">
-        <button className="btn" type="button" onClick={onCancel}>cancel</button>
-        <button className="btn primary" type="button" onClick={onConfirm}>{confirmLabel}</button>
+        <button className="btn" type="button" onClick={onCancel}>
+          cancel
+        </button>
+        <button className="btn primary" type="button" onClick={onConfirm}>
+          {confirmLabel}
+        </button>
       </div>
     </dialog>
-  )
+  );
 }

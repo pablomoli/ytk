@@ -35,22 +35,32 @@ def test_enrichment_tags_born_canonical(alias_file):
     from ytk.enrich import Enrichment
 
     config.save_tag_aliases({"artificial-intelligence": "ai"})
-    e = Enrichment(thesis="t", summary="s", key_concepts=[], insights=[],
-                   interest_tags=["Artificial Intelligence", "ai", "go"],
-                   key_moments=[])
+    e = Enrichment(
+        thesis="t",
+        summary="s",
+        key_concepts=[],
+        insights=[],
+        interest_tags=["Artificial Intelligence", "ai", "go"],
+        key_moments=[],
+    )
     assert e.interest_tags == ["ai", "go"]
 
 
 def test_propose_clamps_to_clusters(monkeypatch):
     from collections import Counter
 
-    monkeypatch.setattr(tags.store, "tag_counts",
-                        lambda: Counter({"llm": 1, "llms": 1, "mma": 6}))
+    monkeypatch.setattr(tags.store, "tag_counts", lambda: Counter({"llm": 1, "llms": 1, "mma": 6}))
     monkeypatch.setattr(tags, "_clusters", lambda t: [["llm", "llms"]])
-    monkeypatch.setattr(tags, "structured", lambda *a, **k: tags._Refinement(groups=[
-        tags.MergeGroup(canonical="llm", variants=["llms", "mma", "invented-tag"]),
-        tags.MergeGroup(canonical="alone", variants=[]),
-    ]))
+    monkeypatch.setattr(
+        tags,
+        "structured",
+        lambda *a, **k: tags._Refinement(
+            groups=[
+                tags.MergeGroup(canonical="llm", variants=["llms", "mma", "invented-tag"]),
+                tags.MergeGroup(canonical="alone", variants=[]),
+            ]
+        ),
+    )
 
     out = tags.propose_merges()
     assert len(out) == 1

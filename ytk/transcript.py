@@ -7,13 +7,14 @@ import os
 import re
 import stat
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from youtube_transcript_api import (
-    YouTubeTranscriptApi,
     NoTranscriptFound,
-    TranscriptsDisabled,
     RequestBlocked,
+    TranscriptsDisabled,
+    YouTubeTranscriptApi,
 )
 
 _AUDIO_CACHE = Path.home() / ".ytk" / "audio"
@@ -23,7 +24,7 @@ def prune_audio_cache(
     max_age_days: int,
     *,
     cache_dir: Path | None = None,
-    now: "datetime | None" = None,
+    now: datetime | None = None,
     dry_run: bool = False,
 ) -> list[Path]:
     """Delete top-level ``yt_*`` transcription-cache files older than the cutoff.
@@ -72,7 +73,9 @@ def _fetch_via_api(video_id: str) -> tuple[list[dict], str]:
     except NoTranscriptFound:
         transcript = transcript_list.find_generated_transcript(["en"])
     segments = transcript.fetch()
-    return [{"start": s.start, "duration": s.duration, "text": s.text} for s in segments], "youtube-transcript-api"
+    return [
+        {"start": s.start, "duration": s.duration, "text": s.text} for s in segments
+    ], "youtube-transcript-api"
 
 
 def _download_audio(url: str) -> Path:
@@ -115,6 +118,7 @@ def _download_audio(url: str) -> Path:
 def WhisperModel(model_name: str, **kwargs):
     """Lazy import of faster_whisper.WhisperModel."""
     from faster_whisper import WhisperModel as _WM
+
     return _WM(model_name, **kwargs)
 
 
@@ -142,8 +146,9 @@ class TranscriptionResult:
     status distinguishes an empty-but-successful run ("no_speech") from a
     broken one ("failed") so callers can report capture health truthfully.
     """
-    segments: list[dict]        # [{start, duration, text}]
-    status: str                 # ok | no_speech | failed
+
+    segments: list[dict]  # [{start, duration, text}]
+    status: str  # ok | no_speech | failed
     error: str | None = None
 
 
@@ -161,7 +166,11 @@ def transcribe_file(media_path: Path, whisper_model: str = "base") -> Transcript
         model = WhisperModel(whisper_model, device="cpu", compute_type="int8")
         raw_segments, _ = model.transcribe(str(media_path), beam_size=5)
         segments = [
-            {"start": seg.start, "duration": round(seg.end - seg.start, 3), "text": seg.text.strip()}
+            {
+                "start": seg.start,
+                "duration": round(seg.end - seg.start, 3),
+                "text": seg.text.strip(),
+            }
             for seg in raw_segments
             if seg.text.strip()
         ]

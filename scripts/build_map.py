@@ -28,7 +28,8 @@ import chromadb
 import numpy as np
 
 from ytk import ridges, signals
-from ytk.mapdomains import CONTENT_CATS as _CATS, domain_labels, index_domains
+from ytk.mapdomains import CONTENT_CATS as _CATS
+from ytk.mapdomains import domain_labels, index_domains
 
 SNAPSHOT = Path(os.path.expanduser("~/.ytk/interest/latest.json"))
 CHROMA = os.path.expanduser("~/.ytk/chroma")
@@ -208,21 +209,23 @@ def derive_subtopics(
         if len(idx) < 120:
             continue
         reduced = umap.UMAP(
-            n_neighbors=30, n_components=15, min_dist=0.0, metric="cosine",
+            n_neighbors=30,
+            n_components=15,
+            min_dist=0.0,
+            metric="cosine",
             random_state=42,
         ).fit_transform(vecs[idx])
         # Swept 2026-07-11 (issue #70): min_samples=10 glues 72% of epicmap
         # into one cluster; n//70 with min_samples=5 splits it into ~23
         # coherent workstreams while small domains stay stable.
-        local = HDBSCAN(
-            min_cluster_size=max(20, len(idx) // 70), min_samples=5
-        ).fit_predict(reduced)
+        local = HDBSCAN(min_cluster_size=max(20, len(idx) // 70), min_samples=5).fit_predict(
+            reduced
+        )
         n_local = local.max() + 1
         if n_local < 1:
             continue
         cluster_docs = [
-            " ".join(docs[i] for i in idx[local == k])[:400_000]
-            for k in range(n_local)
+            " ".join(docs[i] for i in idx[local == k])[:400_000] for k in range(n_local)
         ]
         base = len(term_names)
         term_names.extend(_ctfidf_names(cluster_docs))
@@ -371,9 +374,7 @@ def score_layout(xy: np.ndarray, vecs: np.ndarray, labels: list[int]) -> dict:
     grouped = np.array(labels) >= 0
     uniq = set(np.array(labels)[grouped].tolist())
     return {
-        "trustworthiness": float(
-            trustworthiness(vecs, xy, n_neighbors=15, metric="cosine")
-        ),
+        "trustworthiness": float(trustworthiness(vecs, xy, n_neighbors=15, metric="cosine")),
         "silhouette": (
             float(silhouette_score(xy[grouped], np.array(labels)[grouped]))
             if len(uniq) > 1
@@ -382,9 +383,7 @@ def score_layout(xy: np.ndarray, vecs: np.ndarray, labels: list[int]) -> dict:
     }
 
 
-def project(
-    vecs: np.ndarray, n_neighbors: int, min_dist: float, dims: int = 2
-) -> np.ndarray:
+def project(vecs: np.ndarray, n_neighbors: int, min_dist: float, dims: int = 2) -> np.ndarray:
     import umap
 
     return umap.UMAP(
@@ -409,7 +408,9 @@ def fit_params(vecs: np.ndarray, labels: list[int], grid_nn: tuple) -> tuple[int
         for md in (0.05, 0.1, 0.3):
             s = score_layout(project(vecs, nn, md), vecs, labels)
             results.append((nn, md, s))
-            print(f"  nn={nn:>3} min_dist={md:.2f}  trust={s['trustworthiness']:.4f}  sil={s['silhouette']:.4f}")
+            print(
+                f"  nn={nn:>3} min_dist={md:.2f}  trust={s['trustworthiness']:.4f}  sil={s['silhouette']:.4f}"
+            )
     best_trust = max(s["trustworthiness"] for _, _, s in results)
     ok = [r for r in results if r[2]["trustworthiness"] >= best_trust - 0.01]
     nn, md, s = max(ok, key=lambda r: r[2]["silhouette"])
@@ -430,10 +431,8 @@ def group_positions(xy: np.ndarray, labels: list[int], group_meta: list[dict]) -
     out = []
     for i, g in enumerate(group_meta):
         mask = arr == i
-        cx, cy = (xy[mask].mean(axis=0) if mask.any() else (0.0, 0.0))
-        out.append(
-            {**g, "n": int(mask.sum()), "x": round(float(cx), 4), "y": round(float(cy), 4)}
-        )
+        cx, cy = xy[mask].mean(axis=0) if mask.any() else (0.0, 0.0)
+        out.append({**g, "n": int(mask.sum()), "x": round(float(cx), 4), "y": round(float(cy), 4)})
     return out
 
 
@@ -443,9 +442,7 @@ def attach_terrain() -> None:
     Never re-runs UMAP: point positions are read, not recomputed."""
     data = json.loads(OUT.read_text())
     axy = np.array([[p["x"], p["y"]] for p in data["points"]])
-    cxy = np.array(
-        [[p["cx"], p["cy"]] for p in data["points"] if "cx" in p and "cy" in p]
-    )
+    cxy = np.array([[p["cx"], p["cy"]] for p in data["points"] if "cx" in p and "cy" in p])
     print(f"terrain: all view ({len(axy)} points)")
     data["all"]["terrain"] = ridges.terrain(axy)
     print(f"terrain: content view ({len(cxy)} points)")
@@ -461,9 +458,7 @@ def attach_terrain() -> None:
         c3 = np.array([p["c3"] for p in cpts])
         ths = [p.get("th", -1) for p in cpts]
         print(f"web: content view ({len(c3)} points)")
-        data["content"]["web"] = ridges.web(
-            c3, ths, len(data["content"]["groups"])
-        )
+        data["content"]["web"] = ridges.web(c3, ths, len(data["content"]["groups"]))
     # Monte-Carlo fog splats of the same 3D density field the web's
     # filaments were traced through (issue #100, rungs 1-2).
     print(f"fog: all view ({len(z3)} points)")
@@ -508,14 +503,10 @@ def main() -> None:
     cvecs = vecs[cidx]
     cthemes = assign_themes(cvecs, snapshot)
     print(f"content view: {len(cidx)} points")
-    cnn, cmd = (
-        fit_params(cvecs, cthemes, (5, 10, 15, 30)) if args.sweep else (30, 0.05)
-    )
+    cnn, cmd = fit_params(cvecs, cthemes, (5, 10, 15, 30)) if args.sweep else (30, 0.05)
     cxy, cparams = layout(cvecs, cthemes, cnn, cmd)
     cxyz = project3(cvecs, cnn, cmd)
-    theme_meta = [
-        {"label": t["label"], "weight": t["weight"]} for t in snapshot["themes"]
-    ]
+    theme_meta = [{"label": t["label"], "weight": t["weight"]} for t in snapshot["themes"]]
 
     # --- all view: domain hierarchy + per-domain subtopics -------------------
     print(f"all view: {len(meta)} points")
@@ -547,22 +538,14 @@ def main() -> None:
         for k, nm in zip(fresh, fresh_names):
             anchored[k] = nm
     names = [anchored.get(k, term_names[k]) for k in range(len(term_names))]
-    ann, amd = (
-        fit_params(vecs, doms, (10, 30, 50)) if args.sweep else (50, 0.05)
-    )
+    ann, amd = fit_params(vecs, doms, (10, 30, 50)) if args.sweep else (50, 0.05)
     axy, aparams = layout(vecs, doms, ann, amd)
     axyz = project3(vecs, ann, amd)
     from sklearn.manifold import trustworthiness as _trust
 
-    aparams["trustworthiness_3d"] = float(
-        _trust(vecs, axyz, n_neighbors=15, metric="cosine")
-    )
-    cparams["trustworthiness_3d"] = float(
-        _trust(cvecs, cxyz, n_neighbors=15, metric="cosine")
-    )
-    weights = [
-        float((np.array(clabels) == k).sum()) / len(clabels) for k in range(len(names))
-    ]
+    aparams["trustworthiness_3d"] = float(_trust(vecs, axyz, n_neighbors=15, metric="cosine"))
+    cparams["trustworthiness_3d"] = float(_trust(cvecs, cxyz, n_neighbors=15, metric="cosine"))
+    weights = [float((np.array(clabels) == k).sum()) / len(clabels) for k in range(len(names))]
     group_meta = [
         {"label": nm, "domain": d, "weight": w, "terms": tn}
         for nm, d, w, tn in zip(names, owners, weights, term_names)
@@ -603,7 +586,10 @@ def main() -> None:
                 "v": 2,
                 "generated": snapshot["generated_at"],
                 "content": {"params": cparams, "groups": group_positions(cxy, cthemes, theme_meta)},
-                "all": {"params": aparams, **assemble_all_view(domains_meta, group_meta, doms, clabels, axy)},
+                "all": {
+                    "params": aparams,
+                    **assemble_all_view(domains_meta, group_meta, doms, clabels, axy),
+                },
                 "points": points,
             }
         )

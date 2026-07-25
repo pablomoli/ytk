@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -27,11 +26,7 @@ def vault_search(query: str, n: int = 5) -> str:
     lines: list[str] = []
     for r in results:
         match_pct = f"{(1 - r.distance):.0%}"
-        lines.append(
-            f"[{r.type}] {r.title}  ({match_pct} match)\n"
-            f"{r.excerpt}\n"
-            f"source: {r.source}"
-        )
+        lines.append(f"[{r.type}] {r.title}  ({match_pct} match)\n{r.excerpt}\nsource: {r.source}")
     return "\n\n".join(lines)
 
 
@@ -54,21 +49,29 @@ def vault_list() -> str:
 @app.tool()
 def vault_write(path: str, content: str) -> str:
     """Write or overwrite a note at a vault path and index it in ChromaDB for search."""
-    from .store import upsert_doc, strip_frontmatter
+    from .cache import load_index_cache, save_index_cache, update_cache_entry
+    from .store import strip_frontmatter, upsert_doc
     from .vault import write_raw
-    from .cache import update_cache_entry, load_index_cache, save_index_cache
 
     note_path = write_raw(path, content)
     _id_match = re.search(r"^id:\s*(.+)$", content, re.MULTILINE)
-    doc_id = _id_match.group(1).strip() if _id_match else "note_" + path.replace("/", "_").replace(".md", "").replace(" ", "_")
+    doc_id = (
+        _id_match.group(1).strip()
+        if _id_match
+        else "note_" + path.replace("/", "_").replace(".md", "").replace(" ", "_")
+    )
     body = strip_frontmatter(content)
     parts = path.split("/")
     tags = parts[:-1]
-    upsert_doc(doc_id, body, {
-        "doc_id": doc_id,
-        "tags": ", ".join(tags),
-        "source_path": str(note_path),
-    })
+    upsert_doc(
+        doc_id,
+        body,
+        {
+            "doc_id": doc_id,
+            "tags": ", ".join(tags),
+            "source_path": str(note_path),
+        },
+    )
     cache = load_index_cache()
     update_cache_entry(note_path, cache)
     save_index_cache(cache)
@@ -112,7 +115,8 @@ def visual_similar(query: str, n: int = 8) -> str:
     import os
 
     from . import visual as vis
-    from .store import get_visual_embedding, visual_similar as _similar
+    from .store import get_visual_embedding
+    from .store import visual_similar as _similar
 
     item_id = None
     embedding = None

@@ -53,10 +53,11 @@ def test_shuffle_rejects_degenerate_topologies():
 
 # --- manifest v2: Codex v3 blocking fixes (H1/H2/H5/H6/H7/H8) --------------
 
+
 def _fake_snapshots():
     def snap(nodes, n):
-        return {"bucket": "x", "n_notes": n, "built": "t", "embedding_model": "m",
-                "nodes": nodes}
+        return {"bucket": "x", "n_notes": n, "built": "t", "embedding_model": "m", "nodes": nodes}
+
     spread = [  # subs across two limbs: adjacency shuffle possible
         {"id": 0, "parent": -1, "mass": 100, "persistence": 0.2},
         {"id": 1, "parent": 0, "mass": 50, "persistence": 1.0},
@@ -73,12 +74,14 @@ def _fake_snapshots():
         {"id": 4, "parent": 1, "mass": 20, "persistence": 0.6},
         {"id": 5, "parent": 1, "mass": 12, "persistence": 0.4},
     ]
-    return {"epicmap": snap(spread, 2000), "ai-building": snap(spread, 400),
-            "visual-craft": snap(locked, 80)}
+    return {
+        "epicmap": snap(spread, 2000),
+        "ai-building": snap(spread, 400),
+        "visual-craft": snap(locked, 80),
+    }
 
 
 def _built():
-    import json
 
     from scripts.grove_lab.e7_manifest import build_manifest
 
@@ -118,8 +121,11 @@ def test_blocks_isolate_primary_exposures():
 def test_left_right_balance_within_pair_blocks():
     public, key = _built()
     for block in ("t1", "t2"):
-        pair = [t for t in public["trials"]
-                if t["task"] != "practice" and t["trial"].lower().startswith(block)]
+        pair = [
+            t
+            for t in public["trials"]
+            if t["task"] != "practice" and t["trial"].lower().startswith(block)
+        ]
         lefts = sum(1 for t in pair if key["answers"][t["trial"]] == "left")
         assert abs(lefts - (len(pair) - lefts)) <= 1
 
@@ -146,6 +152,7 @@ def test_visual_craft_is_payload_construct():
 
 # --- scoring: post-run only, per preregistered bands -----------------------
 
+
 def _fake_run(tmp_path, n_answered=None):
     import json
 
@@ -154,13 +161,19 @@ def _fake_run(tmp_path, n_answered=None):
     answered = scored if n_answered is None else scored[:n_answered]
     rows = []
     for t in answered:
-        rows.append({"trial": t["trial"], "choice": key["answers"][t["trial"]],
-                     "confidence": 4, "rt_ms": 3000,
-                     "manifest_sha": public["sha256"], "ts": "t"})
+        rows.append(
+            {
+                "trial": t["trial"],
+                "choice": key["answers"][t["trial"]],
+                "confidence": 4,
+                "rt_ms": 3000,
+                "manifest_sha": public["sha256"],
+                "ts": "t",
+            }
+        )
     (tmp_path / "e7-manifest.json").write_text(json.dumps(public))
     (tmp_path / "e7-answer-key.json").write_text(json.dumps(key))
-    (tmp_path / "e7-responses.jsonl").write_text(
-        "\n".join(json.dumps(r) for r in rows) + "\n")
+    (tmp_path / "e7-responses.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
     return public, key
 
 

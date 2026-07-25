@@ -26,8 +26,7 @@ def load_qrels(path: Path | str) -> dict:
 
 
 def _dcg(grades: list[int]) -> float:
-    return sum((2**grade - 1) / math.log2(rank + 2)
-               for rank, grade in enumerate(grades))
+    return sum((2**grade - 1) / math.log2(rank + 2) for rank, grade in enumerate(grades))
 
 
 def ndcg_report(
@@ -66,13 +65,15 @@ def ndcg_report(
         ideal = sorted(judged.values(), reverse=True)[:k]
         denom = _dcg(ideal)
         score = _dcg(grades) / denom if denom else 0.0
-        rows.append({
-            "query_id": query_id,
-            "bucket": query["bucket"],
-            "ndcg": score,
-            "judged": judged_count,
-            "retrieved": len(ranking),
-        })
+        rows.append(
+            {
+                "query_id": query_id,
+                "bucket": query["bucket"],
+                "ndcg": score,
+                "judged": judged_count,
+                "retrieved": len(ranking),
+            }
+        )
 
     def mean(selected: list[dict]) -> float:
         return sum(row["ndcg"] for row in selected) / len(selected) if selected else 0.0

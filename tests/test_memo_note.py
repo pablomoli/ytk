@@ -30,7 +30,9 @@ def test_write_memo_note_without_audio(tmp_path):
 def test_finalize_updates_route_and_appends_routed(tmp_path):
     with _fake_brain(tmp_path):
         note = write_memo_note("file an issue about filters", Path("/tmp/x.wav"))
-    finalize_memo_note(note, "action", ["gh-issue -> pablomoli/ytk: Fix filters (https://github.com/x/1)"])
+    finalize_memo_note(
+        note, "action", ["gh-issue -> pablomoli/ytk: Fix filters (https://github.com/x/1)"]
+    )
     content = note.read_text()
     assert "route: action" in content
     assert "route: pending" not in content

@@ -63,8 +63,7 @@ def test_grad_hess_match_finite_differences():
                 e2 = np.zeros(2)
                 e2[b] = eps
                 fd2 = (
-                    logf(q + e + e2) - logf(q + e - e2)
-                    - logf(q - e + e2) + logf(q - e - e2)
+                    logf(q + e + e2) - logf(q + e - e2) - logf(q - e + e2) + logf(q - e - e2)
                 ) / (4 * eps * eps)
                 assert hess[k, a, b] == pytest.approx(fd2, rel=1e-3, abs=1e-4)
 
@@ -82,7 +81,7 @@ def test_eigh2_matches_numpy():
     m = rng.normal(size=(50, 2, 2))
     sym = (m + m.transpose(0, 2, 1)) / 2
     sym[7] = np.diag([2.0, -1.0])  # b == 0 branch
-    sym[8] = np.eye(2) * 0.5       # isotropic branch
+    sym[8] = np.eye(2) * 0.5  # isotropic branch
     vals, vecs = ridges.eigh2(sym)
     for k in range(len(sym)):
         ref_vals, ref_vecs = np.linalg.eigh(sym[k])
@@ -97,13 +96,11 @@ def test_scms_finds_axis_ridge():
     rng = np.random.default_rng(7)
     pts = np.column_stack([rng.uniform(-1, 1, 900), rng.normal(0, 0.08, 900)])
     h = ridges.silverman_bandwidth(pts)
-    seeds = np.column_stack(
-        [rng.uniform(-0.8, 0.8, 200), rng.uniform(-0.25, 0.25, 200)]
-    )
+    seeds = np.column_stack([rng.uniform(-0.8, 0.8, 200), rng.uniform(-0.25, 0.25, 200)])
     out = ridges.scms(pts, h, seeds)
     assert len(out) > 50
     assert np.abs(out[:, 1]).max() < 3 * h  # on the crest, not the slopes
-    assert np.ptp(out[:, 0]) > 1.0         # spread along it, not at a mode
+    assert np.ptp(out[:, 0]) > 1.0  # spread along it, not at a mode
 
 
 def test_marching_squares_circle():
@@ -159,8 +156,7 @@ def test_grad_hess_3d_match_finite_differences():
                 e2 = np.zeros(3)
                 e2[b] = eps
                 fd2 = (
-                    logf(q + e + e2) - logf(q + e - e2)
-                    - logf(q - e + e2) + logf(q - e - e2)
+                    logf(q + e + e2) - logf(q + e - e2) - logf(q - e + e2) + logf(q - e - e2)
                 ) / (4 * eps * eps)
                 assert hess[k, a, b] == pytest.approx(fd2, rel=1e-3, abs=1e-4)
 
@@ -169,8 +165,8 @@ def test_eigh3_matches_numpy():
     rng = np.random.default_rng(13)
     m = rng.normal(size=(60, 3, 3))
     sym = (m + m.transpose(0, 2, 1)) / 2
-    sym[5] = np.diag([3.0, -1.0, 0.5])   # diagonal branch
-    sym[6] = np.eye(3) * -0.7            # isotropic branch
+    sym[5] = np.diag([3.0, -1.0, 0.5])  # diagonal branch
+    sym[6] = np.eye(3) * -0.7  # isotropic branch
     vals, v1 = ridges.eigh3(sym)
     for k in range(len(sym)):
         ref_vals, ref_vecs = np.linalg.eigh(sym[k])
@@ -190,7 +186,7 @@ def test_scms3_finds_axis_filament():
     out = ridges.scms3(pts, h, seeds)
     assert len(out) > 40
     assert np.hypot(out[:, 1], out[:, 2]).max() < 3 * h  # on the wire
-    assert np.ptp(out[:, 0]) > 1.0                       # spread along it
+    assert np.ptp(out[:, 0]) > 1.0  # spread along it
 
 
 def test_trace_filaments_walks_the_whole_wire():
@@ -205,12 +201,12 @@ def test_trace_filaments_walks_the_whole_wire():
     seeds = pts[::3]
     ridge_points = ridges.scms3(pts, h, seeds)
     strands = ridges.trace_filaments(pts, h, ridge_points)
-    assert 1 <= len(strands) <= 5                    # one wire, not confetti
+    assert 1 <= len(strands) <= 5  # one wire, not confetti
     longest = max(strands, key=len)
-    assert len(longest) > 30                         # spans the wire
-    assert np.ptp(longest[:, 0]) > 1.2               # end to end
+    assert len(longest) > 30  # spans the wire
+    assert np.ptp(longest[:, 0]) > 1.2  # end to end
     gaps = np.linalg.norm(np.diff(longest, axis=0), axis=1)
-    assert np.median(gaps) < 0.8 * h                 # ordered, near-uniform steps
+    assert np.median(gaps) < 0.8 * h  # ordered, near-uniform steps
     assert np.hypot(longest[:, 1], longest[:, 2]).max() < 3 * h
 
 
@@ -246,9 +242,9 @@ def test_web_payload_shape():
     for fil in t["filaments"]:
         arr = np.asarray(fil)
         assert len(arr) >= 6
-        assert arr.shape[1] == 5                     # x, y, z, label, density
+        assert arr.shape[1] == 5  # x, y, z, label, density
         assert np.all((arr[:, 3] >= -1) & (arr[:, 3] < 2))
-        assert 0.0 <= arr[:, 4].min() and arr[:, 4].max() <= 1.0
+        assert arr[:, 4].min() >= 0.0 and arr[:, 4].max() <= 1.0
     import json
 
     json.dumps(t)
@@ -264,7 +260,7 @@ def test_knn_bandwidths_widen_in_sparse_regions():
     assert hi.shape == (len(pts),)
     assert np.median(hi[400:]) > 2 * np.median(hi[:400])  # lonely notes cast wide fog
     assert hi.min() >= 0.5 * h - 1e-12 and hi.max() <= 3.0 * h + 1e-12  # clamped
-    assert np.median(hi) == pytest.approx(h, rel=0.35)     # anchored near Silverman
+    assert np.median(hi) == pytest.approx(h, rel=0.35)  # anchored near Silverman
 
 
 def test_kde_accepts_per_point_bandwidths():
@@ -307,8 +303,7 @@ def test_adaptive_grad_hess_match_finite_differences():
                 e2 = np.zeros(3)
                 e2[b] = eps
                 fd2 = (
-                    logf(q + e + e2) - logf(q + e - e2)
-                    - logf(q - e + e2) + logf(q - e - e2)
+                    logf(q + e + e2) - logf(q + e - e2) - logf(q - e + e2) + logf(q - e - e2)
                 ) / (4 * eps * eps)
                 assert hess[k, a, b] == pytest.approx(fd2, rel=1e-3, abs=1e-4)
 
@@ -344,16 +339,14 @@ def test_fog_payload_samples_where_density_is():
     t = ridges.fog(xyz, n_samples=2000)
     assert set(t) == {"h", "splats"}
     arr = np.asarray(t["splats"])
-    assert len(arr) > 500                       # importance sampling keeps most
-    assert arr.shape[1] == 4                    # x, y, z, normalized density
-    assert 0.0 < arr[:, 3].min() and arr[:, 3].max() <= 1.0
+    assert len(arr) > 500  # importance sampling keeps most
+    assert arr.shape[1] == 4  # x, y, z, normalized density
+    assert arr[:, 3].min() > 0.0 and arr[:, 3].max() <= 1.0
     # splats concentrate around the two blobs, not in the gap or outside
-    near = np.minimum(
-        np.abs(arr[:, 0] - -0.5), np.abs(arr[:, 0] - 0.5)
-    )
+    near = np.minimum(np.abs(arr[:, 0] - -0.5), np.abs(arr[:, 0] - 0.5))
     assert np.median(near) < 0.3
     dense = arr[arr[:, 3] > 0.5]
-    assert len(dense) > 50                      # cores are represented
+    assert len(dense) > 50  # cores are represented
     import json
 
     json.dumps(t)
@@ -367,10 +360,7 @@ def test_fog_is_deterministic():
 
 
 def test_terrain_payload_shape_and_bounds():
-    rng = np.random.default_rng(8)
-    xy = np.vstack(
-        [_blob(300, (-0.4, -0.3), 0.15, 9), _blob(300, (0.4, 0.35), 0.18, 10)]
-    )
+    xy = np.vstack([_blob(300, (-0.4, -0.3), 0.15, 9), _blob(300, (0.4, 0.35), 0.18, 10)])
     xy = np.clip(xy, -1, 1)
     t = ridges.terrain(xy)
     assert set(t) == {"h", "levels", "fracs", "contours", "ridges", "grid"}
@@ -383,12 +373,12 @@ def test_terrain_payload_shape_and_bounds():
     for r in t["ridges"]:
         arr = np.asarray(r)
         assert len(arr) >= 4
-        assert arr.shape[1] == 3               # x, y, normalized height
-        assert 0.0 <= arr[:, 2].min() and arr[:, 2].max() <= 1.0
+        assert arr.shape[1] == 3  # x, y, normalized height
+        assert arr[:, 2].min() >= 0.0 and arr[:, 2].max() <= 1.0
         assert np.abs(arr[:, :2]).max() < 1.6
     g = t["grid"]
     assert g["nx"] * g["ny"] == len(g["z"])
-    assert 0.0 <= min(g["z"]) and max(g["z"]) <= 1.0
+    assert min(g["z"]) >= 0.0 and max(g["z"]) <= 1.0
     import json
 
     json.dumps(t)  # payload must be plain-JSON serializable

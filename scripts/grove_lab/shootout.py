@@ -45,7 +45,10 @@ def _unit(m: np.ndarray) -> np.ndarray:
 # pure functions (tested)
 # --------------------------------------------------------------------------
 
-def knn_transfer(src: np.ndarray, src_labels: np.ndarray, dst: np.ndarray, k: int = KNN) -> np.ndarray:
+
+def knn_transfer(
+    src: np.ndarray, src_labels: np.ndarray, dst: np.ndarray, k: int = KNN
+) -> np.ndarray:
     """Label dst points by majority vote of their k nearest src neighbors
     (cosine). Method-neutral: no centroid-compactness assumption."""
     sims = _unit(dst) @ _unit(src).T
@@ -86,7 +89,11 @@ def _oneway_triplets(C_src, C_dst, reps, n_dst, n_triplets, rng):
             continue
         hits += int(int(np.argmin(db)) == int(np.argmin(da)))
         total += 1
-    return hits / max(1, total), {"used": total, "rejected_noninjective": rejected, "tie_skipped": ties}
+    return hits / max(1, total), {
+        "used": total,
+        "rejected_noninjective": rejected,
+        "tie_skipped": ties,
+    }
 
 
 def triplet_agreement(Za, va, Zb, vb, n_triplets: int = 2000, rng=None, return_stats: bool = False):
@@ -104,8 +111,11 @@ def triplet_agreement(Za, va, Zb, vb, n_triplets: int = 2000, rng=None, return_s
     score = (s1 + s2) / 2
     if not return_stats:
         return score
-    coll = 1 - (len(set(reps_ba.tolist())) / len(reps_ba)
-                + len(set(reps_ab.tolist())) / len(reps_ab)) / 2
+    coll = (
+        1
+        - (len(set(reps_ba.tolist())) / len(reps_ba) + len(set(reps_ab.tolist())) / len(reps_ab))
+        / 2
+    )
     stats = {
         "collision_rate": round(float(coll), 3),
         "used": st1["used"] + st2["used"],
@@ -138,6 +148,7 @@ def structure_null(Za, va, Zb, vb, n_triplets: int = 2000, rng=None) -> float:
 # fitting + scoring
 # --------------------------------------------------------------------------
 
+
 def fit_agglo(v: np.ndarray) -> np.ndarray:
     from scipy.cluster.hierarchy import fcluster, linkage
     from scipy.spatial.distance import pdist
@@ -149,9 +160,9 @@ def fit_agglo(v: np.ndarray) -> np.ndarray:
 def fit_hdb(v: np.ndarray) -> np.ndarray:
     import hdbscan
 
-    return hdbscan.HDBSCAN(
-        min_cluster_size=max(5, len(v) // 60), min_samples=5
-    ).fit_predict(_unit(v).astype(np.float64))
+    return hdbscan.HDBSCAN(min_cluster_size=max(5, len(v) // 60), min_samples=5).fit_predict(
+        _unit(v).astype(np.float64)
+    )
 
 
 def centroid_transfer(src, src_labels, dst) -> np.ndarray:
@@ -185,17 +196,19 @@ def _halves(idx: np.ndarray, rng) -> tuple[np.ndarray, np.ndarray]:
 def _temporal_halves(idx, meta):
     dated = sorted((meta[k]["date"], k) for k in idx if meta[k]["date"])
     mid = len(dated) // 2
-    return (np.array([k for _, k in dated[:mid]]),
-            np.array([k for _, k in dated[mid:]]))
+    return (np.array([k for _, k in dated[:mid]]), np.array([k for _, k in dated[mid:]]))
 
 
 def _ci(vals: list[float]) -> dict:
     a = np.array([v for v in vals if not np.isnan(v)])
     if len(a) == 0:
         return {"mean": None, "lo": None, "hi": None, "n": 0}
-    return {"mean": round(float(a.mean()), 3),
-            "lo": round(float(np.percentile(a, 2.5)), 3),
-            "hi": round(float(np.percentile(a, 97.5)), 3), "n": int(len(a))}
+    return {
+        "mean": round(float(a.mean()), 3),
+        "lo": round(float(np.percentile(a, 2.5)), 3),
+        "hi": round(float(np.percentile(a, 97.5)), 3),
+        "n": len(a),
+    }
 
 
 def main() -> None:
@@ -210,7 +223,8 @@ def main() -> None:
     labels = assign(notes, cfg)
     bucket_idx = {
         b.name: np.array([k for k, x in enumerate(labels) if x == i])
-        for i, b in enumerate(cfg.buckets) if b.name in BUCKETS
+        for i, b in enumerate(cfg.buckets)
+        if b.name in BUCKETS
     }
 
     methods = {"agglo-cos": fit_agglo, "hdb-native": fit_hdb}
@@ -218,7 +232,9 @@ def main() -> None:
     results: dict = {"embedding_model": _TEXT_MODEL, "seeds": SEEDS, "cells": {}, "paired_diff": {}}
 
     print(f"RANDOM-HALF TRANSFER ARI - {SEEDS} seeds, mean [95% interval]")
-    header = f"{'bucket':<14}" + "".join(f"{m}/{t:<10}".rjust(22) for m in methods for t in transfers)
+    header = f"{'bucket':<14}" + "".join(
+        f"{m}/{t:<10}".rjust(22) for m in methods for t in transfers
+    )
     print(header)
     per_seed: dict = {}
     for name, idx in bucket_idx.items():
@@ -238,12 +254,18 @@ def main() -> None:
     print("\nPAIRED per-seed difference agglo - hdbscan (same halves), by transfer rule")
     for name in bucket_idx:
         for t in transfers:
-            diffs = [x - y for x, y in zip(per_seed[(name, "agglo-cos", t)],
-                                           per_seed[(name, "hdb-native", t)])
-                     if not (np.isnan(x) or np.isnan(y))]
+            diffs = [
+                x - y
+                for x, y in zip(per_seed[(name, "agglo-cos", t)], per_seed[(name, "hdb-native", t)])
+                if not (np.isnan(x) or np.isnan(y))
+            ]
             c = _ci(diffs)
             results["paired_diff"][f"{name}|{t}"] = c
-            verdict = "agglo wins" if (c["lo"] or 0) > 0 else ("hdb wins" if (c["hi"] or 0) < 0 else "interval spans 0")
+            verdict = (
+                "agglo wins"
+                if (c["lo"] or 0) > 0
+                else ("hdb wins" if (c["hi"] or 0) < 0 else "interval spans 0")
+            )
             print(f"  {name:<14} {t:<9} diff {c['mean']:>6} [{c['lo']},{c['hi']}]  {verdict}")
 
     print("\nTEMPORAL split (deterministic), agglo, both transfer rules")
@@ -259,8 +281,10 @@ def main() -> None:
     # gets the same gate so the topology-source choice is fair (item E).
     # Brackets are SEED RANGES (2.5-97.5 pct over splits), not calibrated
     # CIs — triplets within a split are dependent (Codex G6).
-    print(f"\nTRIPLET AGREEMENT v2 (symmetric, injective, tie-skipped; chance=0.33)")
-    print(f"{'bucket':<14} {'tree':<11} {'agree':>22} {'corr-null':>10} {'struct-null':>12} {'collide':>8}")
+    print("\nTRIPLET AGREEMENT v2 (symmetric, injective, tie-skipped; chance=0.33)")
+    print(
+        f"{'bucket':<14} {'tree':<11} {'agree':>22} {'corr-null':>10} {'struct-null':>12} {'collide':>8}"
+    )
     from scipy.cluster.hierarchy import linkage
     from scipy.spatial.distance import pdist
 
@@ -289,11 +313,15 @@ def main() -> None:
                 struct.append(structure_null(Za, va, Zb, vb, rng=rng))
             ca, cc, cs = _ci(agr), _ci(corr), _ci(struct)
             results["cells"][f"{name}|triplet|{tree_name}"] = {
-                "agreement": ca, "correspondence_null": cc, "structure_null": cs,
+                "agreement": ca,
+                "correspondence_null": cc,
+                "structure_null": cs,
                 "collision_rate": round(float(np.mean(colls)), 3),
             }
-            print(f"{name:<14} {tree_name:<11} {ca['mean']:>7.3f} [{ca['lo']:.2f},{ca['hi']:.2f}]"
-                  f" {cc['mean']:>10.3f} {cs['mean']:>12.3f} {np.mean(colls):>8.2f}")
+            print(
+                f"{name:<14} {tree_name:<11} {ca['mean']:>7.3f} [{ca['lo']:.2f},{ca['hi']:.2f}]"
+                f" {cc['mean']:>10.3f} {cs['mean']:>12.3f} {np.mean(colls):>8.2f}"
+            )
 
     print("\nAI-BUILDING temporal-half composition (F3/Q5: mixture vs drift)")
     idx = bucket_idx["ai-building"]
