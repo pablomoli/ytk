@@ -1,9 +1,10 @@
-# Proposed refresh of ~/.ytk/grove_buckets.yaml for #106.
+# Refresh of ~/.ytk/grove_buckets.yaml for #106. Approved 2026-07-25 and
+# installed; the pre-#106 file is kept at ~/.ytk/grove_buckets.yaml.pre-106.bak.
+# Tracked here because the bucket axis is the user's taste axis — it gets
+# proposed, measured and approved, never assumed, and never edited only in a
+# dotfile where the reasoning would be lost.
 #
-# Reviewable here before it lands in ~/.ytk/ — the bucket axis is the user's
-# taste axis, so the remap is proposed, measured, and approved, never assumed.
-#
-# Why a remap is needed: the live file was authored 2026-07-12 against an
+# Why a remap was needed: the live file was authored 2026-07-12 against an
 # interest profile that has since been re-synthesized. Measured 2026-07-25,
 # all eight of its `themes:` matchers name labels that no longer exist, so
 # every one of them matches zero notes — six buckets are entirely empty and
@@ -60,13 +61,24 @@ buckets:
     # New: the twelfth live theme had no bucket to land in.
     themes: [hardware DIY & maker builds]
 
+  - name: hackathons
+    # The grove excludes these by name; the map cannot, because it has to
+    # place every point. 596 notes, and leaving them unplaced would render a
+    # third of the canvas grey (measured: 32% vs 16%). The two consumers
+    # diverge here on purpose — same axis, different obligation.
+    projects: [niloc, usf, hacklytics-goldenbyte]
+
 # Retired, and why: `eating` (High-protein practical eating) and `adhd`
 # (ADHD & masking) have no surviving theme in the live profile and no project
 # or path rule of their own, so they can only ever match zero notes. Reseed
 # them with a `seed:` description if the topics matter again.
 
-# Unplaced project slugs seen in the vault — move into a bucket or leave dead:
-#   neat (24), pablomoli (10), hash (15)
-# Hackathon sprints (niloc 244, usf 183, hacklytics-goldenbyte 169) remain
-# deliberately excluded, as in the grove. The map must still place every
-# point, so they render as `unplaced` rather than vanishing.
+# Still unplaced by choice — small project slugs with no topical home:
+#   neat (24), pablomoli (10), hash (15). They render dim on the map rather
+# than being folded into a residue bucket that would pretend to be a topic.
+#
+# Note for the grove: the `hackathons` bucket above is new and the grove
+# previously excluded those sprints by name. The grove's topology is cached,
+# so nothing moves until it is rebuilt — but when it is, expect three
+# sprints' worth of notes to join. Drop the bucket here if the grove should
+# keep ignoring them.

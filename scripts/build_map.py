@@ -29,14 +29,40 @@ import numpy as np
 
 from ytk import ridges, signals
 from ytk.mapdomains import CONTENT_CATS as _CATS
-from ytk.mapdomains import domain_labels, index_domains
+from ytk.mapdomains import (
+    UNPLACED,
+    bucket_labels,
+    domain_labels,
+    index_domains,
+    load_buckets,
+    notes_from_metas,
+)
 
 SNAPSHOT = Path(os.path.expanduser("~/.ytk/interest/latest.json"))
 CHROMA = os.path.expanduser("~/.ytk/chroma")
 OUT = Path.home() / ".ytk" / "map.json"
+# The grove's config, read here too — one taste axis, two consumers (#106).
+BUCKETS = Path.home() / ".ytk" / "grove_buckets.yaml"
 
 CONTENT_CATS = _CATS
-UNTHEMED_PERCENTILE = 25
+# Absolute cosine a content note needs against its best theme centroid to be
+# called themed at all. This was np.percentile(conf, 25) — a rank statistic,
+# so it discarded exactly a quarter of content whatever the matches were
+# worth, and it moved with the batch: the same note flipped themed/unthemed
+# between builds because *other* notes changed. On a corpus that re-embeds,
+# "unthemed" has to be a property of the note.
+#
+# Pinned at the value that quota sat on for the 2026-07-25 corpus, so the
+# change is a stability fix and not a silent reshuffle (measured: 295/393
+# content notes placed, identical to the percentile it replaces).
+#
+# Deliberately NOT set from the null in docs/assets/semantic-domains/
+# 02-theme-floor-null.png: a null-calibrated floor lands at 0.34-0.41 in the
+# content-centred space and would place 120/393. The null says the themes
+# beat chance by 1.00 sd — against 0.65 sd for source platform, a partition
+# that is ground truth — so the axis is real; it is not sharp enough to
+# justify throwing away two thirds of the content.
+THEME_FLOOR = 0.496
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
@@ -174,8 +200,7 @@ def assign_themes(vecs: np.ndarray, snapshot: dict) -> list[int]:
     cents = _normalize(np.array([themes[i]["centroid"] for i in valid]))
     sims = _normalize(vecs) @ cents.T
     best, conf = sims.argmax(axis=1), sims.max(axis=1)
-    floor = np.percentile(conf, UNTHEMED_PERCENTILE)
-    return [int(valid[b]) if c >= floor else -1 for b, c in zip(best, conf)]
+    return [int(valid[b]) if c >= THEME_FLOOR else -1 for b, c in zip(best, conf)]
 
 
 def _ctfidf_names(cluster_docs: list[str]) -> list[str]:
@@ -511,7 +536,21 @@ def main() -> None:
     # --- all view: domain hierarchy + per-domain subtopics -------------------
     print(f"all view: {len(meta)} points")
     content_theme = {g: cthemes[k] for k, g in enumerate(cidx)}
-    labels_str = domain_labels(meta, content_theme, [t["label"] for t in snapshot["themes"]])
+    theme_names = [t["label"] for t in snapshot["themes"]]
+    if BUCKETS.exists():
+        cfg = load_buckets(BUCKETS)
+        notes = notes_from_metas(meta, content_theme, theme_names, _rel_path)
+        labels_str = bucket_labels(notes, cfg)
+        n_unplaced = sum(1 for label in labels_str if label == UNPLACED)
+        print(
+            f"domains: bucket axis, {len(cfg.buckets)} buckets, "
+            f"{n_unplaced} unplaced ({100 * n_unplaced / len(labels_str):.0f}%)"
+        )
+    else:
+        # No bucket config: fall back to the provenance axis rather than
+        # rendering an unlabelled map.
+        print(f"domains: no {BUCKETS}, falling back to the provenance axis")
+        labels_str = domain_labels(meta, content_theme, theme_names)
     doms, domains_meta = index_domains(labels_str)
     clabels, term_names, owners = derive_subtopics(vecs, docs, doms, len(domains_meta))
     exemplars = [
