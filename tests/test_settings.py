@@ -73,7 +73,12 @@ def test_per_source_cadence(hub):
     second = hub.refresh_sources()
     assert second["skipped"] is False
     assert second["instagram"] == 1
-    assert sorted(second["skipped_sources"]) == ["imessage", "pinterest", "youtube"]
+    # Asserted as a subset, not an exact list: the hub gains sources over time
+    # (reddit and tiktok since this was written) and every one of them would
+    # break an equality check without saying anything about cadence.
+    skipped = set(second["skipped_sources"])
+    assert {"imessage", "pinterest", "youtube"} <= skipped
+    assert "instagram" not in skipped
 
 
 def test_favicon_renders_configured_glyph(client):
