@@ -43,6 +43,8 @@ from plot_assets import (
     figure,
     frame_panels,
     panel_title,
+    punch,
+    saturated_magma,
     style_axes,
 )
 
@@ -242,7 +244,30 @@ def fig03(screen, diam):
     ax = fig.add_subplot(gs[0])
     style_axes(ax)
     panel_title(ax, "where the two models disagree")
-    ax.scatter(screen[:, 0], screen[:, 1], s=1.1, color=DIM, zorder=1)
+    # Same treatment the fog series gives its cloud: the magma ramp keyed to
+    # local density and gamma-lifted, so the crowded neighbourhoods — which is
+    # exactly where the two models can disagree — read bright.
+    cmap = saturated_magma()
+    knn = np.sort(np.linalg.norm(screen[:, None, :] - screen[None, :, :], axis=2)[:, :64], axis=1)[
+        :, 8
+    ]
+    dens = 1.0 / np.maximum(knn, 1e-6)
+    # Rank-normalised, not min-max: one very dense cluster owns the top of the
+    # raw range and squashes everything else into magma's near-black end — the
+    # same trap the fog notes describe at a median density of 0.17.
+    dens = np.argsort(np.argsort(dens)) / max(len(dens) - 1, 1)
+    ax.scatter(
+        screen[:, 0],
+        screen[:, 1],
+        c=punch(dens),
+        cmap=cmap,
+        vmin=0,
+        vmax=1,
+        s=3 + 10 * dens,
+        alpha=0.5,
+        linewidths=0,
+        zorder=1,
+    )
     ax.scatter(probes[agree, 0], probes[agree, 1], s=2.4, color=GOLD, zorder=2, label="agree")
     ax.scatter(
         probes[cpu_only, 0],
@@ -330,10 +355,12 @@ def fig04():
     panel_title(ax, "rAF calls the map schedules while nothing moves (#101 fix 1)")
     vend_b = before.get("runs", [{}])[0].get("vendor_fps", 0)
     vend_a = after.get("runs", [{}])[0].get("vendor_fps", 0)
+    ramp = saturated_magma()
+    hot, cool = ramp(0.62), ramp(0.86)  # same ramp the cloud is painted with
     ax.bar(
         ["before", "after"],
         [before["idle_fps"], after["idle_fps"]],
-        color=[RED, GOLD],
+        color=[hot, cool],
         width=0.55,
         label="map render loop",
     )
@@ -366,7 +393,7 @@ def fig04():
     bars = ax.bar(
         ["before", "after"],
         [before["hover_ms"], after["hover_ms"]],
-        color=[RED, GOLD],
+        color=[hot, cool],
         width=0.55,
     )
     for rect, value in zip(bars, [before["hover_ms"], after["hover_ms"]]):
