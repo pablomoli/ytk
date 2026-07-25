@@ -132,11 +132,16 @@ about to change, and the two changes are **not** equivalent:
   274 -> 225 skeleton vertices, 16.3x -> 18.1x compression.
 
   One caveat when quoting the point count: it fell 4,460 -> 4,067 for a
-  reason that has nothing to do with the re-embed. 571 stale flat notes
-  under the pre-5J `inbox/memories/` layout left the corpus between the
-  two builds (that directory no longer exists on disk, and the store holds
-  no records from it). Current-layout content grew over the same window,
-  +181. Do not attribute the drop to #105.
+  reason that has nothing to do with the re-embed. 571 first-generation
+  flat notes under the root-level `inbox/memories/` layout left the corpus
+  at the v2 embedding-epoch cutover on 2026-07-17, a week before this
+  work — their `.md` files had already been deleted, so the v2 rebuild did
+  not carry the orphaned vectors forward. The store snapshots bracket it:
+  `chroma.pre-v2-20260717` holds 571 such records, and
+  `chroma.pre-desc-backfill-20260724` holds zero. Current-layout content
+  grew over the same window, +181. Do not attribute the drop to #105.
+  The recovered notes now live in
+  `second-brain/inbox/memories/recovered-2026-04/`.
 
 So: re-render after #105 **and** #106 are both in, in that order, with
 `uv run --with matplotlib python scripts/plot_assets.py --refresh`. Keep
