@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --directory \"$CLAUDE_PROJECT_DIR\" ytk work context --platform claude",
+            "timeout": 20,
+            "statusMessage": "Loading ytk workboard"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-"""ytk MCP server — exposes vault + vector store to Claude Code sessions."""
+"""ytk MCP server for Codex and Claude Code sessions."""
 
 from __future__ import annotations
 
@@ -105,6 +105,31 @@ def vault_reindex(force: bool = False) -> str:
 
     count = reindex_vault(force=force)
     return f"Indexed {count} notes."
+
+
+@app.tool()
+def work_list() -> str:
+    """List active ytk GitHub Project items in canonical order."""
+    from .workboard import format_queue, get_snapshot
+
+    return format_queue(get_snapshot())
+
+
+@app.tool()
+def work_next() -> str:
+    """Show ytk work already in progress and the next executable ticket."""
+    from .workboard import format_snapshot, get_snapshot
+
+    return format_snapshot(get_snapshot())
+
+
+@app.tool()
+def work_set_stage(issue_number: int, stage: str) -> str:
+    """Explicitly change a ytk issue's GitHub Project Stage."""
+    from .workboard import set_issue_stage
+
+    updated = set_issue_stage(issue_number, stage)
+    return f"Updated #{updated.number} to {updated.stage}."
 
 
 @app.tool()
