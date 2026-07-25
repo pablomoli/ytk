@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import warnings
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,10 +26,13 @@ os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
 os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 os.environ.setdefault("HF_HUB_DISABLE_IMPLICIT_TOKEN", "1")
 
+from datetime import UTC
+
 from .enrich import Enrichment
 
-
-_CHROMA_PATH = Path(os.environ.get("CHROMA_PATH", str(Path.home() / ".ytk" / "chroma"))).expanduser()
+_CHROMA_PATH = Path(
+    os.environ.get("CHROMA_PATH", str(Path.home() / ".ytk" / "chroma"))
+).expanduser()
 _COLLECTION_VISUAL = "ytk_visual"
 _COLLECTION_VISUAL_PENDING = "ytk_visual_pending"
 
@@ -84,7 +88,7 @@ _COLLECTION_SEGMENTS = "ytk_segments"
 _COLLECTION_MEMORIES = "ytk_memories"
 
 _client: chromadb.PersistentClient | None = None
-_efs: dict[str, "embedding_functions.EmbeddingFunction"] = {}
+_efs: dict[str, embedding_functions.EmbeddingFunction] = {}
 
 
 def _get_client() -> chromadb.PersistentClient:
@@ -105,10 +109,16 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
     embed queries via embed_query() and pass query_embeddings explicitly.
     """
 
-    def __init__(self, model_name: str, query_prefix: str,
-                 fp16: bool = True, max_seq: int = 0,
-                 device: str | None = None, encode_batch: int = 32,
-                 revision: str | None = None):
+    def __init__(
+        self,
+        model_name: str,
+        query_prefix: str,
+        fp16: bool = True,
+        max_seq: int = 0,
+        device: str | None = None,
+        encode_batch: int = 32,
+        revision: str | None = None,
+    ):
         self._model_name = model_name
         self._query_prefix = query_prefix
         self._fp16 = fp16
@@ -125,20 +135,21 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
             kwargs = {}
             if self._fp16:
                 import torch
+
                 kwargs["model_kwargs"] = {"torch_dtype": torch.float16}
             if self._device:
                 kwargs["device"] = self._device
-            self._model = SentenceTransformer(
-                self._model_name, revision=self._revision, **kwargs
-            )
+            self._model = SentenceTransformer(self._model_name, revision=self._revision, **kwargs)
             if self._max_seq:
                 self._model.max_seq_length = self._max_seq
         return self._model
 
     def __call__(self, input) -> list[list[float]]:
         embs = self._load().encode(
-            list(input), batch_size=self._encode_batch,
-            normalize_embeddings=True, show_progress_bar=False,
+            list(input),
+            batch_size=self._encode_batch,
+            normalize_embeddings=True,
+            show_progress_bar=False,
         )
         return [[float(x) for x in e] for e in embs]
 
@@ -161,7 +172,7 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
         }
 
     @staticmethod
-    def build_from_config(config: dict) -> "InstructionAwareEF":
+    def build_from_config(config: dict) -> InstructionAwareEF:
         return InstructionAwareEF(**config)
 
 
@@ -178,8 +189,10 @@ def _get_ef(epoch: str | None = None):
         cfg = _EPOCHS[epoch]
         if cfg["query_prefix"]:
             _efs[epoch] = InstructionAwareEF(
-                model_name=cfg["model"], query_prefix=cfg["query_prefix"],
-                fp16=cfg["fp16"], max_seq=cfg["max_seq"],
+                model_name=cfg["model"],
+                query_prefix=cfg["query_prefix"],
+                fp16=cfg["fp16"],
+                max_seq=cfg["max_seq"],
                 device=cfg.get("device"),
                 encode_batch=cfg.get("encode_batch", 32),
                 revision=cfg.get("revision"),
@@ -309,9 +322,7 @@ def pending_visual_ids() -> set[str]:
 
 
 def upsert_pending_visual(url: str, embedding: list[float], metadata: dict) -> None:
-    _visual_pending_collection().upsert(
-        ids=[url], embeddings=[embedding], metadatas=[metadata]
-    )
+    _visual_pending_collection().upsert(ids=[url], embeddings=[embedding], metadatas=[metadata])
 
 
 def delete_pending_visual(urls: list[str]) -> None:
@@ -335,9 +346,7 @@ def pending_visual_similar(embedding: list[float], n: int = 30) -> list[VisualRe
             note_path="",
             distance=dist,
         )
-        for rid, meta, dist in zip(
-            res["ids"][0], res["metadatas"][0], res["distances"][0]
-        )
+        for rid, meta, dist in zip(res["ids"][0], res["metadatas"][0], res["distances"][0])
     ]
 
 
@@ -359,9 +368,7 @@ def get_profile_visual_pool(pending: bool = False) -> list[dict]:
             "source": (meta or {}).get("source", ""),
             "note_path": (meta or {}).get("note_path", ""),
         }
-        for item_id, embedding, meta in zip(
-            data["ids"], data["embeddings"], data["metadatas"]
-        )
+        for item_id, embedding, meta in zip(data["ids"], data["embeddings"], data["metadatas"])
     ]
 
 
@@ -393,20 +400,20 @@ def visual_similar(
         n_results=min(n + 1, col.count()),
     )
     out: list[VisualResult] = []
-    for rid, meta, dist in zip(
-        res["ids"][0], res["metadatas"][0], res["distances"][0]
-    ):
+    for rid, meta, dist in zip(res["ids"][0], res["metadatas"][0], res["distances"][0]):
         if rid == item_id:
             continue
-        out.append(VisualResult(
-            item_id=rid,
-            source=meta.get("source", ""),
-            title=meta.get("title", ""),
-            url=meta.get("url", ""),
-            image_path=meta.get("image_path", ""),
-            note_path=meta.get("note_path", ""),
-            distance=dist,
-        ))
+        out.append(
+            VisualResult(
+                item_id=rid,
+                source=meta.get("source", ""),
+                title=meta.get("title", ""),
+                url=meta.get("url", ""),
+                image_path=meta.get("image_path", ""),
+                note_path=meta.get("note_path", ""),
+                distance=dist,
+            )
+        )
     return out[:n]
 
 
@@ -418,7 +425,7 @@ def strip_frontmatter(text: str) -> str:
     if not text.startswith("---"):
         return text
     m = _FM_RE.match(text)
-    return text[m.end():].lstrip() if m else text
+    return text[m.end() :].lstrip() if m else text
 
 
 def _with_ingest_time(col, ids: list[str], metas: list[dict]) -> list[dict]:
@@ -429,19 +436,17 @@ def _with_ingest_time(col, ids: list[str], metas: list[dict]) -> list[dict]:
     API upsert again — absent means unknown, never a backfilled guess.
     The embedder migration copies metadata verbatim, so stamps survive
     re-embedding (grove v6 finding 15)."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     try:
         existing = col.get(ids=ids, include=["metadatas"])
-        prior = {i: (m or {}).get("ingested_at")
-                 for i, m in zip(existing["ids"], existing["metadatas"])}
+        prior = {
+            i: (m or {}).get("ingested_at") for i, m in zip(existing["ids"], existing["metadatas"])
+        }
     except Exception:
         prior = {}
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    return [
-        {**meta, "ingested_at": prior.get(i) or now}
-        for i, meta in zip(ids, metas)
-    ]
+    now = datetime.now(UTC).isoformat(timespec="seconds")
+    return [{**meta, "ingested_at": prior.get(i) or now} for i, meta in zip(ids, metas)]
 
 
 _DOC_PART_LIMIT = 1800  # chars (~450 tokens): fits the v1 512-token window
@@ -513,7 +518,9 @@ def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
         # audit); clear any stale vectors so an edited-down note disappears
         logging.getLogger(__name__).info(
             "upsert_doc %s: %d chars < %d, not embedding",
-            doc_id, len(text.strip()), MIN_EMBED_CHARS,
+            doc_id,
+            len(text.strip()),
+            MIN_EMBED_CHARS,
         )
         delete_doc(doc_id)
         return
@@ -526,7 +533,9 @@ def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
     if len(chunks) > 1:
         logging.getLogger(__name__).info(
             "upsert_doc %s: %d chars overflowed into %d vectors",
-            doc_id, len(text), len(chunks),
+            doc_id,
+            len(text),
+            len(chunks),
         )
 
     if _EPOCHS[EMBEDDING_EPOCH]["parts"] or len(chunks) > 1:
@@ -590,11 +599,13 @@ def orphaned_memory_vectors() -> list[dict[str, str]]:
     for vector_id, meta in zip(got["ids"], got["metadatas"]):
         source_path = (meta or {}).get("source_path", "")
         if not source_path or not Path(source_path).expanduser().exists():
-            out.append({
-                "vector_id": vector_id,
-                "doc_id": (meta or {}).get("doc_id", vector_id),
-                "source_path": source_path,
-            })
+            out.append(
+                {
+                    "vector_id": vector_id,
+                    "doc_id": (meta or {}).get("doc_id", vector_id),
+                    "source_path": source_path,
+                }
+            )
     return out
 
 
@@ -734,9 +745,7 @@ def upsert(meta: dict, enrichment: Enrichment, segments: list[dict]) -> None:
     vcol.upsert(
         ids=list(parts.keys()),
         documents=list(parts.values()),
-        metadatas=_with_ingest_time(
-            vcol, list(parts.keys()), [dict(part_meta) for _ in parts]
-        ),
+        metadatas=_with_ingest_time(vcol, list(parts.keys()), [dict(part_meta) for _ in parts]),
     )
 
     # --- segment-level (60s blocks, mirrors vault.py grouping) ---
@@ -755,13 +764,15 @@ def upsert(meta: dict, enrichment: Enrichment, segments: list[dict]) -> None:
     def _flush(start: float, texts: list[str], idx: int) -> None:
         seg_ids.append(f"{video_id}_{idx}")
         seg_docs.append(" ".join(texts))
-        seg_metas.append({
-            "video_id": video_id,
-            "title": title,
-            "url": meta.get("url", ""),
-            "start": start,
-            "timestamp_url": f"https://youtu.be/{video_id}?t={int(start)}",
-        })
+        seg_metas.append(
+            {
+                "video_id": video_id,
+                "title": title,
+                "url": meta.get("url", ""),
+                "start": start,
+                "timestamp_url": f"https://youtu.be/{video_id}?t={int(start)}",
+            }
+        )
 
     for seg in segments:
         if seg["start"] - block_start >= window and block_texts:
@@ -856,25 +867,28 @@ def search_videos(query: str, n: int = 5, rerank: bool | None = None) -> list[Vi
     )
     out: list[VideoResult] = []
     for meta, dist in _collapse_by_video(results["metadatas"][0], results["distances"][0])[:fetch]:
-        out.append(VideoResult(
-            video_id=meta["video_id"],
-            title=meta["title"],
-            url=meta["url"],
-            uploader=meta["uploader"],
-            date=meta["date"],
-            tags=meta["tags"].split(", ") if meta["tags"] else [],
-            thesis=meta.get("thesis", ""),
-            summary=meta["summary"],
-            distance=dist,
-        ))
+        out.append(
+            VideoResult(
+                video_id=meta["video_id"],
+                title=meta["title"],
+                url=meta["url"],
+                uploader=meta["uploader"],
+                date=meta["date"],
+                tags=meta["tags"].split(", ") if meta["tags"] else [],
+                thesis=meta.get("thesis", ""),
+                summary=meta["summary"],
+                distance=dist,
+            )
+        )
     if rerank_on and out:
         # thesis+summary is the representative doc the video was embedded on
         out = _apply_rerank(query, out, [f"{r.thesis}\n\n{r.summary}" for r in out], n)
     return out[:n]
 
 
-def search_segments(query: str, video_id: str | None = None, n: int = 10,
-                    rerank: bool | None = None) -> list[SegmentResult]:
+def search_segments(
+    query: str, video_id: str | None = None, n: int = 10, rerank: bool | None = None
+) -> list[SegmentResult]:
     """
     Search segment-level collection. Optionally filter to a specific video_id.
     Used by the future `ytk dive` command.
@@ -898,15 +912,17 @@ def search_segments(query: str, video_id: str | None = None, n: int = 10,
     for meta, doc, dist in zip(
         results["metadatas"][0], results["documents"][0], results["distances"][0]
     ):
-        out.append(SegmentResult(
-            video_id=meta["video_id"],
-            title=meta["title"],
-            url=meta["url"],
-            start=meta["start"],
-            text=doc,
-            timestamp_url=meta["timestamp_url"],
-            distance=dist,
-        ))
+        out.append(
+            SegmentResult(
+                video_id=meta["video_id"],
+                title=meta["title"],
+                url=meta["url"],
+                start=meta["start"],
+                text=doc,
+                timestamp_url=meta["timestamp_url"],
+                distance=dist,
+            )
+        )
     if rerank_on and out:
         out = _apply_rerank(query, out, [r.text for r in out], n)
     return out[:n]
@@ -924,11 +940,15 @@ class UnifiedResult:
 
 def upsert_memory(doc_id: str, text: str, tags: list[str], source_path: str) -> None:
     """Embed and store an arbitrary memory note in the memories collection."""
-    upsert_doc(doc_id, text, {
-        "doc_id": doc_id,
-        "tags": ", ".join(tags),
-        "source_path": source_path,
-    })
+    upsert_doc(
+        doc_id,
+        text,
+        {
+            "doc_id": doc_id,
+            "tags": ", ".join(tags),
+            "source_path": source_path,
+        },
+    )
 
 
 def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[UnifiedResult]:
@@ -949,14 +969,19 @@ def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[Unifi
     if vcol.count() > 0:
         vr = vcol.query(query_embeddings=[query_emb], n_results=min(fetch * 3, vcol.count()))
         for meta, dist in _collapse_by_video(vr["metadatas"][0], vr["distances"][0])[:fetch]:
-            pairs.append((UnifiedResult(
-                type="video",
-                doc_id=meta["video_id"],
-                title=meta["title"],
-                excerpt=meta.get("thesis", meta["summary"])[:200],
-                source=meta["url"],
-                distance=dist,
-            ), f"{meta.get('thesis', '')}\n\n{meta['summary']}"))
+            pairs.append(
+                (
+                    UnifiedResult(
+                        type="video",
+                        doc_id=meta["video_id"],
+                        title=meta["title"],
+                        excerpt=meta.get("thesis", meta["summary"])[:200],
+                        source=meta["url"],
+                        distance=dist,
+                    ),
+                    f"{meta.get('thesis', '')}\n\n{meta['summary']}",
+                )
+            )
 
     mcol = _memories_collection()
     if mcol.count() > 0:
@@ -966,14 +991,19 @@ def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[Unifi
             if meta["doc_id"] in seen_docs:  # best-ranked part already represents this doc
                 continue
             seen_docs.add(meta["doc_id"])
-            pairs.append((UnifiedResult(
-                type="memory",
-                doc_id=meta["doc_id"],
-                title=meta["doc_id"],
-                excerpt=doc[:200],
-                source=meta["source_path"],
-                distance=dist,
-            ), doc))
+            pairs.append(
+                (
+                    UnifiedResult(
+                        type="memory",
+                        doc_id=meta["doc_id"],
+                        title=meta["doc_id"],
+                        excerpt=doc[:200],
+                        source=meta["source_path"],
+                        distance=dist,
+                    ),
+                    doc,
+                )
+            )
 
     pairs.sort(key=lambda p: p[0].distance)
     if rerank_on and pairs:
@@ -992,7 +1022,7 @@ def top_tags(n: int = 40) -> list[str]:
     return [t for t, _ in tag_counts().most_common(n)]
 
 
-def tag_counts() -> "Counter[str]":
+def tag_counts() -> Counter[str]:
     """Tag -> usage count over enrichment-produced interest_tags.
 
     Videos collection only: the memories collection's tags metadata holds
@@ -1000,8 +1030,6 @@ def tag_counts() -> "Counter[str]":
     directory), which are structural labels, not interest tags. Feeding those
     into the enrichment vocabulary would teach it to tag content "inbox".
     """
-    from collections import Counter
-
     counts: Counter[str] = Counter()
     col = _videos_collection()
     if col.count():
@@ -1030,16 +1058,18 @@ def get_all_videos() -> list[dict]:
         if "#" in vid:  # retrieval-only part; one representative vector per video
             continue
         tags = meta.get("tags", "")
-        out.append({
-            "id": vid,
-            "source": "youtube",
-            "title": meta.get("title", ""),
-            "thesis": meta.get("thesis", ""),
-            "summary": meta.get("summary", ""),
-            "tags": tags.split(", ") if tags else [],
-            "embedding": list(emb),
-            "captured_at": meta.get("ingested_at", ""),
-        })
+        out.append(
+            {
+                "id": vid,
+                "source": "youtube",
+                "title": meta.get("title", ""),
+                "thesis": meta.get("thesis", ""),
+                "summary": meta.get("summary", ""),
+                "tags": tags.split(", ") if tags else [],
+                "embedding": list(emb),
+                "captured_at": meta.get("ingested_at", ""),
+            }
+        )
     return out
 
 
@@ -1073,9 +1103,7 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
     col = _memories_collection()
     if col.count() == 0:
         return []
-    allow = tuple(f"{p}_" for p in prefixes) + tuple(
-        f"note_sources_{p}_" for p in prefixes
-    )
+    allow = tuple(f"{p}_" for p in prefixes) + tuple(f"note_sources_{p}_" for p in prefixes)
     res = col.get(include=["embeddings", "metadatas", "documents"])
     out: list[dict] = []
     for mid, emb, meta, doc in zip(
@@ -1092,15 +1120,17 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
             else doc_id.split("_", 1)[0]
         )
         tags = meta.get("tags", "")
-        out.append({
-            "id": mid,
-            "source": source,
-            "title": "",
-            "thesis": _extract_thesis(doc),
-            "summary": "",
-            "tags": tags.split(", ") if tags else [],
-            "embedding": list(emb),
-            "source_path": meta.get("source_path", ""),
-            "captured_at": meta.get("ingested_at", ""),
-        })
+        out.append(
+            {
+                "id": mid,
+                "source": source,
+                "title": "",
+                "thesis": _extract_thesis(doc),
+                "summary": "",
+                "tags": tags.split(", ") if tags else [],
+                "embedding": list(emb),
+                "source_path": meta.get("source_path", ""),
+                "captured_at": meta.get("ingested_at", ""),
+            }
+        )
     return out

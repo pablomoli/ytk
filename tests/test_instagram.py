@@ -1,32 +1,37 @@
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 def test_extract_shortcode_post():
     from ytk.instagram import _extract_shortcode
+
     assert _extract_shortcode("https://www.instagram.com/p/ABC123xyz/") == "ABC123xyz"
 
 
 def test_extract_shortcode_reel():
     from ytk.instagram import _extract_shortcode
+
     assert _extract_shortcode("https://www.instagram.com/reel/DEF456abc/") == "DEF456abc"
 
 
 def test_extract_shortcode_tv():
     from ytk.instagram import _extract_shortcode
+
     assert _extract_shortcode("https://www.instagram.com/tv/GHI789/") == "GHI789"
 
 
 def test_extract_shortcode_invalid_raises():
     from ytk.instagram import _extract_shortcode
+
     with pytest.raises(ValueError, match="Cannot extract shortcode"):
         _extract_shortcode("https://www.instagram.com/explore/tags/art/")
 
 
 def test_fetch_instagram_single_image():
-    from ytk.instagram import fetch_instagram, InstagramPost
+    from ytk.instagram import InstagramPost, fetch_instagram
 
     mock_post = MagicMock()
     mock_post.typename = "GraphImage"
@@ -92,8 +97,10 @@ def test_fetch_instagram_reel_downloads_video(tmp_path):
     mock_post.date_utc.strftime.return_value = "2026-04-19"
     mock_post.caption = "Check this out"
 
-    with patch("ytk.instagram.instaloader") as mock_il, \
-         patch("ytk.instagram._download_reel", return_value=fake_video):
+    with (
+        patch("ytk.instagram.instaloader") as mock_il,
+        patch("ytk.instagram._download_reel", return_value=fake_video),
+    ):
         mock_il.Instaloader.return_value = MagicMock()
         mock_il.Post.from_shortcode.return_value = mock_post
         result = fetch_instagram("https://www.instagram.com/reel/XYZ/")

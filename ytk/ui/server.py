@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 
 
 @asynccontextmanager
-async def _lifespan(app: "FastAPI"):
+async def _lifespan(app: FastAPI):
     from ytk.ui import hub
 
     # Pick a batch back up before anything else: the hub is killed and restarted
@@ -41,6 +41,8 @@ async def _lifespan(app: "FastAPI"):
 
 
 app = FastAPI(title="ytk ingest hub", docs_url=None, redoc_url=None, lifespan=_lifespan)
+
+from datetime import UTC
 
 from fastapi.staticfiles import StaticFiles
 
@@ -363,23 +365,25 @@ async def profile_api():
         "decay_half_life_days": snap.decay_half_life_days,
         "profile_markdown": snap.profile_markdown,
         "profile_score": snap.profile_score.model_dump() if snap.profile_score else None,
-        "claims": [
-            {"text": c.text, "evidence_ids": c.evidence_ids}
-            for c in snap.portrait_claims
-        ],
+        "claims": [{"text": c.text, "evidence_ids": c.evidence_ids} for c in snap.portrait_claims],
         "themes": [
-            {"id": t.id, "label": t.label, "summary": t.summary,
-             "weight": t.weight, "n_notes": len(t.note_ids),
-             "fresh_notes": t.fresh_note_count,
-             "exemplars": [
-                 {"title": title, "source": source}
-                 for title, source in zip(
-                     t.exemplar_titles[:3],
-                     (t.exemplar_sources + [""] * 3)[:3],
-                 )
-             ],
-             "evidence_ids": t.evidence_ids,
-             "note_ids": t.note_ids}
+            {
+                "id": t.id,
+                "label": t.label,
+                "summary": t.summary,
+                "weight": t.weight,
+                "n_notes": len(t.note_ids),
+                "fresh_notes": t.fresh_note_count,
+                "exemplars": [
+                    {"title": title, "source": source}
+                    for title, source in zip(
+                        t.exemplar_titles[:3],
+                        (t.exemplar_sources + [""] * 3)[:3],
+                    )
+                ],
+                "evidence_ids": t.evidence_ids,
+                "note_ids": t.note_ids,
+            }
             for t in snap.themes
         ],
     }
@@ -429,8 +433,11 @@ async def grove_buckets_put(request: Request):
         raise HTTPException(status_code=422, detail="duplicate bucket names")
     _GROVE_BUCKETS_PATH.parent.mkdir(parents=True, exist_ok=True)
     _GROVE_BUCKETS_PATH.write_text(raw, encoding="utf-8")
-    return {"saved": True, "buckets": names,
-            "hint": "rebuild to apply: uv run --extra dev python -m scripts.grove_lab.dendro --rebuild"}
+    return {
+        "saved": True,
+        "buckets": names,
+        "hint": "rebuild to apply: uv run --extra dev python -m scripts.grove_lab.dendro --rebuild",
+    }
 
 
 _GROWTH_PHILOSOPHY_PATH = Path.home() / ".ytk" / "growth_philosophy.md"
@@ -458,8 +465,10 @@ async def growth_philosophy_get():
     if not _GROWTH_PHILOSOPHY_PATH.exists():
         _GROWTH_PHILOSOPHY_PATH.parent.mkdir(parents=True, exist_ok=True)
         _GROWTH_PHILOSOPHY_PATH.write_text(_GROWTH_PHILOSOPHY_DEFAULT, encoding="utf-8")
-    return {"text": _GROWTH_PHILOSOPHY_PATH.read_text(encoding="utf-8"),
-            "path": str(_GROWTH_PHILOSOPHY_PATH)}
+    return {
+        "text": _GROWTH_PHILOSOPHY_PATH.read_text(encoding="utf-8"),
+        "path": str(_GROWTH_PHILOSOPHY_PATH),
+    }
 
 
 @app.put("/api/growth/philosophy")
@@ -564,8 +573,7 @@ def ready_api():
     to a TCC reset) so a broken pipeline is visible instead of silent."""
     from ytk.ui import hub
 
-    return {"search": hub.search_ready(),
-            "capture_problems": hub._CAPTURE_PROBLEMS}
+    return {"search": hub.search_ready(), "capture_problems": hub._CAPTURE_PROBLEMS}
 
 
 @app.get("/api/imessage-warm")
@@ -603,17 +611,19 @@ def inbox_search_api(q: str, n: int = 30, scope: str = "ingested"):
     if scope == "pending":
         _kick_pending_sync()  # pick up newly cached covers for next search
         hits = pending_visual_similar(embedding=embedding, n=n)
-        return {"results": [
-            {
-                "url": r.url,
-                "title": r.title,
-                "source": r.source,
-                "thumbnail": None,   # served via /api/cover?u= like grid cards
-                "pending": True,
-                "distance": r.distance,
-            }
-            for r in hits
-        ]}
+        return {
+            "results": [
+                {
+                    "url": r.url,
+                    "title": r.title,
+                    "source": r.source,
+                    "thumbnail": None,  # served via /api/cover?u= like grid cards
+                    "pending": True,
+                    "distance": r.distance,
+                }
+                for r in hits
+            ]
+        }
 
     # small over-fetch: a few indexed covers (old tiktok thumbs) lack urls
     hits = visual_similar(embedding=embedding, n=n + 10)
@@ -631,13 +641,15 @@ def inbox_search_api(q: str, n: int = 30, scope: str = "ingested"):
                 thumb = str(p.relative_to(brain))
         except Exception:
             pass
-        out.append({
-            "url": r.url,
-            "title": r.title,
-            "source": r.source,
-            "thumbnail": thumb,
-            "distance": r.distance,
-        })
+        out.append(
+            {
+                "url": r.url,
+                "title": r.title,
+                "source": r.source,
+                "thumbnail": thumb,
+                "distance": r.distance,
+            }
+        )
     return {"results": out}
 
 
@@ -657,8 +669,9 @@ async def snap_api(request: Request, note: str = "", tags: str = ""):
 
 @app.get("/api/visual-image")
 def visual_image_api(id: str):
-    from fastapi.responses import FileResponse
     from pathlib import Path as _P
+
+    from fastapi.responses import FileResponse
 
     from ytk.store import _visual_collection
 
@@ -734,9 +747,9 @@ async def favicon():
 
 @app.get("/api/settings")
 async def settings_get():
+    from ytk import reels
     from ytk.config import load_config
     from ytk.ui import hub
-    from ytk import reels
 
     cfg = load_config()
     state = reels.load_state(hub.STATE_PATH)
@@ -781,14 +794,11 @@ async def settings_put(request: Request):
     except ValidationError as exc:
         # field-path -> message, so the page can render errors inline
         errors = [
-            {"loc": ".".join(str(p) for p in e["loc"]), "msg": e["msg"]}
-            for e in exc.errors()
+            {"loc": ".".join(str(p) for p in e["loc"]), "msg": e["msg"]} for e in exc.errors()
         ]
         raise HTTPException(status_code=422, detail=errors)
     save_config(cfg)
-    restart_required = (
-        cfg.hub.host != before.hub.host or cfg.hub.port != before.hub.port
-    )
+    restart_required = cfg.hub.host != before.hub.host or cfg.hub.port != before.hub.port
     return {"saved": True, "restart_required": restart_required}
 
 
@@ -807,7 +817,7 @@ async def grove_topology_api():
         raise HTTPException(
             status_code=404,
             detail="No grove topology built yet — run: "
-                   "uv run --extra dev python -m scripts.grove_lab.dendro",
+            "uv run --extra dev python -m scripts.grove_lab.dendro",
         )
     buckets = []
     for p in snaps:
@@ -819,10 +829,7 @@ async def grove_topology_api():
             "embedding_model": snap.get("embedding_model"),
             "params": snap.get("params"),
             "stability": snap.get("stability"),
-            "nodes": [
-                {k: v for k, v in n.items() if k != "centroid"}
-                for n in snap["nodes"]
-            ],
+            "nodes": [{k: v for k, v in n.items() if k != "centroid"} for n in snap["nodes"]],
         }
         if snap.get("palette"):
             bucket["palette"] = snap["palette"]
@@ -840,7 +847,9 @@ class E7Response(BaseModel):
 def _e7_manifest() -> dict:
     path = _GROVE_DIR / "e7-manifest.json"
     if not path.exists():
-        raise HTTPException(status_code=404, detail="no E7 manifest; run scripts.grove_lab.e7_manifest")
+        raise HTTPException(
+            status_code=404, detail="no E7 manifest; run scripts.grove_lab.e7_manifest"
+        )
     return json.loads(path.read_text())
 
 
@@ -865,7 +874,7 @@ async def grove_e7_manifest():
 async def grove_e7_response(resp: E7Response):
     """Validated, idempotent, append-only. Correctness is never computed
     here — the answer key is not readable by this process's code path."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     manifest = _e7_manifest()
     trial = next((t for t in manifest["trials"] if t["trial"] == resp.trial), None)
@@ -880,8 +889,11 @@ async def grove_e7_response(resp: E7Response):
         if same:
             return {"logged": True, "duplicate": True}
         raise HTTPException(status_code=409, detail="conflicting duplicate for this trial")
-    row = {**resp.model_dump(), "manifest_sha": manifest["sha256"],
-           "ts": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    row = {
+        **resp.model_dump(),
+        "manifest_sha": manifest["sha256"],
+        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
     with (_GROVE_DIR / "e7-responses.jsonl").open("a") as f:
         f.write(json.dumps(row) + "\n")
     return {"logged": True}
@@ -891,7 +903,7 @@ async def grove_e7_response(resp: E7Response):
 async def map_data_api():
     map_path = Path.home() / ".ytk" / "map.json"
     if not map_path.exists():
-        map_path = _STATIC_DIR / "map.json"   # pre-runtime-dir builds
+        map_path = _STATIC_DIR / "map.json"  # pre-runtime-dir builds
     if not map_path.exists():
         raise HTTPException(
             status_code=404,
@@ -911,7 +923,7 @@ async def settings_docs():
         '<!doctype html><html><head><meta charset="utf-8"><title>ytk settings docs</title>'
         '<link rel="stylesheet" href="/static/theme.css">'
         '<link rel="icon" href="/favicon.svg">'
-        '<style>body{margin:0} header{display:flex;gap:1rem;padding:.8rem 1rem} '
+        "<style>body{margin:0} header{display:flex;gap:1rem;padding:.8rem 1rem} "
         "header a{color:#e2b04a;text-decoration:none} "
         "pre{max-width:820px;margin:1.2rem auto;padding:0 1rem;white-space:pre-wrap;"
         "font-family:var(--serif);font-size:15px;line-height:1.55;letter-spacing:0}</style>"
@@ -946,7 +958,19 @@ def _spa_redirect(path: str = ""):
 
 # The SPA's client-side routes. Serving index.html only for these (rather
 # than a blanket fallback) keeps real 404s for junk paths and traversal noise.
-_SPA_ROUTES = {"", "library", "inbox", "tags", "map", "grove", "growth", "profile", "settings", "channels", "recs"}
+_SPA_ROUTES = {
+    "",
+    "library",
+    "inbox",
+    "tags",
+    "map",
+    "grove",
+    "growth",
+    "profile",
+    "settings",
+    "channels",
+    "recs",
+}
 
 
 # Registered last on purpose: FastAPI matches routes in registration order,

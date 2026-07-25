@@ -17,7 +17,7 @@ def _strip_frontmatter(text: str) -> str:
     if not text.startswith("---"):
         return text
     m = _FM_RE.match(text)
-    return text[m.end():] if m else text
+    return text[m.end() :] if m else text
 
 
 def file_hash(path: Path) -> str:

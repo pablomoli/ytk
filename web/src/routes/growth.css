@@ -43,7 +43,9 @@
   background: none;
   flex: 0 0 auto;
   opacity: 0.75;
-  transition: opacity 120ms, border-color 120ms;
+  transition:
+    opacity 120ms,
+    border-color 120ms;
 }
 
 .growth-chip:hover {
@@ -240,7 +242,7 @@
   align-items: center;
 }
 
-.growth-debug input[type='range'] {
+.growth-debug input[type="range"] {
   width: 110px;
   accent-color: #7c8499;
 }

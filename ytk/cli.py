@@ -4,39 +4,55 @@ from __future__ import annotations
 
 import os
 import re
-import time
-import sys
 import shutil
 import subprocess
+import sys
 import textwrap
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import click
 from dotenv import load_dotenv
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich import box
 
 from .config import load_config
-from .filter import check_pre_transcript, check_post_enrichment, FilterResult
-from .metadata import fetch_metadata
-from .transcript import fetch_transcript, segments_to_text
 from .enrich import enrich
-from .vault import write_note, NoteAlreadyExists, LINK_REMINDER
-from .store import upsert, search_videos, search_segments
+from .filter import FilterResult, check_post_enrichment, check_pre_transcript
 from .memo import (
     AUDIO_DIR,
+)
+from .memo import (
     execute_route as memo_execute,
+)
+from .memo import (
     finalize_memo_note as memo_finalize,
+)
+from .memo import (
     index_memo_note as memo_index,
+)
+from .memo import (
     notify as memo_notify,
+)
+from .memo import (
     record as memo_record,
+)
+from .memo import (
     route as memo_route,
+)
+from .memo import (
     transcribe as memo_transcribe,
+)
+from .memo import (
     write_memo_note as memo_write_note,
 )
+from .metadata import fetch_metadata
+from .store import search_segments, search_videos, upsert
+from .transcript import fetch_transcript, segments_to_text
+from .vault import LINK_REMINDER, NoteAlreadyExists, write_note
 
 load_dotenv(Path.home() / ".ytk" / ".env")  # global install location
 load_dotenv()  # project-local .env for dev use (won't override already-loaded vars)
@@ -44,6 +60,7 @@ console = Console()
 
 
 from contextlib import contextmanager
+
 
 @contextmanager
 def _nullctx():
@@ -191,6 +208,7 @@ def add(ctx: click.Context, url: str, force: bool, note: str):
     frame_bytes: list[bytes] = []
     try:
         from .vision import download_video_temp, extract_frames, hint_detect, image_blocks
+
         with console.status("[bold cyan]Scanning for visual content...[/]"):
             hint_ts = hint_detect(segments)
         if hint_ts:
@@ -251,7 +269,7 @@ def add(ctx: click.Context, url: str, force: bool, note: str):
         console.print(LINK_REMINDER, style="dim", markup=False)
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
-    except EnvironmentError as exc:
+    except OSError as exc:
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
 
     # --- upsert into vector store ---
@@ -261,8 +279,14 @@ def add(ctx: click.Context, url: str, force: bool, note: str):
 
 @cli.command(name="feed")
 @click.argument("urls", nargs=-1)
-@click.option("--file", "-f", "file", type=click.Path(exists=True), default=None,
-              help="Text file of URLs, one per line (# comments allowed).")
+@click.option(
+    "--file",
+    "-f",
+    "file",
+    type=click.Path(exists=True),
+    default=None,
+    help="Text file of URLs, one per line (# comments allowed).",
+)
 @click.option("--force", is_flag=True, default=False, help="Skip all filter prompts.")
 @click.pass_context
 def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: bool):
@@ -301,19 +325,46 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
 
 
 @cli.command(name="reels")
-@click.option("--dry-run", is_flag=True, default=False,
-              help="List pending links without ingesting or saving anything.")
-@click.option("--all", "ingest_all", is_flag=True, default=False,
-              help="Ingest every pending link without the interactive picker.")
-@click.option("--limit", type=int, default=None,
-              help="Cap how many links get ingested; the rest stay pending.")
-@click.option("--gallery", is_flag=True, default=False,
-              help="Open a browser gallery of cover images before picking.")
-@click.option("--rebuild", is_flag=True, default=False,
-              help="Re-read the whole thread to rebuild pending with metadata.")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="List pending links without ingesting or saving anything.",
+)
+@click.option(
+    "--all",
+    "ingest_all",
+    is_flag=True,
+    default=False,
+    help="Ingest every pending link without the interactive picker.",
+)
+@click.option(
+    "--limit",
+    type=int,
+    default=None,
+    help="Cap how many links get ingested; the rest stay pending.",
+)
+@click.option(
+    "--gallery",
+    is_flag=True,
+    default=False,
+    help="Open a browser gallery of cover images before picking.",
+)
+@click.option(
+    "--rebuild",
+    is_flag=True,
+    default=False,
+    help="Re-read the whole thread to rebuild pending with metadata.",
+)
 @click.pass_context
-def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None,
-          gallery: bool, rebuild: bool):
+def reels(
+    ctx: click.Context,
+    dry_run: bool,
+    ingest_all: bool,
+    limit: int | None,
+    gallery: bool,
+    rebuild: bool,
+):
     """Sync reels from your Instagram DM capture thread — pick which to ingest."""
     from . import reels as reels_mod
 
@@ -372,16 +423,16 @@ def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None
         import webbrowser
 
         reels_mod.GALLERY_PATH.parent.mkdir(parents=True, exist_ok=True)
-        reels_mod.GALLERY_PATH.write_text(
-            reels_mod.gallery_html(pending), encoding="utf-8"
-        )
+        reels_mod.GALLERY_PATH.write_text(reels_mod.gallery_html(pending), encoding="utf-8")
         webbrowser.open(reels_mod.GALLERY_PATH.as_uri())
         console.print(f"[cyan]Gallery opened:[/] {reels_mod.GALLERY_PATH}")
 
     if ingest_all:
         selected = pending[:limit] if limit is not None else list(pending)
         if len(selected) < len(pending):
-            console.print(f"[yellow]Limiting to {len(selected)} of {len(pending)} pending links.[/]")
+            console.print(
+                f"[yellow]Limiting to {len(selected)} of {len(pending)} pending links.[/]"
+            )
     else:
         console.print(f"[bold]{len(pending)}[/] pending link(s):")
         for i, item in enumerate(pending, 1):
@@ -438,8 +489,11 @@ def reels(ctx: click.Context, dry_run: bool, ingest_all: bool, limit: int | None
 @click.argument("video_id")
 @click.argument("query")
 @click.option("-n", default=5, show_default=True, help="Number of results.")
-@click.option("--rerank/--no-rerank", default=None,
-              help="Cross-encoder second stage (default: YTK_RERANK env).")
+@click.option(
+    "--rerank/--no-rerank",
+    default=None,
+    help="Cross-encoder second stage (default: YTK_RERANK env).",
+)
 def dive(video_id: str, query: str, n: int, rerank: bool | None):
     """Segment-level semantic search within a specific video.
 
@@ -465,22 +519,26 @@ def dive(video_id: str, query: str, n: int, rerank: bool | None):
         if len(r.text) > 300:
             preview += "..."
 
-        console.print(Panel(
-            f"{preview}\n\n"
-            f"[bold cyan]Timestamp[/]  [link={r.timestamp_url}]{timestamp}[/link]  "
-            f"[bold cyan]Match[/] {match_pct}  "
-            f"[bold cyan]URL[/] {r.timestamp_url}",
-            title=f"[bold]{i}. @ {timestamp}[/]",
-            box=box.ROUNDED,
-        ))
+        console.print(
+            Panel(
+                f"{preview}\n\n"
+                f"[bold cyan]Timestamp[/]  [link={r.timestamp_url}]{timestamp}[/link]  "
+                f"[bold cyan]Match[/] {match_pct}  "
+                f"[bold cyan]URL[/] {r.timestamp_url}",
+                title=f"[bold]{i}. @ {timestamp}[/]",
+                box=box.ROUNDED,
+            )
+        )
 
 
 @cli.command()
 def auth():
     """Authenticate with YouTube Data API v3 (one-time OAuth flow)."""
-    from urllib.parse import urlparse, parse_qs
-    from .scheduler import _CLIENT_SECRETS, _SCOPES, _TOKEN_FILE
+    from urllib.parse import parse_qs, urlparse
+
     from google_auth_oauthlib.flow import InstalledAppFlow
+
+    from .scheduler import _CLIENT_SECRETS, _SCOPES, _TOKEN_FILE
 
     if not _CLIENT_SECRETS.exists():
         console.print(f"[red]Missing:[/] {_CLIENT_SECRETS}")
@@ -513,18 +571,34 @@ def auth():
 
 
 @cli.command()
-@click.option("--dry-run", is_flag=True, default=False, help="Print what would be synced without running the pipeline.")
-@click.option("-v/-q", "--verbose/--quiet", default=True, help="Step-by-step progress per video (default) vs. a spinner.")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Print what would be synced without running the pipeline.",
+)
+@click.option(
+    "-v/-q",
+    "--verbose/--quiet",
+    default=True,
+    help="Step-by-step progress per video (default) vs. a spinner.",
+)
 def sync(dry_run: bool, verbose: bool):
     """Poll the 'ytk' YouTube playlist and ingest new videos."""
-    from .scheduler import authenticate, sync as _sync
+    from .scheduler import authenticate
+    from .scheduler import sync as _sync
+
     cfg = load_config()
 
     with console.status("[bold cyan]Authenticating...[/]"):
         service = authenticate()
 
     verb = "dry-run" if dry_run else "syncing"
-    status_cm = console.status(f"[bold cyan]{verb.capitalize()} ytk playlist...[/]") if not verbose else _nullctx()
+    status_cm = (
+        console.status(f"[bold cyan]{verb.capitalize()} ytk playlist...[/]")
+        if not verbose
+        else _nullctx()
+    )
     with status_cm:
         result = _sync(service, cfg, dry_run=dry_run, verbose=verbose)
 
@@ -557,8 +631,7 @@ def tags(n: int):
     total_uses = sum(counts.values())
     singletons = sum(1 for c in counts.values() if c == 1)
     console.print(
-        f"[bold]{len(counts)}[/] distinct tags, {total_uses} uses, "
-        f"{singletons} used only once\n"
+        f"[bold]{len(counts)}[/] distinct tags, {total_uses} uses, {singletons} used only once\n"
     )
     for tag, count in counts.most_common(n):
         console.print(f"  {count:>4}  [bold cyan]#{tag}[/]")
@@ -567,8 +640,11 @@ def tags(n: int):
 @cli.command()
 @click.argument("query")
 @click.option("-n", default=5, show_default=True, help="Number of results.")
-@click.option("--rerank/--no-rerank", default=None,
-              help="Cross-encoder second stage (default: YTK_RERANK env).")
+@click.option(
+    "--rerank/--no-rerank",
+    default=None,
+    help="Cross-encoder second stage (default: YTK_RERANK env).",
+)
 def search(query: str, n: int, rerank: bool | None):
     """Semantic search across ingested videos."""
     with console.status("[bold cyan]Searching...[/]"):
@@ -592,21 +668,36 @@ def search(query: str, n: int, rerank: bool | None):
             f"[bold cyan]Tags[/] {tags or '[dim]none[/]'}"
         )
 
-        body = f"{thesis_line}\n\n{summary_preview}\n\n{meta_line}" if thesis_line else f"{summary_preview}\n\n{meta_line}"
-        console.print(Panel(
-            body,
-            title=f"[bold]{i}. {r.title}[/]",
-            box=box.ROUNDED,
-        ))
+        body = (
+            f"{thesis_line}\n\n{summary_preview}\n\n{meta_line}"
+            if thesis_line
+            else f"{summary_preview}\n\n{meta_line}"
+        )
+        console.print(
+            Panel(
+                body,
+                title=f"[bold]{i}. {r.title}[/]",
+                box=box.ROUNDED,
+            )
+        )
 
 
 @cli.command(name="eval")
-@click.option("--update-baseline", "update_baseline", is_flag=True, default=False,
-              help="Re-stamp eval/retrieval/baseline.json from this run.")
-@click.option("--json", "as_json", is_flag=True, default=False,
-              help="Print the raw report as JSON instead of tables.")
-@click.option("--top-k", default=10, show_default=True,
-              help="Ranking window for hit@k.")
+@click.option(
+    "--update-baseline",
+    "update_baseline",
+    is_flag=True,
+    default=False,
+    help="Re-stamp eval/retrieval/baseline.json from this run.",
+)
+@click.option(
+    "--json",
+    "as_json",
+    is_flag=True,
+    default=False,
+    help="Print the raw report as JSON instead of tables.",
+)
+@click.option("--top-k", default=10, show_default=True, help="Ranking window for hit@k.")
 def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
     """Run the retrieval regression gate against the live store.
 
@@ -632,13 +723,13 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
     else:
         table = Table("bucket", "n", "hit@1", "hit@5", "hit@10", box=box.SIMPLE)
         for bucket, row in report["per_bucket"].items():
-            table.add_row(bucket, str(row["n"]), *(
-                f"{row[f'hit@{k}']:.3f}" for k in (1, 5, 10)
-            ))
+            table.add_row(bucket, str(row["n"]), *(f"{row[f'hit@{k}']:.3f}" for k in (1, 5, 10)))
         o = report["overall"]
-        table.add_row("[bold]overall[/]", str(report["n_evaluated"]), *(
-            f"[bold]{o[f'hit@{k}']:.3f}[/]" for k in (1, 5, 10)
-        ))
+        table.add_row(
+            "[bold]overall[/]",
+            str(report["n_evaluated"]),
+            *(f"[bold]{o[f'hit@{k}']:.3f}[/]" for k in (1, 5, 10)),
+        )
         out.print(table)
         if "graded" in report:
             graded = report["graded"]
@@ -673,10 +764,7 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
         return
 
     if not retrieval_gate.BASELINE_PATH.exists():
-        out.print(
-            "[red]No baseline found.[/] Stamp one first: "
-            "[bold]ytk eval --update-baseline[/]"
-        )
+        out.print("[red]No baseline found.[/] Stamp one first: [bold]ytk eval --update-baseline[/]")
         raise SystemExit(2)
 
     baseline = _json.loads(retrieval_gate.BASELINE_PATH.read_text(encoding="utf-8"))
@@ -685,9 +773,7 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
             f"{m}: {report['overall'][m] - baseline['overall'][m]:+.3f}"
             for m in ("hit@5", "hit@10")
         )
-        out.print(
-            f"vs baseline ({baseline['epoch']}, {baseline['authored']}): {deltas}"
-        )
+        out.print(f"vs baseline ({baseline['epoch']}, {baseline['authored']}): {deltas}")
     failures = retrieval_gate.compare_to_baseline(report, baseline)
     if failures:
         for f in failures:
@@ -704,7 +790,7 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
 )
 def profile_cmd(render_only: bool):
     """Synthesize a living interest profile from everything in the vault."""
-    from .synthesis import rerender_latest, run_profile, SynthesisTooSparse
+    from .synthesis import SynthesisTooSparse, rerender_latest, run_profile
 
     try:
         if render_only:
@@ -738,10 +824,11 @@ def profile_cmd(render_only: bool):
             console.print(f"[yellow]WARNING:[/] {score.warning}")
     else:
         console.print(
-            "[yellow]Profile ranking unavailable:[/] no complete saved/pending "
-            "visual cohort"
+            "[yellow]Profile ranking unavailable:[/] no complete saved/pending visual cohort"
         )
-    table = Table(box=box.SIMPLE, title=f"{len(snapshot.themes)} themes · {snapshot.note_count} notes")
+    table = Table(
+        box=box.SIMPLE, title=f"{len(snapshot.themes)} themes · {snapshot.note_count} notes"
+    )
     table.add_column("Theme", style="cyan")
     table.add_column("Share", justify="right")
     table.add_column("Notes", justify="right")
@@ -802,19 +889,33 @@ def remember_cmd(text: str, tags: str):
         upsert_memory(doc_id, text, tag_list, str(note_path))
         console.print(f"[bold green]Memory stored:[/] {note_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
-    except EnvironmentError as exc:
+    except OSError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
 
 
 @cli.command(name="memo")
-@click.option("--dry-run", is_flag=True, default=False,
-              help="Record + transcribe + print proposed routing; execute nothing.")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Record + transcribe + print proposed routing; execute nothing.",
+)
 @click.option("--text", default="", help="Skip recording/STT and route this text.")
-@click.option("--quick", is_flag=True, default=False,
-              help="Popup mode: close as soon as audio is captured; transcribe and route in the background.")
-@click.option("--from-audio", "from_audio", type=click.Path(exists=True), default=None, hidden=True,
-              help="Background worker: transcribe this wav, then route.")
+@click.option(
+    "--quick",
+    is_flag=True,
+    default=False,
+    help="Popup mode: close as soon as audio is captured; transcribe and route in the background.",
+)
+@click.option(
+    "--from-audio",
+    "from_audio",
+    type=click.Path(exists=True),
+    default=None,
+    hidden=True,
+    help="Background worker: transcribe this wav, then route.",
+)
 @click.pass_context
 def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool, from_audio: str | None):
     """Voice memo: record, transcribe locally, route, notify.
@@ -865,24 +966,30 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool, from_aud
             if quick and not dry_run:
                 subprocess.Popen(
                     [sys.argv[0], "memo", "--from-audio", str(audio_path)],
-                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL, start_new_session=True,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
                 )
                 log.mark("BG_WORKER_SPAWNED")
                 memo_notify("captured — transcribing...", "captured", cfg.memo_notify or None)
                 log.mark("POPUP_CLOSED")
                 return
-            with console.status(f"[cyan]transcribing[/] [dim]({cfg.whisper_model})[/dim]", spinner="dots"):
+            with console.status(
+                f"[cyan]transcribing[/] [dim]({cfg.whisper_model})[/dim]", spinner="dots"
+            ):
                 transcript = memo_transcribe(audio_path, cfg.whisper_model)
             log.mark("TRANSCRIBED", f"{len(transcript)} chars")
         except RuntimeError as exc:
             console.print(f"[red]{exc}[/]")
             raise SystemExit(1)
         if not transcript:
-            console.print("[red]Empty transcription; audio kept at[/] " f"{audio_path}")
+            console.print(f"[red]Empty transcription; audio kept at[/] {audio_path}")
             raise SystemExit(1)
 
-    console.print(Panel(transcript, title="[bold]transcript[/bold]", border_style="cyan", padding=(0, 1)))
+    console.print(
+        Panel(transcript, title="[bold]transcript[/bold]", border_style="cyan", padding=(0, 1))
+    )
     note_path = memo_write_note(transcript, audio_path)
 
     try:
@@ -913,8 +1020,14 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool, from_aud
     log.mark("INDEXED")
     memo_notify(result.summary, result.kind, cfg.memo_notify or None)
     log.mark("NOTIFIED")
-    console.print(Panel(f"[bold]{result.summary}[/bold]", title=f"[green]\u2713 {result.kind}[/green]",
-                        border_style="green", padding=(0, 1)))
+    console.print(
+        Panel(
+            f"[bold]{result.summary}[/bold]",
+            title=f"[green]\u2713 {result.kind}[/green]",
+            border_style="green",
+            padding=(0, 1),
+        )
+    )
     time.sleep(3)
     console.print(f"[bold green]{result.kind}:[/] {result.summary}")
     for line in routed_lines:
@@ -929,7 +1042,7 @@ def reindex_cmd(force: bool):
 
     try:
         _get_brain_path()
-    except EnvironmentError as exc:
+    except OSError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
 
@@ -941,13 +1054,28 @@ def reindex_cmd(force: bool):
 
 
 @cli.command(name="graph")
-@click.option("--open", "open_browser", is_flag=True, default=False, help="Open graph.html in browser after building.")
-@click.option("--output", default=None, help="Output path for graph.html (default: ~/.ytk/graph.html).")
-@click.option("--threshold", default=0.75, show_default=True, type=float, help="Semantic similarity cutoff for edges.")
+@click.option(
+    "--open",
+    "open_browser",
+    is_flag=True,
+    default=False,
+    help="Open graph.html in browser after building.",
+)
+@click.option(
+    "--output", default=None, help="Output path for graph.html (default: ~/.ytk/graph.html)."
+)
+@click.option(
+    "--threshold",
+    default=0.75,
+    show_default=True,
+    type=float,
+    help="Semantic similarity cutoff for edges.",
+)
 def graph_cmd(open_browser: bool, output: str | None, threshold: float):
     """Build a knowledge graph from all vault notes and export as interactive HTML."""
     import webbrowser
-    from .graph import build_graph, export_html, export_json, detect_communities
+
+    from .graph import build_graph, detect_communities, export_html, export_json
 
     default_html = Path.home() / ".ytk" / "graph.html"
     default_json = Path.home() / ".ytk" / "graph.json"
@@ -965,7 +1093,9 @@ def graph_cmd(open_browser: bool, output: str | None, threshold: float):
         export_json(G, default_json)
 
     n_communities = len(set(detect_communities(G).values()))
-    console.print(f"[bold green]Graph built:[/] {len(G.nodes)} nodes, {len(G.edges)} edges, {n_communities} communities")
+    console.print(
+        f"[bold green]Graph built:[/] {len(G.nodes)} nodes, {len(G.edges)} edges, {n_communities} communities"
+    )
     console.print(f"  HTML: {html_path}")
     console.print(f"  JSON: {default_json}")
 
@@ -1019,12 +1149,16 @@ def ingest(url: str, force: bool, note: str):
         console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "web_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
-        upsert_doc(doc_id, body, {
-            "doc_id": doc_id,
-            "tags": ", ".join(result.interest_tags),
-            "source_path": str(note_path),
-        })
-    except EnvironmentError as exc:
+        upsert_doc(
+            doc_id,
+            body,
+            {
+                "doc_id": doc_id,
+                "tags": ", ".join(result.interest_tags),
+                "source_path": str(note_path),
+            },
+        )
+    except OSError as exc:
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
 
 
@@ -1032,16 +1166,17 @@ def ingest(url: str, force: bool, note: str):
 @click.argument("url")
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 @click.option(
-    "--refresh", is_flag=True,
+    "--refresh",
+    is_flag=True,
     help="Re-ingest and atomically replace the existing note, preserving user tags and sections.",
 )
 def add_instagram(url: str, note: str = "", refresh: bool = False):
     """Fetch an Instagram post, analyze visually with AI, and store in the vault."""
-    from .instagram import fetch_instagram, capture_reel_media
-    from .vision import image_blocks
     from .enrich import enrich_instagram, enrich_instagram_reel
-    from .vault import write_instagram_note, refresh_instagram_note, NoteAlreadyExists
+    from .instagram import capture_reel_media, fetch_instagram
     from .store import strip_frontmatter, upsert_doc
+    from .vault import NoteAlreadyExists, refresh_instagram_note, write_instagram_note
+    from .vision import image_blocks
 
     cfg = load_config()
 
@@ -1135,14 +1270,18 @@ def add_instagram(url: str, note: str = "", refresh: bool = False):
         console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "instagram_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
-        upsert_doc(doc_id, body, {
-            "doc_id": doc_id,
-            "tags": ", ".join(result.interest_tags),
-            "source_path": str(note_path),
-        })
+        upsert_doc(
+            doc_id,
+            body,
+            {
+                "doc_id": doc_id,
+                "tags": ", ".join(result.interest_tags),
+                "source_path": str(note_path),
+            },
+        )
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
-    except EnvironmentError as exc:
+    except OSError as exc:
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
 
 
@@ -1170,7 +1309,9 @@ def backfill_instagram_reels(dry_run: bool, apply_: bool):
 
     candidates = find_reel_backfill_candidates()
     if not candidates:
-        console.print("[green]No backfill candidates — all reel notes carry the current capture schema.[/]")
+        console.print(
+            "[green]No backfill candidates — all reel notes carry the current capture schema.[/]"
+        )
         return
 
     table = Table(box=box.SIMPLE)
@@ -1182,7 +1323,10 @@ def backfill_instagram_reels(dry_run: bool, apply_: bool):
     table.add_column("Frames")
     for c in candidates:
         table.add_row(
-            c["path"].name, c["url"], c["username"], c["reason"],
+            c["path"].name,
+            c["url"],
+            c["username"],
+            c["reason"],
             "yes" if c["has_transcript"] else "no",
             "yes" if c["has_frames"] else "no",
         )
@@ -1259,14 +1403,18 @@ def add_pinterest(url: str, note: str = ""):
         console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "pinterest_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
-        upsert_doc(doc_id, body, {
-            "doc_id": doc_id,
-            "tags": ", ".join(result.interest_tags),
-            "source_path": str(note_path),
-        })
+        upsert_doc(
+            doc_id,
+            body,
+            {
+                "doc_id": doc_id,
+                "tags": ", ".join(result.interest_tags),
+                "source_path": str(note_path),
+            },
+        )
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
-    except EnvironmentError as exc:
+    except OSError as exc:
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
 
 
@@ -1275,11 +1423,11 @@ def add_pinterest(url: str, note: str = ""):
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 def add_tiktok(url: str, note: str = ""):
     """Fetch a TikTok, transcribe + extract frames, and store in the vault."""
-    from .tiktok import fetch_tiktok, transcribe_tiktok
-    from .vision import download_video_temp, extract_frames, image_blocks
     from .enrich import enrich_tiktok
-    from .vault import write_tiktok_note, NoteAlreadyExists
     from .store import strip_frontmatter, upsert_doc
+    from .tiktok import fetch_tiktok, transcribe_tiktok
+    from .vault import NoteAlreadyExists, write_tiktok_note
+    from .vision import download_video_temp, extract_frames, image_blocks
 
     cfg = load_config()
 
@@ -1310,7 +1458,13 @@ def add_tiktok(url: str, note: str = ""):
     transcript = " ".join(s["text"] for s in segments).strip()
     if transcript:
         preview = textwrap.fill(transcript[:600], width=80)
-        console.print(Panel(preview, title=f"[bold]Transcript[/] [dim]({len(segments)} segs)[/dim]", box=box.ROUNDED))
+        console.print(
+            Panel(
+                preview,
+                title=f"[bold]Transcript[/] [dim]({len(segments)} segs)[/dim]",
+                box=box.ROUNDED,
+            )
+        )
     else:
         console.print("[dim]No transcribable speech detected.[/]")
 
@@ -1363,24 +1517,35 @@ def add_tiktok(url: str, note: str = ""):
     console.print(Panel(insights, title="[bold]Insights[/]", box=box.ROUNDED))
 
     try:
-        note_path = write_tiktok_note(post, result, transcript=transcript, frame_bytes=frame_bytes or None)
+        note_path = write_tiktok_note(
+            post, result, transcript=transcript, frame_bytes=frame_bytes or None
+        )
         console.print(f"\n[bold green]Note written:[/] {note_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "tiktok_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
-        upsert_doc(doc_id, body, {
-            "doc_id": doc_id,
-            "tags": ", ".join(result.interest_tags),
-            "source_path": str(note_path),
-        })
+        upsert_doc(
+            doc_id,
+            body,
+            {
+                "doc_id": doc_id,
+                "tags": ", ".join(result.interest_tags),
+                "source_path": str(note_path),
+            },
+        )
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
-    except EnvironmentError as exc:
+    except OSError as exc:
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
 
 
 @cli.command(name="tiktok-sync")
-@click.option("--pages", type=int, default=None, help="Cap intercepted favorite pages (default: walk everything).")
+@click.option(
+    "--pages",
+    type=int,
+    default=None,
+    help="Cap intercepted favorite pages (default: walk everything).",
+)
 @click.option("--headed", is_flag=True, help="Show the Playwright browser window (debugging).")
 def tiktok_sync(pages: int | None, headed: bool):
     """Sync TikTok favorites into the pending queue.
@@ -1406,8 +1571,7 @@ def tiktok_sync(pages: int | None, headed: bool):
 
     state = reels.load_state()
     console.print(
-        f"Scrolling @{cfg.tiktok_username} favorites "
-        f"({len(state.tiktok_seen)} already seen)..."
+        f"Scrolling @{cfg.tiktok_username} favorites ({len(state.tiktok_seen)} already seen)..."
     )
     try:
         fetched = tiktok_fav.fetch_favorites(
@@ -1458,8 +1622,12 @@ def reddit_sync():
         f"({cfg.reddit_sort}/{cfg.reddit_window})..."
     )
     added = reddit_feed.sync_subreddits(
-        state, cookie, cfg.reddit_subreddits,
-        sort=cfg.reddit_sort, window=cfg.reddit_window, limit=cfg.reddit_limit,
+        state,
+        cookie,
+        cfg.reddit_subreddits,
+        sort=cfg.reddit_sort,
+        window=cfg.reddit_window,
+        limit=cfg.reddit_limit,
         extra_known=hub.ingested_urls(),
     )
     state.last_pulls["reddit"] = time.time()
@@ -1544,18 +1712,24 @@ def add_reddit(url: str, note: str = ""):
         console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "reddit_" + re.sub(r"[^a-zA-Z0-9_-]", "_", post["id"])
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
-        upsert_doc(doc_id, body, {
-            "doc_id": doc_id,
-            "tags": ", ".join(result.interest_tags),
-            "source_path": str(note_path),
-        })
+        upsert_doc(
+            doc_id,
+            body,
+            {
+                "doc_id": doc_id,
+                "tags": ", ".join(result.interest_tags),
+                "source_path": str(note_path),
+            },
+        )
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
 
 
 @cli.command(name="recs-backfill")
 @click.option("--limit", type=int, default=None, help="Scan at most N unscanned notes this run.")
-@click.option("--all", "rescan_all", is_flag=True, help="Re-scan every note, ignoring the scanned set.")
+@click.option(
+    "--all", "rescan_all", is_flag=True, help="Re-scan every note, ignoring the scanned set."
+)
 def recs_backfill(limit: int | None, rescan_all: bool):
     """Scan existing notes for movie/show/anime/book/manga recs and resolve them.
 
@@ -1607,12 +1781,15 @@ def recs_backfill(limit: int | None, rescan_all: bool):
     scanned_path.parent.mkdir(parents=True, exist_ok=True)
     scanned_path.write_text(_json.dumps(sorted(scanned)), encoding="utf-8")
     total = len(recs.entries())
-    console.print(f"[bold green]Done[/] — {found} recommendations recorded, {total} titles in the store.")
+    console.print(
+        f"[bold green]Done[/] — {found} recommendations recorded, {total} titles in the store."
+    )
 
 
 def _parse_date(value: str) -> str:
     """Convert natural date shorthands to YYYY-MM-DD. Passes through ISO dates unchanged."""
     from datetime import date, timedelta
+
     v = value.strip().lower()
     if v == "today":
         return date.today().isoformat()
@@ -1627,8 +1804,18 @@ def _parse_date(value: str) -> str:
 
 @cli.command(name="add-imessage")
 @click.argument("contact", default="", required=False)
-@click.option("--since", default=None, metavar="DATE", help="Start date: YYYY-MM-DD, 'today', 'yesterday', or 'N days ago'.")
-@click.option("--until", default=None, metavar="DATE", help="End date: YYYY-MM-DD, 'today', 'yesterday', or 'N days ago'.")
+@click.option(
+    "--since",
+    default=None,
+    metavar="DATE",
+    help="Start date: YYYY-MM-DD, 'today', 'yesterday', or 'N days ago'.",
+)
+@click.option(
+    "--until",
+    default=None,
+    metavar="DATE",
+    help="End date: YYYY-MM-DD, 'today', 'yesterday', or 'N days ago'.",
+)
 def add_imessage(contact: str, since: str | None, until: str | None):
     """Export an iMessage conversation and ingest it as a journal note.
 
@@ -1636,6 +1823,7 @@ def add_imessage(contact: str, since: str | None, until: str | None):
     contact name to ingest any conversation.
     """
     import shutil
+
     contact = contact or os.environ.get("IMESSAGE_SELF", "")
     if not contact:
         console.print("[red]No contact specified and IMESSAGE_SELF is not set in ~/.ytk/.env[/]")
@@ -1644,9 +1832,9 @@ def add_imessage(contact: str, since: str | None, until: str | None):
         since = _parse_date(since)
     if until:
         until = _parse_date(until)
-    from .imessage import export_conversation, find_exported_file, parse_txt, enrich_journal
-    from .vault import write_journal_note, NoteAlreadyExists
+    from .imessage import enrich_journal, export_conversation, find_exported_file, parse_txt
     from .store import strip_frontmatter, upsert_doc
+    from .vault import NoteAlreadyExists, write_journal_note
 
     with console.status("[bold cyan]Exporting conversation...[/]"):
         try:
@@ -1705,18 +1893,23 @@ def add_imessage(contact: str, since: str | None, until: str | None):
         console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "journal_" + re.sub(r"[^a-zA-Z0-9_-]", "_", written_path.stem[:60])
         body = strip_frontmatter(written_path.read_text(encoding="utf-8"))
-        upsert_doc(doc_id, body, {
-            "doc_id": doc_id,
-            "tags": ", ".join(result.interest_tags),
-            "source_path": str(written_path),
-        })
+        upsert_doc(
+            doc_id,
+            body,
+            {
+                "doc_id": doc_id,
+                "tags": ", ".join(result.interest_tags),
+                "source_path": str(written_path),
+            },
+        )
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
-    except EnvironmentError as exc:
+    except OSError as exc:
         console.print(f"\n[yellow]Vault not configured:[/] {exc}")
 
     if written_path and written_path.exists():
         from .triage import extract_action_items
+
         cfg = load_config()
         vault_raw = os.environ.get("OBSIDIAN_VAULT_PATH", "")
         if vault_raw:
@@ -1736,17 +1929,23 @@ def add_imessage(contact: str, since: str | None, until: str | None):
                     pc = _PRIORITY_COLOR[item.priority]
                     repo_hint = f" ({item.suggested_repo})" if item.suggested_repo else ""
                     summary.add_row(
-                        str(idx), item.title, f"[{pc}]{item.priority}[/]",
+                        str(idx),
+                        item.title,
+                        f"[{pc}]{item.priority}[/]",
                         _ROUTE_LABEL[item.suggested_route] + repo_hint,
                     )
-                console.print(Panel(summary, title=f"[bold]{len(items)} Action Items[/]", box=box.ROUNDED))
+                console.print(
+                    Panel(summary, title=f"[bold]{len(items)} Action Items[/]", box=box.ROUNDED)
+                )
                 for item in items:
                     if item.suggested_route == "gh-issue":
                         url = _triage_create_gh(item, cfg, console)
                         if url:
                             console.print(f"  [green]GH:[/] {item.title}  [dim]{url}[/]")
                         else:
-                            console.print(f"  [yellow]GH skipped (no repo configured):[/] {item.title}")
+                            console.print(
+                                f"  [yellow]GH skipped (no repo configured):[/] {item.title}"
+                            )
                     elif item.suggested_route == "idea":
                         with ideas_path.open("a", encoding="utf-8") as f:
                             f.write(f"\n- [ ] {item.title}\n  {item.description}\n")
@@ -1754,7 +1953,9 @@ def add_imessage(contact: str, since: str | None, until: str | None):
                     else:
                         date_str = datetime.now().strftime("%Y-%m-%d")
                         with review_path.open("a", encoding="utf-8") as f:
-                            f.write(f"\n- [ ] {item.title} — *{written_path.stem}* ({date_str})\n  {item.description}\n")
+                            f.write(
+                                f"\n- [ ] {item.title} — *{written_path.stem}* ({date_str})\n  {item.description}\n"
+                            )
                         console.print(f"  [magenta]Review:[/] {item.title}")
 
 
@@ -1773,8 +1974,19 @@ def _triage_create_gh(item, cfg, console) -> str | None:
     if not repo:
         return None
     result = subprocess.run(
-        ["gh", "issue", "create", "--title", item.title, "--body", item.description, "--repo", repo],
-        capture_output=True, text=True,
+        [
+            "gh",
+            "issue",
+            "create",
+            "--title",
+            item.title,
+            "--body",
+            item.description,
+            "--repo",
+            repo,
+        ],
+        capture_output=True,
+        text=True,
     )
     if result.returncode == 0:
         return f"{repo} → {result.stdout.strip()}"
@@ -1828,7 +2040,9 @@ def triage(note_path: str, interactive: bool):
         pc = _PRIORITY_COLOR[item.priority]
         repo_hint = f" ({item.suggested_repo})" if item.suggested_repo else ""
         summary.add_row(
-            str(i), item.title, f"[{pc}]{item.priority}[/]",
+            str(i),
+            item.title,
+            f"[{pc}]{item.priority}[/]",
             _ROUTE_LABEL[item.suggested_route] + repo_hint,
         )
     console.print(Panel(summary, title=f"[bold]{len(items)} Action Items[/]", box=box.ROUNDED))
@@ -1857,7 +2071,9 @@ def triage(note_path: str, interactive: bool):
                 routed["ideas"] += 1
             else:
                 date_str = datetime.now().strftime("%Y-%m-%d")
-                entry = f"\n- [ ] {item.title} — *{target.stem}* ({date_str})\n  {item.description}\n"
+                entry = (
+                    f"\n- [ ] {item.title} — *{target.stem}* ({date_str})\n  {item.description}\n"
+                )
                 with review_path.open("a", encoding="utf-8") as f:
                     f.write(entry)
                 console.print(f"  [magenta]Review:[/] {item.title}")
@@ -1868,23 +2084,29 @@ def triage(note_path: str, interactive: bool):
             rl = _ROUTE_LABEL[item.suggested_route]
             default_choice = _ROUTE_DEFAULT[item.suggested_route]
 
-            console.print(Panel(
-                f"[bold]{item.title}[/]\n\n{item.description}\n\n"
-                f"Priority: [{pc}]{item.priority}[/]  Suggested: [cyan]{rl}[/]",
-                title=f"[bold]{i}/{len(items)}[/]",
-                box=box.ROUNDED,
-            ))
+            console.print(
+                Panel(
+                    f"[bold]{item.title}[/]\n\n{item.description}\n\n"
+                    f"Priority: [{pc}]{item.priority}[/]  Suggested: [cyan]{rl}[/]",
+                    title=f"[bold]{i}/{len(items)}[/]",
+                    box=box.ROUNDED,
+                )
+            )
             console.print("  [1] GH issue  [2] Inbox/ideas  [3] Review  [4] Skip")
 
             while True:
                 choice = click.prompt(
-                    "  Route", default=default_choice,
-                    type=click.Choice(["1", "2", "3", "4"]), show_choices=False,
+                    "  Route",
+                    default=default_choice,
+                    type=click.Choice(["1", "2", "3", "4"]),
+                    show_choices=False,
                 )
 
                 if choice == "1":
                     if not cfg.github_repos:
-                        console.print("  [yellow]No repos configured. Add github_repos to ~/.ytk/config.yaml[/]")
+                        console.print(
+                            "  [yellow]No repos configured. Add github_repos to ~/.ytk/config.yaml[/]"
+                        )
                         continue
                     if item.suggested_repo and item.suggested_repo in cfg.github_repos:
                         repo = item.suggested_repo
@@ -1892,13 +2114,29 @@ def triage(note_path: str, interactive: bool):
                     else:
                         for j, repo_opt in enumerate(cfg.github_repos, 1):
                             console.print(f"    [{j}] {repo_opt}")
-                        repo_idx = click.prompt(
-                            "  Repo", type=click.IntRange(1, len(cfg.github_repos)), default=1,
-                        ) - 1
+                        repo_idx = (
+                            click.prompt(
+                                "  Repo",
+                                type=click.IntRange(1, len(cfg.github_repos)),
+                                default=1,
+                            )
+                            - 1
+                        )
                         repo = cfg.github_repos[repo_idx]
                     gh_result = subprocess.run(
-                        ["gh", "issue", "create", "--title", item.title, "--body", item.description, "--repo", repo],
-                        capture_output=True, text=True,
+                        [
+                            "gh",
+                            "issue",
+                            "create",
+                            "--title",
+                            item.title,
+                            "--body",
+                            item.description,
+                            "--repo",
+                            repo,
+                        ],
+                        capture_output=True,
+                        text=True,
                     )
                     if gh_result.returncode == 0:
                         console.print(f"  [green]Issue created:[/] {gh_result.stdout.strip()}")
@@ -1992,16 +2230,31 @@ def review():
 
 
 @cli.command()
-@click.option("--prune", type=int, default=None, metavar="DAYS",
-              help="Archive memories older than N days and remove from ChromaDB.")
-@click.option("--refresh-projects", is_flag=True, default=False,
-              help="Re-run seed for project memories older than 30 days.")
-@click.option("--prune-audio", type=int, default=None, metavar="DAYS",
-              help="Delete YouTube transcription-cache audio (yt_*) older than N days.")
+@click.option(
+    "--prune",
+    type=int,
+    default=None,
+    metavar="DAYS",
+    help="Archive memories older than N days and remove from ChromaDB.",
+)
+@click.option(
+    "--refresh-projects",
+    is_flag=True,
+    default=False,
+    help="Re-run seed for project memories older than 30 days.",
+)
+@click.option(
+    "--prune-audio",
+    type=int,
+    default=None,
+    metavar="DAYS",
+    help="Delete YouTube transcription-cache audio (yt_*) older than N days.",
+)
 @click.option("--dry-run", is_flag=True, default=False)
 def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_run: bool):
     """Manage vault memory lifecycle — list ages, prune stale entries, refresh projects."""
     import subprocess
+
     from .store import delete_doc, orphaned_memory_vectors
     from .vault import _get_brain_path, vault_note_doc_id
 
@@ -2023,14 +2276,17 @@ def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_r
     did_audio = False
     if prune_audio is not None:
         from . import transcript
+
         removed = transcript.prune_audio_cache(max_age_days=prune_audio, dry_run=dry_run)
         verb = "would remove" if dry_run else "removed"
-        console.print(f"[cyan]audio cache:[/] {verb} {len(removed)} yt_* file(s) older than {prune_audio}d")
+        console.print(
+            f"[cyan]audio cache:[/] {verb} {len(removed)} yt_* file(s) older than {prune_audio}d"
+        )
         did_audio = True
 
     try:
         vault_path = _get_brain_path()
-    except EnvironmentError as exc:
+    except OSError as exc:
         # A standalone audio prune (e.g. the nightly job) must not fail just
         # because the vault is unconfigured — the audio work already succeeded.
         if did_audio:
@@ -2077,10 +2333,7 @@ def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_r
                 console.print(f"\n[bold green]Archived {len(to_archive)} memories.[/]")
 
     if refresh_projects:
-        proj_mems = [
-            p for p in notes
-            if "project-context" in p.read_text(encoding="utf-8")
-        ]
+        proj_mems = [p for p in notes if "project-context" in p.read_text(encoding="utf-8")]
         cutoff = now - timedelta(days=30)
         stale = [p for p in proj_mems if datetime.fromtimestamp(p.stat().st_mtime) < cutoff]
         if not stale:
@@ -2107,11 +2360,11 @@ def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_r
 @cli.command(name="index")
 def index_cmd():
     """Rebuild wiki/index.md by scanning the vault from scratch."""
-    from .vault import rebuild_index, _get_brain_path
+    from .vault import _get_brain_path, rebuild_index
 
     try:
         vault_path = _get_brain_path()
-    except EnvironmentError as exc:
+    except OSError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
 
@@ -2128,7 +2381,7 @@ def dashboard():
 
     try:
         vault_path = _get_brain_path()
-    except EnvironmentError as exc:
+    except OSError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")
         raise SystemExit(1)
 
@@ -2142,7 +2395,8 @@ def dashboard():
     mem_dir = vault_path / "inbox" / "memories"
     if mem_dir.exists():
         recent = [
-            p for p in sorted(mem_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+            p
+            for p in sorted(mem_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
             if datetime.fromtimestamp(p.stat().st_mtime) >= cutoff
         ]
         if recent:
@@ -2152,7 +2406,9 @@ def dashboard():
     # Recent videos
     youtube_dir = vault_path / "sources" / "youtube"
     if youtube_dir.exists():
-        recent_videos = sorted(youtube_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:10]
+        recent_videos = sorted(
+            youtube_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True
+        )[:10]
         if recent_videos:
             rows = "\n".join(f"- [[second-brain/sources/youtube/{p.stem}]]" for p in recent_videos)
             sections.append(f"## Recent Videos\n{rows}\n")
@@ -2165,7 +2421,9 @@ def dashboard():
             if proj.is_dir():
                 briefs = sorted(proj.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
                 if briefs:
-                    proj_rows.append(f"- **{proj.name}** — [[second-brain/projects/{proj.name}/{briefs[0].stem}]]")
+                    proj_rows.append(
+                        f"- **{proj.name}** — [[second-brain/projects/{proj.name}/{briefs[0].stem}]]"
+                    )
         if proj_rows:
             sections.append("## Active Projects\n" + "\n".join(proj_rows) + "\n")
 
@@ -2173,7 +2431,8 @@ def dashboard():
     inbox_dir = vault_path / "inbox"
     if inbox_dir.exists():
         inbox_items = [
-            p for p in sorted(inbox_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+            p
+            for p in sorted(inbox_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
             if not p.stem.startswith("review-") and p.stem != "dashboard"
         ]
         if inbox_items:
@@ -2210,7 +2469,7 @@ def schedule_install(hour: int):
     # touch last-sync-ok on success: the hub's catch-up sync (#90) only fires
     # when this marker is stale, so a good nightly suppresses the retry
     script_path.write_text(
-        f"#!/bin/sh\n{ytk_bin} sync && touch \"$HOME/.ytk/last-sync-ok\" && "
+        f'#!/bin/sh\n{ytk_bin} sync && touch "$HOME/.ytk/last-sync-ok" && '
         f"{ytk_bin} index && {ytk_bin} dashboard\n"
         f"{ytk_bin} gc --prune-audio 30\n",
         encoding="utf-8",
@@ -2293,7 +2552,9 @@ def autoingest_cmd(count: int | None, dry_run: bool):
         f"scorable pending items" + (" [yellow](dry run)[/]" if dry_run else "")
     )
     for p in report["selected"]:
-        console.print(f"  [cyan]{p['score']:+.3f}[/] [dim]{p['source']:9}[/] {p['title']}  [dim]-> {p['theme']}[/]")
+        console.print(
+            f"  [cyan]{p['score']:+.3f}[/] [dim]{p['source']:9}[/] {p['title']}  [dim]-> {p['theme']}[/]"
+        )
     if not dry_run:
         msg = f"[green]{len(report['ingested'])} ingested[/]"
         if report.get("failures"):
@@ -2330,9 +2591,13 @@ def autoingest_schedule_install(weekday: int, hour: int, count: int | None):
         args += ["--count", str(count)]
     args_xml = "\n".join(f"        <string>{a}</string>" for a in args)
 
-    weekday_xml = "" if cadence == "daily" else f"""        <key>Weekday</key>
+    weekday_xml = (
+        ""
+        if cadence == "daily"
+        else f"""        <key>Weekday</key>
         <integer>{weekday}</integer>
 """
+    )
     plist_label = "com.ytk.autoingest"
     plist_path = Path.home() / "Library" / "LaunchAgents" / f"{plist_label}.plist"
     plist_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2430,7 +2695,8 @@ def ui_install():
     log_path = Path.home() / ".ytk" / "logs" / "hub.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     _HUB_PLIST.parent.mkdir(parents=True, exist_ok=True)
-    _HUB_PLIST.write_text(f"""\
+    _HUB_PLIST.write_text(
+        f"""\
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -2453,9 +2719,10 @@ def ui_install():
     <string>{log_path}</string>
 </dict>
 </plist>
-""", encoding="utf-8")
-    subprocess.run(["launchctl", "unload", str(_HUB_PLIST)], check=False,
-                   capture_output=True)
+""",
+        encoding="utf-8",
+    )
+    subprocess.run(["launchctl", "unload", str(_HUB_PLIST)], check=False, capture_output=True)
     subprocess.run(["launchctl", "load", str(_HUB_PLIST)], check=True)
     console.print(f"[bold green]Installed:[/] {_HUB_PLIST}")
     console.print(f"Hub always on at [bold]http://{host}:{port}[/]  Logs: {log_path}")
@@ -2477,11 +2744,14 @@ def ui_restart():
     """Restart the hub daemon (picks up code and config changes)."""
     r = subprocess.run(
         ["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{_HUB_LABEL}"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if r.returncode:
-        console.print(f"[red]kickstart failed:[/] {r.stderr.strip() or 'agent not loaded?'} "
-                      "Run [bold]ytk ui install[/] first.")
+        console.print(
+            f"[red]kickstart failed:[/] {r.stderr.strip() or 'agent not loaded?'} "
+            "Run [bold]ytk ui install[/] first."
+        )
         raise SystemExit(1)
     host, port = _hub_addr()
     console.print(f"[bold green]Hub restarted[/] at http://{host}:{port}")
@@ -2493,9 +2763,7 @@ def ui_status():
     import urllib.request
 
     host, port = _hub_addr()
-    loaded = subprocess.run(
-        ["launchctl", "list", _HUB_LABEL], capture_output=True
-    ).returncode == 0
+    loaded = subprocess.run(["launchctl", "list", _HUB_LABEL], capture_output=True).returncode == 0
     console.print(f"launchd agent: {'[green]loaded[/]' if loaded else '[red]not loaded[/]'}")
     try:
         urllib.request.urlopen(f"http://{host}:{port}/api/tags", timeout=3)
@@ -2506,8 +2774,13 @@ def ui_status():
 
 @cli.command(name="chat")
 @click.argument("prompt", nargs=-1, required=False)
-@click.option("--print", "print_mode", is_flag=True, default=False,
-              help="Non-interactive: print response and exit.")
+@click.option(
+    "--print",
+    "print_mode",
+    is_flag=True,
+    default=False,
+    help="Non-interactive: print response and exit.",
+)
 def chat(prompt: tuple[str, ...], print_mode: bool):
     """Open a Claude Code session rooted in the ytk project directory.
 
@@ -2546,8 +2819,8 @@ def visual():
 @click.option("--limit", type=int, default=None, help="Index only the first N covers (smoke test).")
 def visual_index(limit: int | None):
     """Backfill the ytk_visual collection: one cover per save."""
-    from .visual import index_covers
     from .store import visual_count
+    from .visual import index_covers
 
     console.print("[dim]Loading SigLIP-2 (first run downloads ~2.3GB)...[/dim]")
     done = index_covers(
@@ -2559,11 +2832,21 @@ def visual_index(limit: int | None):
 
 @cli.command(name="similar")
 @click.argument("query", nargs=-1, required=True)
-@click.option("--text", "is_text", is_flag=True, default=False,
-              help="Treat QUERY as a text description instead of a save/image.")
+@click.option(
+    "--text",
+    "is_text",
+    is_flag=True,
+    default=False,
+    help="Treat QUERY as a text description instead of a save/image.",
+)
 @click.option("-n", type=int, default=8, help="Number of results.")
-@click.option("--json", "as_json", is_flag=True, default=False,
-              help="Machine-readable output (for vtk and scripts).")
+@click.option(
+    "--json",
+    "as_json",
+    is_flag=True,
+    default=False,
+    help="Machine-readable output (for vtk and scripts).",
+)
 def similar(query: tuple[str, ...], is_text: bool, n: int, as_json: bool):
     """Visually similar saves for a save id, image path, URL, or --text description."""
     import json as _json
@@ -2608,13 +2891,30 @@ def similar(query: tuple[str, ...], is_text: bool, n: int, as_json: bool):
 @cli.command(name="snap")
 @click.argument("note", nargs=-1, required=False)
 @click.option("--tags", default="", help="Comma-separated tags.")
-@click.option("--file", "file_path", type=click.Path(exists=True), default=None,
-              help="Ingest this image file instead of the clipboard.")
-@click.option("--speak", is_flag=True, default=False,
-              help="Record the note by voice (Enter to stop) instead of typing it.")
-@click.option("--note-audio", "note_audio", type=click.Path(exists=True), default=None, hidden=True,
-              help="Background worker: transcribe this wav as the note.")
-def snap(note: tuple[str, ...], tags: str, file_path: str | None, speak: bool, note_audio: str | None):
+@click.option(
+    "--file",
+    "file_path",
+    type=click.Path(exists=True),
+    default=None,
+    help="Ingest this image file instead of the clipboard.",
+)
+@click.option(
+    "--speak",
+    is_flag=True,
+    default=False,
+    help="Record the note by voice (Enter to stop) instead of typing it.",
+)
+@click.option(
+    "--note-audio",
+    "note_audio",
+    type=click.Path(exists=True),
+    default=None,
+    hidden=True,
+    help="Background worker: transcribe this wav as the note.",
+)
+def snap(
+    note: tuple[str, ...], tags: str, file_path: str | None, speak: bool, note_audio: str | None
+):
     """Save the clipboard image (e.g. a Shottr screenshot) as a vault memory.
 
     Writes a lossless WebP + a note to second-brain/sources/screenshots/, indexes
@@ -2639,7 +2939,9 @@ def snap(note: tuple[str, ...], tags: str, file_path: str | None, speak: bool, n
 
     text = " ".join(note).strip()
     if note_audio:
-        from .memo import StageLog, ensure_wav, notify as memo_notify, transcribe as memo_transcribe
+        from .memo import StageLog, ensure_wav
+        from .memo import notify as memo_notify
+        from .memo import transcribe as memo_transcribe
 
         slog = StageLog(datetime.now().strftime("%H%M%S"))
         cfg = load_config()
@@ -2659,23 +2961,34 @@ def snap(note: tuple[str, ...], tags: str, file_path: str | None, speak: bool, n
     if speak and not text:
         import tempfile as _tf
 
-        from .memo import ensure_wav, record, transcribe as memo_transcribe
+        from .memo import ensure_wav, record
+        from .memo import transcribe as memo_transcribe
 
         cfg = load_config()
         with _tf.TemporaryDirectory() as td:
             from .memo import preload_model
 
             preload_model(cfg.whisper_model)
-            console.print("[bold red]\u25cf rec[/bold red]  [dim]speak your note, then press Enter[/dim]")
+            console.print(
+                "[bold red]\u25cf rec[/bold red]  [dim]speak your note, then press Enter[/dim]"
+            )
             audio = record(Path(td) / "snap-note.wav", wait=lambda _prompt: input(""))
-            with console.status(f"[cyan]transcribing[/] [dim]({cfg.whisper_model})[/dim]", spinner="dots"):
+            with console.status(
+                f"[cyan]transcribing[/] [dim]({cfg.whisper_model})[/dim]", spinner="dots"
+            ):
                 text = memo_transcribe(ensure_wav(audio), cfg.whisper_model).strip()
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     note_path = save_snap(data, text, tag_list)
     console.print(f"[green]Saved[/] {note_path.name}")
     if speak:
-        console.print(Panel(text or "[dim](empty transcript)[/dim]", title="[bold]transcript[/bold]",
-                            border_style="cyan", padding=(0, 1)))
+        console.print(
+            Panel(
+                text or "[dim](empty transcript)[/dim]",
+                title="[bold]transcript[/bold]",
+                border_style="cyan",
+                padding=(0, 1),
+            )
+        )
         time.sleep(4)
 
 
@@ -2686,6 +2999,8 @@ def enrich_eval_cmd(tone):
     from .enrich_eval import run_eval
 
     r = run_eval(tone)
-    click.echo(f"n={r['n']} winrate={r['winrate']:.2f} 95% CI [{r['ci'][0]:.2f}, {r['ci'][1]:.2f}] "
-               f"faith_delta={r['faith_delta']:+.3f}")
+    click.echo(
+        f"n={r['n']} winrate={r['winrate']:.2f} 95% CI [{r['ci'][0]:.2f}, {r['ci'][1]:.2f}] "
+        f"faith_delta={r['faith_delta']:+.3f}"
+    )
     click.echo("Smoke gate only (n small); not a ship decision.")

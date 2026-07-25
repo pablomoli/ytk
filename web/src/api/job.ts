@@ -1,19 +1,19 @@
-import { useQuery } from '@tanstack/react-query'
-import { apiGet } from './client'
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "./client";
 
 export type JobStatus = {
-  running: boolean
-  total: number
-  done: number
-  current: string | null
-  current_started: number | null
-  queued: string[]
-  failures: { url: string; error: string }[]
-  annotated: number
-  linked: string[]
-}
+  running: boolean;
+  total: number;
+  done: number;
+  current: string | null;
+  current_started: number | null;
+  queued: string[];
+  failures: { url: string; error: string }[];
+  annotated: number;
+  linked: string[];
+};
 
-export const fetchJob = () => apiGet<JobStatus>('/api/ingest/status')
+export const fetchJob = () => apiGet<JobStatus>("/api/ingest/status");
 
 // Poll once per second only while a job is running; when idle, stop polling so
 // the inbox does not re-render (and MasonryGrid does not relayout) every second.
@@ -27,9 +27,9 @@ export const fetchJob = () => apiGet<JobStatus>('/api/ingest/status')
 // anyone watches the tab.
 export const useJobStatus = () =>
   useQuery({
-    queryKey: ['job'],
+    queryKey: ["job"],
     queryFn: fetchJob,
     refetchInterval: (query) =>
-      query.state.data?.running || query.state.status === 'error' ? 1000 : false,
+      query.state.data?.running || query.state.status === "error" ? 1000 : false,
     refetchIntervalInBackground: true,
-  })
+  });

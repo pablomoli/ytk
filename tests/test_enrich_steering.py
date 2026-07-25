@@ -31,7 +31,10 @@ def test_instagram_enrichment_includes_user_note(captured):
     from ytk.enrich import enrich_instagram
 
     enrich_instagram(
-        caption="c", username="u", slide_count=0, visual_blocks=[],
+        caption="c",
+        username="u",
+        slide_count=0,
+        visual_blocks=[],
         user_note="this could work for the epicmap parcel viewer",
     )
     assert "this could work for the epicmap parcel viewer" in captured["prompt"]

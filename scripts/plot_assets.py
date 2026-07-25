@@ -28,12 +28,12 @@ OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "fog"
 
 # --- house style -----------------------------------------------------------
 DPI = 200
-BG = "#08080a"        # figure background
-PANEL = "#000000"     # panel interior
-FRAME = "#2e2e36"     # panel + figure border
+BG = "#08080a"  # figure background
+PANEL = "#000000"  # panel interior
+FRAME = "#2e2e36"  # panel + figure border
 TEXT = "#eceae7"
 MUTED = "#9a968f"
-GOLD = "#f2b950"      # strands
+GOLD = "#f2b950"  # strands
 BLUE = "#5a8cff"
 RED = "#ff4d6d"
 PURPLE = "#9159ff"
@@ -46,8 +46,8 @@ META_SIZE = 10
 PANEL_SIZE = 10.5
 TICK_SIZE = 9
 
-MARGIN = 0.035        # figure-fraction padding on every side
-PANEL_PAD = 0.014     # gap between a panel's frame and its content cell
+MARGIN = 0.035  # figure-fraction padding on every side
+PANEL_PAD = 0.014  # gap between a panel's frame and its content cell
 
 
 def saturated_magma():
@@ -86,29 +86,41 @@ def figure(w: float, ht: float, number: int, kicker: str, title: str, meta: str 
     lines = textwrap.wrap(title, 78)
     inch = lambda v: 1 - v / ht  # inches from the top -> figure fraction
 
-    fig.text(MARGIN, inch(0.40), " ".join(f"FIGURE {number:02d}"),
-             color=GOLD, fontsize=KICKER_SIZE, fontweight="bold", va="baseline")
-    fig.text(MARGIN + 0.088, inch(0.40), kicker.upper(),
-             color=MUTED, fontsize=KICKER_SIZE, va="baseline")
+    fig.text(
+        MARGIN,
+        inch(0.40),
+        " ".join(f"FIGURE {number:02d}"),
+        color=GOLD,
+        fontsize=KICKER_SIZE,
+        fontweight="bold",
+        va="baseline",
+    )
+    fig.text(
+        MARGIN + 0.088, inch(0.40), kicker.upper(), color=MUTED, fontsize=KICKER_SIZE, va="baseline"
+    )
     y = 0.78
     for line in lines:
         fig.text(MARGIN, inch(y), line, color=TEXT, fontsize=TITLE_SIZE, va="baseline")
         y += 0.30
     rule = y - 0.09
-    fig.add_artist(Line2D([MARGIN, 1 - MARGIN], [inch(rule)] * 2,
-                          transform=fig.transFigure, color=FRAME, linewidth=1.0))
+    fig.add_artist(
+        Line2D(
+            [MARGIN, 1 - MARGIN],
+            [inch(rule)] * 2,
+            transform=fig.transFigure,
+            color=FRAME,
+            linewidth=1.0,
+        )
+    )
     if meta:
-        fig.text(MARGIN, inch(rule + 0.26), meta, color=MUTED, fontsize=META_SIZE,
-                 va="baseline")
+        fig.text(MARGIN, inch(rule + 0.26), meta, color=MUTED, fontsize=META_SIZE, va="baseline")
     # leave room for the panel titles that sit under the header
     header = rule + (0.92 if meta else 0.62)
     return fig, inch(header)
 
 
 def panel_title(ax, text: str, width: int = 46) -> None:
-    ax.set_title(
-        textwrap.fill(text, width), color=TEXT, fontsize=PANEL_SIZE, pad=13
-    )
+    ax.set_title(textwrap.fill(text, width), color=TEXT, fontsize=PANEL_SIZE, pad=13)
 
 
 def fit3d(ax, pts: np.ndarray, pad: float = 0.03, zoom: float = 1.72) -> None:
@@ -170,9 +182,14 @@ def frame_panels(fig, pad: float = PANEL_PAD) -> None:
     edge = MARGIN / 2.4
     fig.add_artist(
         Rectangle(
-            (edge, edge), 1 - 2 * edge, 1 - 2 * edge,
-            transform=fig.transFigure, facecolor="none",
-            edgecolor=FRAME, linewidth=1.4, zorder=10,
+            (edge, edge),
+            1 - 2 * edge,
+            1 - 2 * edge,
+            transform=fig.transFigure,
+            facecolor="none",
+            edgecolor=FRAME,
+            linewidth=1.4,
+            zorder=10,
         )
     )
 
@@ -189,9 +206,16 @@ def save(fig, name: str) -> None:
 
 def fog_scatter(ax, xyz: np.ndarray, den: np.ndarray, cmap, alpha: float = 0.42):
     return ax.scatter(
-        xyz[:, 0], xyz[:, 1], xyz[:, 2],
-        c=punch(den), cmap=cmap, vmin=0, vmax=1,
-        s=7 + 46 * den, alpha=alpha, linewidths=0,
+        xyz[:, 0],
+        xyz[:, 1],
+        xyz[:, 2],
+        c=punch(den),
+        cmap=cmap,
+        vmin=0,
+        vmax=1,
+        s=7 + 46 * den,
+        alpha=alpha,
+        linewidths=0,
     )
 
 
@@ -203,13 +227,24 @@ def strand_plot(ax, filaments, color: str = GOLD, taper: bool = True) -> None:
             for i in range(len(f) - 1):
                 dv = float((f[i, 4] + f[i + 1, 4]) / 2)
                 ax.plot(
-                    f[i : i + 2, 0], f[i : i + 2, 1], f[i : i + 2, 2],
-                    color=color, linewidth=0.7 + 3.0 * dv,
-                    alpha=0.4 + 0.6 * min(dv * 2, 1), solid_capstyle="round",
+                    f[i : i + 2, 0],
+                    f[i : i + 2, 1],
+                    f[i : i + 2, 2],
+                    color=color,
+                    linewidth=0.7 + 3.0 * dv,
+                    alpha=0.4 + 0.6 * min(dv * 2, 1),
+                    solid_capstyle="round",
                 )
         else:
-            ax.plot(f[:, 0], f[:, 1], f[:, 2], color=color,
-                    linewidth=1.6, alpha=0.95, solid_capstyle="round")
+            ax.plot(
+                f[:, 0],
+                f[:, 1],
+                f[:, 2],
+                color=color,
+                linewidth=1.6,
+                alpha=0.95,
+                solid_capstyle="round",
+            )
 
 
 # --- data ------------------------------------------------------------------
@@ -271,18 +306,28 @@ def fig01(data, d, cmap):
     splats = np.asarray(d["uniform_fog"])
     xyz, den = splats[:, :3], splats[:, 3]
     fig, top = figure(
-        12.6, 13.1, 1, "the first fog",
+        12.6,
+        13.1,
+        1,
+        "the first fog",
         "One bandwidth everywhere: the density field as Monte-Carlo splats",
-        f"{len(splats)} splats  ·  uniform h = {d['h']:.3f}  ·  threshold sweep left-to-right, top-to-bottom")
-    panels = [(0.0, "full fog"), (0.25, "level 0.25 — haze burns off"),
-              (0.5, "level 0.5 — cores nucleate"), (0.15, "level 0.15 — the working view")]
+        f"{len(splats)} splats  ·  uniform h = {d['h']:.3f}  ·  threshold sweep left-to-right, top-to-bottom",
+    )
+    panels = [
+        (0.0, "full fog"),
+        (0.25, "level 0.25 — haze burns off"),
+        (0.5, "level 0.5 — cores nucleate"),
+        (0.15, "level 0.15 — the working view"),
+    ]
     for k, (level, title) in enumerate(panels):
         ax = fig.add_subplot(2, 2, k + 1, projection="3d")
         mask = den >= level
         fog_scatter(ax, xyz[mask], den[mask], cmap)
         fit3d(ax, xyz)
         panel_title(ax, f"{title}  ·  {int(mask.sum())} splats")
-    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.05, hspace=0.16)
+    fig.subplots_adjust(
+        left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.05, hspace=0.16
+    )
     save(fig, "01-uniform-fog-panels.png")
 
 
@@ -295,14 +340,23 @@ def fig02(data, d, cmap):
     z3 = np.array([p["z3"] for p in data["points"]])
     hi = ridges.knn_bandwidths(z3)
     fig, top = figure(
-        15, 9.1, 2, "the bandwidth dial",
+        15,
+        9.1,
+        2,
+        "the bandwidth dial",
         "One width for every note, or a width per note?",
         f"uniform h = {d['h']:.3f}  ·  adaptive h_i in [{hi.min():.3f}, {hi.max():.3f}], "
-        f"median {np.median(hi):.3f}  ·  kNN-scaled, median-anchored, clamped")
-    for k, (arr, title) in enumerate([
-        (uni, "uniform bandwidth — one width everywhere; cores smear into their surroundings"),
-        (ada, "adaptive bandwidth — kNN-scaled per note; crowded regions sharpen, lonely notes haze"),
-    ]):
+        f"median {np.median(hi):.3f}  ·  kNN-scaled, median-anchored, clamped",
+    )
+    for k, (arr, title) in enumerate(
+        [
+            (uni, "uniform bandwidth — one width everywhere; cores smear into their surroundings"),
+            (
+                ada,
+                "adaptive bandwidth — kNN-scaled per note; crowded regions sharpen, lonely notes haze",
+            ),
+        ]
+    ):
         ax = fig.add_subplot(1, 2, k + 1, projection="3d")
         fog_scatter(ax, arr[:, :3], arr[:, 3], cmap)
         fit3d(ax, arr[:, :3])
@@ -317,13 +371,17 @@ def fig03(data, d, cmap):
     xyz, den = splats[:, :3], splats[:, 3]
     fils = data["all"]["web"]["filaments"]
     fig, top = figure(
-        12.6, 13.1, 3, "adaptive fog, corrected",
+        12.6,
+        13.1,
+        3,
+        "adaptive fog, corrected",
         "The same cloud once the display normalization stops lying",
         f"{len(splats)} splats  ·  median density {np.median(den):.2f}  ·  scaled to the splats' "
-        f"own 99th percentile, not the peak at the data points")
-    for k, (level, title) in enumerate([
-        (0.0, "full fog"), (0.25, "level 0.25 — haze gone"), (0.5, "level 0.5 — cores nucleate")
-    ]):
+        f"own 99th percentile, not the peak at the data points",
+    )
+    for k, (level, title) in enumerate(
+        [(0.0, "full fog"), (0.25, "level 0.25 — haze gone"), (0.5, "level 0.5 — cores nucleate")]
+    ):
         ax = fig.add_subplot(2, 2, k + 1, projection="3d")
         mask = den >= level
         fog_scatter(ax, xyz[mask], den[mask], cmap)
@@ -335,7 +393,9 @@ def fig03(data, d, cmap):
     strand_plot(ax, fils)
     fit3d(ax, xyz)
     panel_title(ax, f"fog + filament web  ·  {len(fils)} strands")
-    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.05, hspace=0.16)
+    fig.subplots_adjust(
+        left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.05, hspace=0.16
+    )
     save(fig, "03-adaptive-fog-panels.png")
 
 
@@ -346,21 +406,30 @@ def fig04(data, d, cmap):
     uni = data["all"]["web"]["filaments"]
     ada = d["adaptive_strands"]
     fig, top = figure(
-        15, 9.1, 4, "the scale-space verdict",
+        15,
+        9.1,
+        4,
+        "the scale-space verdict",
         "Sharper is not better: adaptive bandwidth shatters the strands",
         "the estimator must match the question — fog asks a local question, "
-        "the web asks a connectivity question")
-    for k, (fils, title) in enumerate([
-        (uni, "uniform h — connectivity survives; long spines hold together"),
-        (ada, "adaptive h_i — sharper local density, fragmented crests"),
-    ]):
+        "the web asks a connectivity question",
+    )
+    for k, (fils, title) in enumerate(
+        [
+            (uni, "uniform h — connectivity survives; long spines hold together"),
+            (ada, "adaptive h_i — sharper local density, fragmented crests"),
+        ]
+    ):
         ax = fig.add_subplot(1, 2, k + 1, projection="3d")
         fog_scatter(ax, splats[keep, :3], splats[keep, 3], cmap, alpha=0.16)
         strand_plot(ax, fils)
         fit3d(ax, splats[:, :3])
         lens = sorted(len(f) for f in fils)
-        panel_title(ax, f"{title}  ·  {len(fils)} strands, longest {lens[-1]}, median {lens[len(lens) // 2]}",
-                    width=86)
+        panel_title(
+            ax,
+            f"{title}  ·  {len(fils)} strands, longest {lens[-1]}, median {lens[len(lens) // 2]}",
+            width=86,
+        )
     fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.06)
     save(fig, "04-filaments-uniform-vs-adaptive.png")
 
@@ -370,21 +439,34 @@ def fig05(data, d, cmap):
     splats = np.asarray(data["all"]["fog"]["splats"])
     keep = splats[:, 3] >= 0.12
     fig, top = figure(
-        15, 9.1, 5, "dashes into strands",
+        15,
+        9.1,
+        5,
+        "dashes into strands",
         "Connect-the-dots versus walking the wire",
         "nearest-neighbour chaining breaks at every gap between converged walkers; "
-        "predictor-corrector tracing returns one ordered, evenly spaced strand")
-    for k, (fils, title, taper) in enumerate([
-        (d["chained"], "chained walkers — gaps render as dashes", False),
-        (data["all"]["web"]["filaments"], "traced strands — ordered, uniformly spaced, density-tapered", True),
-    ]):
+        "predictor-corrector tracing returns one ordered, evenly spaced strand",
+    )
+    for k, (fils, title, taper) in enumerate(
+        [
+            (d["chained"], "chained walkers — gaps render as dashes", False),
+            (
+                data["all"]["web"]["filaments"],
+                "traced strands — ordered, uniformly spaced, density-tapered",
+                True,
+            ),
+        ]
+    ):
         ax = fig.add_subplot(1, 2, k + 1, projection="3d")
         fog_scatter(ax, splats[keep, :3], splats[keep, 3], cmap, alpha=0.14)
         strand_plot(ax, fils, taper=taper)
         fit3d(ax, splats[:, :3])
         lens = sorted(len(f) for f in fils)
-        panel_title(ax, f"{title}  ·  {len(fils)} filaments, longest {lens[-1]}, median {lens[len(lens) // 2]}",
-                    width=86)
+        panel_title(
+            ax,
+            f"{title}  ·  {len(fils)} filaments, longest {lens[-1]}, median {lens[len(lens) // 2]}",
+            width=86,
+        )
     fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.06)
     save(fig, "05-chained-vs-traced-filaments.png")
 
@@ -399,27 +481,52 @@ def fig06(data, d, cmap):
     dist = np.sqrt(((z3[:, None, :] - verts[None, :, :]) ** 2).sum(-1).min(1)) / h
 
     fig, top = figure(
-        16.5, 7.4, 6, "distance to the skeleton",
+        16.5,
+        7.4,
+        6,
+        "distance to the skeleton",
         "How well does a handful of strands stand in for the whole cloud?",
         f"{len(z3)} notes  ·  {len(verts)} strand vertices  ·  h = {h:.3f}  ·  "
-        f"the same measure astronomy uses for galaxy distance-to-filament")
+        f"the same measure astronomy uses for galaxy distance-to-filament",
+    )
     # The domain names are long; the right panel needs a wide left gutter and
     # the 3D panel's colourbar goes underneath it rather than beside it,
     # where it used to collide with those labels.
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.0, 1.18, 1.02],
-                          left=0.058, right=1 - MARGIN - 0.018, top=top, bottom=0.215, wspace=0.42)
+    gs = fig.add_gridspec(
+        1,
+        3,
+        width_ratios=[1.0, 1.18, 1.02],
+        left=0.058,
+        right=1 - MARGIN - 0.018,
+        top=top,
+        bottom=0.215,
+        wspace=0.42,
+    )
 
     ax = fig.add_subplot(gs[0])
     ax.hist(dist, bins=60, color=GOLD, alpha=0.92)
     ax.axvline(float(np.median(dist)), color=CYAN, linewidth=1.3, linestyle="--")
     style_axes(ax)
-    ax.set_xlabel("distance / h"); ax.set_ylabel("notes")
-    panel_title(ax, f"median {np.median(dist):.2f}h — {100 * (dist < 2).mean():.0f}% of notes "
-                    f"lie within 2h of a strand", width=86)
+    ax.set_xlabel("distance / h")
+    ax.set_ylabel("notes")
+    panel_title(
+        ax,
+        f"median {np.median(dist):.2f}h — {100 * (dist < 2).mean():.0f}% of notes "
+        f"lie within 2h of a strand",
+        width=86,
+    )
 
     ax = fig.add_subplot(gs[1], projection="3d")
-    sc = ax.scatter(z3[:, 0], z3[:, 1], z3[:, 2], c=np.clip(dist, 0, 3),
-                    cmap=cmap, s=6, alpha=0.62, linewidths=0)
+    sc = ax.scatter(
+        z3[:, 0],
+        z3[:, 1],
+        z3[:, 2],
+        c=np.clip(dist, 0, 3),
+        cmap=cmap,
+        s=6,
+        alpha=0.62,
+        linewidths=0,
+    )
     for fil in data["all"]["web"]["filaments"]:
         f = np.asarray(fil)
         ax.plot(f[:, 0], f[:, 1], f[:, 2], color=CYAN, linewidth=1.1, alpha=0.85)
@@ -434,12 +541,17 @@ def fig06(data, d, cmap):
     cb.ax._is_colorbar = True
 
     ax = fig.add_subplot(gs[2])
-    rows = [(labels[k], float(np.median(dist[doms == k])), int((doms == k).sum()))
-            for k in range(len(labels)) if (doms == k).sum() > 20]
+    rows = [
+        (labels[k], float(np.median(dist[doms == k])), int((doms == k).sum()))
+        for k in range(len(labels))
+        if (doms == k).sum() > 20
+    ]
     rows.sort(key=lambda r: r[1])
     ax.barh([f"{n} ({c})" for n, _, c in rows], [v for _, v, _ in rows], color=GOLD, alpha=0.92)
     style_axes(ax)
-    ax.set_xlim(0, max(v for _, v, _ in rows) * 1.12)  # headroom so the longest bar clears the frame
+    ax.set_xlim(
+        0, max(v for _, v, _ in rows) * 1.12
+    )  # headroom so the longest bar clears the frame
     ax.set_xlabel("median distance / h")
     panel_title(ax, "by domain — low = hugs its highway, high = sprawls", width=86)
 
@@ -451,14 +563,26 @@ def fig07(data, d, cmap):
     splats = np.asarray(data["all"]["fog"]["splats"])
     keep = splats[:, 3] >= 0.15
     fig, top = figure(
-        15, 9.1, 7, "trim forensics",
+        15,
+        9.1,
+        7,
+        "trim forensics",
         "Did trimming lose any threads, or only duplicate ink?",
         "same crest points and the same coverage on both sides — the trim removes stretches "
-        "already drawn by a longer strand, then reattaches branches at their junction")
-    for k, (fils, title) in enumerate([
-        (d["pretrim"], "pre-trim — every seed's full walk, strands redrawn on top of each other"),
-        (data["all"]["web"]["filaments"], "trimmed — covered stretches removed, branches reattached"),
-    ]):
+        "already drawn by a longer strand, then reattaches branches at their junction",
+    )
+    for k, (fils, title) in enumerate(
+        [
+            (
+                d["pretrim"],
+                "pre-trim — every seed's full walk, strands redrawn on top of each other",
+            ),
+            (
+                data["all"]["web"]["filaments"],
+                "trimmed — covered stretches removed, branches reattached",
+            ),
+        ]
+    ):
         ax = fig.add_subplot(1, 2, k + 1, projection="3d")
         fog_scatter(ax, splats[keep, :3], splats[keep, 3], cmap, alpha=0.10)
         strand_plot(ax, fils, taper=False)
@@ -478,18 +602,30 @@ def fig08(data, d, cmap):
     # Landscape frame: the embedding is far wider than it is tall, so a
     # near-square canvas leaves bands of dead space above and below.
     fig, top = figure(
-        11.5, 11.0, 8, "the crossroads",
+        11.5,
+        11.0,
+        8,
+        "the crossroads",
         "Where one strand's endpoint lands on another's trunk",
         f"{len(junc)} junctions across {len(fils)} strands  ·  candidate anchors for the "
-        f"planets of issue #78")
+        f"planets of issue #78",
+    )
     ax = fig.add_subplot(1, 1, 1, projection="3d")
     fog_scatter(ax, splats[keep, :3], splats[keep, 3], cmap, alpha=0.20)
     strand_plot(ax, fils)
     if len(junc):
-        ax.scatter(junc[:, 0], junc[:, 1], junc[:, 2], s=240, facecolors="none",
-                   edgecolors=CYAN, linewidths=1.8, alpha=0.95, zorder=6)
-        ax.scatter(junc[:, 0], junc[:, 1], junc[:, 2], s=30, color="#fff6e0",
-                   alpha=1.0, zorder=7)
+        ax.scatter(
+            junc[:, 0],
+            junc[:, 1],
+            junc[:, 2],
+            s=240,
+            facecolors="none",
+            edgecolors=CYAN,
+            linewidths=1.8,
+            alpha=0.95,
+            zorder=6,
+        )
+        ax.scatter(junc[:, 0], junc[:, 1], junc[:, 2], s=30, color="#fff6e0", alpha=1.0, zorder=7)
     fit3d(ax, splats[:, :3], zoom=1.6)
     fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN)
     save(fig, "08-junctions.png")
@@ -501,10 +637,14 @@ def fig09(data, d, cmap):
     xyz, den = splats[:, :3], splats[:, 3]
     eps, level = 0.06, 0.35
     fig, top = figure(
-        12.6, 13.1, 9, "shells and onions",
+        12.6,
+        13.1,
+        9,
+        "shells and onions",
         "Swap the slider's >= for an absolute value and the fog goes hollow",
         f"|f - c| < {0.06} is the Monte-Carlo preview of a marching-cubes isosurface  ·  "
-        f"band thickness ~ 2eps / |grad f|, so shells hug steep peaks and puff over saddles")
+        f"band thickness ~ 2eps / |grad f|, so shells hug steep peaks and puff over saddles",
+    )
 
     ax = fig.add_subplot(2, 2, 1, projection="3d")
     mask = den >= level
@@ -521,8 +661,16 @@ def fig09(data, d, cmap):
     ax = fig.add_subplot(2, 2, 3, projection="3d")
     for lvl, color in [(0.15, BLUE), (0.35, GOLD), (0.6, RED)]:
         m = np.abs(den - lvl) < eps
-        ax.scatter(xyz[m, 0], xyz[m, 1], xyz[m, 2], color=color, s=7,
-                   alpha=0.34, linewidths=0, label=f"level {lvl}")
+        ax.scatter(
+            xyz[m, 0],
+            xyz[m, 1],
+            xyz[m, 2],
+            color=color,
+            s=7,
+            alpha=0.34,
+            linewidths=0,
+            label=f"level {lvl}",
+        )
     fit3d(ax, xyz)
     panel_title(ax, "nested shells — the onion")
     leg = ax.legend(loc="upper left", fontsize=TICK_SIZE, framealpha=0.0, labelcolor=TEXT)
@@ -533,22 +681,26 @@ def fig09(data, d, cmap):
     ring = slab & (np.abs(den - level) < eps)
     core = slab & (den >= level + eps)
     ax.scatter(xyz[slab, 0], xyz[slab, 1], color=DIM, s=4, alpha=0.35, linewidths=0)
-    ax.scatter(xyz[core, 0], xyz[core, 1], color=PURPLE, s=7, alpha=0.6, linewidths=0,
-               label="interior")
-    ax.scatter(xyz[ring, 0], xyz[ring, 1], color=GOLD, s=10, alpha=0.85, linewidths=0,
-               label="shell band")
+    ax.scatter(
+        xyz[core, 0], xyz[core, 1], color=PURPLE, s=7, alpha=0.6, linewidths=0, label="interior"
+    )
+    ax.scatter(
+        xyz[ring, 0], xyz[ring, 1], color=GOLD, s=10, alpha=0.85, linewidths=0, label="shell band"
+    )
     ax.set_aspect("equal")
     style_axes(ax)
-    ax.set_xticks([]); ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_yticks([])
     panel_title(ax, "cross-section |z| < 0.12 — shells ring the cores")
     ax.legend(loc="upper left", fontsize=TICK_SIZE, framealpha=0.0, labelcolor=TEXT)
 
-    fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.07, hspace=0.16)
+    fig.subplots_adjust(
+        left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN, wspace=0.07, hspace=0.16
+    )
     save(fig, "09-shell-band.png")
 
 
-FIGS = {1: fig01, 2: fig02, 3: fig03, 4: fig04, 5: fig05,
-        6: fig06, 7: fig07, 8: fig08, 9: fig09}
+FIGS = {1: fig01, 2: fig02, 3: fig03, 4: fig04, 5: fig05, 6: fig06, 7: fig07, 8: fig08, 9: fig09}
 
 
 def main() -> None:
@@ -566,7 +718,7 @@ def main() -> None:
     cmap = saturated_magma()
     data = load()
     d = derived(data, refresh=args.refresh)
-    for k in ([args.only] if args.only else sorted(FIGS)):
+    for k in [args.only] if args.only else sorted(FIGS):
         FIGS[k](data, d, cmap)
 
 

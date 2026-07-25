@@ -22,7 +22,12 @@ OUT = Path(__file__).resolve().parents[2] / "docs" / "grove-lab" / "bucket-quali
 def main() -> None:
     from scripts.build_map import load_points
     from scripts.grove_lab.buckets import (
-        DEFAULT_CONFIG, _matches, assign, dedupe_indices, load_buckets, resolve_notes,
+        DEFAULT_CONFIG,
+        _matches,
+        assign,
+        dedupe_indices,
+        load_buckets,
+        resolve_notes,
     )
     from scripts.grove_lab.dendro import _unit
     from ytk.store import _TEXT_MODEL
@@ -47,9 +52,7 @@ def main() -> None:
     declared = {p for b in cfg.buckets for p in b.projects}
 
     # overlap: how many notes match 2+ buckets before first-match-wins
-    match_counts = [
-        sum(1 for b in cfg.buckets if _matches(note, b, declared)) for note in notes
-    ]
+    match_counts = [sum(1 for b in cfg.buckets if _matches(note, b, declared)) for note in notes]
     overlap_notes = sum(1 for c in match_counts if c >= 2)
 
     cents = {}
@@ -65,12 +68,10 @@ def main() -> None:
             per_bucket[b.name] = {"n": 0}
             continue
         within = float((u[idx] @ cents[b.name]).mean())
-        others = {
-            name: float((u[idx] @ c).mean()) for name, c in cents.items() if name != b.name
-        }
+        others = {name: float((u[idx] @ c).mean()) for name, c in cents.items() if name != b.name}
         nearest = max(others, key=others.get) if others else None
         per_bucket[b.name] = {
-            "n": int(len(idx)),
+            "n": len(idx),
             "within_sim": round(within, 3),
             "nearest_other": nearest,
             "nearest_other_sim": round(others[nearest], 3) if nearest else None,

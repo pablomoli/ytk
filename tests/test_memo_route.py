@@ -56,7 +56,12 @@ def test_route_passes_repos_into_system_prompt():
 
 
 def test_route_thought_kind_default():
-    payload = {"kind": "thought", "summary": "Loose musing about embeddings", "tags": [], "items": []}
+    payload = {
+        "kind": "thought",
+        "summary": "Loose musing about embeddings",
+        "tags": [],
+        "items": [],
+    }
     with _fake_structured(payload):
         result = route("embeddings are so mathematically pretty")
     assert result.kind == "thought"

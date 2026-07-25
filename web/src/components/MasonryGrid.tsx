@@ -1,106 +1,111 @@
-import { useEffect, useRef } from 'react'
-import type { ReactNode } from 'react'
-import { DUR, Flip, HOUSE_EASE, reducedMotion } from '../lib/motion'
-import { columnSpec, computeMasonryLayout } from '../lib/masonry'
-import '../styles.css'
+import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
+import { DUR, Flip, HOUSE_EASE, reducedMotion } from "../lib/motion";
+import { columnSpec, computeMasonryLayout } from "../lib/masonry";
+import "../styles.css";
 
-const GAP = 12
-const COL_MIN = 190
-const WIDE_RATIO = 1.3
+const GAP = 12;
+const COL_MIN = 190;
+const WIDE_RATIO = 1.3;
 
 /* A landscape cover means the card should tile two columns wide. Marked on
    the DOM (not React state) so the layout pass can read it synchronously. */
 function markWide(img: HTMLImageElement) {
-  if (!img.naturalWidth || !img.naturalHeight) return
-  const card = img.closest<HTMLElement>('.card')
-  if (!card) return
+  if (!img.naturalWidth || !img.naturalHeight) return;
+  const card = img.closest<HTMLElement>(".card");
+  if (!card) return;
   if (img.naturalWidth / img.naturalHeight >= WIDE_RATIO) {
-    card.dataset.wide = '1'
+    card.dataset.wide = "1";
   } else {
-    delete card.dataset.wide
+    delete card.dataset.wide;
   }
 }
 
-type Reason = 'children' | 'resize' | 'load'
+type Reason = "children" | "resize" | "load";
 
 export function MasonryGrid({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const laidOut = useRef(false)
+  const ref = useRef<HTMLDivElement>(null);
+  const laidOut = useRef(false);
 
   useEffect(() => {
-    const grid = ref.current
-    if (!grid) return
+    const grid = ref.current;
+    if (!grid) return;
 
-    let raf = 0
-    let pendingReason: Reason = 'children'
+    let raf = 0;
+    let pendingReason: Reason = "children";
     const relayout = (reason: Reason) => {
       /* Flip only on children changes: resize tweens fight the drag, and
          image-load relayouts happen mid-scroll where motion is noise. */
-      if (reason === 'children') pendingReason = 'children'
-      if (raf) return
+      if (reason === "children") pendingReason = "children";
+      if (raf) return;
       raf = requestAnimationFrame(() => {
-        raf = 0
-        const width = grid.clientWidth
-        if (!width) return
+        raf = 0;
+        const width = grid.clientWidth;
+        if (!width) return;
         const items = [...grid.children].filter(
           (el): el is HTMLElement => el instanceof HTMLElement,
-        )
-        const animate = pendingReason === 'children' && laidOut.current && !reducedMotion()
-        const state = animate ? Flip.getState(items) : null
-        pendingReason = 'resize'
+        );
+        const animate = pendingReason === "children" && laidOut.current && !reducedMotion();
+        const state = animate ? Flip.getState(items) : null;
+        pendingReason = "resize";
         /* Two passes because height depends on width: first size every card
            for its span, then measure and place. Cards are absolutely
            positioned with explicit widths, so offsetHeight reflects content
            at that width and relayout stays idempotent (no ratchet). */
-        const { nCols, colW } = columnSpec(width, GAP, COL_MIN)
+        const { nCols, colW } = columnSpec(width, GAP, COL_MIN);
         items.forEach((el) => {
-          const wide = el.dataset.wide === '1' && nCols >= 2
-          el.style.position = 'absolute'
-          el.style.width = `${wide ? 2 * colW + GAP : colW}px`
-        })
+          const wide = el.dataset.wide === "1" && nCols >= 2;
+          el.style.position = "absolute";
+          el.style.width = `${wide ? 2 * colW + GAP : colW}px`;
+        });
         const boxes = items.map((el) => ({
           height: el.offsetHeight,
-          wide: el.dataset.wide === '1',
-        }))
-        const layout = computeMasonryLayout(boxes, { width, gap: GAP, colMin: COL_MIN })
+          wide: el.dataset.wide === "1",
+        }));
+        const layout = computeMasonryLayout(boxes, { width, gap: GAP, colMin: COL_MIN });
         items.forEach((el, i) => {
-          el.style.left = `${layout.placed[i].left}px`
-          el.style.top = `${layout.placed[i].top}px`
-          el.style.width = `${layout.placed[i].width}px`
-        })
-        grid.style.height = `${layout.height}px`
-        laidOut.current = true
+          el.style.left = `${layout.placed[i].left}px`;
+          el.style.top = `${layout.placed[i].top}px`;
+          el.style.width = `${layout.placed[i].width}px`;
+        });
+        grid.style.height = `${layout.height}px`;
+        laidOut.current = true;
         if (state) {
-          Flip.from(state, { duration: DUR.base, ease: HOUSE_EASE, overwrite: true, onEnter: (els) => els.forEach((el) => ((el as HTMLElement).style.opacity = '1')) })
+          Flip.from(state, {
+            duration: DUR.base,
+            ease: HOUSE_EASE,
+            overwrite: true,
+            onEnter: (els) => els.forEach((el) => ((el as HTMLElement).style.opacity = "1")),
+          });
         }
-      })
-    }
+      });
+    };
 
-    relayout('children')
+    relayout("children");
 
-    const ro = new ResizeObserver(() => relayout('resize'))
-    ro.observe(grid)
+    const ro = new ResizeObserver(() => relayout("resize"));
+    ro.observe(grid);
 
     const onLoad = (e: Event) => {
-      markWide(e.target as HTMLImageElement)
-      relayout('load')
-    }
-    const images = [...grid.querySelectorAll('img')]
+      markWide(e.target as HTMLImageElement);
+      relayout("load");
+    };
+    const images = [...grid.querySelectorAll("img")];
     images.forEach((img) => {
-      if (img.complete) markWide(img)
-      img.addEventListener('load', onLoad)
-    })
+      if (img.complete) markWide(img);
+      img.addEventListener("load", onLoad);
+    });
 
     return () => {
-      ro.disconnect()
-      images.forEach((img) => img.removeEventListener('load', onLoad))
-      if (raf) cancelAnimationFrame(raf)
-    }
-  }, [children])
+      ro.disconnect();
+      images.forEach((img) => img.removeEventListener("load", onLoad));
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [children]);
 
   return (
     <main ref={ref} className="masonry">
       {children}
     </main>
-  )
+  );
 }

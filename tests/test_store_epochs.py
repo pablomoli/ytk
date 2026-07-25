@@ -17,6 +17,7 @@ def store(tmp_path, monkeypatch):
     # the _efs model cache, and every re-load stacks another model onto MPS —
     # the full suite runs into the 20 GiB MPS ceiling that way.
     import ytk.store as store_mod
+
     monkeypatch.setattr(store_mod, "_CHROMA_PATH", tmp_path / "chroma")
     monkeypatch.setattr(store_mod, "_client", None)
     return store_mod
@@ -26,13 +27,20 @@ def store(tmp_path, monkeypatch):
 def store_v2(store, monkeypatch):
     """The store on the v2 epoch, with the v2 model swapped for the small
     cached one so tests don't load Qwen3."""
-    monkeypatch.setitem(store._EPOCHS, "v2", {
-        **store._EPOCHS["v2"],
-        # cpu like chroma's stock test EFs: the suite's MPS pool is already
-        # near its 20 GiB ceiling and torch never frees models
-        "model": "thenlper/gte-small", "fp16": False, "max_seq": 0,
-        "device": "cpu", "revision": None,
-    })
+    monkeypatch.setitem(
+        store._EPOCHS,
+        "v2",
+        {
+            **store._EPOCHS["v2"],
+            # cpu like chroma's stock test EFs: the suite's MPS pool is already
+            # near its 20 GiB ceiling and torch never frees models
+            "model": "thenlper/gte-small",
+            "fp16": False,
+            "max_seq": 0,
+            "device": "cpu",
+            "revision": None,
+        },
+    )
     monkeypatch.setattr(store, "EMBEDDING_EPOCH", "v2")
     return store
 
@@ -56,7 +64,8 @@ def test_upsert_doc_overflows_without_truncating(store_v2):
 
 def test_upsert_doc_v2_keeps_short_doc_representative_only(store_v2):
     store_v2.upsert_doc(
-        "doc1", "a compact document that clears the retrieval noise floor",
+        "doc1",
+        "a compact document that clears the retrieval noise floor",
         {"source_path": "/x.md"},
     )
     got = store_v2._memories_collection().get()
@@ -78,8 +87,12 @@ def test_phantom_guard_survives_v2(store_v2):
     """The #71 phantom guard is independent of chunking and must survive the
     migration: a note re-indexed under a new id scheme leaves no stale vector
     sharing its source_path."""
-    store_v2.upsert_doc("old_id_scheme", "note body long enough to clear the embed floor", {"source_path": "/n.md"})
-    store_v2.upsert_doc("new_id_scheme", "note body long enough to clear the embed floor", {"source_path": "/n.md"})
+    store_v2.upsert_doc(
+        "old_id_scheme", "note body long enough to clear the embed floor", {"source_path": "/n.md"}
+    )
+    store_v2.upsert_doc(
+        "new_id_scheme", "note body long enough to clear the embed floor", {"source_path": "/n.md"}
+    )
     assert store_v2._memories_collection().get()["ids"] == ["new_id_scheme"]
 
 
@@ -94,8 +107,11 @@ def test_video_upsert_v2_writes_representative_only(store_v2):
         interest_tags=["gpu"],
         key_moments=[KeyMoment(timestamp="1:02", description="tiled mode")],
     )
-    store_v2.upsert({"id": "vid1", "title": "T", "url": "u", "uploader": "x",
-                     "upload_date": "20260101"}, enr, segments=[])
+    store_v2.upsert(
+        {"id": "vid1", "title": "T", "url": "u", "uploader": "x", "upload_date": "20260101"},
+        enr,
+        segments=[],
+    )
     got = store_v2._videos_collection().get()
     assert got["ids"] == ["vid1"]
     assert "Thesis about tiling" in got["documents"][0]
@@ -114,8 +130,7 @@ def test_embed_query_uses_instruction_prefix_on_v2(store_v2):
 
 def test_embed_query_v1_matches_stock_ef(store):
     q = "cache line contention"
-    assert store._embed_query(q) == pytest.approx(
-        [float(x) for x in store._get_ef()([q])[0]])
+    assert store._embed_query(q) == pytest.approx([float(x) for x in store._get_ef()([q])[0]])
 
 
 def test_instruction_aware_ef_config_roundtrip(store):
@@ -126,10 +141,12 @@ def test_instruction_aware_ef_config_roundtrip(store):
 
 
 def test_search_v2_end_to_end(store_v2):
-    store_v2.upsert_doc("relevant", "False sharing: cores fight over one "
-                        "cache line, MESI ping-pong.", {"source_path": "/a.md"})
-    store_v2.upsert_doc("decoy", "Sourdough starter feeding schedule.",
-                        {"source_path": "/b.md"})
+    store_v2.upsert_doc(
+        "relevant",
+        "False sharing: cores fight over one cache line, MESI ping-pong.",
+        {"source_path": "/a.md"},
+    )
+    store_v2.upsert_doc("decoy", "Sourdough starter feeding schedule.", {"source_path": "/b.md"})
     hits = store_v2.search_all("cpu cache contention", n=2)
     assert hits[0].doc_id == "relevant"
 

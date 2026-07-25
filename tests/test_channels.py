@@ -28,11 +28,17 @@ class TestChannelOf:
 
     def test_reddit_without_subreddit_does_not_fall_back_to_author(self):
         # never attribute a subreddit's content to one poster
-        assert channel_of({"author": "u/someone", "url": "https://reddit.com/r/x/y"}, "reddit") == "reddit.com"
+        assert (
+            channel_of({"author": "u/someone", "url": "https://reddit.com/r/x/y"}, "reddit")
+            == "reddit.com"
+        )
 
     def test_web_uses_author_then_domain(self):
         assert channel_of({"author": "Jane Doe", "url": "https://blog.dev/x"}, "web") == "Jane Doe"
-        assert channel_of({"author": "", "url": "https://www.shopify.com/editions"}, "web") == "shopify.com"
+        assert (
+            channel_of({"author": "", "url": "https://www.shopify.com/editions"}, "web")
+            == "shopify.com"
+        )
 
     def test_excluded_sources_have_no_channel(self):
         assert channel_of({"source": "voice"}, "memo") is None
@@ -52,8 +58,14 @@ class TestChannelKey:
 
 class TestAggregate:
     def _card(self, source, channel, tags=(), title="t", added="2026-07-10"):
-        return {"source": source, "channel": channel, "tags": list(tags),
-                "title": title, "path": f"p/{title}", "added": added}
+        return {
+            "source": source,
+            "channel": channel,
+            "tags": list(tags),
+            "title": title,
+            "path": f"p/{title}",
+            "added": added,
+        }
 
     def test_groups_and_counts(self):
         cards = [
@@ -73,8 +85,15 @@ class TestAggregate:
 
     def test_skips_memos_even_when_channel_set(self):
         # the memo card branch sets channel="voice"/"imessage" downstream
-        assert aggregate([{"source": "memo", "channel": "voice"},
-                          {"source": "imessage", "channel": "imessage"}]) == []
+        assert (
+            aggregate(
+                [
+                    {"source": "memo", "channel": "voice"},
+                    {"source": "imessage", "channel": "imessage"},
+                ]
+            )
+            == []
+        )
 
     def test_case_insensitive_grouping(self):
         cards = [self._card("youtube", "Curtis Holt"), self._card("youtube", "curtis holt")]

@@ -11,6 +11,7 @@ from ytk.enrich import Enrichment, KeyMoment
 def store(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     import ytk.store as store_mod
+
     importlib.reload(store_mod)
     store_mod.EMBEDDING_EPOCH = "v1"  # reload resets to the production default
     return store_mod
@@ -23,13 +24,17 @@ def _enr(thesis="Thesis about tiling renderers.", concepts=None, moments=None):
         key_concepts=concepts or ["wgpu: drives the GPU pipeline", "naga: shader translation"],
         insights=["Tiles beat full-screen passes on mobile."],
         interest_tags=["gpu", "creative-coding"],
-        key_moments=moments or [KeyMoment(timestamp="1:02", description="switches the renderer to tiled mode")],
+        key_moments=moments
+        or [KeyMoment(timestamp="1:02", description="switches the renderer to tiled mode")],
     )
 
 
 def _upsert(store, vid="vid1", title="Tiling Renderer", enr=None):
-    store.upsert({"id": vid, "title": title, "url": "u", "uploader": "x",
-                  "upload_date": "20260101"}, enr or _enr(), segments=[])
+    store.upsert(
+        {"id": vid, "title": title, "url": "u", "uploader": "x", "upload_date": "20260101"},
+        enr or _enr(),
+        segments=[],
+    )
 
 
 def test_upsert_splits_video_into_parts(store):
@@ -47,9 +52,14 @@ def test_upsert_splits_video_into_parts(store):
 
 def test_search_videos_collapses_parts_to_one_result(store):
     _upsert(store)
-    _upsert(store, vid="vid2", title="Sourdough",
-            enr=_enr(thesis="Baking sourdough at home.",
-                     concepts=["levain: overnight starter"], moments=[]))
+    _upsert(
+        store,
+        vid="vid2",
+        title="Sourdough",
+        enr=_enr(
+            thesis="Baking sourdough at home.", concepts=["levain: overnight starter"], moments=[]
+        ),
+    )
     hits = store.search_videos("gpu tiling shader pipeline", n=5)
     ids = [h.video_id for h in hits]
     assert len(ids) == len(set(ids)), "parts of one video must collapse"

@@ -22,9 +22,11 @@ def store(tmp_path, monkeypatch):
 
 def _seed_memories(store):
     for i, text in enumerate(
-        ["apples and orchard care through the seasons of the year",
-         "vector database internals and how hnsw indexes work",
-         "sourdough starter care and feeding schedules explained"]
+        [
+            "apples and orchard care through the seasons of the year",
+            "vector database internals and how hnsw indexes work",
+            "sourdough starter care and feeding schedules explained",
+        ]
     ):
         store.upsert_memory(f"m{i}", text, [], f"/vault/m{i}.md")
 
@@ -85,11 +87,13 @@ def _video(store, video_id: str, thesis: str):
     enr = Enrichment(
         thesis=thesis,
         summary=f"Summary for {video_id}.",
-        key_concepts=[], insights=[], interest_tags=[], key_moments=[],
+        key_concepts=[],
+        insights=[],
+        interest_tags=[],
+        key_moments=[],
     )
     store.upsert(
-        {"id": video_id, "title": video_id, "url": "u", "uploader": "x",
-         "upload_date": "20260101"},
+        {"id": video_id, "title": video_id, "url": "u", "uploader": "x", "upload_date": "20260101"},
         enr,
         segments=[{"start": 0.0, "text": f"segment text for {video_id}"}],
     )

@@ -17,8 +17,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from ytk import store  # noqa: E402
-from ytk.vault import _get_brain_path  # noqa: E402
+from ytk import store
+from ytk.vault import _get_brain_path
 
 _SEC_RE = re.compile(
     r"^## (Thesis|Commentary|Summary|Key Concepts|Insights|Key Moments)\n(.*?)(?=^## |\Z)",
@@ -91,7 +91,7 @@ def main() -> None:
 
     print(f"with note: {with_note}, metadata-only: {without_note}, vectors to embed: {len(ids)}")
     for i in range(0, len(ids), 32):
-        col.upsert(ids=ids[i:i + 32], documents=docs[i:i + 32], metadatas=metas[i:i + 32])
+        col.upsert(ids=ids[i : i + 32], documents=docs[i : i + 32], metadatas=metas[i : i + 32])
         print(f"  embedded {min(i + 32, len(ids))}/{len(ids)}")
     print(f"done. collection now holds {col.count()} vectors")
 

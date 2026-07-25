@@ -15,7 +15,8 @@ experiments/rerank_bench.py, and production settings follow that data.
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, TypeVar
+from collections.abc import Callable, Sequence
+from typing import TypeVar
 
 T = TypeVar("T")
 
@@ -25,7 +26,7 @@ MODEL_REVISION = "e61197ed45024b0ed8a2d74b80b4d909f1255473"
 INSTRUCT = "Given a web search query, retrieve relevant passages that answer the query"
 _PREFIX = (
     "<|im_start|>system\nJudge whether the Document meets the requirements "
-    'based on the Query and the Instruct provided. Note that the answer can '
+    "based on the Query and the Instruct provided. Note that the answer can "
     'only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
 )
 _SUFFIX = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
@@ -60,10 +61,14 @@ def rerank(
 class QwenReranker:
     """Lazy-loading cross-encoder scorer; instances are scorer callables."""
 
-    def __init__(self, model_name: str = MODEL_NAME,
-                 revision: str | None = MODEL_REVISION,
-                 max_length: int = 2560, batch: int = 4,
-                 device: str | None = None):
+    def __init__(
+        self,
+        model_name: str = MODEL_NAME,
+        revision: str | None = MODEL_REVISION,
+        max_length: int = 2560,
+        batch: int = 4,
+        device: str | None = None,
+    ):
         self._model_name = model_name
         self._revision = revision
         self._max_length = max_length
@@ -84,9 +89,13 @@ class QwenReranker:
             self._tokenizer = AutoTokenizer.from_pretrained(
                 self._model_name, revision=self._revision, padding_side="left"
             )
-            self._model = AutoModelForCausalLM.from_pretrained(
-                self._model_name, revision=self._revision, torch_dtype=torch.float16
-            ).to(self._device).eval()
+            self._model = (
+                AutoModelForCausalLM.from_pretrained(
+                    self._model_name, revision=self._revision, torch_dtype=torch.float16
+                )
+                .to(self._device)
+                .eval()
+            )
             self._yes_id = self._tokenizer.convert_tokens_to_ids("yes")
             self._no_id = self._tokenizer.convert_tokens_to_ids("no")
 
@@ -103,15 +112,16 @@ class QwenReranker:
         with torch.no_grad():
             for i in range(0, len(texts), self._batch):
                 batch = self._tokenizer(
-                    texts[i:i + self._batch], padding=True, truncation=True,
-                    max_length=self._max_length, return_tensors="pt",
+                    texts[i : i + self._batch],
+                    padding=True,
+                    truncation=True,
+                    max_length=self._max_length,
+                    return_tensors="pt",
                 ).to(self._device)
                 # logits_to_keep=1: full-sequence logits are batch x seq x
                 # 152k vocab (~3 GB fp16 at 2560 tokens) and thrash MPS
                 # memory; only the final position is needed
                 logits = self._model(**batch, logits_to_keep=1).logits[:, -1, :]
-                pair = torch.stack(
-                    [logits[:, self._no_id], logits[:, self._yes_id]], dim=1
-                ).float()
+                pair = torch.stack([logits[:, self._no_id], logits[:, self._yes_id]], dim=1).float()
                 scores.extend(torch.softmax(pair, dim=1)[:, 1].tolist())
         return scores

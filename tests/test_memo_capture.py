@@ -1,6 +1,5 @@
 """Capture and conversion build the right ffmpeg commands. No real mic/model."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,8 +27,10 @@ def test_record_raises_on_missing_mic_permission(tmp_path):
     proc = MagicMock()
     proc.communicate.return_value = (b"", b"Input/output error")
     proc.returncode = 1
-    with patch("ytk.memo.subprocess.Popen", return_value=proc), \
-         pytest.raises(RuntimeError, match="[Mm]icrophone"):
+    with (
+        patch("ytk.memo.subprocess.Popen", return_value=proc),
+        pytest.raises(RuntimeError, match="[Mm]icrophone"),
+    ):
         record(tmp_path / "m.wav", wait=lambda *_: None)
 
 

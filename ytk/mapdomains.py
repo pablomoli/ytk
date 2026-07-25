@@ -12,9 +12,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
-CONTENT_CATS = frozenset(
-    {"youtube", "instagram", "tiktok", "pinterest", "web", "screenshots"}
-)
+CONTENT_CATS = frozenset({"youtube", "instagram", "tiktok", "pinterest", "web", "screenshots"})
 OTHER = "other"
 _SUMMARY_RE = re.compile(r"^summary-\d{4}-\d{2}-\d{2}-(.+?)-\d+\.md$")
 _USER_PREFIX_RE = re.compile(r"^users-melocoton(?:-developer)?-")
@@ -85,9 +83,7 @@ def domain_labels(
     established = {p for p, n in counts.items() if n >= min_size}
     normalized = [normalize_slug(p, established) if p else None for p in raw]
     final_counts = Counter(p for p in normalized if p)
-    return [
-        p if p and final_counts[p] >= min_size else OTHER for p in normalized
-    ]
+    return [p if p and final_counts[p] >= min_size else OTHER for p in normalized]
 
 
 def index_domains(labels: list[str]) -> tuple[list[int], list[dict]]:

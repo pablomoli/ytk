@@ -17,8 +17,10 @@ def _pipeline_patches(tmp_path):
         patch("ytk.ui.hub.memo_ensure_wav", side_effect=lambda p: p),
         patch("ytk.ui.hub.memo_transcribe", return_value="from the phone"),
         patch("ytk.ui.hub.memo_write_note", return_value=tmp_path / "n.md"),
-        patch("ytk.ui.hub.memo_route",
-              return_value=MemoResult(kind="thought", summary="phone thought")),
+        patch(
+            "ytk.ui.hub.memo_route",
+            return_value=MemoResult(kind="thought", summary="phone thought"),
+        ),
         patch("ytk.ui.hub.memo_execute", return_value=[]),
         patch("ytk.ui.hub.memo_finalize"),
         patch("ytk.ui.hub.memo_index"),

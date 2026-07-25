@@ -50,12 +50,21 @@ def main() -> None:
 
     def scatter(ax, mask, title):
         ax.scatter(
-            xyz[mask, 0], xyz[mask, 1], xyz[mask, 2],
-            c=den[mask], cmap="magma", vmin=0, vmax=1,
-            s=6 + 40 * den[mask], alpha=0.35, linewidths=0,
+            xyz[mask, 0],
+            xyz[mask, 1],
+            xyz[mask, 2],
+            c=den[mask],
+            cmap="magma",
+            vmin=0,
+            vmax=1,
+            s=6 + 40 * den[mask],
+            alpha=0.35,
+            linewidths=0,
         )
         ax.set_title(f"{title}  ({int(mask.sum())} splats)", fontsize=10)
-        ax.set_xlim(-1, 1); ax.set_ylim(-1, 1); ax.set_zlim(-1, 1)
+        ax.set_xlim(-1, 1)
+        ax.set_ylim(-1, 1)
+        ax.set_zlim(-1, 1)
         ax.set_axis_off()
 
     if args.shell:
@@ -75,27 +84,59 @@ def main() -> None:
         for lvl, color in [(0.15, "#4a7de2"), (0.35, "#e2b04a"), (0.6, "#e24a6b")]:
             mask = np.abs(den - lvl) < eps
             ax.scatter(
-                xyz[mask, 0], xyz[mask, 1], xyz[mask, 2],
-                color=color, s=5, alpha=0.3, linewidths=0, label=f"level {lvl}",
+                xyz[mask, 0],
+                xyz[mask, 1],
+                xyz[mask, 2],
+                color=color,
+                s=5,
+                alpha=0.3,
+                linewidths=0,
+                label=f"level {lvl}",
             )
         ax.set_title("nested shells (onion layers)", fontsize=10)
-        ax.set_xlim(-1, 1); ax.set_ylim(-1, 1); ax.set_zlim(-1, 1)
-        ax.set_axis_off(); ax.legend(loc="upper left", fontsize=8)
+        ax.set_xlim(-1, 1)
+        ax.set_ylim(-1, 1)
+        ax.set_zlim(-1, 1)
+        ax.set_axis_off()
+        ax.legend(loc="upper left", fontsize=8)
         # cross-section slab: hollowness shows as rings around the density cores
         ax = fig.add_subplot(2, 2, 4)
         slab = np.abs(xyz[:, 2]) < 0.12
         ring = slab & (np.abs(den - level) < eps)
         core = slab & (den >= level + eps)
         ax.scatter(xyz[slab, 0], xyz[slab, 1], color="#333", s=3, alpha=0.25, linewidths=0)
-        ax.scatter(xyz[core, 0], xyz[core, 1], color="#7a4ae2", s=5, alpha=0.5, linewidths=0, label="interior (den > level+eps)")
-        ax.scatter(xyz[ring, 0], xyz[ring, 1], color="#e2b04a", s=7, alpha=0.7, linewidths=0, label="shell band")
+        ax.scatter(
+            xyz[core, 0],
+            xyz[core, 1],
+            color="#7a4ae2",
+            s=5,
+            alpha=0.5,
+            linewidths=0,
+            label="interior (den > level+eps)",
+        )
+        ax.scatter(
+            xyz[ring, 0],
+            xyz[ring, 1],
+            color="#e2b04a",
+            s=7,
+            alpha=0.7,
+            linewidths=0,
+            label="shell band",
+        )
         ax.set_title("cross-section |z| < 0.12: shells ring the cores", fontsize=10)
-        ax.set_xlim(-1, 1); ax.set_ylim(-1, 1)
-        ax.set_aspect("equal"); ax.set_axis_off(); ax.legend(loc="upper left", fontsize=8)
+        ax.set_xlim(-1, 1)
+        ax.set_ylim(-1, 1)
+        ax.set_aspect("equal")
+        ax.set_axis_off()
+        ax.legend(loc="upper left", fontsize=8)
     else:
         # 1: the whole cloud; 2-3: the threshold sweep (nucleation story)
         for k, (level, title) in enumerate(
-            [(0.0, "full fog"), (0.25, "level 0.25 - haze gone"), (0.5, "level 0.5 - cores nucleate")]
+            [
+                (0.0, "full fog"),
+                (0.25, "level 0.25 - haze gone"),
+                (0.5, "level 0.5 - cores nucleate"),
+            ]
         ):
             scatter(fig.add_subplot(2, 2, k + 1, projection="3d"), den >= level, title)
 

@@ -22,10 +22,7 @@ def _seed(brain, source, key, n=2, ambiguous=True):
     note_dir = brain / "sources" / source
     frame_dir = note_dir / "frames" / key
     frame_dir.mkdir(parents=True)
-    names = [
-        (f"frame-{i}.jpg" if ambiguous else f"{key}-frame-{i}.jpg")
-        for i in range(1, n + 1)
-    ]
+    names = [(f"frame-{i}.jpg" if ambiguous else f"{key}-frame-{i}.jpg") for i in range(1, n + 1)]
     for i, name in enumerate(names, start=1):
         (frame_dir / name).write_bytes(f"jpeg{i}".encode())
     paths_yaml = "\n".join(f"  - sources/{source}/frames/{key}/{n_}" for n_ in names)
@@ -45,14 +42,15 @@ def test_repair_renames_files_and_rewrites_note(brain):
     assert changed == 1
 
     assert sorted(p.name for p in frame_dir.iterdir()) == [
-        "SC1-frame-1.jpg", "SC1-frame-2.jpg",
+        "SC1-frame-1.jpg",
+        "SC1-frame-2.jpg",
     ]
     content = note.read_text(encoding="utf-8")
     assert "![[SC1-frame-1.jpg]]" in content
     assert "![[frame-1.jpg]]" not in content
     assert "sources/instagram/frames/SC1/SC1-frame-1.jpg" in content
     assert "frames/SC1/frame-1.jpg" not in content
-    assert "![[SC1-thumb.jpg]]" in content        # untouched
+    assert "![[SC1-thumb.jpg]]" in content  # untouched
 
 
 def test_repair_covers_youtube_and_tiktok(brain):
@@ -73,5 +71,6 @@ def test_unique_names_left_alone(brain):
     assert repair_frame_embeds() == 0
     assert note.read_text(encoding="utf-8") == before
     assert sorted(p.name for p in frame_dir.iterdir()) == [
-        "SC2-frame-1.jpg", "SC2-frame-2.jpg",
+        "SC2-frame-1.jpg",
+        "SC2-frame-2.jpg",
     ]

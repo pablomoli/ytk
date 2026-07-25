@@ -6,6 +6,7 @@ from ytk.enrich import Enrichment
 def test_get_all_videos_returns_embeddings_and_meta(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     import ytk.store as store
+
     importlib.reload(store)
     store.EMBEDDING_EPOCH = "v1"  # reload resets to the production default
 
@@ -17,8 +18,17 @@ def test_get_all_videos_returns_embeddings_and_meta(tmp_path, monkeypatch):
         interest_tags=["creative-coding", "gpu"],
         key_moments=[],
     )
-    store.upsert({"id": "vid1", "title": "Tiling Renderer", "url": "u", "uploader": "x",
-                  "upload_date": "20260101"}, enr, segments=[])
+    store.upsert(
+        {
+            "id": "vid1",
+            "title": "Tiling Renderer",
+            "url": "u",
+            "uploader": "x",
+            "upload_date": "20260101",
+        },
+        enr,
+        segments=[],
+    )
 
     rows = store.get_all_videos()
     assert len(rows) == 1

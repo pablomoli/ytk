@@ -21,8 +21,7 @@ def test_build_prompt_contains_instruct_query_and_doc():
 def test_rerank_orders_by_score_descending():
     items = ["a", "b", "c"]
     scores = {"ta": 0.1, "tb": 0.9, "tc": 0.5}
-    out = rerank("q", items, ["ta", "tb", "tc"],
-                 scorer=lambda q, docs: [scores[d] for d in docs])
+    out = rerank("q", items, ["ta", "tb", "tc"], scorer=lambda q, docs: [scores[d] for d in docs])
     assert out == ["b", "c", "a"]
 
 
@@ -36,8 +35,7 @@ def test_rerank_is_deterministic_on_ties():
 
 def test_rerank_top_n_truncates_after_reordering():
     items = ["a", "b", "c"]
-    out = rerank("q", items, ["ta", "tb", "tc"],
-                 scorer=lambda q, docs: [0.1, 0.9, 0.5], top_n=2)
+    out = rerank("q", items, ["ta", "tb", "tc"], scorer=lambda q, docs: [0.1, 0.9, 0.5], top_n=2)
     assert out == ["b", "c"]
 
 

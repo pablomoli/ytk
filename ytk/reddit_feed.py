@@ -22,6 +22,7 @@ import sqlite3
 import tempfile
 import urllib.parse
 import urllib.request
+from datetime import UTC
 from pathlib import Path
 
 from ytk.tiktok_fav import zen_cookie_db
@@ -155,14 +156,10 @@ def post_to_reelitem(post: dict):
 
     external = is_external(post)
     url = post["url"] if external else post["permalink"]
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     created = post.get("created_utc")
-    shared_at = (
-        datetime.fromtimestamp(created, tz=timezone.utc).strftime("%Y-%m-%d")
-        if created
-        else None
-    )
+    shared_at = datetime.fromtimestamp(created, tz=UTC).strftime("%Y-%m-%d") if created else None
     return reels.ReelItem(
         url=url,
         author=f"r/{post['subreddit']}",
@@ -213,9 +210,8 @@ def sync_subreddits(
 
 def search_subreddits(query: str, cookie_header: str, limit: int = 10) -> list[dict]:
     """Reddit's subreddit search — the 'find related communities' discovery feature."""
-    url = (
-        "https://old.reddit.com/subreddits/search.json?"
-        + urllib.parse.urlencode({"q": query, "limit": str(limit), "raw_json": "1"})
+    url = "https://old.reddit.com/subreddits/search.json?" + urllib.parse.urlencode(
+        {"q": query, "limit": str(limit), "raw_json": "1"}
     )
     out = []
     for child in (_get(url, cookie_header).get("data") or {}).get("children") or []:
@@ -239,9 +235,8 @@ def fetch_comments(permalink: str, cookie_header: str, limit: int = 60) -> list:
     path = urllib.parse.urlparse(permalink).path
     if not path.startswith("/r/"):
         raise ValueError(f"Refusing non-/r/ permalink: {permalink!r}")
-    url = (
-        f"https://old.reddit.com{path.rstrip('/')}.json?"
-        + urllib.parse.urlencode({"limit": str(limit), "raw_json": "1"})
+    url = f"https://old.reddit.com{path.rstrip('/')}.json?" + urllib.parse.urlencode(
+        {"limit": str(limit), "raw_json": "1"}
     )
     return _get(url, cookie_header)
 

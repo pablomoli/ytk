@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from click.testing import CliRunner
-from pathlib import Path
-
 import pytest
+from click.testing import CliRunner
 
 import ytk.cli as cli_mod
 import ytk.enrich as enrich_mod
@@ -16,18 +14,27 @@ from ytk.enrich import Enrichment
 from ytk.instagram import InstagramPost, ReelCapture
 from ytk.vault import NoteAlreadyExists
 
-
 _ENR = Enrichment(
-    thesis="t", summary="s", key_concepts=[], insights=[],
-    interest_tags=["ai"], key_moments=[],
+    thesis="t",
+    summary="s",
+    key_concepts=[],
+    insights=[],
+    interest_tags=["ai"],
+    key_moments=[],
 )
 
 
 @pytest.fixture
 def calls(monkeypatch, tmp_path):
     """Mock every side-effecting collaborator; record how the CLI drives them."""
-    rec = {"reel_enrich": None, "carousel_enrich": None, "write": None,
-           "refresh": None, "upsert": None, "capture": None}
+    rec = {
+        "reel_enrich": None,
+        "carousel_enrich": None,
+        "write": None,
+        "refresh": None,
+        "upsert": None,
+        "capture": None,
+    }
 
     def fake_fetch(url):
         return rec["post"]
@@ -68,8 +75,12 @@ def calls(monkeypatch, tmp_path):
     monkeypatch.setattr(store_mod, "upsert_doc", fake_upsert)
 
     rec["post"] = InstagramPost(
-        url="https://www.instagram.com/reel/SC/", username="u",
-        timestamp="2026-07-15", caption="c", images=[], media_kind="video",
+        url="https://www.instagram.com/reel/SC/",
+        username="u",
+        timestamp="2026-07-15",
+        caption="c",
+        images=[],
+        media_kind="video",
     )
     rec["reel_capture"] = ReelCapture(
         frame_bytes=[b"f1", b"f2"],
@@ -99,14 +110,17 @@ def test_reel_routes_through_video_pipeline(calls):
     assert w["transcript_status"] == "ok"
     assert w["frame_bytes"] == [b"f1", b"f2"]
     assert calls["upsert"] is not None
-    assert "warning" in result.output.lower()      # capture warnings surface in CLI
+    assert "warning" in result.output.lower()  # capture warnings surface in CLI
 
 
 def test_carousel_keeps_existing_path(calls):
     calls["post"] = InstagramPost(
-        url="https://www.instagram.com/p/SC/", username="u",
-        timestamp="2026-07-15", caption="c",
-        images=["https://cdn.example/1.jpg"], media_kind="carousel",
+        url="https://www.instagram.com/p/SC/",
+        username="u",
+        timestamp="2026-07-15",
+        caption="c",
+        images=["https://cdn.example/1.jpg"],
+        media_kind="carousel",
     )
     result = _run("https://www.instagram.com/p/SC/")
     assert result.exit_code == 0, result.output

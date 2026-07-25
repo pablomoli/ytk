@@ -5,7 +5,6 @@ import pytest
 import ytk.enrich as enrich_mod
 from ytk.enrich import SOURCE_BIAS, enrich_instagram_reel
 
-
 _RESULT = {
     "thesis": "t",
     "summary": "s",
@@ -63,7 +62,7 @@ def test_reel_prompt_carries_transcript_frames_and_no_slide_count(captured):
     assert "reel" in user.lower()
     assert "4" in user
     assert "build an app" in user
-    assert "[1:02]" in user          # timestamps preserved
+    assert "[1:02]" in user  # timestamps preserved
     assert "my caption" in user
     assert SOURCE_BIAS["instagram_reel"] in captured["system"]
 
@@ -106,7 +105,5 @@ def test_reel_prompt_reports_frame_extraction_failure(captured):
 
 
 def test_carousel_prompt_is_untouched(captured):
-    enrich_mod.enrich_instagram(
-        caption="cap", username="u", slide_count=3, visual_blocks=[]
-    )
+    enrich_mod.enrich_instagram(caption="cap", username="u", slide_count=3, visual_blocks=[])
     assert "Slide count: 3" in captured["user"]

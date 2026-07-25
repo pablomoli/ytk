@@ -19,10 +19,11 @@ excluded from profile gathering (interest.content_sources).
 
 from __future__ import annotations
 
-from collections import Counter
-from datetime import datetime, timezone
 import math
 import re
+from collections import Counter
+from datetime import UTC, datetime
+
 from . import vault
 
 # folders whose presence alone proves a deliberate capture
@@ -73,10 +74,7 @@ def signal_map() -> dict[str, int]:
 def signal_levels(notes: list[dict]) -> list[int]:
     """Resolve r for each gathered profile note ({id, source_path?, ...})."""
     smap = signal_map()
-    return [
-        smap.get(n.get("id", ""), smap.get(n.get("source_path", ""), 0))
-        for n in notes
-    ]
+    return [smap.get(n.get("id", ""), smap.get(n.get("source_path", ""), 0)) for n in notes]
 
 
 def weights(levels: list[int], alpha: float) -> list[float]:
@@ -92,8 +90,8 @@ def _parse_utc(value: str) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def recency_factor(captured_at: str, now: datetime, half_life_days: float) -> float:
@@ -107,8 +105,8 @@ def recency_factor(captured_at: str, now: datetime, half_life_days: float) -> fl
     if captured is None:
         return 1.0
     if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
-    age_days = max(0.0, (now.astimezone(timezone.utc) - captured).total_seconds() / 86400)
+        now = now.replace(tzinfo=UTC)
+    age_days = max(0.0, (now.astimezone(UTC) - captured).total_seconds() / 86400)
     return 0.5 ** (age_days / half_life_days)
 
 

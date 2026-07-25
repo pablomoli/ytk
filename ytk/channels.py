@@ -96,7 +96,9 @@ def aggregate(cards: list[dict]) -> list[dict]:
         for t in card.get("tags") or []:
             g["_tags"][t] += 1
         if len(g["notes"]) < 50:
-            g["notes"].append({"title": card.get("title") or card.get("stem"), "path": card.get("path")})
+            g["notes"].append(
+                {"title": card.get("title") or card.get("stem"), "path": card.get("path")}
+            )
 
     entries = []
     for g in groups.values():

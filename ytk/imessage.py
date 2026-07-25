@@ -74,9 +74,9 @@ def _read_ts_int(data: bytes, p: int) -> tuple[int, int]:
     """
     b = data[p]
     if b == 0x81:
-        return int.from_bytes(data[p + 1:p + 3], "little"), p + 3
+        return int.from_bytes(data[p + 1 : p + 3], "little"), p + 3
     if b == 0x82:
-        return int.from_bytes(data[p + 1:p + 5], "little"), p + 5
+        return int.from_bytes(data[p + 1 : p + 5], "little"), p + 5
     return b, p + 1
 
 
@@ -98,7 +98,7 @@ def decode_attributed_body(data: bytes) -> str:
     if plus == -1:
         return ""
     length, start = _read_ts_int(data, plus + 1)
-    return data[start:start + length].decode("utf-8", errors="replace")
+    return data[start : start + length].decode("utf-8", errors="replace")
 
 
 def read_recent(
