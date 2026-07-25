@@ -30,7 +30,13 @@ dependencies = [
 
 [project.optional-dependencies]
 graph = ["graspologic"]
-dev = ["pytest>=8.0", "umap-learn>=0.5.12", "ruff>=0.14", "pyright>=1.1.400"]
+dev = [
+    "pytest>=8.0",
+    "pytest-timeout>=2.3",
+    "umap-learn>=0.5.12",
+    "ruff>=0.14",
+    "pyright>=1.1.400",
+]
 # Reactive notebooks for tuning shader constants against a real captured frame
 # before writing GLSL (labs/). Separate from dev so CI never pulls it.
 lab = ["marimo>=0.10", "matplotlib>=3.9", "numpy>=1.26", "pillow>=10.0"]
@@ -117,7 +123,11 @@ typeCheckingMode = "basic"
 [tool.pytest.ini_options]
 # eval marks live retrieval-gate runs (loads the encoder, hits the real
 # chroma store); the fast suite skips them. Run explicitly: pytest -m eval
-addopts = "-m 'not eval'"
+# A unit test has no business running for a minute; the timeout exists so a
+# wedged test (a stray browser, an unstubbed network pull) fails loudly instead
+# of hanging CI or a developer's terminal forever (#114). signal method so it
+# can interrupt blocking calls inside C extensions, not just between them.
+addopts = "-m 'not eval' --timeout=60 --timeout-method=signal"
 markers = [
     "eval: live retrieval regression gate (real store + encoder)",
 ]
