@@ -5,7 +5,7 @@ import { MasonryGrid } from "./MasonryGrid";
 /* Held on a plain object so the assertions never reference GSAP's own static
    methods, which the unbound-method rule rejects. */
 const flip = vi.hoisted(() => ({
-  getState: vi.fn(() => ({ mock: "state" })),
+  getState: vi.fn((targets: HTMLElement[]) => ({ mock: "state", targets })),
   from: vi.fn(),
 }));
 
@@ -144,6 +144,32 @@ test("reordering the same cards animates the reflow", () => {
   rerender(<MasonryGrid>{cards(["c", "a", "b"])}</MasonryGrid>);
 
   expect(flip.from).toHaveBeenCalledTimes(1);
+});
+
+test("appending a page animates only the cards that were already placed", () => {
+  stubLayoutEnvironment();
+  const first = ["a", "b", "c"];
+  const { rerender } = render(<MasonryGrid>{cards(first)}</MasonryGrid>);
+  flip.getState.mockClear();
+
+  // Pagination: the next page arrives while the current one stays put.
+  rerender(<MasonryGrid>{cards([...first, "d", "e", "f"])}</MasonryGrid>);
+
+  // The brand-new cards are still in static flow. Handing them to Flip is
+  // what dragged them across the document on every page append.
+  const captured = flip.getState.mock.calls[0]?.[0];
+  expect(captured).toBeDefined();
+  expect(captured).toHaveLength(first.length);
+  for (const el of captured ?? []) {
+    expect(el.style.top).not.toBe("");
+  }
+});
+
+test("the very first layout animates nothing", () => {
+  stubLayoutEnvironment();
+  render(<MasonryGrid>{cards(["a", "b", "c"])}</MasonryGrid>);
+
+  expect(flip.from).not.toHaveBeenCalled();
 });
 
 test("every card still gets placed after a no-op re-render", () => {
