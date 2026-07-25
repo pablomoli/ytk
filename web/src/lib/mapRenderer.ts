@@ -107,18 +107,48 @@ const RIDGE_COL: [number, number, number] = [0.886, 0.69, 0.29]; // hub gold
 // Filament web: topic-tinted curves living in the embedding-3D space itself
 // (the z3/c3 coordinates), so they render only as dim approaches volume and
 // share the exact camera transform of the points.
-const webVertex = `attribute vec3 pos; attribute vec3 col; attribute float den; attribute float alen;
+const webVertex = `attribute vec3 pa; attribute vec3 pb; attribute float tEnd; attribute float side;
+attribute vec3 col; attribute float den; attribute float alen;
 uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi;
-varying vec3 c; varying float depthV; varying float dn; varying float arc;
-void main(){ vec3 q=pos;
+uniform float aspect; uniform float width;
+varying vec3 c; varying float depthV; varying float dn; varying float arc; varying float edge;
+// Camera shared with the points, factored out so both ends go through the
+// identical transform — a ribbon whose two ends disagree about the camera
+// shears.
+vec4 project(vec3 p, float ct, float st, float cp, float sp){
+ vec3 q=vec3(ct*p.x+st*p.z,sp*(st*p.x-ct*p.z)+cp*p.y,-cp*(st*p.x-ct*p.z)+sp*p.y);
+ float depth=1.35-q.z*.24;
+ return vec4(q.xy*.88*zoom/depth+pan,q.z*.12,depth); }
+void main(){
  float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi);
- q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y);
- float depth=1.35-q.z*.24; depthV=q.z;
- gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); c=col; dn=den; arc=alen; }`;
+ vec4 ca=project(pa,ct,st,cp,sp), cb=project(pb,ct,st,cp,sp);
+ vec4 here=mix(ca,cb,tEnd);
+ // Perpendicular in aspect-corrected clip space, so a ribbon keeps the same
+ // apparent thickness whatever the window shape. Degenerate segments (both
+ // ends landing on the same pixel) would normalize to NaN and blow the quad
+ // across the screen, so they fall back to a fixed direction.
+ vec2 d=(cb.xy-ca.xy)*vec2(aspect,1.);
+ d = length(d) < 1e-6 ? vec2(1.,0.) : normalize(d);
+ vec2 n=vec2(-d.y,d.x)/vec2(aspect,1.);
+ // True geometric taper: thin strands stay thin instead of every filament
+ // rendering as the same hairline. Divided by depth so ribbons foreshorten
+ // with distance like the points do.
+ // (not named "half" — that is a reserved word in GLSL ES and will not compile)
+ float hw=width*(.35+.65*min(den*1.6,1.))/max(here.w,.35);
+ // gl_Position.z carries q.z*.12, so this recovers the rotated depth the
+ // fragment shader's fog expects. Taking the unrotated z here would fog the
+ // strands by the wrong axis.
+ depthV=here.z/.12;
+ gl_Position=vec4(here.xy+n*hw*side,here.z,1.);
+ c=col; dn=den; arc=alen; edge=side; }`;
 const webFragment = `precision mediump float; uniform float master; uniform float time;
-varying vec3 c; varying float depthV; varying float dn; varying float arc;
+varying vec3 c; varying float depthV; varying float dn; varying float arc; varying float edge;
 void main(){ float fog=smoothstep(-1.2,1.,depthV)*.35+.65;
  float al=master*fog*(.25+.75*min(dn*1.6,1.));  // strands taper where fog thins
+ // Ribbons are geometry now, so nothing antialiases them for free the way
+ // gl.LINES did. edge runs -1..1 across the quad; fading the last third keeps
+ // the strand reading as a soft filament rather than a hard-edged bar.
+ al*=1.-smoothstep(.55,1.,abs(edge));
  // Flow pulses (#107 feature A): brightness follows a wave running along the
  // strand's own arc length, so light appears to travel without any geometry
  // moving. 18 rad/unit puts ~2 pulses on a typical strand; with the speed set
@@ -387,9 +417,15 @@ export function mountMapRenderer(
   // --- filament web resources (absent on pre-web map.json builds)
   let webProgram: WebGLProgram | undefined;
   let webU:
-    | Record<"zoom" | "pan" | "theta" | "phi" | "master" | "time", WebGLUniformLocation | null>
+    | Record<
+        "zoom" | "pan" | "theta" | "phi" | "master" | "time" | "aspect" | "width",
+        WebGLUniformLocation | null
+      >
     | undefined;
   let webPos = 0;
+  let webPosB = 0;
+  let webTEnd = 0;
+  let webSide = 0;
   let webCol = 0;
   let webDen = 0;
   let webAlen = 0;
@@ -408,12 +444,17 @@ export function mountMapRenderer(
     gl.linkProgram(webProgram);
     if (!gl.getProgramParameter(webProgram, gl.LINK_STATUS))
       throw new Error(gl.getProgramInfoLog(webProgram) || "web program link failed");
-    webPos = gl.getAttribLocation(webProgram, "pos");
+    webPos = gl.getAttribLocation(webProgram, "pa");
+    webPosB = gl.getAttribLocation(webProgram, "pb");
+    webTEnd = gl.getAttribLocation(webProgram, "tEnd");
+    webSide = gl.getAttribLocation(webProgram, "side");
     webCol = gl.getAttribLocation(webProgram, "col");
     webDen = gl.getAttribLocation(webProgram, "den");
     webAlen = gl.getAttribLocation(webProgram, "alen");
     webU = {
       time: gl.getUniformLocation(webProgram, "time"),
+      aspect: gl.getUniformLocation(webProgram, "aspect"),
+      width: gl.getUniformLocation(webProgram, "width"),
       zoom: gl.getUniformLocation(webProgram, "zoom"),
       pan: gl.getUniformLocation(webProgram, "pan"),
       theta: gl.getUniformLocation(webProgram, "theta"),
@@ -422,9 +463,18 @@ export function mountMapRenderer(
     };
     const build = (web: MapWeb | undefined, key: "all" | "content") => {
       if (!web) return;
-      // GL_LINES pairs, 8 floats per vertex: xyz, rgb, density, arc length.
-      // The varying blends colors along each segment so filaments shade
-      // smoothly across topic borders.
+      // Ribbons (#107 feature B), not lines. Every thick line on a GPU is
+      // triangles in costume: gl.LINES cannot vary width, so each segment is
+      // expanded into a quad — two triangles, six vertices — and widened in
+      // the vertex shader along the screen-space perpendicular. That is what
+      // buys a true geometric taper from density instead of a uniform hairline.
+      //
+      // 13 floats per vertex, stride 52:
+      //   a(3) b(3) t(1) side(1) rgb(3) den(1) alen(1)
+      // Both endpoints ride every vertex so the shader can compute the
+      // segment's direction; t picks which end this vertex sits at, side which
+      // edge of the ribbon. Colour, density and arc length are this vertex's
+      // own, so the existing varyings still blend along the strand.
       const colorOf = (label: number): [number, number, number] =>
         label < 0 ? gray : key === "all" ? rampColor(domainPos(data, label)) : rampColor(label / 7);
       const segments: number[] = [];
@@ -440,20 +490,21 @@ export function mountMapRenderer(
           const a = fil[i];
           const b = fil[i + 1];
           const step = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
-          segments.push(
-            a[0],
-            a[1],
-            a[2],
-            ...colorOf(a[3]),
-            a[4] ?? 1,
-            travelled,
-            b[0],
-            b[1],
-            b[2],
-            ...colorOf(b[3]),
-            b[4] ?? 1,
-            travelled + step,
-          );
+          const ends = [
+            { t: 0, col: colorOf(a[3]), den: a[4] ?? 1, alen: travelled },
+            { t: 1, col: colorOf(b[3]), den: b[4] ?? 1, alen: travelled + step },
+          ] as const;
+          const vertex = (which: 0 | 1, side: number) => {
+            const e = ends[which];
+            segments.push(a[0], a[1], a[2], b[0], b[1], b[2], e.t, side, ...e.col, e.den, e.alen);
+          };
+          // Two triangles over the quad, consistent winding.
+          vertex(0, -1);
+          vertex(0, 1);
+          vertex(1, -1);
+          vertex(1, -1);
+          vertex(0, 1);
+          vertex(1, 1);
           travelled += step;
         }
       }
@@ -461,7 +512,7 @@ export function mountMapRenderer(
       const buf = gl.createBuffer()!;
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(segments), gl.STATIC_DRAW);
-      webBuffers[key] = { buf, count: segments.length / 8 };
+      webBuffers[key] = { buf, count: segments.length / 13 };
     };
     build(data.all.web, "all");
     build(data.content.web, "content");
@@ -924,6 +975,11 @@ export function mountMapRenderer(
       // anything travelling. It also lets animating() park the loop, since
       // nothing is changing frame to frame.
       gl.uniform1f(webU.time, reduceMotion ? 0 : time);
+      // Ribbon width in clip units. Aspect keeps the thickness even on a wide
+      // window; without it a strand running horizontally would render thinner
+      // than the same strand running vertically.
+      gl.uniform1f(webU.aspect, canvas.clientWidth / Math.max(canvas.clientHeight, 1));
+      gl.uniform1f(webU.width, 0.0075);
       gl.uniform1f(webU.zoom, scale);
       gl.uniform2f(webU.pan, offset[0], offset[1]);
       gl.uniform1f(webU.theta, ea);
@@ -934,15 +990,22 @@ export function mountMapRenderer(
         if (!bufs || weight <= 0.01) continue;
         gl.bindBuffer(gl.ARRAY_BUFFER, bufs.buf);
         gl.enableVertexAttribArray(webPos);
-        gl.vertexAttribPointer(webPos, 3, gl.FLOAT, false, 32, 0);
+        // stride 52: a(0) b(12) tEnd(24) side(28) rgb(32) den(44) alen(48)
+        gl.vertexAttribPointer(webPos, 3, gl.FLOAT, false, 52, 0);
+        gl.enableVertexAttribArray(webPosB);
+        gl.vertexAttribPointer(webPosB, 3, gl.FLOAT, false, 52, 12);
+        gl.enableVertexAttribArray(webTEnd);
+        gl.vertexAttribPointer(webTEnd, 1, gl.FLOAT, false, 52, 24);
+        gl.enableVertexAttribArray(webSide);
+        gl.vertexAttribPointer(webSide, 1, gl.FLOAT, false, 52, 28);
         gl.enableVertexAttribArray(webCol);
-        gl.vertexAttribPointer(webCol, 3, gl.FLOAT, false, 32, 12);
+        gl.vertexAttribPointer(webCol, 3, gl.FLOAT, false, 52, 32);
         gl.enableVertexAttribArray(webDen);
-        gl.vertexAttribPointer(webDen, 1, gl.FLOAT, false, 32, 24);
+        gl.vertexAttribPointer(webDen, 1, gl.FLOAT, false, 52, 44);
         gl.enableVertexAttribArray(webAlen);
-        gl.vertexAttribPointer(webAlen, 1, gl.FLOAT, false, 32, 28);
+        gl.vertexAttribPointer(webAlen, 1, gl.FLOAT, false, 52, 48);
         gl.uniform1f(webU.master, webT * dimVal * weight * 0.9);
-        gl.drawArrays(gl.LINES, 0, bufs.count);
+        gl.drawArrays(gl.TRIANGLES, 0, bufs.count);
       }
       if (junctionProgram && junctionU) {
         gl.useProgram(junctionProgram);
