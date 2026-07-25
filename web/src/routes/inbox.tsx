@@ -18,10 +18,19 @@ import { HubControls } from "../components/HubControls";
 import { CountUp } from "../components/CountUp";
 import { IngestRing } from "../components/IngestRing";
 import { ScrambleStatus } from "../components/ScrambleStatus";
+import { RailWidget } from "../components/RailWidget";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
 import { filterAndSortQueue } from "../lib/queueItems";
 import { formatElapsed } from "../lib/elapsed";
-import { PROFILE_MATCHES_PREF, getPref, setPref } from "../lib/prefs";
+import {
+  PROFILE_MATCHES_PREF,
+  RAIL_QUEUE_PREF,
+  RAIL_MATCH_PREF,
+  RAIL_INGEST_PREF,
+  RAIL_JOB_PREF,
+  getPref,
+  setPref,
+} from "../lib/prefs";
 import "../styles.css";
 
 export const Route = createFileRoute("/inbox")({
@@ -253,147 +262,167 @@ function InboxPage() {
       <div className="hub-body hub-row">
         <div className="grid-col">{body}</div>
         <aside className="rail">
-          <h2>add to queue</h2>
-          <textarea
-            className="addurls"
-            aria-label="URLs to add to the queue"
-            value={urlsText}
-            onChange={handleUrlsChange}
-            placeholder="paste urls to add..."
-            rows={2}
-          />
-          <div className="addbox-actions">
-            <button className="btn primary" onClick={handleAdd} disabled={addUrls.isPending}>
-              add
-            </button>
-            <button className="btn" onClick={handleRefresh} disabled={refreshSources.isPending}>
-              refresh
-            </button>
-            <SourcePullMenu onPull={handleSelectivePull} disabled={refreshSources.isPending} />
-          </div>
-
-          <h2>profile match</h2>
-          <button
-            className="btn"
-            onClick={handleRankByProfile}
-            disabled={profileRank.data?.state === "running" || startProfileRank.isPending}
-          >
-            {profileRank.data?.state === "running"
-              ? "ranking by profile..."
-              : allPicks.length
-                ? "re-rank by profile"
-                : "rank by profile"}
-          </button>
-          {allPicks.length > 0 ? (
-            <label className="profile-rank-toggle">
-              <input
-                type="checkbox"
-                checked={showMatches}
-                onChange={(e) => setShowMatchesPref(e.target.checked)}
+          <div className="rail-scroll">
+            <RailWidget title="add to queue" prefKey={RAIL_QUEUE_PREF} defaultOpen>
+              <textarea
+                className="addurls"
+                aria-label="URLs to add to the queue"
+                value={urlsText}
+                onChange={handleUrlsChange}
+                placeholder="paste urls to add..."
+                rows={2}
               />
-              show matches in grid
-            </label>
-          ) : null}
-          {showMatches && allPicks.length > 0 && profileRank.data?.state !== "running" ? (
-            <div className="profile-rank-batch">
+              <div className="addbox-actions">
+                <button className="btn primary" onClick={handleAdd} disabled={addUrls.isPending}>
+                  add
+                </button>
+                <button className="btn" onClick={handleRefresh} disabled={refreshSources.isPending}>
+                  refresh
+                </button>
+                <SourcePullMenu onPull={handleSelectivePull} disabled={refreshSources.isPending} />
+              </div>
+            </RailWidget>
+
+            <RailWidget title="profile match" prefKey={RAIL_MATCH_PREF}>
               <button
                 className="btn"
-                onClick={() => setBatch((b) => (b + 1) % batchCount)}
-                disabled={batchCount <= 1}
+                onClick={handleRankByProfile}
+                disabled={profileRank.data?.state === "running" || startProfileRank.isPending}
               >
-                reroll
+                {profileRank.data?.state === "running"
+                  ? "ranking by profile..."
+                  : allPicks.length
+                    ? "re-rank by profile"
+                    : "rank by profile"}
               </button>
-              <span className="batch-indicator" aria-live="polite">
-                batch {activeBatch + 1}/{batchCount}
-              </span>
-              <button
-                className="btn ghost"
-                onClick={() => setBatch(0)}
-                disabled={activeBatch === 0}
-              >
-                reset
-              </button>
-            </div>
-          ) : null}
-          <div
-            className={`profile-rank-status${profileRank.data?.state === "running" ? " running" : ""}`}
-          >
-            {profileRank.data?.state === "running" ? (
-              <span>scoring the full inbox · this can take a minute or two</span>
-            ) : profileRank.data?.picks.length ? (
-              <span>
-                {activeHighlightCount} highlighted · {profileRank.data.candidates} text items scored
-                {profileRank.data.generated_at
-                  ? ` · updated ${profileRank.data.generated_at.slice(0, 10)}`
-                  : ""}
-              </span>
-            ) : (
-              <span>find the 30 pending items that best fit your interest profile</span>
-            )}
-            {profileRank.isError ? (
-              <span className="profile-rank-error">rank status unavailable</span>
-            ) : null}
-            {profileRank.data?.state === "error" ? (
-              <span className="profile-rank-error">{profileRank.data.detail}</span>
-            ) : null}
-          </div>
-
-          <h2>ingest</h2>
-          <span className="selcount">{sel.size} selected</span>
-          <div className="chips">
-            {(tags.data ?? []).map((t) => (
-              <button
-                key={t}
-                className={`chip${chosenTags.has(t) ? " on" : ""}`}
-                onClick={() => handleToggleTag(t)}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-          <textarea
-            className="thought"
-            aria-label="Thought to add to selected items"
-            value={thought}
-            onChange={handleThoughtChange}
-            placeholder="thought (optional)"
-          />
-          <button
-            className="btn primary"
-            onClick={handleIngest}
-            disabled={sel.size === 0 || ingest.isPending}
-          >
-            ingest
-          </button>
-
-          {job.data && (job.data.running || job.data.total > 0) ? (
-            <div className={`progress${job.data.running ? " running" : ""}`}>
-              <span className="progress-line">
-                <IngestRing
-                  done={job.data.done}
-                  total={job.data.total}
-                  running={job.data.running}
-                />
-                <span>
-                  <ScrambleStatus text={job.data.running ? "running" : "done"} />
-                  {" · "}
-                  {job.data.done}/{job.data.total}
-                  {job.data.running && elapsed ? ` · ${elapsed}` : ""}
-                </span>
-              </span>
-              {job.data.running ? (
-                <>
-                  <span className="progress-current" title={currentTitle}>
-                    <ScrambleStatus text={currentTitle} />
+              {allPicks.length > 0 ? (
+                <label className="profile-rank-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showMatches}
+                    onChange={(e) => setShowMatchesPref(e.target.checked)}
+                  />
+                  show matches in grid
+                </label>
+              ) : null}
+              {showMatches && allPicks.length > 0 && profileRank.data?.state !== "running" ? (
+                <div className="profile-rank-batch">
+                  <button
+                    className="btn"
+                    onClick={() => setBatch((b) => (b + 1) % batchCount)}
+                    disabled={batchCount <= 1}
+                  >
+                    reroll
+                  </button>
+                  <span className="batch-indicator" aria-live="polite">
+                    batch {activeBatch + 1}/{batchCount}
                   </span>
-                  <span className="progress-hint">enrichment takes ~2 min per item</span>
-                </>
+                  <button
+                    className="btn ghost"
+                    onClick={() => setBatch(0)}
+                    disabled={activeBatch === 0}
+                  >
+                    reset
+                  </button>
+                </div>
               ) : null}
-              {job.data.failures.length > 0 ? (
-                <span className="progress-failed">{job.data.failures.length} failed</span>
+              <div
+                className={`profile-rank-status${profileRank.data?.state === "running" ? " running" : ""}`}
+              >
+                {profileRank.data?.state === "running" ? (
+                  <span>scoring the full inbox · this can take a minute or two</span>
+                ) : profileRank.data?.picks.length ? (
+                  <span>
+                    {activeHighlightCount} highlighted · {profileRank.data.candidates} text items
+                    scored
+                    {profileRank.data.generated_at
+                      ? ` · updated ${profileRank.data.generated_at.slice(0, 10)}`
+                      : ""}
+                  </span>
+                ) : (
+                  <span>find the 30 pending items that best fit your interest profile</span>
+                )}
+                {profileRank.isError ? (
+                  <span className="profile-rank-error">rank status unavailable</span>
+                ) : null}
+                {profileRank.data?.state === "error" ? (
+                  <span className="profile-rank-error">{profileRank.data.detail}</span>
+                ) : null}
+              </div>
+            </RailWidget>
+
+            <RailWidget title="ingest" prefKey={RAIL_INGEST_PREF} defaultOpen>
+              <div className="chips">
+                {(tags.data ?? []).map((t) => (
+                  <button
+                    key={t}
+                    className={`chip${chosenTags.has(t) ? " on" : ""}`}
+                    onClick={() => handleToggleTag(t)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className="thought"
+                aria-label="Thought to add to selected items"
+                value={thought}
+                onChange={handleThoughtChange}
+                placeholder="thought (optional)"
+              />
+            </RailWidget>
+
+            {/* Always mounted, unlike the pre-split code that hid this section
+                entirely while idle: the rail is now four widgets, always —
+                collapsibility, not disappearance, is how an idle section stays
+                out of the way. The original visibility gate is preserved
+                unchanged, just narrowed to the progress content itself. */}
+            <RailWidget
+              title="job progress"
+              prefKey={RAIL_JOB_PREF}
+              forceOpenKey={job.data?.running ? job.data.total : null}
+            >
+              {job.data && (job.data.running || job.data.total > 0) ? (
+                <div className={`progress${job.data.running ? " running" : ""}`}>
+                  <span className="progress-line">
+                    <IngestRing
+                      done={job.data.done}
+                      total={job.data.total}
+                      running={job.data.running}
+                    />
+                    <span>
+                      <ScrambleStatus text={job.data.running ? "running" : "done"} />
+                      {" · "}
+                      {job.data.done}/{job.data.total}
+                      {job.data.running && elapsed ? ` · ${elapsed}` : ""}
+                    </span>
+                  </span>
+                  {job.data.running ? (
+                    <>
+                      <span className="progress-current" title={currentTitle}>
+                        <ScrambleStatus text={currentTitle} />
+                      </span>
+                      <span className="progress-hint">enrichment takes ~2 min per item</span>
+                    </>
+                  ) : null}
+                  {job.data.failures.length > 0 ? (
+                    <span className="progress-failed">{job.data.failures.length} failed</span>
+                  ) : null}
+                </div>
               ) : null}
-            </div>
-          ) : null}
+            </RailWidget>
+          </div>
+
+          <div className="rail-footer">
+            <span className="selcount">{sel.size} selected</span>
+            <button
+              className="btn primary"
+              onClick={handleIngest}
+              disabled={sel.size === 0 || ingest.isPending}
+            >
+              ingest
+            </button>
+          </div>
         </aside>
       </div>
     </div>

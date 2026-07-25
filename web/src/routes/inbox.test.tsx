@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 
 let routeSearch: { source?: string } = {};
@@ -216,4 +216,45 @@ test("reroll pages through stratified batches, moves the highlight, and wraps", 
   fireEvent.click(screen.getByRole("button", { name: "reroll" }));
   fireEvent.click(screen.getByRole("button", { name: "reroll" }));
   expect(screen.getByText("batch 1/2")).toBeInTheDocument();
+});
+
+test("the rail splits into four independently collapsible widgets", async () => {
+  renderPage();
+  const details = await screen.findAllByRole("group");
+  expect(details.length).toBe(4);
+});
+
+test("queue and ingest start open, match and job start collapsed", async () => {
+  const { container } = renderPage();
+  await screen.findByText("add to queue");
+  // Scoped to .rail-scroll: "ingest" is also the pinned footer button's label
+  // (that's the point of the task), so an unscoped query is ambiguous between
+  // the widget summary and the footer button.
+  const scroll = container.querySelector(".rail-scroll") as HTMLElement;
+  const openOf = (t: string) =>
+    (within(scroll).getByText(t).closest("details") as HTMLDetailsElement).open;
+  expect(openOf("add to queue")).toBe(true);
+  expect(openOf("ingest")).toBe(true);
+  expect(openOf("profile match")).toBe(false);
+  expect(openOf("job progress")).toBe(false);
+});
+
+test("the ingest action renders outside the rail's scroll region", async () => {
+  const { container } = renderPage();
+  await screen.findByText("add to queue");
+  const footer = container.querySelector(".rail-footer");
+  const scroll = container.querySelector(".rail-scroll");
+  const ingest = [...container.querySelectorAll("button")].find(
+    (b) => b.textContent?.trim() === "ingest",
+  );
+  expect(footer).toBeTruthy();
+  expect(ingest && footer?.contains(ingest)).toBe(true);
+  expect(ingest && scroll?.contains(ingest)).toBe(false);
+});
+
+test("the selected count renders in the pinned footer", async () => {
+  const { container } = renderPage();
+  await screen.findByText("add to queue");
+  const footer = container.querySelector(".rail-footer");
+  expect(footer?.querySelector(".selcount")).toBeTruthy();
 });
