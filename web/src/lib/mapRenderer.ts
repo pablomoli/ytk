@@ -17,6 +17,9 @@ export type MapRenderer = {
   setView: (view: "all" | "content") => void;
   setDimension: (flat: boolean) => void;
   setFilters: (signal: boolean, recent: boolean, media?: boolean) => void;
+  // Time machine position as a quantile of the dated corpus, 0..1. 1 shows
+  // everything.
+  setClock: (next: number) => void;
   setFocus: (focus: MapFocus) => void;
   setHover: (hover?: MapFocus) => void;
   setHiddenDomains: (doms: Set<number>) => void;
@@ -46,8 +49,16 @@ uniform float relief; uniform float hscale;
 uniform float focDomA[32]; uniform float focDomB[32];
 uniform float focSubA[96]; uniform float focSubB[96];
 uniform float focusT; uniform float level; uniform float subColorT;
-uniform float introT; uniform float time;
-attribute float id; uniform mediump float pickMode; uniform float pickPad;
+uniform float introT; uniform float time; uniform float clock;
+// id and birth share one attribute because the point program sits exactly on
+// WebGL1's 16-attribute ceiling — a 17th fails to COMPILE with "Too many
+// attributes", at runtime, where no amount of typechecking can see it.
+// .x is the pick id; .y is the note's date as a QUANTILE in 0..1, not a
+// timestamp: the dates pile up so hard that half the corpus lands in the last
+// 4% of the real span (docs/assets/time-machine/01-date-distribution.png).
+// A negative .y means undated — whole categories rather than a random few, so
+// they are exempted instead of being handed a birthday they never had.
+attribute vec2 idBirth; uniform mediump float pickMode; uniform float pickPad;
 varying vec3 c; varying float a; varying float depthV; varying vec3 pickC;
 float rampf(float p){ return .5 - .5*cos(clamp(p,0.,1.)*3.14159265); }
 void main(){
@@ -60,7 +71,13 @@ void main(){
   int di=int(dm+.5); int si=int(max(grp,0.)+.5);
   float r=rampf(focusT*1.6-phase*.6);
   float fa=grp<0. ? mix(focDomA[di],focDomB[di],r) : mix(focSubA[si],focSubB[si],r);
-  float grow=rampf(introT*1.8-phase*.8);
+  // Same sweep the intro runs, driven by a date instead of a fixed timer.
+  // The 24. sets the softness of the wavefront: a note takes about 1/24 of
+  // the corpus to fade fully in, so the edge reads as a tide rather than a
+  // switch. Undated notes (birth<0) are always present.
+  float birth=idBirth.y;
+  float born=birth<0. ? 1. : rampf((clock-birth)*24.);
+  float grow=rampf(introT*1.8-phase*.8)*born;
   gl_PointSize=clamp(size*zoom/depth*dpr,1.8,26.*dpr)*grow+pickPad*pickMode;
   c=mix(mix(color0,colorSub,subColorT),color1,morph);
   float pulse=1.+.12*sin(time*2.2-phase*5.)*step(1.5,level+focusT);
@@ -69,6 +86,7 @@ void main(){
   // 4,067 would arrive as mediump downstream, which is only exact to ~1024,
   // so the id would quietly corrupt. Three bytes already scaled to 0..1
   // survive mediump with room to spare.
+  float id=idBirth.x;
   pickC=vec3(mod(id,256.),mod(floor(id/256.),256.),mod(floor(id/65536.),256.))/255.; }`;
 const fragment = `precision mediump float; varying vec3 c; varying float a; varying float depthV;
 uniform mediump float pickMode; varying vec3 pickC;
@@ -262,6 +280,38 @@ const css = (color: [number, number, number]) =>
 export const UNPLACED_LABEL = "unplaced";
 const isUnplaced = (data: MapData, index: number): boolean =>
   data.all.domains[index]?.label === UNPLACED_LABEL;
+
+// Per-point birth position for the time machine (#107 D), as a quantile of
+// the dated corpus rather than a normalized timestamp.
+//
+// The dates are not spread over the vault's life — 3832 of 3889 fall in one
+// year, so under linear time half the corpus arrives after 95.7% of the
+// scrubber's travel and the whole sweep happens in the last centimetre.
+// Ranking makes the reveal uniform in notes revealed, which is the thing the
+// scrubber is actually for. See docs/assets/time-machine/.
+//
+// Undated points return -1, a sentinel the shader reads as "always present".
+// They are whole categories (project-note 0/71, pinterest, reddit, web, all
+// 0%), so folding them in at t=0 would fabricate a history for one class of
+// note and not another.
+export function pointBirths(points: MapPoint[]): number[] {
+  const stamps = points.map((point) => (point.d ? Date.parse(point.d) : Number.NaN));
+  const dated = stamps.filter((t) => !Number.isNaN(t)).sort((a, b) => a - b);
+  if (dated.length < 2) return stamps.map(() => -1);
+  return stamps.map((t) => {
+    if (Number.isNaN(t)) return -1;
+    // Rank via binary search; ties share the lower bound so same-day notes
+    // arrive together rather than being split by array order.
+    let lo = 0;
+    let hi = dated.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (dated[mid] < t) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo / (dated.length - 1);
+  });
+}
 
 function domainPos(data: MapData, index: number): number {
   const order = data.all.domains
@@ -637,7 +687,7 @@ export function mountMapRenderer(
   const phaseAttr = gl.getAttribLocation(program, "phase");
   const hgt0Attr = gl.getAttribLocation(program, "hgt0");
   const hgt1Attr = gl.getAttribLocation(program, "hgt1");
-  const idAttr = gl.getAttribLocation(program, "id");
+  const idAttr = gl.getAttribLocation(program, "idBirth");
   const pickModeU = gl.getUniformLocation(program, "pickMode");
   const pickPadU = gl.getUniformLocation(program, "pickPad");
   const reliefU = gl.getUniformLocation(program, "relief");
@@ -650,6 +700,7 @@ export function mountMapRenderer(
   const levelU = gl.getUniformLocation(program, "level");
   const subColorTU = gl.getUniformLocation(program, "subColorT");
   const introTU = gl.getUniformLocation(program, "introT");
+  const clockU = gl.getUniformLocation(program, "clock");
   const timeU = gl.getUniformLocation(program, "time");
   const morphUniform = gl.getUniformLocation(program, "morph");
   const dimUniform = gl.getUniformLocation(program, "dim");
@@ -747,7 +798,11 @@ export function mountMapRenderer(
     canvas.dataset.intro = "1";
   }
   let introT = intro ? 0 : 1;
+  // 1 = the whole corpus is present, so the time machine is inert until the
+  // scrubber moves and nothing about the default render changes.
+  let clock = 1;
   const phases = pointPhases(data.points);
+  const births = pointBirths(data.points);
   // Colours, not ramp positions: `unplaced` has no position on the ramp, and
   // its subtopics inherit the grey rather than falling back to the hot end.
   const domColorArr = data.all.domains.map((_, index) => domainColor(data, index));
@@ -883,9 +938,10 @@ export function mountMapRenderer(
           // renderedPoints is pushed in this same order, so decoding id - 1
           // indexes straight back into it.
           renderedPoints.length,
+          births[index],
         ];
       });
-      pointCount = points.length / 28;
+      pointCount = points.length / 29;
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points), gl.STATIC_DRAW);
       geometryDirty = false;
@@ -893,37 +949,38 @@ export function mountMapRenderer(
     const drawSet = (buf: WebGLBuffer, count: number) => {
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.enableVertexAttribArray(position0);
-      gl.vertexAttribPointer(position0, 3, gl.FLOAT, false, 112, 0);
+      gl.vertexAttribPointer(position0, 3, gl.FLOAT, false, 116, 0);
       gl.enableVertexAttribArray(position1);
-      gl.vertexAttribPointer(position1, 3, gl.FLOAT, false, 112, 12);
+      gl.vertexAttribPointer(position1, 3, gl.FLOAT, false, 116, 12);
       gl.enableVertexAttribArray(flat0);
-      gl.vertexAttribPointer(flat0, 2, gl.FLOAT, false, 112, 24);
+      gl.vertexAttribPointer(flat0, 2, gl.FLOAT, false, 116, 24);
       gl.enableVertexAttribArray(flat1);
-      gl.vertexAttribPointer(flat1, 2, gl.FLOAT, false, 112, 32);
+      gl.vertexAttribPointer(flat1, 2, gl.FLOAT, false, 116, 32);
       gl.enableVertexAttribArray(color0);
-      gl.vertexAttribPointer(color0, 3, gl.FLOAT, false, 112, 40);
+      gl.vertexAttribPointer(color0, 3, gl.FLOAT, false, 116, 40);
       gl.enableVertexAttribArray(color1);
-      gl.vertexAttribPointer(color1, 3, gl.FLOAT, false, 112, 52);
+      gl.vertexAttribPointer(color1, 3, gl.FLOAT, false, 116, 52);
       gl.enableVertexAttribArray(colorSub);
-      gl.vertexAttribPointer(colorSub, 3, gl.FLOAT, false, 112, 64);
+      gl.vertexAttribPointer(colorSub, 3, gl.FLOAT, false, 116, 64);
       gl.enableVertexAttribArray(alpha0);
-      gl.vertexAttribPointer(alpha0, 1, gl.FLOAT, false, 112, 76);
+      gl.vertexAttribPointer(alpha0, 1, gl.FLOAT, false, 116, 76);
       gl.enableVertexAttribArray(alpha1);
-      gl.vertexAttribPointer(alpha1, 1, gl.FLOAT, false, 112, 80);
+      gl.vertexAttribPointer(alpha1, 1, gl.FLOAT, false, 116, 80);
       gl.enableVertexAttribArray(size);
-      gl.vertexAttribPointer(size, 1, gl.FLOAT, false, 112, 84);
+      gl.vertexAttribPointer(size, 1, gl.FLOAT, false, 116, 84);
       gl.enableVertexAttribArray(grp);
-      gl.vertexAttribPointer(grp, 1, gl.FLOAT, false, 112, 88);
+      gl.vertexAttribPointer(grp, 1, gl.FLOAT, false, 116, 88);
       gl.enableVertexAttribArray(dm);
-      gl.vertexAttribPointer(dm, 1, gl.FLOAT, false, 112, 92);
+      gl.vertexAttribPointer(dm, 1, gl.FLOAT, false, 116, 92);
       gl.enableVertexAttribArray(phaseAttr);
-      gl.vertexAttribPointer(phaseAttr, 1, gl.FLOAT, false, 112, 96);
+      gl.vertexAttribPointer(phaseAttr, 1, gl.FLOAT, false, 116, 96);
       gl.enableVertexAttribArray(hgt0Attr);
-      gl.vertexAttribPointer(hgt0Attr, 1, gl.FLOAT, false, 112, 100);
+      gl.vertexAttribPointer(hgt0Attr, 1, gl.FLOAT, false, 116, 100);
       gl.enableVertexAttribArray(hgt1Attr);
-      gl.vertexAttribPointer(hgt1Attr, 1, gl.FLOAT, false, 112, 104);
+      gl.vertexAttribPointer(hgt1Attr, 1, gl.FLOAT, false, 116, 104);
       gl.enableVertexAttribArray(idAttr);
-      gl.vertexAttribPointer(idAttr, 1, gl.FLOAT, false, 112, 108);
+      // Two floats, one attribute slot: id at 108, birth at 112.
+      gl.vertexAttribPointer(idAttr, 2, gl.FLOAT, false, 116, 108);
       gl.drawArrays(gl.POINTS, 0, count);
     };
     const contentView = view === "content";
@@ -1075,6 +1132,7 @@ export function mountMapRenderer(
     gl.uniform1f(pickPadU, pickPass ? PICK_PAD * pixelRatio() : 0);
     gl.uniform1f(subColorTU, subColorT);
     gl.uniform1f(introTU, introT);
+    gl.uniform1f(clockU, clock);
     gl.uniform1f(timeU, time);
     drawSet(buffer, pointCount);
   };
@@ -1849,6 +1907,14 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
       scaleTarget = scale;
       killMomentum();
       zoomAnchor = null;
+      wake();
+    },
+    setClock: (next) => {
+      // A uniform change only — the buffer is untouched, so this does not
+      // set geometryDirty. wake() is enough because the scrubber is manual:
+      // each drag paints a frame and the loop parks again. Nothing here
+      // animates on its own, so animating() needs no new clause.
+      clock = next;
       wake();
     },
     setFilters: (signal, recent, media = false) => {

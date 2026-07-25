@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMap, isMapV2 } from "../api/map";
 import type { MapData, MapDomain, MapPoint } from "../api/map";
@@ -86,6 +86,8 @@ function MapPage() {
   const [signal, setSignal] = useState(false);
   const [recent, setRecent] = useState(false);
   const [media, setMedia] = useState(false);
+  const [timeOn, setTimeOn] = useState(false);
+  const [clock, setClock] = useState(1);
   const [pointHover, setPointHover] = useState<MapHover>();
   const [focus, setFocusState] = useState<MapFocus>({});
   const [hover, setHover] = useState<MapFocus>();
@@ -163,6 +165,11 @@ function MapPage() {
     renderer.current?.setFilters(signal, recent, media && view === "all");
   }, [signal, recent, media, view]);
   useEffect(() => {
+    // Off means "show everything", not "show nothing" — the scrubber's own
+    // position is remembered so toggling back resumes where it was left.
+    renderer.current?.setClock(timeOn ? clock : 1);
+  }, [timeOn, clock]);
+  useEffect(() => {
     renderer.current?.setFocus(focus);
   }, [focus]);
   useEffect(() => {
@@ -174,6 +181,20 @@ function MapPage() {
   useEffect(() => {
     renderer.current?.setLegendOpen(legendOpen);
   }, [legendOpen]);
+  // Scrubber readout. The slider's position is a quantile, so the date it
+  // corresponds to has to be looked up in the sorted dates rather than
+  // interpolated between the endpoints — that is the whole point of ranking.
+  // Declared above the loading guard: hooks must run on every render path.
+  const dates = useMemo(
+    () =>
+      (map.data?.points ?? [])
+        .map((point) => point.d)
+        .filter((d): d is string => Boolean(d))
+        .sort(),
+    [map.data],
+  );
+  const shown = dates.length ? Math.round(clock * (dates.length - 1)) + 1 : 0;
+  const scrubDate = dates.length ? dates[Math.min(shown, dates.length) - 1] : "";
   if (map.isLoading) return <div className="map-state">loading map...</div>;
   if (map.isError)
     return (
@@ -258,10 +279,36 @@ function MapPage() {
               media
             </button>
           ) : null}
+          <button
+            className={`fchip${timeOn ? " on" : ""}`}
+            onClick={() => setTimeOn((current) => !current)}
+            title="Sweep notes in by the date they were born"
+          >
+            time
+          </button>
           <button className="fchip" onClick={() => setFlat((current) => !current)}>
             {flat ? "3d" : "2d"}
           </button>
         </div>
+        {timeOn ? (
+          <div className="map-scrub">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.002}
+              value={clock}
+              aria-label="Time machine: reveal notes up to this date"
+              onChange={(event) => setClock(Number(event.target.value))}
+            />
+            <span>
+              {scrubDate}
+              <em>
+                {shown} / {dates.length}
+              </em>
+            </span>
+          </div>
+        ) : null}
         <div>
           {map.data?.all.terrain || map.data?.content.terrain ? (
             <button
