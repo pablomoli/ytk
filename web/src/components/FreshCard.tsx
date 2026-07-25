@@ -70,9 +70,7 @@ export function FreshCard({
             />
           ) : null}
         </div>
-      ) : (
-        <div className="noimg">{note.source}</div>
-      )}
+      ) : null}
       {isMemo ? null : (
         <div className="meta">
           <div className="title" onMouseEnter={decode.onMouseEnter}>

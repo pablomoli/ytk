@@ -1,3 +1,18 @@
+/* A card is absolute and invisible until the layout pass has placed it. Without
+   this, cards React has just mounted paint in static flow first — full-width,
+   stacked, thousands of pixels from where they belong — and stay there until
+   the next frame runs the layout. On a 60-card page append the main thread is
+   busy long enough for that wrong layout to be on screen for ~400ms, which is
+   the whole-screen churn on scroll. Placement is what makes a card visible. */
+.masonry > * {
+  position: absolute;
+  visibility: hidden;
+}
+
+.masonry > *[data-placed="1"] {
+  visibility: visible;
+}
+
 .masonry {
   /* Positioning context for JS masonry. MasonryGrid owns child geometry:
      it writes position/left/top/width inline per child and sets this
@@ -403,15 +418,6 @@ body {
   margin-top: 0.3rem;
   color: #888;
   font-size: 0.78rem;
-}
-
-.noimg {
-  width: 100%;
-  height: 110px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #777;
 }
 
 .textcard {
