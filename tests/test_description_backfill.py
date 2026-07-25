@@ -98,8 +98,14 @@ def test_backfill_reports_missing_anchor_instead_of_guessing():
 
 def test_backfill_preserves_every_other_section():
     out, _ = backfill.insert_description(NOTE, "d")
-    for section in ("## Thesis", "## Commentary", "## Key Concepts",
-                    "## Insights", "## Key Moments", "## Transcript"):
+    for section in (
+        "## Thesis",
+        "## Commentary",
+        "## Key Concepts",
+        "## Insights",
+        "## Key Moments",
+        "## Transcript",
+    ):
         assert section in out
     assert "hello world" in out
     assert out.startswith("---\nurl: https://youtu.be/abc")
@@ -165,9 +171,14 @@ def test_upsert_stores_description_in_metadata_but_never_in_the_document():
     store._with_ingest_time = lambda col, ids, metas: metas
     try:
         store.upsert(
-            {"id": "vid1", "title": "t", "url": "u",
-             "description": "SPONSORED BY ACME, secret token xyzzy"},
-            E(), [],
+            {
+                "id": "vid1",
+                "title": "t",
+                "url": "u",
+                "description": "SPONSORED BY ACME, secret token xyzzy",
+            },
+            E(),
+            [],
         )
     finally:
         store._videos_collection, store._with_ingest_time = orig_col, orig_stamp
