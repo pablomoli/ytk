@@ -437,14 +437,25 @@ def warm_search() -> bool:
     def _run() -> None:
         try:
             from ytk import visual
-            from ytk.store import pending_visual_similar, visual_similar
+            from ytk.store import (
+                pending_visual_similar,
+                visual_index_ok,
+                visual_similar,
+            )
 
-            emb = visual.embed_text("warm up the index")
-            for fn in (pending_visual_similar, visual_similar):
-                try:
-                    fn(embedding=emb, n=1)
-                except Exception:
-                    pass
+            # A damaged visual index does not raise — it blocks inside chroma's
+            # Rust layer holding the GIL, which freezes uvicorn's event loop and
+            # takes the whole hub down (#130). try/except cannot catch a hang, so
+            # the index is probed out-of-process before this thread touches it.
+            if visual_index_ok():
+                emb = visual.embed_text("warm up the index")
+                for fn in (pending_visual_similar, visual_similar):
+                    try:
+                        fn(embedding=emb, n=1)
+                    except Exception:
+                        pass
+            else:
+                print("[warm] visual index unresponsive — skipped (see #130)")
         except Exception:
             pass
         try:
