@@ -1113,6 +1113,16 @@ export function mountMapRenderer(
       }
       gl.useProgram(program);
     }
+    // Bind the point program before its own uniforms, unconditionally.
+    //
+    // Every block above only ever binds it back as a *restore* on its way
+    // out, so with the lines, fog and web layers all off nothing rebinds it
+    // and these uniforms land on whatever the bloom composite left current
+    // from the previous frame. WebGL rejects each one — "location is not from
+    // the associated program" — the point program keeps last frame's uniforms,
+    // and the cloud renders invisible. Toggling `web` on appeared to "fix" it
+    // only because that block's restore happened to run.
+    gl.useProgram(program);
     gl.uniform1f(morphUniform, morph);
     gl.uniform1f(dimUniform, dimVal);
     gl.uniform1f(zoom, scale);
