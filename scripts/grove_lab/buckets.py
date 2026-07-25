@@ -5,93 +5,37 @@ directory-provenance axis produced hackathon sprints and a 1,491-note
 `other`). Buckets declare membership rules; assignment is deterministic,
 first bucket wins, and unmatched notes stay unmatched — no catch-all.
 
-Pure logic lives here; the chroma/profile glue that reduces real notes to
-`Note` tuples is in `resolve_notes` and reuses the same functions the map
-build already trusts (scripts/build_map.py, ytk/mapdomains.py).
+The matcher itself moved to `ytk.mapdomains` when the map became the second
+consumer of this axis (#106) — one implementation, and no cycle with
+normalize_slug. It is re-exported here so every grove_lab caller keeps its
+import. What stays is the chroma/profile glue that reduces real notes to
+`Note` tuples, which reuses the same functions the map build already trusts
+(scripts/build_map.py).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
+from ytk.mapdomains import (
+    DEFAULT_CONFIG,
+    Bucket,
+    BucketConfig,
+    Note,
+    assign,
+    load_buckets,
+    normalize_slug,
+)
 
-import yaml
-
-from ytk.mapdomains import normalize_slug
-
-
-@dataclass(frozen=True)
-class Note:
-    """A note reduced to the axes bucket rules can see."""
-
-    cat: str
-    project: str | None
-    theme: str | None
-    path: str
-
-
-@dataclass
-class Bucket:
-    name: str
-    palette: str | None = None
-    projects: list[str] = field(default_factory=list)
-    themes: list[str] = field(default_factory=list)
-    paths: list[str] = field(default_factory=list)
-    seed: str | None = None
-
-
-@dataclass
-class BucketConfig:
-    buckets: list[Bucket]
-    seed_floor: float
-    version: int
-
-
-def load_buckets(path: str | Path) -> BucketConfig:
-    raw = yaml.safe_load(Path(path).read_text())
-    buckets = [
-        Bucket(
-            name=b["name"],
-            palette=b.get("palette"),
-            projects=list(b.get("projects", [])),
-            themes=list(b.get("themes", [])),
-            paths=list(b.get("paths", [])),
-            seed=b.get("seed"),
-        )
-        for b in raw.get("buckets", [])
-    ]
-    return BucketConfig(
-        buckets=buckets,
-        seed_floor=float(raw.get("seed_floor", 0.62)),
-        version=int(raw.get("version", 1)),
-    )
-
-
-def _matches(note: Note, bucket: Bucket, declared: set[str]) -> bool:
-    if note.project:
-        slug = normalize_slug(note.project, declared)
-        if slug in bucket.projects:
-            return True
-    if note.theme and note.theme in bucket.themes:
-        return True
-    return any(note.path.startswith(p) for p in bucket.paths)
-
-
-def assign(notes: list[Note], cfg: BucketConfig) -> list[int]:
-    """Bucket index per note, -1 when nothing matches. First bucket wins."""
-    declared = {p for b in cfg.buckets for p in b.projects}
-    out = []
-    for note in notes:
-        for i, bucket in enumerate(cfg.buckets):
-            if _matches(note, bucket, declared):
-                out.append(i)
-                break
-        else:
-            out.append(-1)
-    return out
-
-
-DEFAULT_CONFIG = Path.home() / ".ytk" / "grove_buckets.yaml"
+__all__ = [
+    "DEFAULT_CONFIG",
+    "Bucket",
+    "BucketConfig",
+    "Note",
+    "assign",
+    "dedupe_indices",
+    "load_buckets",
+    "normalize_slug",
+    "resolve_notes",
+]
 
 
 def dedupe_indices(keys: list[str]) -> list[int]:
@@ -122,6 +66,7 @@ def resolve_notes():
     """
     import json
     import os
+    from pathlib import Path
 
     from scripts.build_map import (
         CONTENT_CATS,
@@ -130,7 +75,7 @@ def resolve_notes():
         assign_themes,
         load_points,
     )
-    from ytk.mapdomains import project_from_path
+    from ytk.mapdomains import notes_from_metas
 
     snapshot = json.loads(Path(os.path.expanduser(SNAPSHOT)).read_text())
     theme_labels = [t["label"] for t in snapshot["themes"]]
@@ -144,17 +89,7 @@ def resolve_notes():
     cthemes = assign_themes(vecs[cidx], snapshot)
     theme_of = {g: cthemes[k] for k, g in enumerate(cidx)}
 
-    notes = []
-    for i, m in enumerate(meta):
-        ti = theme_of.get(i, -1)
-        notes.append(
-            Note(
-                cat=m["cat"],
-                project=project_from_path(m.get("path", "")),
-                theme=theme_labels[ti] if ti >= 0 else None,
-                path=_rel_path(m.get("path", "")),
-            )
-        )
+    notes = notes_from_metas(meta, theme_of, theme_labels, _rel_path)
     return vecs, meta, notes
 
 
