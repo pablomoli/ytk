@@ -102,3 +102,20 @@ test("forceOpenKey does not reopen after the user closes it", () => {
   );
   expect(open("job")).toBe(false);
 });
+
+test("forceOpenKey opens again when a new job starts after the user closed it", () => {
+  const { rerender } = render(
+    <RailWidget title="job" prefKey="ytk:test:j" forceOpenKey="job-1">
+      <p>j body</p>
+    </RailWidget>,
+  );
+  expect(open("job")).toBe(true);
+  screen.getByText("job").click();
+  expect(open("job")).toBe(false);
+  rerender(
+    <RailWidget title="job" prefKey="ytk:test:j" forceOpenKey="job-2">
+      <p>j body</p>
+    </RailWidget>,
+  );
+  expect(open("job")).toBe(true);
+});
