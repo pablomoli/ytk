@@ -1,9 +1,10 @@
 import { useState } from "react";
-import type { KeyboardEvent, MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent, SyntheticEvent } from "react";
 import type { QueueItem } from "../api/queue";
 import type { ProfileRankPick } from "../api/profileRank";
 import { PixelBloom } from "./PixelBloom";
 import { sourceIcon } from "./icons";
+import { coverAspect } from "../lib/coverAspect";
 
 type ImageStage = "cover" | "preview" | "fallback";
 type CardState = "queued" | "ingesting";
@@ -49,6 +50,17 @@ export function Card({
     onClick: handleClick,
     onKeyDown: handleKeyDown,
   } as const;
+
+  /* Starts as the per-source guess so the card reserves a box before the bytes
+     arrive, then yields to the image's own ratio. Holding the guess after load
+     would win over the intrinsic size and quietly distort the picture. */
+  const [ratio, setRatio] = useState(() => coverAspect(item.source));
+
+  const handleImageLoad = (e: SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    setRatio(img.naturalWidth / img.naturalHeight);
+  };
 
   const handleImageError = () => {
     if (stage === "cover") {
@@ -106,9 +118,14 @@ export function Card({
           src={
             stage === "preview" ? item.preview_url : `/api/cover?u=${encodeURIComponent(item.url)}`
           }
+          /* Reserves the box before the bytes arrive, so the masonry measures
+             this card once instead of measuring it empty and re-packing every
+             card below it when the image decodes (#22). */
+          style={{ aspectRatio: String(ratio) }}
           loading="lazy"
           alt=""
           onError={handleImageError}
+          onLoad={handleImageLoad}
         />
       )}
       {state === "ingesting" ? <div className="spinner" /> : null}
