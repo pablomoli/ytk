@@ -24,7 +24,7 @@ Body.
 
 
 @pytest.fixture
-def hub(tmp_path, monkeypatch):
+def hub(tmp_path, monkeypatch, stub_pullers):
     import ytk.ui.hub as hub_mod
 
     brain = tmp_path / "brain"
@@ -850,7 +850,9 @@ def test_refresh_sources_only_filter_pulls_single_source(hub, monkeypatch):
     result = hub.refresh_sources(force=True, only={"imessage"})
     assert result["imessage"] == 1
     assert not ig_called  # other sources skipped entirely
-    assert set(result["skipped_sources"]) == {"instagram", "youtube", "pinterest"}
+    # Derived from the source list rather than spelled out: an `only` filter
+    # must skip every source it did not name, including ones added later.
+    assert set(result["skipped_sources"]) == set(hub.PULL_SOURCES) - {"imessage"}
 
 
 def test_refresh_prunes_already_ingested_urls(hub, monkeypatch):

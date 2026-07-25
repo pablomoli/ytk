@@ -37,18 +37,16 @@ def test_color_rule_rejects_bad_hex():
 
 
 @pytest.fixture
-def hub(tmp_path, monkeypatch, cfg_path):
+def hub(tmp_path, monkeypatch, cfg_path, stub_pullers):
     import ytk.ui.hub as hub_mod
 
     brain = tmp_path / "brain"
     (brain / "sources").mkdir(parents=True)
     monkeypatch.setattr("ytk.vault._get_brain_path", lambda: brain)
     monkeypatch.setattr(hub_mod, "STATE_PATH", tmp_path / "state.json")
+    # stub_pullers zeroes every source; instagram reports one item so the
+    # cadence test can tell a due pull from a throttled one.
     monkeypatch.setattr(hub_mod, "IG_PULL", lambda state: 1)
-    monkeypatch.setattr(hub_mod, "YT_FETCH", lambda: [])
-    monkeypatch.setattr(hub_mod, "YT_IS_PROCESSED", lambda vid: False)
-    monkeypatch.setattr(hub_mod, "PIN_FETCH", lambda: [])
-    monkeypatch.setattr(hub_mod, "IM_FETCH", lambda: [])
     return hub_mod
 
 

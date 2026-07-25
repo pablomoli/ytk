@@ -369,6 +369,19 @@ PIN_FETCH = _pin_fetch
 IM_FETCH = _im_fetch
 INGEST_TEXT = ingest_imessage_item
 
+# Which of the seams above each PULL_SOURCES entry reaches. Tests stub sources
+# by walking this map rather than by listing seams themselves, so a source
+# added to PULL_SOURCES without a matching entry here fails the suite instead
+# of quietly falling through to the live network on the next refresh.
+PULL_SEAMS: dict[str, tuple[str, ...]] = {
+    "instagram": ("IG_PULL",),
+    "youtube": ("YT_FETCH", "YT_IS_PROCESSED"),
+    "pinterest": ("PIN_FETCH",),
+    "imessage": ("IM_FETCH",),
+    "tiktok": ("TT_PULL",),
+    "reddit": ("REDDIT_PULL",),
+}
+
 
 _READY = {"search": False}
 
