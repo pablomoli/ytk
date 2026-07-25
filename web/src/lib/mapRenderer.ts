@@ -1161,7 +1161,15 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
  // Added, not mixed: bloom is light arriving on top of the scene, so it
  // brightens without washing out what is already there.
  vec3 rgb=s.rgb+b*intensity;
- gl_FragColor=vec4(rgb,max(s.a,dot(b,vec3(.333))*intensity)); }`;
+ // The canvas is premultiplied (blendFunc ONE, ONE_MINUS_SRC_ALPHA), so rgb
+ // should not exceed alpha. Kept because it makes the output formally valid,
+ // NOT because it fixed anything: it was tried as the explanation for the
+ // GPU adding ~1.8x less light than the numpy model, and the measured error
+ // was identical to three decimals afterwards. Over a black page background
+ // compositing yields rgb regardless of alpha, so nothing was being clamped.
+ // The 1.8x gap is still unexplained.
+ float a=max(s.a,max(rgb.r,max(rgb.g,rgb.b)));
+ gl_FragColor=vec4(rgb,a); }`;
 
   type Target = { fb: WebGLFramebuffer | null; tex: WebGLTexture | null; w: number; h: number };
   const makeTarget = (w: number, h: number): Target => {
