@@ -116,8 +116,18 @@ quote-style = "double"
 # *new* code checkable, so it is enforced where it is already free and declared
 # outstanding everywhere else instead of being quietly switched off.
 #
-# Strict-clean today: __init__, cache, profile_grounding, triage, ui/__init__,
-# workboard, workboard_cli. Everything else carries the opt-out header.
+# Strict-clean today (8/52): __init__, cache, db, profile_grounding, triage,
+# ui/__init__, workboard, workboard_cli. Everything else carries the header.
+#
+# Converting a module costs more than its raw error count suggests, for three
+# reasons worth knowing before picking the next one:
+#   1. a strict module importing from a basic one inherits Unknown, so the
+#      ratchet runs leaves-first, in dependency order
+#   2. pydantic Field(), transformers from_pretrained() and sqlite3.Row hand
+#      back Unknown from their own stubs, which no local annotation fixes
+#   3. reportPrivateUsage flags vault._get_brain_path / vault._slug used across
+#      modules — a real design signal, but 112 references including test
+#      monkeypatch strings, so it is its own change
 include = ["ytk"]
 typeCheckingMode = "strict"
 
