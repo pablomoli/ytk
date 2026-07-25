@@ -1072,12 +1072,17 @@ export function mountMapRenderer(
   //
   // Loud on purpose to start; a look is easier to judge by pulling it back
   // than by creeping up on it.
-  const BLOOM_THRESHOLD = 0.2;
-  const BLOOM_KNEE = 0.16;
-  const BLOOM_SIGMA = 12.0; // px at full resolution
+  const BLOOM_THRESHOLD = 0.26;
+  const BLOOM_KNEE = 0.14;
+  const BLOOM_SIGMA = 9.5; // px at full resolution
   const BLOOM_PASSES = 2;
   const BLOOM_DOWNSAMPLE = 2;
-  const BLOOM_INTENSITY = 1.9;
+  const BLOOM_INTENSITY = 1.45;
+  // `?bloom=off` skips the post chain and draws the scene straight to the
+  // canvas. Not a user-facing toggle — it exists so the un-bloomed scene can
+  // be captured from the same build for the checkpoint comparison, and so a
+  // suspected bloom problem can be isolated without a rebuild.
+  const bloomOff = new URLSearchParams(location.search).get("bloom") === "off";
 
   const PICK_PAD = 2;
   // The old scan's tolerance, now the block-read radius.
@@ -1454,7 +1459,8 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
     // scene is drawn straight to the canvas instead, so a shader problem
     // degrades to "no glow" rather than to a blank map.
     bloomTargets();
-    const post = Boolean(brightProgram && blurProgram && compositeProgram && sceneTarget);
+    const post =
+      !bloomOff && Boolean(brightProgram && blurProgram && compositeProgram && sceneTarget);
     if (post) bindTarget(sceneTarget);
     draw(now * 0.001);
     if (post) postprocess();
