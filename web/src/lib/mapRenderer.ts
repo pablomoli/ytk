@@ -107,17 +107,60 @@ const RIDGE_COL: [number, number, number] = [0.886, 0.69, 0.29]; // hub gold
 // Filament web: topic-tinted curves living in the embedding-3D space itself
 // (the z3/c3 coordinates), so they render only as dim approaches volume and
 // share the exact camera transform of the points.
-const webVertex = `attribute vec3 pos; attribute vec3 col; attribute float den;
+const webVertex = `attribute vec3 pa; attribute vec3 pb; attribute float tEnd; attribute float side;
+attribute vec3 col; attribute float den; attribute float alen;
 uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi;
-varying vec3 c; varying float depthV; varying float dn;
-void main(){ vec3 q=pos;
+uniform float aspect; uniform float width;
+varying vec3 c; varying float depthV; varying float dn; varying float arc; varying float edge;
+// Camera shared with the points, factored out so both ends go through the
+// identical transform — a ribbon whose two ends disagree about the camera
+// shears.
+vec4 project(vec3 p, float ct, float st, float cp, float sp){
+ vec3 q=vec3(ct*p.x+st*p.z,sp*(st*p.x-ct*p.z)+cp*p.y,-cp*(st*p.x-ct*p.z)+sp*p.y);
+ float depth=1.35-q.z*.24;
+ return vec4(q.xy*.88*zoom/depth+pan,q.z*.12,depth); }
+void main(){
  float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi);
- q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y);
- float depth=1.35-q.z*.24; depthV=q.z;
- gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); c=col; dn=den; }`;
-const webFragment = `precision mediump float; uniform float master; varying vec3 c; varying float depthV; varying float dn;
+ vec4 ca=project(pa,ct,st,cp,sp), cb=project(pb,ct,st,cp,sp);
+ vec4 here=mix(ca,cb,tEnd);
+ // Perpendicular in aspect-corrected clip space, so a ribbon keeps the same
+ // apparent thickness whatever the window shape. Degenerate segments (both
+ // ends landing on the same pixel) would normalize to NaN and blow the quad
+ // across the screen, so they fall back to a fixed direction.
+ vec2 d=(cb.xy-ca.xy)*vec2(aspect,1.);
+ d = length(d) < 1e-6 ? vec2(1.,0.) : normalize(d);
+ vec2 n=vec2(-d.y,d.x)/vec2(aspect,1.);
+ // True geometric taper: thin strands stay thin instead of every filament
+ // rendering as the same hairline. Divided by depth so ribbons foreshorten
+ // with distance like the points do.
+ // (not named "half" — that is a reserved word in GLSL ES and will not compile)
+ float hw=width*(.35+.65*min(den*1.6,1.))/max(here.w,.35);
+ // gl_Position.z carries q.z*.12, so this recovers the rotated depth the
+ // fragment shader's fog expects. Taking the unrotated z here would fog the
+ // strands by the wrong axis.
+ depthV=here.z/.12;
+ gl_Position=vec4(here.xy+n*hw*side,here.z,1.);
+ c=col; dn=den; arc=alen; edge=side; }`;
+const webFragment = `precision mediump float; uniform float master; uniform float time;
+varying vec3 c; varying float depthV; varying float dn; varying float arc; varying float edge;
 void main(){ float fog=smoothstep(-1.2,1.,depthV)*.35+.65;
  float al=master*fog*(.25+.75*min(dn*1.6,1.));  // strands taper where fog thins
+ // Ribbons are geometry now, so nothing antialiases them for free the way
+ // gl.LINES did. edge runs -1..1 across the quad; fading the last third keeps
+ // the strand reading as a soft filament rather than a hard-edged bar.
+ al*=1.-smoothstep(.55,1.,abs(edge));
+ // Flow pulses (#107 feature A): brightness follows a wave running along the
+ // strand's own arc length, so light appears to travel without any geometry
+ // moving. 18 rad/unit puts ~2 pulses on a typical strand; with the speed set
+ // JS-side one crosses it in about 3s. Multiplied in, so the density taper
+ // above survives. Frozen phase when the caller passes a constant time
+ // (prefers-reduced-motion).
+ //
+ // .65 +/- .35 rather than the brief's .78 +/- .22: the peak is unchanged and
+ // the troughs go deeper, which is what makes a crest read as a crest instead
+ // of a slightly brighter stretch of line. On strands this dim a 22% swing
+ // disappears. Feature C's bloom is the other half of this.
+ al*=.65+.35*sin(arc*18.-time*4.5);
  // trunks earn their glow from density (replaces the accidental
  // double-draw highlight the trim-dedupe removed)
  gl_FragColor=vec4(c*al*(1.1+1.3*dn),al); }`;
@@ -374,11 +417,18 @@ export function mountMapRenderer(
   // --- filament web resources (absent on pre-web map.json builds)
   let webProgram: WebGLProgram | undefined;
   let webU:
-    | Record<"zoom" | "pan" | "theta" | "phi" | "master", WebGLUniformLocation | null>
+    | Record<
+        "zoom" | "pan" | "theta" | "phi" | "master" | "time" | "aspect" | "width",
+        WebGLUniformLocation | null
+      >
     | undefined;
   let webPos = 0;
+  let webPosB = 0;
+  let webTEnd = 0;
+  let webSide = 0;
   let webCol = 0;
   let webDen = 0;
+  let webAlen = 0;
   const webBuffers: Partial<Record<"all" | "content", { buf: WebGLBuffer; count: number }>> = {};
   let junctionProgram: WebGLProgram | undefined;
   let junctionU:
@@ -394,10 +444,17 @@ export function mountMapRenderer(
     gl.linkProgram(webProgram);
     if (!gl.getProgramParameter(webProgram, gl.LINK_STATUS))
       throw new Error(gl.getProgramInfoLog(webProgram) || "web program link failed");
-    webPos = gl.getAttribLocation(webProgram, "pos");
+    webPos = gl.getAttribLocation(webProgram, "pa");
+    webPosB = gl.getAttribLocation(webProgram, "pb");
+    webTEnd = gl.getAttribLocation(webProgram, "tEnd");
+    webSide = gl.getAttribLocation(webProgram, "side");
     webCol = gl.getAttribLocation(webProgram, "col");
     webDen = gl.getAttribLocation(webProgram, "den");
+    webAlen = gl.getAttribLocation(webProgram, "alen");
     webU = {
+      time: gl.getUniformLocation(webProgram, "time"),
+      aspect: gl.getUniformLocation(webProgram, "aspect"),
+      width: gl.getUniformLocation(webProgram, "width"),
       zoom: gl.getUniformLocation(webProgram, "zoom"),
       pan: gl.getUniformLocation(webProgram, "pan"),
       theta: gl.getUniformLocation(webProgram, "theta"),
@@ -406,34 +463,56 @@ export function mountMapRenderer(
     };
     const build = (web: MapWeb | undefined, key: "all" | "content") => {
       if (!web) return;
-      // GL_LINES pairs, 6 floats per vertex (xyz + rgb); the varying blends
-      // colors along each segment so filaments shade smoothly across topic
-      // borders.
+      // Ribbons (#107 feature B), not lines. Every thick line on a GPU is
+      // triangles in costume: gl.LINES cannot vary width, so each segment is
+      // expanded into a quad — two triangles, six vertices — and widened in
+      // the vertex shader along the screen-space perpendicular. That is what
+      // buys a true geometric taper from density instead of a uniform hairline.
+      //
+      // 13 floats per vertex, stride 52:
+      //   a(3) b(3) t(1) side(1) rgb(3) den(1) alen(1)
+      // Both endpoints ride every vertex so the shader can compute the
+      // segment's direction; t picks which end this vertex sits at, side which
+      // edge of the ribbon. Colour, density and arc length are this vertex's
+      // own, so the existing varyings still blend along the strand.
       const colorOf = (label: number): [number, number, number] =>
         label < 0 ? gray : key === "all" ? rampColor(domainPos(data, label)) : rampColor(label / 7);
       const segments: number[] = [];
-      for (const fil of web.filaments)
+      for (const fil of web.filaments) {
+        // Distance travelled along this strand, in layout units. Absolute and
+        // never normalised per strand: a percentage would make one pulse cross
+        // a short strand and a long one in the same time, so light would crawl
+        // down the spine and race down the stubs. Trustworthy because the
+        // predictor-corrector tracer emits ordered, near-uniformly spaced
+        // vertices (ytk/ridges.py::trace_filaments).
+        let travelled = 0;
         for (let i = 0; i + 1 < fil.length; i++) {
           const a = fil[i];
           const b = fil[i + 1];
-          segments.push(
-            a[0],
-            a[1],
-            a[2],
-            ...colorOf(a[3]),
-            a[4] ?? 1,
-            b[0],
-            b[1],
-            b[2],
-            ...colorOf(b[3]),
-            b[4] ?? 1,
-          );
+          const step = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+          const ends = [
+            { t: 0, col: colorOf(a[3]), den: a[4] ?? 1, alen: travelled },
+            { t: 1, col: colorOf(b[3]), den: b[4] ?? 1, alen: travelled + step },
+          ] as const;
+          const vertex = (which: 0 | 1, side: number) => {
+            const e = ends[which];
+            segments.push(a[0], a[1], a[2], b[0], b[1], b[2], e.t, side, ...e.col, e.den, e.alen);
+          };
+          // Two triangles over the quad, consistent winding.
+          vertex(0, -1);
+          vertex(0, 1);
+          vertex(1, -1);
+          vertex(1, -1);
+          vertex(0, 1);
+          vertex(1, 1);
+          travelled += step;
         }
+      }
       if (!segments.length) return;
       const buf = gl.createBuffer()!;
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(segments), gl.STATIC_DRAW);
-      webBuffers[key] = { buf, count: segments.length / 7 };
+      webBuffers[key] = { buf, count: segments.length / 13 };
     };
     build(data.all.web, "all");
     build(data.content.web, "content");
@@ -578,7 +657,12 @@ export function mountMapRenderer(
     momentum = { vx: 0, vy: 0 };
     samples = [];
   };
-  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // `?motion=on` overrides the OS preference for this page load only. The
+  // default stays the accessibility setting — this is an explicit, per-visit
+  // opt-in for looking at motion features on a machine that has reduce-motion
+  // switched on system-wide, not a way to ignore the preference.
+  const forceMotion = new URLSearchParams(location.search).get("motion") === "on";
+  const reduceMotion = !forceMotion && matchMedia("(prefers-reduced-motion: reduce)").matches;
   let angle = 0.5;
   let tilt = 0.3;
   let signalOnly = false;
@@ -886,6 +970,16 @@ export function mountMapRenderer(
     // hides it automatically)
     if (!pickPass && webProgram && webU && webT > 0.01 && dimVal > 0.01) {
       gl.useProgram(webProgram);
+      // A frozen clock leaves the pulse standing still rather than removing
+      // it, so reduced motion keeps the strands' brightness variation without
+      // anything travelling. It also lets animating() park the loop, since
+      // nothing is changing frame to frame.
+      gl.uniform1f(webU.time, reduceMotion ? 0 : time);
+      // Ribbon width in clip units. Aspect keeps the thickness even on a wide
+      // window; without it a strand running horizontally would render thinner
+      // than the same strand running vertically.
+      gl.uniform1f(webU.aspect, canvas.clientWidth / Math.max(canvas.clientHeight, 1));
+      gl.uniform1f(webU.width, 0.0075);
       gl.uniform1f(webU.zoom, scale);
       gl.uniform2f(webU.pan, offset[0], offset[1]);
       gl.uniform1f(webU.theta, ea);
@@ -896,13 +990,22 @@ export function mountMapRenderer(
         if (!bufs || weight <= 0.01) continue;
         gl.bindBuffer(gl.ARRAY_BUFFER, bufs.buf);
         gl.enableVertexAttribArray(webPos);
-        gl.vertexAttribPointer(webPos, 3, gl.FLOAT, false, 28, 0);
+        // stride 52: a(0) b(12) tEnd(24) side(28) rgb(32) den(44) alen(48)
+        gl.vertexAttribPointer(webPos, 3, gl.FLOAT, false, 52, 0);
+        gl.enableVertexAttribArray(webPosB);
+        gl.vertexAttribPointer(webPosB, 3, gl.FLOAT, false, 52, 12);
+        gl.enableVertexAttribArray(webTEnd);
+        gl.vertexAttribPointer(webTEnd, 1, gl.FLOAT, false, 52, 24);
+        gl.enableVertexAttribArray(webSide);
+        gl.vertexAttribPointer(webSide, 1, gl.FLOAT, false, 52, 28);
         gl.enableVertexAttribArray(webCol);
-        gl.vertexAttribPointer(webCol, 3, gl.FLOAT, false, 28, 12);
+        gl.vertexAttribPointer(webCol, 3, gl.FLOAT, false, 52, 32);
         gl.enableVertexAttribArray(webDen);
-        gl.vertexAttribPointer(webDen, 1, gl.FLOAT, false, 28, 24);
+        gl.vertexAttribPointer(webDen, 1, gl.FLOAT, false, 52, 44);
+        gl.enableVertexAttribArray(webAlen);
+        gl.vertexAttribPointer(webAlen, 1, gl.FLOAT, false, 52, 48);
         gl.uniform1f(webU.master, webT * dimVal * weight * 0.9);
-        gl.drawArrays(gl.LINES, 0, bufs.count);
+        gl.drawArrays(gl.TRIANGLES, 0, bufs.count);
       }
       if (junctionProgram && junctionU) {
         gl.useProgram(junctionProgram);
@@ -961,6 +1064,26 @@ export function mountMapRenderer(
   // distance. scripts/plot_picking.py measured that at 647 of 963 hits landing
   // on a different point. A couple of pixels only guarantees the smallest
   // points (2.4px across) paint enough to be found. See docs/assets/picking/.
+  // --- bloom (#107 feature C) ---------------------------------------------
+  // Four steps, all of them arithmetic: draw the scene into a texture, keep
+  // only what is bright, blur that, add it back. Constants were dialled in
+  // against a real captured frame in labs/bloom_tuning.py rather than guessed
+  // here — the notebook runs this same pipeline in numpy.
+  //
+  // Loud on purpose to start; a look is easier to judge by pulling it back
+  // than by creeping up on it.
+  const BLOOM_THRESHOLD = 0.26;
+  const BLOOM_KNEE = 0.14;
+  const BLOOM_SIGMA = 9.5; // px at full resolution
+  const BLOOM_PASSES = 2;
+  const BLOOM_DOWNSAMPLE = 2;
+  const BLOOM_INTENSITY = 1.45;
+  // `?bloom=off` skips the post chain and draws the scene straight to the
+  // canvas. Not a user-facing toggle — it exists so the un-bloomed scene can
+  // be captured from the same build for the checkpoint comparison, and so a
+  // suspected bloom problem can be isolated without a rebuild.
+  const bloomOff = new URLSearchParams(location.search).get("bloom") === "off";
+
   const PICK_PAD = 2;
   // The old scan's tolerance, now the block-read radius.
   const SCAN_RADIUS = 12;
@@ -993,6 +1116,186 @@ export function mountMapRenderer(
     gl.bindTexture(gl.TEXTURE_2D, null);
   };
   let pickBlock = new Uint8Array((2 * SCAN_RADIUS + 1) ** 2 * 4);
+
+  // Post-processing runs over a full-screen quad: two triangles covering clip
+  // space, with the fragment shader doing the actual work per pixel.
+  const quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+    gl.STATIC_DRAW,
+  );
+
+  const postVertex = `attribute vec2 p; varying vec2 uv;
+void main(){ uv=p*.5+.5; gl_Position=vec4(p,0.,1.); }`;
+
+  // Keep what is brighter than the threshold. The knee is not decoration: with
+  // a hard cutoff a travelling pulse crosses the threshold abruptly, so the
+  // glow blinks on and off instead of swelling.
+  const brightFragment = `precision mediump float; uniform sampler2D src;
+uniform float threshold; uniform float knee; varying vec2 uv;
+void main(){ vec4 c=texture2D(src,uv);
+ float y=dot(c.rgb,vec3(.2126,.7152,.0722));
+ float w=smoothstep(threshold-knee,threshold+knee,y);
+ gl_FragColor=vec4(c.rgb*w,1.); }`;
+
+  // One axis at a time. A true 2D blur has every pixel read a whole
+  // neighbourhood; separating it into horizontal then vertical is visually
+  // identical for a fraction of the work, which is why every bloom
+  // implementation ping-pongs between two textures.
+  const blurFragment = `precision mediump float; uniform sampler2D src;
+uniform vec2 step; varying vec2 uv;
+void main(){
+ float w[9];
+ w[0]=.0162; w[1]=.0540; w[2]=.1216; w[3]=.1946; w[4]=.2270;
+ w[5]=.1946; w[6]=.1216; w[7]=.0540; w[8]=.0162;
+ vec3 sum=vec3(0.);
+ for(int i=0;i<9;i++){ sum+=texture2D(src,uv+step*float(i-4)).rgb*w[i]; }
+ gl_FragColor=vec4(sum,1.); }`;
+
+  const compositeFragment = `precision mediump float;
+uniform sampler2D scene; uniform sampler2D bloom; uniform float intensity;
+varying vec2 uv;
+void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
+ // Added, not mixed: bloom is light arriving on top of the scene, so it
+ // brightens without washing out what is already there.
+ vec3 rgb=s.rgb+b*intensity;
+ // The canvas is premultiplied (blendFunc ONE, ONE_MINUS_SRC_ALPHA), so rgb
+ // should not exceed alpha. Kept because it makes the output formally valid,
+ // NOT because it fixed anything: it was tried as the explanation for the
+ // GPU adding ~1.8x less light than the numpy model, and the measured error
+ // was identical to three decimals afterwards. Over a black page background
+ // compositing yields rgb regardless of alpha, so nothing was being clamped.
+ // The 1.8x gap is still unexplained.
+ float a=max(s.a,max(rgb.r,max(rgb.g,rgb.b)));
+ gl_FragColor=vec4(rgb,a); }`;
+
+  type Target = { fb: WebGLFramebuffer | null; tex: WebGLTexture | null; w: number; h: number };
+  const makeTarget = (w: number, h: number): Target => {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    // LINEAR so the downsampled bloom upsamples smoothly; NEAREST would band.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return { fb, tex, w, h };
+  };
+  const dropTarget = (t: Target | null) => {
+    if (!t) return;
+    if (t.tex) gl.deleteTexture(t.tex);
+    if (t.fb) gl.deleteFramebuffer(t.fb);
+  };
+
+  let sceneTarget: Target | null = null;
+  let bloomA: Target | null = null;
+  let bloomB: Target | null = null;
+  const bloomTargets = () => {
+    const w = Math.max(1, gl.drawingBufferWidth);
+    const h = Math.max(1, gl.drawingBufferHeight);
+    if (sceneTarget && sceneTarget.w === w && sceneTarget.h === h) return;
+    dropTarget(sceneTarget);
+    dropTarget(bloomA);
+    dropTarget(bloomB);
+    const sw = Math.max(1, Math.floor(w / BLOOM_DOWNSAMPLE));
+    const sh = Math.max(1, Math.floor(h / BLOOM_DOWNSAMPLE));
+    sceneTarget = makeTarget(w, h);
+    bloomA = makeTarget(sw, sh);
+    bloomB = makeTarget(sw, sh);
+  };
+
+  let brightProgram: WebGLProgram | undefined;
+  let blurProgram: WebGLProgram | undefined;
+  let compositeProgram: WebGLProgram | undefined;
+  const linkPost = (fragSrc: string) => {
+    const prog = gl.createProgram()!;
+    const vs = gl.createShader(gl.VERTEX_SHADER)!;
+    gl.shaderSource(vs, postVertex);
+    gl.compileShader(vs);
+    const fs = gl.createShader(gl.FRAGMENT_SHADER)!;
+    gl.shaderSource(fs, fragSrc);
+    gl.compileShader(fs);
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      // Shader linking is a runtime event, so this is the only place a
+      // precision or naming mistake surfaces. Fail loudly rather than
+      // rendering a blank map.
+      console.error("bloom program link failed", gl.getProgramInfoLog(prog));
+      return undefined;
+    }
+    return prog;
+  };
+  brightProgram = linkPost(brightFragment);
+  blurProgram = linkPost(blurFragment);
+  compositeProgram = linkPost(compositeFragment);
+
+  const drawQuad = (prog: WebGLProgram) => {
+    const loc = gl.getAttribLocation(prog, "p");
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  };
+  const bindTarget = (t: Target | null) => {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t ? t.fb : null);
+    gl.viewport(0, 0, t ? t.w : gl.drawingBufferWidth, t ? t.h : gl.drawingBufferHeight);
+  };
+  const setSampler = (prog: WebGLProgram, name: string, tex: WebGLTexture | null, unit: number) => {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(gl.getUniformLocation(prog, name), unit);
+  };
+
+  /** Scene is already in sceneTarget; run the chain and composite to screen. */
+  const postprocess = () => {
+    if (!brightProgram || !blurProgram || !compositeProgram || !sceneTarget) return false;
+    if (!bloomA || !bloomB) return false;
+    const blendWas = gl.isEnabled(gl.BLEND);
+    gl.disable(gl.BLEND);
+
+    bindTarget(bloomA);
+    gl.useProgram(brightProgram);
+    setSampler(brightProgram, "src", sceneTarget.tex, 0);
+    gl.uniform1f(gl.getUniformLocation(brightProgram, "threshold"), BLOOM_THRESHOLD);
+    gl.uniform1f(gl.getUniformLocation(brightProgram, "knee"), BLOOM_KNEE);
+    drawQuad(brightProgram);
+
+    // Ping-pong: horizontal into B, vertical back into A, repeated. Spacing is
+    // derived from sigma so the fixed 9-tap kernel covers the intended radius.
+    const spread = BLOOM_SIGMA / BLOOM_DOWNSAMPLE / 3;
+    gl.useProgram(blurProgram);
+    for (let i = 0; i < BLOOM_PASSES; i++) {
+      bindTarget(bloomB);
+      setSampler(blurProgram, "src", bloomA.tex, 0);
+      gl.uniform2f(gl.getUniformLocation(blurProgram, "step"), spread / bloomA.w, 0);
+      drawQuad(blurProgram);
+      bindTarget(bloomA);
+      setSampler(blurProgram, "src", bloomB.tex, 0);
+      gl.uniform2f(gl.getUniformLocation(blurProgram, "step"), 0, spread / bloomA.h);
+      drawQuad(blurProgram);
+    }
+
+    bindTarget(null);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(compositeProgram);
+    setSampler(compositeProgram, "scene", sceneTarget.tex, 0);
+    setSampler(compositeProgram, "bloom", bloomA.tex, 1);
+    gl.uniform1f(gl.getUniformLocation(compositeProgram, "intensity"), BLOOM_INTENSITY);
+    drawQuad(compositeProgram);
+
+    if (blendWas) gl.enable(gl.BLEND);
+    return true;
+  };
   /** Index into renderedPoints under a CSS-pixel coordinate, or -1. */
   const pickAt = (cssX: number, cssY: number): number => {
     pickTarget();
@@ -1081,6 +1384,12 @@ export function mountMapRenderer(
     if (!settled(webT, webOn ? 1 : 0)) return true;
     if (!settled(terrainT, terrainOn ? 1 : 0)) return true;
     if (!settled(subColorT, view === "all" && focus.dom !== undefined ? 1 : 0)) return true;
+    // Flow pulses travel on a live clock (#107 feature A), so the web being
+    // visible is itself a reason to keep drawing — without this the loop parks
+    // the moment everything else settles and the pulse freezes mid-travel,
+    // which reads as a rendering bug rather than a missing feature. Reduced
+    // motion pins the clock, so there the loop is free to park.
+    if (!reduceMotion && webT > 0.01 && dimVal > 0.01) return true;
     return view !== "content" && focusLevel(focus) !== "overview";
   };
   // Restart a parked loop. lastFrame resets so the first frame back uses the
@@ -1153,7 +1462,16 @@ export function mountMapRenderer(
         flyItem = undefined;
       }
     }
+    // Bloom (#107 C): the scene goes into a texture first, then the post chain
+    // composites it to the screen. If any post program failed to link the
+    // scene is drawn straight to the canvas instead, so a shader problem
+    // degrades to "no glow" rather than to a blank map.
+    bloomTargets();
+    const post =
+      !bloomOff && Boolean(brightProgram && blurProgram && compositeProgram && sceneTarget);
+    if (post) bindTarget(sceneTarget);
     draw(now * 0.001);
+    if (post) postprocess();
     placeLabels();
     frame = animating() ? requestAnimationFrame(render) : 0;
   };
@@ -1572,6 +1890,13 @@ export function mountMapRenderer(
       gl.deleteBuffer(buffer);
       if (pickTex) gl.deleteTexture(pickTex);
       if (pickFb) gl.deleteFramebuffer(pickFb);
+      if (quadBuf) gl.deleteBuffer(quadBuf);
+      dropTarget(sceneTarget);
+      dropTarget(bloomA);
+      dropTarget(bloomB);
+      if (brightProgram) gl.deleteProgram(brightProgram);
+      if (blurProgram) gl.deleteProgram(blurProgram);
+      if (compositeProgram) gl.deleteProgram(compositeProgram);
       for (const bufs of Object.values(terrainBuffers)) {
         gl.deleteBuffer(bufs.contours);
         gl.deleteBuffer(bufs.ridges);

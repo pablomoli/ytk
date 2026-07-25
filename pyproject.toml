@@ -31,6 +31,9 @@ dependencies = [
 [project.optional-dependencies]
 graph = ["graspologic"]
 dev = ["pytest>=8.0", "umap-learn>=0.5.12", "ruff>=0.14", "pyright>=1.1.400"]
+# Reactive notebooks for tuning shader constants against a real captured frame
+# before writing GLSL (labs/). Separate from dev so CI never pulls it.
+lab = ["marimo>=0.10", "matplotlib>=3.9", "numpy>=1.26", "pillow>=10.0"]
 
 [project.scripts]
 ytk = "ytk.cli:cli"

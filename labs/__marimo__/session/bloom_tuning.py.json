@@ -1,0 +1,106 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.23.15",
+    "script_metadata_hash": null
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "5e89ec4fb55c297654b2f75eada9c3e0",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h1 id=\"bloom-tuning-feature-c\">Bloom tuning \u2014 feature C</h1>\n<span class=\"paragraph\">Frame: <code>docs/assets/flow-pulses/05-motion-on-a.png</code> &nbsp; 1600\u00d71001</span>\n<span class=\"paragraph\">This is a real capture of the map with ribbons (B) and flow pulses (A)\nlive. The pipeline below is the same one the shader will run.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "b373e03bdfd39704a70296fa1bd6c9fd",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"dials\">Dials</h2>\n<span class=\"paragraph\"><marimo-ui-element object-id='MJUe-0' random-id='33a4d20b-839f-3b34-c170-4fae7ed02c87'><marimo-slider data-initial-value='0.34' data-label='&quot;&#92;u003cspan class=&#92;&quot;markdown prose dark:prose-invert contents&#92;&quot;&#92;u003e&#92;u003cspan class=&#92;&quot;paragraph&#92;&quot;&#92;u003ebright-pass threshold&#92;u003c/span&#92;u003e&#92;u003c/span&#92;u003e&quot;' data-start='0.0' data-stop='1.0' data-step='0.02' data-steps='[]' data-debounce='false' data-disabled='false' data-orientation='&quot;horizontal&quot;' data-show-value='true' data-include-input='false' data-full-width='false'></marimo-slider></marimo-ui-element> &nbsp; only pixels brighter than this bloom at all. Too low and\nthe whole map hazes over; too high and only the pulse crests glow.</span>\n<span class=\"paragraph\"><marimo-ui-element object-id='MJUe-1' random-id='6a3e1878-8ec6-7f39-12e1-736466688d27'><marimo-slider data-initial-value='0.12' data-label='&quot;&#92;u003cspan class=&#92;&quot;markdown prose dark:prose-invert contents&#92;&quot;&#92;u003e&#92;u003cspan class=&#92;&quot;paragraph&#92;&quot;&#92;u003eknee (soft cutoff)&#92;u003c/span&#92;u003e&#92;u003c/span&#92;u003e&quot;' data-start='0.0' data-stop='0.5' data-step='0.01' data-steps='[]' data-debounce='false' data-disabled='false' data-orientation='&quot;horizontal&quot;' data-show-value='true' data-include-input='false' data-full-width='false'></marimo-slider></marimo-ui-element> &nbsp; how abruptly the threshold bites. 0 is a hard cutoff and\ntends to make bloom pop on and off as the pulse travels.</span>\n<span class=\"paragraph\"><marimo-ui-element object-id='MJUe-2' random-id='2076f4d2-2383-c91f-b81b-18cb1a213289'><marimo-slider data-initial-value='7.0' data-label='&quot;&#92;u003cspan class=&#92;&quot;markdown prose dark:prose-invert contents&#92;&quot;&#92;u003e&#92;u003cspan class=&#92;&quot;paragraph&#92;&quot;&#92;u003eblur radius \u03c3 (px)&#92;u003c/span&#92;u003e&#92;u003c/span&#92;u003e&quot;' data-start='1.0' data-stop='24.0' data-step='0.5' data-steps='[]' data-debounce='false' data-disabled='false' data-orientation='&quot;horizontal&quot;' data-show-value='true' data-include-input='false' data-full-width='false'></marimo-slider></marimo-ui-element> &nbsp; how far the light spreads.</span>\n<span class=\"paragraph\"><marimo-ui-element object-id='MJUe-3' random-id='1baf3837-574f-e03a-9eeb-012c42955d70'><marimo-slider data-initial-value='2' data-label='&quot;&#92;u003cspan class=&#92;&quot;markdown prose dark:prose-invert contents&#92;&quot;&#92;u003e&#92;u003cspan class=&#92;&quot;paragraph&#92;&quot;&#92;u003eblur passes (ping-pong)&#92;u003c/span&#92;u003e&#92;u003c/span&#92;u003e&quot;' data-start='1' data-stop='4' data-step='1' data-steps='[]' data-debounce='false' data-disabled='false' data-orientation='&quot;horizontal&quot;' data-show-value='true' data-include-input='false' data-full-width='false'></marimo-slider></marimo-ui-element> &nbsp; each pass re-blurs the result \u2014 cheaper than one huge\nradius and gives a softer falloff.</span>\n<span class=\"paragraph\"><marimo-ui-element object-id='MJUe-4' random-id='693db2e7-319e-49d2-44d7-56b99b35882e'><marimo-slider data-initial-value='1.15' data-label='&quot;&#92;u003cspan class=&#92;&quot;markdown prose dark:prose-invert contents&#92;&quot;&#92;u003e&#92;u003cspan class=&#92;&quot;paragraph&#92;&quot;&#92;u003ecomposite intensity&#92;u003c/span&#92;u003e&#92;u003c/span&#92;u003e&quot;' data-start='0.0' data-stop='3.0' data-step='0.05' data-steps='[]' data-debounce='false' data-disabled='false' data-orientation='&quot;horizontal&quot;' data-show-value='true' data-include-input='false' data-full-width='false'></marimo-slider></marimo-ui-element> &nbsp; how much of the blur is added back on top.</span>\n<span class=\"paragraph\"><marimo-ui-element object-id='MJUe-5' random-id='2fc10cc0-a0e4-4318-f0d1-1bb460b2a7b9'><marimo-slider data-initial-value='2' data-label='&quot;&#92;u003cspan class=&#92;&quot;markdown prose dark:prose-invert contents&#92;&quot;&#92;u003e&#92;u003cspan class=&#92;&quot;paragraph&#92;&quot;&#92;u003edownsample factor&#92;u003c/span&#92;u003e&#92;u003c/span&#92;u003e&quot;' data-start='1' data-stop='8' data-step='1' data-steps='[]' data-debounce='false' data-disabled='false' data-orientation='&quot;horizontal&quot;' data-show-value='true' data-include-input='false' data-full-width='false'></marimo-slider></marimo-ui-element> &nbsp; blur is done at reduced resolution on the GPU because\nit is the expensive step; this shows what that costs you visually.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "a6e5804edd10826aacc3c790238f2489",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "985257b61df69ee247c9c92a3ae55895",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "3f7b6231dcb79d083a0af340cabeada6",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "67a216748c72f0bb99bdc33556ebcb1d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"result\">Result</h2>\n<span class=\"paragraph\"><strong>15.0%</strong> of the frame passes the bright-pass. Under ~1% and the\nbloom is invisible; over ~15% and the map starts to look foggy rather\nthan lit.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "a1479e105bc4dd2d805b9dc159270517",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "a5bcdcd237d506a0a30a641824243d8a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"constants-for-the-shader\">Constants for the shader</h2>\n<span class=\"paragraph\">Paste these into <code>mapRenderer.ts</code> when the look is right:</span>\n<div class=\"language-glsl codehilite\"><pre><span></span><code><span class=\"c1\">// bright-pass</span>\n<span class=\"k\">const</span><span class=\"w\"> </span><span class=\"kt\">float</span><span class=\"w\"> </span><span class=\"n\">BLOOM_THRESHOLD</span><span class=\"w\"> </span><span class=\"o\">=</span><span class=\"w\"> </span><span class=\"mf\">0.34</span><span class=\"p\">;</span>\n<span class=\"k\">const</span><span class=\"w\"> </span><span class=\"kt\">float</span><span class=\"w\"> </span><span class=\"n\">BLOOM_KNEE</span><span class=\"w\">      </span><span class=\"o\">=</span><span class=\"w\"> </span><span class=\"mf\">0.50</span><span class=\"p\">;</span>\n<span class=\"c1\">// blur</span>\n<span class=\"k\">const</span><span class=\"w\"> </span><span class=\"kt\">float</span><span class=\"w\"> </span><span class=\"n\">BLOOM_SIGMA</span><span class=\"w\">     </span><span class=\"o\">=</span><span class=\"w\"> </span><span class=\"mf\">24.0</span><span class=\"p\">;</span><span class=\"w\">   </span><span class=\"c1\">// px, at full res</span>\n<span class=\"k\">const</span><span class=\"w\"> </span><span class=\"kt\">int</span><span class=\"w\">   </span><span class=\"n\">BLOOM_PASSES</span><span class=\"w\">    </span><span class=\"o\">=</span><span class=\"w\"> </span><span class=\"mi\">4</span><span class=\"p\">;</span>\n<span class=\"k\">const</span><span class=\"w\"> </span><span class=\"kt\">int</span><span class=\"w\">   </span><span class=\"n\">BLOOM_DOWNSAMPLE</span><span class=\"o\">=</span><span class=\"w\"> </span><span class=\"mi\">2</span><span class=\"p\">;</span>\n<span class=\"c1\">// composite</span>\n<span class=\"k\">const</span><span class=\"w\"> </span><span class=\"kt\">float</span><span class=\"w\"> </span><span class=\"n\">BLOOM_INTENSITY</span><span class=\"w\"> </span><span class=\"o\">=</span><span class=\"w\"> </span><span class=\"mf\">1.15</span><span class=\"p\">;</span>\n</code></pre></div>\n<span class=\"paragraph\">Suggested starting point if you want somewhere to return to:\nthreshold 0.34, knee 0.12, \u03c3 7.0, 2 passes, downsample 2, intensity 1.15.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    }
+  ]
+}
