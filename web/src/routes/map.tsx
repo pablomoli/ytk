@@ -85,6 +85,7 @@ function MapPage() {
   const [fogShell, setFogShell] = useState(false);
   const [signal, setSignal] = useState(false);
   const [recent, setRecent] = useState(false);
+  const [media, setMedia] = useState(false);
   const [pointHover, setPointHover] = useState<MapHover>();
   const [focus, setFocusState] = useState<MapFocus>({});
   const [hover, setHover] = useState<MapFocus>();
@@ -157,8 +158,10 @@ function MapPage() {
     renderer.current?.setFogShell(fogShell);
   }, [fogShell]);
   useEffect(() => {
-    renderer.current?.setFilters(signal, recent);
-  }, [signal, recent]);
+    // The lens only means anything on the everything view — the content view
+    // is already nothing but media.
+    renderer.current?.setFilters(signal, recent, media && view === "all");
+  }, [signal, recent, media, view]);
   useEffect(() => {
     renderer.current?.setFocus(focus);
   }, [focus]);
@@ -246,6 +249,15 @@ function MapPage() {
           >
             recent
           </button>
+          {view === "all" ? (
+            <button
+              className={`fchip${media ? " on" : ""}`}
+              onClick={() => setMedia((current) => !current)}
+              title="Dim session and memory notes so consumed media reads in place"
+            >
+              media
+            </button>
+          ) : null}
           <button className="fchip" onClick={() => setFlat((current) => !current)}>
             {flat ? "3d" : "2d"}
           </button>
