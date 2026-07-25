@@ -1,0 +1,84 @@
+# Refresh of ~/.ytk/grove_buckets.yaml for #106. Approved 2026-07-25 and
+# installed; the pre-#106 file is kept at ~/.ytk/grove_buckets.yaml.pre-106.bak.
+# Tracked here because the bucket axis is the user's taste axis — it gets
+# proposed, measured and approved, never assumed, and never edited only in a
+# dotfile where the reasoning would be lost.
+#
+# Why a remap was needed: the live file was authored 2026-07-12 against an
+# interest profile that has since been re-synthesized. Measured 2026-07-25,
+# all eight of its `themes:` matchers name labels that no longer exist, so
+# every one of them matches zero notes — six buckets are entirely empty and
+# the two survivors are carried wholly by their `projects:` rules.
+#
+# This file only changes `themes:` (and retires two buckets that have no live
+# theme left). Project and path rules are untouched, so the grove's cached
+# topology is unaffected by the parts that decide which tree a note joins by
+# project — see docs/assets/semantic-domains/.
+
+version: 1
+seed_floor: 0.62
+
+buckets:
+  - name: epicmap
+    projects: [epicmap]
+
+  - name: ai-building
+    # ytk and everything orbiting it — the tool IS the topic
+    projects: [ytk, tts, observer-sessions, config, scheduler]
+    themes:
+      - AI-assisted software engineering
+      - agentic coding & AI-agent tooling
+      - LLM internals & information theory
+    paths: [second-brain/projects/ytk]
+
+  - name: youtube-channel
+    paths: [second-brain/projects/youtube-channel]
+
+  - name: visual-craft
+    # 3D/graphics work and the content that feeds it
+    projects: [coolshit, render-decomposition, spacecraft]
+    themes:
+      - 3D/VFX & motion-design craft
+      - math, physics & quant theory
+
+  - name: playful-tools
+    themes: [browser-based creative-coding tools]
+
+  - name: mind-systems
+    themes:
+      - self-improvement method systems
+      - computational neuroscience & cognition
+
+  - name: combat-sports
+    themes:
+      - combat-sports mindset & discipline
+      - athletic training programming
+
+  - name: film
+    themes: [film & story criticism]
+
+  - name: maker
+    # New: the twelfth live theme had no bucket to land in.
+    themes: [hardware DIY & maker builds]
+
+  - name: hackathons
+    # The grove excludes these by name; the map cannot, because it has to
+    # place every point. 596 notes, and leaving them unplaced would render a
+    # third of the canvas grey (measured: 32% vs 16%). The two consumers
+    # diverge here on purpose — same axis, different obligation.
+    projects: [niloc, usf, hacklytics-goldenbyte]
+
+# Retired, and why: `eating` (High-protein practical eating) and `adhd`
+# (ADHD & masking) have no surviving theme in the live profile and no project
+# or path rule of their own, so they can only ever match zero notes. Reseed
+# them with a `seed:` description if the topics matter again.
+
+# Still unplaced by choice — small project slugs with no topical home:
+#   neat (24), pablomoli (10), hash (15). They render dim on the map rather
+# than being folded into a residue bucket that would pretend to be a topic.
+#
+# Note for the grove: the `hackathons` bucket above is new and the grove
+# previously excluded those sprints by name. The grove's topology is cached,
+# so nothing moves until it is rebuilt — but when it is, expect three
+# sprints' worth of notes to join. Drop the bucket here if the grove should
+# keep ignoring them.
