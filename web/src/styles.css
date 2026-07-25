@@ -13,6 +13,15 @@
   visibility: visible;
 }
 
+:root {
+  /* Height of the sticky stack above the rail: .hub-nav plus the filter
+     chip row. CSS cannot sum two sticky elements' rendered heights, so this
+     is one declared constant rather than a derived one — change it here if
+     either element's height changes. scripts/probe_inbox_rail.py fails if
+     it drifts. */
+  --sticky-top: 102px;
+}
+
 .masonry {
   /* Positioning context for JS masonry. MasonryGrid owns child geometry:
      it writes position/left/top/width inline per child and sets this
@@ -1177,10 +1186,9 @@ body {
   width: 320px;
   flex: 0 0 320px;
   position: sticky;
-  top: 0;
+  top: var(--sticky-top);
   align-self: flex-start;
-  max-height: 100vh;
-  overflow-y: auto;
+  max-height: calc(100vh - var(--sticky-top));
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -1188,6 +1196,27 @@ body {
   box-sizing: border-box;
   background: #181818;
   border-radius: 10px;
+  overflow: hidden;
+}
+
+.rail-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 0;
+}
+
+/* Pinned outside .rail-scroll: the ingest action must stay reachable no
+   matter how many widgets are expanded. */
+.rail-footer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line, #3a352c);
 }
 
 .rail h2 {
