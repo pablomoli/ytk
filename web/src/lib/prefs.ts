@@ -5,6 +5,13 @@ export const CURSOR_PREF = "ytk:cursor";
    Default off (unset): the ranking stays cached but quiet until asked for. */
 export const PROFILE_MATCHES_PREF = "ytk:inbox:show-profile-matches";
 
+/* Per-widget open state for the inbox rail. Queue and ingest default open:
+   they are the common path (paste, select, ingest). */
+export const RAIL_QUEUE_PREF = "ytk:inbox:rail:queue";
+export const RAIL_MATCH_PREF = "ytk:inbox:rail:match";
+export const RAIL_INGEST_PREF = "ytk:inbox:rail:ingest";
+export const RAIL_JOB_PREF = "ytk:inbox:rail:job";
+
 /* An unset key is not the same as an explicitly closed one: rail widgets
    need per-widget defaults, so reads take the fallback and writes record
    "0" rather than removing the key. Legacy values are "1" or absent, both
