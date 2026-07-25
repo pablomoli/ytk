@@ -16,7 +16,7 @@ export type MapHover = { point: MapPoint; x: number; y: number };
 export type MapRenderer = {
   setView: (view: "all" | "content") => void;
   setDimension: (flat: boolean) => void;
-  setFilters: (signal: boolean, recent: boolean) => void;
+  setFilters: (signal: boolean, recent: boolean, media?: boolean) => void;
   setFocus: (focus: MapFocus) => void;
   setHover: (hover?: MapFocus) => void;
   setHiddenDomains: (doms: Set<number>) => void;
@@ -683,6 +683,10 @@ export function mountMapRenderer(
   let tilt = 0.3;
   let signalOnly = false;
   let recentOnly = false;
+  // Content lens (#106): dims session/memory points on the everything view so
+  // consumed media's neighbourhoods read in place, rather than having to
+  // switch to the content view and lose the surrounding context.
+  let mediaOnly = false;
   let geometryDirty = true;
   let pointCount = 0;
   let renderedPoints: RenderedPoint[] = [];
@@ -841,7 +845,12 @@ export function mountMapRenderer(
           ? (Date.parse(document.lastModified) - Date.parse(point.d)) / 86_400_000
           : Infinity;
         const recency = recentOnly ? Math.max(0.12, Math.pow(0.5, Math.max(0, days) / 90)) : 1;
-        const sig = signalOnly && point.r < 1 ? 0.04 : recency;
+        // A content point is one the content view also places — read off the
+        // payload rather than restating CONTENT_CATS here, where it would
+        // silently drift from ytk/mapdomains.py.
+        const isContent = point.cx !== undefined;
+        const lens = mediaOnly && !isContent ? 0.04 : recency;
+        const sig = signalOnly && point.r < 1 ? 0.04 : lens;
         const alphaFor = (base: number) => (sig === 0.04 ? 0.04 : base * sig);
         const domColor = point.dom >= 0 ? (domColorArr[point.dom] ?? gray) : gray;
         const subColor = point.g >= 0 ? (subColorArr[point.g] ?? domColor) : domColor;
@@ -1842,9 +1851,10 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
       zoomAnchor = null;
       wake();
     },
-    setFilters: (signal, recent) => {
+    setFilters: (signal, recent, media = false) => {
       signalOnly = signal;
       recentOnly = recent;
+      mediaOnly = media;
       geometryDirty = true;
       wake();
     },
