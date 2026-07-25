@@ -96,9 +96,12 @@ export function Card({
       {...interactiveProps}
     >
       <PixelBloom />
-      {stage === "fallback" ? (
-        <div className="noimg">{item.source}</div>
-      ) : (
+      {/* No asset means no image area. The placeholder was 110px of empty box
+          captioned with the source name, which the meta row below already
+          shows next to its icon — so an imageless Reddit or web item paid for
+          a large dead rectangle to repeat one word. Text-first is the useful
+          fallback here (#123). */}
+      {stage === "fallback" ? null : (
         <img
           src={
             stage === "preview" ? item.preview_url : `/api/cover?u=${encodeURIComponent(item.url)}`

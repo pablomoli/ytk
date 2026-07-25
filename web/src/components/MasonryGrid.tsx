@@ -58,9 +58,16 @@ export function MasonryGrid({ children }: { children: ReactNode }) {
         );
         const motion = wantsMotion && laidOut.current && !reducedMotion();
         wantsMotion = false;
-        /* Captured before the sizing pass mutates widths, and discarded below
-           if the geometry turns out unchanged. */
-        const state = motion ? Flip.getState(items) : null;
+        /* Only cards that already carry a placement can meaningfully move.
+           A card React mounted this frame is still in static flow — stacked
+           full-width below the grid, because every placed card is absolute and
+           out of flow — so including it here tweens it thousands of pixels into
+           its slot. That was pagination's whole-screen swoop: appending 60
+           cards moved none of the existing 60, but flung the new ones up to
+           6828px. Captured before the sizing pass mutates widths, and
+           discarded below if the geometry turns out unchanged. */
+        const placed = items.filter((el) => el.dataset.placed === "1");
+        const state = motion && placed.length > 0 ? Flip.getState(placed) : null;
         /* Two passes because height depends on width: first size every card
            for its span, then measure and place. Cards are absolutely
            positioned with explicit widths, so offsetHeight reflects content
@@ -92,6 +99,9 @@ export function MasonryGrid({ children }: { children: ReactNode }) {
           el.style.left = `${layout.placed[i].left}px`;
           el.style.top = `${layout.placed[i].top}px`;
           el.style.width = `${layout.placed[i].width}px`;
+          /* Reveals the card: styles.css keeps unplaced children hidden so a
+             newly mounted one never paints at the wrong coordinates. */
+          el.dataset.placed = "1";
         });
         grid.style.height = `${layout.height}px`;
         laidOut.current = true;
