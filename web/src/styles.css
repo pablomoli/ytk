@@ -14,11 +14,13 @@
 }
 
 :root {
-  /* Height of the sticky stack above the rail: .hub-nav plus the filter
-     chip row. CSS cannot sum two sticky elements' rendered heights, so this
-     is one declared constant rather than a derived one — change it here if
-     either element's height changes. scripts/probe_inbox_rail.py fails if
-     it drifts. */
+  /* Height of the sticky stack above the rail: .hub-nav plus .hub-body's
+     top padding. The filter chip row is portaled into .hub-nav, not a
+     separate sticky element, so it's already counted in the nav's height.
+     CSS cannot sum two sticky elements' rendered heights, so this is one
+     declared constant rather than a derived one — change it here if the
+     nav or the padding changes. scripts/probe_inbox_rail.py fails if it
+     drifts. */
   --sticky-top: 102px;
 }
 
@@ -1220,11 +1222,18 @@ body {
 }
 
 .rail-widget > summary {
-  font-weight: 600;
-  color: #999;
   cursor: pointer;
   list-style: none;
   padding: 0.2rem 0;
+}
+.rail-widget > summary > h2 {
+  display: inline;
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 .rail-widget > summary::-webkit-details-marker {
   display: none;

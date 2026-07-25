@@ -29,7 +29,14 @@ export function RailWidget({
 
   useEffect(() => {
     const key = forceOpenKey ?? null;
-    if (key === null || key === forced.current) return;
+    if (key === null) {
+      /* Job ended: clear the guard so the next job, even one that lands on
+         the same key (JobStatus carries no id, and item count repeats
+         across runs), is still seen as a change and reopens the section. */
+      forced.current = null;
+      return;
+    }
+    if (key === forced.current) return;
     forced.current = key;
     setOpen(true);
     setPref(prefKey, true);
@@ -49,7 +56,9 @@ export function RailWidget({
 
   return (
     <details className="rail-widget" open={open}>
-      <summary onClick={toggle}>{title}</summary>
+      <summary onClick={toggle}>
+        <h2>{title}</h2>
+      </summary>
       {children}
     </details>
   );
