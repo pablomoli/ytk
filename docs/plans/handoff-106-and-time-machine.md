@@ -36,7 +36,7 @@ already read by `ytk/ui/server.py` and `scripts/grove_lab/buckets.py` — it
 drives the grove. Nothing in `build_map.py` or `mapdomains.py` reads it.
 
 So the work is: make `mapdomains` use the buckets instead of the path slug,
-then re-run `build_map.py`. Per `docs/assets/fog/linkedin-notes.md`, this
+then re-run `build_map.py`. Per `docs/assets/01-fog/linkedin-notes.md`, this
 **recolours and does not reshape** — positions come from UMAP over the
 embeddings and will not move, so fog/strand/junction geometry stays
 pixel-identical. Only labels, panel colours, the figure-06 per-domain
@@ -91,7 +91,7 @@ map nearly empty; scrubbing to today should match the current render exactly.
 
 - **The bloom notebook over-predicts by ~1.8x.** `labs/bloom_tuning.py` runs
   the same arithmetic in numpy but the GPU adds 0.43% light where the model
-  says 0.76% (`docs/assets/bloom/01-model-vs-gpu.png`). A premultiplied-alpha
+  says 0.76% (`docs/assets/05-bloom/01-model-vs-gpu.png`). A premultiplied-alpha
   explanation was tried and **refuted** — the measured error was identical
   afterwards. Cause unknown. Marimo is parked by decision; if bloom needs
   retuning, do it against the GPU, not the notebook.

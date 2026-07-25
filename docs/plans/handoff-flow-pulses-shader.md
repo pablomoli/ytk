@@ -2,7 +2,7 @@
 
 Self-contained brief for implementing the first shader rung after the #101
 typing/linting gate. Written 2026-07-24 from the shader-roadmap session.
-Context: docs/math/terrain-derivation.md, docs/assets/fog/05 (traced
+Context: docs/math/terrain-derivation.md, docs/assets/01-fog/05 (traced
 strands), issues #100 (volume roadmap) and #101 (perf + strict-typing
 gate). Related sessions: briefs 034-039 in the vault.
 
@@ -71,7 +71,7 @@ of data; everything else exists.
   each strand's vertex order; taper (density alpha) still visible.
 - `prefers-reduced-motion`: static strands, no pulse.
 - Headless verification (puppeteer, headless from first navigate) +
-  screenshot archived as `docs/assets/fog/07-flow-pulses.png` per the
+  screenshot archived as `docs/assets/01-fog/07-flow-pulses.png` per the
   matplotlib-checkpoint convention (screenshot counts for shader-only
   rungs). SendUserFile it.
 - `vp check` + `vp test` green; no payload/pipeline changes, so no
