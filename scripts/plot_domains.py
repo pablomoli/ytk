@@ -12,11 +12,11 @@ Rungs:
   01  before/after — the shipped hybrid axis against the bucket axis
 
 House style is imported from plot_assets rather than restated, so these can
-never drift from docs/assets/fog/.
+never drift from docs/assets/01-fog/.
 
 Usage: uv run --with matplotlib --with numpy python scripts/plot_domains.py
        --refresh recomputes the corpus assignment (slow: reads chroma).
-Figures land in docs/assets/semantic-domains/.
+Figures land in docs/assets/06-semantic-domains/.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ from plot_assets import (
     style_axes,
 )
 
-OUTDIR = ROOT / "docs" / "assets" / "semantic-domains"
+OUTDIR = ROOT / "docs" / "assets" / "06-semantic-domains"
 PROPOSAL = ROOT / "docs" / "plans" / "106-buckets-proposal.yaml"
 MAP = Path(os.path.expanduser("~/.ytk/map.json"))
 SNAPSHOT_PATH = Path(os.path.expanduser("~/.ytk/interest/latest.json"))

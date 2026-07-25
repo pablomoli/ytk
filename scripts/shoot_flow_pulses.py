@@ -17,7 +17,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-OUT = Path(__file__).resolve().parents[1] / "docs" / "assets" / "flow-pulses"
+OUT = Path(__file__).resolve().parents[1] / "docs" / "assets" / "03-flow-pulses"
 SETTLE_MS = 6500
 
 # The web only draws as dim approaches volume, so 2D overview shows no strands.

@@ -14,7 +14,7 @@ The numpy side deliberately mirrors the shader's *approximations* — the fixed
 Gaussian. Comparing against a better blur would measure the wrong thing.
 
 Usage: uv run --with matplotlib --with numpy --with pillow python scripts/plot_bloom.py
-Figures land in docs/assets/bloom/.
+Figures land in docs/assets/05-bloom/.
 """
 
 import sys
@@ -43,7 +43,7 @@ from plot_assets import (
     style_axes,
 )
 
-OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "bloom"
+OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "05-bloom"
 RAW = OUTDIR / "scene-raw.png"
 BLOOMED = OUTDIR / "scene-bloomed.png"
 

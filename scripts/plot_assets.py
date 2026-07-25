@@ -1,6 +1,6 @@
-"""Regenerate every figure in docs/assets/fog/ under one house style.
+"""Regenerate every figure in docs/assets/01-fog/ under one house style.
 
-The figures are post/blog material (see docs/assets/fog/linkedin-notes.md),
+The figures are post/blog material (see docs/assets/01-fog/linkedin-notes.md),
 so they are reproducible from the live map payload rather than from ad-hoc
 snippets. One style lives here: palette, framing, saturation, resolution.
 
@@ -24,7 +24,7 @@ import numpy as np
 
 MAP = Path(os.path.expanduser("~/.ytk/map.json"))
 CACHE = Path(os.path.expanduser("~/.ytk/fog-assets-cache.json"))
-OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "fog"
+OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "01-fog"
 
 # --- house style -----------------------------------------------------------
 DPI = 200

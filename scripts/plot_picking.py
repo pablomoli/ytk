@@ -12,10 +12,10 @@ Rungs:
   04  measured — idle frame rate and hover cost from a real browser
 
 House style is imported from plot_assets rather than restated, so these can
-never drift from docs/assets/fog/.
+never drift from docs/assets/01-fog/.
 
 Usage: uv run --with matplotlib --with numpy python scripts/plot_picking.py
-Figures land in docs/assets/picking/.
+Figures land in docs/assets/02-picking/.
 """
 
 import json
@@ -48,7 +48,7 @@ from plot_assets import (
     style_axes,
 )
 
-OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "picking"
+OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "02-picking"
 MAP = Path.home() / ".ytk" / "map.json"
 MEASURED = OUTDIR / "measured.json"
 

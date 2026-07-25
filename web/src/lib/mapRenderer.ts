@@ -55,7 +55,7 @@ uniform float introT; uniform float time; uniform float clock;
 // attributes", at runtime, where no amount of typechecking can see it.
 // .x is the pick id; .y is the note's date as a QUANTILE in 0..1, not a
 // timestamp: the dates pile up so hard that half the corpus lands in the last
-// 4% of the real span (docs/assets/time-machine/01-date-distribution.png).
+// 4% of the real span (docs/assets/07-time-machine/01-date-distribution.png).
 // A negative .y means undated — whole categories rather than a random few, so
 // they are exempted instead of being handed a birthday they never had.
 attribute vec2 idBirth; uniform mediump float pickMode; uniform float pickPad;
@@ -288,7 +288,7 @@ const isUnplaced = (data: MapData, index: number): boolean =>
 // year, so under linear time half the corpus arrives after 95.7% of the
 // scrubber's travel and the whole sweep happens in the last centimetre.
 // Ranking makes the reveal uniform in notes revealed, which is the thing the
-// scrubber is actually for. See docs/assets/time-machine/.
+// scrubber is actually for. See docs/assets/07-time-machine/.
 //
 // Undated points return -1, a sentinel the shader reads as "always present".
 // They are whole categories (project-note 0/71, pinterest, reddit, web, all
@@ -1160,7 +1160,7 @@ export function mountMapRenderer(
   // neighbourhood overlap, and overlaps resolve by draw order rather than by
   // distance. scripts/plot_picking.py measured that at 647 of 963 hits landing
   // on a different point. A couple of pixels only guarantees the smallest
-  // points (2.4px across) paint enough to be found. See docs/assets/picking/.
+  // points (2.4px across) paint enough to be found. See docs/assets/02-picking/.
   // --- bloom (#107 feature C) ---------------------------------------------
   // Four steps, all of them arithmetic: draw the scene into a texture, keep
   // only what is bright, blur that, add it back. Constants were dialled in

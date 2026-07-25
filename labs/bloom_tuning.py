@@ -7,7 +7,7 @@ pixels, run over a frame actually captured from the map. Whatever you dial in
 here transfers to the shader as literal constants.
 
 Run:  uv run marimo edit labs/bloom_tuning.py
-Then: docs/assets/bloom/ gets the checkpoint via `Export figure` at the bottom.
+Then: docs/assets/05-bloom/ gets the checkpoint via `Export figure` at the bottom.
 """
 
 import marimo
@@ -25,7 +25,7 @@ def _():
     from PIL import Image
 
     REPO = Path(__file__).resolve().parents[1]
-    FRAME = REPO / "docs" / "assets" / "flow-pulses" / "05-motion-on-a.png"
+    FRAME = REPO / "docs" / "assets" / "03-flow-pulses" / "05-motion-on-a.png"
 
     frame = np.asarray(Image.open(FRAME).convert("RGB"), dtype=np.float32) / 255.0
     mo.md(
