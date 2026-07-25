@@ -9,6 +9,18 @@ import { coverAspect } from "../lib/coverAspect";
 type ImageStage = "cover" | "preview" | "fallback";
 type CardState = "queued" | "ingesting";
 
+/* A card shows the first few lines of a message; the card clips at ~110px
+   anyway. Handing the browser the untruncated value is what made the imessage
+   filter crawl: an iMessage capture carries whole threads, and 60 of them put
+   5,030,431 characters into the DOM — ~84,000 per card, against 70 per card
+   for reddit. All of it was shaped and laid out, then hidden by overflow. */
+const EXCERPT_CHARS = 400;
+
+function excerpt(text: string | null | undefined): string {
+  if (!text) return "";
+  return text.length > EXCERPT_CHARS ? `${text.slice(0, EXCERPT_CHARS).trimEnd()}…` : text;
+}
+
 function cardClassName(selected?: boolean, state?: CardState, profileMatch?: boolean): string {
   let cls = "card";
   if (selected) cls += " selected";
@@ -89,9 +101,11 @@ export function Card({
         data-cursor-target=""
         {...interactiveProps}
       >
-        <PixelBloom />
+        {/* No PixelBloom here. It is a dither that blooms over a cover image,
+            and this card has none — it was painting accent cells across the
+            message text instead. */}
         <div className="textcard">
-          <p>{item.text}</p>
+          <p>{excerpt(item.text)}</p>
           <div className="textcard-foot">
             <span>{item.author}</span>
           </div>
@@ -130,7 +144,7 @@ export function Card({
       )}
       {state === "ingesting" ? <div className="spinner" /> : null}
       <div className="meta">
-        <div className="title">{item.text || item.author || item.url}</div>
+        <div className="title">{excerpt(item.text) || item.author || item.url}</div>
         <div className="sub">
           {sourceIcon(item.source)}
           <span data-testid="card-source">{item.source}</span>
