@@ -1,0 +1,18 @@
+{
+  "description": "Load the canonical ytk work queue at session start.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --directory \"$(git rev-parse --show-toplevel)\" ytk work context --platform codex",
+            "timeout": 20,
+            "statusMessage": "Loading ytk workboard"
+          }
+        ]
+      }
+    ]
+  }
+}

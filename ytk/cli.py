@@ -53,6 +53,7 @@ from .metadata import fetch_metadata
 from .store import search_segments, search_videos, upsert
 from .transcript import fetch_transcript, segments_to_text
 from .vault import LINK_REMINDER, NoteAlreadyExists, write_note
+from .workboard_cli import work as work_command
 
 load_dotenv(Path.home() / ".ytk" / ".env")  # global install location
 load_dotenv()  # project-local .env for dev use (won't override already-loaded vars)
@@ -122,6 +123,9 @@ def _prompt_on_failures(result: FilterResult, force: bool) -> bool:
 @click.group()
 def cli():
     """ytk — personal YouTube knowledge system."""
+
+
+cli.add_command(work_command)
 
 
 @cli.command()

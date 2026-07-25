@@ -44,29 +44,58 @@ Pyright is configured in basic mode for `ytk/ridges.py` only. A green `uv run py
 
 The frontend has strict TypeScript, lint, tests, and a production build, but none run from the repository hook. There is no tracked GitHub Actions workflow, so the only general enforcement is a clone-local, bypassable hook. #122 contains the detailed findings, severity, comment hotspots, and recommended expansion order.
 
-## Agent Integration Design Pending Approval
+## Agent Integration
 
-The recommended design for #127 is:
+#127 is implemented through one shared `ytk.workboard` service backed by the
+authenticated `gh` CLI.
 
-- one shared ytk workboard service backed by the authenticated `gh` CLI;
-- matching CLI and MCP operations for `list`, `next`, and explicit stage transitions;
-- thin project-local SessionStart adapters for Codex and Claude Code;
-- read-only startup injection;
-- no automatic claiming, stage mutation, issue closing, or implementation;
-- exclusion of blocked tickets and parent initiatives from `next`;
-- tests for field mapping, ordering, blockers, and GitHub failures.
+CLI:
 
-Alternative designs are instruction-only discovery in `AGENTS.md`/`CLAUDE.md`, or separate platform-specific GitHub integrations. The shared ytk service is preferred because it gives both runtimes one tested interpretation of Project 3.
+```bash
+ytk work list
+ytk work next
+ytk work set-stage ISSUE_NUMBER STAGE
+```
+
+The MCP server exposes matching `work_list`, `work_next`, and
+`work_set_stage` tools. Project-local SessionStart hooks in
+`.codex/hooks.json` and `.claude/settings.json` call a hidden context command
+that wraps the same snapshot in each runtime's supported JSON envelope.
+
+Startup is read-only and non-blocking. If GitHub is unavailable, the hook
+injects a short unavailable message and allows the session to continue.
+Blocked tickets and initiatives with open sub-issues are excluded from the
+next executable item.
+
+Codex requires one-time review of the checked-in project hook through `/hooks`.
+Changing the hook definition invalidates that trust and requires another
+review.
 
 GitHub's public ProjectV2 API does not expose saved-view or workflow creation. The project, fields, items, dependencies, values, and status update were configured through `gh`; custom saved views still require an authenticated GitHub web session.
+
+## Verification
+
+```text
+Ruff check                         passed
+Ruff format --check               passed
+Focused CLI/workboard tests       36 passed
+Broad suite excluding #114 file   730 passed, 1 deselected
+Configured Pyright scope          0 errors
+Source and wheel build            passed
+Live CLI snapshot                 current #127, next #114
+Live MCP snapshot                 next #114
+Codex/Claude hook JSON            parsed and returned expected context
+```
+
+`tests/test_hub.py` remains excluded only because #114 is the next scheduled
+repair.
 
 ## Exact Commands
 
 ```bash
 gh project view 3 --owner pablomoli --web
 gh project item-list 3 --owner pablomoli --limit 200 --format json
-gh issue view 127
-gh issue view 114
+ytk work next
+ytk work list
+ytk work set-stage 114 in-progress
 ```
-
-Before implementing #127, confirm the CLI/MCP naming and hook behavior with the user.
