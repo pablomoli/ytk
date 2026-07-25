@@ -70,6 +70,10 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
       - Shared key_concept terms (weight=0.9, type=EXTRACTED)
       - ChromaDB semantic similarity >= threshold (weight=similarity, type=INFERRED)
     """
+    # Imported here, like the collection accessors above: pulling in store at
+    # module scope would load the encoder stack just to build a graph.
+    from .store import chroma_field
+
     G = nx.Graph()
 
     all_docs: list[dict] = []
@@ -77,7 +81,11 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
     mem_col = _memories_collection()
     if mem_col.count() > 0:
         result = mem_col.get()
-        for doc_id, doc_text, meta in zip(result["ids"], result["documents"], result["metadatas"]):
+        for doc_id, doc_text, meta in zip(
+            result["ids"],
+            chroma_field(result["documents"], "documents"),
+            chroma_field(result["metadatas"], "metadatas"),
+        ):
             all_docs.append(
                 {
                     "id": doc_id,
@@ -90,7 +98,11 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
     vid_col = _videos_collection()
     if vid_col.count() > 0:
         result = vid_col.get()
-        for doc_id, doc_text, meta in zip(result["ids"], result["documents"], result["metadatas"]):
+        for doc_id, doc_text, meta in zip(
+            result["ids"],
+            chroma_field(result["documents"], "documents"),
+            chroma_field(result["metadatas"], "metadatas"),
+        ):
             if "#" in doc_id:  # retrieval-only part vector; one node per video
                 continue
             all_docs.append(
@@ -164,7 +176,9 @@ def build_graph(threshold: float = 0.75) -> nx.Graph:
             if n_results < 2:
                 continue
             results = col.query(query_texts=[doc["text"]], n_results=n_results)
-            for neighbor_id, distance in zip(results["ids"][0], results["distances"][0]):
+            for neighbor_id, distance in zip(
+                results["ids"][0], chroma_field(results["distances"], "distances")[0]
+            ):
                 if neighbor_id == doc["id"] or neighbor_id not in all_ids:
                     continue
                 similarity = 1.0 - distance
@@ -205,7 +219,9 @@ def detect_communities(G: nx.Graph) -> dict:
     if len(G.nodes) == 0:
         return {}
     try:
-        from graspologic.partition import leiden
+        # Optional `graph` extra; the except below falls back to networkx's
+        # greedy modularity when it is absent, which is the common case.
+        from graspologic.partition import leiden  # type: ignore[reportMissingImports]
 
         # leiden returns Dict[node, int] directly
         communities_list = leiden(G)

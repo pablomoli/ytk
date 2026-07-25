@@ -204,10 +204,13 @@ def _live_resolver() -> Callable[[str], str | None]:
 
     mem = store._memories_collection().get(include=["metadatas"])
     by_path: dict[str, str] = {}
-    for meta in mem["metadatas"]:
-        sp = meta.get("source_path", "")
+    for meta in store.chroma_field(mem["metadatas"], "metadatas"):
+        sp = store.meta_str(meta, "source_path")
         if sp:
-            by_path[sp] = meta["doc_id"]
+            # Subscript, not meta_str: a memory without a doc_id should still
+            # blow up here rather than resolve to "" and score as a silent miss.
+            doc_id = meta["doc_id"]
+            by_path[sp] = doc_id if isinstance(doc_id, str) else str(doc_id)
 
     def resolve(gold_id: str) -> str | None:
         kind, _, key = gold_id.partition("::")
@@ -265,7 +268,14 @@ def live_provenance(queries_path: Path | str, top_k: int) -> dict:
         ("segments", store._segments_collection()),
     ):
         got = col.get(include=["documents", "metadatas"])
-        rows = sorted(zip(got["ids"], got["documents"], got["metadatas"]), key=lambda row: row[0])
+        rows = sorted(
+            zip(
+                got["ids"],
+                store.chroma_field(got["documents"], "documents"),
+                store.chroma_field(got["metadatas"], "metadatas"),
+            ),
+            key=lambda row: row[0],
+        )
         counts[name] = len(rows)
         for vector_id, document, metadata in rows:
             digest.update(

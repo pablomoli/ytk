@@ -157,8 +157,8 @@ def _rewrite_chroma(mapping: dict[str, str]) -> int:
         return 0
     res = col.get(include=["metadatas"])
     ids, metas = [], []
-    for doc_id, meta in zip(res["ids"], res["metadatas"]):
-        tags = [t for t in (meta.get("tags") or "").split(", ") if t]
+    for doc_id, meta in zip(res["ids"], store.chroma_field(res["metadatas"], "metadatas")):
+        tags = [t for t in store.meta_str(meta, "tags").split(", ") if t]
         new = list(dict.fromkeys(mapping.get(t, t) for t in tags))
         if new != tags:
             ids.append(doc_id)

@@ -104,25 +104,26 @@ def _get_client() -> ClientAPI:
 
 
 # --- Chroma result accessors -------------------------------------------------
-# Two invariants hold everywhere this module reads a Get/Query result, and
-# neither is expressible in Chroma's own types. Stating them here keeps them
-# out of the ~50 read sites below.
+# Two invariants hold wherever ytk reads a Get/Query result, and neither is
+# expressible in Chroma's own types. Stating them here keeps them out of the
+# ~50 read sites below — and out of graph, tags, retrieval_gate and the hub
+# server, which read the same collections and so share these accessors.
 
 
-def _present(value: _T | None, field: str) -> _T:
+def chroma_field(value: _T | None, field: str) -> _T:
     """A result field the caller's `include=` asked for, hence not None.
 
     Chroma types every field of a Get/Query result as optional because
     `include=` decides which come back. A None here means the `include=` list
-    and the read below it have drifted apart, which is a bug in this module —
-    so say that, rather than failing later on an unrelated TypeError.
+    and the read below it have drifted apart, which is a caller bug — so say
+    that, rather than failing later on an unrelated TypeError.
     """
     if value is None:
         raise KeyError(f"chroma result is missing {field!r}: check the include= list")
     return value
 
 
-def _meta_str(meta: Metadata | None, key: str, default: str = "") -> str:
+def meta_str(meta: Metadata | None, key: str, default: str = "") -> str:
     """One metadata value as the string ytk stored.
 
     Chroma widens every metadata value to str|int|float|bool|SparseVector|None
@@ -134,10 +135,10 @@ def _meta_str(meta: Metadata | None, key: str, default: str = "") -> str:
     return value if isinstance(value, str) else default
 
 
-def _meta_float(meta: Metadata | None, key: str, default: float = 0.0) -> float:
+def meta_float(meta: Metadata | None, key: str, default: float = 0.0) -> float:
     """One numeric metadata value, for the few fields ytk stores as numbers.
 
-    Same widening as _meta_str; bool is excluded deliberately, since it is a
+    Same widening as meta_str; bool is excluded deliberately, since it is a
     subclass of int and a flag read as a coordinate would be a silent wrong
     answer rather than a loud one.
     """
@@ -387,17 +388,17 @@ def pending_visual_similar(embedding: list[float], n: int = 30) -> list[VisualRe
     return [
         VisualResult(
             item_id=rid,
-            source=_meta_str(meta, "source"),
-            title=_meta_str(meta, "title"),
+            source=meta_str(meta, "source"),
+            title=meta_str(meta, "title"),
             url=rid,
-            image_path=_meta_str(meta, "image_path"),
+            image_path=meta_str(meta, "image_path"),
             note_path="",
             distance=dist,
         )
         for rid, meta, dist in zip(
             res["ids"][0],
-            _present(res["metadatas"], "metadatas")[0],
-            _present(res["distances"], "distances")[0],
+            chroma_field(res["metadatas"], "metadatas")[0],
+            chroma_field(res["distances"], "distances")[0],
         )
     ]
 
@@ -417,13 +418,13 @@ def get_profile_visual_pool(pending: bool = False) -> list[dict]:
         {
             "id": item_id,
             "embedding": list(embedding),
-            "source": _meta_str(meta, "source"),
-            "note_path": _meta_str(meta, "note_path"),
+            "source": meta_str(meta, "source"),
+            "note_path": meta_str(meta, "note_path"),
         }
         for item_id, embedding, meta in zip(
             data["ids"],
-            _present(data["embeddings"], "embeddings"),
-            _present(data["metadatas"], "metadatas"),
+            chroma_field(data["embeddings"], "embeddings"),
+            chroma_field(data["metadatas"], "metadatas"),
         )
     ]
 
@@ -432,7 +433,7 @@ def get_visual_embedding(item_id: str) -> list[float] | None:
     res = _visual_collection().get(ids=[item_id], include=["embeddings"])
     if not res["ids"]:
         return None
-    return list(_present(res["embeddings"], "embeddings")[0])
+    return list(chroma_field(res["embeddings"], "embeddings")[0])
 
 
 def visual_similar(
@@ -458,19 +459,19 @@ def visual_similar(
     out: list[VisualResult] = []
     for rid, meta, dist in zip(
         res["ids"][0],
-        _present(res["metadatas"], "metadatas")[0],
-        _present(res["distances"], "distances")[0],
+        chroma_field(res["metadatas"], "metadatas")[0],
+        chroma_field(res["distances"], "distances")[0],
     ):
         if rid == item_id:
             continue
         out.append(
             VisualResult(
                 item_id=rid,
-                source=_meta_str(meta, "source"),
-                title=_meta_str(meta, "title"),
-                url=_meta_str(meta, "url"),
-                image_path=_meta_str(meta, "image_path"),
-                note_path=_meta_str(meta, "note_path"),
+                source=meta_str(meta, "source"),
+                title=meta_str(meta, "title"),
+                url=meta_str(meta, "url"),
+                image_path=meta_str(meta, "image_path"),
+                note_path=meta_str(meta, "note_path"),
                 distance=dist,
             )
         )
@@ -502,7 +503,7 @@ def _with_ingest_time(col, ids: list[str], metas: list[dict]) -> list[Metadata]:
         existing = col.get(ids=ids, include=["metadatas"])
         prior = {
             i: (m or {}).get("ingested_at")
-            for i, m in zip(existing["ids"], _present(existing["metadatas"], "metadatas"))
+            for i, m in zip(existing["ids"], chroma_field(existing["metadatas"], "metadatas"))
         }
     except Exception:
         prior = {}
@@ -657,13 +658,13 @@ def orphaned_memory_vectors() -> list[dict[str, str]]:
         return []
     got = col.get(include=["metadatas"])
     out: list[dict[str, str]] = []
-    for vector_id, meta in zip(got["ids"], _present(got["metadatas"], "metadatas")):
-        source_path = _meta_str(meta, "source_path")
+    for vector_id, meta in zip(got["ids"], chroma_field(got["metadatas"], "metadatas")):
+        source_path = meta_str(meta, "source_path")
         if not source_path or not Path(source_path).expanduser().exists():
             out.append(
                 {
                     "vector_id": vector_id,
-                    "doc_id": _meta_str(meta, "doc_id", vector_id),
+                    "doc_id": meta_str(meta, "doc_id", vector_id),
                     "source_path": source_path,
                 }
             )
@@ -684,13 +685,13 @@ def append_video_take(video_id: str, thought: str) -> None:
     got = col.get(ids=[video_id], include=["documents", "metadatas"])
     if not got["ids"]:
         return
-    doc = _present(got["documents"], "documents")[0] or ""
+    doc = chroma_field(got["documents"], "documents")[0] or ""
     if take in doc:
         return
     col.upsert(
         ids=[video_id],
         documents=[doc.rstrip() + f"\n\nMy take: {take}"],
-        metadatas=[_present(got["metadatas"], "metadatas")[0]],
+        metadatas=[chroma_field(got["metadatas"], "metadatas")[0]],
     )
 
 
@@ -901,7 +902,7 @@ def _collapse_by_video(metas: list[Metadata], dists: list[float]) -> list[tuple[
     seen: set[str] = set()
     out: list[tuple[Metadata, float]] = []
     for meta, dist in zip(metas, dists):
-        vid = _meta_str(meta, "video_id")
+        vid = meta_str(meta, "video_id")
         if vid in seen:
             continue
         seen.add(vid)
@@ -928,21 +929,21 @@ def search_videos(query: str, n: int = 5, rerank: bool | None = None) -> list[Vi
     )
     out: list[VideoResult] = []
     collapsed = _collapse_by_video(
-        _present(results["metadatas"], "metadatas")[0],
-        _present(results["distances"], "distances")[0],
+        chroma_field(results["metadatas"], "metadatas")[0],
+        chroma_field(results["distances"], "distances")[0],
     )
     for meta, dist in collapsed[:fetch]:
-        tags = _meta_str(meta, "tags")
+        tags = meta_str(meta, "tags")
         out.append(
             VideoResult(
-                video_id=_meta_str(meta, "video_id"),
-                title=_meta_str(meta, "title"),
-                url=_meta_str(meta, "url"),
-                uploader=_meta_str(meta, "uploader"),
-                date=_meta_str(meta, "date"),
+                video_id=meta_str(meta, "video_id"),
+                title=meta_str(meta, "title"),
+                url=meta_str(meta, "url"),
+                uploader=meta_str(meta, "uploader"),
+                date=meta_str(meta, "date"),
                 tags=tags.split(", ") if tags else [],
-                thesis=_meta_str(meta, "thesis"),
-                summary=_meta_str(meta, "summary"),
+                thesis=meta_str(meta, "thesis"),
+                summary=meta_str(meta, "summary"),
                 distance=dist,
             )
         )
@@ -976,18 +977,18 @@ def search_segments(
     results = col.query(**kwargs)
     out: list[SegmentResult] = []
     for meta, doc, dist in zip(
-        _present(results["metadatas"], "metadatas")[0],
-        _present(results["documents"], "documents")[0],
-        _present(results["distances"], "distances")[0],
+        chroma_field(results["metadatas"], "metadatas")[0],
+        chroma_field(results["documents"], "documents")[0],
+        chroma_field(results["distances"], "distances")[0],
     ):
         out.append(
             SegmentResult(
-                video_id=_meta_str(meta, "video_id"),
-                title=_meta_str(meta, "title"),
-                url=_meta_str(meta, "url"),
-                start=_meta_float(meta, "start"),
+                video_id=meta_str(meta, "video_id"),
+                title=meta_str(meta, "title"),
+                url=meta_str(meta, "url"),
+                start=meta_float(meta, "start"),
                 text=doc,
-                timestamp_url=_meta_str(meta, "timestamp_url"),
+                timestamp_url=meta_str(meta, "timestamp_url"),
                 distance=dist,
             )
         )
@@ -1037,24 +1038,24 @@ def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[Unifi
     if vcol.count() > 0:
         vr = vcol.query(query_embeddings=[query_emb], n_results=min(fetch * 3, vcol.count()))
         collapsed = _collapse_by_video(
-            _present(vr["metadatas"], "metadatas")[0],
-            _present(vr["distances"], "distances")[0],
+            chroma_field(vr["metadatas"], "metadatas")[0],
+            chroma_field(vr["distances"], "distances")[0],
         )
         for meta, dist in collapsed[:fetch]:
-            summary = _meta_str(meta, "summary")
+            summary = meta_str(meta, "summary")
             pairs.append(
                 (
                     UnifiedResult(
                         type="video",
-                        doc_id=_meta_str(meta, "video_id"),
-                        title=_meta_str(meta, "title"),
+                        doc_id=meta_str(meta, "video_id"),
+                        title=meta_str(meta, "title"),
                         # thesis falling back to summary only when absent, not
                         # when empty: an empty thesis is a deliberate value.
-                        excerpt=_meta_str(meta, "thesis", summary)[:200],
-                        source=_meta_str(meta, "url"),
+                        excerpt=meta_str(meta, "thesis", summary)[:200],
+                        source=meta_str(meta, "url"),
                         distance=dist,
                     ),
-                    f"{_meta_str(meta, 'thesis')}\n\n{summary}",
+                    f"{meta_str(meta, 'thesis')}\n\n{summary}",
                 )
             )
 
@@ -1063,11 +1064,11 @@ def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[Unifi
         mr = mcol.query(query_embeddings=[query_emb], n_results=min(fetch * 3, mcol.count()))
         seen_docs: set[str] = set()
         for meta, doc, dist in zip(
-            _present(mr["metadatas"], "metadatas")[0],
-            _present(mr["documents"], "documents")[0],
-            _present(mr["distances"], "distances")[0],
+            chroma_field(mr["metadatas"], "metadatas")[0],
+            chroma_field(mr["documents"], "documents")[0],
+            chroma_field(mr["distances"], "distances")[0],
         ):
-            doc_id = _meta_str(meta, "doc_id")
+            doc_id = meta_str(meta, "doc_id")
             if doc_id in seen_docs:  # best-ranked part already represents this doc
                 continue
             seen_docs.add(doc_id)
@@ -1078,7 +1079,7 @@ def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[Unifi
                         doc_id=doc_id,
                         title=doc_id,
                         excerpt=doc[:200],
-                        source=_meta_str(meta, "source_path"),
+                        source=meta_str(meta, "source_path"),
                         distance=dist,
                     ),
                     doc,
@@ -1114,10 +1115,10 @@ def tag_counts() -> Counter[str]:
     col = _videos_collection()
     if col.count():
         res = col.get(include=["metadatas"])
-        for doc_id, meta in zip(res["ids"], _present(res["metadatas"], "metadatas")):
+        for doc_id, meta in zip(res["ids"], chroma_field(res["metadatas"], "metadatas")):
             if "#" in doc_id:  # retrieval-only part; count each video once
                 continue
-            for tag in _meta_str(meta, "tags").split(", "):
+            for tag in meta_str(meta, "tags").split(", "):
                 if tag:
                     counts[tag] += 1
     return counts
@@ -1136,22 +1137,22 @@ def get_all_videos() -> list[dict]:
     out: list[dict] = []
     for vid, emb, meta in zip(
         res["ids"],
-        _present(res["embeddings"], "embeddings"),
-        _present(res["metadatas"], "metadatas"),
+        chroma_field(res["embeddings"], "embeddings"),
+        chroma_field(res["metadatas"], "metadatas"),
     ):
         if "#" in vid:  # retrieval-only part; one representative vector per video
             continue
-        tags = _meta_str(meta, "tags")
+        tags = meta_str(meta, "tags")
         out.append(
             {
                 "id": vid,
                 "source": "youtube",
-                "title": _meta_str(meta, "title"),
-                "thesis": _meta_str(meta, "thesis"),
-                "summary": _meta_str(meta, "summary"),
+                "title": meta_str(meta, "title"),
+                "thesis": meta_str(meta, "thesis"),
+                "summary": meta_str(meta, "summary"),
                 "tags": tags.split(", ") if tags else [],
                 "embedding": list(emb),
-                "captured_at": _meta_str(meta, "ingested_at"),
+                "captured_at": meta_str(meta, "ingested_at"),
             }
         )
     return out
@@ -1192,13 +1193,13 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
     out: list[dict] = []
     for mid, emb, meta, doc in zip(
         res["ids"],
-        _present(res["embeddings"], "embeddings"),
-        _present(res["metadatas"], "metadatas"),
-        _present(res["documents"], "documents"),
+        chroma_field(res["embeddings"], "embeddings"),
+        chroma_field(res["metadatas"], "metadatas"),
+        chroma_field(res["documents"], "documents"),
     ):
         if "#" in mid:  # retrieval-only part; one entry per doc
             continue
-        doc_id = _meta_str(meta, "doc_id", mid)
+        doc_id = meta_str(meta, "doc_id", mid)
         if not doc_id.startswith(allow):
             continue
         source = (
@@ -1206,7 +1207,7 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
             if doc_id.startswith("note_sources_")
             else doc_id.split("_", 1)[0]
         )
-        tags = _meta_str(meta, "tags")
+        tags = meta_str(meta, "tags")
         out.append(
             {
                 "id": mid,
@@ -1216,8 +1217,8 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
                 "summary": "",
                 "tags": tags.split(", ") if tags else [],
                 "embedding": list(emb),
-                "source_path": _meta_str(meta, "source_path"),
-                "captured_at": _meta_str(meta, "ingested_at"),
+                "source_path": meta_str(meta, "source_path"),
+                "captured_at": meta_str(meta, "ingested_at"),
             }
         )
     return out
