@@ -351,7 +351,7 @@ function InboxPage() {
               </div>
             </RailWidget>
 
-            <RailWidget title="ingest" prefKey={RAIL_INGEST_PREF} defaultOpen>
+            <RailWidget title="ingest selection" prefKey={RAIL_INGEST_PREF} defaultOpen>
               <div className="chips">
                 {(tags.data ?? []).map((t) => (
                   <button
@@ -372,11 +372,10 @@ function InboxPage() {
               />
             </RailWidget>
 
-            {/* Always mounted, unlike the pre-split code that hid this section
-                entirely while idle: the rail is now four widgets, always —
-                collapsibility, not disappearance, is how an idle section stays
-                out of the way. The original visibility gate is preserved
-                unchanged, just narrowed to the progress content itself. */}
+            {/* Always mounted: the rail is four widgets, always. An idle
+                section stays out of the way by staying collapsed, not by
+                disappearing — the gate below only decides whether there is
+                anything to show inside it. */}
             <RailWidget
               title="job progress"
               prefKey={RAIL_JOB_PREF}
