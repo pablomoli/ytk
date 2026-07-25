@@ -1064,6 +1064,21 @@ export function mountMapRenderer(
   // distance. scripts/plot_picking.py measured that at 647 of 963 hits landing
   // on a different point. A couple of pixels only guarantees the smallest
   // points (2.4px across) paint enough to be found. See docs/assets/picking/.
+  // --- bloom (#107 feature C) ---------------------------------------------
+  // Four steps, all of them arithmetic: draw the scene into a texture, keep
+  // only what is bright, blur that, add it back. Constants were dialled in
+  // against a real captured frame in labs/bloom_tuning.py rather than guessed
+  // here — the notebook runs this same pipeline in numpy.
+  //
+  // Loud on purpose to start; a look is easier to judge by pulling it back
+  // than by creeping up on it.
+  const BLOOM_THRESHOLD = 0.2;
+  const BLOOM_KNEE = 0.16;
+  const BLOOM_SIGMA = 12.0; // px at full resolution
+  const BLOOM_PASSES = 2;
+  const BLOOM_DOWNSAMPLE = 2;
+  const BLOOM_INTENSITY = 1.9;
+
   const PICK_PAD = 2;
   // The old scan's tolerance, now the block-read radius.
   const SCAN_RADIUS = 12;
@@ -1096,6 +1111,178 @@ export function mountMapRenderer(
     gl.bindTexture(gl.TEXTURE_2D, null);
   };
   let pickBlock = new Uint8Array((2 * SCAN_RADIUS + 1) ** 2 * 4);
+
+  // Post-processing runs over a full-screen quad: two triangles covering clip
+  // space, with the fragment shader doing the actual work per pixel.
+  const quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+    gl.STATIC_DRAW,
+  );
+
+  const postVertex = `attribute vec2 p; varying vec2 uv;
+void main(){ uv=p*.5+.5; gl_Position=vec4(p,0.,1.); }`;
+
+  // Keep what is brighter than the threshold. The knee is not decoration: with
+  // a hard cutoff a travelling pulse crosses the threshold abruptly, so the
+  // glow blinks on and off instead of swelling.
+  const brightFragment = `precision mediump float; uniform sampler2D src;
+uniform float threshold; uniform float knee; varying vec2 uv;
+void main(){ vec4 c=texture2D(src,uv);
+ float y=dot(c.rgb,vec3(.2126,.7152,.0722));
+ float w=smoothstep(threshold-knee,threshold+knee,y);
+ gl_FragColor=vec4(c.rgb*w,1.); }`;
+
+  // One axis at a time. A true 2D blur has every pixel read a whole
+  // neighbourhood; separating it into horizontal then vertical is visually
+  // identical for a fraction of the work, which is why every bloom
+  // implementation ping-pongs between two textures.
+  const blurFragment = `precision mediump float; uniform sampler2D src;
+uniform vec2 step; varying vec2 uv;
+void main(){
+ float w[9];
+ w[0]=.0162; w[1]=.0540; w[2]=.1216; w[3]=.1946; w[4]=.2270;
+ w[5]=.1946; w[6]=.1216; w[7]=.0540; w[8]=.0162;
+ vec3 sum=vec3(0.);
+ for(int i=0;i<9;i++){ sum+=texture2D(src,uv+step*float(i-4)).rgb*w[i]; }
+ gl_FragColor=vec4(sum,1.); }`;
+
+  const compositeFragment = `precision mediump float;
+uniform sampler2D scene; uniform sampler2D bloom; uniform float intensity;
+varying vec2 uv;
+void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
+ // Added, not mixed: bloom is light arriving on top of the scene, so it
+ // brightens without washing out what is already there.
+ vec3 rgb=s.rgb+b*intensity;
+ gl_FragColor=vec4(rgb,max(s.a,dot(b,vec3(.333))*intensity)); }`;
+
+  type Target = { fb: WebGLFramebuffer | null; tex: WebGLTexture | null; w: number; h: number };
+  const makeTarget = (w: number, h: number): Target => {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    // LINEAR so the downsampled bloom upsamples smoothly; NEAREST would band.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return { fb, tex, w, h };
+  };
+  const dropTarget = (t: Target | null) => {
+    if (!t) return;
+    if (t.tex) gl.deleteTexture(t.tex);
+    if (t.fb) gl.deleteFramebuffer(t.fb);
+  };
+
+  let sceneTarget: Target | null = null;
+  let bloomA: Target | null = null;
+  let bloomB: Target | null = null;
+  const bloomTargets = () => {
+    const w = Math.max(1, gl.drawingBufferWidth);
+    const h = Math.max(1, gl.drawingBufferHeight);
+    if (sceneTarget && sceneTarget.w === w && sceneTarget.h === h) return;
+    dropTarget(sceneTarget);
+    dropTarget(bloomA);
+    dropTarget(bloomB);
+    const sw = Math.max(1, Math.floor(w / BLOOM_DOWNSAMPLE));
+    const sh = Math.max(1, Math.floor(h / BLOOM_DOWNSAMPLE));
+    sceneTarget = makeTarget(w, h);
+    bloomA = makeTarget(sw, sh);
+    bloomB = makeTarget(sw, sh);
+  };
+
+  let brightProgram: WebGLProgram | undefined;
+  let blurProgram: WebGLProgram | undefined;
+  let compositeProgram: WebGLProgram | undefined;
+  const linkPost = (fragSrc: string) => {
+    const prog = gl.createProgram()!;
+    const vs = gl.createShader(gl.VERTEX_SHADER)!;
+    gl.shaderSource(vs, postVertex);
+    gl.compileShader(vs);
+    const fs = gl.createShader(gl.FRAGMENT_SHADER)!;
+    gl.shaderSource(fs, fragSrc);
+    gl.compileShader(fs);
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      // Shader linking is a runtime event, so this is the only place a
+      // precision or naming mistake surfaces. Fail loudly rather than
+      // rendering a blank map.
+      console.error("bloom program link failed", gl.getProgramInfoLog(prog));
+      return undefined;
+    }
+    return prog;
+  };
+  brightProgram = linkPost(brightFragment);
+  blurProgram = linkPost(blurFragment);
+  compositeProgram = linkPost(compositeFragment);
+
+  const drawQuad = (prog: WebGLProgram) => {
+    const loc = gl.getAttribLocation(prog, "p");
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  };
+  const bindTarget = (t: Target | null) => {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t ? t.fb : null);
+    gl.viewport(0, 0, t ? t.w : gl.drawingBufferWidth, t ? t.h : gl.drawingBufferHeight);
+  };
+  const setSampler = (prog: WebGLProgram, name: string, tex: WebGLTexture | null, unit: number) => {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(gl.getUniformLocation(prog, name), unit);
+  };
+
+  /** Scene is already in sceneTarget; run the chain and composite to screen. */
+  const postprocess = () => {
+    if (!brightProgram || !blurProgram || !compositeProgram || !sceneTarget) return false;
+    if (!bloomA || !bloomB) return false;
+    const blendWas = gl.isEnabled(gl.BLEND);
+    gl.disable(gl.BLEND);
+
+    bindTarget(bloomA);
+    gl.useProgram(brightProgram);
+    setSampler(brightProgram, "src", sceneTarget.tex, 0);
+    gl.uniform1f(gl.getUniformLocation(brightProgram, "threshold"), BLOOM_THRESHOLD);
+    gl.uniform1f(gl.getUniformLocation(brightProgram, "knee"), BLOOM_KNEE);
+    drawQuad(brightProgram);
+
+    // Ping-pong: horizontal into B, vertical back into A, repeated. Spacing is
+    // derived from sigma so the fixed 9-tap kernel covers the intended radius.
+    const spread = BLOOM_SIGMA / BLOOM_DOWNSAMPLE / 3;
+    gl.useProgram(blurProgram);
+    for (let i = 0; i < BLOOM_PASSES; i++) {
+      bindTarget(bloomB);
+      setSampler(blurProgram, "src", bloomA.tex, 0);
+      gl.uniform2f(gl.getUniformLocation(blurProgram, "step"), spread / bloomA.w, 0);
+      drawQuad(blurProgram);
+      bindTarget(bloomA);
+      setSampler(blurProgram, "src", bloomB.tex, 0);
+      gl.uniform2f(gl.getUniformLocation(blurProgram, "step"), 0, spread / bloomA.h);
+      drawQuad(blurProgram);
+    }
+
+    bindTarget(null);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(compositeProgram);
+    setSampler(compositeProgram, "scene", sceneTarget.tex, 0);
+    setSampler(compositeProgram, "bloom", bloomA.tex, 1);
+    gl.uniform1f(gl.getUniformLocation(compositeProgram, "intensity"), BLOOM_INTENSITY);
+    drawQuad(compositeProgram);
+
+    if (blendWas) gl.enable(gl.BLEND);
+    return true;
+  };
   /** Index into renderedPoints under a CSS-pixel coordinate, or -1. */
   const pickAt = (cssX: number, cssY: number): number => {
     pickTarget();
@@ -1262,7 +1449,15 @@ export function mountMapRenderer(
         flyItem = undefined;
       }
     }
+    // Bloom (#107 C): the scene goes into a texture first, then the post chain
+    // composites it to the screen. If any post program failed to link the
+    // scene is drawn straight to the canvas instead, so a shader problem
+    // degrades to "no glow" rather than to a blank map.
+    bloomTargets();
+    const post = Boolean(brightProgram && blurProgram && compositeProgram && sceneTarget);
+    if (post) bindTarget(sceneTarget);
     draw(now * 0.001);
+    if (post) postprocess();
     placeLabels();
     frame = animating() ? requestAnimationFrame(render) : 0;
   };
@@ -1681,6 +1876,13 @@ export function mountMapRenderer(
       gl.deleteBuffer(buffer);
       if (pickTex) gl.deleteTexture(pickTex);
       if (pickFb) gl.deleteFramebuffer(pickFb);
+      if (quadBuf) gl.deleteBuffer(quadBuf);
+      dropTarget(sceneTarget);
+      dropTarget(bloomA);
+      dropTarget(bloomB);
+      if (brightProgram) gl.deleteProgram(brightProgram);
+      if (blurProgram) gl.deleteProgram(blurProgram);
+      if (compositeProgram) gl.deleteProgram(compositeProgram);
       for (const bufs of Object.values(terrainBuffers)) {
         gl.deleteBuffer(bufs.contours);
         gl.deleteBuffer(bufs.ridges);
