@@ -36,12 +36,12 @@ import random
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ytk.vault import _get_brain_path  # noqa: E402
+from ytk.vault import _get_brain_path
 
 LEDGER_PATH = Path.home() / ".ytk" / "description-backfill.json"
 
@@ -58,12 +58,16 @@ TRANSCRIPT_HEADING = "## Transcript"
 # recognise. A description line matching one of these verbatim would forge a
 # phantom section, so collisions are reported rather than silently written.
 _PARSED_SECTIONS = (
-    "Thesis", "Commentary", "Summary", "Key Concepts",
-    "Insights", "Key Moments", "Transcript", "Description",
+    "Thesis",
+    "Commentary",
+    "Summary",
+    "Key Concepts",
+    "Insights",
+    "Key Moments",
+    "Transcript",
+    "Description",
 )
-_COLLISION_RE = re.compile(
-    r"^## (?:" + "|".join(_PARSED_SECTIONS) + r")\s*$", re.MULTILINE
-)
+_COLLISION_RE = re.compile(r"^## (?:" + "|".join(_PARSED_SECTIONS) + r")\s*$", re.MULTILINE)
 
 
 # --- ledger ---------------------------------------------------------------
@@ -83,7 +87,7 @@ def load_ledger(path: Path) -> dict:
 
 def save_ledger(path: Path, ledger: dict) -> None:
     """Write the ledger atomically so an interrupt cannot truncate it."""
-    ledger["updated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ledger["updated_at"] = datetime.now(UTC).isoformat(timespec="seconds")
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(ledger, indent=2, sort_keys=True), encoding="utf-8")
@@ -93,7 +97,7 @@ def save_ledger(path: Path, ledger: dict) -> None:
 def record(ledger: dict, video_id: str, status: str, **fields) -> None:
     ledger["videos"][video_id] = {
         "status": status,
-        "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
         **fields,
     }
 
@@ -186,14 +190,21 @@ def fetch_with_backoff(url: str, attempts: int = MAX_ATTEMPTS) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--apply", action="store_true",
-                        help="write notes and store metadata (default: dry run)")
-    parser.add_argument("--limit", type=int, default=0,
-                        help="process at most N videos (0 = all)")
-    parser.add_argument("--sleep", type=float, default=DEFAULT_SLEEP,
-                        help=f"seconds between fetches (default {DEFAULT_SLEEP})")
-    parser.add_argument("--retry-failed", action="store_true",
-                        help="re-attempt videos the ledger recorded as failed")
+    parser.add_argument(
+        "--apply", action="store_true", help="write notes and store metadata (default: dry run)"
+    )
+    parser.add_argument("--limit", type=int, default=0, help="process at most N videos (0 = all)")
+    parser.add_argument(
+        "--sleep",
+        type=float,
+        default=DEFAULT_SLEEP,
+        help=f"seconds between fetches (default {DEFAULT_SLEEP})",
+    )
+    parser.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help="re-attempt videos the ledger recorded as failed",
+    )
     parser.add_argument("--ledger", type=Path, default=LEDGER_PATH)
     args = parser.parse_args()
 
@@ -206,9 +217,7 @@ def main() -> int:
     col = store._videos_collection()
     got = col.get(include=["metadatas"])
     videos = [
-        (vid, meta or {})
-        for vid, meta in zip(got["ids"], got["metadatas"])
-        if "#" not in vid
+        (vid, meta or {}) for vid, meta in zip(got["ids"], got["metadatas"]) if "#" not in vid
     ]
     videos.sort(key=lambda row: row[0])
 
@@ -292,14 +301,17 @@ def main() -> int:
             col.update(
                 ids=existing["ids"],
                 metadatas=[
-                    {**(m or {}), "description": description}
-                    for m in existing["metadatas"]
+                    {**(m or {}), "description": description} for m in existing["metadatas"]
                 ],
             )
             record(
-                ledger, vid,
+                ledger,
+                vid,
                 "ok" if outcome != "no-anchor" else "no-anchor",
-                url=url, chars=len(description), note=str(note), section=outcome,
+                url=url,
+                chars=len(description),
+                note=str(note),
+                section=outcome,
             )
             save_ledger(args.ledger, ledger)
 
@@ -309,8 +321,10 @@ def main() -> int:
     for key in sorted(counts):
         print(f"  {key:<12} {counts[key]}")
     if collisions:
-        print(f"\n  {len(collisions)} descriptions contain a line a note parser "
-              "could misread as a section heading:")
+        print(
+            f"\n  {len(collisions)} descriptions contain a line a note parser "
+            "could misread as a section heading:"
+        )
         for vid, heads in collisions[:10]:
             print(f"    {vid}: {heads}")
     if failures:
