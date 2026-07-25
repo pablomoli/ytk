@@ -722,6 +722,17 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
     # (spinner, verdicts) moves to stderr so pipes get parseable output
     out = Console(stderr=True) if as_json else console
 
+    # Re-stamping pins the scoring surface to the corpus as it stands right
+    # now, before the run, so the gate measures against exactly what it
+    # freezes (#111). Growth after this point is simply not scored.
+    if update_baseline:
+        frozen = retrieval_gate.snapshot_frozen_ids()
+        retrieval_gate.write_frozen_corpus(frozen)
+        out.print(
+            f"[green]Frozen corpus stamped:[/] {len(frozen)} docs -> "
+            f"{retrieval_gate.FROZEN_CORPUS_PATH}"
+        )
+
     with out.status("[bold cyan]Running retrieval gate (embedding queries)...[/]"):
         report = retrieval_gate.run_live_gate(top_k=top_k)
 
@@ -751,6 +762,18 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
                     f"[yellow]{len(graded['unjudged_pairs'])} new result pairs "
                     "need judging before nDCG is a closed comparison[/]"
                 )
+        prov = report.get("provenance") or {}
+        if prov.get("frozen_corpus_size"):
+            grown = (prov.get("collection_counts") or {}).values()
+            out.print(
+                f"[dim]scored against {prov['frozen_corpus_size']} frozen docs "
+                f"(live store: {sum(grown)}); fetch window {report.get('fetch_k', top_k)}[/]"
+            )
+        if report.get("freeze_starved"):
+            out.print(
+                f"[yellow]{len(report['freeze_starved'])} queries had their frozen "
+                "window starved by post-baseline documents[/] — re-stamp if this grows"
+            )
         if report["missing_gold"]:
             out.print(
                 f"[yellow]{len(report['missing_gold'])} gold docs missing from "

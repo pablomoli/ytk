@@ -38,12 +38,77 @@ _DEFAULT_TOLERANCE = 0.02
 # above this fraction of unresolvable golds the query set itself is stale
 # and shrinking denominators would mask real regressions
 _MAX_MISSING_FRACTION = 0.10
+# above this fraction the freeze is no longer being honoured: post-baseline
+# documents ate so much of the over-fetch that scores understate retrieval
+_MAX_STARVED_FRACTION = 0.10
+# over-fetch multiple on top_k, so filtering to the frozen corpus still
+# leaves a full window. Scaled by observed growth in run_live_gate.
+_MIN_OVERFETCH = 3
+_MAX_OVERFETCH = 20
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "eval" / "retrieval"
 QUERIES_PATH = DATA_DIR / "queries.jsonl"
 BASELINE_PATH = DATA_DIR / "baseline.json"
 QRELS_PATH = DATA_DIR / "qrels.json"
+FROZEN_CORPUS_PATH = DATA_DIR / "frozen_corpus.json"
+
+
+def overfetch_factor(frozen_size: int, live_size: int) -> int:
+    """How many multiples of top_k to fetch before filtering to the freeze.
+
+    Every post-baseline document is a potential window-filler that yields
+    nothing scoreable, so the window has to grow with the corpus. Scaling by
+    the observed growth ratio keeps the frozen top-k full without pinning a
+    constant that rots as the vault fills up.
+    """
+    if frozen_size <= 0:
+        return _MIN_OVERFETCH
+    growth = -(-live_size // frozen_size)  # ceil, ints only
+    return max(_MIN_OVERFETCH, min(_MAX_OVERFETCH, growth + 1))
+
+
+def frozen_corpus_sha256(frozen_ids: set[str]) -> str:
+    """Identity of the frozen scoring surface — order-independent."""
+    digest = hashlib.sha256()
+    for key in sorted(frozen_ids):
+        digest.update(key.encode("utf-8"))
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def write_frozen_corpus(frozen_ids: set[str], path: Path | str | None = None) -> None:
+    """Pin the scoring surface. Sorted so the file diffs meaningfully.
+
+    path resolves at call time rather than as a captured default, so
+    redirecting FROZEN_CORPUS_PATH actually redirects the write.
+    """
+    path = FROZEN_CORPUS_PATH if path is None else path
+    payload = {
+        "note": (
+            "Document ids that existed when the baseline was stamped (#111). "
+            "ytk eval scores only these, so ordinary corpus growth cannot move "
+            "hit@k. Re-stamp deliberately with: ytk eval --update-baseline"
+        ),
+        "sha256": frozen_corpus_sha256(frozen_ids),
+        "count": len(frozen_ids),
+        "ids": sorted(frozen_ids),
+    }
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def load_frozen_ids(path: Path | str | None = None) -> set[str] | None:
+    """Load the pinned surface, or None if it was never stamped.
+
+    None rather than an empty set: an unstamped freeze must fail provenance
+    and ask for a re-stamp, not silently score against the live corpus.
+    """
+    path = Path(FROZEN_CORPUS_PATH if path is None else path)
+    if not path.exists():
+        return None
+    return set(json.loads(path.read_text(encoding="utf-8"))["ids"])
 
 
 def load_queries(path: Path | str) -> list[dict]:
@@ -62,6 +127,8 @@ def evaluate(
     searchers: dict[str, Callable[[str], list[str]]],
     resolve_gold: Callable[[str], str | None],
     top_k: int = 10,
+    frozen_ids: set[str] | None = None,
+    fetch_k: int | None = None,
 ) -> dict:
     """Score the query set: rank of each resolved gold in its searcher's list.
 
@@ -69,16 +136,36 @@ def evaluate(
     the hit rates and reported in missing_gold — a deleted note is fixture
     rot, not a retrieval regression (compare_to_baseline caps how much rot
     is tolerated).
+
+    frozen_ids pins the measurement surface to the documents that existed
+    when the baseline was stamped (#111). Results outside it are dropped
+    before ranking, so ordinary corpus growth cannot push a gold down a rank
+    it never actually lost. Searchers must over-fetch for this to be lossless
+    — see _live_searchers.
     """
+    window = fetch_k if fetch_k is not None else top_k
     missing: list[str] = []
     outcomes: list[dict] = []
     rankings: dict[str, list[str]] = {}
+    starved: list[str] = []
     for q in queries:
         gold_key = resolve_gold(q["gold_id"])
         if gold_key is None:
             missing.append(q["gold_id"])
             continue
-        results = searchers[q["bucket"]](q["query"])[:top_k]
+        results = searchers[q["bucket"]](q["query"])
+        if frozen_ids is not None:
+            fetched = len(results)
+            results = [r for r in results if r in frozen_ids]
+            # Too few frozen survivors to fill the window means post-baseline
+            # documents ate the over-fetch, leaving frozen docs deeper down
+            # unseen — ranks past the survivors are unmeasured, not lost.
+            # Only a saturated fetch proves the window was the binding
+            # constraint: a searcher that returned less than it was asked for
+            # has simply exhausted a small corpus, and nothing deeper exists.
+            if len(results) < top_k and fetched >= window:
+                starved.append(q["query"])
+        results = results[:top_k]
         rankings[q["gold_id"]] = results
         rank = results.index(gold_key) if gold_key in results else None
         outcomes.append(
@@ -104,6 +191,7 @@ def evaluate(
         "n_queries": len(queries),
         "n_evaluated": len(outcomes),
         "missing_gold": missing,
+        "freeze_starved": starved,
         "overall": {f"hit@{k}": hits(outcomes, k) for k in _KS},
         "per_bucket": {
             b: {**{f"hit@{k}": hits(rows, k) for k in _KS}, "n": len(rows)}
@@ -119,6 +207,14 @@ def make_baseline(report: dict, epoch: str, authored: str) -> dict:
     baseline = {
         "epoch": epoch,
         "authored": authored,
+        "frozen_corpus": (
+            "Scoring is restricted to the document ids listed in "
+            "eval/retrieval/frozen_corpus.json, captured when this baseline was "
+            "stamped (#111). Documents ingested since then are retrieved but not "
+            "scored, so ordinary corpus growth cannot move hit@k and a red gate "
+            "means a real regression. Re-stamp both together — deliberately, "
+            "never to launder a regression — with: ytk eval --update-baseline"
+        ),
         "top_k": report["top_k"],
         "n_queries": report["n_queries"],
         "tolerance": _DEFAULT_TOLERANCE,
@@ -152,11 +248,18 @@ def compare_to_baseline(report: dict, baseline: dict) -> list[str]:
         else:
             # producing_git_commit is traceability, not an equality gate: a
             # baseline necessarily survives later commits. Everything that
-            # determines the measured query/corpus/model surface must match.
+            # determines the measured query/model surface must match.
+            #
+            # corpus_fingerprint is deliberately absent (#111). It hashes the
+            # whole live store, which grows every day by design, so gating on
+            # it made the gate permanently red for a non-quality reason and
+            # trained everyone to --no-verify past it. The scored surface is
+            # pinned by frozen_corpus_sha256 instead: growth no longer moves
+            # the measurement, and redefining the freeze is what now fails.
             for field in (
                 "query_file_sha256",
                 "query_count",
-                "corpus_fingerprint",
+                "frozen_corpus_sha256",
                 "collection_epoch",
                 "embedding_model",
                 "embedding_revision",
@@ -180,6 +283,15 @@ def compare_to_baseline(report: dict, baseline: dict) -> list[str]:
                 f"{baseline['overall'][metric]:.3f} - tolerance {tolerance}"
             )
     if report["n_queries"]:
+        starved = report.get("freeze_starved", [])
+        starved_fraction = len(starved) / report["n_queries"]
+        if starved_fraction > _MAX_STARVED_FRACTION:
+            failures.append(
+                f"{len(starved)}/{report['n_queries']} queries had their frozen "
+                f"window starved by post-baseline documents ({starved_fraction:.0%}) "
+                "— raise the over-fetch factor or re-stamp the baseline with "
+                "ytk eval --update-baseline"
+            )
         missing_fraction = len(report["missing_gold"]) / report["n_queries"]
         if missing_fraction > _MAX_MISSING_FRACTION:
             failures.append(
@@ -231,19 +343,23 @@ def _live_resolver() -> Callable[[str], str | None]:
     return resolve
 
 
-def _live_searchers(top_k: int) -> dict[str, Callable[[str], list[str]]]:
+def _live_searchers(fetch_k: int) -> dict[str, Callable[[str], list[str]]]:
     """Production-path searchers.
 
     videos and memories rank in search_all's merged list — the ranking users
     actually see, gold competing across buckets. segments rank in the
     segments collection, mirroring search_segments (which does not expose
     ids, so the query call is inlined here with the same arguments).
+
+    fetch_k is the over-fetch window, not the scoring window: evaluate()
+    filters these lists to the frozen corpus and only then truncates to
+    top_k (#111).
     """
     from ytk import store
 
     def unified(query: str) -> list[str]:
         prefix = {"video": "vid", "memory": "mem"}
-        return [f"{prefix[r.type]}::{r.doc_id}" for r in store.search_all(query, n=top_k)]
+        return [f"{prefix[r.type]}::{r.doc_id}" for r in store.search_all(query, n=fetch_k)]
 
     def segments(query: str) -> list[str]:
         col = store._segments_collection()
@@ -251,14 +367,40 @@ def _live_searchers(top_k: int) -> dict[str, Callable[[str], list[str]]]:
             return []
         res = col.query(
             query_embeddings=[store._embed_query(query)],
-            n_results=min(top_k, col.count()),
+            n_results=min(fetch_k, col.count()),
         )
         return [f"seg::{i}" for i in res["ids"][0]]
 
     return {"videos": unified, "memories": unified, "segments": segments}
 
 
-def live_provenance(queries_path: Path | str, top_k: int) -> dict:
+def snapshot_frozen_ids() -> set[str]:
+    """Every live document id, in the key space the searchers emit.
+
+    Memory chunks (doc_id#1, doc_id#2 …) collapse to their base doc_id
+    because search_all collapses them before ranking — the freeze has to
+    match what a searcher can actually return, not what chroma stores.
+    """
+    from ytk import store
+
+    frozen = {
+        f"vid::{i}" for i in store._videos_collection().get(include=[])["ids"] if "#" not in i
+    }
+    frozen |= {f"seg::{i}" for i in store._segments_collection().get(include=[])["ids"]}
+
+    mem = store._memories_collection().get(include=["metadatas"])
+    for meta in store.chroma_field(mem["metadatas"], "metadatas"):
+        doc_id = meta.get("doc_id")
+        if doc_id:
+            frozen.add(f"mem::{doc_id}")
+    return frozen
+
+
+def live_provenance(
+    queries_path: Path | str,
+    top_k: int,
+    frozen_ids: set[str] | None = None,
+) -> dict:
     """Fingerprint the exact live retrieval surface behind one gate run."""
     from ytk import store
 
@@ -305,7 +447,13 @@ def live_provenance(queries_path: Path | str, top_k: int) -> dict:
     return {
         "query_file_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         "query_count": len(load_queries(path)),
+        # traceability only — the scored surface is frozen_corpus_sha256.
+        # This moves on every ingest and is deliberately not gated (#111).
         "corpus_fingerprint": digest.hexdigest(),
+        "frozen_corpus_sha256": (
+            frozen_corpus_sha256(frozen_ids) if frozen_ids is not None else None
+        ),
+        "frozen_corpus_size": len(frozen_ids) if frozen_ids is not None else None,
         "collection_counts": counts,
         "collection_epoch": store.EMBEDDING_EPOCH,
         "embedding_model": cfg["model"],
@@ -318,10 +466,28 @@ def live_provenance(queries_path: Path | str, top_k: int) -> dict:
 
 
 def run_live_gate(queries_path: Path | str = QUERIES_PATH, top_k: int = 10) -> dict:
-    """Run the frozen query set against the live store via production paths."""
+    """Run the frozen query set against the live store via production paths.
+
+    Scoring is restricted to the frozen corpus (#111) so daily ingest cannot
+    move hit@k. The live store is still queried — over-fetched, then filtered
+    — so a genuine ranking regression inside the frozen set still shows up.
+    """
     queries = load_queries(queries_path)
-    report = evaluate(queries, _live_searchers(top_k), _live_resolver(), top_k=top_k)
-    report["provenance"] = live_provenance(queries_path, top_k)
+    frozen_ids = load_frozen_ids()
+    if frozen_ids is None:
+        fetch_k = top_k
+    else:
+        fetch_k = top_k * overfetch_factor(len(frozen_ids), len(snapshot_frozen_ids()))
+    report = evaluate(
+        queries,
+        _live_searchers(fetch_k),
+        _live_resolver(),
+        top_k=top_k,
+        frozen_ids=frozen_ids,
+        fetch_k=fetch_k,
+    )
+    report["fetch_k"] = fetch_k
+    report["provenance"] = live_provenance(queries_path, top_k, frozen_ids)
     if QRELS_PATH.exists() and top_k >= 10:
         from .relevance import load_qrels, ndcg_report
 

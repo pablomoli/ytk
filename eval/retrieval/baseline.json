@@ -1,18 +1,19 @@
 {
   "epoch": "v2",
-  "authored": "2026-07-24",
+  "authored": "2026-07-25",
+  "frozen_corpus": "Scoring is restricted to the document ids listed in eval/retrieval/frozen_corpus.json, captured when this baseline was stamped (#111). Documents ingested since then are retrieved but not scored, so ordinary corpus growth cannot move hit@k and a red gate means a real regression. Re-stamp both together \u2014 deliberately, never to launder a regression \u2014 with: ytk eval --update-baseline",
   "top_k": 10,
   "n_queries": 156,
   "tolerance": 0.02,
   "overall": {
-    "hit@1": 0.717948717948718,
-    "hit@5": 0.9102564102564102,
+    "hit@1": 0.7115384615384616,
+    "hit@5": 0.9038461538461539,
     "hit@10": 0.9423076923076923
   },
   "per_bucket": {
     "memories": {
-      "hit@1": 0.6455696202531646,
-      "hit@5": 0.8860759493670886,
+      "hit@1": 0.6329113924050633,
+      "hit@5": 0.8734177215189873,
       "hit@10": 0.9367088607594937,
       "n": 79
     },
@@ -32,11 +33,13 @@
   "provenance": {
     "query_file_sha256": "c7e86500c568513bcd8240bd5e37da86bd37711ac9d6794c9e07458e9ad6b558",
     "query_count": 156,
-    "corpus_fingerprint": "7168d1a95a75837a204cf7545bf103b6f3a56b6eba3fe1a39d7e573ccc0ef5a4",
+    "corpus_fingerprint": "ed5b86bcea0ecd8e0b6b95179f06ad2c0e6ca92237f1e9d77f15dd19e48c5d70",
+    "frozen_corpus_sha256": "42f3230591597d1a03787952ad628e4cee58dc670b12d9b37f31ea96cf3ef145",
+    "frozen_corpus_size": 10348,
     "collection_counts": {
-      "videos": 170,
-      "memories": 3932,
-      "segments": 5053
+      "videos": 200,
+      "memories": 4527,
+      "segments": 5656
     },
     "collection_epoch": "v2",
     "embedding_model": "Qwen/Qwen3-Embedding-0.6B",
@@ -44,16 +47,24 @@
     "query_instruction": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: ",
     "max_seq_length": 3072,
     "top_k": 10,
-    "producing_git_commit": "5e79e731f195b9b6e091ce475bc8d0514c3bdd84"
+    "producing_git_commit": "6271dad2c5e7900ac8c6bc0db9a1197901d452b3"
   },
   "graded": {
-    "ndcg@10": 0.6781460957594683,
+    "ndcg@10": 0.6666861630160121,
     "n_queries": 156,
-    "label_coverage": 0.9096153846153846,
+    "label_coverage": 0.8685897435897436,
     "unjudged_pairs": [
       {
+        "query_id": "mem::inbox/memories/2026-07-04-epicmap-retired-the-fieldwork-model-entirely-202-e893d0.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-18-the-epicmap-project-is-a-job-management-dashboard"
+      },
+      {
+        "query_id": "mem::inbox/memories/2026-07-06-ytk-512-token-cliff-fix-shipped-2026-07-06-commi-aacf9c.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-task-7-complete-wired-visual-frame-extraction-int"
+      },
+      {
         "query_id": "mem::inbox/memories/2026-07-16-planning-burst-2026-07-16-reframed-ytk-as-one-bi-9d9bb3.md",
-        "doc_id": "mem::journal_jul-23-2026-17866123292"
+        "doc_id": "mem::note_sources_journal_jul-23-2026-17866123292"
       },
       {
         "query_id": "mem::inbox/memories/2026-07-16-planning-burst-2026-07-16-reframed-ytk-as-one-bi-9d9bb3.md",
@@ -77,15 +88,23 @@
       },
       {
         "query_id": "vid::OU0v_G3-4Hw",
+        "doc_id": "vid::OXhq8FHzOf8"
+      },
+      {
+        "query_id": "vid::OU0v_G3-4Hw",
         "doc_id": "mem::note_sources_instagram_grace.of.spades722-2026-07-18-Da82Cd4pG4j"
       },
       {
         "query_id": "vid::OU0v_G3-4Hw",
-        "doc_id": "mem::note_sources_instagram_spreadthenerd_-2026-06-19-DZuW-Qdt38u"
+        "doc_id": "vid::VcvhiDV_t3c"
       },
       {
         "query_id": "vid::OU0v_G3-4Hw",
-        "doc_id": "mem::note_sources_instagram_prof.ikka-2026-04-23-DXdWfrkMidT"
+        "doc_id": "vid::zGVyStp27bw"
+      },
+      {
+        "query_id": "seg::HZAmbbTcQ3M_26",
+        "doc_id": "seg::NDE2jgEuCZ8_4"
       },
       {
         "query_id": "seg::HZAmbbTcQ3M_26",
@@ -106,6 +125,18 @@
       {
         "query_id": "seg::yAPKzHrx3eo_24",
         "doc_id": "seg::iQyg-KypKAA_17"
+      },
+      {
+        "query_id": "seg::5dEp1ZpYDUg_8",
+        "doc_id": "seg::7FU98O0JLHs_0"
+      },
+      {
+        "query_id": "seg::5dEp1ZpYDUg_8",
+        "doc_id": "seg::7FU98O0JLHs_10"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-09-session-236.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-17-epicmap-parcel-job-lifecycle"
       },
       {
         "query_id": "vid::9O0lQBEPL2U",
@@ -133,7 +164,7 @@
       },
       {
         "query_id": "seg::qCpY4K9jtOg_28",
-        "doc_id": "seg::5Qu2SkSQeBU_2"
+        "doc_id": "seg::2J3uX8iRNng_5"
       },
       {
         "query_id": "seg::xafwfGVBxos_88",
@@ -142,6 +173,10 @@
       {
         "query_id": "seg::xafwfGVBxos_88",
         "doc_id": "seg::IHbsfvbfAto_3"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-19-epicmap-516.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-17-epicmap-gis-and-map-layer-system-parcellayer-sing"
       },
       {
         "query_id": "vid::DNqsMXH6Eog",
@@ -158,6 +193,10 @@
       {
         "query_id": "vid::JM1sIVIZYRg",
         "doc_id": "vid::6MBq1paspVU"
+      },
+      {
+        "query_id": "vid::S9EGx6ik-18",
+        "doc_id": "vid::7FU98O0JLHs"
       },
       {
         "query_id": "vid::S9EGx6ik-18",
@@ -185,11 +224,19 @@
       },
       {
         "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::VcvhiDV_t3c_2"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
         "doc_id": "seg::349r0xJFGNw_14"
       },
       {
         "query_id": "seg::f4s1h2YETNY_16",
         "doc_id": "seg::IHbsfvbfAto_18"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::VcvhiDV_t3c_11"
       },
       {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-24-spacecraft-786.md",
@@ -202,6 +249,10 @@
       {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-24-spacecraft-786.md",
         "doc_id": "vid::V5UllFImvoE"
+      },
+      {
+        "query_id": "vid::APxt2mKOsss",
+        "doc_id": "mem::note_second-brain_projects_ytk_session-hub-grid-stability-brief"
       },
       {
         "query_id": "vid::rAzT5lcezPs",
@@ -233,11 +284,11 @@
       },
       {
         "query_id": "vid::kWMGG1zdGkA",
-        "doc_id": "vid::V5UllFImvoE"
+        "doc_id": "vid::2Ni13dnAbSA"
       },
       {
         "query_id": "vid::kWMGG1zdGkA",
-        "doc_id": "vid::5zlfJW2VGLM"
+        "doc_id": "vid::V5UllFImvoE"
       },
       {
         "query_id": "seg::251hsWgoTPM_39",
@@ -274,6 +325,18 @@
       {
         "query_id": "seg::zVWYW0K3ikg_1",
         "doc_id": "seg::ODc9oE9ND-0_7"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-07-neat-1188.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-the-ytk-developer-project-is-a-developer-tool-or"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-07-neat-1188.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-ytk-developer-is-a-project-that-involves-a-devel"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-07-neat-1188.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-the-ytk-developer-project-is-a-personal-knowledg"
       },
       {
         "query_id": "vid::l6DKRf-fAAM",
@@ -336,8 +399,16 @@
         "doc_id": "mem::memory_2026-07-19_epicmap-parcel-audit-follow-through-2026-07-19-ev_f5f72b"
       },
       {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-15-epicmap-1521.md",
+        "doc_id": "vid::2J3uX8iRNng"
+      },
+      {
         "query_id": "vid::S5Tv_22ojbw",
         "doc_id": "vid::UZthGjcuTDs"
+      },
+      {
+        "query_id": "vid::S5Tv_22ojbw",
+        "doc_id": "mem::note_sources_instagram_trainwithshay-2026-01-31-DUMYZK2kh5N"
       },
       {
         "query_id": "vid::S5Tv_22ojbw",
@@ -348,6 +419,18 @@
         "doc_id": "mem::note_sources_instagram_rndyrbrts-2026-04-02-DWpSK4uDhIO"
       },
       {
+        "query_id": "vid::S5Tv_22ojbw",
+        "doc_id": "mem::memory_2026-07-25_created-public-ytk-issue-128-to-survey-claude-mem_826288"
+      },
+      {
+        "query_id": "vid::UnzD_bwylWs",
+        "doc_id": "mem::memory_2026-07-25_built-the-gh-git-global-skill-claude-skills_7a8543"
+      },
+      {
+        "query_id": "vid::UnzD_bwylWs",
+        "doc_id": "vid::7FU98O0JLHs"
+      },
+      {
         "query_id": "vid::UnzD_bwylWs",
         "doc_id": "vid::9O0lQBEPL2U"
       },
@@ -356,12 +439,48 @@
         "doc_id": "vid::9qOaII_PzGY"
       },
       {
+        "query_id": "seg::AF3XJT9YKpM_49",
+        "doc_id": "seg::qVSeOr3AIbc_13"
+      },
+      {
         "query_id": "seg::wC5ji4M4FhU_4",
         "doc_id": "seg::9qOaII_PzGY_22"
       },
       {
         "query_id": "seg::AF3XJT9YKpM_57",
-        "doc_id": "seg::IHbsfvbfAto_17"
+        "doc_id": "seg::5kjYReV2ruc_24"
+      },
+      {
+        "query_id": "seg::AF3XJT9YKpM_57",
+        "doc_id": "seg::5kjYReV2ruc_21"
+      },
+      {
+        "query_id": "seg::AF3XJT9YKpM_57",
+        "doc_id": "seg::5kjYReV2ruc_22"
+      },
+      {
+        "query_id": "seg::AF3XJT9YKpM_57",
+        "doc_id": "seg::5kjYReV2ruc_26"
+      },
+      {
+        "query_id": "seg::AF3XJT9YKpM_57",
+        "doc_id": "seg::5kjYReV2ruc_16"
+      },
+      {
+        "query_id": "seg::AF3XJT9YKpM_57",
+        "doc_id": "seg::5kjYReV2ruc_25"
+      },
+      {
+        "query_id": "seg::AF3XJT9YKpM_57",
+        "doc_id": "seg::5kjYReV2ruc_20"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-16-epicmap-1780.md",
+        "doc_id": "mem::memory_2026-07-25_built-the-gh-git-global-skill-claude-skills_7a8543"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-19-epicmap-1850.md",
+        "doc_id": "vid::7FU98O0JLHs"
       },
       {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-19-epicmap-1850.md",
@@ -388,8 +507,24 @@
         "doc_id": "mem::memory_2026-07-21_correction-to-the-2026-07-21-ytk-hubness-investiga_d591aa"
       },
       {
+        "query_id": "seg::A3Ce9ulH4zg_28",
+        "doc_id": "seg::W9PZ0vPibWk_46"
+      },
+      {
         "query_id": "seg::svqu6FDiMAs_1",
         "doc_id": "seg::349r0xJFGNw_20"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::r4V21_uUK8Y_33"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::UsIF5r8rAvk_4"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::UsIF5r8rAvk_1"
       },
       {
         "query_id": "seg::svqu6FDiMAs_1",
@@ -397,15 +532,11 @@
       },
       {
         "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::UsIF5r8rAvk_3"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
         "doc_id": "seg::V5UllFImvoE_9"
-      },
-      {
-        "query_id": "seg::svqu6FDiMAs_1",
-        "doc_id": "seg::V5UllFImvoE_0"
-      },
-      {
-        "query_id": "seg::svqu6FDiMAs_1",
-        "doc_id": "seg::349r0xJFGNw_18"
       },
       {
         "query_id": "seg::DNqsMXH6Eog_2",
@@ -414,6 +545,14 @@
       {
         "query_id": "seg::DNqsMXH6Eog_2",
         "doc_id": "seg::n0VhIVtviC0_6"
+      },
+      {
+        "query_id": "seg::DNqsMXH6Eog_2",
+        "doc_id": "seg::2J3uX8iRNng_17"
+      },
+      {
+        "query_id": "seg::DNqsMXH6Eog_2",
+        "doc_id": "seg::W9PZ0vPibWk_51"
       },
       {
         "query_id": "vid::jdJ5jg0XSmU",
@@ -430,6 +569,10 @@
       {
         "query_id": "vid::HnVvjePLvT0",
         "doc_id": "mem::tiktok_gabbe_aep-2025-04-11-7492102018845199638-this-movie-is-so-we"
+      },
+      {
+        "query_id": "vid::HnVvjePLvT0",
+        "doc_id": "mem::memory_2026-07-24_105-description-backfill-endgame-closed-2026-07-2_eb23e0"
       },
       {
         "query_id": "vid::LYDF1s0OUU0",
@@ -476,6 +619,46 @@
         "doc_id": "seg::ZOZSIqsLv9Y_2"
       },
       {
+        "query_id": "seg::aiiIGDnT6JQ_16",
+        "doc_id": "seg::ukCxiCR4_Us_3"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-17-epicmap-developer-is-a-property-mapping-and-mana"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-18-summary-epicmap-developer-epicmap-is-a-mappi"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-17-epicmap-developer-is-a-field-mapping-application"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-17-epicmap-developer-is-a-real-estate-mapping-appli"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-17-epicmap-developer-is-a-geographic-information-sy"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-17-epicmap-developer-is-a-property-records-and-plat"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-18-summary-epicmap-developer-is-a-mapping-applic"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-18-project-summary-epicmap-developer-i-don-t-ha"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-01-epicmap-2340.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-17-epicmap-developer-is-a-property-and-plat-managem"
+      },
+      {
         "query_id": "vid::xafwfGVBxos",
         "doc_id": "mem::note_sources_instagram_stephen_blum_code-2026-07-11-DaqZhEKjQp3"
       },
@@ -501,7 +684,7 @@
       },
       {
         "query_id": "vid::0iEfNt5vYWQ",
-        "doc_id": "mem::note_sources_instagram_kylascan-2026-07-22-DbG7-9cStZ7"
+        "doc_id": "mem::memo_2026-07-25-1853-website-that-writes-your-a-very-convinci-8eb5bb"
       },
       {
         "query_id": "vid::g8N_5WZzUfg",
@@ -522,6 +705,10 @@
       {
         "query_id": "vid::g8N_5WZzUfg",
         "doc_id": "mem::note_sources_instagram_rndyrbrts-2026-04-07-DW2EqyBh4LV"
+      },
+      {
+        "query_id": "vid::BAVrwcPDa-k",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-16-phase-5b-5g-sprint-complete-ytk-now-has-full-wri"
       },
       {
         "query_id": "seg::251hsWgoTPM_26",
@@ -560,16 +747,20 @@
         "doc_id": "mem::memory_2026-07-20_built-a-full-ytk-architecture-reference-chart-tra_3b9f24"
       },
       {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-13-ytk-3006.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-18-ytk-is-a-youtube-knowledge-management-tool-that-en"
+      },
+      {
+        "query_id": "vid::8GRmLR__OGQ",
+        "doc_id": "vid::2J3uX8iRNng"
+      },
+      {
         "query_id": "vid::8GRmLR__OGQ",
         "doc_id": "vid::qCpY4K9jtOg"
       },
       {
         "query_id": "vid::8GRmLR__OGQ",
         "doc_id": "vid::IHbsfvbfAto"
-      },
-      {
-        "query_id": "vid::8GRmLR__OGQ",
-        "doc_id": "vid::iQyg-KypKAA"
       },
       {
         "query_id": "seg::8FT-oz9aZU4_0",
@@ -580,8 +771,72 @@
         "doc_id": "seg::YERjv5J9dng_16"
       },
       {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3194.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-18-summary-epicmap-developer-epicmap-is-a-mappi"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3194.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-16-epic-map-developer-is-a-geospatial-mapping-appli"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3194.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-17-epicmap-developer-is-a-surveying-and-geospatial"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3194.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-18-epicmap-is-a-developer-tool-for-mapping-and-survey"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-epicmap-3278.md",
+        "doc_id": "mem::memory_2026-07-25_built-the-gh-git-global-skill-claude-skills_7a8543"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-ytk-3274.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-ytk-developer-is-a-note-ingestion-and-knowle"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-ytk-3274.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-ytk-developer-is-a-knowledge-ingestion-system-th"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-ytk-3274.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-ytk-is-a-developer-knowledge-management-system-tha"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-ytk-3274.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-ytk-is-a-personal-knowledge-ingestion-system-that"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-ytk-3274.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-project-summary-ytk-developer-ytk-is-a-conte"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-ytk-3274.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-session-2026-04-19-implemented-phase-5i-instagr"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-18-ytk-3274.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-ytk-is-a-note-taking-system-that-ingests-content-f"
+      },
+      {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-24-epicmap-epicmap-feature-analytics-tab-3321.md",
-        "doc_id": "vid::xUnRQ9vLXxo"
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-18-epicmap-is-a-multi-tenant-software-deployment-proj"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-24-epicmap-epicmap-feature-analytics-tab-3321.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-18-epicmap-developer-is-a-client-project-involving"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-24-epicmap-epicmap-feature-analytics-tab-3321.md",
+        "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-epicmap-developer-is-a-multi-tenant-discovery-an"
+      },
+      {
+        "query_id": "vid::A8mokin_YOs",
+        "doc_id": "mem::memory_2026-07-25_todo-deferred-by-user-on-2026-07-25-review-the_264134"
+      },
+      {
+        "query_id": "vid::A8mokin_YOs",
+        "doc_id": "mem::note_second-brain_projects_ytk_session-042-brief"
       },
       {
         "query_id": "vid::9lpbN7FXfy8",
@@ -613,6 +868,10 @@
       },
       {
         "query_id": "seg::OQbqEuaTMkI_32",
+        "doc_id": "seg::ukCxiCR4_Us_12"
+      },
+      {
+        "query_id": "seg::OQbqEuaTMkI_32",
         "doc_id": "seg::h99tVz8sBZI_9"
       }
     ],
@@ -622,15 +881,15 @@
     },
     "per_bucket": {
       "memories": {
-        "ndcg@10": 0.6841606024269846,
+        "ndcg@10": 0.6682469731939271,
         "n": 79
       },
       "segments": {
-        "ndcg@10": 0.6269616330839044,
+        "ndcg@10": 0.6184922091893978,
         "n": 44
       },
       "videos": {
-        "ndcg@10": 0.7319936815470749,
+        "ndcg@10": 0.7272082831467923,
         "n": 33
       }
     }
