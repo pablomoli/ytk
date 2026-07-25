@@ -601,7 +601,12 @@ export function mountMapRenderer(
     momentum = { vx: 0, vy: 0 };
     samples = [];
   };
-  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // `?motion=on` overrides the OS preference for this page load only. The
+  // default stays the accessibility setting — this is an explicit, per-visit
+  // opt-in for looking at motion features on a machine that has reduce-motion
+  // switched on system-wide, not a way to ignore the preference.
+  const forceMotion = new URLSearchParams(location.search).get("motion") === "on";
+  const reduceMotion = !forceMotion && matchMedia("(prefers-reduced-motion: reduce)").matches;
   let angle = 0.5;
   let tilt = 0.3;
   let signalOnly = false;
