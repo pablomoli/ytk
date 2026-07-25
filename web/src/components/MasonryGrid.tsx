@@ -75,8 +75,17 @@ export function MasonryGrid({ children }: { children: ReactNode }) {
         const { nCols, colW } = columnSpec(width, GAP, COL_MIN);
         items.forEach((el) => {
           const wide = el.dataset.wide === "1" && nCols >= 2;
-          el.style.position = "absolute";
-          el.style.width = `${wide ? 2 * colW + GAP : colW}px`;
+          /* Guarded so a pass that changes nothing writes nothing. Assigning
+             an identical value still re-serializes the style attribute, which
+             both wakes the observer and makes "did this pass do any work"
+             unanswerable from the outside. */
+          const w = `${wide ? 2 * colW + GAP : colW}px`;
+          /* Inline rather than left to styles.css: the .card cascade matches
+             at equal specificity and would otherwise win by source order
+             (1029282). The stylesheet rule still matters — it is what keeps an
+             unplaced card out of flow before this ever runs. */
+          if (el.style.position !== "absolute") el.style.position = "absolute";
+          if (el.style.width !== w) el.style.width = w;
         });
         const boxes = items.map((el) => ({
           height: el.offsetHeight,
