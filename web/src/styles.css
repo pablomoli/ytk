@@ -189,6 +189,34 @@ body {
   align-self: center;
 }
 
+/* Time machine scrubber (#107 D). Wider than the fog slider because it is
+   scrubbed rather than set: the readout changes on every pixel of travel. */
+.map-scrub {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding-top: 0.15rem;
+}
+
+.map-scrub input[type="range"] {
+  width: 190px;
+  accent-color: #e2b04a;
+  cursor: pointer;
+}
+
+.map-scrub span {
+  color: #ddd;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.map-scrub em {
+  color: #8b8b8b;
+  font-style: normal;
+  margin-left: 0.45rem;
+}
+
 .fchip.on {
   background: #e2b04a;
   border-color: #e2b04a;
