@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import googleapiclient.discovery
+from google.auth.external_account_authorized_user import Credentials as ExternalCredentials
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
@@ -42,7 +43,9 @@ def authenticate() -> googleapiclient.discovery.Resource:
     """
     _YTK_DIR.mkdir(parents=True, exist_ok=True)
 
-    creds: Credentials | None = None
+    # InstalledAppFlow can hand back either credential class, so the local has
+    # to admit both or the assignment below leaves creds looking Optional.
+    creds: Credentials | ExternalCredentials | None = None
 
     if _TOKEN_FILE.exists():
         creds = Credentials.from_authorized_user_file(str(_TOKEN_FILE), _SCOPES)
@@ -92,7 +95,7 @@ def fetch_playlist_videos(
         if page_token:
             kwargs["pageToken"] = page_token
 
-        response = service.playlistItems().list(**kwargs).execute()
+        response = service.playlistItems().list(**kwargs).execute()  # type: ignore[reportAttributeAccessIssue]
 
         for item in response.get("items", []):
             snippet = item.get("snippet", {})
@@ -129,7 +132,7 @@ def _find_playlist_id(service: googleapiclient.discovery.Resource, name: str) ->
         if page_token:
             kwargs["pageToken"] = page_token
 
-        response = service.playlists().list(**kwargs).execute()
+        response = service.playlists()  # type: ignore[reportAttributeAccessIssue].list(**kwargs).execute()
 
         for item in response.get("items", []):
             snippet = item.get("snippet", {})
