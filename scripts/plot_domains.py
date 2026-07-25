@@ -129,6 +129,106 @@ def after_counts(with_hackathons: bool) -> list[dict]:
     return out
 
 
+def _unit(a):
+    import numpy as np
+
+    return a / np.linalg.norm(a, axis=-1, keepdims=True)
+
+
+def _null_arm(cv, cents, pool, sizes, repeats=60, seed=0):
+    """Real vs null max-cosine for one (centring, pool) choice.
+
+    The null builds centroids from random notes at the real theme sizes, so it
+    asks the only question that matters: would a centroid that knows nothing
+    about this note score as well?
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    real = (cv @ cents.T).max(axis=1)
+    null = []
+    for _ in range(repeats):
+        rc = [pool[rng.choice(len(pool), size=s, replace=False)].mean(axis=0) for s in sizes]
+        null.append((cv @ _unit(np.array(rc)).T).max(axis=1))
+    null = np.concatenate(null)
+    return real, null
+
+
+def _separation(real, null) -> float:
+    import numpy as np
+
+    return float((np.median(real) - np.median(null)) / null.std())
+
+
+def null_study() -> dict:
+    """Is the theme axis better than chance, and where should the floor sit?
+
+    Four arms, because the answer flips with the null's pool and centring —
+    the disagreement is the finding, not an inconvenience. The matched arm
+    (centre on the content mean, draw the null from content) is the one that
+    isolates within-content discriminative signal. A partition known to be
+    real — source platform, which is metadata rather than inferred — is run
+    through the identical test to give the separation scale a meaning.
+    """
+    import numpy as np
+
+    from scripts.build_map import CONTENT_CATS
+    from scripts.grove_lab.buckets import resolve_notes
+
+    snap = json.loads(SNAPSHOT_PATH.read_text())
+    themes = [t for t in snap["themes"] if t.get("centroid")]
+    sizes = [len(t["note_ids"]) for t in themes]
+    cents = np.array([t["centroid"] for t in themes])
+
+    vecs, meta, _ = resolve_notes()
+    cidx = [i for i, m in enumerate(meta) if m["cat"] in CONTENT_CATS]
+    cvr = vecs[cidx]
+    corpus_mu, content_mu = vecs.mean(axis=0), cvr.mean(axis=0)
+
+    arms = {}
+    for tag, cv, ce, pool in [
+        ("raw / corpus null", _unit(cvr), _unit(cents), _unit(vecs)),
+        ("raw / content null", _unit(cvr), _unit(cents), _unit(cvr)),
+        (
+            "corpus-centred / corpus null",
+            _unit(cvr - corpus_mu),
+            _unit(cents - corpus_mu),
+            _unit(vecs - corpus_mu),
+        ),
+        (
+            "content-centred / content null",
+            _unit(cvr - content_mu),
+            _unit(cents - content_mu),
+            _unit(cvr - content_mu),
+        ),
+    ]:
+        real, null = _null_arm(cv, ce, pool, sizes)
+        arms[tag] = {"sep": _separation(real, null)}
+        if tag.startswith("content-centred"):
+            arms[tag]["real"] = real.tolist()
+            arms[tag]["null"] = null[:: max(1, len(null) // 6000)].tolist()
+            arms[tag]["null_p95"] = float(np.percentile(null, 95))
+            arms[tag]["null_p99"] = float(np.percentile(null, 99))
+
+    # The scale anchor: source platform is ground truth, not inference.
+    cats = [meta[i]["cat"] for i in cidx]
+    keep = [c for c, n in Counter(cats).items() if n >= 10]
+    gcent = np.array(
+        [cvr[[j for j, c in enumerate(cats) if c == k]].mean(axis=0) - content_mu for k in keep]
+    )
+    gsizes = [sum(1 for c in cats if c == k) for k in keep]
+    greal, gnull = _null_arm(_unit(cvr - content_mu), _unit(gcent), _unit(cvr - content_mu), gsizes)
+
+    raw_conf = (_unit(cvr) @ _unit(cents).T).max(axis=1)
+    return {
+        "arms": arms,
+        "anchor": {"groups": keep, "sep": _separation(greal, gnull)},
+        "n_content": len(cidx),
+        "live_floor": float(np.percentile(raw_conf, 25)),
+        "raw_conf": raw_conf.tolist(),
+    }
+
+
 def compute() -> dict:
     from scripts.grove_lab.buckets import resolve_notes
 
@@ -140,6 +240,7 @@ def compute() -> dict:
         "before": before_counts(),
         "after_excluded": after_counts(with_hackathons=False),
         "after_bucketed": after_counts(with_hackathons=True),
+        "null": null_study(),
     }
 
 
@@ -218,11 +319,96 @@ def fig01(data: dict) -> None:
     save(fig, "01-before-after-histogram.png")
 
 
+def fig02(data: dict) -> None:
+    import numpy as np
+
+    ns = data["null"]
+    matched = ns["arms"]["content-centred / content null"]
+    fig, top = figure(
+        13.6,
+        6.5,
+        2,
+        "semantic domains",
+        "The theme floor is unstable, not stingy — and the null you pick decides the verdict",
+        f"{ns['n_content']} content notes  ·  null centroids built from random "
+        f"notes at the real theme sizes, 60 draws",
+    )
+    axes = fig.subplots(1, 2)
+    fig.subplots_adjust(left=0.20, right=0.975, top=top - 0.055, bottom=0.115, wspace=0.30)
+
+    ax = axes[0]
+    tags = list(ns["arms"])
+    seps = [ns["arms"][t]["sep"] for t in tags]
+    ys = range(len(tags))
+    ax.barh(list(ys), seps, color=[GOLD if abs(s) >= 1 else BLUE for s in seps], height=0.6)
+    ax.set_yticks(list(ys))
+    ax.set_yticklabels([textwrap.fill(t, 20) for t in tags], fontsize=8.5)
+    ax.invert_yaxis()
+    ax.axvline(0, color=MUTED, linewidth=0.8)
+    anchor = ns["anchor"]["sep"]
+    ax.axvline(anchor, color=DIM, linestyle="--", linewidth=1.2)
+    ax.text(
+        anchor + 0.10,
+        -0.78,
+        f"{anchor:.2f} sd — where a KNOWN-real partition\n(source platform) lands on this same test",
+        color=MUTED,
+        fontsize=7.6,
+        va="center",
+    )
+    # Headroom above the first bar for that annotation, on an inverted axis.
+    ax.set_ylim(len(tags) - 0.45, -1.15)
+    for y, s in zip(ys, seps):
+        ax.text(
+            s + (0.08 if s >= 0 else -0.08),
+            y,
+            f"{s:.2f}",
+            color=TEXT,
+            fontsize=8,
+            va="center",
+            ha="left" if s >= 0 else "right",
+        )
+    ax.set_xlabel("separation, (real median − null median) / null sd")
+    ax.set_xlim(-0.9, 5.2)
+    style_axes(ax)
+    panel_title(ax, "same data, four nulls: the disagreement is the finding")
+
+    ax = axes[1]
+    real, null = np.array(matched["real"]), np.array(matched["null"])
+    bins = np.linspace(0, max(real.max(), null.max()), 46)
+    ax.hist(null, bins=bins, color=DIM, alpha=0.95, label="null (chance centroids)", density=True)
+    ax.hist(real, bins=bins, color=GOLD, alpha=0.72, label="assigned theme", density=True)
+    # Staggered heights: the two markers sit close enough to collide.
+    for (val, lab), h in zip(
+        [(matched["null_p95"], "null p95"), (matched["null_p99"], "null p99")], (0.62, 0.50)
+    ):
+        ax.axvline(val, color=BLUE, linestyle="--", linewidth=1.1)
+        ax.text(val, ax.get_ylim()[1] * h, f" {lab}", color=BLUE, fontsize=7.6, va="top")
+    ax.set_xlabel("max cosine to best centroid (content-centred)")
+    ax.set_ylabel("density")
+    style_axes(ax)
+    legend(ax)
+    panel_title(
+        ax,
+        "the matched arm: themes do beat chance, but a null-derived "
+        "floor would place 120/393, not 295",
+    )
+    save(fig, "02-theme-floor-null.png")
+
+
+def legend(ax, **kw):
+    leg = ax.legend(frameon=False, fontsize=8, **kw)
+    for text in leg.get_texts():
+        text.set_color(MUTED)
+    return leg
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--refresh", action="store_true", help="recompute from chroma")
     args = ap.parse_args()
-    fig01(load(args.refresh))
+    data = load(args.refresh)
+    fig01(data)
+    fig02(data)
 
 
 if __name__ == "__main__":
