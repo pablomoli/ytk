@@ -8,6 +8,8 @@ from __future__ import annotations
 import logging
 import os
 import re
+import subprocess
+import sys
 import warnings
 from collections import Counter
 from dataclasses import dataclass
@@ -320,6 +322,44 @@ def _visual_collection() -> chromadb.Collection:
     )
 
 
+_VISUAL_PROBE: bool | None = None
+
+
+def _probe_visual(timeout_s: float) -> bool:
+    """Count both visual collections in a throwaway process. True if they answer."""
+    probe = (
+        "from ytk.store import _visual_collection, _visual_pending_collection;"
+        "_visual_collection().count();_visual_pending_collection().count()"
+    )
+    try:
+        done = subprocess.run(
+            [sys.executable, "-c", probe], timeout=timeout_s, capture_output=True
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return done.returncode == 0
+
+
+def visual_index_ok(timeout_s: float = 25.0) -> bool:
+    """Whether the visual collections answer a trivial count() in time.
+
+    A damaged HNSW segment makes chroma's Rust count() block forever while
+    holding the GIL, which freezes every thread in the process — uvicorn's
+    event loop included, so the hub binds its port and then never answers a
+    request (#130). That call cannot be interrupted or timed out in-process,
+    so the probe runs in a subprocess that can actually be killed. Cached:
+    the answer cannot change without a restart, and the probe is not cheap.
+    """
+    global _VISUAL_PROBE
+    if _VISUAL_PROBE is None:
+        _VISUAL_PROBE = _probe_visual(timeout_s)
+        if not _VISUAL_PROBE:
+            logging.error(
+                "visual index unresponsive — visual search disabled this run (#130)"
+            )
+    return _VISUAL_PROBE
+
+
 @dataclass
 class VisualResult:
     item_id: str
@@ -384,6 +424,8 @@ def delete_pending_visual(urls: list[str]) -> None:
 
 def pending_visual_similar(embedding: list[float], n: int = 30) -> list[VisualResult]:
     """Nearest pending-queue covers to a SigLIP vector (image or text tower)."""
+    if not visual_index_ok():
+        return []
     col = _visual_pending_collection()
     if col.count() == 0:
         return []
@@ -446,6 +488,8 @@ def visual_similar(
 ) -> list[VisualResult]:
     """Nearest covers by SigLIP-2 cosine distance. Query by stored id or raw
     vector (image or text-tower — same space). Excludes the query item."""
+    if not visual_index_ok():
+        return []
     col = _visual_collection()
     if col.count() == 0:
         return []
