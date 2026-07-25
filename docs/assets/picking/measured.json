@@ -1,0 +1,49 @@
+{
+  "runs": 3,
+  "idle_seconds": 4.0,
+  "hover_events": 400,
+  "agent": "headless chromium",
+  "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.7827.55 Safari/537.36",
+  "before": {
+    "idle_fps": 61.05,
+    "hover_ms": 1.4,
+    "runs": [
+      {
+        "idle_fps": 58.28,
+        "vendor_fps": 62.27,
+        "hover_ms": 1.4
+      },
+      {
+        "idle_fps": 61.05,
+        "vendor_fps": 65.02,
+        "hover_ms": 1.4
+      },
+      {
+        "idle_fps": 61.57,
+        "vendor_fps": 65.55,
+        "hover_ms": 1.4
+      }
+    ]
+  },
+  "after": {
+    "idle_fps": 0.0,
+    "hover_ms": 1.3,
+    "runs": [
+      {
+        "idle_fps": 0.0,
+        "vendor_fps": 124.45,
+        "hover_ms": 1.3
+      },
+      {
+        "idle_fps": 0.0,
+        "vendor_fps": 123.94,
+        "hover_ms": 1.3
+      },
+      {
+        "idle_fps": 0.0,
+        "vendor_fps": 123.94,
+        "hover_ms": 1.3
+      }
+    ]
+  }
+}
