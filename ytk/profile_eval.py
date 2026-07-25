@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Annotation-free forward ranking evaluation for interest profiles (#94).
 
 This adapts BUMP's profile-to-history direction to ytk's single-user store:

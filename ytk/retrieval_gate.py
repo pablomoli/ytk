@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Retrieval eval regression gate (#85).
 
 Runs the frozen known-item query set (eval/retrieval/queries.jsonl) against

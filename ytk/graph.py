@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Knowledge graph builder: vault notes as nodes, edges from tags/concepts/semantics."""
 
 from __future__ import annotations

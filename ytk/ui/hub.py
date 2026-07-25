@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Ingest-hub backend: queue operations, background ingest job, fresh feed.
 
 The hub shares the pending-queue state file with the `ytk reels` CLI. Ingestion

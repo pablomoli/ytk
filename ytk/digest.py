@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Recap: what came into the vault recently, and how it ties to recent work.
 
 Shared core behind three surfaces: `ytk recap` (CLI), `POST /api/recap` (hub

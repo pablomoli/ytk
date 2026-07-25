@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Web content ingestion — fetch and extract readable text from any URL."""
 
 from __future__ import annotations

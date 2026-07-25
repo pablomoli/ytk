@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Profile-matched auto-ingest: pull a small, diverse batch of pending items
 that best match the interest profile, on a heavily-debounced schedule.
 

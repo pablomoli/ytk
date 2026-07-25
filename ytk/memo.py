@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Voice memo pipeline: record -> transcribe -> route -> execute.
 
 The memo note is always written before routing so a routing failure can

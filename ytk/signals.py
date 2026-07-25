@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Signal-strength classification for taste-profile v2 (issue #16, E1/E2).
 
 Every consumed item carries a capture signal r, read from what the pipeline

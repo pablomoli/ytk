@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Deterministic domain assignment for the brain map's everything view.
 
 A domain is the controlled top-level grouping axis. It used to be provenance:

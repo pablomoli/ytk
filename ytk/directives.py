@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Interpret directives embedded in an ingest-hub thought (issue #14).
 
 The thought stays verbatim in the note (`## My take`); this module only ADDS

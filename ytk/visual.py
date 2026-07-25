@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """SigLIP-2 visual embeddings — one vector per saved item (issue #12).
 
 Runs google/siglip2-so400m-patch16-384 on Metal via torch + transformers

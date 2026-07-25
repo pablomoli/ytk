@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """YouTube Data API v3 playlist polling and ingestion pipeline for ytk."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Local UI server for the ytk ingest hub.
 
 Serves the fresh feed (/), the inbox queue picker (/inbox), the hub API

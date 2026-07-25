@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Fixtures loader for the enrichment eval harness.
 
 Parses a vault note's markdown into its stored raw transcript (ground truth)

@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Instagram DM self-thread link discovery via instagrapi (session-cookie auth).
 
 Discovery only — ingestion goes through the existing `ytk add` pipeline.
