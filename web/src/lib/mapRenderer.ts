@@ -125,7 +125,12 @@ void main(){ float fog=smoothstep(-1.2,1.,depthV)*.35+.65;
  // JS-side one crosses it in about 3s. Multiplied in, so the density taper
  // above survives. Frozen phase when the caller passes a constant time
  // (prefers-reduced-motion).
- al*=.78+.22*sin(arc*18.-time*4.5);
+ //
+ // .65 +/- .35 rather than the brief's .78 +/- .22: the peak is unchanged and
+ // the troughs go deeper, which is what makes a crest read as a crest instead
+ // of a slightly brighter stretch of line. On strands this dim a 22% swing
+ // disappears. Feature C's bloom is the other half of this.
+ al*=.65+.35*sin(arc*18.-time*4.5);
  // trunks earn their glow from density (replaces the accidental
  // double-draw highlight the trim-dedupe removed)
  gl_FragColor=vec4(c*al*(1.1+1.3*dn),al); }`;

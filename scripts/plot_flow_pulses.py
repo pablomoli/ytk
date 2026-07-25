@@ -48,7 +48,7 @@ from plot_assets import (
 OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "flow-pulses"
 MAP = Path.home() / ".ytk" / "map.json"
 
-BASE, AMP = 0.78, 0.22  # the shader's actual brightness envelope
+BASE, AMP = 0.65, 0.35  # the shader's actual brightness envelope
 FREQ, SPEED = 18.0, 4.5  # recommended; see fig04 for how these were chosen
 
 # The settings worth choosing between. Speed is held near 0.25 layout units/s
