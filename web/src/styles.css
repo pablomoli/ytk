@@ -1219,6 +1219,30 @@ body {
   border-top: 1px solid var(--line, #3a352c);
 }
 
+.rail-widget > summary {
+  font-weight: 600;
+  color: #999;
+  cursor: pointer;
+  list-style: none;
+  padding: 0.2rem 0;
+}
+.rail-widget > summary::-webkit-details-marker {
+  display: none;
+}
+.rail-widget > summary::before {
+  content: "> ";
+  display: inline-block;
+  transition: transform 0.18s var(--ease);
+}
+.rail-widget[open] > summary::before {
+  transform: rotate(90deg);
+}
+.rail-widget[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
 .rail h2 {
   font-weight: 600;
   color: #999;
