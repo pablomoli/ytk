@@ -255,7 +255,13 @@ def evaluate_snapshot(
     )
     delta = score - previous_score.score if comparable and previous_score else None
     warning = None
-    if delta is not None and delta < -cfg.profile_eval_regression_tolerance:
+    # previous_score is re-tested because delta's existence already implies it,
+    # but only through `comparable` — too far for the checker to follow.
+    if (
+        previous_score is not None
+        and delta is not None
+        and delta < -cfg.profile_eval_regression_tolerance
+    ):
         warning = (
             f"profile ranking score dropped {abs(delta):.4f} "
             f"({previous_score.score:.4f} -> {score:.4f})"

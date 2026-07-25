@@ -74,7 +74,9 @@ def reddit_cookie_header(db: Path | None = None) -> str:
     return "; ".join(f"{n}={v}" for n, v in rows)
 
 
-def _get(url: str, cookie_header: str) -> dict:
+def _get(url: str, cookie_header: str) -> dict | list:
+    """Parsed JSON. Listing endpoints return an object; a post permalink
+    returns a two-element array, so callers narrow to what they asked for."""
     req = urllib.request.Request(url, headers={"User-Agent": _UA, "Cookie": cookie_header})
     with urllib.request.urlopen(req, timeout=25) as resp:
         return json.loads(resp.read())
@@ -97,7 +99,8 @@ def fetch_listing(
             raise ValueError(f"Unsupported window: {window!r}")
         params["t"] = window
     url = f"https://old.reddit.com/r/{sub}/{sort}.json?{urllib.parse.urlencode(params)}"
-    return _get(url, cookie_header)
+    listing = _get(url, cookie_header)
+    return listing if isinstance(listing, dict) else {}
 
 
 def parse_posts(listing: dict) -> list[dict]:
@@ -214,7 +217,9 @@ def search_subreddits(query: str, cookie_header: str, limit: int = 10) -> list[d
         {"q": query, "limit": str(limit), "raw_json": "1"}
     )
     out = []
-    for child in (_get(url, cookie_header).get("data") or {}).get("children") or []:
+    found = _get(url, cookie_header)
+    listing = found if isinstance(found, dict) else {}
+    for child in (listing.get("data") or {}).get("children") or []:
         d = child.get("data") or {}
         name = d.get("display_name")
         if not name:
@@ -238,7 +243,8 @@ def fetch_comments(permalink: str, cookie_header: str, limit: int = 60) -> list:
     url = f"https://old.reddit.com{path.rstrip('/')}.json?" + urllib.parse.urlencode(
         {"limit": str(limit), "raw_json": "1"}
     )
-    return _get(url, cookie_header)
+    thread = _get(url, cookie_header)
+    return thread if isinstance(thread, list) else []
 
 
 def top_comments(thread: list, n: int = 6, min_score: int = 1) -> list[dict]:

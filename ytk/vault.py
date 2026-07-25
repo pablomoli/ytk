@@ -596,10 +596,11 @@ def _save_instagram_images(post: InstagramPost, note_dir: Path, shortcode: str) 
         saved = _save_image(img_url, slide_dir / f"{shortcode}-img-{i}")
         if saved:
             saved_images.append(saved)
-    if not saved_images and getattr(post, "thumbnail_url", None):
+    thumbnail_url = getattr(post, "thumbnail_url", None)
+    if not saved_images and thumbnail_url:
         thumb_dir = note_dir / "thumbnails"
         thumb_dir.mkdir(parents=True, exist_ok=True)
-        saved_thumb = _save_image(post.thumbnail_url, thumb_dir / f"{shortcode}-thumb")
+        saved_thumb = _save_image(thumbnail_url, thumb_dir / f"{shortcode}-thumb")
         if saved_thumb:
             saved_images.append(saved_thumb)
     return saved_images
@@ -1296,8 +1297,8 @@ def rebuild_index() -> None:
     # wiki/
     wiki_files = _md_files("wiki")
     if wiki_files:
-        rows = "\n".join(f"- [[wiki/{p.stem}]]" for p in wiki_files if p.stem != "index")
-        sections.append(f"## wiki/\n{rows}\n")
+        rows_wiki = "\n".join(f"- [[wiki/{p.stem}]]" for p in wiki_files if p.stem != "index")
+        sections.append(f"## wiki/\n{rows_wiki}\n")
 
     # projects/ — grouped by subdirectory
     projects_dir = vault_path / "projects"
@@ -1360,8 +1361,8 @@ def rebuild_index() -> None:
     for subdir in ("decisions", "debugging", "tools"):
         files = _md_files(subdir)
         if files:
-            rows = "\n".join(f"- [[{subdir}/{p.stem}]]" for p in files)
-            sections.append(f"## {subdir}/\n{rows}\n")
+            rows_sub = "\n".join(f"- [[{subdir}/{p.stem}]]" for p in files)
+            sections.append(f"## {subdir}/\n{rows_sub}\n")
 
     index_path.write_text("\n".join(sections), encoding="utf-8")
 

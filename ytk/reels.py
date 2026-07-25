@@ -278,7 +278,10 @@ def fetch_new_items(
             messages = _messages_until_cursor(client, thread_id, state.last_seen_message_id)
         except Exception:
             thread_id = None
-    if thread_id is None:
+    # Keyed on messages, not thread_id: the branch above is skipped entirely by
+    # an empty-string thread_id, which is neither truthy nor None, and left the
+    # loop below iterating None. Rediscover whenever we came away without them.
+    if messages is None:
         thread = find_peer_thread(client, peer) if peer else find_self_thread(client)
         thread_id = str(thread.id)
         messages = _messages_until_cursor(client, thread_id, state.last_seen_message_id)

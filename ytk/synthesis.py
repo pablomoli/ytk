@@ -64,7 +64,8 @@ def cluster_embeddings(embeddings: np.ndarray, k: int) -> list[int]:
     "Thoughts count more" lives on in theme weight and weighted_centroid, which
     still consume the alpha weights — importance accounting, not geometry.
     """
-    km = KMeans(n_clusters=k, random_state=0, n_init=10)
+    # n_init: sklearn's stub says str, the runtime takes an int.
+    km = KMeans(n_clusters=k, random_state=0, n_init=10)  # type: ignore[reportArgumentType]
     return [int(label) for label in km.fit_predict(embeddings)]
 
 
@@ -691,7 +692,11 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
         except ProfileGroundingError as exc:
             grounding_error = exc
     if snapshot is None:
-        raise grounding_error
+        # grounding_error is only set by a failed attempt; with no attempts at
+        # all `raise None` would mask the real problem behind a TypeError.
+        raise grounding_error or ProfileGroundingError(
+            "profile synthesis produced no snapshot and no grounding error"
+        )
     from .profile_eval import ProfileEvaluationUnavailable, evaluate_snapshot
     from .store import _TEXT_MODEL
 

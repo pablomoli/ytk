@@ -22,6 +22,7 @@ import asyncio
 import logging
 import os
 import shutil
+from collections.abc import Sequence
 from pathlib import Path
 
 from claude_agent_sdk import (
@@ -121,7 +122,7 @@ def run_structured(
     system_prompt: str,
     user_prompt: str,
     schema: dict,
-    add_dirs: list[str | Path] | None = None,
+    add_dirs: Sequence[str | Path] | None = None,
     max_turns: int = 20,
     model: str | None = None,
 ) -> dict:
@@ -138,7 +139,7 @@ def run_structured(
 def _build_options(
     system_prompt: str,
     schema: dict,
-    add_dirs: list[str | Path],
+    add_dirs: Sequence[str | Path],
     max_turns: int,
     model: str | None = None,
 ) -> ClaudeAgentOptions:
@@ -162,7 +163,7 @@ async def _run_structured_async(
     system_prompt: str,
     user_prompt: str,
     schema: dict,
-    add_dirs: list[str | Path],
+    add_dirs: Sequence[str | Path],
     max_turns: int,
     model: str | None = None,
 ) -> dict:

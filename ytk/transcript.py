@@ -94,14 +94,14 @@ def _download_audio(url: str) -> Path:
             return candidate
 
     out_template = str(_AUDIO_CACHE / f"yt_{url_hash}.%(ext)s")
-    opts = {
+    opts: dict[str, object] = {
         "format": "bestaudio[ext=m4a]/bestaudio/best",
         "outtmpl": out_template,
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
     }
-    with yt_dlp.YoutubeDL(opts) as ydl:
+    with yt_dlp.YoutubeDL(opts) as ydl:  # type: ignore[reportArgumentType]  # stub's _Params rejects a plain options dict
         info = ydl.extract_info(url, download=True)
         ext = info.get("ext", "m4a")
         downloaded = _AUDIO_CACHE / f"yt_{url_hash}.{ext}"
