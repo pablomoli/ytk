@@ -920,6 +920,41 @@ export function mountMapRenderer(
     drawSet(buffer, pointCount);
   };
   let lastFrame = 0;
+  // Every eased value in render() decays toward an explicit target, so "is
+  // anything still moving" is decidable and the loop can park itself (#101).
+  //
+  // The one animation that never settles is the focus pulse in the point
+  // shader — step(1.5, level + focusT), where level is 1 only outside the
+  // content view with a domain or subtopic focused. At overview the gate is
+  // 1.0 and never fires, which is exactly the resting state that was burning
+  // a core repainting identical frames. While focused the pulse is a
+  // deliberate visual, so the loop has to stay awake or it would freeze
+  // mid-breath.
+  const settled = (a: number, b: number) => Math.abs(a - b) <= 1e-3;
+  const animating = () => {
+    if (geometryDirty || labelsDirty) return true;
+    if (drag || flyItem || zoomAnchor) return true;
+    if (introT < 1 || focusT < 1) return true;
+    if (momentum.vx || momentum.vy) return true;
+    if (!settled(scale, scaleTarget)) return true;
+    if (!settled(morph, morphTarget)) return true;
+    if (!settled(dimVal, dimTarget)) return true;
+    if (!settled(reliefT, reliefTarget)) return true;
+    if (!settled(fogT, fogOn ? 1 : 0)) return true;
+    if (!settled(shellT, fogShell ? 1 : 0)) return true;
+    if (!settled(webT, webOn ? 1 : 0)) return true;
+    if (!settled(terrainT, terrainOn ? 1 : 0)) return true;
+    if (!settled(subColorT, view === "all" && focus.dom !== undefined ? 1 : 0)) return true;
+    return view !== "content" && focusLevel(focus) !== "overview";
+  };
+  // Restart a parked loop. lastFrame resets so the first frame back uses the
+  // nominal dt instead of the whole idle gap, which would jump every easing
+  // straight to its target.
+  const wake = () => {
+    if (frame) return;
+    lastFrame = 0;
+    frame = requestAnimationFrame(render);
+  };
   const render = (now = 0) => {
     const dt = lastFrame ? Math.min(0.05, (now - lastFrame) / 1000) : 0.016;
     lastFrame = now;
@@ -984,7 +1019,7 @@ export function mountMapRenderer(
     }
     draw(now * 0.001);
     placeLabels();
-    frame = requestAnimationFrame(render);
+    frame = animating() ? requestAnimationFrame(render) : 0;
   };
   const placeLabels = () => {
     if (!labels) return;
@@ -1272,14 +1307,46 @@ export function mountMapRenderer(
     onFocus?.({ dom: focus.dom });
   };
   resize();
-  addEventListener("resize", resize);
-  canvas.addEventListener("mousedown", down);
-  canvas.addEventListener("click", click);
-  canvas.addEventListener("dblclick", open);
+  // Every input path must wake a parked loop (#101). Wrapped once here and
+  // held in consts so destroy() unregisters these exact references rather
+  // than the unwrapped originals. contextmenu only calls preventDefault, so
+  // it changes no state and needs no wake.
+  const onResize = () => {
+    resize();
+    wake();
+  };
+  const onDown = (event: MouseEvent) => {
+    down(event);
+    wake();
+  };
+  const onClick = () => {
+    click();
+    wake();
+  };
+  const onOpen = () => {
+    open();
+    wake();
+  };
+  const onMove = (event: MouseEvent) => {
+    move(event);
+    wake();
+  };
+  const onUp = () => {
+    up();
+    wake();
+  };
+  const onWheel = (event: WheelEvent) => {
+    wheel(event);
+    wake();
+  };
+  addEventListener("resize", onResize);
+  canvas.addEventListener("mousedown", onDown);
+  canvas.addEventListener("click", onClick);
+  canvas.addEventListener("dblclick", onOpen);
   canvas.addEventListener("contextmenu", contextmenu);
-  addEventListener("mousemove", move);
-  addEventListener("mouseup", up);
-  canvas.addEventListener("wheel", wheel, { passive: false });
+  addEventListener("mousemove", onMove);
+  addEventListener("mouseup", onUp);
+  canvas.addEventListener("wheel", onWheel, { passive: false });
   render();
   return {
     setView: (next) => {
@@ -1295,6 +1362,7 @@ export function mountMapRenderer(
       retarget();
       geometryDirty = true;
       labelsDirty = true;
+      wake();
     },
     setDimension: (next) => {
       requestedDim = next ? 0 : 1;
@@ -1303,55 +1371,70 @@ export function mountMapRenderer(
       scaleTarget = scale;
       killMomentum();
       zoomAnchor = null;
+      wake();
     },
     setFilters: (signal, recent) => {
       signalOnly = signal;
       recentOnly = recent;
       geometryDirty = true;
+      wake();
     },
     setFocus: (next) => {
       focus = next;
       retarget();
       labelsDirty = true;
+      wake();
     },
     setHover: (next) => {
       hover = next;
       retarget();
+      wake();
     },
     setHiddenDomains: (doms) => {
       hiddenDoms = new Set(doms);
       retarget();
       labelsDirty = true;
+      wake();
     },
+    // legendOpen and fogLevel feed the shaders directly rather than easing
+    // toward a target, so animating() stays false for them. Waking still
+    // paints exactly one frame and parks again, which is what they need.
     setLegendOpen: (open) => {
       legendOpen = open;
+      wake();
     },
     setTerrain: (next) => {
       terrainOn = next;
       retargetDims();
+      wake();
     },
     setWeb: (next) => {
       webOn = next;
+      wake();
     },
     setFog: (next) => {
       fogOn = next;
+      wake();
     },
     setFogLevel: (next) => {
       fogLevel = next;
+      wake();
     },
     setFogShell: (next) => {
       fogShell = next;
+      wake();
     },
     destroy: () => {
       cancelAnimationFrame(frame);
-      removeEventListener("resize", resize);
-      canvas.removeEventListener("mousedown", down);
-      canvas.removeEventListener("click", click);
-      canvas.removeEventListener("dblclick", open);
+      frame = 0;
+      removeEventListener("resize", onResize);
+      canvas.removeEventListener("mousedown", onDown);
+      canvas.removeEventListener("click", onClick);
+      canvas.removeEventListener("dblclick", onOpen);
       canvas.removeEventListener("contextmenu", contextmenu);
-      removeEventListener("mousemove", move);
-      removeEventListener("mouseup", up);
-      canvas.removeEventListener("wheel", wheel);
+      removeEventListener("mousemove", onMove);
+      removeEventListener("mouseup", onUp);
+      canvas.removeEventListener("wheel", onWheel);
       delete canvas.dataset.intro;
       labels?.replaceChildren();
       leaders?.replaceChildren();
