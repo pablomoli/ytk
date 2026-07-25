@@ -229,6 +229,22 @@ def null_study() -> dict:
     }
 
 
+def frozen_before() -> list[dict]:
+    """The provenance axis as it shipped, read once and then frozen.
+
+    before_counts() reads the live ~/.ytk/map.json, which after this issue
+    lands *is* the bucket axis — so a later --refresh would quietly redraw
+    the "before" panel as the after state and the figure would claim the
+    change did nothing. The first run captures it; every run after that
+    reuses the captured copy. Delete the key in counts.json to recapture.
+    """
+    if CACHE.exists():
+        cached = json.loads(CACHE.read_text()).get("before")
+        if cached:
+            return cached
+    return before_counts()
+
+
 def compute() -> dict:
     from scripts.grove_lab.buckets import resolve_notes
 
@@ -237,7 +253,7 @@ def compute() -> dict:
         "total": len(notes),
         "themed": sum(1 for n in notes if n.theme),
         "cats": dict(Counter(m["cat"] for m in meta).most_common()),
-        "before": before_counts(),
+        "before": frozen_before(),
         "after_excluded": after_counts(with_hackathons=False),
         "after_bucketed": after_counts(with_hackathons=True),
         "null": null_study(),
