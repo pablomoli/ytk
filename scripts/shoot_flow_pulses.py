@@ -21,12 +21,19 @@ OUT = Path(__file__).resolve().parents[1] / "docs" / "assets" / "flow-pulses"
 SETTLE_MS = 6500
 
 # The web only draws as dim approaches volume, so 2D overview shows no strands.
+#
+# Matched exactly, not by substring. An earlier version used a regex over the
+# button text and also matched the legend entry "3d/vfx & motion-design craft",
+# which set a focus — and focus starts the point shader's own pulse. Frames then
+# differed for a reason that had nothing to do with the flow pulses, and the
+# check passed while proving nothing.
 SHOW_WEB_JS = """
 () => {
+  const wanted = new Set(['web']);
   const hit = [...document.querySelectorAll('button,[role=button],label')]
-    .filter(el => /web|3d|volume|dimension/i.test(el.textContent || ''));
+    .filter(el => wanted.has((el.textContent || '').trim().toLowerCase()));
   hit.forEach(el => el.click());
-  return hit.map(el => (el.textContent || '').trim()).slice(0, 6);
+  return hit.map(el => (el.textContent || '').trim());
 }
 """
 
@@ -36,42 +43,62 @@ def shoot(page, path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
 
 
+def arm(browser, url: str, motion: bool, tag: str) -> tuple[str, str, list[str]]:
+    """Settle the web view, then two frames a beat apart. No focus is set."""
+    errors: list[str] = []
+    ctx = browser.new_context(
+        viewport={"width": 1600, "height": 1000},
+        reduced_motion="no-preference" if motion else "reduce",
+    )
+    page = ctx.new_page()
+    page.on("console", lambda m: errors.append(m.text[:200]) if m.type == "error" else None)
+    page.on("pageerror", lambda e: errors.append(f"PAGEERROR {str(e)[:200]}"))
+    suffix = "?motion=on" if motion else ""
+    page.goto(f"{url}/map{suffix}", wait_until="networkidle")
+    page.wait_for_selector("canvas", timeout=30_000)
+    page.wait_for_timeout(SETTLE_MS)
+    print(f"  toggled: {page.evaluate(SHOW_WEB_JS)}")
+    page.wait_for_timeout(4000)  # let webT and the camera finish easing
+
+    a = shoot(page, OUT / f"05-{tag}-a.png")
+    page.wait_for_timeout(700)  # ~half a pulse at SPEED 4.5
+    b = shoot(page, OUT / f"05-{tag}-b.png")
+    ctx.close()
+    return a, b, errors
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", required=True)
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
 
-    errors: list[str] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page(viewport={"width": 1600, "height": 1000})
-        page.on("console", lambda m: errors.append(m.text[:200]) if m.type == "error" else None)
-        page.on("pageerror", lambda e: errors.append(f"PAGEERROR {str(e)[:200]}"))
-        page.goto(f"{args.url}/map", wait_until="networkidle")
-        page.wait_for_selector("canvas", timeout=30_000)
-        page.wait_for_timeout(SETTLE_MS)
-
-        clicked = page.evaluate(SHOW_WEB_JS)
-        print(f"toggled: {clicked}")
-        page.wait_for_timeout(3500)
-
-        a = shoot(page, OUT / "05-shader-frame-a.png")
-        page.wait_for_timeout(700)  # ~half a pulse at SPEED 4.5
-        b = shoot(page, OUT / "05-shader-frame-b.png")
-
-        print(f"frame a {a}\nframe b {b}")
-        print("pulse is travelling" if a != b else "FRAMES IDENTICAL — pulse is not moving")
-        if errors:
-            print("\nconsole errors:")
-            for e in errors[:8]:
-                print(f"  {e}")
+        print("motion on:")
+        on_a, on_b, on_err = arm(browser, args.url, True, "motion-on")
+        print("motion reduced:")
+        off_a, off_b, off_err = arm(browser, args.url, False, "motion-off")
         browser.close()
 
+    errors = on_err + off_err
+    print(f"\n  motion on       {on_a} / {on_b}  -> {'differ' if on_a != on_b else 'IDENTICAL'}")
+    print(f"  motion reduced  {off_a} / {off_b}  -> {'DIFFER' if off_a != off_b else 'identical'}")
+    if errors:
+        print("\nconsole errors:")
+        for e in errors[:8]:
+            print(f"  {e}")
+
+    # Both arms are needed. "Frames differ" alone proves nothing — a still-easing
+    # camera or a focus pulse would do that too. The pulse is only demonstrated
+    # if motion changes things AND pinning the clock stops them changing.
     if errors:
         raise SystemExit("console errors present")
-    if a == b:
-        raise SystemExit("frames identical — the pulse is not animating")
+    if on_a == on_b:
+        raise SystemExit("motion on: frames identical — the pulse is not animating")
+    if off_a != off_b:
+        raise SystemExit("motion reduced: frames differ — something else is animating")
+    print("\nthe travelling pulse is the only thing moving")
 
 
 if __name__ == "__main__":
