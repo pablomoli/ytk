@@ -107,17 +107,25 @@ const RIDGE_COL: [number, number, number] = [0.886, 0.69, 0.29]; // hub gold
 // Filament web: topic-tinted curves living in the embedding-3D space itself
 // (the z3/c3 coordinates), so they render only as dim approaches volume and
 // share the exact camera transform of the points.
-const webVertex = `attribute vec3 pos; attribute vec3 col; attribute float den;
+const webVertex = `attribute vec3 pos; attribute vec3 col; attribute float den; attribute float alen;
 uniform float zoom; uniform vec2 pan; uniform float theta; uniform float phi;
-varying vec3 c; varying float depthV; varying float dn;
+varying vec3 c; varying float depthV; varying float dn; varying float arc;
 void main(){ vec3 q=pos;
  float ct=cos(theta),st=sin(theta),cp=cos(phi),sp=sin(phi);
  q=vec3(ct*q.x+st*q.z,sp*(st*q.x-ct*q.z)+cp*q.y,-cp*(st*q.x-ct*q.z)+sp*q.y);
  float depth=1.35-q.z*.24; depthV=q.z;
- gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); c=col; dn=den; }`;
-const webFragment = `precision mediump float; uniform float master; varying vec3 c; varying float depthV; varying float dn;
+ gl_Position=vec4(q.xy*.88*zoom/depth+pan,q.z*.12,1.); c=col; dn=den; arc=alen; }`;
+const webFragment = `precision mediump float; uniform float master; uniform float time;
+varying vec3 c; varying float depthV; varying float dn; varying float arc;
 void main(){ float fog=smoothstep(-1.2,1.,depthV)*.35+.65;
  float al=master*fog*(.25+.75*min(dn*1.6,1.));  // strands taper where fog thins
+ // Flow pulses (#107 feature A): brightness follows a wave running along the
+ // strand's own arc length, so light appears to travel without any geometry
+ // moving. 18 rad/unit puts ~2 pulses on a typical strand; with the speed set
+ // JS-side one crosses it in about 3s. Multiplied in, so the density taper
+ // above survives. Frozen phase when the caller passes a constant time
+ // (prefers-reduced-motion).
+ al*=.78+.22*sin(arc*18.-time*4.5);
  // trunks earn their glow from density (replaces the accidental
  // double-draw highlight the trim-dedupe removed)
  gl_FragColor=vec4(c*al*(1.1+1.3*dn),al); }`;
@@ -374,11 +382,12 @@ export function mountMapRenderer(
   // --- filament web resources (absent on pre-web map.json builds)
   let webProgram: WebGLProgram | undefined;
   let webU:
-    | Record<"zoom" | "pan" | "theta" | "phi" | "master", WebGLUniformLocation | null>
+    | Record<"zoom" | "pan" | "theta" | "phi" | "master" | "time", WebGLUniformLocation | null>
     | undefined;
   let webPos = 0;
   let webCol = 0;
   let webDen = 0;
+  let webAlen = 0;
   const webBuffers: Partial<Record<"all" | "content", { buf: WebGLBuffer; count: number }>> = {};
   let junctionProgram: WebGLProgram | undefined;
   let junctionU:
@@ -397,7 +406,9 @@ export function mountMapRenderer(
     webPos = gl.getAttribLocation(webProgram, "pos");
     webCol = gl.getAttribLocation(webProgram, "col");
     webDen = gl.getAttribLocation(webProgram, "den");
+    webAlen = gl.getAttribLocation(webProgram, "alen");
     webU = {
+      time: gl.getUniformLocation(webProgram, "time"),
       zoom: gl.getUniformLocation(webProgram, "zoom"),
       pan: gl.getUniformLocation(webProgram, "pan"),
       theta: gl.getUniformLocation(webProgram, "theta"),
@@ -406,34 +417,46 @@ export function mountMapRenderer(
     };
     const build = (web: MapWeb | undefined, key: "all" | "content") => {
       if (!web) return;
-      // GL_LINES pairs, 6 floats per vertex (xyz + rgb); the varying blends
-      // colors along each segment so filaments shade smoothly across topic
-      // borders.
+      // GL_LINES pairs, 8 floats per vertex: xyz, rgb, density, arc length.
+      // The varying blends colors along each segment so filaments shade
+      // smoothly across topic borders.
       const colorOf = (label: number): [number, number, number] =>
         label < 0 ? gray : key === "all" ? rampColor(domainPos(data, label)) : rampColor(label / 7);
       const segments: number[] = [];
-      for (const fil of web.filaments)
+      for (const fil of web.filaments) {
+        // Distance travelled along this strand, in layout units. Absolute and
+        // never normalised per strand: a percentage would make one pulse cross
+        // a short strand and a long one in the same time, so light would crawl
+        // down the spine and race down the stubs. Trustworthy because the
+        // predictor-corrector tracer emits ordered, near-uniformly spaced
+        // vertices (ytk/ridges.py::trace_filaments).
+        let travelled = 0;
         for (let i = 0; i + 1 < fil.length; i++) {
           const a = fil[i];
           const b = fil[i + 1];
+          const step = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
           segments.push(
             a[0],
             a[1],
             a[2],
             ...colorOf(a[3]),
             a[4] ?? 1,
+            travelled,
             b[0],
             b[1],
             b[2],
             ...colorOf(b[3]),
             b[4] ?? 1,
+            travelled + step,
           );
+          travelled += step;
         }
+      }
       if (!segments.length) return;
       const buf = gl.createBuffer()!;
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(segments), gl.STATIC_DRAW);
-      webBuffers[key] = { buf, count: segments.length / 7 };
+      webBuffers[key] = { buf, count: segments.length / 8 };
     };
     build(data.all.web, "all");
     build(data.content.web, "content");
@@ -886,6 +909,11 @@ export function mountMapRenderer(
     // hides it automatically)
     if (!pickPass && webProgram && webU && webT > 0.01 && dimVal > 0.01) {
       gl.useProgram(webProgram);
+      // A frozen clock leaves the pulse standing still rather than removing
+      // it, so reduced motion keeps the strands' brightness variation without
+      // anything travelling. It also lets animating() park the loop, since
+      // nothing is changing frame to frame.
+      gl.uniform1f(webU.time, reduceMotion ? 0 : time);
       gl.uniform1f(webU.zoom, scale);
       gl.uniform2f(webU.pan, offset[0], offset[1]);
       gl.uniform1f(webU.theta, ea);
@@ -896,11 +924,13 @@ export function mountMapRenderer(
         if (!bufs || weight <= 0.01) continue;
         gl.bindBuffer(gl.ARRAY_BUFFER, bufs.buf);
         gl.enableVertexAttribArray(webPos);
-        gl.vertexAttribPointer(webPos, 3, gl.FLOAT, false, 28, 0);
+        gl.vertexAttribPointer(webPos, 3, gl.FLOAT, false, 32, 0);
         gl.enableVertexAttribArray(webCol);
-        gl.vertexAttribPointer(webCol, 3, gl.FLOAT, false, 28, 12);
+        gl.vertexAttribPointer(webCol, 3, gl.FLOAT, false, 32, 12);
         gl.enableVertexAttribArray(webDen);
-        gl.vertexAttribPointer(webDen, 1, gl.FLOAT, false, 28, 24);
+        gl.vertexAttribPointer(webDen, 1, gl.FLOAT, false, 32, 24);
+        gl.enableVertexAttribArray(webAlen);
+        gl.vertexAttribPointer(webAlen, 1, gl.FLOAT, false, 32, 28);
         gl.uniform1f(webU.master, webT * dimVal * weight * 0.9);
         gl.drawArrays(gl.LINES, 0, bufs.count);
       }
@@ -1081,6 +1111,12 @@ export function mountMapRenderer(
     if (!settled(webT, webOn ? 1 : 0)) return true;
     if (!settled(terrainT, terrainOn ? 1 : 0)) return true;
     if (!settled(subColorT, view === "all" && focus.dom !== undefined ? 1 : 0)) return true;
+    // Flow pulses travel on a live clock (#107 feature A), so the web being
+    // visible is itself a reason to keep drawing — without this the loop parks
+    // the moment everything else settles and the pulse freezes mid-travel,
+    // which reads as a rendering bug rather than a missing feature. Reduced
+    // motion pins the clock, so there the loop is free to park.
+    if (!reduceMotion && webT > 0.01 && dimVal > 0.01) return true;
     return view !== "content" && focusLevel(focus) !== "overview";
   };
   // Restart a parked loop. lastFrame resets so the first frame back uses the
