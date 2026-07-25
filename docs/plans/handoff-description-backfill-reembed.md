@@ -135,7 +135,7 @@ uv run python scripts/build_map.py --sweep     # refit UMAP params, rebuild map
 uv run --with matplotlib python scripts/plot_assets.py --refresh   # all 9 figures
 ```
 
-And per `docs/assets/fog/linkedin-notes.md`: **keep the pre-change PNGs.**
+And per `docs/assets/01-fog/linkedin-notes.md`: **keep the pre-change PNGs.**
 The before/after pair — same map under old vs new embeddings — is itself
 report material. Every number quoted in that notes file (median 0.55h,
 98.8% within 2h, 10 strands, 5 junctions) must be re-read from the new run,
