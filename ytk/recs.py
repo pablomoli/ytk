@@ -119,7 +119,7 @@ def _year_prefix(date_str: str | None) -> int | None:
 
 
 def _resolve_movie(title: str, year: int | None) -> dict | None:
-    params = {"query": title}
+    params: dict[str, str | int] = {"query": title}
     if year:
         params["year"] = year
     data = _tmdb_request("/search/movie", params)
@@ -149,7 +149,7 @@ def _resolve_movie(title: str, year: int | None) -> dict | None:
 
 
 def _resolve_show(title: str, year: int | None) -> dict | None:
-    params = {"query": title}
+    params: dict[str, str | int] = {"query": title}
     if year:
         params["first_air_date_year"] = year
     data = _tmdb_request("/search/tv", params)

@@ -33,15 +33,19 @@ def fetch_tiktok(url: str) -> TikTokPost:
     Resolves shortlinks (vm.tiktok.com / tiktok.com/t/...) to the canonical
     video automatically. Raises ValueError on extraction failure.
     """
-    opts = {"quiet": True, "no_warnings": True, "noplaylist": True, "skip_download": True}
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        # type: ignore on the options dict: the stub package declares a
+        # _Params TypedDict that no plain options dict satisfies, while
+        # YoutubeDL.__init__ is itself untyped at runtime.
+        opts = {"quiet": True, "no_warnings": True, "noplaylist": True, "skip_download": True}
+        with yt_dlp.YoutubeDL(opts) as ydl:  # type: ignore[reportArgumentType]
             info = ydl.extract_info(url, download=False)
     except Exception as exc:
         raise ValueError(f"yt-dlp failed to extract TikTok URL {url!r}: {exc}") from exc
 
-    if info.get("_type") == "playlist" and info.get("entries"):
-        info = info["entries"][0]
+    entries = info.get("entries")
+    if info.get("_type") == "playlist" and entries:
+        info = next(iter(entries))
 
     upload_date = info.get("upload_date", "") or ""
     timestamp = (

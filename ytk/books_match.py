@@ -64,7 +64,10 @@ def flatten_epub(path):
     z = zipfile.ZipFile(path)
     names = z.namelist()
     container = z.read("META-INF/container.xml").decode("utf-8", "replace")
-    opf_path = re.search(r'full-path="([^"]+)"', container).group(1)
+    rootfile = re.search(r'full-path="([^"]+)"', container)
+    if rootfile is None:
+        raise ValueError(f"{path}: container.xml declares no rootfile full-path")
+    opf_path = rootfile.group(1)
     opf_dir = opf_path.rsplit("/", 1)[0] if "/" in opf_path else ""
     opf = z.read(opf_path).decode("utf-8", "replace")
 

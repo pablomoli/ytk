@@ -7,13 +7,11 @@ import yt_dlp
 
 def fetch_metadata(url: str) -> dict:
     """Return a dict with title, description, duration, chapters, tags, upload_date, uploader."""
-    opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        "extract_flat": False,
-    }
-    with yt_dlp.YoutubeDL(opts) as ydl:
+    # type: ignore on the options dict: the stub package declares a _Params
+    # TypedDict that no plain options dict satisfies, while YoutubeDL.__init__
+    # is itself untyped at runtime.
+    opts = {"quiet": True, "no_warnings": True, "skip_download": True, "extract_flat": False}
+    with yt_dlp.YoutubeDL(opts) as ydl:  # type: ignore[reportArgumentType]
         info = ydl.extract_info(url, download=False)
 
     return {

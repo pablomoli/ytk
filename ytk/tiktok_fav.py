@@ -19,6 +19,13 @@ import sqlite3
 import tempfile
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:  # playwright is imported lazily where it is used
+    # Not re-exported from playwright.sync_api, so this reaches into _impl.
+    # Type-only: if playwright moves it, pyright says so at check time and
+    # nothing changes at runtime.
+    from playwright._impl._api_structures import SetCookieParam
 
 ZEN_PROFILES = Path.home() / "Library" / "Application Support" / "zen" / "Profiles"
 
@@ -65,7 +72,7 @@ def _norm_expiry(expiry) -> float:
     return exp if exp > 0 else -1.0
 
 
-def load_tiktok_cookies(db: Path) -> list[dict]:
+def load_tiktok_cookies(db: Path) -> list[SetCookieParam]:
     """Read tiktok.com cookies from a Firefox-format cookie DB.
 
     The DB is copied first: the browser holds a lock on the live file, and a
@@ -82,20 +89,25 @@ def load_tiktok_cookies(db: Path) -> list[dict]:
             ).fetchall()
         finally:
             con.close()
-    cookies = [
-        {
-            "name": name,
-            "value": value,
-            "domain": host,
-            "path": path,
-            "expires": _norm_expiry(expiry),
-            "secure": bool(secure),
-            "httpOnly": bool(http_only),
-            "sameSite": _SAMESITE.get(same_site, "Lax"),
-        }
+    # cast per row: a comprehension infers a plain dict, and SetCookieParam is
+    # total=False, so the keys below are exactly the ones playwright reads.
+    cookies: list[SetCookieParam] = [
+        cast(
+            "SetCookieParam",
+            {
+                "name": name,
+                "value": value,
+                "domain": host,
+                "path": path,
+                "expires": _norm_expiry(expiry),
+                "secure": bool(secure),
+                "httpOnly": bool(http_only),
+                "sameSite": _SAMESITE.get(same_site, "Lax"),
+            },
+        )
         for name, value, host, path, expiry, secure, http_only, same_site in rows
     ]
-    if not any(c["name"] == "sessionid" for c in cookies):
+    if not any(c.get("name") == "sessionid" for c in cookies):
         raise TikTokAuthError(
             "No tiktok.com sessionid cookie in the Zen profile. "
             "Log into tiktok.com in Zen, then retry."
@@ -166,7 +178,7 @@ def queue_new(state, fetched: list[dict], extra_known: set | frozenset = frozens
 
 def fetch_favorites(
     username: str,
-    cookies: list[dict],
+    cookies: list[SetCookieParam],
     seen: frozenset | set = frozenset(),
     max_pages: int | None = None,
     headed: bool = False,

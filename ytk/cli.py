@@ -1225,7 +1225,9 @@ def add_instagram(url: str, note: str = "", refresh: bool = False):
 
     with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
         try:
-            if is_video:
+            # `capture is not None` rather than `is_video`: the two are set
+            # together above, and this spelling is the one that carries.
+            if capture is not None:
                 result = enrich_instagram_reel(
                     caption=post.caption,
                     username=post.username,
@@ -1262,14 +1264,15 @@ def add_instagram(url: str, note: str = "", refresh: bool = False):
     insights = "\n".join(f"[yellow]>[/] {i}" for i in result.insights)
     console.print(Panel(insights, title="[bold]Insights[/]", box=box.ROUNDED))
 
-    write_kwargs = dict(
-        transcript_segments=capture.transcript_segments if capture else None,
-        transcript_status=capture.transcript_status if capture else None,
-        frame_bytes=capture.frame_bytes if capture else None,
-    )
     try:
         writer = refresh_instagram_note if refresh else write_instagram_note
-        note_path = writer(post, result, **write_kwargs)
+        note_path = writer(
+            post,
+            result,
+            transcript_segments=capture.transcript_segments if capture else None,
+            transcript_status=capture.transcript_status if capture else None,
+            frame_bytes=capture.frame_bytes if capture else None,
+        )
         console.print(f"\n[bold green]Note written:[/] {note_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
         doc_id = "instagram_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])

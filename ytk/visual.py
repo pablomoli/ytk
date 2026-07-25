@@ -12,8 +12,42 @@ from __future__ import annotations
 import logging
 import os
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Protocol, cast
+
+if TYPE_CHECKING:  # torch is imported lazily inside the functions below
+    import torch
+
+
+# The SigLIP-2 surface this module actually uses. transformers builds the
+# concrete classes from the checkpoint at runtime, and its declared
+# from_pretrained return type carries neither get_image_features nor the
+# processor kwargs — so the shape is named here and asserted once in _load(),
+# which leaves every call site below fully checked.
+class _Batch(Protocol):
+    """Processor output: tensors that can move to a device, then splat as **kwargs.
+
+    keys/__getitem__ rather than Mapping: a Protocol cannot inherit a runtime
+    ABC, and those two are exactly what ** unpacking requires.
+    """
+
+    def to(self, device: str) -> _Batch: ...
+    def keys(self) -> Iterable[str]: ...
+    def __getitem__(self, key: str) -> torch.Tensor: ...
+
+
+class _Processor(Protocol):
+    def __call__(self, **kwargs: object) -> _Batch: ...
+
+
+class _SigLIP(Protocol):
+    def get_image_features(self, **kwargs: torch.Tensor) -> torch.Tensor: ...
+    def get_text_features(self, **kwargs: torch.Tensor) -> torch.Tensor: ...
+    def to(self, device: str) -> _SigLIP: ...
+    def eval(self) -> _SigLIP: ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +56,10 @@ _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 MODEL_ID = "google/siglip2-so400m-patch16-384"
 MODEL_REVISION = "dd658faac399427308559e2c3ac1e99cbe43845d"
 
-_model = None
-_processor = None
-_device = None
+# Filled by _load() on first use.
+_model: _SigLIP | None = None
+_processor: _Processor | None = None
+_device: str | None = None
 
 
 def _download_weights():
@@ -48,27 +83,36 @@ def _download_weights():
 
 def _load():
     global _model, _processor, _device
-    if _model is None:
-        import torch
-        from transformers import AutoModel, AutoProcessor
+    if _model is not None and _processor is not None and _device is not None:
+        return _model, _processor, _device
 
-        _device = "mps" if torch.backends.mps.is_available() else "cpu"
-        dtype = torch.float16 if _device == "mps" else torch.float32
-        try:
-            _model = AutoModel.from_pretrained(
-                MODEL_ID, revision=MODEL_REVISION, dtype=dtype, local_files_only=True
-            )
-        except OSError:
-            logger.info("downloading %s (~4.5GB, one time)", MODEL_ID)
-            _download_weights()
-            _model = AutoModel.from_pretrained(
-                MODEL_ID, revision=MODEL_REVISION, dtype=dtype, local_files_only=True
-            )
-        _model = _model.to(_device).eval()
-        _processor = AutoProcessor.from_pretrained(
-            MODEL_ID, revision=MODEL_REVISION, local_files_only=True
+    import torch
+    from transformers import AutoModel, AutoProcessor
+
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    dtype = torch.float16 if device == "mps" else torch.float32
+    try:
+        loaded = AutoModel.from_pretrained(
+            MODEL_ID, revision=MODEL_REVISION, dtype=dtype, local_files_only=True
         )
-    return _model, _processor, _device
+    except OSError:
+        logger.info("downloading %s (~4.5GB, one time)", MODEL_ID)
+        _download_weights()
+        loaded = AutoModel.from_pretrained(
+            MODEL_ID, revision=MODEL_REVISION, dtype=dtype, local_files_only=True
+        )
+    # The only unchecked step in the module: MODEL_ID pins a SigLIP-2
+    # checkpoint, so the object does carry the vision/text feature methods even
+    # though from_pretrained's declared type does not promise them.
+    model = cast(_SigLIP, loaded).to(device).eval()
+    processor = cast(
+        _Processor,
+        AutoProcessor.from_pretrained(MODEL_ID, revision=MODEL_REVISION, local_files_only=True),
+    )
+    # Built as locals and published together, so the return type carries no
+    # Optional for callers to re-check.
+    _model, _processor, _device = model, processor, device
+    return model, processor, device
 
 
 def embed_images(paths: list[Path], batch_size: int = 8) -> list[list[float]]:

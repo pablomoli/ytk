@@ -107,7 +107,8 @@ def _parse_ingest(path: Path, brain: Path) -> RecentIngest:
     fm_match = _FM_RE.match(raw)
     fm = _parse_frontmatter(fm_match.group(1)) if fm_match else {}
     body = raw[fm_match.end() :] if fm_match else raw
-    tags = fm.get("tags") if isinstance(fm.get("tags"), list) else []
+    raw_tags = fm.get("tags")
+    tags = raw_tags if isinstance(raw_tags, list) else []
     rel = str(path.relative_to(brain))
     return RecentIngest(
         title=str(fm.get("title") or path.stem),

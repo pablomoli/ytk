@@ -15,8 +15,39 @@ experiments/rerank_bench.py, and production settings follow that data.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from typing import TypeVar
+from collections.abc import Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, Protocol, TypeVar, cast
+
+if TYPE_CHECKING:  # torch is imported lazily inside the methods below
+    import torch
+
+
+# The Qwen surface this module actually uses. transformers builds the concrete
+# classes from the checkpoint at runtime and its declared from_pretrained
+# return type promises neither the tokenizer kwargs nor logits_to_keep, so the
+# shape is named here and asserted once in _load().
+class _Batch(Protocol):
+    """Tokenizer output: tensors that move to a device, then splat as **kwargs."""
+
+    def to(self, device: str) -> _Batch: ...
+    def keys(self) -> Iterable[str]: ...
+    def __getitem__(self, key: str) -> torch.Tensor: ...
+
+
+class _Tokenizer(Protocol):
+    def __call__(self, texts: list[str], **kwargs: object) -> _Batch: ...
+    def convert_tokens_to_ids(self, token: str) -> int: ...
+
+
+class _Logits(Protocol):
+    logits: torch.Tensor
+
+
+class _CausalLM(Protocol):
+    def __call__(self, **kwargs: object) -> _Logits: ...
+    def to(self, device: str) -> _CausalLM: ...
+    def eval(self) -> _CausalLM: ...
+
 
 T = TypeVar("T")
 
@@ -74,30 +105,51 @@ class QwenReranker:
         self._max_length = max_length
         self._batch = batch
         self._device = device  # None = MPS if available, else CPU
-        self._model = None
-        self._tokenizer = None
+        # Filled by _load() before any use.
+        self._model: _CausalLM | None = None
+        self._tokenizer: _Tokenizer | None = None
         self._yes_id: int | None = None
         self._no_id: int | None = None
 
-    def _load(self):
-        if self._model is None:
-            import torch
-            from transformers import AutoModelForCausalLM, AutoTokenizer
+    def _load(self) -> tuple[_CausalLM, _Tokenizer, int, int, str]:
+        """Load once, and hand back everything score() needs already narrowed."""
+        if (
+            self._model is not None
+            and self._tokenizer is not None
+            and self._yes_id is not None
+            and self._no_id is not None
+            and self._device is not None
+        ):
+            return self._model, self._tokenizer, self._yes_id, self._no_id, self._device
 
-            if self._device is None:
-                self._device = "mps" if torch.backends.mps.is_available() else "cpu"
-            self._tokenizer = AutoTokenizer.from_pretrained(
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        device = self._device or ("mps" if torch.backends.mps.is_available() else "cpu")
+        # The only unchecked step: MODEL_NAME pins a Qwen3 causal LM, whose
+        # tokenizer and forward do accept the kwargs used below even though
+        # from_pretrained's declared type does not promise them.
+        tokenizer = cast(
+            _Tokenizer,
+            AutoTokenizer.from_pretrained(
                 self._model_name, revision=self._revision, padding_side="left"
-            )
-            self._model = (
+            ),
+        )
+        model = (
+            cast(
+                _CausalLM,
                 AutoModelForCausalLM.from_pretrained(
                     self._model_name, revision=self._revision, torch_dtype=torch.float16
-                )
-                .to(self._device)
-                .eval()
+                ),
             )
-            self._yes_id = self._tokenizer.convert_tokens_to_ids("yes")
-            self._no_id = self._tokenizer.convert_tokens_to_ids("no")
+            .to(device)
+            .eval()
+        )
+        yes_id = tokenizer.convert_tokens_to_ids("yes")
+        no_id = tokenizer.convert_tokens_to_ids("no")
+        self._model, self._tokenizer = model, tokenizer
+        self._yes_id, self._no_id, self._device = yes_id, no_id, device
+        return model, tokenizer, yes_id, no_id, device
 
     def __call__(self, query: str, docs: Sequence[str]) -> list[float]:
         return self.score(query, docs)
@@ -106,22 +158,22 @@ class QwenReranker:
         """P(yes) per (query, doc) pair, batched for the MPS budget."""
         import torch
 
-        self._load()
+        model, tokenizer, yes_id, no_id, device = self._load()
         texts = [build_prompt(query, d) for d in docs]
         scores: list[float] = []
         with torch.no_grad():
             for i in range(0, len(texts), self._batch):
-                batch = self._tokenizer(
+                batch = tokenizer(
                     texts[i : i + self._batch],
                     padding=True,
                     truncation=True,
                     max_length=self._max_length,
                     return_tensors="pt",
-                ).to(self._device)
+                ).to(device)
                 # logits_to_keep=1: full-sequence logits are batch x seq x
                 # 152k vocab (~3 GB fp16 at 2560 tokens) and thrash MPS
                 # memory; only the final position is needed
-                logits = self._model(**batch, logits_to_keep=1).logits[:, -1, :]
-                pair = torch.stack([logits[:, self._no_id], logits[:, self._yes_id]], dim=1).float()
+                logits = model(**batch, logits_to_keep=1).logits[:, -1, :]
+                pair = torch.stack([logits[:, no_id], logits[:, yes_id]], dim=1).float()
                 scores.extend(torch.softmax(pair, dim=1)[:, 1].tolist())
         return scores

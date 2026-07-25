@@ -6,7 +6,31 @@ import json
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Any
+
+# What json.loads can actually hand back. Spelled out so the gh payloads below
+# are narrowed on the way in rather than trusted: an unexpected shape from the
+# CLI then reads as an empty field, not an AttributeError deep in the parse.
+type JsonValue = str | int | float | bool | list[JsonValue] | dict[str, JsonValue] | None
+
+
+def _as_dict(value: JsonValue) -> dict[str, JsonValue]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value: JsonValue) -> list[JsonValue]:
+    return value if isinstance(value, list) else []
+
+
+def _as_str(value: JsonValue) -> str:
+    return value if isinstance(value, str) else ""
+
+
+def _as_int(value: JsonValue) -> int | None:
+    """int() of a JSON scalar, or None when the field is absent or not numeric."""
+    if isinstance(value, bool) or value is None:
+        return None
+    return int(value) if isinstance(value, int | float | str) and str(value).isdigit() else None
+
 
 PROJECT_NUMBER = 3
 PROJECT_OWNER = "pablomoli"
@@ -108,41 +132,51 @@ class WorkboardClient:
                 ]
             )
         )
-        issue_state = {
-            int(issue["number"]): issue
-            for issue in issue_payload
-            if isinstance(issue, dict) and "number" in issue
-        }
+        issue_state: dict[int, dict[str, JsonValue]] = {}
+        for entry in _as_list(issue_payload):
+            issue = _as_dict(entry)
+            number = _as_int(issue.get("number"))
+            if number is not None:
+                issue_state[number] = issue
+
+        def _open_numbers(state: dict[str, JsonValue], field: str) -> tuple[int, ...]:
+            nodes = _as_list(_as_dict(state.get(field)).get("nodes"))
+            found = (
+                _as_int(_as_dict(n).get("number"))
+                for n in nodes
+                if _as_dict(n).get("state") == "OPEN"
+            )
+            return tuple(n for n in found if n is not None)
 
         items: list[WorkItem] = []
-        for raw_item in project_payload.get("items", []):
-            content = raw_item.get("content") or {}
-            if content.get("type") != "Issue" or "number" not in content:
+        for raw in _as_list(_as_dict(project_payload).get("items")):
+            raw_item = _as_dict(raw)
+            content = _as_dict(raw_item.get("content"))
+            number = _as_int(content.get("number"))
+            if content.get("type") != "Issue" or number is None:
                 continue
-            number = int(content["number"])
             state = issue_state.get(number, {})
-            blocked_by = tuple(
-                int(node["number"])
-                for node in state.get("blockedBy", {}).get("nodes", [])
-                if node.get("state") == "OPEN"
-            )
-            open_subissues = tuple(
-                int(node["number"])
-                for node in state.get("subIssues", {}).get("nodes", [])
-                if node.get("state") == "OPEN"
-            )
+            order = raw_item.get("order")
             item = WorkItem(
-                item_id=str(raw_item["id"]),
+                item_id=_as_str(raw_item.get("id")),
                 number=number,
-                title=str(content.get("title") or raw_item.get("title") or ""),
-                url=str(content.get("url") or ""),
-                priority=str(raw_item.get("priority") or ""),
-                area=str(raw_item.get("area") or ""),
-                kind=str(raw_item.get("kind") or ""),
-                stage=str(raw_item.get("stage") or ""),
-                order=float(raw_item.get("order") or float("inf")),
+                title=_as_str(content.get("title")) or _as_str(raw_item.get("title")),
+                url=_as_str(content.get("url")),
+                priority=_as_str(raw_item.get("priority")),
+                area=_as_str(raw_item.get("area")),
+                kind=_as_str(raw_item.get("kind")),
+                stage=_as_str(raw_item.get("stage")),
+                order=float(order)
+                if isinstance(order, int | float) and not isinstance(order, bool)
+                else float("inf"),
             )
-            items.append(replace(item, blocked_by=blocked_by, open_subissues=open_subissues))
+            items.append(
+                replace(
+                    item,
+                    blocked_by=_open_numbers(state, "blockedBy"),
+                    open_subissues=_open_numbers(state, "subIssues"),
+                )
+            )
 
         ordered = tuple(sorted(items, key=lambda item: (item.order, item.number)))
         in_progress = tuple(
@@ -198,7 +232,7 @@ class WorkboardClient:
         )
 
     @staticmethod
-    def _load_json(raw: str) -> Any:
+    def _load_json(raw: str) -> JsonValue:
         try:
             return json.loads(raw)
         except json.JSONDecodeError as exc:
