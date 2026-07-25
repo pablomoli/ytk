@@ -1,13 +1,13 @@
 {
   "epoch": "v2",
-  "authored": "2026-07-18",
+  "authored": "2026-07-24",
   "top_k": 10,
   "n_queries": 156,
   "tolerance": 0.02,
   "overall": {
     "hit@1": 0.717948717948718,
-    "hit@5": 0.9166666666666666,
-    "hit@10": 0.9487179487179487
+    "hit@5": 0.9102564102564102,
+    "hit@10": 0.9423076923076923
   },
   "per_bucket": {
     "memories": {
@@ -24,19 +24,19 @@
     },
     "videos": {
       "hit@1": 0.8484848484848485,
-      "hit@5": 0.9696969696969697,
-      "hit@10": 0.9696969696969697,
+      "hit@5": 0.9393939393939394,
+      "hit@10": 0.9393939393939394,
       "n": 33
     }
   },
   "provenance": {
     "query_file_sha256": "c7e86500c568513bcd8240bd5e37da86bd37711ac9d6794c9e07458e9ad6b558",
     "query_count": 156,
-    "corpus_fingerprint": "dae0af3e98d4f5ed13b441472751d19e57a2cb06f90dfa1313fe972cef611656",
+    "corpus_fingerprint": "7168d1a95a75837a204cf7545bf103b6f3a56b6eba3fe1a39d7e573ccc0ef5a4",
     "collection_counts": {
-      "videos": 114,
-      "memories": 3796,
-      "segments": 3430
+      "videos": 170,
+      "memories": 3932,
+      "segments": 5053
     },
     "collection_epoch": "v2",
     "embedding_model": "Qwen/Qwen3-Embedding-0.6B",
@@ -44,28 +44,593 @@
     "query_instruction": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: ",
     "max_seq_length": 3072,
     "top_k": 10,
-    "producing_git_commit": "c8b010ce3f606b9e6af9794f063f1ddd77565cb1"
+    "producing_git_commit": "5e79e731f195b9b6e091ce475bc8d0514c3bdd84"
   },
   "graded": {
-    "ndcg@10": 0.6982943232039929,
+    "ndcg@10": 0.6781460957594683,
     "n_queries": 156,
-    "label_coverage": 1.0,
-    "unjudged_pairs": [],
+    "label_coverage": 0.9096153846153846,
+    "unjudged_pairs": [
+      {
+        "query_id": "mem::inbox/memories/2026-07-16-planning-burst-2026-07-16-reframed-ytk-as-one-bi-9d9bb3.md",
+        "doc_id": "mem::journal_jul-23-2026-17866123292"
+      },
+      {
+        "query_id": "mem::inbox/memories/2026-07-16-planning-burst-2026-07-16-reframed-ytk-as-one-bi-9d9bb3.md",
+        "doc_id": "vid::6vThlsJ_ASE"
+      },
+      {
+        "query_id": "vid::auEozC5eUDw",
+        "doc_id": "vid::5dEp1ZpYDUg"
+      },
+      {
+        "query_id": "vid::auEozC5eUDw",
+        "doc_id": "vid::K-TgApoH24U"
+      },
+      {
+        "query_id": "vid::auEozC5eUDw",
+        "doc_id": "mem::note_sources_instagram_stephen_blum_code-2026-07-11-DaqZhEKjQp3"
+      },
+      {
+        "query_id": "vid::OU0v_G3-4Hw",
+        "doc_id": "vid::UZthGjcuTDs"
+      },
+      {
+        "query_id": "vid::OU0v_G3-4Hw",
+        "doc_id": "mem::note_sources_instagram_grace.of.spades722-2026-07-18-Da82Cd4pG4j"
+      },
+      {
+        "query_id": "vid::OU0v_G3-4Hw",
+        "doc_id": "mem::note_sources_instagram_spreadthenerd_-2026-06-19-DZuW-Qdt38u"
+      },
+      {
+        "query_id": "vid::OU0v_G3-4Hw",
+        "doc_id": "mem::note_sources_instagram_prof.ikka-2026-04-23-DXdWfrkMidT"
+      },
+      {
+        "query_id": "seg::HZAmbbTcQ3M_26",
+        "doc_id": "seg::9qOaII_PzGY_17"
+      },
+      {
+        "query_id": "seg::HZAmbbTcQ3M_26",
+        "doc_id": "seg::a6sYYrLTOjQ_28"
+      },
+      {
+        "query_id": "seg::OQbqEuaTMkI_25",
+        "doc_id": "seg::aPXDQPVH7Xk_6"
+      },
+      {
+        "query_id": "seg::yAPKzHrx3eo_24",
+        "doc_id": "seg::eCx3SSCcISo_18"
+      },
+      {
+        "query_id": "seg::yAPKzHrx3eo_24",
+        "doc_id": "seg::iQyg-KypKAA_17"
+      },
+      {
+        "query_id": "vid::9O0lQBEPL2U",
+        "doc_id": "mem::note_sources_instagram_tiat.place-2026-07-22-DbFZf6bhHsC"
+      },
+      {
+        "query_id": "vid::9O0lQBEPL2U",
+        "doc_id": "vid::xUnRQ9vLXxo"
+      },
+      {
+        "query_id": "vid::LSq485DvILM",
+        "doc_id": "vid::9O0lQBEPL2U"
+      },
+      {
+        "query_id": "vid::yAPKzHrx3eo",
+        "doc_id": "vid::5Qu2SkSQeBU"
+      },
+      {
+        "query_id": "seg::RWH4AIVRgvU_0",
+        "doc_id": "seg::iQyg-KypKAA_27"
+      },
+      {
+        "query_id": "seg::RWH4AIVRgvU_0",
+        "doc_id": "seg::xUnRQ9vLXxo_11"
+      },
+      {
+        "query_id": "seg::qCpY4K9jtOg_28",
+        "doc_id": "seg::5Qu2SkSQeBU_2"
+      },
+      {
+        "query_id": "seg::xafwfGVBxos_88",
+        "doc_id": "seg::a6sYYrLTOjQ_19"
+      },
+      {
+        "query_id": "seg::xafwfGVBxos_88",
+        "doc_id": "seg::IHbsfvbfAto_3"
+      },
+      {
+        "query_id": "vid::DNqsMXH6Eog",
+        "doc_id": "vid::RWH4AIVRgvU"
+      },
+      {
+        "query_id": "vid::JM1sIVIZYRg",
+        "doc_id": "mem::note_sources_instagram_stephen_blum_code-2026-07-04-DaYvHPcFwrk"
+      },
+      {
+        "query_id": "vid::JM1sIVIZYRg",
+        "doc_id": "mem::note_sources_instagram_bottomlinebydrishti-2026-07-17-Da5bNe3sQiN"
+      },
+      {
+        "query_id": "vid::JM1sIVIZYRg",
+        "doc_id": "vid::6MBq1paspVU"
+      },
+      {
+        "query_id": "vid::S9EGx6ik-18",
+        "doc_id": "vid::n0VhIVtviC0"
+      },
+      {
+        "query_id": "vid::S9EGx6ik-18",
+        "doc_id": "mem::memory_2026-07-19_ytk-growth-petri-dish-redesign-v3-after-second_049d92"
+      },
+      {
+        "query_id": "vid::S9EGx6ik-18",
+        "doc_id": "vid::BAVrwcPDa-k"
+      },
+      {
+        "query_id": "vid::S9EGx6ik-18",
+        "doc_id": "mem::note_second-brain_projects_ytk_session-031-brief"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::349r0xJFGNw_12"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::349r0xJFGNw_11"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::349r0xJFGNw_14"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::IHbsfvbfAto_18"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-24-spacecraft-786.md",
+        "doc_id": "mem::memory_2026-07-19_ytk-hub-polish-initiative-scoped-jul-2026-second_e28639"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-24-spacecraft-786.md",
+        "doc_id": "vid::vHm6Ua6Vmno"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-24-spacecraft-786.md",
+        "doc_id": "vid::V5UllFImvoE"
+      },
+      {
+        "query_id": "vid::rAzT5lcezPs",
+        "doc_id": "vid::iQyg-KypKAA"
+      },
+      {
+        "query_id": "vid::rAzT5lcezPs",
+        "doc_id": "vid::5Qu2SkSQeBU"
+      },
+      {
+        "query_id": "vid::rAzT5lcezPs",
+        "doc_id": "vid::vLWSIGxpfYA"
+      },
+      {
+        "query_id": "vid::kWMGG1zdGkA",
+        "doc_id": "vid::M3iI2l0ltbE"
+      },
+      {
+        "query_id": "vid::kWMGG1zdGkA",
+        "doc_id": "mem::memory_2026-07-23_ytk-session-034-shipped-the-filament-web-scms-r_68a772"
+      },
+      {
+        "query_id": "vid::kWMGG1zdGkA",
+        "doc_id": "mem::note_sources_instagram_s.tratus-2026-02-09-DUjesCpAIXL"
+      },
+      {
+        "query_id": "vid::kWMGG1zdGkA",
+        "doc_id": "mem::note_second-brain_projects_ytk_session-034-brief"
+      },
+      {
+        "query_id": "vid::kWMGG1zdGkA",
+        "doc_id": "vid::V5UllFImvoE"
+      },
+      {
+        "query_id": "vid::kWMGG1zdGkA",
+        "doc_id": "vid::5zlfJW2VGLM"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_39",
+        "doc_id": "seg::iQyg-KypKAA_36"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_39",
+        "doc_id": "seg::hZCBtPDe8-g_11"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_39",
+        "doc_id": "seg::hZCBtPDe8-g_14"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_39",
+        "doc_id": "seg::hZCBtPDe8-g_16"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_39",
+        "doc_id": "seg::hZCBtPDe8-g_10"
+      },
+      {
+        "query_id": "seg::y1QId4-F2I0_7",
+        "doc_id": "seg::a6sYYrLTOjQ_16"
+      },
+      {
+        "query_id": "seg::zVWYW0K3ikg_1",
+        "doc_id": "seg::ODc9oE9ND-0_8"
+      },
+      {
+        "query_id": "seg::zVWYW0K3ikg_1",
+        "doc_id": "seg::ODc9oE9ND-0_9"
+      },
+      {
+        "query_id": "seg::zVWYW0K3ikg_1",
+        "doc_id": "seg::ODc9oE9ND-0_7"
+      },
+      {
+        "query_id": "vid::l6DKRf-fAAM",
+        "doc_id": "mem::note_sources_instagram_prof.ikka-2026-04-23-DXdWfrkMidT"
+      },
+      {
+        "query_id": "vid::l6DKRf-fAAM",
+        "doc_id": "vid::IHbsfvbfAto"
+      },
+      {
+        "query_id": "vid::l6DKRf-fAAM",
+        "doc_id": "mem::note_sources_instagram_rndyrbrts-2026-05-30-DY8TYwpCd8P"
+      },
+      {
+        "query_id": "vid::l6DKRf-fAAM",
+        "doc_id": "vid::9JHVW2dcExA"
+      },
+      {
+        "query_id": "vid::l6DKRf-fAAM",
+        "doc_id": "mem::note_second-brain_projects_youtube-channel_index"
+      },
+      {
+        "query_id": "vid::uCsf49OwvmU",
+        "doc_id": "mem::note_sources_instagram_theathletebrain-2026-05-25-DYwez4fT-Z9"
+      },
+      {
+        "query_id": "vid::uCsf49OwvmU",
+        "doc_id": "mem::note_sources_instagram_shaofit-2026-07-14-DayZY2BjpGR"
+      },
+      {
+        "query_id": "vid::ffuxDr_QCAI",
+        "doc_id": "vid::iQyg-KypKAA"
+      },
+      {
+        "query_id": "seg::QNW2IAj9IIE_17",
+        "doc_id": "seg::YERjv5J9dng_50"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_25",
+        "doc_id": "seg::m6ucYXJyjAk_11"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_25",
+        "doc_id": "seg::D8GOeCFFby4_6"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_25",
+        "doc_id": "seg::wjZofJX0v4M_9"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_25",
+        "doc_id": "seg::PplmzlgE0kg_57"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_25",
+        "doc_id": "seg::nZrZOI0oRuw_5"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-14-epicmap-1407.md",
+        "doc_id": "mem::memory_2026-07-19_epicmap-parcel-audit-follow-through-2026-07-19-ev_f5f72b"
+      },
+      {
+        "query_id": "vid::S5Tv_22ojbw",
+        "doc_id": "vid::UZthGjcuTDs"
+      },
+      {
+        "query_id": "vid::S5Tv_22ojbw",
+        "doc_id": "mem::memory_2026-07-19_component-scout-workflow-verdict-jul-2026-swept_9d7636"
+      },
+      {
+        "query_id": "vid::S5Tv_22ojbw",
+        "doc_id": "mem::note_sources_instagram_rndyrbrts-2026-04-02-DWpSK4uDhIO"
+      },
+      {
+        "query_id": "vid::UnzD_bwylWs",
+        "doc_id": "vid::9O0lQBEPL2U"
+      },
+      {
+        "query_id": "vid::AF3XJT9YKpM",
+        "doc_id": "vid::9qOaII_PzGY"
+      },
+      {
+        "query_id": "seg::wC5ji4M4FhU_4",
+        "doc_id": "seg::9qOaII_PzGY_22"
+      },
+      {
+        "query_id": "seg::AF3XJT9YKpM_57",
+        "doc_id": "seg::IHbsfvbfAto_17"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-19-epicmap-1850.md",
+        "doc_id": "mem::note_sources_instagram_rndyrbrts-2026-05-18-DYeHzvgCURl"
+      },
+      {
+        "query_id": "vid::kYhb7w2GNIs",
+        "doc_id": "mem::note_sources_instagram_stsmhood-2026-06-16-DZqF-X5OsMz"
+      },
+      {
+        "query_id": "vid::kYhb7w2GNIs",
+        "doc_id": "mem::memory_2026-07-22_growth-page-redesign-checkpointed-session-032-20_d0509f"
+      },
+      {
+        "query_id": "vid::kYhb7w2GNIs",
+        "doc_id": "vid::349r0xJFGNw"
+      },
+      {
+        "query_id": "vid::GFz6KqZurFY",
+        "doc_id": "mem::note_sources_instagram_bottomlinebydrishti-2026-07-17-Da5bNe3sQiN"
+      },
+      {
+        "query_id": "vid::GFz6KqZurFY",
+        "doc_id": "mem::memory_2026-07-21_correction-to-the-2026-07-21-ytk-hubness-investiga_d591aa"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::349r0xJFGNw_20"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::vHm6Ua6Vmno_3"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::V5UllFImvoE_9"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::V5UllFImvoE_0"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::349r0xJFGNw_18"
+      },
+      {
+        "query_id": "seg::DNqsMXH6Eog_2",
+        "doc_id": "seg::n0VhIVtviC0_5"
+      },
+      {
+        "query_id": "seg::DNqsMXH6Eog_2",
+        "doc_id": "seg::n0VhIVtviC0_6"
+      },
+      {
+        "query_id": "vid::jdJ5jg0XSmU",
+        "doc_id": "mem::note_sources_instagram_rndyrbrts-2026-04-17-DXP0JAehshp"
+      },
+      {
+        "query_id": "vid::jdJ5jg0XSmU",
+        "doc_id": "vid::E20aML7vees"
+      },
+      {
+        "query_id": "vid::jdJ5jg0XSmU",
+        "doc_id": "vid::xUnRQ9vLXxo"
+      },
+      {
+        "query_id": "vid::HnVvjePLvT0",
+        "doc_id": "mem::tiktok_gabbe_aep-2025-04-11-7492102018845199638-this-movie-is-so-we"
+      },
+      {
+        "query_id": "vid::LYDF1s0OUU0",
+        "doc_id": "vid::eCx3SSCcISo"
+      },
+      {
+        "query_id": "vid::LYDF1s0OUU0",
+        "doc_id": "mem::note_sources_instagram_bottomlinebydrishti-2026-07-17-Da5bNe3sQiN"
+      },
+      {
+        "query_id": "vid::LYDF1s0OUU0",
+        "doc_id": "mem::note_sources_instagram_lara.localhost-2026-07-17-Da5T6MSBBHs"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_42",
+        "doc_id": "seg::Q1HOKrNeh2M_65"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_42",
+        "doc_id": "seg::m6ucYXJyjAk_28"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_42",
+        "doc_id": "seg::wE1ZgJdt4uM_8"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_42",
+        "doc_id": "seg::Q1HOKrNeh2M_72"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_42",
+        "doc_id": "seg::wjZofJX0v4M_2"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_42",
+        "doc_id": "seg::wE1ZgJdt4uM_9"
+      },
+      {
+        "query_id": "seg::YmLp8qe87A0_42",
+        "doc_id": "seg::Q1HOKrNeh2M_66"
+      },
+      {
+        "query_id": "seg::aiiIGDnT6JQ_16",
+        "doc_id": "seg::ZOZSIqsLv9Y_2"
+      },
+      {
+        "query_id": "vid::xafwfGVBxos",
+        "doc_id": "mem::note_sources_instagram_stephen_blum_code-2026-07-11-DaqZhEKjQp3"
+      },
+      {
+        "query_id": "vid::xafwfGVBxos",
+        "doc_id": "vid::5dEp1ZpYDUg"
+      },
+      {
+        "query_id": "vid::0iEfNt5vYWQ",
+        "doc_id": "mem::note_sources_instagram_justbustin-2026-07-21-DbElxdZRoPf"
+      },
+      {
+        "query_id": "vid::0iEfNt5vYWQ",
+        "doc_id": "mem::tiktok_fukjacobfuknjones-2026-06-21-7653939596929158430-replying-to"
+      },
+      {
+        "query_id": "vid::0iEfNt5vYWQ",
+        "doc_id": "mem::tiktok_gabbe_aep-2025-04-11-7492102018845199638-this-movie-is-so-we"
+      },
+      {
+        "query_id": "vid::0iEfNt5vYWQ",
+        "doc_id": "mem::note_sources_instagram_xeocho-2026-07-20-DbB514pxKp0"
+      },
+      {
+        "query_id": "vid::0iEfNt5vYWQ",
+        "doc_id": "mem::note_sources_instagram_kylascan-2026-07-22-DbG7-9cStZ7"
+      },
+      {
+        "query_id": "vid::g8N_5WZzUfg",
+        "doc_id": "mem::note_sources_instagram_stsmhood-2026-06-16-DZqF-X5OsMz"
+      },
+      {
+        "query_id": "vid::g8N_5WZzUfg",
+        "doc_id": "vid::h99tVz8sBZI"
+      },
+      {
+        "query_id": "vid::g8N_5WZzUfg",
+        "doc_id": "vid::K-TgApoH24U"
+      },
+      {
+        "query_id": "vid::g8N_5WZzUfg",
+        "doc_id": "mem::note_sources_instagram_enjoyalyssa-2026-07-06-DabjqcexXCy"
+      },
+      {
+        "query_id": "vid::g8N_5WZzUfg",
+        "doc_id": "mem::note_sources_instagram_rndyrbrts-2026-04-07-DW2EqyBh4LV"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_26",
+        "doc_id": "seg::iQyg-KypKAA_37"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_26",
+        "doc_id": "seg::hZCBtPDe8-g_10"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_26",
+        "doc_id": "seg::hZCBtPDe8-g_16"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_26",
+        "doc_id": "seg::hZCBtPDe8-g_11"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_26",
+        "doc_id": "seg::iQyg-KypKAA_38"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_26",
+        "doc_id": "seg::hZCBtPDe8-g_12"
+      },
+      {
+        "query_id": "seg::251hsWgoTPM_26",
+        "doc_id": "seg::hZCBtPDe8-g_13"
+      },
+      {
+        "query_id": "seg::6MBq1paspVU_55",
+        "doc_id": "seg::xUnRQ9vLXxo_11"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-13-ytk-3006.md",
+        "doc_id": "mem::memory_2026-07-20_built-a-full-ytk-architecture-reference-chart-tra_3b9f24"
+      },
+      {
+        "query_id": "vid::8GRmLR__OGQ",
+        "doc_id": "vid::qCpY4K9jtOg"
+      },
+      {
+        "query_id": "vid::8GRmLR__OGQ",
+        "doc_id": "vid::IHbsfvbfAto"
+      },
+      {
+        "query_id": "vid::8GRmLR__OGQ",
+        "doc_id": "vid::iQyg-KypKAA"
+      },
+      {
+        "query_id": "seg::8FT-oz9aZU4_0",
+        "doc_id": "seg::YERjv5J9dng_17"
+      },
+      {
+        "query_id": "seg::8FT-oz9aZU4_0",
+        "doc_id": "seg::YERjv5J9dng_16"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-24-epicmap-epicmap-feature-analytics-tab-3321.md",
+        "doc_id": "vid::xUnRQ9vLXxo"
+      },
+      {
+        "query_id": "vid::9lpbN7FXfy8",
+        "doc_id": "mem::note_sources_instagram_buysiders-2026-05-11-DYM3WcIEX93"
+      },
+      {
+        "query_id": "vid::vR1hF_N6i_c",
+        "doc_id": "mem::tiktok_joshmakeshift-2026-05-30-7645493710184058125-combining-my-ca"
+      },
+      {
+        "query_id": "vid::vR1hF_N6i_c",
+        "doc_id": "vid::V5UllFImvoE"
+      },
+      {
+        "query_id": "vid::vR1hF_N6i_c",
+        "doc_id": "mem::note_sources_instagram_s.tratus-2026-02-09-DUjesCpAIXL"
+      },
+      {
+        "query_id": "vid::vR1hF_N6i_c",
+        "doc_id": "mem::note_sources_instagram_splintech.designs-2026-06-08-DZTeCiwNVj2"
+      },
+      {
+        "query_id": "vid::vR1hF_N6i_c",
+        "doc_id": "mem::note_second-brain_projects_ytk_session-034-brief"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_10",
+        "doc_id": "seg::V5UllFImvoE_5"
+      },
+      {
+        "query_id": "seg::OQbqEuaTMkI_32",
+        "doc_id": "seg::h99tVz8sBZI_9"
+      }
+    ],
     "judge": {
       "model": "claude-haiku-4-5-20251001",
       "prompt_version": "qrels-v1"
     },
     "per_bucket": {
       "memories": {
-        "ndcg@10": 0.6870489352836822,
+        "ndcg@10": 0.6841606024269846,
         "n": 79
       },
       "segments": {
-        "ndcg@10": 0.6616888925400457,
+        "ndcg@10": 0.6269616330839044,
         "n": 44
       },
       "videos": {
-        "ndcg@10": 0.7740223412318176,
+        "ndcg@10": 0.7319936815470749,
         "n": 33
       }
     }
