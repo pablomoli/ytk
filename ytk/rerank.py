@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Second-stage reranking with Qwen3-Reranker-0.6B (#86).
 
 The bi-encoder (store) fetches candidates from vector geometry computed

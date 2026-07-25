@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Density terrain for the 2D map layouts: KDE contours + SCMS ridges.
 
 The math core is hand-rolled (numpy only) on purpose — this module doubles

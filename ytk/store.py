@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """ChromaDB vector store for ytk — video-level and segment-level embeddings."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """AI enrichment of YouTube / Instagram content via the Claude Agent SDK.
 
 Runs enrichment through Claude Code (Agent SDK) instead of the Anthropic API

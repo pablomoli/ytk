@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """TikTok favorites discovery via session replay of the user's own web session.
 
 TikTok signs its web API params (X-Bogus) in page JavaScript, so request-forging

@@ -104,17 +104,22 @@ ignore = [
 quote-style = "double"
 
 [tool.pyright]
-# The whole package, not one file. ytk/ridges.py alone used to pass while the
-# package carried 120 errors, so `uv run pyright` reported a truthful-looking
-# zero for a scope nobody assumes (#122). Keeping the scope honest is the point:
-# the number only means something if it covers what people think it covers.
+# Strict is the default, and this is a ratchet: a new module is strict from the
+# moment it is written, and an existing one leaves the exception list for good
+# once it passes. The list of files carrying `# pyright: basic` can only shrink.
 #
-# Still basic, not strict: strict on ridges.py alone produced 328 diagnostics,
-# all but 3 the reportUnknown* family, because numpy's stubs return
-# ndarray[Unknown, Unknown] from nearly every call. Ratcheting to strict is a
-# separate, per-module job.
+# Why per-file opt-out rather than a flat basic: flipping strict on everything
+# at once reports 3251 errors, and 3144 of them (96.7%) are the reportUnknown*
+# and reportMissingType* families — third-party stubs returning Unknown, plus
+# unannotated parameters. That is annotation debt, not defects; the real bugs
+# this sweep found were all caught by basic. Strict earns its place by making
+# *new* code checkable, so it is enforced where it is already free and declared
+# outstanding everywhere else instead of being quietly switched off.
+#
+# Strict-clean today: __init__, cache, profile_grounding, triage, ui/__init__,
+# workboard, workboard_cli. Everything else carries the opt-out header.
 include = ["ytk"]
-typeCheckingMode = "basic"
+typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 # eval marks live retrieval-gate runs (loads the encoder, hits the real

@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Synthesis engine for ytk's interest model.
 
 Reads every note's embedding + enrichment from the ChromaDB video collection,

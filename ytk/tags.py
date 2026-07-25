@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Interactive tag consolidation (hub /tags route).
 
 The 439-tag vocabulary is ~83% singletons, much of it synonym drift

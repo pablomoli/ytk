@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Interest-model data types and snapshot persistence for ytk.
 
 A snapshot is the durable artifact the synthesis engine produces: the user's

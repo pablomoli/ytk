@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Channels surface — the creators you consume, aggregated from note metadata.
 
 Unlike the movie/book rec surfaces, this needs no extraction and no external API:

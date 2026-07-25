@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Screenshot capture into the vault — shared by `ytk snap` (clipboard via
 pngpaste) and the hub's POST /api/snap (phone screenshots over Tailscale)."""
 

@@ -1,3 +1,6 @@
+# pyright: basic
+# Not strict-clean yet (#122). Delete these two lines once the module
+# passes strict — the list of files carrying them only shrinks.
 """Reddit subreddit-feed discovery via the user's logged-in session.
 
 The sign-free flavor of the Zen-session ingestion primitive: Reddit does not
