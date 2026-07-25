@@ -1,0 +1,174 @@
+{
+ "total": 4068,
+ "themed": 295,
+ "cats": {
+  "memory": 3538,
+  "instagram": 201,
+  "youtube": 171,
+  "project-note": 71,
+  "vault": 43,
+  "memo": 14,
+  "tiktok": 10,
+  "journal": 5,
+  "pinterest": 5,
+  "reddit": 4,
+  "screenshots": 3,
+  "web": 3
+ },
+ "before": [
+  {
+   "label": "epicmap",
+   "n": 2062,
+   "kind": "path"
+  },
+  {
+   "label": "other",
+   "n": 1037,
+   "kind": "other"
+  },
+  {
+   "label": "niloc",
+   "n": 263,
+   "kind": "path"
+  },
+  {
+   "label": "usf",
+   "n": 188,
+   "kind": "path"
+  },
+  {
+   "label": "hacklytics-goldenbyte",
+   "n": 169,
+   "kind": "path"
+  },
+  {
+   "label": "ytk",
+   "n": 154,
+   "kind": "path"
+  },
+  {
+   "label": "config",
+   "n": 97,
+   "kind": "path"
+  },
+  {
+   "label": "agentic coding & ai-agent tooling",
+   "n": 50,
+   "kind": "theme"
+  },
+  {
+   "label": "3d/vfx & motion-design craft",
+   "n": 47,
+   "kind": "theme"
+  }
+ ],
+ "after_excluded": [
+  {
+   "label": "epicmap",
+   "n": 2062,
+   "kind": "path"
+  },
+  {
+   "label": "ai-building",
+   "n": 429,
+   "kind": "path"
+  },
+  {
+   "label": "visual-craft",
+   "n": 133,
+   "kind": "path"
+  },
+  {
+   "label": "mind-systems",
+   "n": 48,
+   "kind": "theme"
+  },
+  {
+   "label": "playful-tools",
+   "n": 37,
+   "kind": "theme"
+  },
+  {
+   "label": "youtube-channel",
+   "n": 23,
+   "kind": "path"
+  },
+  {
+   "label": "combat-sports",
+   "n": 23,
+   "kind": "theme"
+  },
+  {
+   "label": "film",
+   "n": 16,
+   "kind": "theme"
+  },
+  {
+   "label": "maker",
+   "n": 15,
+   "kind": "theme"
+  },
+  {
+   "label": "unplaced",
+   "n": 1282,
+   "kind": "other"
+  }
+ ],
+ "after_bucketed": [
+  {
+   "label": "epicmap",
+   "n": 2062,
+   "kind": "path"
+  },
+  {
+   "label": "hackathons",
+   "n": 620,
+   "kind": "path"
+  },
+  {
+   "label": "ai-building",
+   "n": 429,
+   "kind": "path"
+  },
+  {
+   "label": "visual-craft",
+   "n": 133,
+   "kind": "path"
+  },
+  {
+   "label": "mind-systems",
+   "n": 48,
+   "kind": "theme"
+  },
+  {
+   "label": "playful-tools",
+   "n": 37,
+   "kind": "theme"
+  },
+  {
+   "label": "youtube-channel",
+   "n": 23,
+   "kind": "path"
+  },
+  {
+   "label": "combat-sports",
+   "n": 23,
+   "kind": "theme"
+  },
+  {
+   "label": "film",
+   "n": 16,
+   "kind": "theme"
+  },
+  {
+   "label": "maker",
+   "n": 15,
+   "kind": "theme"
+  },
+  {
+   "label": "unplaced",
+   "n": 662,
+   "kind": "other"
+  }
+ ]
+}
