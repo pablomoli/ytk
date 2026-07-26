@@ -43,6 +43,24 @@ PROBE = """
 """
 
 
+# The page no longer scrolls the document (#134): the region below the nav is its
+# own scroll container and the inbox grid scrolls inside that. Scrolling the
+# window would be a silent no-op, which would quietly turn every "scrolled" check
+# below into a duplicate of its unscrolled twin.
+SCROLL = """
+() => {
+  const targets = [document.scrollingElement, ...document.querySelectorAll('.hub-outlet, .grid-col')];
+  let moved = 0;
+  for (const el of targets) {
+    if (!el) continue;
+    el.scrollTop = 400;
+    moved = Math.max(moved, el.scrollTop);
+  }
+  return moved;
+}
+"""
+
+
 def check(page, label: str, failures: list[str]) -> None:
     m = page.evaluate(PROBE)
     ok = m["ingestFound"] and m["ingestHittable"] and m["railBottomPastFold"] <= 0
@@ -76,7 +94,10 @@ def main() -> int:
                 page.wait_for_selector(".rail", timeout=20000)
                 page.wait_for_timeout(2000)
                 check(page, f"{width}x{height} motion={motion}", failures)
-                page.evaluate("window.scrollTo(0, 400)")
+                moved = page.evaluate(SCROLL)
+                if not moved:
+                    failures.append(f"{width}x{height} motion={motion} nothing scrolled")
+                    print(f"  FAIL {width}x{height} motion={motion}: no scroll container moved")
                 page.wait_for_timeout(300)
                 check(page, f"{width}x{height} motion={motion} scrolled", failures)
                 ctx.close()
