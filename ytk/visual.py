@@ -333,6 +333,9 @@ def index_covers(limit: int | None = None, progress=None, skip_existing: bool = 
     """
     from . import store
 
+    if not store.visual_index_ok():
+        return 0
+
     items = iter_covers()
     if skip_existing:
         have = store.visual_ids()
@@ -387,9 +390,14 @@ def sync_pending_visual() -> tuple[int, int]:
     not yet indexed, and evicts entries whose item has left the queue (ingested
     or removed) — the index always mirrors the queue exactly. Returns
     (embedded, evicted)."""
+    from . import store
+
+    if not store.visual_index_ok():
+        return 0, 0
+
     import hashlib
 
-    from . import reels, store
+    from . import reels
 
     pending = reels.load_state(reels.STATE_PATH).pending
     current = {it.url for it in pending}
@@ -435,6 +443,9 @@ def sync_pending_visual() -> tuple[int, int]:
 def embed_cover_for_save(image_path: Path, item_id: str, metadata: dict) -> bool:
     """Ingest-time hook: embed one cover. Never raises; returns success."""
     from . import store
+
+    if not store.visual_index_ok():
+        return False
 
     try:
         emb = embed_images([image_path])[0]
