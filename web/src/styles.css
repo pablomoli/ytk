@@ -2307,11 +2307,14 @@ body {
   gap: 0.65rem;
 }
 .shelf-head {
+  /* An aisle sign, not a divider: sized to its label, short accent tick
+     underneath, no page-wide rule. */
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
-  border-bottom: 1px solid #262626;
-  padding: 0 0.1rem 0.4rem;
+  gap: 0.55rem;
+  align-self: flex-start;
+  padding: 0 0.15rem 0.3rem;
+  border-bottom: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .shelf-name {
   margin: 0;
@@ -2473,6 +2476,14 @@ body {
      shelf, whatever each card's text stack did above it. */
   margin-top: auto;
   padding-top: 0.5rem;
+}
+.rec-actions .btn {
+  /* Three natural-width buttons need ~167px against ~126px of card content;
+     the card's overflow:hidden was beheading "skip". Equal shares fit. */
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: 0;
+  text-align: center;
 }
 
 /* pixel dissolve — cells fade on a per-cell delay set from the Bayer order */

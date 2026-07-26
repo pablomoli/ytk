@@ -157,10 +157,13 @@ function RecsPage() {
   } else {
     body = shelves.map((shelf) => (
       <section key={shelf.name} className="shelf" aria-label={shelf.name}>
-        <header className="shelf-head">
+        {/* div, not <header>: theme.css styles the bare header element as
+            page chrome (full-width bg1 band + border), which is exactly the
+            look an aisle sign must not have. */}
+        <div className="shelf-head">
           <h2 className={`shelf-name${shelf.name === MY_LIST ? " mine" : ""}`}>{shelf.name}</h2>
           <span className="count">{shelf.recs.length}</span>
-        </header>
+        </div>
         <div className="shelf-row">
           {shelf.recs.map((r) => (
             <RecCardView key={r.key} rec={r} onStatus={toggleStatus} />
