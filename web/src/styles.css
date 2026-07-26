@@ -1768,14 +1768,20 @@ body {
   line-height: 1;
 }
 
+/* Fixed and portaled to <body>, not absolute inside .source-pull: the rail
+   clips its overflow, so a child popover is cut off at the container edge and
+   the confirm button ends up unreachable on a laptop-height window. Left/top
+   are written inline from the caret's rect. */
 .source-pull-menu {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  right: 0;
-  z-index: 20;
+  position: fixed;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  width: 200px;
+  box-sizing: border-box;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
   min-width: 10rem;
   padding: 0.5rem;
   background: var(--panel, #1c1a16);
