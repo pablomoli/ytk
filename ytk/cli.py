@@ -15,6 +15,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import chromadb
 import click
 from dotenv import load_dotenv
 from rich import box
@@ -22,6 +23,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from .chroma_migrate import copy_collections, write_report
 from .chroma_runtime import launchd_plist, runtime_config, server_arguments, wait_for_chroma
 from .config import load_config
 from .enrich import enrich
@@ -2730,6 +2732,39 @@ def chroma_install():
     )
     console.print(f"[green]Installed:[/] {_CHROMA_PLIST}")
     console.print(f"Chroma: http://{cfg.host}:{cfg.port}  Data: {cfg.server_path}")
+
+
+@chroma_command.command(name="migrate")
+@click.option("--resume", is_flag=True, help="Resume an interrupted migration safely.")
+@click.option(
+    "--batch-size",
+    type=click.IntRange(min=1),
+    default=256,
+    show_default=True,
+    help="Records copied per request.",
+)
+def chroma_migrate(resume: bool, batch_size: int):
+    """Copy healthy legacy collections into the local Chroma server."""
+    cfg = runtime_config()
+    if cfg.mode != "http":
+        raise click.ClickException("CHROMA_URL must select the local Chroma HTTP server")
+    if os.environ.get("YTK_VISUAL_INDEX", "on").strip().lower() != "off":
+        raise click.ClickException("set YTK_VISUAL_INDEX=off before migrating")
+    if cfg.legacy_path.resolve() == cfg.server_path.resolve():
+        raise click.ClickException("CHROMA_PATH and CHROMA_SERVER_PATH must be different")
+
+    source = chromadb.PersistentClient(path=str(cfg.legacy_path))
+    target = chromadb.HttpClient(host=cfg.host, port=cfg.port, ssl=cfg.ssl)
+    report = copy_collections(
+        source,
+        target,
+        resume=resume,
+        batch_size=batch_size,
+    )
+    report_path = write_report(report, Path.home() / ".ytk" / "recovery")
+    for name, count in report.collections.items():
+        console.print(f"{name}: {count}")
+    console.print(f"[green]Migration complete:[/] {report_path}")
 
 
 @chroma_command.command(name="restart")
