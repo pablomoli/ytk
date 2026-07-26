@@ -1,4 +1,3 @@
-// PROTOTYPE (grove workshop) - data-native topology generator (E2).
 // Consumes /api/grove bucket snapshots (average-linkage cluster hierarchy,
 // scripts/grove_lab/dendro.py) and grows a TreeNode tree whose STRUCTURE is
 // the data: limb length = cluster persistence, girth = note mass via the

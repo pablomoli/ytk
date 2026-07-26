@@ -120,9 +120,8 @@ ignore = [
 quote-style = "double"
 
 [tool.pyright]
-# Strict is the default. A new module is strict from the
-# moment it is written, and an existing one leaves the exception list for good
-# once it passes. The list of files carrying `# pyright: basic` can only shrink.
+# Strict is the default. The list of files carrying `# pyright: basic` can only
+# shrink.
 # Per-file basic headers isolate legacy annotation and third-party-stub debt.
 # Promotion runs leaves-first because strict modules inherit unknown types from
 # basic dependencies. Cross-module private API usage is resolved before
@@ -133,10 +132,8 @@ typeCheckingMode = "strict"
 [tool.pytest.ini_options]
 # eval marks live retrieval-gate runs (loads the encoder, hits the real
 # chroma store); the fast suite skips them. Run explicitly: pytest -m eval
-# A unit test has no business running for a minute; the timeout exists so a
-# wedged test (a stray browser, an unstubbed network pull) fails loudly instead
-# of hanging CI or a developer's terminal forever (#114). signal method so it
-# can interrupt blocking calls inside C extensions, not just between them.
+# The timeout exposes stray browsers, unstubbed network pulls, and other blocked
+# calls. The signal method can interrupt blocking C extensions.
 addopts = "-m 'not eval' --timeout=60 --timeout-method=signal"
 markers = [
     "eval: live retrieval regression gate (real store + encoder)",
