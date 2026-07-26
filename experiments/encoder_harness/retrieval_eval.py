@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from embed import MODELS  # noqa: E402  (same directory)
+from embed import MODELS
 
 
 def hit_ranks(space: dict, queries: list[dict], model_cache: dict) -> list[int]:
@@ -73,9 +73,13 @@ def main() -> None:
         z = np.load(data / f"{key}.npz", allow_pickle=False)
         model_key = next(m for m in sorted(MODELS, key=len, reverse=True) if key.startswith(m))
         spaces[key] = {
-            "key": key, "model_key": model_key, "parts": z["parts"],
-            "part_doc": z["part_doc"], "ids": list(z["ids"]),
-            "buckets": list(z["buckets"]), "dims": z["parts"].shape[1],
+            "key": key,
+            "model_key": model_key,
+            "parts": z["parts"],
+            "part_doc": z["part_doc"],
+            "ids": list(z["ids"]),
+            "buckets": list(z["buckets"]),
+            "dims": z["parts"].shape[1],
         }
 
     cache: dict = {}
@@ -94,11 +98,11 @@ def main() -> None:
     base = ranks.get(args.baseline)
     for key, rk in ranks.items():
         entry = {
-            "hit@1": hits(rk, all_idx, 1), "hit@5": hits(rk, all_idx, 5),
+            "hit@1": hits(rk, all_idx, 1),
+            "hit@5": hits(rk, all_idx, 5),
             "hit@10": hits(rk, all_idx, 10),
             "per_bucket": {
-                b: {"hit@5": hits(rk, idx, 5), "n": len(idx)}
-                for b, idx in bucket_idx.items()
+                b: {"hit@5": hits(rk, idx, 5), "n": len(idx)} for b, idx in bucket_idx.items()
             },
         }
         if base is not None and key != args.baseline:
@@ -108,7 +112,8 @@ def main() -> None:
                 deltas.append(hits(rk, list(sample), 5) - hits(base, list(sample), 5))
             lo, hi = np.percentile(deltas, [2.5, 97.5])
             entry["delta_hit@5_vs_baseline"] = {
-                "mean": float(np.mean(deltas)), "ci95": [float(lo), float(hi)],
+                "mean": float(np.mean(deltas)),
+                "ci95": [float(lo), float(hi)],
                 "significant": bool(lo > 0 or hi < 0),
             }
         report["spaces"][key] = entry

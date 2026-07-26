@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from embed import MODELS  # noqa: E402
+from embed import MODELS
 
 LOG = Path("/tmp/ytk-encoder-eval.log")
 N_DOCS = 100
@@ -37,8 +37,7 @@ def embed_batch(model, tokenizer, texts: list[str]):
     import mlx.core as mx
     import numpy as np
 
-    enc = tokenizer(texts, return_tensors="mlx", padding=True,
-                    truncation=True, max_length=MAX_SEQ)
+    enc = tokenizer(texts, return_tensors="mlx", padding=True, truncation=True, max_length=MAX_SEQ)
     out = model(enc["input_ids"], attention_mask=enc.get("attention_mask"))
     embs = np.asarray(out.text_embeds.astype(mx.float32))
     return embs / np.linalg.norm(embs, axis=1, keepdims=True)
@@ -65,20 +64,24 @@ def main() -> None:
     b1 = np.vstack([embed_batch(model, tokenizer, [t]) for t in texts])
     t_b1 = time.perf_counter() - t0
     cos = (b1 * ref_vecs).sum(axis=1)
-    log(f"batch=1: {N_DOCS / t_b1:.1f} vec/s | cosine vs PyTorch: "
+    log(
+        f"batch=1: {N_DOCS / t_b1:.1f} vec/s | cosine vs PyTorch: "
         f"min {cos.min():.5f}, mean {cos.mean():.5f}, "
-        f">{0.999} for {(cos > 0.999).mean():.0%}")
+        f">{0.999} for {(cos > 0.999).mean():.0%}"
+    )
 
     t0 = time.perf_counter()
-    b8 = np.vstack([embed_batch(model, tokenizer, texts[i:i + 8])
-                    for i in range(0, N_DOCS, 8)])
+    b8 = np.vstack([embed_batch(model, tokenizer, texts[i : i + 8]) for i in range(0, N_DOCS, 8)])
     t_b8 = time.perf_counter() - t0
     cos_b8_b1 = (b8 * b1).sum(axis=1)
-    log(f"batch=8: {N_DOCS / t_b8:.1f} vec/s | cosine vs batch=1: "
-        f"min {cos_b8_b1.min():.5f} (padding/pooling check)")
+    log(
+        f"batch=8: {N_DOCS / t_b8:.1f} vec/s | cosine vs batch=1: "
+        f"min {cos_b8_b1.min():.5f} (padding/pooling check)"
+    )
 
-    queries = [json.loads(l)["query"] for l in
-               (data / "queries.jsonl").open(encoding="utf-8") if l.strip()][:20]
+    queries = [
+        json.loads(l)["query"] for l in (data / "queries.jsonl").open(encoding="utf-8") if l.strip()
+    ][:20]
     times = []
     for q in queries:
         t0 = time.perf_counter()
@@ -88,7 +91,9 @@ def main() -> None:
     log(f"warm prefixed query: median {q_med:.1f} ms (n={len(times)})")
 
     report = {
-        "model": cfg["hf"], "runtime": "mlx-embeddings", "n_docs": N_DOCS,
+        "model": cfg["hf"],
+        "runtime": "mlx-embeddings",
+        "n_docs": N_DOCS,
         "max_seq": MAX_SEQ,
         "cosine_vs_pytorch": {
             "min": round(float(cos.min()), 5),
@@ -105,8 +110,10 @@ def main() -> None:
     }
     out = data / "mlx_agreement.json"
     out.write_text(json.dumps(report, indent=2))
-    log(f"agreement_pass={report['agreement_pass']} "
-        f"speed_3x_pass={report['speed_3x_pass']} -> {out}")
+    log(
+        f"agreement_pass={report['agreement_pass']} "
+        f"speed_3x_pass={report['speed_3x_pass']} -> {out}"
+    )
     print(json.dumps(report, indent=2))
 
 

@@ -21,6 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 RERANK_MODEL = "Qwen/Qwen3-Reranker-0.6B"
 RERANK_REVISION = "e61197ed45024b0ed8a2d74b80b4d909f1255473"
+
+
 def retrieve_with_docs(depth: int):
     """Top-`depth` (key, doc) lists through the production merge rules.
 
@@ -36,8 +38,11 @@ def retrieve_with_docs(depth: int):
         merged: list[tuple[float, str, str]] = []
         vcol = store._videos_collection()
         if vcol.count():
-            vr = vcol.query(query_embeddings=[emb], n_results=min(depth * 3, vcol.count()),
-                            include=["metadatas", "documents", "distances"])
+            vr = vcol.query(
+                query_embeddings=[emb],
+                n_results=min(depth * 3, vcol.count()),
+                include=["metadatas", "documents", "distances"],
+            )
             seen: set[str] = set()
             for meta, doc, dist in zip(vr["metadatas"][0], vr["documents"][0], vr["distances"][0]):
                 if meta["video_id"] in seen:
@@ -46,8 +51,11 @@ def retrieve_with_docs(depth: int):
                 merged.append((dist, f"vid::{meta['video_id']}", doc))
         mcol = store._memories_collection()
         if mcol.count():
-            mr = mcol.query(query_embeddings=[emb], n_results=min(depth * 3, mcol.count()),
-                            include=["metadatas", "documents", "distances"])
+            mr = mcol.query(
+                query_embeddings=[emb],
+                n_results=min(depth * 3, mcol.count()),
+                include=["metadatas", "documents", "distances"],
+            )
             seen = set()
             for meta, doc, dist in zip(mr["metadatas"][0], mr["documents"][0], mr["distances"][0]):
                 if meta["doc_id"] in seen:
@@ -62,8 +70,9 @@ def retrieve_with_docs(depth: int):
         if not scol.count():
             return []
         emb = store._embed_query(query)
-        sr = scol.query(query_embeddings=[emb], n_results=min(depth, scol.count()),
-                        include=["documents"])
+        sr = scol.query(
+            query_embeddings=[emb], n_results=min(depth, scol.count()), include=["documents"]
+        )
         return [(f"seg::{i}", d) for i, d in zip(sr["ids"][0], sr["documents"][0])]
 
     return {"videos": unified, "memories": unified, "segments": segments}
@@ -89,6 +98,7 @@ def main() -> None:
     resolve = retrieval_gate._live_resolver()
     searchers = retrieve_with_docs(args.depth)
     from ytk.rerank import QwenReranker
+
     reranker = QwenReranker(max_length=args.max_length, batch=args.batch)
     partial_path = Path(args.out).with_suffix(".partial.jsonl")
     partial_path.unlink(missing_ok=True)
@@ -111,8 +121,11 @@ def main() -> None:
         after_keys = [keys[i] for i in order]
         after = after_keys.index(gold) if gold in after_keys else None
         row = {
-            "query": q["query"], "bucket": q["bucket"], "gold_id": q["gold_id"],
-            "rank_before": before, "rank_after": after,
+            "query": q["query"],
+            "bucket": q["bucket"],
+            "gold_id": q["gold_id"],
+            "rank_before": before,
+            "rank_after": after,
             "ranking_before": keys,
             "ranking_after": after_keys,
             "latency_s": round(latency, 3),
@@ -123,16 +136,22 @@ def main() -> None:
             f.write(json.dumps(row) + "\n")
         if n % 10 == 0 or n == len(queries):
             print(f"  {n}/{len(queries)} reranked", flush=True)
-            ops.progress(n, len(queries),
-                         rate=n / (time.perf_counter() - t_start), label="rerank")
+            ops.progress(n, len(queries), rate=n / (time.perf_counter() - t_start), label="rerank")
 
     def hits(rs, field, k):
         return sum(1 for r in rs if r[field] is not None and r[field] < k) / max(len(rs), 1)
 
-    summary = {"n": len(rows), "depth": args.depth,
-               "max_length": args.max_length, "batch": args.batch,
-               "model": RERANK_MODEL, "model_revision": RERANK_REVISION,
-               "overall": {}, "per_bucket": {}, "latency_s": {}}
+    summary = {
+        "n": len(rows),
+        "depth": args.depth,
+        "max_length": args.max_length,
+        "batch": args.batch,
+        "model": RERANK_MODEL,
+        "model_revision": RERANK_REVISION,
+        "overall": {},
+        "per_bucket": {},
+        "latency_s": {},
+    }
     for field, tag in (("rank_before", "before"), ("rank_after", "after")):
         summary["overall"][tag] = {f"hit@{k}": round(hits(rows, field, k), 4) for k in (1, 5, 10)}
     for b in sorted({r["bucket"] for r in rows}):
@@ -148,24 +167,37 @@ def main() -> None:
         "p50": round(lats[len(lats) // 2], 3),
         "p95": round(lats[int(len(lats) * 0.95)], 3),
     }
-    promoted = [r for r in rows if r["rank_before"] is not None and r["rank_before"] >= 5
-                and r["rank_after"] is not None and r["rank_after"] < 5]
-    demoted = [r for r in rows if r["rank_before"] is not None and r["rank_before"] < 5
-               and (r["rank_after"] is None or r["rank_after"] >= 5)]
+    promoted = [
+        r
+        for r in rows
+        if r["rank_before"] is not None
+        and r["rank_before"] >= 5
+        and r["rank_after"] is not None
+        and r["rank_after"] < 5
+    ]
+    demoted = [
+        r
+        for r in rows
+        if r["rank_before"] is not None
+        and r["rank_before"] < 5
+        and (r["rank_after"] is None or r["rank_after"] >= 5)
+    ]
     summary["promoted_into_top5"] = len(promoted)
     summary["demoted_out_of_top5"] = len(demoted)
     summary["demoted_queries"] = [
-        {"query": r["query"], "before": r["rank_before"], "after": r["rank_after"]}
-        for r in demoted
+        {"query": r["query"], "before": r["rank_before"], "after": r["rank_after"]} for r in demoted
     ]
 
     Path(args.out).write_text(json.dumps({"summary": summary, "rows": rows}, indent=2))
     print(json.dumps(summary, indent=2))
     after5 = summary["overall"]["after"]["hit@5"]
     before5 = summary["overall"]["before"]["hit@5"]
-    ops.step("rerank", "done",
-             f"hit@5 {before5} -> {after5}, p50 {summary['latency_s']['p50']}s",
-             notify=True)
+    ops.step(
+        "rerank",
+        "done",
+        f"hit@5 {before5} -> {after5}, p50 {summary['latency_s']['p50']}s",
+        notify=True,
+    )
 
 
 if __name__ == "__main__":

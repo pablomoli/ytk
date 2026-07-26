@@ -64,82 +64,49 @@ line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-# Core (#101) plus the families adopted in #122. Each addition below was
-# measured across ytk/ + scripts/ + tests/ before being turned on, and every
-# finding it produced is fixed — none of these are selected-but-ignored.
-#   C4   13 · comprehension rewrites        PIE  23 · dead/duplicated syntax
-#   RET   2 · redundant returns             PERF 16 · avoidable per-item work
-#   FURB 10 · outdated idioms               LOG   0 · logging misuse (clean)
-#   G     0 · logging format (clean)        S324  6 · insecure hash
+# Core correctness and modernization rules plus focused comprehension,
+# performance, logging, and non-cryptographic-hash checks.
 select = [
     "E", "F", "I", "UP", "B", "SIM", "RUF",
     "C4", "PIE", "RET", "PERF", "FURB", "LOG", "G",
     "S324",
 ]
-# Counts are the hits at adoption (#101 Phase 0). The E/F/I/UP core is
-# fully enforced — the whole F family is clean, which is what matters most.
-# Everything listed here is either wrong for this codebase or cannot be fixed
-# without changing runtime behaviour, which that pass was not allowed to do.
-# See docs/plans/typing-sweep-inventory.md for the full disposition.
+# Each ignored rule is structurally wrong for this codebase or requires a
+# separate behavior-changing review.
 ignore = [
     "E501", # the formatter owns line length
 
-    # --- Wrong for this codebase; off permanently ---
-    "RUF001", # 8: em dashes and typographic quotes in prose strings are deliberate
-    "E402",   # 15: scripts/ bootstrap sys.path before importing ytk, by design
-    "RUF012", # 4: ClassVar annotations on Pydantic/dataclass config would be noise
-    "PERF401", # 16: the loops it targets carry guard clauses; ruff cannot autofix
-               #     them for that reason, and hand-rolling the comprehension
-               #     trades a readable loop for a dense one
-
-    # --- Real signal, but every fix changes behaviour. Deferred, not dismissed ---
-    "B905",   # 29: zip(strict=True) raises on length mismatch; strict=False is a no-op edit
-    "B904",   # 44: `raise ... from` rewrites __cause__ and the printed traceback
-    "SIM105", # 5: contextlib.suppress swallows differently than a bare try/except pass
-    "SIM115", # 2: converting to a context manager moves when the file handle closes
-    "B023",   # 4: closures capturing a loop variable — a real bug class; fixing it
-              #    changes what the closure sees, so it needs its own reviewed pass
-    "B007",   # 4: renaming an unused loop variable is safe but churns hot loops
-    "B008",   # 1: call-in-default is load-bearing for the CLI's lazy config
-    "B017",   # 1: a test asserting on bare Exception; tightening it changes the test
-    "E731",   # 1: lambda assignment
-    "E741",   # 4: `l`/`I` names inside the numpy math core, where they match the paper
+    "RUF001", # typographic punctuation in prose strings is deliberate
+    "E402",   # bootstrap scripts must set paths or environment before imports
+    "RUF012", # ClassVar annotations add noise to Pydantic and dataclass config
+    "PERF401", # guarded loops are clearer than equivalent dense comprehensions
+    "B905",   # strict zip changes mismatch behavior
+    "B904",   # exception chaining changes traceback behavior
+    "SIM105", # suppress changes exception-handling semantics
+    "SIM115", # context managers move file-close timing
+    "B023",   # closure capture changes require dedicated behavioral tests
+    "B007",   # loop names match the surrounding algorithm
+    "B008",   # call-in-default is load-bearing for lazy CLI config
+    "B017",   # the test deliberately accepts any boundary exception
+    "E731",   # assigned lambda used as a compact local callable
+    "E741",   # l/I names match referenced numerical notation
     "RUF005", # 2
     "RUF015", # 4
     "RUF043", # 1
-    "RUF059", # 9: unused unpacked values in tuple returns
+    "RUF059", # tuple shapes remain visible at unpack sites
     "SIM108", # 2
     "SIM110", # 1
     "SIM113", # 1
-    "UP047",  # 1: PEP 695 generics; see F3 in the inventory
+    "UP047",  # existing generics remain compatible with the package floor
 ]
 
-# Measured and deliberately NOT selected. Recorded so the next person does not
-# re-derive the counts, and so "not adopted" never reads as "not considered":
-#
-#   ANN  2569 — duplicates the pyright strict ratchet ([tool.pyright] below).
-#               reportMissingParameterType already covers this, per-module and
-#               with an opt-out list; a second mechanism at a different scope
-#               would fight it rather than tighten it.
-#   S    1924 — 1812 are S101 (assert) in tests/, where asserting is the point.
-#               In ytk/ it is 97, of which S603/S607/S310 are ytk shelling out
-#               and fetching arbitrary URLs on purpose (68 noqa comments for no
-#               safety gain). S324 was the fixable part and is now selected;
-#               S110/S112 (17) are the error-handling work below.
-#   D    1409 — docstring house style. Worth a deliberate yes/no, not a default.
-#   PL   1160 — 321 are PLC0415 (import-outside-top-level), and ytk defers heavy
-#               imports on purpose: graph.py imports store inside build_graph so
-#               drawing a graph does not load the encoder stack. The useful
-#               subset is PLW1510 (16, subprocess without check=) and the
-#               PLR09xx size limits (69), which belong with the work below.
-#   ARG   350, SLF 148, EM 135, N 69, DTZ 53 — unreviewed.
-#   BLE   119 + TRY 145 + S110 — the broad-exception work #122 describes.
-#   C901   22 + PLR09xx 69 — the monolith work #122 describes. Both are code
-#               changes, not config, and each wants its own reviewed pass.
+# Annotation lint is omitted because Pyright owns the strictness ratchet.
+# Broad security, import-placement, exception-style, docstring, and complexity
+# families need path-specific or behavior-changing decisions rather than a
+# blanket style mandate.
 
 [tool.ruff.lint.per-file-ignores]
-# Narrow, path-scoped, and reasoned — the alternative is a global ignore that
-# silently covers production code too (#122).
+# Test and script safety exceptions stay narrow so production remains checked.
 "tests/**" = [
     "S101", # asserting is what a test does
     "S108", # /tmp paths in fixtures are fixtures, not deployments
@@ -153,30 +120,13 @@ ignore = [
 quote-style = "double"
 
 [tool.pyright]
-# Strict is the default, and this is a ratchet: a new module is strict from the
+# Strict is the default. A new module is strict from the
 # moment it is written, and an existing one leaves the exception list for good
 # once it passes. The list of files carrying `# pyright: basic` can only shrink.
-#
-# Why per-file opt-out rather than a flat basic: flipping strict on everything
-# at once reports 3251 errors, and 3144 of them (96.7%) are the reportUnknown*
-# and reportMissingType* families — third-party stubs returning Unknown, plus
-# unannotated parameters. That is annotation debt, not defects; the real bugs
-# this sweep found were all caught by basic. Strict earns its place by making
-# *new* code checkable, so it is enforced where it is already free and declared
-# outstanding everywhere else instead of being quietly switched off.
-#
-# Strict-clean today (8/52): __init__, cache, db, profile_grounding, triage,
-# ui/__init__, workboard, workboard_cli. Everything else carries the header.
-#
-# Converting a module costs more than its raw error count suggests, for three
-# reasons worth knowing before picking the next one:
-#   1. a strict module importing from a basic one inherits Unknown, so the
-#      ratchet runs leaves-first, in dependency order
-#   2. pydantic Field(), transformers from_pretrained() and sqlite3.Row hand
-#      back Unknown from their own stubs, which no local annotation fixes
-#   3. reportPrivateUsage flags vault._get_brain_path / vault._slug used across
-#      modules — a real design signal, but 112 references including test
-#      monkeypatch strings, so it is its own change
+# Per-file basic headers isolate legacy annotation and third-party-stub debt.
+# Promotion runs leaves-first because strict modules inherit unknown types from
+# basic dependencies. Cross-module private API usage is resolved before
+# promoting modules that depend on it.
 include = ["ytk"]
 typeCheckingMode = "strict"
 

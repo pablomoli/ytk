@@ -31,7 +31,7 @@ from pathlib import Path
 
 os.environ["HF_HUB_OFFLINE"] = "0"
 
-from ytk import ops, store  # noqa: E402
+from ytk import ops, store
 
 LOG = Path("/tmp/ytk-encoder-eval.log")
 BATCH = 64
@@ -55,7 +55,7 @@ def _reconstruct_from_parts(rep_doc: str, tail_docs: list[str]) -> str:
     tails = []
     for d in tail_docs:
         cut = d.find("\n\n")
-        tails.append(d[cut + 2:] if cut != -1 else d)
+        tails.append(d[cut + 2 :] if cut != -1 else d)
     return "\n\n".join([rep_doc] + tails)[:8000]
 
 
@@ -78,8 +78,7 @@ def _memory_rows() -> tuple[list[tuple[str, str, dict]], dict]:
         src = meta.get("source_path", "")
         text = ""
         if src and Path(src).exists():
-            body = store.strip_frontmatter(
-                Path(src).read_text(encoding="utf-8", errors="ignore"))
+            body = store.strip_frontmatter(Path(src).read_text(encoding="utf-8", errors="ignore"))
             if body.strip():
                 text = body[:8000]
                 stats["from_vault"] += 1
@@ -131,15 +130,14 @@ def migrate(kind: str, dry_run: bool) -> dict:
     v2 = col_fn(TARGET_EPOCH)
     done = set(v2.get(include=[])["ids"])
     todo = [r for r in rows if r[0] not in done]
-    log(f"{kind}: {len(rows)} docs, {len(done)} already in v2, "
-        f"{len(todo)} to embed {stats}")
+    log(f"{kind}: {len(rows)} docs, {len(done)} already in v2, {len(todo)} to embed {stats}")
     if dry_run or not todo:
         return {"kind": kind, "total": len(rows), "embedded": 0, **stats}
 
     ops.step(f"migrate {kind}", "running", f"{len(todo)} to embed")
     t0 = time.perf_counter()
     for i in range(0, len(todo), BATCH):
-        batch = todo[i:i + BATCH]
+        batch = todo[i : i + BATCH]
         v2.upsert(
             ids=[r[0] for r in batch],
             documents=[r[1] for r in batch],
@@ -147,35 +145,45 @@ def migrate(kind: str, dry_run: bool) -> dict:
         )
         n = i + len(batch)
         rate = n / (time.perf_counter() - t0)
-        log(f"{kind}: {n}/{len(todo)} ({rate:.1f} vec/s, "
-            f"~{(len(todo) - n) / max(rate, 0.1) / 60:.0f} min left)")
+        log(
+            f"{kind}: {n}/{len(todo)} ({rate:.1f} vec/s, "
+            f"~{(len(todo) - n) / max(rate, 0.1) / 60:.0f} min left)"
+        )
         ops.progress(n, len(todo), rate, label=kind)
 
     final = v2.count()
     ok = final == len(rows)
-    log(f"{kind}: v2 count {final} vs expected {len(rows)} "
-        f"[{'OK' if ok else 'MISMATCH'}]")
-    ops.step(f"migrate {kind}", "done" if ok else "fail",
-             f"v2 count {final} vs expected {len(rows)}")
-    return {"kind": kind, "total": len(rows), "embedded": len(todo),
-            "v2_count": final, "ok": ok, **stats}
+    log(f"{kind}: v2 count {final} vs expected {len(rows)} [{'OK' if ok else 'MISMATCH'}]")
+    ops.step(
+        f"migrate {kind}", "done" if ok else "fail", f"v2 count {final} vs expected {len(rows)}"
+    )
+    return {
+        "kind": kind,
+        "total": len(rows),
+        "embedded": len(todo),
+        "v2_count": final,
+        "ok": ok,
+        **stats,
+    }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true",
-                    help="report counts and source stats, embed nothing")
+    ap.add_argument(
+        "--dry-run", action="store_true", help="report counts and source stats, embed nothing"
+    )
     ap.add_argument("--only", choices=sorted(SOURCES), default=None)
     args = ap.parse_args()
 
     if store.EMBEDDING_EPOCH == TARGET_EPOCH:
-        log("store.EMBEDDING_EPOCH is already v2 — migration writes through "
-            "the same collections the live system reads; refusing.")
+        log(
+            "store.EMBEDDING_EPOCH is already v2 — migration writes through "
+            "the same collections the live system reads; refusing."
+        )
         raise SystemExit(1)
 
     kinds = [args.only] if args.only else list(SOURCES)
-    log(f"=== v1 -> {TARGET_EPOCH} migration starting "
-        f"(dry_run={args.dry_run}, kinds={kinds}) ===")
+    log(f"=== v1 -> {TARGET_EPOCH} migration starting (dry_run={args.dry_run}, kinds={kinds}) ===")
     results = [migrate(k, args.dry_run) for k in kinds]
     print(json.dumps(results, indent=2))
     if not args.dry_run and not all(r.get("ok", True) for r in results):

@@ -13,9 +13,8 @@ interest time series (#83) shows an epoch boundary, not a fake taste event.
 """
 
 import argparse
-import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 
@@ -33,8 +32,9 @@ def _fetch_vectors(ids: list[str]) -> dict[str, np.ndarray]:
     return out
 
 
-def _recentroid(note_ids: list[str], vecs: dict[str, np.ndarray],
-                label: str) -> tuple[list[float] | None, int]:
+def _recentroid(
+    note_ids: list[str], vecs: dict[str, np.ndarray], label: str
+) -> tuple[list[float] | None, int]:
     found = [vecs[i] for i in note_ids if i in vecs]
     if not found:
         print(f"  {label}: 0/{len(note_ids)} members found — centroid dropped")
@@ -57,11 +57,15 @@ def main() -> None:
         print(f"latest snapshot already anchored to {model}; nothing to do")
         return
 
-    all_ids = sorted({i for t in snap.themes for i in t.note_ids}
-                     | (set(snap.explicit.note_ids) if snap.explicit else set()))
+    all_ids = sorted(
+        {i for t in snap.themes for i in t.note_ids}
+        | (set(snap.explicit.note_ids) if snap.explicit else set())
+    )
     vecs = _fetch_vectors(all_ids)
-    print(f"re-anchoring {len(snap.themes)} themes over {len(all_ids)} notes "
-          f"({len(vecs)} resolvable) into {model}")
+    print(
+        f"re-anchoring {len(snap.themes)} themes over {len(all_ids)} notes "
+        f"({len(vecs)} resolvable) into {model}"
+    )
 
     report = []
     for t in snap.themes:
@@ -79,7 +83,7 @@ def main() -> None:
         return
     snap.reanchored_from = snap.generated_at
     snap.embedding_model = model
-    snap.generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    snap.generated_at = datetime.now(UTC).isoformat(timespec="seconds")
     path = interest.save_snapshot(snap, time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()))
     ops.journal(f"interest snapshot re-anchored to {model}: {path.name}")
     print(f"saved {path}")

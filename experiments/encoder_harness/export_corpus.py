@@ -28,17 +28,27 @@ def main() -> None:
     ap.add_argument("--segments", type=int, default=600)
     args = ap.parse_args()
 
-    from ytk.store import strip_frontmatter
-    from ytk import vault
     import chromadb
+
+    from ytk import vault
+    from ytk.store import strip_frontmatter
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     rows: list[dict] = []
 
     brain = vault._get_brain_path()
-    scan = ["inbox/memories", "projects", "decisions", "debugging", "tools",
-            "sources/instagram", "sources/web", "sources/journal", "inbox/memos"]
+    scan = [
+        "inbox/memories",
+        "projects",
+        "decisions",
+        "debugging",
+        "tools",
+        "sources/instagram",
+        "sources/web",
+        "sources/journal",
+        "inbox/memos",
+    ]
     for subdir in scan:
         d = brain / subdir
         if not d.exists():
@@ -50,8 +60,9 @@ def main() -> None:
             rel = str(md.relative_to(brain))
             rows.append({"id": f"mem::{rel}", "bucket": "memories", "text": body[:8000]})
 
-    client = chromadb.PersistentClient(path=os.path.expanduser(
-        os.environ.get("CHROMA_PATH", "~/.ytk/chroma")))
+    client = chromadb.PersistentClient(
+        path=os.path.expanduser(os.environ.get("CHROMA_PATH", "~/.ytk/chroma"))
+    )
     vids = client.get_collection("ytk_videos").get(include=["documents"])
     for vid, doc in zip(vids["ids"], vids["documents"]):
         if "#" in vid or not (doc or "").strip():
@@ -60,15 +71,19 @@ def main() -> None:
 
     segs = client.get_collection("ytk_segments").get(include=["documents", "metadatas"])
     pool = [
-        (sid, doc, meta) for sid, doc, meta in
-        zip(segs["ids"], segs["documents"], segs["metadatas"])
+        (sid, doc, meta)
+        for sid, doc, meta in zip(segs["ids"], segs["documents"], segs["metadatas"])
         if (doc or "").strip()
     ]
     random.Random(20260716).shuffle(pool)
     for sid, doc, meta in pool[: args.segments]:
-        rows.append({
-            "id": f"seg::{sid}", "bucket": "segments", "text": doc,
-        })
+        rows.append(
+            {
+                "id": f"seg::{sid}",
+                "bucket": "segments",
+                "text": doc,
+            }
+        )
 
     path = out / "corpus.jsonl"
     with path.open("w", encoding="utf-8") as f:

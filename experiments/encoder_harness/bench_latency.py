@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from embed import MODELS  # noqa: E402  (same directory)
+from embed import MODELS
 
 LOG = Path("/tmp/ytk-encoder-eval.log")
 
@@ -46,8 +46,10 @@ def timed_encodes(model, texts: list[str], label: str) -> dict:
         "min_ms": round(min(times), 1),
         "max_ms": round(max(times), 1),
     }
-    log(f"{label}: median {stats['median_ms']} ms, p95 {stats['p95_ms']} ms "
-        f"(min {stats['min_ms']}, max {stats['max_ms']}, n={stats['n']})")
+    log(
+        f"{label}: median {stats['median_ms']} ms, p95 {stats['p95_ms']} ms "
+        f"(min {stats['min_ms']}, max {stats['max_ms']}, n={stats['n']})"
+    )
     return stats
 
 
@@ -73,34 +75,42 @@ def main() -> None:
     kwargs = {}
     if args.fp16:
         import torch
+
         kwargs["model_kwargs"] = {"torch_dtype": torch.float16}
     from sentence_transformers import SentenceTransformer
+
     model = SentenceTransformer(cfg["hf"], **kwargs)
     if args.max_seq:
         model.max_seq_length = args.max_seq
     t_load = time.perf_counter() - t0
 
     t0 = time.perf_counter()
-    model.encode([cfg["query_prefix"] + queries[0]], normalize_embeddings=True,
-                 show_progress_bar=False)
+    model.encode(
+        [cfg["query_prefix"] + queries[0]], normalize_embeddings=True, show_progress_bar=False
+    )
     t_first = time.perf_counter() - t0
-    log(f"cold start: load {t_load:.2f} s + first encode {t_first * 1000:.0f} ms "
-        f"= {t_load + t_first:.2f} s total (device {model.device})")
+    log(
+        f"cold start: load {t_load:.2f} s + first encode {t_first * 1000:.0f} ms "
+        f"= {t_load + t_first:.2f} s total (device {model.device})"
+    )
 
     report = {
-        "model": cfg["hf"], "fp16": args.fp16, "max_seq": args.max_seq,
+        "model": cfg["hf"],
+        "fp16": args.fp16,
+        "max_seq": args.max_seq,
         "device": str(model.device),
         "cold_load_s": round(t_load, 2),
         "cold_first_encode_ms": round(t_first * 1000),
         "warm_query_prefixed": timed_encodes(
-            model, [cfg["query_prefix"] + q for q in queries], "warm query (prefixed)"),
+            model, [cfg["query_prefix"] + q for q in queries], "warm query (prefixed)"
+        ),
         "warm_query_plain": timed_encodes(model, queries, "warm query (plain)"),
         "warm_doc_median_len": timed_encodes(
-            model, [median_doc] * 5, f"warm doc ({len(median_doc)} chars)"),
+            model, [median_doc] * 5, f"warm doc ({len(median_doc)} chars)"
+        ),
         "target_ms": 500,
     }
-    report["passes_target"] = (
-        report["warm_query_prefixed"]["p95_ms"] < report["target_ms"])
+    report["passes_target"] = report["warm_query_prefixed"]["p95_ms"] < report["target_ms"]
     out = data / "latency.bench.json"
     out.write_text(json.dumps(report, indent=2))
     log(f"PASS={report['passes_target']} -> {out}")

@@ -5,6 +5,7 @@ so the result is bit-identical to a fresh run at a fraction of the cost.
 
     uv run python experiments/encoder_harness/derive_truncated.py --src qwen3-0.6b --dims 384
 """
+
 import argparse
 import json
 from pathlib import Path
@@ -30,8 +31,11 @@ def trunc(a):
 
 np.savez_compressed(
     data / f"{key}.npz",
-    reps=trunc(z["reps"]), parts=trunc(z["parts"]),
-    part_doc=z["part_doc"], ids=z["ids"], buckets=z["buckets"],
+    reps=trunc(z["reps"]),
+    parts=trunc(z["parts"]),
+    part_doc=z["part_doc"],
+    ids=z["ids"],
+    buckets=z["buckets"],
 )
 src_bench = json.loads((data / f"{args.src}.bench.json").read_text())
 src_bench.update(key=key, dims=args.dims, derived_from=args.src)
