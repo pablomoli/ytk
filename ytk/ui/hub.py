@@ -17,6 +17,7 @@ import threading
 import time
 from datetime import UTC
 from pathlib import Path
+from typing import cast
 
 from ytk import directives, reels, vault
 from ytk.config import load_config
@@ -47,6 +48,7 @@ from ytk.memo import (
 from ytk.memo import (
     write_memo_note as memo_write_note,
 )
+from ytk.ui import source_refresh
 
 STATE_PATH = reels.STATE_PATH
 JOB_PATH = STATE_PATH.parent / "ingest-job.json"
@@ -258,10 +260,10 @@ def _reddit_pull(state: reels.ReelsState) -> int:
     )
 
 
-def _yt_fetch() -> list[dict]:
+def _yt_fetch() -> list[source_refresh.YoutubeVideo]:
     from ytk.scheduler import authenticate, fetch_playlist_videos
 
-    return fetch_playlist_videos(authenticate())
+    return cast("list[source_refresh.YoutubeVideo]", fetch_playlist_videos(authenticate()))
 
 
 def _yt_is_processed(video_id: str) -> bool:
@@ -270,7 +272,7 @@ def _yt_is_processed(video_id: str) -> bool:
     return db.is_processed(video_id)
 
 
-def _pin_fetch() -> list[dict]:
+def _pin_fetch() -> list[source_refresh.PinterestPin]:
     """Fetch pins from the configured Pinterest board RSS feeds."""
     import urllib.request
     import xml.etree.ElementTree as ET
@@ -278,7 +280,7 @@ def _pin_fetch() -> list[dict]:
 
     from ytk.config import load_config
 
-    pins: list[dict] = []
+    pins: list[source_refresh.PinterestPin] = []
     for feed_url in load_config().hub.pinterest_feeds:
         req = urllib.request.Request(feed_url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -719,111 +721,50 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
 
         if due["instagram"]:
             try:
-                result["instagram"] = IG_PULL(state)
+                result["instagram"] = source_refresh.pull_instagram(state, IG_PULL)
                 state.last_pulls["instagram"] = now
             except Exception as exc:
                 result["errors"].append(f"instagram: {exc}")
 
         if due["youtube"]:
             try:
-                known = {i.url for i in state.pending}
-                for v in YT_FETCH():
-                    url = f"https://www.youtube.com/watch?v={v['video_id']}"
-                    if url in known or YT_IS_PROCESSED(v["video_id"]):
-                        continue
-                    state.pending.append(
-                        reels.ReelItem(
-                            url=url,
-                            author=v.get("title") or None,
-                            shared_at=(v.get("added_at") or "")[:10] or None,
-                            preview_url=f"https://i.ytimg.com/vi/{v['video_id']}/hqdefault.jpg",
-                            source="youtube",
-                        )
-                    )
-                    result["youtube"] += 1
+                result["youtube"] = source_refresh.pull_youtube(
+                    state,
+                    YT_FETCH,
+                    YT_IS_PROCESSED,
+                )
                 state.last_pulls["youtube"] = now
             except Exception as exc:
                 result["errors"].append(f"youtube: {exc}")
 
         if due["pinterest"]:
             try:
-                known = {i.url for i in state.pending}
-                for pin in PIN_FETCH():
-                    if pin["url"] in known:
-                        continue
-                    state.pending.append(
-                        reels.ReelItem(
-                            url=pin["url"],
-                            author=pin.get("title"),
-                            shared_at=pin.get("date"),
-                            preview_url=pin.get("image"),
-                            source="pinterest",
-                        )
-                    )
-                    result["pinterest"] += 1
+                result["pinterest"] = source_refresh.pull_pinterest(state, PIN_FETCH)
                 state.last_pulls["pinterest"] = now
             except Exception as exc:
                 result["errors"].append(f"pinterest: {exc}")
 
         if due["tiktok"]:
             try:
-                result["tiktok"] = TT_PULL(state)
+                result["tiktok"] = source_refresh.pull_tiktok(state, TT_PULL)
                 state.last_pulls["tiktok"] = now
             except Exception as exc:
                 result["errors"].append(f"tiktok: {exc}")
 
         if due["reddit"]:
             try:
-                result["reddit"] = REDDIT_PULL(state)
+                result["reddit"] = source_refresh.pull_reddit(state, REDDIT_PULL)
                 state.last_pulls["reddit"] = now
             except Exception as exc:
                 result["errors"].append(f"reddit: {exc}")
 
         if due["imessage"]:
             try:
-                from ytk.imessage import split_urls
-
-                seen = set(state.imessage_seen)
-                known = {i.url for i in state.pending}
-                for s in IM_FETCH():
-                    if s.note_id in seen or s.note_id in known:
-                        continue
-                    state.imessage_seen.append(s.note_id)
-
-                    # A link paired with prose is a deliberate note-plus-source
-                    # pairing: keep them together, link embedded in the text. A
-                    # bare link on its own reuses the normal fetch pipeline
-                    # (classified by url), same as a pasted or IG-shared link.
-                    full = "\n\n".join(m.text for m in s.messages)
-                    urls, prose = split_urls(full)
-                    if prose:
-                        state.pending.append(
-                            reels.ReelItem(
-                                url=s.note_id,
-                                author=s.date,
-                                shared_at=s.start.strftime("%Y-%m-%d"),
-                                source="imessage",
-                                text=full,
-                            )
-                        )
-                        result["imessage"] += 1
-                        if s.override:
-                            auto_ingest_ids.append(s.note_id)
-                    else:
-                        for u in urls:
-                            if u in known:
-                                continue
-                            known.add(u)
-                            state.pending.append(
-                                reels.ReelItem(
-                                    url=u,
-                                    shared_at=s.start.strftime("%Y-%m-%d"),
-                                    source=reels.classify_url(u),
-                                )
-                            )
-                            result["imessage"] += 1
-                            if s.override:
-                                auto_ingest_ids.append(u)
+                result["imessage"] = source_refresh.pull_imessage(
+                    state,
+                    IM_FETCH,
+                    auto_ingest_ids,
+                )
                 state.last_pulls["imessage"] = now
             except Exception as exc:
                 result["errors"].append(f"imessage: {exc}")
