@@ -8,13 +8,18 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol, runtime_checkable
 from urllib.parse import urlparse
 
 import chromadb
 from chromadb.api import ClientAPI
 
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+@runtime_checkable
+class _Closable(Protocol):
+    def close(self) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -127,6 +132,7 @@ def wait_for_chroma(config: ChromaRuntime, timeout_s: float = 30.0) -> bool:
     """Wait for the configured server heartbeat until a monotonic deadline."""
     deadline = time.monotonic() + timeout_s
     while True:
+        client: ClientAPI | None = None
         try:
             client = chromadb.HttpClient(
                 host=config.host,
@@ -138,4 +144,7 @@ def wait_for_chroma(config: ChromaRuntime, timeout_s: float = 30.0) -> bool:
         except Exception:
             if time.monotonic() >= deadline:
                 return False
+        finally:
+            if isinstance(client, _Closable):
+                client.close()
         time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
