@@ -25,9 +25,58 @@ const UNSHELVED = "uncategorized";
 
 type Shelf = { name: string; recs: RecCard[] };
 
+/* TMDb's TV genre names and AniList's abbreviations fold into one aisle each,
+   so "Sci-Fi & Fantasy" shows don't shelve apart from their movie kin. */
+const GENRE_ALIAS: Record<string, string> = {
+  "Sci-Fi & Fantasy": "Science Fiction",
+  "Sci-Fi": "Science Fiction",
+  "Action & Adventure": "Action",
+  "War & Politics": "War",
+};
+
+/* The specific genre owns the title; broad catch-alls only get what nothing
+   else claims. TMDb returns genres in storage order, not relevance order —
+   Aliens arrives as [Action, Thriller, Science Fiction] and belongs on the
+   science fiction shelf, not action. */
+const SHELF_PRIORITY = [
+  "Science Fiction",
+  "Fantasy",
+  "Horror",
+  "Western",
+  "War",
+  "Music",
+  "Documentary",
+  "History",
+  "Animation",
+  "Mystery",
+  "Crime",
+  "Thriller",
+  "Romance",
+  "Family",
+  "Comedy",
+  "Adventure",
+  "Action",
+  "Drama",
+];
+
+function primaryShelf(genres: string[] | null): string {
+  const normalized = (genres ?? []).map((g) => GENRE_ALIAS[g] ?? g);
+  if (normalized.length === 0) return UNSHELVED;
+  let best: string | null = null;
+  let bestRank = Number.POSITIVE_INFINITY;
+  for (const g of normalized) {
+    const rank = SHELF_PRIORITY.indexOf(g);
+    if (rank !== -1 && rank < bestRank) {
+      best = g;
+      bestRank = rank;
+    }
+  }
+  // Genres outside the ranking (book shelves like Psychology) keep API order.
+  return best ?? normalized[0];
+}
+
 /* Blockbuster rule: every title sits on exactly one shelf. Wanted titles are
-   pulled up to "my list"; everything else shelves under its primary genre
-   (the APIs order genres by relevance, so genres[0] is the spine label). */
+   pulled up to "my list"; everything else shelves under its primary genre. */
 function buildShelves(recs: RecCard[]): Shelf[] {
   const byName = new Map<string, RecCard[]>();
   const myList: RecCard[] = [];
@@ -36,7 +85,7 @@ function buildShelves(recs: RecCard[]): Shelf[] {
       myList.push(r);
       continue;
     }
-    const genre = r.genres?.[0] ?? UNSHELVED;
+    const genre = primaryShelf(r.genres);
     const row = byName.get(genre);
     if (row) row.push(r);
     else byName.set(genre, [r]);

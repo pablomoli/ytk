@@ -131,6 +131,12 @@ body {
   flex-direction: column;
   overflow-y: auto;
 }
+/* Scrolling pages fade at the nav clip line instead of chopping content
+   mid-glyph (#21). Only plain .hub-page routes: fill pages (inbox) manage
+   their own scroller and full-bleed canvases (grove, map) must not fade. */
+.hub-outlet:has(> .hub-page):not(:has(.hub-page-fill)) {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 100%);
+}
 
 .hub-page {
   display: flex;
@@ -2291,17 +2297,21 @@ body {
 }
 
 /* Blockbuster shelves: one horizontal row per genre, posters face-out. */
+.hub-body.recs {
+  /* aisles need air between them; 1rem reads as one undifferentiated pile */
+  gap: 1.6rem;
+}
 .shelf {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.65rem;
 }
 .shelf-head {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
   border-bottom: 1px solid #262626;
-  padding-bottom: 0.35rem;
+  padding: 0 0.1rem 0.4rem;
 }
 .shelf-name {
   margin: 0;
@@ -2322,6 +2332,9 @@ body {
   /* Room so hover/status borders and the bottom edge never clip against the
      scroller, which is the exact cut-corner complaint from the inbox grid. */
   padding: 2px 2px 0.6rem;
+  /* The row continues past the viewport; fade the cut card instead of
+     slicing it — doubles as the "more this way" affordance. */
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 32px), transparent 100%);
 }
 .rec-card {
   flex: 0 0 152px;
@@ -2381,26 +2394,34 @@ body {
 .rec-body {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.75rem;
+  flex: 1; /* actions pin to the card bottom via margin-top: auto */
+  gap: 0.3rem;
+  padding: 0.7rem 0.75rem 0.75rem;
 }
 .rec-title {
   font-size: 0.95rem;
+  line-height: 1.25;
   margin: 0;
+  /* two lines then clamp: a video-store card should show its title, not
+     "Blade Runner 2..." */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .rec-meta {
   display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+  gap: 0.45rem;
+  flex-wrap: nowrap;
+  min-width: 0;
   color: var(--mute);
   font-family: var(--data);
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
 .rec-creator {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2448,7 +2469,10 @@ body {
 .rec-actions {
   display: flex;
   gap: 0.3rem;
-  margin-top: 0.2rem;
+  /* Pin to the card bottom so the button row sits on one baseline across a
+     shelf, whatever each card's text stack did above it. */
+  margin-top: auto;
+  padding-top: 0.5rem;
 }
 
 /* pixel dissolve — cells fade on a per-cell delay set from the Bayer order */

@@ -9,7 +9,9 @@ vi.mock("../components/HubControls", () => ({
 }));
 
 const mutate = vi.fn();
-const recs = [
+// Type-only import: the runtime module is mocked below, the type erases.
+type RecCard = import("../api/recs").RecCard;
+const recs: RecCard[] = [
   {
     key: "tmdb:movie:438631",
     kind: "movie",
@@ -140,6 +142,36 @@ test("seen and skipped titles hide until the toggle reveals them", () => {
   expect(cardByTitle(container, "The Matrix")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /seen & skipped/i }));
   expect(cardByTitle(container, "The Matrix")).not.toBeNull();
+});
+
+test("the specific genre wins the shelf over broad catch-alls", async () => {
+  // Aliens arrives from TMDb as [Action, Thriller, Science Fiction]; the
+  // Blockbuster rule shelves it under science fiction, not action.
+  recs.push({
+    key: "tmdb:movie:679",
+    kind: "movie",
+    title: "Aliens",
+    year: 1986,
+    creator: "James Cameron",
+    poster: null,
+    rating: null,
+    genres: ["Action", "Thriller", "Science Fiction"],
+    overview: null,
+    external_url: null,
+    count: 1,
+    sources: [],
+    status: null,
+  });
+  try {
+    const { container } = renderPage();
+    const shelves = [...container.querySelectorAll<HTMLElement>(".shelf")];
+    const sf = shelves.find((s) => s.querySelector(".shelf-name")?.textContent === "Science Fiction");
+    expect(sf?.textContent).toContain("Aliens");
+    const action = shelves.find((s) => s.querySelector(".shelf-name")?.textContent === "Action");
+    expect(action).toBeUndefined();
+  } finally {
+    recs.pop();
+  }
 });
 
 test("a title without genres lands on the uncategorized shelf", () => {
