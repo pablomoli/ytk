@@ -36,6 +36,7 @@ os.environ.setdefault("HF_HUB_DISABLE_IMPLICIT_TOKEN", "1")
 
 from datetime import UTC
 
+from .chroma_runtime import create_client, runtime_config
 from .enrich import Enrichment
 
 _CHROMA_PATH = Path(
@@ -103,8 +104,7 @@ _efs: dict[str, embedding_functions.EmbeddingFunction] = {}
 def _get_client() -> ClientAPI:
     global _client
     if _client is None:
-        _CHROMA_PATH.mkdir(parents=True, exist_ok=True)
-        _client = chromadb.PersistentClient(path=str(_CHROMA_PATH))
+        _client = create_client(runtime_config(default_path=_CHROMA_PATH))
     return _client
 
 
