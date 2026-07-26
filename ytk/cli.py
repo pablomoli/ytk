@@ -22,6 +22,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from .chroma_runtime import launchd_plist, runtime_config, server_arguments, wait_for_chroma
 from .config import load_config
 from .enrich import enrich
 from .filter import FilterResult, check_post_enrichment, check_pre_transcript
@@ -2682,6 +2683,103 @@ def autoingest_schedule_uninstall():
     console.print(f"[bold green]Uninstalled:[/] {plist_path}")
 
 
+_CHROMA_LABEL = "com.ytk.chroma"
+_CHROMA_PLIST = Path.home() / "Library" / "LaunchAgents" / f"{_CHROMA_LABEL}.plist"
+_CHROMA_LOG = Path.home() / ".ytk" / "logs" / "chroma.log"
+
+
+@cli.group(name="chroma")
+def chroma_command():
+    """Run and manage the local Chroma server."""
+
+
+@chroma_command.command(name="serve")
+def chroma_serve():
+    """Run the local Chroma server in the foreground."""
+    cfg = runtime_config()
+    executable = Path(sys.executable).with_name("chroma")
+    if not executable.is_file():
+        raise click.ClickException(f"Chroma executable not found at {executable}")
+    cfg.server_path.mkdir(parents=True, exist_ok=True)
+    args = server_arguments(cfg, executable)
+    os.execv(str(executable), args)
+
+
+@chroma_command.command(name="install")
+def chroma_install():
+    """Install Chroma as an always-on loopback launchd agent."""
+    ytk_bin = shutil.which("ytk")
+    if not ytk_bin:
+        raise click.ClickException("ytk binary not found; run `uv tool install --reinstall .`")
+    cfg = runtime_config()
+    _CHROMA_LOG.parent.mkdir(parents=True, exist_ok=True)
+    _CHROMA_PLIST.parent.mkdir(parents=True, exist_ok=True)
+    _CHROMA_PLIST.write_text(
+        launchd_plist(cfg, ytk_bin=Path(ytk_bin), log_path=_CHROMA_LOG),
+        encoding="utf-8",
+    )
+    domain = f"gui/{os.getuid()}"
+    subprocess.run(
+        ["launchctl", "bootout", f"{domain}/{_CHROMA_LABEL}"],
+        check=False,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["launchctl", "bootstrap", domain, str(_CHROMA_PLIST)],
+        check=True,
+    )
+    console.print(f"[green]Installed:[/] {_CHROMA_PLIST}")
+    console.print(f"Chroma: http://{cfg.host}:{cfg.port}  Data: {cfg.server_path}")
+
+
+@chroma_command.command(name="restart")
+def chroma_restart():
+    """Restart the local Chroma launchd agent."""
+    result = subprocess.run(
+        ["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{_CHROMA_LABEL}"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        raise click.ClickException(result.stderr.strip() or "Chroma launchd agent is not loaded")
+    console.print("[green]Chroma restarted[/]")
+
+
+@chroma_command.command(name="status")
+def chroma_status():
+    """Show launchd and heartbeat status for the local Chroma server."""
+    cfg = runtime_config()
+    loaded = (
+        subprocess.run(
+            ["launchctl", "print", f"gui/{os.getuid()}/{_CHROMA_LABEL}"],
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+    healthy = wait_for_chroma(cfg, timeout_s=0.5)
+    console.print(f"launchd agent: {'[green]loaded[/]' if loaded else '[red]not loaded[/]'}")
+    console.print(
+        f"heartbeat: {'[green]healthy[/]' if healthy else '[red]unreachable[/]'} "
+        f"at http://{cfg.host}:{cfg.port}"
+    )
+    if not loaded or not healthy:
+        raise SystemExit(1)
+
+
+@chroma_command.command(name="uninstall")
+def chroma_uninstall():
+    """Unload and remove the local Chroma launchd agent."""
+    domain = f"gui/{os.getuid()}"
+    subprocess.run(
+        ["launchctl", "bootout", f"{domain}/{_CHROMA_LABEL}"],
+        check=False,
+        capture_output=True,
+    )
+    if _CHROMA_PLIST.exists():
+        _CHROMA_PLIST.unlink()
+    console.print("[green]Chroma launchd agent removed[/]")
+
+
 _HUB_LABEL = "com.ytk.hub"
 _HUB_PLIST = Path.home() / "Library" / "LaunchAgents" / f"{_HUB_LABEL}.plist"
 
@@ -2700,6 +2798,9 @@ def ui(ctx, host: str | None, port: int | None, reload: bool):
     """Run the hub in the foreground, or manage the background daemon."""
     if ctx.invoked_subcommand is not None:
         return
+    chroma_cfg = runtime_config()
+    if chroma_cfg.mode == "http" and not wait_for_chroma(chroma_cfg, timeout_s=30.0):
+        raise click.ClickException(f"Chroma server unavailable at {chroma_cfg.url}")
     import uvicorn
 
     chost, cport = _hub_addr()
