@@ -9,7 +9,7 @@ import { useJobStatus } from "../api/job";
 import { useProfileRank, useStartProfileRank } from "../api/profileRank";
 import { apiGet } from "../api/client";
 import { QueueItemViewer } from "../components/QueueItemViewer";
-import { SourceFilter } from "../components/SourceFilter";
+import { SourceSelect } from "../components/SourceSelect";
 import { SourcePullMenu } from "../components/SourcePullMenu";
 import { Card } from "../components/Card";
 import { MasonryGrid } from "../components/MasonryGrid";
@@ -24,19 +24,25 @@ import { useInfiniteWindow } from "../lib/useInfiniteWindow";
 import { filterAndSortQueue } from "../lib/queueItems";
 import { formatElapsed } from "../lib/elapsed";
 import {
+  INBOX_SOURCES_PREF,
   PROFILE_MATCHES_PREF,
   RAIL_QUEUE_PREF,
   RAIL_MATCH_PREF,
   RAIL_INGEST_PREF,
   RAIL_JOB_PREF,
+  RAIL_SOURCES_PREF,
   getPref,
+  getStringPref,
   setPref,
+  setStringPref,
 } from "../lib/prefs";
+import type { SourceSelection } from "../lib/sourceFilter";
+import { parseSources, serializeSources } from "../lib/sourceFilter";
 import "../styles.css";
 
 export const Route = createFileRoute("/inbox")({
-  validateSearch: (s: Record<string, unknown>): { source?: string | undefined } => ({
-    source: typeof s.source === "string" ? s.source : undefined,
+  validateSearch: (s: Record<string, unknown>): { sources?: string | undefined } => ({
+    sources: typeof s.sources === "string" ? s.sources : undefined,
   }),
   component: InboxPage,
 });
@@ -48,8 +54,17 @@ const fetchTags = () => apiGet<{ tags: string[] }>("/api/tags").then((r) => r.ta
 const PROFILE_BATCH_SIZE = 30;
 
 function InboxPage() {
-  const { source } = Route.useSearch();
+  const { sources } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
+
+  /* The URL is the authority for what is on screen, so back/forward restore the
+     filter exactly. The stored preference only supplies a starting point when
+     arriving at /inbox with no parameter at all — otherwise a remembered filter
+     would silently override a link someone deliberately followed (#126). */
+  const selection = useMemo(
+    () => parseSources(sources ?? getStringPref(INBOX_SOURCES_PREF)),
+    [sources],
+  );
   const q = useQueue();
   const job = useJobStatus();
   const addUrls = useAddUrls();
@@ -101,7 +116,7 @@ function InboxPage() {
     [batchPicks, showMatches],
   );
   const items = useMemo(() => {
-    const filtered = filterAndSortQueue(q.data ?? [], source);
+    const filtered = filterAndSortQueue(q.data ?? [], selection);
     if (matchByUrl.size === 0) return filtered;
     // Matched picks lead the inbox; both groups keep filtered's newest-first
     // order, so the freshest item leads within the highlighted set. Unscored
@@ -109,14 +124,14 @@ function InboxPage() {
     const matched = filtered.filter((i) => matchByUrl.has(i.url));
     const rest = filtered.filter((i) => !matchByUrl.has(i.url));
     return [...matched, ...rest];
-  }, [q.data, source, matchByUrl]);
+  }, [q.data, selection, matchByUrl]);
   const activeHighlightCount = useMemo(
     () => items.filter((item) => matchByUrl.has(item.url)).length,
     [items, matchByUrl],
   );
   // Progressively renders more of `items` as the sentinel scrolls into view;
   // not a bounded/sliding window, the visible count only grows.
-  const { visible, sentinelRef } = useInfiniteWindow(items, 60, source ?? "");
+  const { visible, sentinelRef } = useInfiniteWindow(items, 60, sources ?? "");
 
   // The in-flight item, named. A batch runs ~2 minutes per video, so a bare
   // "0/3" sits unchanged long enough to read as broken; showing which video is
@@ -161,8 +176,13 @@ function InboxPage() {
     });
   };
 
-  const handleSourceChange = (next?: string) => {
-    void navigate({ search: { source: next } });
+  /* Writes the choice to the URL and mirrors it into the preference, so a later
+     visit with no parameter starts where this one left off. Both hold the same
+     serialization, so the two cannot drift into different encodings. */
+  const handleSourceChange = (next: SourceSelection) => {
+    const encoded = serializeSources(next);
+    setStringPref(INBOX_SOURCES_PREF, encoded ?? null);
+    void navigate({ search: { sources: encoded } });
   };
 
   const handleUrlsChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -250,7 +270,6 @@ function InboxPage() {
   return (
     <div id="inbox-page" className="hub-page hub-page-fill">
       <HubControls>
-        <SourceFilter value={source} onChange={handleSourceChange} />
         <span className="count">
           <CountUp value={items.length} />
           {q.data && q.data.length !== items.length ? (
@@ -268,6 +287,10 @@ function InboxPage() {
         <div className="grid-col">{body}</div>
         <aside className="rail">
           <div className="rail-scroll">
+            <RailWidget title="sources" prefKey={RAIL_SOURCES_PREF} defaultOpen>
+              <SourceSelect selection={selection} onChange={handleSourceChange} />
+            </RailWidget>
+
             <RailWidget title="add to queue" prefKey={RAIL_QUEUE_PREF} defaultOpen>
               <textarea
                 className="addurls"
