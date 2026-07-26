@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 
 def _unexpected_collection_access():
     raise AssertionError("disabled visual index accessed Chroma")
@@ -43,3 +45,32 @@ def test_disabled_visual_store_never_accesses_chroma(monkeypatch):
     store.upsert_pending_visual("https://example.com/item", [0.1, 0.2], {})
     store.delete_pending_visual(["https://example.com/item"])
     store.delete_visual(["yt:item"])
+
+
+def test_disabled_cover_work_stops_before_filesystem_or_model(monkeypatch, tmp_path):
+    from ytk import store, visual
+
+    monkeypatch.setenv("YTK_VISUAL_INDEX", "off")
+    monkeypatch.setattr(visual, "iter_covers", _unexpected_collection_access)
+    monkeypatch.setattr(visual, "embed_images", _unexpected_collection_access)
+
+    assert visual.index_covers() == 0
+    assert visual.sync_pending_visual() == (0, 0)
+    assert not visual.embed_cover_for_save(tmp_path / "cover.jpg", "yt:item", {})
+    assert not store.visual_index_ok()
+
+
+def test_visual_image_endpoint_uses_guarded_store_api(monkeypatch):
+    from fastapi import HTTPException
+
+    from ytk import store
+    from ytk.ui.server import visual_image_api
+
+    monkeypatch.setenv("YTK_VISUAL_INDEX", "off")
+    monkeypatch.setattr(store, "_visual_collection", _unexpected_collection_access)
+
+    with pytest.raises(HTTPException) as exc_info:
+        visual_image_api(id="yt:item")
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "Unknown item"

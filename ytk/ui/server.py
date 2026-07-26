@@ -676,12 +676,12 @@ def visual_image_api(id: str):
 
     from fastapi.responses import FileResponse
 
-    from ytk.store import _visual_collection, chroma_field, meta_str
+    from ytk.store import get_visual_metadata, meta_str
 
-    res = _visual_collection().get(ids=[id])
-    if not res["ids"]:
+    metadata = get_visual_metadata(id)
+    if metadata is None:
         raise HTTPException(status_code=404, detail="Unknown item")
-    p = _P(meta_str(chroma_field(res["metadatas"], "metadatas")[0], "image_path"))
+    p = _P(meta_str(metadata, "image_path"))
     allowed = (
         _P.home() / ".ytk" / "covers",
         _P(os.environ.get("OBSIDIAN_VAULT_PATH", "")).expanduser(),
