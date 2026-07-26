@@ -440,6 +440,16 @@ def sync_pending_visual() -> tuple[int, int]:
     return done, len(stale)
 
 
+def rebuild_visual_indexes(progress=None) -> tuple[int, int]:
+    """Replace both visual collections and rebuild them from source covers."""
+    from . import store
+
+    store.reset_visual_collections()
+    index_covers(progress=progress, skip_existing=False)
+    sync_pending_visual()
+    return store.visual_count(), len(store.pending_visual_ids())
+
+
 def embed_cover_for_save(image_path: Path, item_id: str, metadata: dict) -> bool:
     """Ingest-time hook: embed one cover. Never raises; returns success."""
     from . import store
