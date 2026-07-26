@@ -107,6 +107,26 @@ class TestResolveMovie:
         # api_key must not leak into the URL when a bearer token is present
         assert all("api_key" not in c for c in fake.calls)
 
+    def test_genres_resolved_from_genre_list(self, monkeypatch):
+        routes = self._routes()
+        routes["/search/movie"]["results"][0]["genre_ids"] = [878, 12, 999]
+        routes["/genre/movie/list"] = {
+            "genres": [{"id": 878, "name": "Science Fiction"}, {"id": 12, "name": "Adventure"}]
+        }
+        monkeypatch.setattr(recs, "_http_get", FakeGet(routes))
+        monkeypatch.setattr(recs, "_TMDB_GENRE_CACHE", {})
+        out = recs.resolve("movie", "Dune")
+        assert out["genres"] == ["Science Fiction", "Adventure"]  # unknown 999 dropped
+
+    def test_failed_genre_list_not_cached(self, monkeypatch):
+        routes = self._routes()
+        routes["/search/movie"]["results"][0]["genre_ids"] = [878]
+        monkeypatch.setattr(recs, "_http_get", FakeGet(routes))  # no /genre route
+        cache: dict = {}
+        monkeypatch.setattr(recs, "_TMDB_GENRE_CACHE", cache)
+        assert recs.resolve("movie", "Dune")["genres"] == []
+        assert cache == {}  # transient failure must not poison later calls
+
 
 # --------------------------------------------------------------------------- #
 # Show resolver (TMDb)
@@ -275,6 +295,72 @@ class TestResolveBook:
             recs, "_http_get", FakeGet({"openlibrary.org/search.json": {"docs": []}})
         )
         assert recs.resolve("book", "x") is None
+
+    def test_google_books_preferred_with_categories(self, monkeypatch):
+        routes = {
+            "googleapis.com/books": {
+                "items": [
+                    {
+                        "id": "gb1",
+                        "volumeInfo": {
+                            "title": "Dune",
+                            "authors": ["Frank Herbert"],
+                            "publishedDate": "1965-08-01",
+                            "categories": ["Fiction / Science Fiction / General"],
+                            "imageLinks": {"thumbnail": "http://books.google.com/dune.jpg"},
+                            "industryIdentifiers": [
+                                {"type": "ISBN_13", "identifier": "9780441172719"}
+                            ],
+                            "canonicalVolumeLink": "https://books.google.com/dune",
+                        },
+                    }
+                ]
+            }
+        }
+        monkeypatch.setattr(recs, "_http_get", FakeGet(routes))
+        out = recs.resolve("book", "Dune", creator="Frank Herbert")
+        assert out["canonical_key"] == "isbn:9780441172719"
+        assert out["genres"] == ["Science Fiction"]  # category path leaf
+        assert out["poster"] == "https://books.google.com/dune.jpg"  # https upgrade
+        assert out["year"] == 1965
+
+    def test_falls_back_to_openlibrary_when_google_empty(self, monkeypatch):
+        routes = {
+            "googleapis.com/books": {"items": []},
+            "openlibrary.org/search.json": {
+                "docs": [
+                    {
+                        "title": "Dune",
+                        "author_name": ["Frank Herbert"],
+                        "key": "/works/OL1W",
+                        "subject": ["Science fiction", "Ecology--Fiction", "Fiction"],
+                    }
+                ]
+            },
+        }
+        monkeypatch.setattr(recs, "_http_get", FakeGet(routes))
+        out = recs.resolve("book", "Dune")
+        assert out["canonical_key"] == "ol:/works/OL1W"
+        # noisy OL subjects map through the shelf whitelist, genre fiction first
+        assert out["genres"] == ["Science Fiction", "Fiction"]
+
+
+class TestOlGenres:
+    def test_noise_filtered_and_capped(self):
+        subjects = [
+            "Protected DAISY",
+            "Accessible book",
+            "Science fiction",
+            "Horror tales",
+            "Detective and mystery stories",
+            "American fiction",
+            "Reading Level-Grade 11",
+        ]
+        assert recs._ol_genres(subjects) == ["Science Fiction", "Horror", "Mystery"]
+
+    def test_empty(self):
+        assert recs._ol_genres(None) == []
+        assert recs._ol_genres([]) == []
 
 
 # --------------------------------------------------------------------------- #
@@ -448,6 +534,111 @@ class TestEntries:
 
     def test_empty(self, store_path):
         assert recs.entries(path=store_path) == []
+
+
+# --------------------------------------------------------------------------- #
+# refresh(): re-resolution, key migration, canonical merging
+# --------------------------------------------------------------------------- #
+
+
+class TestRefresh:
+    def _unresolved(self, title, slug, sources, status=None, first_seen=None):
+        return {
+            "canonical_key": f"unresolved:movie:{slug}",
+            "kind": "movie",
+            "title": title,
+            "year": None,
+            "creator": None,
+            "poster": None,
+            "rating": None,
+            "genres": None,
+            "overview": None,
+            "external_url": None,
+            "sources": list(sources),
+            "count": len(sources),
+            "first_seen": first_seen,
+            "status": status,
+        }
+
+    def _movie_routes(self):
+        return {
+            "/search/movie": {
+                "results": [
+                    {
+                        "id": 348,
+                        "title": "Alien",
+                        "release_date": "1979-05-25",
+                        "poster_path": "/alien.jpg",
+                        "vote_average": 8.1,
+                        "overview": "In space.",
+                    }
+                ]
+            },
+            "/movie/348/credits": {"crew": [{"job": "Director", "name": "Ridley Scott"}]},
+        }
+
+    def test_unresolved_migrates_to_canonical_key(self, store_path, monkeypatch):
+        monkeypatch.setattr(recs, "_http_get", FakeGet(self._movie_routes()))
+        recs.save_recs(
+            {"unresolved:movie:alien": self._unresolved("Alien", "alien", ["n1.md"], "want")},
+            store_path,
+        )
+        summary = recs.refresh(path=store_path)
+        data = recs.load_recs(store_path)
+        assert summary["resolved"] == 1
+        assert "unresolved:movie:alien" not in data
+        entry = data["tmdb:movie:348"]
+        assert entry["poster"] == "https://image.tmdb.org/t/p/w342/alien.jpg"
+        assert entry["status"] == "want"  # user state survives the migration
+        assert entry["sources"] == ["n1.md"]
+
+    def test_migrating_entry_merges_into_existing_twin(self, store_path, monkeypatch):
+        monkeypatch.setattr(recs, "_http_get", FakeGet(self._movie_routes()))
+        twin = {
+            **self._unresolved("Alien", "x", ["a.md"], status=None, first_seen="2026-01-01"),
+            "canonical_key": "tmdb:movie:348",
+            "poster": "https://image.tmdb.org/t/p/w342/alien.jpg",
+        }
+        recs.save_recs(
+            {
+                "tmdb:movie:348": twin,
+                "unresolved:movie:alien": self._unresolved(
+                    "Alien", "alien", ["b.md"], status="seen", first_seen="2026-02-02"
+                ),
+            },
+            store_path,
+        )
+        summary = recs.refresh(path=store_path)
+        data = recs.load_recs(store_path)
+        assert summary["merged"] == 1
+        assert list(data) == ["tmdb:movie:348"]
+        entry = data["tmdb:movie:348"]
+        assert sorted(entry["sources"]) == ["a.md", "b.md"]
+        assert entry["count"] == 2
+        assert entry["first_seen"] == "2026-01-01"  # earliest wins
+        assert entry["status"] == "seen"  # the only non-null status survives
+
+    def test_still_unresolved_entry_is_kept(self, store_path, monkeypatch):
+        monkeypatch.setattr(recs, "_http_get", FakeGet({}))  # network dead
+        recs.save_recs(
+            {"unresolved:movie:ghost": self._unresolved("Ghost", "ghost", ["n.md"])},
+            store_path,
+        )
+        summary = recs.refresh(path=store_path)
+        data = recs.load_recs(store_path)
+        assert summary["still_unresolved"] == 1
+        assert "unresolved:movie:ghost" in data  # nothing dropped
+
+    def test_only_unresolved_skips_resolved_entries(self, store_path, monkeypatch):
+        fake = FakeGet(self._movie_routes())
+        monkeypatch.setattr(recs, "_http_get", fake)
+        resolved = {
+            **self._unresolved("Alien", "x", ["a.md"]),
+            "canonical_key": "tmdb:movie:348",
+        }
+        recs.save_recs({"tmdb:movie:348": resolved}, store_path)
+        recs.refresh(path=store_path, only_unresolved=True)
+        assert fake.calls == []  # resolved entries untouched in unresolved-only mode
 
 
 # --------------------------------------------------------------------------- #

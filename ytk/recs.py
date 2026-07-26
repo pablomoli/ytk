@@ -115,6 +115,24 @@ def _tmdb_poster(poster_path: str | None) -> str | None:
     return f"https://image.tmdb.org/t/p/w342{poster_path}" if poster_path else None
 
 
+# Genre-id -> name maps, one API call per media type per process. TMDb search
+# results carry only genre_ids; the names are what the shelf UI groups by.
+_TMDB_GENRE_CACHE: dict[str, dict[int, str]] = {}
+
+
+def _tmdb_genres(media: str, genre_ids: list[int] | None) -> list[str]:
+    if not genre_ids:
+        return []
+    if media not in _TMDB_GENRE_CACHE:
+        data = _tmdb_request(f"/genre/{media}/list")
+        names = {g["id"]: g["name"] for g in (data or {}).get("genres", []) if g.get("name")}
+        if not names:
+            return []  # transient failure: do not cache, retry next call
+        _TMDB_GENRE_CACHE[media] = names
+    names = _TMDB_GENRE_CACHE[media]
+    return [names[i] for i in genre_ids if i in names]
+
+
 def _year_prefix(date_str: str | None) -> int | None:
     if date_str and len(date_str) >= 4 and date_str[:4].isdigit():
         return int(date_str[:4])
@@ -146,6 +164,7 @@ def _resolve_movie(title: str, year: int | None) -> dict | None:
         "creator": creator,
         "poster": _tmdb_poster(m.get("poster_path")),
         "rating": m.get("vote_average"),
+        "genres": _tmdb_genres("movie", m.get("genre_ids")),
         "overview": m.get("overview") or None,
         "external_url": f"https://www.themoviedb.org/movie/{mid}",
     }
@@ -169,6 +188,7 @@ def _resolve_show(title: str, year: int | None) -> dict | None:
         "creator": None,  # skip a credits call for shows to keep resolution cheap
         "poster": _tmdb_poster(m.get("poster_path")),
         "rating": m.get("vote_average"),
+        "genres": _tmdb_genres("tv", m.get("genre_ids")),
         "overview": m.get("overview") or None,
         "external_url": f"https://www.themoviedb.org/tv/{mid}",
     }
@@ -184,6 +204,7 @@ query ($q: String) {
     coverImage { large }
     seasonYear
     averageScore
+    genres
     siteUrl
     studios(isMain: true) { nodes { name } }
   }
@@ -198,6 +219,7 @@ query ($q: String) {
     coverImage { large }
     seasonYear
     averageScore
+    genres
     siteUrl
     staff(perPage: 1) { nodes { name { full } } }
   }
@@ -227,6 +249,7 @@ def _resolve_anime(title: str) -> dict | None:
         "poster": (m.get("coverImage") or {}).get("large"),
         # averageScore is AniList's 0-100 scale; kept as-is (not rescaled to /10).
         "rating": m.get("averageScore"),
+        "genres": m.get("genres") or [],
         "overview": None,
         "external_url": m.get("siteUrl"),
     }
@@ -247,13 +270,129 @@ def _resolve_manga(title: str) -> dict | None:
         "creator": creator,
         "poster": (m.get("coverImage") or {}).get("large"),
         "rating": m.get("averageScore"),
+        "genres": m.get("genres") or [],
         "overview": None,
         "external_url": m.get("siteUrl"),
     }
 
 
 def _resolve_book(title: str, creator: str | None) -> dict | None:
-    params = {"title": title, "limit": 1}
+    """Google Books first (categories for the shelf UI, reliable covers),
+    Open Library as fallback. Both keyless at this volume."""
+    return _resolve_book_google(title, creator) or _resolve_book_openlibrary(title, creator)
+
+
+def _resolve_book_google(title: str, creator: str | None) -> dict | None:
+    q = f'intitle:"{title}"'
+    if creator:
+        q += f' inauthor:"{creator}"'
+    params: dict[str, str | int] = {"q": q, "maxResults": 1, "printType": "books"}
+    # Keyless calls share an anonymous per-IP daily quota that is often already
+    # exhausted (observed 429 on first call); a key makes this path reliable.
+    key = os.environ.get("GOOGLE_BOOKS_API_KEY")
+    if key:
+        params["key"] = key
+    url = "https://www.googleapis.com/books/v1/volumes?" + urllib.parse.urlencode(params)
+    data = _http_get(url)
+    items = (data or {}).get("items") or []
+    if not items:
+        return None
+    item = items[0]
+    info = item.get("volumeInfo") or {}
+    isbn13 = next(
+        (
+            i.get("identifier")
+            for i in info.get("industryIdentifiers", [])
+            if i.get("type") == "ISBN_13"
+        ),
+        None,
+    )
+    # ISBN keys join with Open Library resolutions of the same book, so a
+    # fallback-resolved entry upgrades in place instead of duplicating.
+    canonical_key = f"isbn:{isbn13}" if isbn13 else f"gbooks:{item.get('id')}"
+    thumb = (info.get("imageLinks") or {}).get("thumbnail")
+    if thumb:
+        thumb = thumb.replace("http://", "https://")
+    authors = info.get("authors") or []
+    # Categories arrive as paths ("Fiction / Science Fiction / General"); the
+    # shelf name is the most specific segment that is not the "General"
+    # catch-all, deduped case-insensitively across categories.
+    genres: list[str] = []
+    for cat in info.get("categories") or []:
+        segments = [s.strip() for s in cat.split("/")]
+        leaf = next((s for s in reversed(segments) if s and s.lower() != "general"), None)
+        if leaf and leaf.lower() not in {g.lower() for g in genres}:
+            genres.append(leaf)
+    return {
+        "canonical_key": canonical_key,
+        "kind": "book",
+        "title": info.get("title") or title,
+        "year": _year_prefix(info.get("publishedDate")),
+        "creator": authors[0] if authors else (creator or None),
+        "poster": thumb,
+        "rating": info.get("averageRating"),
+        "genres": genres,
+        "overview": info.get("description") or None,
+        "external_url": info.get("canonicalVolumeLink") or None,
+    }
+
+
+# Open Library subjects are folksonomy noise ("Protected DAISY", "Reading
+# Level-Grade 11"); only spine-label shelves pass through. Contains-matched,
+# lowercased, first hit per shelf wins.
+_OL_SUBJECT_SHELVES: tuple[tuple[str, str], ...] = (
+    ("science fiction", "Science Fiction"),
+    ("fantasy", "Fantasy"),
+    ("horror", "Horror"),
+    ("thriller", "Thriller"),
+    ("mystery", "Mystery"),
+    ("detective", "Mystery"),
+    ("romance", "Romance"),
+    ("historical fiction", "Historical Fiction"),
+    ("biography", "Biography"),
+    ("autobiography", "Biography"),
+    ("memoir", "Biography"),
+    ("poetry", "Poetry"),
+    ("philosophy", "Philosophy"),
+    ("psychology", "Psychology"),
+    ("self-help", "Self-Help"),
+    ("self-improvement", "Self-Help"),
+    ("business", "Business"),
+    ("economics", "Business"),
+    ("history", "History"),
+    ("science", "Science"),
+    ("mathematics", "Science"),
+    ("computer", "Technology"),
+    ("programming", "Technology"),
+    ("design", "Design"),
+    ("art", "Art"),
+    ("graphic novel", "Comics"),
+    ("comics", "Comics"),
+    ("fiction", "Fiction"),  # last: catch-all so genre fiction lands above
+)
+
+
+def _ol_genres(subjects: list[str] | None) -> list[str]:
+    # A matched subject is consumed so a broad needle later in the table
+    # cannot re-match it ("science fiction" must not also yield "Science").
+    remaining = [s.lower() for s in subjects or []]
+    genres: list[str] = []
+    for needle, shelf in _OL_SUBJECT_SHELVES:
+        hits = any(needle in s for s in remaining)
+        if not hits:
+            continue
+        if shelf not in genres:
+            genres.append(shelf)
+        remaining = [s for s in remaining if needle not in s]
+    return genres[:3]
+
+
+def _resolve_book_openlibrary(title: str, creator: str | None) -> dict | None:
+    params = {
+        "title": title,
+        "limit": 1,
+        "fields": "key,title,author_name,cover_i,first_publish_year,isbn,subject",
+    }
     if creator:
         params["author"] = creator
     url = "https://openlibrary.org/search.json?" + urllib.parse.urlencode(params)
@@ -276,6 +415,7 @@ def _resolve_book(title: str, creator: str | None) -> dict | None:
         "creator": authors[0] if authors else (creator or None),
         "poster": poster,
         "rating": None,
+        "genres": _ol_genres(d.get("subject")),
         "overview": None,
         "external_url": f"https://openlibrary.org{ol_key}" if ol_key else None,
     }
@@ -350,6 +490,7 @@ _ENTRY_META_FIELDS = (
     "creator",
     "poster",
     "rating",
+    "genres",
     "overview",
     "external_url",
 )
@@ -382,6 +523,7 @@ def record(kind, title, creator, note_path, path=RECS_PATH) -> dict | None:
             "creator": creator or None,
             "poster": None,
             "rating": None,
+            "genres": None,
             "overview": None,
             "external_url": None,
         }
@@ -410,6 +552,67 @@ def record(kind, title, creator, note_path, path=RECS_PATH) -> dict | None:
     data[key] = entry
     save_recs(data, path)
     return entry
+
+
+def refresh(path=RECS_PATH, only_unresolved: bool = False) -> dict:
+    """Re-resolve every stored entry against the live APIs (#21).
+
+    Exists because resolution failures are otherwise permanent: ``record``
+    only retries a title when a new note mentions it again, so entries
+    recorded before credentials existed (59 of 92 movies at the time this
+    was written) stayed ``unresolved:*`` stubs forever. Also backfills
+    fields added after an entry was stored (``genres``).
+
+    An ``unresolved:*`` entry that now resolves migrates to its canonical
+    key; if that key already exists the two merge (union of sources,
+    earliest ``first_seen``, an existing status is never overwritten).
+    User state (``status``, ``sources``, ``first_seen``) is always
+    preserved. Returns a summary dict.
+    """
+    data = load_recs(path)
+    summary = {"total": len(data), "resolved": 0, "still_unresolved": 0, "merged": 0}
+    out: dict[str, dict] = {}
+
+    def _fold(key: str, entry: dict) -> None:
+        existing = out.get(key)
+        if existing is None:
+            out[key] = entry
+            return
+        summary["merged"] += 1
+        for src in entry.get("sources", []):
+            if src not in existing["sources"]:
+                existing["sources"].append(src)
+        existing["count"] = len(existing["sources"])
+        firsts = [f for f in (existing.get("first_seen"), entry.get("first_seen")) if f]
+        existing["first_seen"] = min(firsts) if firsts else None
+        existing["status"] = existing.get("status") or entry.get("status")
+        for field in _ENTRY_META_FIELDS:
+            if existing.get(field) is None and entry.get(field) is not None:
+                existing[field] = entry[field]
+
+    for key, entry in data.items():
+        was_unresolved = key.startswith("unresolved:")
+        if only_unresolved and not was_unresolved:
+            _fold(key, entry)
+            continue
+        resolved = resolve(
+            entry.get("kind"), entry.get("title"), entry.get("creator"), entry.get("year")
+        )
+        if resolved is None:
+            if was_unresolved:
+                summary["still_unresolved"] += 1
+            _fold(key, entry)
+            continue
+        summary["resolved"] += 1
+        merged = dict(entry)
+        for field in _ENTRY_META_FIELDS:
+            if resolved.get(field) is not None:
+                merged[field] = resolved[field]
+        _fold(merged["canonical_key"], merged)
+
+    save_recs(out, path)
+    summary["total_after"] = len(out)
+    return summary
 
 
 def set_status(key, status, path=RECS_PATH) -> dict:
