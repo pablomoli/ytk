@@ -32,14 +32,20 @@ export function SourceSelect({
 
   return (
     <div className="source-select">
-      <div className="source-select-list" role="group" aria-label="Filter by source">
+      <div className="source-select-grid" role="group" aria-label="Filter by source">
         {SOURCES.map((s) => {
           const checked = active.has(canonicalSource(s));
           return (
-            <label key={s} className={`source-option${checked ? " on" : ""}`}>
+            <label key={s} className={`source-option${checked ? " on" : ""}`} title={s}>
               <input type="checkbox" checked={checked} onChange={() => toggle(s)} />
-              {sourceIcon(s)}
-              <span>{s}</span>
+              {sourceIcon(s, 22)}
+              {/* The name is always in the DOM and only visually hidden, so it
+                  still names the checkbox for assistive technology and for
+                  anyone navigating by keyboard. Revealed on hover and on
+                  focus-visible, as an overlay inside the tile: the rail clips
+                  its overflow, so a tooltip escaping the tile would be cut off
+                  at the widget edge. */}
+              <span className="source-option-label">{s}</span>
             </label>
           );
         })}
