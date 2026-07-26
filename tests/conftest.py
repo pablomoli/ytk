@@ -38,10 +38,11 @@ def _isolate_config(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _embedded_chroma_only(monkeypatch):
-    """Never let unit tests inherit the production Chroma server endpoint."""
-    monkeypatch.delenv("CHROMA_URL", raising=False)
-    monkeypatch.delenv("CHROMA_SERVER_PATH", raising=False)
+def _embedded_chroma_only(tmp_path, monkeypatch):
+    """Never let unit tests inherit production Chroma runtime settings."""
+    monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
+    monkeypatch.setenv("CHROMA_URL", "")
+    monkeypatch.setenv("CHROMA_SERVER_PATH", str(tmp_path / "chroma-server"))
 
 
 @pytest.fixture(autouse=True)
