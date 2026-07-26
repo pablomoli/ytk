@@ -1,9 +1,9 @@
 """Live masonry stability probe (#22).
 
 The hermetic guard lives in web/src/components/MasonryGrid.test.tsx and counts
-layout passes. It cannot count style writes, because jsdom emits no attribute
+layout passes. It cannot count style writes in a synthetic DOM, because it emits no attribute
 mutation when a style property is set to the value it already holds — the
-pre-fix component passes a write-counting assertion cleanly under jsdom. A real
+pre-fix component passes a write-counting assertion cleanly there. A real
 browser does record those writes, so this is where that half of the guard runs.
 
 Not part of the unit suite on purpose: it needs a browser and a running hub

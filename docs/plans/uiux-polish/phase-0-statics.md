@@ -12,7 +12,7 @@
 
 See `docs/plans/uiux-polish/README.md` — applies verbatim. Highlights for this phase: no new dependencies at all; `vp check` + `vp test` from `web/` before every commit; commit trailer `Claude-Session: https://claude.ai/code/session_01EZs3WKS79bUuoRYWoS2FsY`; lowercase copy, Newsreader only, tokens from theme.css.
 
-**jsdom + `<dialog>` note (read before Task 1):** jsdom does not reliably implement `showModal()`. Every dialog test must stub it first:
+**Synthetic DOM + `<dialog>` note (historical):** the old non-browser environment did not reliably implement `showModal()`. Dialog tests previously had to stub it:
 
 ```ts
 beforeAll(() => {
@@ -75,7 +75,7 @@ test('close button and dialog close event both call onClose', () => {
 })
 ```
 
-Note on `enabled: false` in the QueryClient: `useNote`/`useSimilarNotes` fire real fetches in jsdom otherwise. If those hooks hard-code `enabled`, instead stub fetch: `vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}'))))` in `beforeAll`.
+Note on `enabled: false` in the QueryClient: `useNote`/`useSimilarNotes` otherwise fire real fetches. If those hooks hard-code `enabled`, stub fetch with `vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}'))))` in `beforeAll`.
 
 - [ ] **Step 2: Run the test, verify it fails**
 

@@ -44,7 +44,10 @@ function community(domain: string, segments: string[]): string | undefined {
   if (domain.endsWith("github.com") && segments.length >= 2) {
     return `${segments[0]}/${segments[1]}`;
   }
-  if ((domain.endsWith("tiktok.com") || domain.endsWith("instagram.com")) && segments[0]?.startsWith("@")) {
+  if (
+    (domain.endsWith("tiktok.com") || domain.endsWith("instagram.com")) &&
+    segments[0]?.startsWith("@")
+  ) {
     return segments[0];
   }
   return undefined;

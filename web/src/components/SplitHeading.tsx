@@ -30,8 +30,7 @@ export function SplitHeading({
           stagger: DUR.reveal / Math.max(6, split.words.length * 2),
         });
       } catch {
-        /* jsdom or an exotic layout can refuse the split — the heading
-           simply stays static, which is the correct degraded state */
+        /* If layout metrics are unavailable, keep the heading static. */
       }
     });
     return () => {

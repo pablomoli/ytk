@@ -197,7 +197,7 @@ import { expect, test, vi } from 'vitest'
 import { pixelateSwap } from './pixelateSwap'
 
 test('swap always runs; degraded environments get no overlay', () => {
-  // jsdom canvas has no real 2d context data, width/height 0 -> degraded path
+  // A zero-size canvas has no usable frame data, so use the degraded path.
   const canvas = document.createElement('canvas')
   document.body.appendChild(canvas)
   const swap = vi.fn()

@@ -141,7 +141,7 @@ function InboxPage() {
     if (!url) return "";
     const item = (q.data ?? []).find((i) => i.url === url);
     return item?.text || item?.author || url;
-  }, [q.data, job.data?.current]);
+  }, [q.data, job.data]);
 
   // A real 1s clock: the memo version stopped ticking whenever job polling
   // paused, freezing the elapsed readout mid-run.

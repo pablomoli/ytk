@@ -204,7 +204,12 @@ test("the checkbox reports the selected state", () => {
 test("withholds the open-original link when there is no canonical url", () => {
   render(
     <Card
-      item={{ url: "imessage:session:527ad6307d540cd9", source: "imessage", text: "hi", author: "me" }}
+      item={{
+        url: "imessage:session:527ad6307d540cd9",
+        source: "imessage",
+        text: "hi",
+        author: "me",
+      }}
       onInspect={noop}
       onToggleSelect={noop}
     />,

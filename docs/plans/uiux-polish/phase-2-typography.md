@@ -74,7 +74,7 @@ export function SplitHeading({ as = 'h1', children }: { as?: 'h1' | 'h2' | 'h3';
           stagger: DUR.reveal / Math.max(6, split.words.length * 2),
         })
       } catch {
-        /* jsdom or an exotic layout can refuse the split — the heading
+        /* A non-layout environment can refuse the split — the heading
            simply stays static, which is the correct degraded state */
       }
     })
@@ -85,7 +85,7 @@ export function SplitHeading({ as = 'h1', children }: { as?: 'h1' | 'h2' | 'h3';
 }
 ```
 
-(The `document.fonts?.ready ?? Promise.resolve()` guard and the try/catch are load-bearing: jsdom lacks `document.fonts` and can refuse SplitText's layout reads — the degraded state is a static heading, never a crash.)
+(The `document.fonts?.ready ?? Promise.resolve()` guard and the try/catch are load-bearing: a non-layout environment can lack `document.fonts` and refuse SplitText's layout reads — the degraded state is a static heading, never a crash.)
 
 - [ ] **Step 4: Wire transit** — `web/src/routes/transit.tsx:203`: replace `<h1>connections, not clusters</h1>` with `<SplitHeading>connections, not clusters</SplitHeading>` and add the import.
 
@@ -133,7 +133,7 @@ test('updates to new text on prop change', () => {
 })
 ```
 
-(In jsdom the scramble tween is skipped — see implementation — so the text is synchronous.)
+(In a non-layout environment the scramble tween is skipped — see implementation — so the text is synchronous.)
 
 - [ ] **Step 2: Verify failure**, then implement:
 
@@ -443,5 +443,5 @@ Claude-Session: https://claude.ai/code/session_01EZs3WKS79bUuoRYWoS2FsY"
 
 1. No scramble on per-second values (elapsed, done/total stay plain text).
 2. Charsets are the restrained sets defined above — no symbols beyond `.:`.
-3. Every component tolerates jsdom (fonts.ready guarded, matchMedia stubbed in test-setup from Phase 1).
+3. Every component tolerates missing browser APIs (fonts.ready guarded, matchMedia stubbed in test-setup from Phase 1).
 4. React-vs-GSAP text ownership: each effect restores or re-renders the final text (see per-component comments).

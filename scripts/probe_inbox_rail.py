@@ -1,6 +1,6 @@
 """Geometry gate for the inbox rail (#125).
 
-jsdom reports every rect as zero, so the unit suite cannot see this class of
+The former synthetic DOM reported every rect as zero, so its unit suite could not see this class of
 bug at all — the sibling #124 defect escaped its unit test for exactly that
 reason. This asserts the two things the issue actually promises: the rail
 never runs past the fold, and the ingest action is genuinely clickable.
