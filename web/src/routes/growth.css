@@ -1,5 +1,6 @@
+/* Bounded by .hub-outlet, not the viewport: fixed here would cover the nav. */
 .growth-page {
-  position: fixed;
+  position: absolute;
   inset: 0;
   overflow: hidden;
   background: #050607;

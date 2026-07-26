@@ -1,5 +1,5 @@
 .transit-page {
-  min-height: calc(100vh - 46px);
+  flex: 1 0 auto;
   overflow: hidden;
   background: radial-gradient(circle at 52% 42%, rgba(58, 63, 75, 0.18), transparent 38%), #09090b;
   color: var(--ink);

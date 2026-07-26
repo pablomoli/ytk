@@ -243,7 +243,7 @@ function InboxPage() {
   }
 
   return (
-    <div id="inbox-page" className="hub-page">
+    <div id="inbox-page" className="hub-page hub-page-fill">
       <HubControls>
         <SourceFilter value={source} onChange={handleSourceChange} />
         <span className="count">
