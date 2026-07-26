@@ -167,9 +167,14 @@ body {
   font-size: 0.85rem;
 }
 
+/* Wraps rather than overflowing (#137). The row could neither wrap nor shrink:
+   both children have min-width auto, so they hold their min-content size, and
+   on /grove at 820px that is 616px of links plus 456px of controls in an 820px
+   row. The page scrolled sideways by up to 283px. */
 .hub-nav {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
   align-items: center;
   padding: 0.8rem 1rem;
   background: #181818;
@@ -178,13 +183,19 @@ body {
 
 .hub-nav-links {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
   align-items: center;
 }
 
+/* margin-left: auto still right-aligns the slot when it shares a line, but it
+   must not hold that alignment against a line with no room — min-width: 0 lets
+   it drop to its own row instead of forcing the nav wider than the viewport. */
 .hub-controls {
   margin-left: auto;
+  min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
 }
