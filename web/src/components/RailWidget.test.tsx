@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test } from "vitest";
 import { RailWidget } from "./RailWidget";
 import { getPref } from "../lib/prefs";
@@ -33,7 +33,7 @@ test("a stored pref overrides the default", () => {
   expect(open("queue")).toBe(false);
 });
 
-test("toggling persists the new state", () => {
+test("toggling persists the new state", async () => {
   render(
     <RailWidget title="queue" prefKey="ytk:test:q" defaultOpen>
       <p>q body</p>
@@ -41,7 +41,8 @@ test("toggling persists the new state", () => {
   );
   screen.getByText("queue").click();
   expect(open("queue")).toBe(false);
-  expect(getPref("ytk:test:q", true)).toBe(false);
+  // the toggle event is queued as a task, so the pref write trails the click
+  await waitFor(() => expect(getPref("ytk:test:q", true)).toBe(false));
 });
 
 test("widgets toggle independently", () => {

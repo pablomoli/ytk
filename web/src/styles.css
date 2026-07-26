@@ -1209,6 +1209,9 @@ body {
   flex-direction: column;
   gap: 0.9rem;
   min-height: 0;
+  /* Keeps the last widget from ending flush against the footer's rule, where
+     a heading cut mid-glyph reads as broken rather than as scrollable. */
+  padding-bottom: 0.6rem;
 }
 
 /* Pinned outside .rail-scroll: the ingest action must stay reachable no
@@ -1239,9 +1242,20 @@ body {
 .rail-widget > summary::-webkit-details-marker {
   display: none;
 }
+/* Caret drawn in CSS rather than set as a glyph: a character here inherits
+   Newsreader's serif forms and reads as punctuation beside the label instead
+   of as a control. */
 .rail-widget > summary::before {
-  content: "> ";
+  content: "";
   display: inline-block;
+  width: 0;
+  height: 0;
+  margin-right: 0.5rem;
+  vertical-align: 0.09em;
+  border-left: 4px solid #6f6a60;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transform-origin: 2px center;
   transition: transform 0.18s var(--ease);
 }
 .rail-widget[open] > summary::before {
