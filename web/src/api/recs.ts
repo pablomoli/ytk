@@ -12,6 +12,7 @@ export type RecCard = {
   creator: string | null;
   poster: string | null;
   rating: number | null;
+  genres: string[] | null;
   overview: string | null;
   external_url: string | null;
   count: number;

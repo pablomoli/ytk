@@ -20,15 +20,54 @@ const TAB_KINDS: Record<Tab, RecKind[]> = {
 
 const STATUSES: Exclude<RecStatus, null>[] = ["want", "seen", "skip"];
 
+const MY_LIST = "my list";
+const UNSHELVED = "uncategorized";
+
+type Shelf = { name: string; recs: RecCard[] };
+
+/* Blockbuster rule: every title sits on exactly one shelf. Wanted titles are
+   pulled up to "my list"; everything else shelves under its primary genre
+   (the APIs order genres by relevance, so genres[0] is the spine label). */
+function buildShelves(recs: RecCard[]): Shelf[] {
+  const byName = new Map<string, RecCard[]>();
+  const myList: RecCard[] = [];
+  for (const r of recs) {
+    if (r.status === "want") {
+      myList.push(r);
+      continue;
+    }
+    const genre = r.genres?.[0] ?? UNSHELVED;
+    const row = byName.get(genre);
+    if (row) row.push(r);
+    else byName.set(genre, [r]);
+  }
+  const shelves = [...byName.entries()]
+    .map(([name, row]) => ({ name, recs: row }))
+    .sort((a, b) => {
+      if (a.name === UNSHELVED) return 1;
+      if (b.name === UNSHELVED) return -1;
+      return b.recs.length - a.recs.length || a.name.localeCompare(b.name);
+    });
+  for (const shelf of shelves) {
+    shelf.recs.sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
+  }
+  if (myList.length) {
+    myList.sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
+    shelves.unshift({ name: MY_LIST, recs: myList });
+  }
+  return shelves;
+}
+
 function RecsPage() {
   const q = useRecs();
   const setStatus = useSetRecStatus();
 
   const [tab, setTab] = useState<Tab>("watch");
   const [kind, setKind] = useState<RecKind | null>(null);
+  const [showDone, setShowDone] = useState(false);
 
   // Memoised on q.data so the fallback does not mint a fresh [] every render,
-  // which defeated the two memos below while the query was loading.
+  // which defeated the memos below while the query was loading.
   const recs = useMemo(() => q.data ?? [], [q.data]);
 
   const counts = useMemo(() => {
@@ -38,13 +77,14 @@ function RecsPage() {
     return { byKind, watch: forTab("watch"), read: forTab("read"), total: recs.length };
   }, [recs]);
 
-  const visible = useMemo(() => {
+  const shelves = useMemo(() => {
     const kinds = TAB_KINDS[tab];
-    return recs
+    const visible = recs
       .filter((r) => kinds.includes(r.kind))
       .filter((r) => (kind ? r.kind === kind : true))
-      .sort((a, b) => b.count - a.count);
-  }, [recs, tab, kind]);
+      .filter((r) => (showDone ? true : r.status !== "seen" && r.status !== "skip"));
+    return buildShelves(visible);
+  }, [recs, tab, kind, showDone]);
 
   const selectTab = (t: Tab) => {
     setTab(t);
@@ -60,19 +100,25 @@ function RecsPage() {
 
   let body;
   if (q.isLoading) {
-    body = <div className="rec-grid">{<Skeletons count={10} />}</div>;
+    body = <div className="shelf-row">{<Skeletons count={10} />}</div>;
   } else if (q.isError) {
     body = <ErrorState error={q.error} />;
-  } else if (visible.length === 0) {
+  } else if (shelves.length === 0) {
     body = <EmptyState label="no recommendations yet" />;
   } else {
-    body = (
-      <div className="rec-grid">
-        {visible.map((r) => (
-          <RecCardView key={r.key} rec={r} onStatus={toggleStatus} />
-        ))}
-      </div>
-    );
+    body = shelves.map((shelf) => (
+      <section key={shelf.name} className="shelf" aria-label={shelf.name}>
+        <header className="shelf-head">
+          <h2 className={`shelf-name${shelf.name === MY_LIST ? " mine" : ""}`}>{shelf.name}</h2>
+          <span className="count">{shelf.recs.length}</span>
+        </header>
+        <div className="shelf-row">
+          {shelf.recs.map((r) => (
+            <RecCardView key={r.key} rec={r} onStatus={toggleStatus} />
+          ))}
+        </div>
+      </section>
+    ));
   }
 
   return (
@@ -107,6 +153,13 @@ function RecsPage() {
               {k} <span className="count">{counts.byKind.get(k) ?? 0}</span>
             </button>
           ))}
+          <button
+            className={`chip${showDone ? " on" : ""}`}
+            aria-pressed={showDone}
+            onClick={() => setShowDone((v) => !v)}
+          >
+            seen &amp; skipped
+          </button>
         </div>
         {body}
       </div>
@@ -141,11 +194,6 @@ function RecCardView({
             <span className="rec-poster-kind">{rec.kind}</span>
           </div>
         )}
-        {rec.rating != null ? (
-          <span className="rec-rating" title={`rating ${rec.rating}`}>
-            {rec.rating.toFixed(1)}
-          </span>
-        ) : null}
       </div>
       <div className="rec-body">
         <h3 className="rec-title title" title={rec.title}>
@@ -156,7 +204,7 @@ function RecCardView({
           {rec.creator ? <span className="rec-creator">{rec.creator}</span> : null}
         </div>
         <button className="rec-count" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-          recommended in {rec.count} {rec.count === 1 ? "note" : "notes"}
+          in {rec.count} {rec.count === 1 ? "note" : "notes"}
         </button>
         {open ? (
           <ul className="rec-sources">
