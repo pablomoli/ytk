@@ -25,14 +25,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 MODELS = {
     "gte-small": {
-        "hf": "thenlper/gte-small", "window": 512, "query_prefix": "",
+        "hf": "thenlper/gte-small",
+        "window": 512,
+        "query_prefix": "",
     },
     "bge-small": {
-        "hf": "BAAI/bge-small-en-v1.5", "window": 512,
+        "hf": "BAAI/bge-small-en-v1.5",
+        "window": 512,
         "query_prefix": "Represent this sentence for searching relevant passages: ",
     },
     "qwen3-0.6b": {
-        "hf": "Qwen/Qwen3-Embedding-0.6B", "window": 32768,
+        "hf": "Qwen/Qwen3-Embedding-0.6B",
+        "window": 32768,
         "query_prefix": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: ",
     },
 }
@@ -42,9 +46,9 @@ def doc_parts(text: str) -> list[str]:
     from ytk.store import _split_doc
 
     chunks = _split_doc(text)
-    context = next(
-        (line.strip().lstrip("# ") for line in text.splitlines() if line.strip()), ""
-    )[:120]
+    context = next((line.strip().lstrip("# ") for line in text.splitlines() if line.strip()), "")[
+        :120
+    ]
     return [chunks[0]] + [f"{context}\n\n{c}" for c in chunks[1:]]
 
 
@@ -53,8 +57,11 @@ def main() -> None:
     ap.add_argument("--model", required=True, choices=sorted(MODELS))
     ap.add_argument("--data", default="experiments/encoder_harness/data")
     ap.add_argument("--dims", type=int, default=0, help="MRL-truncate to N dims (0 = native)")
-    ap.add_argument("--force-parts", action="store_true",
-                    help="use the parts strategy even on long-context models")
+    ap.add_argument(
+        "--force-parts",
+        action="store_true",
+        help="use the parts strategy even on long-context models",
+    )
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--fp16", action="store_true", help="load weights in float16 (halves memory)")
     ap.add_argument("--max-seq", type=int, default=0, help="cap tokenizer sequence length")
@@ -84,6 +91,7 @@ def main() -> None:
     kwargs = {}
     if args.fp16:
         import torch
+
         kwargs["model_kwargs"] = {"torch_dtype": torch.float16}
     model = SentenceTransformer(cfg["hf"], **kwargs)
     if args.max_seq:
@@ -92,7 +100,9 @@ def main() -> None:
 
     t0 = time.perf_counter()
     embs = model.encode(
-        texts, batch_size=args.batch, normalize_embeddings=True,
+        texts,
+        batch_size=args.batch,
+        normalize_embeddings=True,
         show_progress_bar=False,
     )
     t_encode = time.perf_counter() - t0
@@ -102,20 +112,30 @@ def main() -> None:
         embs = embs[:, : args.dims]
         embs /= np.linalg.norm(embs, axis=1, keepdims=True)
 
-    key = args.model + (f"-{args.dims}d" if args.dims else "") + ("-parts" if args.force_parts else "")
+    key = (
+        args.model
+        + (f"-{args.dims}d" if args.dims else "")
+        + ("-parts" if args.force_parts else "")
+    )
     reps = embs[rep_rows]
     np.savez_compressed(
         data / f"{key}.npz",
-        reps=reps, parts=embs,
+        reps=reps,
+        parts=embs,
         part_doc=np.asarray(part_doc, dtype=np.int32),
         ids=np.asarray([r["id"] for r in corpus]),
         buckets=np.asarray([r["bucket"] for r in corpus]),
     )
 
     bench = {
-        "key": key, "hf": cfg["hf"], "dims": int(embs.shape[1]),
-        "docs": len(corpus), "vectors": len(texts), "parts_strategy": use_parts,
-        "load_s": round(t_load, 2), "encode_s": round(t_encode, 2),
+        "key": key,
+        "hf": cfg["hf"],
+        "dims": int(embs.shape[1]),
+        "docs": len(corpus),
+        "vectors": len(texts),
+        "parts_strategy": use_parts,
+        "load_s": round(t_load, 2),
+        "encode_s": round(t_encode, 2),
         "vectors_per_s": round(len(texts) / t_encode, 1),
         "peak_rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1e6),
         "device": str(model.device),

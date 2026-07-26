@@ -6,41 +6,45 @@
 
 changed=$(git diff --cached --name-only)
 
-# Python quality gate (#101): lint and format only the staged .py files, so
+# Python quality gate: lint and format only the staged .py files, so
 # the hook stays in the hundreds of milliseconds and never becomes something
-# worth bypassing. Pyright then runs whenever any ytk/ module changes — it is
-# scoped to the whole package now (#122), not one file.
-py_changed=$(printf '%s\n' "$changed" | grep -E '^(ytk|scripts|tests)/.*\.py$')
+# worth bypassing. Pyright then runs whenever any ytk/ module changes.
+py_changed=$(printf '%s\n' "$changed" | grep -E '^(ytk|scripts|tests|experiments|labs)/.*\.py$')
 if [ -n "$py_changed" ]; then
     # shellcheck disable=SC2086 # word splitting is how the file list is passed
     uv run --extra dev ruff check $py_changed || {
         echo "pre-commit: ruff found lint errors — fix them, or run" >&2
-        echo "  uv run --extra dev ruff check --fix ytk/ scripts/ tests/" >&2
+        echo "  uv run --extra dev ruff check --fix ytk/ scripts/ tests/ experiments/ labs/" >&2
         echo "Bypass with --no-verify." >&2
         exit 1
     }
     # shellcheck disable=SC2086 # word splitting is how the file list is passed
     uv run --extra dev ruff format --check $py_changed || {
         echo "pre-commit: formatting drift — run" >&2
-        echo "  uv run --extra dev ruff format ytk/ scripts/ tests/" >&2
+        echo "  uv run --extra dev ruff format ytk/ scripts/ tests/ experiments/ labs/" >&2
         echo "Bypass with --no-verify." >&2
         exit 1
     }
 fi
 
 # Editing the lint config changes what every file is judged by, so the staged
-# check above cannot see the damage. Lint the whole repo when it moves (#122).
+# check above cannot see the damage. Check every supported path when it moves.
 if printf '%s\n' "$changed" | grep -qE '^pyproject\.toml$'; then
-    echo "pre-commit: lint config changed — checking ytk/ scripts/ tests/"
-    uv run --extra dev ruff check ytk/ scripts/ tests/ || {
+    echo "pre-commit: lint config changed — checking all supported Python paths"
+    uv run --extra dev ruff check ytk/ scripts/ tests/ experiments/ labs/ || {
         echo "pre-commit: the new lint config fails elsewhere in the repo." >&2
         echo "Fix those files, narrow the rule, or bypass with --no-verify." >&2
+        exit 1
+    }
+    uv run --extra dev ruff format --check ytk/ scripts/ tests/ experiments/ labs/ || {
+        echo "pre-commit: the new format config fails elsewhere in the repo." >&2
+        echo "Run the formatter, or bypass with --no-verify." >&2
         exit 1
     }
 fi
 
 if printf '%s\n' "$changed" | grep -qE '^ytk/.*\.py$'; then
-    echo "pre-commit: type checking ytk/ (pyright, basic)"
+    echo "pre-commit: type checking ytk/ (strict by default; explicit legacy opt-outs)"
     uv run --extra dev pyright || {
         echo "pre-commit: pyright FAILED. The package is at zero errors and" >&2
         echo "the gate exists to keep it there — fix the types, or bypass" >&2

@@ -58,9 +58,7 @@ def main() -> None:
         by_cat.setdefault(c, []).append(i)
     eligible = {c: idx for c, idx in by_cat.items() if len(idx) >= 5}
     if len(eligible) < 2:
-        raise SystemExit(
-            f"need >=2 categories with >=5 docs for triplets, got {list(eligible)}"
-        )
+        raise SystemExit(f"need >=2 categories with >=5 docs for triplets, got {list(eligible)}")
 
     def knn_sets(reps, k):
         sims = reps @ reps.T
@@ -87,8 +85,13 @@ def main() -> None:
     seeds = [np.random.default_rng(20260716 + s) for s in range(args.seeds)]
     triplet_sets = [sample_triplets(r) for r in seeds]
 
-    report = {"n_docs": n, "categories": {c: len(v) for c, v in eligible.items()},
-              "k": args.k, "seeds": args.seeds, "spaces": {}}
+    report = {
+        "n_docs": n,
+        "categories": {c: len(v) for c, v in eligible.items()},
+        "k": args.k,
+        "seeds": args.seeds,
+        "spaces": {},
+    }
 
     per_space_scores: dict[str, list[float]] = {}
     ordered = [args.baseline] + [k for k in spaces if k != args.baseline]
@@ -113,7 +116,8 @@ def main() -> None:
             deltas = [s - b for s, b in zip(scores, per_space_scores[args.baseline])]
             lo, hi = np.percentile(deltas, [2.5, 97.5])
             entry["delta_triplet_vs_baseline"] = {
-                "mean": float(np.mean(deltas)), "ci95": [float(lo), float(hi)],
+                "mean": float(np.mean(deltas)),
+                "ci95": [float(lo), float(hi)],
                 "significant": bool(lo > 0 or hi < 0),
             }
         report["spaces"][key] = entry

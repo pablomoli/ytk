@@ -30,9 +30,7 @@ from PIL import Image
 VAULT = Path(
     os.environ.get(
         "OBSIDIAN_VAULT_PATH",
-        os.path.expanduser(
-            "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault"
-        ),
+        os.path.expanduser("~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault"),
     )
 )
 SOURCES = VAULT / "second-brain" / "sources"
@@ -59,7 +57,7 @@ def collect_corpus():
         if not m:
             continue
         fm = text.split("---")[1] if text.startswith("---") else ""
-        tags = frozenset(re.findall(r"^\s+-\s+([\w-]+)\s*$", fm, re.M))
+        tags = frozenset(re.findall(r"^\s+-\s+([\w-]+)\s*$", fm, re.MULTILINE))
         vid_tags[m.group(1)] = tags
 
     for p in sorted((SOURCES / "youtube" / "thumbnails").glob("*-thumb.jpg")):
@@ -119,8 +117,7 @@ def embed_dino(paths, batch_size=8):
     chunks = []
     for i in range(0, len(paths), batch_size):
         arrs = [
-            mx.array(t(np.array(Image.open(p).convert("RGB"))))
-            for p in paths[i : i + batch_size]
+            mx.array(t(np.array(Image.open(p).convert("RGB")))) for p in paths[i : i + batch_size]
         ]
         out = model(mx.stack(arrs))
         if isinstance(out, (tuple, list)):
@@ -196,14 +193,13 @@ def build_gallery(items, orders, out_path, n_queries=18, k=5, seed=7):
         picks += list(rng.choice(pool, size=take, replace=False))
     picks = picks[:n_queries]
 
-    cell = (
-        '<figure><img src="{b64}" title="{name}">'
-        "<figcaption>{cap}</figcaption></figure>"
-    )
+    cell = '<figure><img src="{b64}" title="{name}"><figcaption>{cap}</figcaption></figure>'
     rows = []
     for qi in picks:
         q = items[qi]
-        row = [f'<div class="query">{cell.format(b64=thumb_b64(q["path"]), name=q["path"].name, cap=q["source"])}</div>']
+        row = [
+            f'<div class="query">{cell.format(b64=thumb_b64(q["path"]), name=q["path"].name, cap=q["source"])}</div>'
+        ]
         for model, order in orders.items():
             cells = "".join(
                 cell.format(b64=thumb_b64(items[j]["path"]), name=items[j]["path"].name, cap="")
@@ -241,7 +237,7 @@ def main():
     items = collect_corpus()
     paths = [it["path"] for it in items]
     print(f"corpus: {len(items)} images")
-    for src in sorted({it['source'] for it in items}):
+    for src in sorted({it["source"] for it in items}):
         print(f"  {src}: {sum(1 for it in items if it['source'] == src)}")
 
     results = {"corpus": len(items)}

@@ -22,8 +22,8 @@ def wer(ref: str, hyp: str) -> float:
         prev, d[0] = d[0], i
         for j in range(1, len(h) + 1):
             cur = min(
-                d[j] + 1,          # deletion
-                d[j - 1] + 1,      # insertion
+                d[j] + 1,  # deletion
+                d[j - 1] + 1,  # insertion
                 prev + (r[i - 1] != h[j - 1]),  # substitution
             )
             prev, d[j] = d[j], cur

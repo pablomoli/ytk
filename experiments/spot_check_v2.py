@@ -35,8 +35,7 @@ def hit(q: dict) -> tuple[bool, str]:
     # memories: gold is mem::<vault-relative-path>; match on source_path suffix
     rel = gold.removeprefix("mem::")
     col = store._memories_collection()
-    res = col.query(query_embeddings=[emb], n_results=min(10, col.count()),
-                    include=["metadatas"])
+    res = col.query(query_embeddings=[emb], n_results=min(10, col.count()), include=["metadatas"])
     seen, paths = set(), []
     for meta in res["metadatas"][0]:
         did = meta.get("doc_id", "")
@@ -65,8 +64,7 @@ def main() -> None:
         print(f"[{'ok' if ok else 'MISS'}] ({q['bucket']}) {q['query'][:70]!r}")
         if not ok:
             print(f"        gold={q['gold_id']} {detail}")
-    print(f"\n{passed}/{len(sample)} gold items in top-5 "
-          f"(epoch {store.EMBEDDING_EPOCH})")
+    print(f"\n{passed}/{len(sample)} gold items in top-5 (epoch {store.EMBEDDING_EPOCH})")
     raise SystemExit(0 if passed >= 7 else 1)
 
 
