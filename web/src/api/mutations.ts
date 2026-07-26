@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { apiSend, queryClient } from "./client";
+import type { PullResult } from "../lib/pullStatus";
 
 export const addUrls = (urls: string[]) => apiSend("/api/queue/add", "POST", { urls });
 
@@ -11,7 +12,7 @@ export const refreshSources = (opts?: { only?: string[]; force?: boolean }) => {
   if (opts?.force) params.set("force", "true");
   if (opts?.only?.length) params.set("only", opts.only.join(","));
   const qs = params.toString();
-  return apiSend(`/api/queue/refresh${qs ? `?${qs}` : ""}`, "POST");
+  return apiSend<PullResult>(`/api/queue/refresh${qs ? `?${qs}` : ""}`, "POST");
 };
 export const ingest = (urls: string[], tags?: string[], thought?: string) =>
   apiSend("/api/ingest", "POST", { urls, tags, thought });

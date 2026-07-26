@@ -23,6 +23,7 @@ import { RailWidget } from "../components/RailWidget";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
 import { filterAndSortQueue } from "../lib/queueItems";
 import { formatElapsed } from "../lib/elapsed";
+import { pullSummary, pullingLabel } from "../lib/pullStatus";
 import {
   INBOX_SOURCES_PREF,
   PROFILE_MATCHES_PREF,
@@ -198,11 +199,20 @@ function InboxPage() {
     addUrls.mutate(urls, { onSuccess: () => setUrlsText("") });
   };
 
+  /* Remembered separately from the mutation so the in-flight line can name what
+     is being fetched. react-query exposes the result but not the variables in a
+     form that survives the pending render here, and "loading..." for up to a
+     minute of network work says nothing about whether it is doing what you
+     asked. */
+  const [pulling, setPulling] = useState<string[] | undefined>(undefined);
+
   const handleRefresh = () => {
-    refreshSources.mutate(undefined); // plain refresh: all sources, cadence-respecting
+    setPulling(undefined); // plain refresh: all sources, cadence-respecting
+    refreshSources.mutate(undefined);
   };
 
   const handleSelectivePull = (only: string[]) => {
+    setPulling(only);
     refreshSources.mutate({ only, force: true });
   };
 
@@ -309,6 +319,23 @@ function InboxPage() {
                 </button>
                 <SourcePullMenu onPull={handleSelectivePull} disabled={refreshSources.isPending} />
               </div>
+              {/* Disabled buttons were the only sign a pull was running, which
+                  reads as a dead UI rather than a busy one. This says what is
+                  being fetched, then what it found. */}
+              {refreshSources.isPending ? (
+                <div className="pull-status busy" role="status">
+                  <span className="dot-spinner" aria-hidden="true" />
+                  <span>{pullingLabel(pulling)}</span>
+                </div>
+              ) : refreshSources.isError ? (
+                <div className="pull-status failed" role="status">
+                  pull failed — {(refreshSources.error as Error).message}
+                </div>
+              ) : refreshSources.data ? (
+                <div className="pull-status" role="status">
+                  <ScrambleStatus text={pullSummary(refreshSources.data)} />
+                </div>
+              ) : null}
             </RailWidget>
 
             <RailWidget title="profile match" prefKey={RAIL_MATCH_PREF}>
