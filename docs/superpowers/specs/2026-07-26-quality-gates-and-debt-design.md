@@ -74,19 +74,21 @@ dual-environment compatibility.
 ## Goals
 
 1. Provide one complete, reproducible local quality command.
-2. Make checked and excluded paths explicit.
-3. Require zero frontend lint and toolchain warnings under the supported
+2. Add a discoverable `justfile` for the repository's common development and
+   operational commands.
+3. Make checked and excluded paths explicit.
+4. Require zero frontend lint and toolchain warnings under the supported
    commands.
-4. Remove the retired synthetic DOM from repository vocabulary and test
+5. Remove the retired synthetic DOM from repository vocabulary and test
    assumptions.
-5. Remove historical and conversational comment debt without deleting useful
+6. Remove historical and conversational comment debt without deleting useful
    invariants.
-6. Consolidate native dialog lifecycle code under real-browser tests.
-7. Extract provider refresh logic from the hub monolith without changing its
+7. Consolidate native dialog lifecycle code under real-browser tests.
+8. Extract provider refresh logic from the hub monolith without changing its
    API or partial-failure semantics.
-8. Split settings rendering into focused components without changing the
+9. Split settings rendering into focused components without changing the
    settings data contract.
-9. Add characterization coverage and concrete decomposition plans before any
+10. Add characterization coverage and concrete decomposition plans before any
    broad `cli.py` or `mapRenderer.ts` extraction.
 
 ## Non-goals
@@ -127,7 +129,59 @@ current Vite+ beta cannot load the project test binary correctly.
 The script is the authoritative definition of “the repository quality gate
 passes.” The pre-commit hook remains incremental and fast.
 
-### 2. Honest local hook scope
+### 2. Repository command surface
+
+Add a root `justfile` as the documented interface for common work. Recipes must
+delegate to existing CLIs and scripts rather than reimplementing their logic.
+Running `just` with no recipe will list the available commands and their short
+descriptions.
+
+The initial recipe set will cover:
+
+```text
+setup            install Python development dependencies and frontend packages
+check            run scripts/check-quality
+lint             run complete Python and frontend lint checks
+format           format supported Python and frontend source
+typecheck        run Pyright and the frontend TypeScript check
+test             run the fast Python suite and Chromium frontend suite
+test-python      run the fast Python suite
+test-web         run the Chromium frontend suite
+build-web        build the committed frontend bundle
+eval             run the live retrieval evaluation
+ui               start the hub in the foreground
+ui-restart       restart the installed hub service
+chroma-status    show the active Chroma server and collection state
+install-tool     reinstall the local `ytk` tool from the checkout
+```
+
+Recipe names may be adjusted during implementation only when the underlying CLI
+does not support the proposed operation. Descriptions and command behavior must
+stay aligned.
+
+`CLAUDE.md` will document:
+
+- `just --list` as the command index;
+- the normal setup, edit, check, build, install, and run loop;
+- that `check` is complete while the pre-commit hook is intentionally
+  incremental;
+- that Python quality tools require the `dev` extra;
+- that frontend tests use Vitest browser mode through
+  `vp exec vitest run`, not the broken integrated Vite+ test path;
+- that frontend tests and layout probes use real Chromium;
+- that `web/dist` is tracked and a production build changes repository files;
+- that the retrieval evaluation uses the live store and its baseline must not
+  be updated merely to clear a failure;
+- that installed CLI changes require `uv tool install --reinstall .`;
+- that Chroma is a separately managed local server and should be inspected with
+  `ytk chroma status` before storage troubleshooting;
+- which long-running recipes should be started in a visible tmux pane.
+
+The `justfile` will not hide destructive actions behind short recipe names. Any
+recipe that mutates persistent data or service state must name that action
+explicitly.
+
+### 3. Honest local hook scope
 
 The staged Python matcher and configuration-change sweep will include
 `experiments/` and `labs/`. The current eight experiment violations will be
@@ -146,7 +200,7 @@ Changing any gate-defining file will run the complete affected scope:
 
 The retrieval hook remains separate and keeps its current file triggers.
 
-### 3. Frontend warning elimination
+### 4. Frontend warning elimination
 
 Fix both hook-dependency warnings according to their actual state ownership.
 Neither warning will be suppressed without a reasoned invariant.
@@ -160,7 +214,7 @@ deprecations, or unexpected dependency-optimization reloads. The existing
 production chunk-size advisory is not part of #122; it will remain visible and
 be recorded separately rather than hidden inside this change.
 
-### 4. Remove retired synthetic-DOM references
+### 5. Remove retired synthetic-DOM references
 
 The repository will contain no tracked references to the retired environment.
 
@@ -180,7 +234,7 @@ The acceptance witness is:
 
 with no matches.
 
-### 5. Comment policy and cleanup
+### 6. Comment policy and cleanup
 
 Comments beside code may document:
 
@@ -206,7 +260,7 @@ counts, the old `THEME_FLOOR` history, the unexplained bloom discrepancy,
 Vite warning counts, grove prototype headers, duplicated dialog explanations,
 and the conversational visual-index failure comment.
 
-### 6. Native dialog lifecycle
+### 7. Native dialog lifecycle
 
 Add a focused hook:
 
@@ -235,7 +289,7 @@ Tests run in Chromium and cover:
 - StrictMode remount cleanup;
 - `NoteViewer` animation cleanup independently of modal ownership.
 
-### 7. Source refresh decomposition
+### 8. Source refresh decomposition
 
 Keep `hub.refresh_sources(force=False, only=None) -> dict` as the public
 orchestrator and preserve its returned shape.
@@ -278,7 +332,7 @@ Characterization tests will lock down:
 - auto-ingest occurring outside the lock;
 - all registered pull seams being stubbed in unit tests.
 
-### 8. Settings component decomposition
+### 9. Settings component decomposition
 
 Keep query, mutation, draft, saved-state, validation, and dirty-state ownership
 in `SettingsPage`.
@@ -314,7 +368,7 @@ Chromium characterization covers:
 - refresh and enrichment-preview actions;
 - grove bucket persistence.
 
-### 9. Remaining monoliths
+### 10. Remaining monoliths
 
 `ytk/cli.py` and `mountMapRenderer` will not be mechanically split in this
 change.
@@ -348,6 +402,8 @@ The final verification set is:
 
 ```text
 scripts/check-quality
+just --list
+just check
 ! rg -n -i 'js''dom' .
 git diff --check
 git status --short
@@ -363,7 +419,7 @@ directly. No pull request is created.
 
 The intended sequence is:
 
-1. local gate and honest scopes;
+1. local gate, `justfile`, command documentation, and honest scopes;
 2. frontend warning and retired-environment cleanup;
 3. comment-only cleanup;
 4. native dialog lifecycle;
