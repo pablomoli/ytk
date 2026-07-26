@@ -2,9 +2,7 @@ import { expect, test, vi } from "vitest";
 import { pixelateSwap } from "./pixelateSwap";
 
 /* A surface with no dimensions cannot be photographed, so the wipe is skipped
-   and the swap still happens. This used to be the only branch the suite
-   covered: under jsdom every canvas reported 0x0, so the degraded path was the
-   only one reachable and the real one was never exercised at all (#135). */
+   and the swap still happens. */
 test("a surface with no dimensions swaps without an overlay", () => {
   const canvas = document.createElement("canvas");
   canvas.width = 0;

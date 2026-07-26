@@ -51,7 +51,7 @@ test('house defaults are wired', () => {
 })
 ```
 
-jsdom lacks `matchMedia`; vitest setup may not stub it. If the test errors on matchMedia, add to `web/src/test-setup.ts`:
+The former synthetic DOM lacked `matchMedia`. If a non-browser test environment errors on it, add this to `web/src/test-setup.ts`:
 
 ```ts
 window.matchMedia ??= ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as unknown as typeof window.matchMedia
@@ -344,7 +344,7 @@ Implementation notes for the executor:
 - `Flip.getState` MUST run before the width-assignment pass (the state must be the OLD rects).
 - Determinism gate: `web/src/lib/masonry.test.ts` must stay untouched and green — Flip animates what `computeMasonryLayout` decided, it never changes the outputs.
 
-- [ ] **Step 2: Gate** — `cd web && vp test && vp check` → PASS. The MasonryGrid unit test still passes because in jsdom `reducedMotion()` is false but `laidOut.current` is false on the single test layout → no Flip call.
+- [ ] **Step 2: Gate** — `cd web && vp test && vp check` → PASS. The MasonryGrid unit test still passes because `reducedMotion()` is false but `laidOut.current` is false on the single test layout → no Flip call.
 
 - [ ] **Step 3: Visual check** — with `vp dev --port 5173` running, screenshot `/` at rest, click a source filter chip via Playwright, capture mid-transition (wait 80ms after click) and settled (wait 500ms). Mid-transition should show cards between positions. Repeat with reduced motion: mid-transition capture must equal settled.
 
@@ -598,7 +598,7 @@ test('reveal overlay mounts and clears', () => {
 })
 ```
 
-(Under jsdom the dissolve grid renders because reducedMotion() is false with the matchMedia stub from Task 1.)
+(In the historical synthetic environment, the dissolve grid rendered because reducedMotion() was false with the matchMedia stub from Task 1.)
 
 - [ ] **Step 5: Gate** — `cd web && vp test && vp check` → PASS.
 

@@ -6,7 +6,7 @@
 
 **Architecture:** One CSS custom property (`--sticky-top`) drives both the rail's sticky offset and its max-height, so the rail and the sticky elements above it cannot disagree. The rail splits into a scrollable stack of four native `<details>` widgets plus a footer pinned outside the scroll area holding the selected-count and ingest button, which makes reachability structural rather than contingent on what the user has expanded.
 
-**Tech Stack:** React 19, TypeScript, TanStack Router, vitest + @testing-library/react (jsdom), plain CSS, Playwright (Python) for geometry verification.
+**Tech Stack:** React 19, TypeScript, TanStack Router, Vitest Browser Mode + Testing Library, plain CSS, Playwright (Python) for geometry verification.
 
 ## Global Constraints
 
@@ -616,7 +616,7 @@ git commit -m "fix(inbox): split the rail and pin the ingest action (#125)"
 - Consumes: a running hub at `http://127.0.0.1:6969` serving the rebuilt bundle.
 - Produces: nothing.
 
-**Context:** jsdom has no layout — every rect is zero — so it cannot represent this bug at all. That is exactly how the sibling #124 defect escaped its unit test. Geometry therefore gets a browser probe, modelled on `scripts/smoke_map.py`. It must NOT live in `tests/`: `tests/conftest.py` fails any test that reaches Playwright (#114).
+**Context:** The former synthetic DOM had no layout — every rect was zero — so it could not represent this bug at all. That is exactly how the sibling #124 defect escaped its unit test. Geometry therefore gets a browser probe, modelled on `scripts/smoke_map.py`. It must NOT live in `tests/`: `tests/conftest.py` fails any Python test that reaches Playwright (#114).
 
 The hub serves a bundle baked into the installed package, so the probe only sees this work after `cd web && pnpm build && uv tool install --reinstall .` and a hub restart.
 
@@ -627,7 +627,7 @@ Create `scripts/probe_inbox_rail.py`:
 ```python
 """Geometry gate for the inbox rail (#125).
 
-jsdom reports every rect as zero, so the unit suite cannot see this class of
+The former synthetic DOM reported every rect as zero, so its unit suite could not see this class of
 bug at all — the sibling #124 defect escaped its unit test for exactly that
 reason. This asserts the two things the issue actually promises: the rail
 never runs past the fold, and the ingest action is genuinely clickable.
@@ -753,6 +753,6 @@ Spec coverage check against `docs/superpowers/specs/2026-07-25-inbox-rail-design
 | Per-widget prefs with defaults | 1, 3, 4 |
 | `getPref` fallback, `setPref` writes "0", backward compatible | 1 |
 | Job progress auto-expands once | 3 (`forceOpenKey`), 4 (wiring) |
-| jsdom tests: toggle, defaults, persistence, footer placement | 1, 3, 4 |
+| Browser tests: toggle, defaults, persistence, footer placement | 1, 3, 4 |
 | Browser probe: 4 viewports, both motion settings, scrolled and not | 5 |
 | Probe in `scripts/`, not pytest | 5 |

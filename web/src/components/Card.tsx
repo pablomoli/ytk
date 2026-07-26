@@ -223,7 +223,9 @@ export function Card({
         {stage === "fallback" ? null : (
           <img
             src={
-              stage === "preview" ? item.preview_url : `/api/cover?u=${encodeURIComponent(item.url)}`
+              stage === "preview"
+                ? item.preview_url
+                : `/api/cover?u=${encodeURIComponent(item.url)}`
             }
             /* Reserves the box before the bytes arrive, so the masonry measures
                this card once instead of measuring it empty and re-packing every
@@ -239,9 +241,7 @@ export function Card({
         <div className="meta">
           <div className="title">{excerpt(item.text) || item.author || item.url}</div>
           <CardMeta item={item} />
-          {stage === "fallback" ? (
-            <p className="card-nopreview">no preview available</p>
-          ) : null}
+          {stage === "fallback" ? <p className="card-nopreview">no preview available</p> : null}
           {themeTag}
         </div>
       </div>

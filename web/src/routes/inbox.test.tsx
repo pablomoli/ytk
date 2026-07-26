@@ -171,7 +171,9 @@ test("hides reddit until it is explicitly selected", () => {
 test("several sources can be filtered at once", () => {
   routeSearch = { sources: "tiktok,reddit" };
   const { container } = renderPage();
-  const text = [...container.querySelectorAll(".masonry .card")].map((c) => c.textContent).join(" ");
+  const text = [...container.querySelectorAll(".masonry .card")]
+    .map((c) => c.textContent)
+    .join(" ");
   expect(text).toContain("Reddit item");
   expect(text).toContain("Newest ordinary item");
   expect(text).not.toContain("Other profile match");
@@ -253,8 +255,7 @@ test("the rail splits into five independently collapsible widgets", async () => 
 
 test("queue and ingest start open, match and job start collapsed", async () => {
   renderPage();
-  const openOf = (t: string) =>
-    (screen.getByText(t).closest("details") as HTMLDetailsElement).open;
+  const openOf = (t: string) => (screen.getByText(t).closest("details") as HTMLDetailsElement).open;
   await screen.findByText("add to queue");
   expect(openOf("add to queue")).toBe(true);
   expect(openOf("ingest selection")).toBe(true);

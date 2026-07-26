@@ -31,9 +31,7 @@ vi.mock("../lib/masonry", async (importOriginal) => {
   };
 });
 
-/* jsdom reports clientWidth 0, which makes relayout bail before it writes any
-   styles, and never schedules a real frame. Both stubs must be in place before
-   the effect runs its first layout pass. */
+/* Keep layout inputs deterministic while leaving the real packer in place. */
 function stubLayoutEnvironment(width = 802) {
   vi.stubGlobal(
     "ResizeObserver",
@@ -82,9 +80,7 @@ test("writes absolute inline positioning onto every child", () => {
     cb(0);
     return 1;
   });
-  // jsdom reports clientWidth 0, which makes relayout bail before it writes
-  // any styles. Stub it on the prototype so it's in place before the effect
-  // runs its first (synchronous, via the stubbed rAF) layout pass.
+  // Set the width before the effect's synchronous animation-frame callback.
   Object.defineProperty(HTMLElement.prototype, "clientWidth", {
     configurable: true,
     value: 802,
@@ -193,7 +189,7 @@ test("the very first layout animates nothing", () => {
    commit that claimed to stop relayouts on every render and did not.
 
    It counts layout passes, not style writes. Counting writes was the obvious
-   design and it is worthless here: jsdom emits no attribute mutation when a
+   design and it is worthless here: the test double emits no mutation when a
    style property is set to the value it already holds, so the original
    component — which rewrote every card's position on every render — passes a
    write-counting assertion cleanly. A real browser does record those writes

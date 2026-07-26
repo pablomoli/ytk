@@ -418,7 +418,7 @@ test('renders a youtube card with title and source badge', () => {
   expect(screen.getByTestId('card-source')).toHaveTextContent('youtube')
 })
 ```
-(If `@testing-library/react` and `jsdom` are not present: `vp add -D @testing-library/react @testing-library/jest-dom jsdom` and set `test.environment = 'jsdom'` in `vite.config.ts`.)
+(Historical note: the first migration plan used Testing Library with a synthetic DOM. The current suite runs in Chromium.)
 
 - [ ] **Step 2: Run to verify it fails** — `vp test src/components/Card.test.tsx` → FAIL.
 
@@ -743,4 +743,4 @@ git add web ytk && git commit -m "feat(web): /app/inbox with windowed masonry, f
 
 - Vite+ is beta: any broken `vp` subcommand → fall back to the underlying tool (`vite`, `vitest`) and note it. Low lock-in by design.
 - `vp create` is interactive; the executor must select React + TypeScript (or use a `--template` flag if available).
-- Testing-library/jsdom may not be in the template — Task 7 adds them on first need.
+- Testing Library may not be in the template — Task 7 adds it on first need.

@@ -51,5 +51,11 @@ export default defineConfig({
       typeCheck: true,
     },
   },
-  plugins: [tanstackRouter({ target: "react" }), react()],
+  plugins: [
+    tanstackRouter({
+      target: "react",
+      routeFileIgnorePattern: String.raw`\.test\.tsx$`,
+    }),
+    react(),
+  ],
 });

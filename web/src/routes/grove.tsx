@@ -329,7 +329,7 @@ function ReadbackPage() {
       shownAt.current = performance.now();
     }, GROW_MS);
     return () => clearTimeout(t);
-  }, [readyCount, canvasCount, trial?.trial]);
+  }, [readyCount, canvasCount, trial]);
 
   if (error) return <div style={{ padding: 40, color: "#c3c2b7" }}>{error}</div>;
   if (!manifest || index < 0)

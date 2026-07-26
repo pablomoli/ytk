@@ -145,7 +145,7 @@ not re-open itself on every poll.
 
 ### 4. Verification
 
-**jsdom (`vitest`)** — what it can hold honestly:
+**Browser-mode Vitest** — what it can hold honestly:
 
 - each widget toggles independently
 - fresh-visit defaults match the table above
@@ -154,7 +154,7 @@ not re-open itself on every poll.
 - job progress auto-expands on transition to running, and stays closed if the user closed
   it afterwards
 
-**Browser probe** — geometry, which jsdom cannot represent (it has no layout; this is the
+**Browser probe** — geometry, which the former synthetic DOM could not represent (it had no layout; this is the
 same reason the `#124` bug escaped its unit test):
 
 - `rail.bottom <= innerHeight`
