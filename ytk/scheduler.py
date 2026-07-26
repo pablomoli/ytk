@@ -135,7 +135,7 @@ def _find_playlist_id(service: googleapiclient.discovery.Resource, name: str) ->
         if page_token:
             kwargs["pageToken"] = page_token
 
-        response = service.playlists()  # type: ignore[reportAttributeAccessIssue].list(**kwargs).execute()
+        response = service.playlists().list(**kwargs).execute()  # type: ignore[reportAttributeAccessIssue]
 
         for item in response.get("items", []):
             snippet = item.get("snippet", {})
