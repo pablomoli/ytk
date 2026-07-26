@@ -33,7 +33,7 @@ export type GroveParams = {
   wireBody: number; // decorative x-ray tube body opacity
 };
 
-// Liked configuration snapshots from workshop sessions - survive localStorage.
+// Named parameter presets persisted by the grove controls.
 export const PRESETS: Record<string, GroveParams> = {
   "bonsai-80163": {
     seed: 80163,
@@ -128,8 +128,7 @@ const randomUnit = (rand: () => number): Vector3 => {
 
 // Complexity budget: BFS growth is exponential in branchChance and
 // reach/step, so a hard node cap keeps every knob combination interactive
-// (a hung main thread is a workshop failure, not a user error). The scene
-// shares the budget across trees via maxNodes.
+// and the scene shares the budget across trees via maxNodes.
 const MAX_NODES = 2200;
 
 export function generateTree(

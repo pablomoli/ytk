@@ -1,6 +1,4 @@
-// PROTOTYPE (grove workshop) - the page where we develop and iterate tree
-// generation. Foliage won the look bake-off (2026-07-12); the scoped x-ray
-// reading and generation/effect knobs persist separately in localStorage.
+// Tree structure, presentation mode, and effect controls persist separately.
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { HubControls } from "../components/HubControls";

@@ -43,23 +43,9 @@ OUT = Path.home() / ".ytk" / "map.json"
 BUCKETS = Path.home() / ".ytk" / "grove_buckets.yaml"
 
 CONTENT_CATS = _CATS
-# Absolute cosine a content note needs against its best theme centroid to be
-# called themed at all. This was np.percentile(conf, 25) — a rank statistic,
-# so it discarded exactly a quarter of content whatever the matches were
-# worth, and it moved with the batch: the same note flipped themed/unthemed
-# between builds because *other* notes changed. On a corpus that re-embeds,
-# "unthemed" has to be a property of the note.
-#
-# Pinned at the value that quota sat on for the 2026-07-25 corpus, so the
-# change is a stability fix and not a silent reshuffle (measured: 295/393
-# content notes placed, identical to the percentile it replaces).
-#
-# Deliberately NOT set from the null in docs/assets/06-semantic-domains/
-# 02-theme-floor-null.png: a null-calibrated floor lands at 0.34-0.41 in the
-# content-centred space and would place 120/393. The null says the themes
-# beat chance by 1.00 sd — against 0.65 sd for source platform, a partition
-# that is ground truth — so the axis is real; it is not sharp enough to
-# justify throwing away two thirds of the content.
+# Absolute cosine required for theme assignment. A fixed floor makes assignment
+# a property of the note instead of its batch. Null calibration is intentionally
+# not used because it rejects most content despite the theme axis beating chance.
 THEME_FLOOR = 0.496
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
@@ -240,9 +226,7 @@ def derive_subtopics(
             metric="cosine",
             random_state=42,
         ).fit_transform(vecs[idx])
-        # Swept 2026-07-11 (issue #70): min_samples=10 glues 72% of epicmap
-        # into one cluster; n//70 with min_samples=5 splits it into ~23
-        # coherent workstreams while small domains stay stable.
+        # Scale cluster size with the domain while keeping small domains stable.
         local = HDBSCAN(min_cluster_size=max(20, len(idx) // 70), min_samples=5).fit_predict(
             reduced
         )

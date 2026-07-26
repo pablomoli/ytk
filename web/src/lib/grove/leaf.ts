@@ -1,4 +1,3 @@
-// PROTOTYPE (grove workshop) - throwaway until a look wins a real spec.
 // A crafted leaf: bezier outline -> earcut triangulation (THREE.Shape) ->
 // CPU cup-and-curl so the card is a curved 3D surface, not a flat billboard.
 // One geometry, thousands of instances - the crafted-not-sprite foliage core.

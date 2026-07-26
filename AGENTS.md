@@ -7,7 +7,9 @@ in this file.
 
 Additional non-negotiables:
 
-- Never leave conversational comments or development-history narration in code.
+- Comments explain current invariants, constraints, and reasons. Do not record
+  development history, failed attempts, issue phases, or conversational
+  narration beside code.
 - Never use emojis in repository files or chat.
 - Use the `gh` CLI for GitHub issues and project work.
 - Never add an agent as a commit contributor or co-author.

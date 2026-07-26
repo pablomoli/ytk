@@ -174,13 +174,9 @@ void main(){ float fog=smoothstep(-1.2,1.,depthV)*.35+.65;
  // above survives. Frozen phase when the caller passes a constant time
  // (prefers-reduced-motion).
  //
- // .65 +/- .35 rather than the brief's .78 +/- .22: the peak is unchanged and
- // the troughs go deeper, which is what makes a crest read as a crest instead
- // of a slightly brighter stretch of line. On strands this dim a 22% swing
- // disappears. Feature C's bloom is the other half of this.
+ // Deep troughs keep the moving crest visible on dim strands.
  al*=.65+.35*sin(arc*18.-time*4.5);
- // trunks earn their glow from density (replaces the accidental
- // double-draw highlight the trim-dedupe removed)
+ // Trunks earn their glow from density.
  gl_FragColor=vec4(c*al*(1.1+1.3*dn),al); }`;
 // Junction beacons: soft sprites where strands meet — the crossroads of
 // the web, future anchor points for the galaxy view (issue #78).
@@ -811,8 +807,7 @@ export function mountMapRenderer(
   );
   // Themes act as single-level domains in the content view; theme dims ride
   // both arrays because content points carry the theme in grp AND dm.
-  // dom is sized by the all-view domain count: themes beyond nDom would be
-  // silently truncated (8 themes vs 9 domains today - revisit if that flips).
+  // The shared domain array bounds the number of theme targets.
   const contentTargets = () => {
     const n = data.content.groups.length;
     const dom = new Float32Array(nDom).fill(1);
@@ -1113,15 +1108,8 @@ export function mountMapRenderer(
       }
       gl.useProgram(program);
     }
-    // Bind the point program before its own uniforms, unconditionally.
-    //
-    // Every block above only ever binds it back as a *restore* on its way
-    // out, so with the lines, fog and web layers all off nothing rebinds it
-    // and these uniforms land on whatever the bloom composite left current
-    // from the previous frame. WebGL rejects each one — "location is not from
-    // the associated program" — the point program keeps last frame's uniforms,
-    // and the cloud renders invisible. Toggling `web` on appeared to "fix" it
-    // only because that block's restore happened to run.
+    // Uniform locations are program-specific, so bind the point program even
+    // when every optional layer is disabled.
     gl.useProgram(program);
     gl.uniform1f(morphUniform, morph);
     gl.uniform1f(dimUniform, dimVal);
@@ -1161,24 +1149,19 @@ export function mountMapRenderer(
   // distance. scripts/plot_picking.py measured that at 647 of 963 hits landing
   // on a different point. A couple of pixels only guarantees the smallest
   // points (2.4px across) paint enough to be found. See docs/assets/02-picking/.
-  // --- bloom (#107 feature C) ---------------------------------------------
+  // --- bloom ---------------------------------------------------------------
   // Four steps, all of them arithmetic: draw the scene into a texture, keep
   // only what is bright, blur that, add it back. Constants were dialled in
   // against a real captured frame in labs/bloom_tuning.py rather than guessed
   // here — the notebook runs this same pipeline in numpy.
   //
-  // Loud on purpose to start; a look is easier to judge by pulling it back
-  // than by creeping up on it.
   const BLOOM_THRESHOLD = 0.26;
   const BLOOM_KNEE = 0.14;
   const BLOOM_SIGMA = 9.5; // px at full resolution
   const BLOOM_PASSES = 2;
   const BLOOM_DOWNSAMPLE = 2;
   const BLOOM_INTENSITY = 1.45;
-  // `?bloom=off` skips the post chain and draws the scene straight to the
-  // canvas. Not a user-facing toggle — it exists so the un-bloomed scene can
-  // be captured from the same build for the checkpoint comparison, and so a
-  // suspected bloom problem can be isolated without a rebuild.
+  // `?bloom=off` isolates the unprocessed scene without a rebuild.
   const bloomOff = new URLSearchParams(location.search).get("bloom") === "off";
 
   const PICK_PAD = 2;
@@ -1258,13 +1241,7 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
  // Added, not mixed: bloom is light arriving on top of the scene, so it
  // brightens without washing out what is already there.
  vec3 rgb=s.rgb+b*intensity;
- // The canvas is premultiplied (blendFunc ONE, ONE_MINUS_SRC_ALPHA), so rgb
- // should not exceed alpha. Kept because it makes the output formally valid,
- // NOT because it fixed anything: it was tried as the explanation for the
- // GPU adding ~1.8x less light than the numpy model, and the measured error
- // was identical to three decimals afterwards. Over a black page background
- // compositing yields rgb regardless of alpha, so nothing was being clamped.
- // The 1.8x gap is still unexplained.
+ // Premultiplied output requires alpha to cover every colour channel.
  float a=max(s.a,max(rgb.r,max(rgb.g,rgb.b)));
  gl_FragColor=vec4(rgb,a); }`;
 

@@ -539,13 +539,7 @@ _CAPTURE_PROBLEMS: list[str] = []
 
 
 def probe_capture_health() -> list[str]:
-    """Startup probe: verify capture-source access and say so loudly.
-
-    Born 2026-07-17: the hub daemon silently lost Full Disk Access on a
-    `uv tool install --reinstall` (TCC grants die with the replaced python
-    binary) and iMessage capture was dead for six days — the watcher and
-    refresh_sources both swallowed the PermissionError. Problems land in
-    hub.log, the ops journal, and /api/ready."""
+    """Report capture-source access failures through logs, ops, and readiness."""
     global _CAPTURE_PROBLEMS
     problems: list[str] = []
     try:
@@ -581,15 +575,10 @@ _catchup_started = False
 
 
 def start_sync_catchup(check_every_s: float = 1800.0, stale_after_h: float = 20.0) -> bool:
-    """Daily playlist-sync catch-up from a context that is actually awake.
+    """Run stale playlist syncs while the machine is awake.
 
-    The 6:50 launchd nightly runs in a Power-Nap/locked window where the
-    Agent SDK's streaming enrichment call gets its connection cut (#90 — the
-    same videos enrich fine interactively; 16 'Connection closed' failures,
-    zero code bugs). The hub only serves while the machine is genuinely
-    awake, so: if no sync has succeeded in stale_after_h hours, run one here
-    in a background thread. The nightly stays as a harmless first attempt;
-    success in either place updates the shared marker file.
+    The launchd attempt may run while streaming enrichment is unavailable.
+    Either path updates the shared success marker.
     """
     global _catchup_started
     if _catchup_started:
