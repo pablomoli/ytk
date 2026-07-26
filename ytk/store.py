@@ -325,6 +325,11 @@ def _visual_collection() -> chromadb.Collection:
 _VISUAL_PROBE: bool | None = None
 
 
+def visual_index_enabled() -> bool:
+    """Whether visual-index access is enabled for the current process."""
+    return os.environ.get("YTK_VISUAL_INDEX", "on").strip().lower() != "off"
+
+
 def _probe_visual(timeout_s: float) -> bool:
     """Count both visual collections in a throwaway process. True if they answer."""
     probe = (
@@ -332,9 +337,7 @@ def _probe_visual(timeout_s: float) -> bool:
         "_visual_collection().count();_visual_pending_collection().count()"
     )
     try:
-        done = subprocess.run(
-            [sys.executable, "-c", probe], timeout=timeout_s, capture_output=True
-        )
+        done = subprocess.run([sys.executable, "-c", probe], timeout=timeout_s, capture_output=True)
     except (subprocess.TimeoutExpired, OSError):
         return False
     return done.returncode == 0
@@ -351,10 +354,12 @@ def visual_index_ok(timeout_s: float = 25.0) -> bool:
     the answer cannot change without a restart, and the probe is not cheap.
     """
     global _VISUAL_PROBE
+    if not visual_index_enabled():
+        return False
     if _VISUAL_PROBE is None:
         _VISUAL_PROBE = _probe_visual(timeout_s)
         if not _VISUAL_PROBE:
-            logging.error(
+            logging.getLogger(__name__).error(
                 "visual index unresponsive — visual search disabled this run (#130)"
             )
     return _VISUAL_PROBE
@@ -373,6 +378,8 @@ class VisualResult:
 
 def upsert_visual(item_id: str, embedding: list[float], metadata: dict) -> None:
     """Store one precomputed SigLIP-2 vector for a saved item's cover."""
+    if not visual_index_ok():
+        return
     _visual_collection().upsert(
         ids=[item_id],
         embeddings=[embedding],
@@ -381,16 +388,22 @@ def upsert_visual(item_id: str, embedding: list[float], metadata: dict) -> None:
 
 
 def visual_count() -> int:
+    if not visual_index_ok():
+        return 0
     return _visual_collection().count()
 
 
 def visual_ids() -> set[str]:
     """All item_ids already present in the visual collection."""
+    if not visual_index_ok():
+        return set()
     return set(_visual_collection().get(include=[])["ids"])
 
 
 def update_visual_metadata(item_id: str, metadata: dict) -> bool:
     """Replace metadata for an existing cover without recomputing its vector."""
+    if not visual_index_ok():
+        return False
     col = _visual_collection()
     if not col.get(ids=[item_id], include=[])["ids"]:
         return False
@@ -410,16 +423,21 @@ def _visual_pending_collection() -> chromadb.Collection:
 
 
 def pending_visual_ids() -> set[str]:
+    if not visual_index_ok():
+        return set()
     return set(_visual_pending_collection().get(include=[])["ids"])
 
 
 def upsert_pending_visual(url: str, embedding: list[float], metadata: dict) -> None:
+    if not visual_index_ok():
+        return
     _visual_pending_collection().upsert(ids=[url], embeddings=[embedding], metadatas=[metadata])
 
 
 def delete_pending_visual(urls: list[str]) -> None:
-    if urls:
-        _visual_pending_collection().delete(ids=urls)
+    if not urls or not visual_index_ok():
+        return
+    _visual_pending_collection().delete(ids=urls)
 
 
 def pending_visual_similar(embedding: list[float], n: int = 30) -> list[VisualResult]:
@@ -455,6 +473,8 @@ def get_profile_visual_pool(pending: bool = False) -> list[dict]:
     vault. Keeping this boundary explicit is what makes them honest non-vault
     negatives rather than relabeling another one of the user's saves.
     """
+    if not visual_index_ok():
+        return []
     col = _visual_pending_collection() if pending else _visual_collection()
     if col.count() == 0:
         return []
@@ -475,10 +495,23 @@ def get_profile_visual_pool(pending: bool = False) -> list[dict]:
 
 
 def get_visual_embedding(item_id: str) -> list[float] | None:
+    if not visual_index_ok():
+        return None
     res = _visual_collection().get(ids=[item_id], include=["embeddings"])
     if not res["ids"]:
         return None
     return list(chroma_field(res["embeddings"], "embeddings")[0])
+
+
+def get_visual_metadata(item_id: str) -> dict | None:
+    """Return one cover's metadata without exposing the Chroma collection."""
+    if not visual_index_ok():
+        return None
+    res = _visual_collection().get(ids=[item_id], include=["metadatas"])
+    if not res["ids"]:
+        return None
+    metadata = chroma_field(res["metadatas"], "metadatas")[0]
+    return dict(metadata) if metadata is not None else {}
 
 
 def visual_similar(
@@ -762,7 +795,7 @@ def delete_video(video_id: str) -> None:
 
 def delete_visual(item_ids: list[str]) -> None:
     """Remove cover embeddings from the visual collection by item id."""
-    if not item_ids:
+    if not item_ids or not visual_index_ok():
         return
     try:
         _visual_collection().delete(ids=item_ids)
