@@ -868,18 +868,43 @@ def test_refresh_prunes_already_ingested_urls(hub, monkeypatch):
 
 def test_refresh_sources_survives_one_source_failing(hub, monkeypatch):
     monkeypatch.setenv("INSTAGRAM_SESSIONID", "sess")
+    youtube_called = []
 
     def broken(state):
         raise RuntimeError("login dead")
 
     monkeypatch.setattr(hub, "IG_PULL", broken)
-    monkeypatch.setattr(hub, "YT_FETCH", list)
+    monkeypatch.setattr(hub, "YT_FETCH", lambda: youtube_called.append(True) or [])
     monkeypatch.setattr(hub, "YT_IS_PROCESSED", lambda vid: False)
     monkeypatch.setattr(hub, "PIN_FETCH", list)
 
     result = hub.refresh_sources()
     assert result["youtube"] == 0
     assert "instagram" in result["errors"][0].lower() or "login" in result["errors"][0]
+    assert youtube_called == [True]
+    state = reels.load_state(hub.STATE_PATH)
+    assert "instagram" not in state.last_pulls
+    assert "youtube" in state.last_pulls
+
+
+def test_refresh_autoingest_starts_after_refresh_lock_is_released(hub, monkeypatch):
+    from ytk.imessage import MARKER
+
+    sessions = _im_session(hub, monkeypatch, f"ship this {MARKER}")
+    started: list[list[str]] = []
+
+    def fake_start(ids, tags, thought):
+        acquired = hub._LOCK.acquire(blocking=False)
+        assert acquired
+        hub._LOCK.release()
+        started.append(ids)
+
+    monkeypatch.setattr(hub, "IM_FETCH", lambda: sessions)
+    monkeypatch.setattr(hub, "start_ingest", fake_start)
+
+    hub.refresh_sources(force=True, only={"imessage"})
+
+    assert started == [[sessions[0].note_id]]
 
 
 def test_api_refresh_and_buckets(client, hub, monkeypatch):
