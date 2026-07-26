@@ -1272,12 +1272,10 @@ def _extract_thesis(document: str) -> str:
 def get_content_memories(prefixes: list[str]) -> list[dict]:
     """Return memory docs for the given content sources.
 
-    Matches both id schemes the same note may live under: the ingest
-    pipeline's ``{source}_...`` and the vault reindexer's canonical
-    ``note_sources_{source}_...``. The reindexer wins upsert_doc's
-    double-indexing dedup (same source_path, last writer keeps the id), so
-    most reels/articles exist ONLY under the ``note_sources_`` form —
-    matching the bare prefix alone silently drops them from the profile.
+    Content notes live under exactly one id scheme: the path-derived
+    ``note_sources_{source}_...`` that ingest and reindex now share (#95).
+    The old ingest-time ``{source}_{stem60}`` ids were migrated by
+    scripts/migrate_content_note_ids.py, so no dual-prefix matching remains.
 
     Each item: {id, source, title, thesis, summary, tags, embedding, ...}.
     title is '' (memories have no separate title); thesis is extracted from the
@@ -1288,7 +1286,7 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
     col = _memories_collection()
     if col.count() == 0:
         return []
-    allow = tuple(f"{p}_" for p in prefixes) + tuple(f"note_sources_{p}_" for p in prefixes)
+    allow = tuple(f"note_sources_{p}_" for p in prefixes)
     res = col.get(include=["embeddings", "metadatas", "documents"])
     out: list[dict] = []
     for mid, emb, meta, doc in zip(
@@ -1302,11 +1300,7 @@ def get_content_memories(prefixes: list[str]) -> list[dict]:
         doc_id = meta_str(meta, "doc_id", mid)
         if not doc_id.startswith(allow):
             continue
-        source = (
-            doc_id.split("_", 3)[2]
-            if doc_id.startswith("note_sources_")
-            else doc_id.split("_", 1)[0]
-        )
+        source = doc_id.split("_", 3)[2]
         tags = meta_str(meta, "tags")
         out.append(
             {

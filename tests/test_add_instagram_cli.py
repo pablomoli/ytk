@@ -51,7 +51,11 @@ def calls(monkeypatch, tmp_path):
         rec["carousel_enrich"] = kwargs
         return _ENR
 
-    note = tmp_path / "u-2026-07-15-SC.md"
+    # Inside a stubbed brain so content_note_doc_id can derive the canonical
+    # path-based id (#95) — a note outside the brain is a config error.
+    monkeypatch.setattr(vault_mod, "_get_brain_path", lambda: tmp_path)
+    note = tmp_path / "sources" / "instagram" / "u-2026-07-15-SC.md"
+    note.parent.mkdir(parents=True)
 
     def fake_write(post, enrichment, **kwargs):
         rec["write"] = kwargs
@@ -109,7 +113,7 @@ def test_reel_routes_through_video_pipeline(calls):
     w = calls["write"]
     assert w["transcript_status"] == "ok"
     assert w["frame_bytes"] == [b"f1", b"f2"]
-    assert calls["upsert"] is not None
+    assert calls["upsert"] == "note_sources_instagram_u-2026-07-15-SC"
     assert "warning" in result.output.lower()  # capture warnings surface in CLI
 
 

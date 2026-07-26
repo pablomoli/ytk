@@ -1210,6 +1210,12 @@ def reindex_vault(force: bool = False) -> int:
         "sources/instagram",
         "sources/web",
         "sources/journal",
+        "sources/tiktok",
+        "sources/reddit",
+        "sources/pinterest",
+        # sources/screenshots stays out: shot notes are sub-40-char stubs
+        # indexed via upsert_memory; scanning them would delete their vectors
+        # (upsert_doc clears anything under MIN_EMBED_CHARS).
     ]
     seen_paths: set[str] = set()
     count = 0
@@ -1281,6 +1287,18 @@ def vault_note_doc_id(note_path: Path, brain: Path, content: str | None = None) 
         return id_match.group(1).strip()
     rel = note_path.relative_to(brain)
     return "note_" + str(rel).replace("/", "_").replace(".md", "").replace(" ", "_")
+
+
+def content_note_doc_id(note_path: Path) -> str:
+    """Canonical store id for an ingested content note (#95).
+
+    The exact id reindex_vault derives for the same file, so ingest and
+    reindex are one writer sharing one id instead of two racing schemes.
+    Sharing the id is also what keeps ingested_at honest: the store stamps
+    it first-write-wins per id, so the ingest-time stamp survives every
+    later reindex.
+    """
+    return vault_note_doc_id(note_path, _get_brain_path())
 
 
 def rebuild_index() -> None:
