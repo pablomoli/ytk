@@ -163,21 +163,18 @@ def _enable_visual_index(monkeypatch):
     monkeypatch.setattr(store, "_VISUAL_PROBE", True)
 
 
-@pytest.fixture(autouse=True)
-def _close_chroma_clients_between_tests():
-    """Release Rust/SQLite handles before pytest removes each tmp store.
-
-    Chroma caches every PersistentClient system process-wide. The store tests
-    intentionally create many isolated tmp databases; without explicit close,
-    the suite eventually exhausts SQLite handles and cascades with code 14.
-    """
-    import ytk.store as store
-
+@pytest.hookimpl(hookwrapper=True, trylast=True)
+def pytest_runtest_teardown(item, nextitem):
+    """Release every Chroma system after fixture and monkeypatch teardown."""
     yield
 
-    client = getattr(store, "_client", None)
-    if client is not None:
-        try:
-            client.close()
-        finally:
-            store._client = None
+    from chromadb.api.client import SharedSystemClient
+
+    systems = set(SharedSystemClient._identifier_to_system.values())
+    for system in systems:
+        system.stop()
+    SharedSystemClient.clear_system_cache()
+
+    import ytk.store as store
+
+    store._client = None

@@ -202,3 +202,19 @@ def test_store_caches_one_http_client_without_creating_legacy_path(tmp_path, mon
         store._client = None
 
     assert not legacy.exists()
+
+
+def test_cleanup_regression_opens_a_monkeypatched_store_client(tmp_path, monkeypatch):
+    import ytk.store as store
+
+    monkeypatch.setenv("CHROMA_URL", "")
+    monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "cleanup"))
+    monkeypatch.setattr(store, "_client", None)
+
+    store._get_client().create_collection("cleanup_regression")
+
+
+def test_cleanup_regression_left_no_chroma_systems():
+    from chromadb.api.client import SharedSystemClient
+
+    assert SharedSystemClient._identifier_to_system == {}
