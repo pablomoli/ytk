@@ -383,6 +383,91 @@ body {
   display: block;
 }
 
+/* Selection and the original link float above the card's inspect target as
+   siblings of it, not children — the card is no longer one big button with
+   controls illegally nested inside it (#123). */
+.card-actions {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  left: 0.45rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.card-actions > * {
+  pointer-events: auto;
+}
+
+.card-select {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid #ffffff40;
+  border-radius: 6px;
+  background: #000a;
+  color: #111;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.card-select[aria-checked="true"] {
+  border-color: #e2b04a;
+  background: #e2b04a;
+}
+
+/* The checkbox is always legible; the link fades in. Every card has one, and a
+   grid of sixty glowing arrows reads as noise during triage. */
+.card-origin {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-left: auto;
+  border: 1px solid #ffffff26;
+  border-radius: 6px;
+  background: #000a;
+  color: #e2b04a;
+  font-size: 0.85rem;
+  line-height: 1;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.card:hover .card-origin,
+.card:focus-within .card-origin,
+.card-origin:focus-visible {
+  opacity: 1;
+}
+
+.card-origin:hover,
+.card-select:hover {
+  border-color: #e2b04a;
+}
+
+.card-inspect {
+  cursor: pointer;
+}
+
+.card-nopreview {
+  margin: 0.35rem 0 0;
+  color: #777;
+  font-size: 0.72rem;
+  font-style: italic;
+}
+
+.sub-dot {
+  color: #555;
+}
+
 .thumb-wrap {
   position: relative;
 }
@@ -1028,6 +1113,100 @@ body {
   margin: 0;
   white-space: pre-wrap;
   font-family: inherit;
+}
+
+/* Inspecting a PENDING item (#123). Narrower and content-height, unlike
+   .note-viewer: nothing here has been ingested, so there is only ever a
+   preview, some captured text and its provenance to show. Sizing it like the
+   note reader would promise a page of content that does not exist yet. */
+.queue-viewer {
+  width: min(100vw - 4rem, 34rem);
+  max-height: calc(100vh - 4rem);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg1);
+  color: inherit;
+}
+
+.queue-viewer::backdrop {
+  background: #000d;
+}
+
+.queue-panel {
+  position: relative;
+  box-sizing: border-box;
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-height: calc(100vh - 4rem);
+  overflow: auto;
+}
+
+.queue-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #888;
+  font-size: 0.82rem;
+}
+
+.queue-place {
+  color: #e2b04a;
+}
+
+.queue-preview {
+  width: 100%;
+  border-radius: 8px;
+  display: block;
+}
+
+.queue-nolink,
+.queue-nopreview,
+.queue-text-empty {
+  margin: 0;
+  color: #777;
+  font-style: italic;
+}
+
+.queue-text {
+  margin: 0;
+  color: #ddd;
+  line-height: 1.45;
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.queue-facts {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.3rem 0.7rem;
+  margin: 0;
+  color: #999;
+  font-size: 0.8rem;
+}
+
+.queue-facts dt {
+  color: #666;
+}
+
+.queue-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.queue-url {
+  color: #888;
+  font-size: 0.75rem;
+}
+
+.queue-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.2rem;
 }
 
 .viewer-close {
