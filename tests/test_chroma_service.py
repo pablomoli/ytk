@@ -84,6 +84,39 @@ def test_wait_for_chroma_reports_unreachable_without_creating_legacy_store(tmp_p
     assert not (tmp_path / "legacy").exists()
 
 
+def test_wait_for_chroma_closes_every_poll_client(tmp_path, monkeypatch):
+    import ytk.chroma_runtime as runtime
+
+    cfg = runtime_config(
+        {"CHROMA_URL": "http://127.0.0.1:8000"},
+        default_path=tmp_path / "legacy",
+    )
+    clients = []
+
+    class PollClient:
+        def __init__(self, succeeds):
+            self.succeeds = succeeds
+            self.closed = False
+
+        def heartbeat(self):
+            if not self.succeeds:
+                raise ConnectionError("not ready")
+
+        def close(self):
+            self.closed = True
+
+    def fake_http_client(**kwargs):
+        client = PollClient(succeeds=bool(clients))
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr(runtime.chromadb, "HttpClient", fake_http_client)
+
+    assert wait_for_chroma(cfg, timeout_s=0.5)
+    assert len(clients) == 2
+    assert all(client.closed for client in clients)
+
+
 def test_chroma_install_writes_and_bootstraps_launch_agent(tmp_path, monkeypatch):
     import ytk.cli as cli_mod
 
