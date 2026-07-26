@@ -153,6 +153,7 @@ def meta_float(meta: Metadata | None, key: str, default: float = 0.0) -> float:
     )
 
 
+@embedding_functions.register_embedding_function
 class InstructionAwareEF(embedding_functions.EmbeddingFunction):
     """Embedding function for instruction-aware retrieval models (Qwen3).
 
