@@ -127,7 +127,7 @@ just check         # run the complete repository quality gate
 just lint          # lint all supported Python and frontend source
 just typecheck     # run Pyright and TypeScript checks
 just test          # run the fast Python and Chromium frontend suites
-just build-web     # rebuild the tracked production bundle
+just build-web     # rebuild the local web bundle (dev serving only)
 just ui            # run the hub in the foreground
 just install-tool  # reinstall the ytk CLI from this checkout
 ```
@@ -137,8 +137,11 @@ gate. Python quality commands require the `dev` extra. Frontend tests run in
 real Chromium with `vp exec vitest run`; the Vite+ beta's integrated test path
 does not load this project's test binary correctly.
 
-`web/dist` is tracked because it ships inside the Python wheel, so
-`just build-web` may modify repository files. `just eval` uses the live Chroma
+`web/dist` is gitignored (#108): the wheel builds its own bundle via
+`hatch_build.py` (`vp build` at build time, loud failure if the bundle is
+missing or trivial), so `uv tool install --reinstall .` needs no prior manual
+build or dist commit. `just build-web` only refreshes the local bundle that
+`ytk ui` serves in dev. `just eval` uses the live Chroma
 store and frozen retrieval corpus; never update its baseline merely to clear a
 failure. Installed CLI changes require `uv tool install --reinstall .`.
 

@@ -41,7 +41,7 @@ test-python:
 test-web:
     cd "{{ repo }}/web" && vp exec vitest run
 
-# Build the committed frontend bundle.
+# Build the local frontend bundle (the wheel builds its own via hatch_build.py).
 build-web:
     cd "{{ repo }}/web" && vp build
 
