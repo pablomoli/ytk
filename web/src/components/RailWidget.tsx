@@ -1,11 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { getPref, setPref } from "../lib/prefs";
 
 /* One collapsible section of the inbox rail. Native details/summary carries
    the keyboard and screen-reader semantics, so there is no ARIA to maintain
    here. Open state persists per widget, which is why each caller passes its
-   own pref key. */
+   own pref key.
+
+   The element owns its own open attribute; React never re-renders it. Driving
+   it from state instead puts React and the browser's default action on the
+   same attribute, and they cancel: the first click appears to do nothing and
+   the section only responds to the second. The initial value is read once and
+   held constant, so React writes it on mount and never touches it again. */
 export function RailWidget({
   title,
   prefKey,
@@ -19,44 +25,39 @@ export function RailWidget({
   forceOpenKey?: string | number | null;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(() => getPref(prefKey, defaultOpen));
+  const ref = useRef<HTMLDetailsElement>(null);
+  const initialOpen = useRef(getPref(prefKey, defaultOpen)).current;
   /* Opens once per new key, then leaves the user alone: a job that is still
      running must not re-open a section the user deliberately closed. Starts
-     at null, not forceOpenKey's initial value, so mounting with a key
-     already set (a job already running when the widget appears) still
-     counts as a change and opens it. */
+     at null, not forceOpenKey's initial value, so mounting with a key already
+     set (a job already running when the widget appears) still counts as a
+     change and opens it. */
   const forced = useRef<string | number | null>(null);
 
   useEffect(() => {
     const key = forceOpenKey ?? null;
     if (key === null) {
       /* Job ended: clear the guard so the next job, even one that lands on
-         the same key (JobStatus carries no id, and item count repeats
-         across runs), is still seen as a change and reopens the section. */
+         the same key (JobStatus carries no id, and item count repeats across
+         runs), is still seen as a change and reopens the section. */
       forced.current = null;
       return;
     }
     if (key === forced.current) return;
     forced.current = key;
-    setOpen(true);
+    if (ref.current) ref.current.open = true;
     setPref(prefKey, true);
   }, [forceOpenKey, prefKey]);
 
-  /* The native toggle event fires asynchronously (queued as a task per the
-     HTML spec, not synchronously with the click that caused it), so an
-     onToggle handler leaves the persisted pref stale for a tick. Clicking
-     summary is itself synchronous, and its default action of flipping the
-     details' open attribute is left alone here, so persist against that
-     same click rather than waiting on the event it triggers. */
-  const toggle = () => {
-    const next = !open;
-    setOpen(next);
-    setPref(prefKey, next);
+  /* Fires for every way the attribute can change - pointer, Enter, Space,
+     find-in-page auto-expand - so the stored preference follows all of them. */
+  const persist = (event: React.SyntheticEvent<HTMLDetailsElement>) => {
+    setPref(prefKey, event.currentTarget.open);
   };
 
   return (
-    <details className="rail-widget" open={open}>
-      <summary onClick={toggle}>
+    <details className="rail-widget" ref={ref} open={initialOpen} onToggle={persist}>
+      <summary>
         <h2>{title}</h2>
       </summary>
       {children}
