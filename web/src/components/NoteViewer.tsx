@@ -6,6 +6,7 @@ import { parseNote } from "../lib/parseNote";
 import type { NoteFrontmatter, NoteSection } from "../lib/parseNote";
 import { renderInline } from "../lib/inlineMarkdown";
 import { DUR, gsap, reducedMotion } from "../lib/motion";
+import { useModalDialog } from "../lib/useModalDialog";
 import { PixelDissolve } from "./PixelDissolve";
 
 function splitBullets(body: string): string[] {
@@ -224,12 +225,12 @@ export function NoteViewer({
   const content = useNote(note.path);
   const similar = useSimilarNotes(note.path);
   const [revealing, setRevealing] = useState(true);
+  useModalDialog(dialogRef);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     gsap.killTweensOf(dialog);
-    if (!dialog.open) dialog.showModal?.();
     let tween: ReturnType<typeof gsap.from> | undefined;
     if (originRect && !reducedMotion()) {
       const to = dialog.getBoundingClientRect();
@@ -246,17 +247,11 @@ export function NoteViewer({
     return () => {
       tween?.kill();
       gsap.set(dialog, { clearProps: "transform" });
-      dialog.close?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* onClose is driven ONLY by explicit user intent — never by the native
-     'close' event. That event is fired asynchronously, so a ref flag set in
-     effect cleanup is already reset by StrictMode's remount before the queued
-     event arrives. Instead, Escape routes through onCancel and the button and
-     backdrop call onClose directly; React unmount then closes the dialog in
-     cleanup, and the programmatic close() has nothing wired to it. */
+  /* Lifecycle cleanup does not report user intent. */
   return (
     <dialog
       ref={dialogRef}
