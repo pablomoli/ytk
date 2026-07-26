@@ -276,10 +276,42 @@ def _resolve_manga(title: str) -> dict | None:
     }
 
 
+# Haiku extracts creators as written in the note: "Goodfellow et al.",
+# "Susskind and Hrabovsky", "edited by James M. Robinson". Neither search API
+# matches those as an author; the first surname-bearing chunk does.
+_AUTHOR_SPLIT_RE = re.compile(
+    r"\s+and\s+|\s*&\s*|\s*,\s*|\s+et\s+al\.?|\s*\bedited by\b\s*|\s*\btranslated by\b\s*",
+    re.IGNORECASE,
+)
+
+
+def _first_author(creator: str | None) -> str | None:
+    if not creator:
+        return None
+    for chunk in _AUTHOR_SPLIT_RE.split(creator):
+        chunk = (chunk or "").strip()
+        if chunk:
+            return chunk
+    return None
+
+
+# "Funny Games (1997)" — the year belongs in the search's year param, where it
+# disambiguates, not in the title, where it guarantees a miss.
+_TITLE_YEAR_RE = re.compile(r"^(.*?)\s*\((\d{4})\)\s*$")
+
+
+def _split_title_year(title: str, year: int | None) -> tuple[str, int | None]:
+    m = _TITLE_YEAR_RE.match(title)
+    if m:
+        return m.group(1).strip() or title, year or int(m.group(2))
+    return title, year
+
+
 def _resolve_book(title: str, creator: str | None) -> dict | None:
     """Google Books first (categories for the shelf UI, reliable covers),
     Open Library as fallback. Both keyless at this volume."""
-    return _resolve_book_google(title, creator) or _resolve_book_openlibrary(title, creator)
+    author = _first_author(creator)
+    return _resolve_book_google(title, author) or _resolve_book_openlibrary(title, author)
 
 
 def _resolve_book_google(title: str, creator: str | None) -> dict | None:
@@ -387,20 +419,36 @@ def _ol_genres(subjects: list[str] | None) -> list[str]:
     return genres[:3]
 
 
+_OL_FIELDS = "key,title,author_name,cover_i,first_publish_year,isbn,subject"
+
+
 def _resolve_book_openlibrary(title: str, creator: str | None) -> dict | None:
-    params = {
-        "title": title,
-        "limit": 1,
-        "fields": "key,title,author_name,cover_i,first_publish_year,isbn,subject",
-    }
+    params: dict[str, str | int] = {"title": title, "limit": 1, "fields": _OL_FIELDS}
     if creator:
         params["author"] = creator
     url = "https://openlibrary.org/search.json?" + urllib.parse.urlencode(params)
     data = _http_get(url)
     docs = (data or {}).get("docs") or []
     if not docs:
+        # OL's fielded title=&author= search intermittently returns zero for
+        # titles its general q= search finds (observed 2026-07-26, even for
+        # exact author names). The fuzzy path is the fallback, not the
+        # default, because it more readily returns the wrong edition.
+        q = f"{title} {creator}" if creator else title
+        url = "https://openlibrary.org/search.json?" + urllib.parse.urlencode(
+            {"q": q, "limit": 1, "fields": _OL_FIELDS}
+        )
+        data = _http_get(url)
+        docs = (data or {}).get("docs") or []
+    if not docs:
         return None
     d = docs[0]
+    # The q= path can surface a work under its original-language title
+    # (Kafka on the Shore -> 海辺のカフカ); keep the title we searched for
+    # when OL's is mostly non-ASCII, since the vault note named it in English.
+    ol_title = d.get("title") or title
+    if sum(c.isascii() for c in ol_title) < 0.8 * max(len(ol_title), 1):
+        d = {**d, "title": title}
     authors = d.get("author_name") or []
     isbns = d.get("isbn") or []
     ol_key = d.get("key") or ""
@@ -437,9 +485,9 @@ def resolve(
         return None
     try:
         if kind == "movie":
-            return _resolve_movie(title, year)
+            return _resolve_movie(*_split_title_year(title, year))
         if kind == "show":
-            return _resolve_show(title, year)
+            return _resolve_show(*_split_title_year(title, year))
         if kind == "anime":
             return _resolve_anime(title)
         if kind == "manga":

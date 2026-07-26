@@ -345,6 +345,68 @@ class TestResolveBook:
         assert out["genres"] == ["Science Fiction", "Fiction"]
 
 
+class TestAuthorAndTitleNormalization:
+    def test_first_author_variants(self):
+        cases = {
+            "Leonard Susskind and George Hrabovsky": "Leonard Susskind",
+            "Goodfellow et al.": "Goodfellow",
+            "Nagel, Newman": "Nagel",
+            "edited by James M. Robinson": "James M. Robinson",
+            "Hildegard von Bingen, translated by Priscilla Throop": "Hildegard von Bingen",
+            "Murakami": "Murakami",
+        }
+        for raw, expected in cases.items():
+            assert recs._first_author(raw) == expected, raw
+        assert recs._first_author(None) is None
+        assert recs._first_author("") is None
+
+    def test_year_extracted_from_title(self):
+        assert recs._split_title_year("Funny Games (1997)", None) == ("Funny Games", 1997)
+        # an explicit year param outranks the one baked into the title
+        assert recs._split_title_year("Funny Games (1997)", 2007) == ("Funny Games", 2007)
+        assert recs._split_title_year("Blade Runner 2049", None) == ("Blade Runner 2049", None)
+
+    def test_movie_dispatch_uses_extracted_year(self, monkeypatch):
+        fake = FakeGet({"/search/movie": {"results": []}})
+        monkeypatch.setattr(recs, "_http_get", fake)
+        recs.resolve("movie", "Funny Games (1997)")
+        assert "year=1997" in fake.calls[0]
+        assert "Funny+Games+%281997%29" not in fake.calls[0]
+
+
+class TestOlQFallback:
+    def test_fielded_miss_falls_back_to_q(self, monkeypatch):
+        fake = FakeGet(
+            {
+                "search.json?title=": {"docs": []},
+                "search.json?q=": {
+                    "docs": [
+                        {
+                            "title": "Kafka on the Shore",
+                            "author_name": ["Haruki Murakami"],
+                            "key": "/works/OL2625431W",
+                        }
+                    ]
+                },
+            }
+        )
+        monkeypatch.setattr(recs, "_http_get", fake)
+        out = recs._resolve_book_openlibrary("Kafka on the Shore", "Murakami")
+        assert out["canonical_key"] == "ol:/works/OL2625431W"
+        assert len(fake.calls) == 2
+
+    def test_q_result_keeps_searched_title_when_non_ascii(self, monkeypatch):
+        fake = FakeGet(
+            {
+                "search.json?title=": {"docs": []},
+                "search.json?q=": {"docs": [{"title": "海辺のカフカ", "key": "/works/OL2625431W"}]},
+            }
+        )
+        monkeypatch.setattr(recs, "_http_get", fake)
+        out = recs._resolve_book_openlibrary("Kafka on the Shore", "Murakami")
+        assert out["title"] == "Kafka on the Shore"
+
+
 class TestOlGenres:
     def test_noise_filtered_and_capped(self):
         subjects = [
