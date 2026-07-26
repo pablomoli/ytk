@@ -8,6 +8,7 @@ import { useAddUrls, useRefreshSources, useIngest } from "../api/mutations";
 import { useJobStatus } from "../api/job";
 import { useProfileRank, useStartProfileRank } from "../api/profileRank";
 import { apiGet } from "../api/client";
+import { QueueItemViewer } from "../components/QueueItemViewer";
 import { SourceFilter } from "../components/SourceFilter";
 import { SourcePullMenu } from "../components/SourcePullMenu";
 import { Card } from "../components/Card";
@@ -60,6 +61,9 @@ function InboxPage() {
 
   const [urlsText, setUrlsText] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
+  /* Inspection is state of its own, not a mode of selection: opening the viewer
+     must leave the selection exactly as it was (#123). */
+  const [inspecting, setInspecting] = useState<QueueItem | null>(null);
   const [chosenTags, setChosenTags] = useState<Set<string>>(new Set());
   const [thought, setThought] = useState("");
   const [batch, setBatch] = useState(0);
@@ -230,7 +234,8 @@ function InboxPage() {
             <Card
               key={i.url}
               item={i}
-              onOpen={handleToggleSelect}
+              onInspect={setInspecting}
+              onToggleSelect={handleToggleSelect}
               selected={sel.has(i.url)}
               state={cardState(i)}
               profileMatch={matchByUrl.get(i.url)}
@@ -424,6 +429,14 @@ function InboxPage() {
           </div>
         </aside>
       </div>
+      {inspecting ? (
+        <QueueItemViewer
+          item={inspecting}
+          selected={sel.has(inspecting.url)}
+          onToggleSelect={handleToggleSelect}
+          onClose={() => setInspecting(null)}
+        />
+      ) : null}
     </div>
   );
 }
