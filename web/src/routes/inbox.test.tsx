@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 
-let routeSearch: { source?: string } = {};
+let routeSearch: { sources?: string } = {};
 
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (options: unknown) => ({
@@ -31,7 +31,9 @@ const startRank = vi.fn();
 const queue = [
   { url: "new", source: "tiktok", text: "Newest ordinary item", shared_at: "2026-07-20" },
   { url: "match", source: "tiktok", text: "Strong profile match", shared_at: "2026-07-01" },
-  { url: "other-match", source: "reddit", text: "Other profile match", shared_at: "2026-06-01" },
+  { url: "other-match", source: "pinterest", text: "Other profile match", shared_at: "2026-06-01" },
+  // Hidden by default (#126), so it is only in the grid when asked for.
+  { url: "red", source: "reddit", text: "Reddit item", shared_at: "2026-05-01" },
 ];
 
 const completedRank = {
@@ -148,9 +150,31 @@ test("offers an explicit re-rank action for cached results", () => {
 
 test("highlighted count follows the active source filter", () => {
   enableMatches();
-  routeSearch = { source: "tiktok" };
+  routeSearch = { sources: "tiktok" };
   renderPage();
   expect(screen.getByText(/1 highlighted · 1800 text items scored/)).toBeInTheDocument();
+});
+
+/* #126: reddit is excluded until asked for, and asking is a URL away. */
+test("hides reddit until it is explicitly selected", () => {
+  const { container } = renderPage();
+  const text = () => [...container.querySelectorAll(".masonry .card")].map((c) => c.textContent);
+  expect(text().join(" ")).not.toContain("Reddit item");
+
+  routeSearch = { sources: "reddit" };
+  const second = renderPage();
+  expect(
+    [...second.container.querySelectorAll(".masonry .card")].map((c) => c.textContent).join(" "),
+  ).toContain("Reddit item");
+});
+
+test("several sources can be filtered at once", () => {
+  routeSearch = { sources: "tiktok,reddit" };
+  const { container } = renderPage();
+  const text = [...container.querySelectorAll(".masonry .card")].map((c) => c.textContent).join(" ");
+  expect(text).toContain("Reddit item");
+  expect(text).toContain("Newest ordinary item");
+  expect(text).not.toContain("Other profile match");
 });
 
 test("shows transport errors from the profile-rank status endpoint", () => {
@@ -186,7 +210,7 @@ test("reroll pages through stratified batches, moves the highlight, and wraps", 
         {
           url: "other-match",
           title: "Other profile match",
-          source: "reddit",
+          source: "pinterest",
           theme: "Design",
           score: 0.6,
         },
@@ -218,10 +242,13 @@ test("reroll pages through stratified batches, moves the highlight, and wraps", 
   expect(screen.getByText("batch 1/2")).toBeInTheDocument();
 });
 
-test("the rail splits into four independently collapsible widgets", async () => {
-  renderPage();
-  const details = await screen.findAllByRole("group");
-  expect(details.length).toBe(4);
+test("the rail splits into five independently collapsible widgets", async () => {
+  const { container } = renderPage();
+  await screen.findAllByRole("group");
+  /* Scoped to the rail's own <details> rather than every role="group" on the
+     page: the source filter is a group too, and counting it here would make
+     this assert something it does not mean. */
+  expect(container.querySelectorAll(".rail details").length).toBe(5);
 });
 
 test("queue and ingest start open, match and job start collapsed", async () => {

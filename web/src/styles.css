@@ -468,6 +468,54 @@ body {
   color: #555;
 }
 
+/* Multi-select source filter in the inbox rail (#126). Checkboxes, not chips:
+   several can be on at once, and the box is the thing that says so. */
+.source-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.source-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.source-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.35rem;
+  border-radius: 6px;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.source-option:hover {
+  background: #ffffff0a;
+}
+
+.source-option.on {
+  color: #eee;
+}
+
+.source-option input {
+  accent-color: #e2b04a;
+  cursor: pointer;
+  margin: 0;
+}
+
+.source-select-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.source-select-actions .btn {
+  flex: 1;
+}
+
 .thumb-wrap {
   position: relative;
 }

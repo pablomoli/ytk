@@ -1,7 +1,11 @@
 import type { QueueItem } from "../api/queue";
-import { canonicalSource } from "../components/icons";
+import type { SourceSelection } from "./sourceFilter";
+import { isSourceVisible } from "./sourceFilter";
 
-export function filterAndSortQueue(items: QueueItem[], source?: string): QueueItem[] {
+export function filterAndSortQueue(
+  items: QueueItem[],
+  selection: SourceSelection = null,
+): QueueItem[] {
   // Newest-first for every source. `shared_at` is date-only, so a same-day
   // burst (e.g. several iMessage sessions) all tie; the queue arrives in
   // insertion order (oldest-first), so we break ties by original index
@@ -9,7 +13,7 @@ export function filterAndSortQueue(items: QueueItem[], source?: string): QueueIt
   // grid renders same-day items backwards (oldest-first, "right to left").
   return items
     .map((item, i) => ({ item, i }))
-    .filter(({ item }) => !source || canonicalSource(item.source) === source)
+    .filter(({ item }) => isSourceVisible(selection, item.source))
     .sort((a, b) => {
       const byDate = (b.item.shared_at ?? "").localeCompare(a.item.shared_at ?? "");
       return byDate !== 0 ? byDate : b.i - a.i;

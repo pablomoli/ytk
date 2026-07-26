@@ -7,6 +7,7 @@ export const PROFILE_MATCHES_PREF = "ytk:inbox:show-profile-matches";
 
 /* Per-widget open state for the inbox rail. Queue and ingest default open:
    they are the common path (paste, select, ingest). */
+export const RAIL_SOURCES_PREF = "ytk:inbox:rail:sources";
 export const RAIL_QUEUE_PREF = "ytk:inbox:rail:queue";
 export const RAIL_MATCH_PREF = "ytk:inbox:rail:match";
 export const RAIL_INGEST_PREF = "ytk:inbox:rail:ingest";
@@ -28,6 +29,29 @@ export const getPref = (key: string, fallback = false): boolean => {
 export const setPref = (key: string, on: boolean): void => {
   try {
     localStorage.setItem(key, on ? "1" : "0");
+  } catch {
+    /* private mode */
+  }
+};
+
+/* Which sources the inbox is filtered to (#126). Serialized exactly as it is in
+   the URL, so the two cannot drift into different encodings. */
+export const INBOX_SOURCES_PREF = "ytk:inbox:sources";
+
+/* Null means the key is unset — the user has not chosen — which is a different
+   state from an empty selection and must survive the round trip. */
+export const getStringPref = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+export const setStringPref = (key: string, value: string | null): void => {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
   } catch {
     /* private mode */
   }
