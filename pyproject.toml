@@ -77,7 +77,6 @@ ignore = [
     "E501", # the formatter owns line length
 
     "RUF001", # typographic punctuation in prose strings is deliberate
-    "E402",   # bootstrap scripts must set paths or environment before imports
     "RUF012", # ClassVar annotations add noise to Pydantic and dataclass config
     "PERF401", # guarded loops are clearer than equivalent dense comprehensions
     "B905",   # strict zip changes mismatch behavior
@@ -111,9 +110,22 @@ ignore = [
     "S101", # asserting is what a test does
     "S108", # /tmp paths in fixtures are fixtures, not deployments
 ]
+"tests/test_transcript.py" = [
+    "E402", # legacy test sections keep their imports beside the covered feature
+]
 "scripts/**" = [
+    "E402", # scripts must set paths or load environment before project imports
     "S101", # one-off analysis scripts assert their own preconditions
     "S108",
+]
+"ytk/cli.py" = [
+    "E402", # CLI initialization configures process state before later imports
+]
+"ytk/store.py" = [
+    "E402", # environment guards must run before importing model and Chroma clients
+]
+"ytk/ui/server.py" = [
+    "E402", # application and static paths are initialized before route imports
 ]
 
 [tool.ruff.format]
