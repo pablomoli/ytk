@@ -13,8 +13,23 @@ from ytk.chroma_migrate import MigrationReport, copy_collections, write_report
 from ytk.chroma_runtime import runtime_config
 
 
-def _source_with_text_and_visual_collections(tmp_path):
-    source = chromadb.PersistentClient(path=str(tmp_path / "source"))
+@pytest.fixture
+def chroma_clients():
+    clients = []
+
+    def open_client(path):
+        client = chromadb.PersistentClient(path=str(path))
+        clients.append(client)
+        return client
+
+    yield open_client
+
+    for client in reversed(clients):
+        client.close()
+
+
+def _source_with_text_and_visual_collections(tmp_path, chroma_clients):
+    source = chroma_clients(tmp_path / "source")
     source.create_collection(
         "ytk_memories_v2",
         metadata={"hnsw:space": "cosine"},
@@ -29,13 +44,13 @@ def _source_with_text_and_visual_collections(tmp_path):
     return source
 
 
-def _target(tmp_path, name="target"):
-    return chromadb.PersistentClient(path=str(tmp_path / name))
+def _target(tmp_path, chroma_clients, name="target"):
+    return chroma_clients(tmp_path / name)
 
 
-def test_copy_preserves_vectors_and_never_opens_visual_collections(tmp_path):
-    source = _source_with_text_and_visual_collections(tmp_path)
-    target = _target(tmp_path)
+def test_copy_preserves_vectors_and_never_opens_visual_collections(tmp_path, chroma_clients):
+    source = _source_with_text_and_visual_collections(tmp_path, chroma_clients)
+    target = _target(tmp_path, chroma_clients)
     original_get_collection = source.get_collection
     opened: list[str] = []
 
@@ -63,18 +78,18 @@ def test_copy_preserves_vectors_and_never_opens_visual_collections(tmp_path):
     np.testing.assert_allclose(got["embeddings"], [[1.0, 0.0], [0.0, 1.0]])
 
 
-def test_copy_refuses_a_nonempty_target_without_resume(tmp_path):
-    source = _source_with_text_and_visual_collections(tmp_path)
-    target = _target(tmp_path)
+def test_copy_refuses_a_nonempty_target_without_resume(tmp_path, chroma_clients):
+    source = _source_with_text_and_visual_collections(tmp_path, chroma_clients)
+    target = _target(tmp_path, chroma_clients)
     target.create_collection("existing").add(ids=["occupied"], embeddings=[[1.0]])
 
     with pytest.raises(ValueError, match="target is not empty"):
         copy_collections(source, target)
 
 
-def test_resumed_copy_is_idempotent(tmp_path):
-    source = _source_with_text_and_visual_collections(tmp_path)
-    target = _target(tmp_path)
+def test_resumed_copy_is_idempotent(tmp_path, chroma_clients):
+    source = _source_with_text_and_visual_collections(tmp_path, chroma_clients)
+    target = _target(tmp_path, chroma_clients)
 
     first = copy_collections(source, target, resume=True, batch_size=1)
     second = copy_collections(source, target, resume=True, batch_size=1)
@@ -85,9 +100,9 @@ def test_resumed_copy_is_idempotent(tmp_path):
     assert migrated.get()["ids"] == ["a", "b"]
 
 
-def test_write_report_is_valid_json_and_replaces_existing_file(tmp_path):
-    source = _source_with_text_and_visual_collections(tmp_path)
-    report = copy_collections(source, _target(tmp_path))
+def test_write_report_is_valid_json_and_replaces_existing_file(tmp_path, chroma_clients):
+    source = _source_with_text_and_visual_collections(tmp_path, chroma_clients)
+    report = copy_collections(source, _target(tmp_path, chroma_clients))
     recovery_dir = tmp_path / "recovery"
 
     path = write_report(report, recovery_dir)
