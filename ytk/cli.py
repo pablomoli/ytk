@@ -15,7 +15,6 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import chromadb
 import click
 from dotenv import load_dotenv
 from rich import box
@@ -23,7 +22,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from .chroma_migrate import copy_collections, write_report
+from .chroma_migrate import copy_collections, create_migration_clients, write_report
 from .chroma_runtime import launchd_plist, runtime_config, server_arguments, wait_for_chroma
 from .config import load_config
 from .enrich import enrich
@@ -2753,8 +2752,7 @@ def chroma_migrate(resume: bool, batch_size: int):
     if cfg.legacy_path.resolve() == cfg.server_path.resolve():
         raise click.ClickException("CHROMA_PATH and CHROMA_SERVER_PATH must be different")
 
-    source = chromadb.PersistentClient(path=str(cfg.legacy_path))
-    target = chromadb.HttpClient(host=cfg.host, port=cfg.port, ssl=cfg.ssl)
+    source, target = create_migration_clients(cfg)
     report = copy_collections(
         source,
         target,

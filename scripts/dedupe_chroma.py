@@ -14,7 +14,6 @@ touched. Dry-run by default; pass --apply to delete.
 """
 
 import argparse
-import os
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -41,13 +40,9 @@ def main() -> None:
     ap.add_argument("--apply", action="store_true", help="actually delete (default: dry run)")
     args = ap.parse_args()
 
-    import chromadb
+    from ytk.store import _get_client, epoch_collection_name
 
-    client = chromadb.PersistentClient(
-        path=os.path.expanduser(os.environ.get("CHROMA_PATH", "~/.ytk/chroma"))
-    )
-    from ytk.store import epoch_collection_name
-
+    client = _get_client()
     col = client.get_collection(epoch_collection_name("ytk_memories"))
     res = col.get(include=["metadatas"])
 
