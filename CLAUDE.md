@@ -113,6 +113,37 @@ ytk add https://www.youtube.com/watch?v=...
 ytk add <url> --force
 ```
 
+## Just command reference
+
+Run `just --list` from anywhere inside the repository to see the supported
+development and operational commands.
+
+```bash
+just setup         # install Python development and frontend dependencies
+just check         # run the complete repository quality gate
+just lint          # lint all supported Python and frontend source
+just typecheck     # run Pyright and TypeScript checks
+just test          # run the fast Python and Chromium frontend suites
+just build-web     # rebuild the tracked production bundle
+just ui            # run the hub in the foreground
+just install-tool  # reinstall the ytk CLI from this checkout
+```
+
+The pre-commit hook is intentionally incremental; `just check` is the complete
+gate. Python quality commands require the `dev` extra. Frontend tests run in
+real Chromium with `vp exec vitest run`; the Vite+ beta's integrated test path
+does not load this project's test binary correctly.
+
+`web/dist` is tracked because it ships inside the Python wheel, so
+`just build-web` may modify repository files. `just eval` uses the live Chroma
+store and frozen retrieval corpus; never update its baseline merely to clear a
+failure. Installed CLI changes require `uv tool install --reinstall .`.
+
+Chroma is a separately managed local server. Run `just chroma-status` before
+debugging storage behavior. Start foreground servers and other long-running
+recipes in a visible tmux pane after listing panes; do not hide them in an
+unobserved background process.
+
 ## Filter Config
 
 Default location: `~/.ytk/config.yaml` (auto-created with defaults if missing)

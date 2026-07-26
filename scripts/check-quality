@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+
+uv run --extra dev ruff check ytk scripts tests experiments labs
+uv run --extra dev ruff format --check ytk scripts tests experiments labs
+uv run --extra dev pyright
+uv run --extra dev pytest
+
+cd web
+vp lint
+vp exec vitest run
+vp build
