@@ -476,6 +476,46 @@ body {
   gap: 0.6rem;
 }
 
+/* Pull feedback. Disabled buttons were the only sign anything was happening,
+   which reads as a dead UI rather than a busy one. */
+.pull-status {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  min-height: 1.1rem;
+  color: #9a9284;
+  font-size: 0.75rem;
+}
+
+.pull-status.busy {
+  color: #e2b04a;
+}
+
+.pull-status.failed {
+  color: #f87171;
+}
+
+/* Sized for a text row, unlike .spinner, which is a 2rem overlay centred on a
+   card and would swallow the rail. */
+.dot-spinner {
+  flex: none;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid #e2b04a33;
+  border-top-color: #e2b04a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still legible as "working" without the rotation: a pulse carries the same
+     signal for anyone who has asked motion to stop. */
+  .dot-spinner {
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+}
+
 .source-select-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
