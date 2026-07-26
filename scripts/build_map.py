@@ -24,7 +24,6 @@ import os
 import re
 from pathlib import Path
 
-import chromadb
 import numpy as np
 
 from ytk import ridges, signals
@@ -39,7 +38,6 @@ from ytk.mapdomains import (
 )
 
 SNAPSHOT = Path(os.path.expanduser("~/.ytk/interest/latest.json"))
-CHROMA = os.path.expanduser("~/.ytk/chroma")
 OUT = Path.home() / ".ytk" / "map.json"
 # The grove's config, read here too — one taste axis, two consumers (#106).
 BUCKETS = Path.home() / ".ytk" / "grove_buckets.yaml"
@@ -135,7 +133,9 @@ def _video_note_path(title: str) -> str:
 
 
 def load_points() -> tuple[np.ndarray, list[dict], list[str]]:
-    client = chromadb.PersistentClient(path=CHROMA)
+    from ytk.store import _get_client
+
+    client = _get_client()
     vecs: list = []
     meta: list[dict] = []
     docs: list[str] = []
@@ -516,7 +516,9 @@ def main() -> None:
     snapshot = json.loads(SNAPSHOT.read_text())
     vecs, meta, docs = load_points()
     smap = signals.signal_map()
-    client = chromadb.PersistentClient(path=CHROMA)
+    from ytk.store import _get_client
+
+    client = _get_client()
     thumbs = {
         m["url"]: m["image_path"]
         for m in client.get_collection("ytk_visual").get(include=["metadatas"])["metadatas"]

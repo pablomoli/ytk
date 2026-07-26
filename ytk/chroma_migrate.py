@@ -8,7 +8,10 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+import chromadb
 from chromadb.api import ClientAPI
+
+from .chroma_runtime import ChromaRuntime
 
 EXCLUDED_COLLECTIONS = frozenset({"ytk_visual", "ytk_visual_pending"})
 
@@ -22,6 +25,19 @@ class MigrationReport:
     collections: dict[str, int]
     excluded: list[str]
     complete: bool
+
+
+def create_migration_clients(config: ChromaRuntime) -> tuple[ClientAPI, ClientAPI]:
+    """Open the explicit legacy source and server target used only by migration."""
+    if config.mode != "http":
+        raise ValueError("migration requires an HTTP Chroma target")
+    source = chromadb.PersistentClient(path=str(config.legacy_path))
+    target = chromadb.HttpClient(
+        host=config.host,
+        port=config.port,
+        ssl=config.ssl,
+    )
+    return source, target
 
 
 def _client_location(client: ClientAPI) -> str:

@@ -98,6 +98,20 @@ def test_settings_get_shape(client):
     assert "last_pulls" in body["meta"]
 
 
+def test_settings_reports_active_http_chroma(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("CHROMA_URL", "http://127.0.0.1:8000")
+    monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "legacy"))
+    monkeypatch.setenv("CHROMA_SERVER_PATH", str(tmp_path / "chroma-server"))
+
+    response = client.get("/api/settings")
+
+    assert response.status_code == 200
+    environment = response.json()["meta"]["environment"]
+    assert environment["chroma"]["mode"] == "http"
+    assert environment["chroma"]["url"] == "http://127.0.0.1:8000"
+    assert environment["chroma"]["server_path"].endswith("chroma-server")
+
+
 def test_settings_put_validates_inline(client, cfg_path):
     bad = {"hub": {"port": "nope"}, "map": {"color_rules": [{"query": "x", "color": "red"}]}}
     r = client.put("/api/settings", json=bad)

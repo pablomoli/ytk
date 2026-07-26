@@ -771,11 +771,12 @@ def _environment_info() -> dict:
     """Read-only facts for the settings page: where data lives, which
     encoder epoch is serving, how the daemon is packaged."""
     from ytk import store, vault
+    from ytk.chroma_runtime import active_store_info
 
     epoch = store.EMBEDDING_EPOCH
     return {
         "vault_path": str(vault._get_brain_path()),
-        "chroma_path": str(store._CHROMA_PATH),
+        "chroma": active_store_info(),
         "embedding_epoch": epoch,
         "embedding_model": store._EPOCHS[epoch]["model"],
         "collections": store.epoch_collection_name("ytk_*"),

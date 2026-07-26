@@ -180,3 +180,25 @@ def test_http_client_round_trip_with_real_server(tmp_path):
             client.close()
 
     assert not (tmp_path / "legacy").exists()
+
+
+def test_store_caches_one_http_client_without_creating_legacy_path(tmp_path, monkeypatch):
+    import ytk.store as store
+
+    port = _free_tcp_port()
+    legacy = tmp_path / "legacy"
+    with _running_chroma_server(tmp_path / "server", port):
+        monkeypatch.setenv("CHROMA_URL", f"http://127.0.0.1:{port}")
+        monkeypatch.setenv("CHROMA_PATH", str(legacy))
+        monkeypatch.setattr(store, "_CHROMA_PATH", legacy)
+        store._client = None
+
+        first = store._get_client()
+        second = store._get_client()
+
+        assert first is second
+        first.heartbeat()
+        first.close()
+        store._client = None
+
+    assert not legacy.exists()

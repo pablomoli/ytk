@@ -164,16 +164,11 @@ def test_cli_migrates_explicit_source_to_http_target_and_writes_report(tmp_path,
     monkeypatch.setenv("YTK_VISUAL_INDEX", "off")
     monkeypatch.setattr(cli_mod, "runtime_config", lambda: cfg)
 
-    def fake_persistent_client(*, path):
-        calls["source_path"] = path
-        return source
+    def fake_migration_clients(actual_config):
+        calls["config"] = actual_config
+        return source, target
 
-    def fake_http_client(**kwargs):
-        calls["http"] = kwargs
-        return target
-
-    monkeypatch.setattr(cli_mod.chromadb, "PersistentClient", fake_persistent_client)
-    monkeypatch.setattr(cli_mod.chromadb, "HttpClient", fake_http_client)
+    monkeypatch.setattr(cli_mod, "create_migration_clients", fake_migration_clients)
 
     def fake_copy(actual_source, actual_target, *, resume, batch_size):
         calls["copy"] = (actual_source, actual_target, resume, batch_size)
@@ -193,7 +188,6 @@ def test_cli_migrates_explicit_source_to_http_target_and_writes_report(tmp_path,
     )
 
     assert result.exit_code == 0, result.output
-    assert calls["source_path"] == str(cfg.legacy_path)
-    assert calls["http"] == {"host": "127.0.0.1", "port": 8765, "ssl": False}
+    assert calls["config"] is cfg
     assert calls["copy"] == (source, target, True, 64)
     assert "ytk_memories: 2" in result.output
