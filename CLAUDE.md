@@ -83,6 +83,9 @@ ytk/
     memo.py            — voice memo pipeline: record, transcribe, route, notify (`ytk memo`)
     ui/hub.py          — ingest-hub backend: queue ops, background ingest job, fresh feed
     ui/static/         — hub pages: fresh.html (/), inbox.html (/inbox), index.html (/chat)
+  docs/architecture/
+    cli-decomposition.md          — witness-first extraction map for `ytk/cli.py`
+    map-renderer-decomposition.md — resource ownership and extraction map for the WebGL renderer
 ```
 
 The interest profile at `second-brain/me/profile.md` is rendered as XML (frontmatter
