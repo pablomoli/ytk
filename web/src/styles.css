@@ -2324,8 +2324,9 @@ body {
   text-transform: lowercase;
   color: var(--ink);
 }
-.shelf-name.mine {
-  color: #4ade80;
+.chip.mine.on {
+  border-color: color-mix(in srgb, var(--live) 60%, transparent);
+  color: var(--live);
 }
 .shelf-row {
   display: flex;
@@ -2350,7 +2351,9 @@ body {
   overflow: hidden;
 }
 .rec-card.want {
-  border-color: color-mix(in srgb, var(--live) 55%, transparent);
+  /* The tag on the box: a wanted title stays on its aisle, the border is
+     what marks it as yours while scanning the shelf. */
+  border-color: color-mix(in srgb, var(--live) 70%, transparent);
 }
 .rec-card.seen {
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);

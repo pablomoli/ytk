@@ -20,7 +20,6 @@ const TAB_KINDS: Record<Tab, RecKind[]> = {
 
 const STATUSES: Exclude<RecStatus, null>[] = ["want", "seen", "skip"];
 
-const MY_LIST = "my list";
 const UNSHELVED = "uncategorized";
 
 type Shelf = { name: string; recs: RecCard[] };
@@ -75,16 +74,12 @@ function primaryShelf(genres: string[] | null): string {
   return best ?? normalized[0];
 }
 
-/* Blockbuster rule: every title sits on exactly one shelf. Wanted titles are
-   pulled up to "my list"; everything else shelves under its primary genre. */
+/* Blockbuster rule: every title sits on exactly one shelf — its primary
+   genre. A wanted title stays on its aisle wearing the want border (the tag
+   on the box), and the "my list" chip filters the walk to tagged boxes. */
 function buildShelves(recs: RecCard[]): Shelf[] {
   const byName = new Map<string, RecCard[]>();
-  const myList: RecCard[] = [];
   for (const r of recs) {
-    if (r.status === "want") {
-      myList.push(r);
-      continue;
-    }
     const genre = primaryShelf(r.genres);
     const row = byName.get(genre);
     if (row) row.push(r);
@@ -100,10 +95,6 @@ function buildShelves(recs: RecCard[]): Shelf[] {
   for (const shelf of shelves) {
     shelf.recs.sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
   }
-  if (myList.length) {
-    myList.sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
-    shelves.unshift({ name: MY_LIST, recs: myList });
-  }
   return shelves;
 }
 
@@ -114,6 +105,7 @@ function RecsPage() {
   const [tab, setTab] = useState<Tab>("watch");
   const [kind, setKind] = useState<RecKind | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
 
   // Memoised on q.data so the fallback does not mint a fresh [] every render,
   // which defeated the memos below while the query was loading.
@@ -126,14 +118,20 @@ function RecsPage() {
     return { byKind, watch: forTab("watch"), read: forTab("read"), total: recs.length };
   }, [recs]);
 
+  const wantCount = useMemo(
+    () => recs.filter((r) => TAB_KINDS[tab].includes(r.kind) && r.status === "want").length,
+    [recs, tab],
+  );
+
   const shelves = useMemo(() => {
     const kinds = TAB_KINDS[tab];
     const visible = recs
       .filter((r) => kinds.includes(r.kind))
       .filter((r) => (kind ? r.kind === kind : true))
+      .filter((r) => (mineOnly ? r.status === "want" : true))
       .filter((r) => (showDone ? true : r.status !== "seen" && r.status !== "skip"));
     return buildShelves(visible);
-  }, [recs, tab, kind, showDone]);
+  }, [recs, tab, kind, showDone, mineOnly]);
 
   const selectTab = (t: Tab) => {
     setTab(t);
@@ -161,7 +159,7 @@ function RecsPage() {
             page chrome (full-width bg1 band + border), which is exactly the
             look an aisle sign must not have. */}
         <div className="shelf-head">
-          <h2 className={`shelf-name${shelf.name === MY_LIST ? " mine" : ""}`}>{shelf.name}</h2>
+          <h2 className="shelf-name">{shelf.name}</h2>
           <span className="count">{shelf.recs.length}</span>
         </div>
         <div className="shelf-row">
@@ -205,6 +203,13 @@ function RecsPage() {
               {k} <span className="count">{counts.byKind.get(k) ?? 0}</span>
             </button>
           ))}
+          <button
+            className={`chip mine${mineOnly ? " on" : ""}`}
+            aria-pressed={mineOnly}
+            onClick={() => setMineOnly((v) => !v)}
+          >
+            my list <span className="count">{wantCount}</span>
+          </button>
           <button
             className={`chip${showDone ? " on" : ""}`}
             aria-pressed={showDone}

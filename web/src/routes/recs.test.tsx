@@ -128,13 +128,23 @@ function shelfNames(container: HTMLElement): string[] {
   );
 }
 
-test("titles shelve under their primary genre; wanted titles pin to my list", () => {
+test("wanted titles stay on their genre shelf wearing the want border", () => {
   const { container } = renderPage();
   const names = shelfNames(container);
-  expect(names[0]).toBe("my list"); // Breaking Bad (want) pins first
-  expect(names).toContain("Science Fiction"); // Dune's genres[0]
-  const myList = container.querySelector(".shelf")!;
-  expect(myList.textContent).toContain("Breaking Bad");
+  expect(names).not.toContain("my list"); // no extraction shelf
+  expect(names).toContain("Science Fiction"); // Dune's shelf
+  const bb = cardByTitle(container, "Breaking Bad")!;
+  expect(bb.closest(".shelf")?.querySelector(".shelf-name")?.textContent).toBe("Drama");
+  expect(bb.classList.contains("want")).toBe(true);
+});
+
+test("the my list chip filters the aisles down to wanted titles", () => {
+  const { container } = renderPage();
+  fireEvent.click(screen.getByRole("button", { name: /my list/i }));
+  expect(cardByTitle(container, "Breaking Bad")).not.toBeNull(); // want
+  expect(cardByTitle(container, "Dune")).toBeNull(); // untagged, hidden
+  // still grouped by genre, not dumped into one pile
+  expect(shelfNames(container)).toContain("Drama");
 });
 
 test("seen and skipped titles hide until the toggle reveals them", () => {
