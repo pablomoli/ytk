@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import plistlib
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,8 +48,8 @@ def runtime_config(
             legacy_path=legacy_path,
             server_path=server_path,
             url=None,
-            host="",
-            port=0,
+            host="127.0.0.1",
+            port=8000,
             ssl=False,
         )
 
@@ -91,3 +93,49 @@ def active_store_info(config: ChromaRuntime | None = None) -> dict[str, str | No
         "server_path": str(config.server_path),
         "legacy_path": str(config.legacy_path),
     }
+
+
+def server_arguments(config: ChromaRuntime, executable: Path) -> list[str]:
+    """Exact foreground server command used by launchd and tests."""
+    return [
+        str(executable),
+        "run",
+        "--host",
+        config.host,
+        "--port",
+        str(config.port),
+        "--path",
+        str(config.server_path),
+    ]
+
+
+def launchd_plist(config: ChromaRuntime, *, ytk_bin: Path, log_path: Path) -> str:
+    """Render the loopback-only KeepAlive launch agent."""
+    payload = {
+        "Label": "com.ytk.chroma",
+        "ProgramArguments": [str(ytk_bin), "chroma", "serve"],
+        "KeepAlive": True,
+        "RunAtLoad": True,
+        "ThrottleInterval": 5,
+        "StandardOutPath": str(log_path),
+        "StandardErrorPath": str(log_path),
+    }
+    return plistlib.dumps(payload, fmt=plistlib.FMT_XML, sort_keys=False).decode()
+
+
+def wait_for_chroma(config: ChromaRuntime, timeout_s: float = 30.0) -> bool:
+    """Wait for the configured server heartbeat until a monotonic deadline."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            client = chromadb.HttpClient(
+                host=config.host,
+                port=config.port,
+                ssl=config.ssl,
+            )
+            client.heartbeat()
+            return True
+        except Exception:
+            if time.monotonic() >= deadline:
+                return False
+        time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
