@@ -142,6 +142,20 @@ def _pin_v1_epoch(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _enable_visual_index(monkeypatch):
+    """Keep the production visual circuit breaker out of unit-test behavior.
+
+    Tests that exercise disabled mode override the environment explicitly.
+    Marking the probe healthy also prevents unrelated unit tests from probing
+    the developer's live Chroma store.
+    """
+    monkeypatch.setenv("YTK_VISUAL_INDEX", "on")
+    import ytk.store as store
+
+    monkeypatch.setattr(store, "_VISUAL_PROBE", True)
+
+
+@pytest.fixture(autouse=True)
 def _close_chroma_clients_between_tests():
     """Release Rust/SQLite handles before pytest removes each tmp store.
 
