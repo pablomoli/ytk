@@ -100,6 +100,34 @@ def test_resumed_copy_is_idempotent(tmp_path, chroma_clients):
     assert migrated.get()["ids"] == ["a", "b"]
 
 
+def test_copy_preserves_client_supplied_embedding_function_compatibility(tmp_path, chroma_clients):
+    from ytk.store import InstructionAwareEF
+
+    source = chroma_clients(tmp_path / "source")
+    target = chroma_clients(tmp_path / "target")
+    embedding_function = InstructionAwareEF(
+        "test/model",
+        "Query: ",
+        fp16=False,
+        max_seq=32,
+        device="cpu",
+    )
+    source.create_collection(
+        "ytk_custom_config",
+        embedding_function=embedding_function,
+        metadata={"hnsw:space": "cosine"},
+    ).add(ids=["one"], embeddings=[[1.0, 0.0]])
+
+    copy_collections(source, target)
+
+    reopened = target.get_or_create_collection(
+        "ytk_custom_config",
+        embedding_function=embedding_function,
+        metadata={"hnsw:space": "cosine"},
+    )
+    assert reopened.count() == 1
+
+
 def test_write_report_is_valid_json_and_replaces_existing_file(tmp_path, chroma_clients):
     source = _source_with_text_and_visual_collections(tmp_path, chroma_clients)
     report = copy_collections(source, _target(tmp_path, chroma_clients))

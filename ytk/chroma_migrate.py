@@ -7,9 +7,11 @@ import os
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import chromadb
 from chromadb.api import ClientAPI
+from chromadb.api.collection_configuration import CreateCollectionConfiguration
 
 from .chroma_runtime import ChromaRuntime
 
@@ -73,6 +75,10 @@ def copy_collections(
         target_collection = target.get_or_create_collection(
             name,
             metadata=source_collection.metadata,
+            configuration=cast(
+                CreateCollectionConfiguration,
+                source_collection.configuration,
+            ),
         )
         for offset in range(0, source_count, batch_size):
             batch = source_collection.get(
