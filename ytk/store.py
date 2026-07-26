@@ -365,6 +365,25 @@ def visual_index_ok(timeout_s: float = 25.0) -> bool:
     return _VISUAL_PROBE
 
 
+def reset_visual_collections() -> None:
+    """Recreate both visual collections on the configured HTTP server."""
+    global _VISUAL_PROBE
+    config = runtime_config(default_path=_CHROMA_PATH)
+    if config.mode != "http":
+        raise RuntimeError("visual collection reset requires the Chroma HTTP server")
+
+    client = _get_client()
+    existing = {collection.name for collection in client.list_collections()}
+    for name in (_COLLECTION_VISUAL, _COLLECTION_VISUAL_PENDING):
+        if name in existing:
+            client.delete_collection(name)
+
+    _VISUAL_PROBE = None
+    _visual_collection()
+    _visual_pending_collection()
+    _VISUAL_PROBE = True
+
+
 @dataclass
 class VisualResult:
     item_id: str

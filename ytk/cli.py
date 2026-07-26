@@ -2995,6 +2995,26 @@ def visual_index(limit: int | None):
     console.print(f"[green]Indexed {done} covers.[/] Collection size: {visual_count()}")
 
 
+@visual.command(name="rebuild")
+@click.option("--yes", is_flag=True, help="Confirm replacement of both visual collections.")
+def visual_rebuild(yes: bool):
+    """Replace and rebuild saved and pending visual indexes."""
+    from .store import visual_index_enabled
+    from .visual import rebuild_visual_indexes
+
+    if not yes:
+        raise click.ClickException("pass --yes to replace both visual collections")
+    if not visual_index_enabled():
+        raise click.ClickException("set YTK_VISUAL_INDEX=on before rebuilding")
+
+    console.print("[dim]Rebuilding visual indexes from source covers...[/dim]")
+    saved, pending = rebuild_visual_indexes(
+        progress=lambda done, total: console.print(f"  [dim]{done}/{total}[/dim]"),
+    )
+    console.print(f"[green]Saved covers: {saved}[/]")
+    console.print(f"[green]Pending covers: {pending}[/]")
+
+
 @cli.command(name="similar")
 @click.argument("query", nargs=-1, required=True)
 @click.option(
