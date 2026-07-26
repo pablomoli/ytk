@@ -18,6 +18,7 @@ const recs = [
     creator: "Denis Villeneuve",
     poster: "https://example.com/dune.jpg",
     rating: 8.1,
+    genres: ["Science Fiction", "Adventure"],
     overview: "Sand.",
     external_url: null,
     count: 5,
@@ -32,11 +33,27 @@ const recs = [
     creator: "Vince Gilligan",
     poster: null,
     rating: null,
+    genres: ["Drama"],
     overview: null,
     external_url: null,
     count: 3,
     sources: [],
     status: "want",
+  },
+  {
+    key: "tmdb:movie:603",
+    kind: "movie",
+    title: "The Matrix",
+    year: 1999,
+    creator: "Lana Wachowski",
+    poster: null,
+    rating: null,
+    genres: ["Science Fiction"],
+    overview: null,
+    external_url: null,
+    count: 1,
+    sources: [],
+    status: "seen",
   },
   {
     key: "hardcover:book:42",
@@ -46,6 +63,7 @@ const recs = [
     creator: "Frank Herbert",
     poster: null,
     rating: 9.0,
+    genres: null,
     overview: null,
     external_url: null,
     count: 2,
@@ -100,4 +118,33 @@ test("null-poster card renders a text fallback, not a broken image", () => {
   expect(card.querySelector("img")).toBeNull();
   expect(card.querySelector(".rec-poster-fallback")).not.toBeNull();
   expect(container.querySelector('img[src=""]')).toBeNull();
+});
+
+function shelfNames(container: HTMLElement): string[] {
+  return [...container.querySelectorAll<HTMLElement>(".shelf-name")].map(
+    (h) => h.textContent ?? "",
+  );
+}
+
+test("titles shelve under their primary genre; wanted titles pin to my list", () => {
+  const { container } = renderPage();
+  const names = shelfNames(container);
+  expect(names[0]).toBe("my list"); // Breaking Bad (want) pins first
+  expect(names).toContain("Science Fiction"); // Dune's genres[0]
+  const myList = container.querySelector(".shelf")!;
+  expect(myList.textContent).toContain("Breaking Bad");
+});
+
+test("seen and skipped titles hide until the toggle reveals them", () => {
+  const { container } = renderPage();
+  expect(cardByTitle(container, "The Matrix")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /seen & skipped/i }));
+  expect(cardByTitle(container, "The Matrix")).not.toBeNull();
+});
+
+test("a title without genres lands on the uncategorized shelf", () => {
+  const { container } = renderPage();
+  fireEvent.click(screen.getByRole("tab", { name: /read/i }));
+  const names = shelfNames(container);
+  expect(names).toContain("uncategorized"); // Dune (novel) has genres: null
 });
