@@ -96,6 +96,7 @@ def test_delete_doc_removes_parts(store):
 
 
 def test_get_content_memories_one_row_per_doc(store):
-    store.upsert_doc("instagram_reel", _long_text(), _meta("instagram_reel"))
+    doc_id = "note_sources_instagram_reel"
+    store.upsert_doc(doc_id, _long_text(), _meta(doc_id))
     rows = store.get_content_memories(["instagram"])
-    assert [r["id"] for r in rows] == ["instagram_reel"]
+    assert [r["id"] for r in rows] == [doc_id]

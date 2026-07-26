@@ -1,6 +1,6 @@
 {
   "epoch": "v2",
-  "authored": "2026-07-25",
+  "authored": "2026-07-26",
   "frozen_corpus": "Scoring is restricted to the document ids listed in eval/retrieval/frozen_corpus.json, captured when this baseline was stamped (#111). Documents ingested since then are retrieved but not scored, so ordinary corpus growth cannot move hit@k and a red gate means a real regression. Re-stamp both together \u2014 deliberately, never to launder a regression \u2014 with: ytk eval --update-baseline",
   "top_k": 10,
   "n_queries": 156,
@@ -33,13 +33,13 @@
   "provenance": {
     "query_file_sha256": "c7e86500c568513bcd8240bd5e37da86bd37711ac9d6794c9e07458e9ad6b558",
     "query_count": 156,
-    "corpus_fingerprint": "ed5b86bcea0ecd8e0b6b95179f06ad2c0e6ca92237f1e9d77f15dd19e48c5d70",
-    "frozen_corpus_sha256": "42f3230591597d1a03787952ad628e4cee58dc670b12d9b37f31ea96cf3ef145",
-    "frozen_corpus_size": 10348,
+    "corpus_fingerprint": "3dc1a76f04ffea120d372c16aa91643a5f2fccee31a6db942bbefa896b02e7c9",
+    "frozen_corpus_sha256": "9966cfed0b9aabd00ae5eb5d96d1d2c201cbfbc2ced0212d468a6abad7f23ec2",
+    "frozen_corpus_size": 11005,
     "collection_counts": {
-      "videos": 200,
-      "memories": 4527,
-      "segments": 5656
+      "videos": 226,
+      "memories": 4544,
+      "segments": 6271
     },
     "collection_epoch": "v2",
     "embedding_model": "Qwen/Qwen3-Embedding-0.6B",
@@ -47,12 +47,12 @@
     "query_instruction": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: ",
     "max_seq_length": 3072,
     "top_k": 10,
-    "producing_git_commit": "6271dad2c5e7900ac8c6bc0db9a1197901d452b3"
+    "producing_git_commit": "b3fe944ccfb800ae1b16141d04148a0ba10b09a9"
   },
   "graded": {
-    "ndcg@10": 0.6666861630160121,
+    "ndcg@10": 0.6604250948907762,
     "n_queries": 156,
-    "label_coverage": 0.8685897435897436,
+    "label_coverage": 0.8506410256410256,
     "unjudged_pairs": [
       {
         "query_id": "mem::inbox/memories/2026-07-04-epicmap-retired-the-fieldwork-model-entirely-202-e893d0.md",
@@ -120,6 +120,10 @@
       },
       {
         "query_id": "seg::yAPKzHrx3eo_24",
+        "doc_id": "seg::qFjUgCZbzFQ_4"
+      },
+      {
+        "query_id": "seg::yAPKzHrx3eo_24",
         "doc_id": "seg::eCx3SSCcISo_18"
       },
       {
@@ -147,6 +151,10 @@
         "doc_id": "vid::xUnRQ9vLXxo"
       },
       {
+        "query_id": "vid::9O0lQBEPL2U",
+        "doc_id": "vid::W9PZ0vPibWk"
+      },
+      {
         "query_id": "vid::LSq485DvILM",
         "doc_id": "vid::9O0lQBEPL2U"
       },
@@ -169,6 +177,10 @@
       {
         "query_id": "seg::xafwfGVBxos_88",
         "doc_id": "seg::a6sYYrLTOjQ_19"
+      },
+      {
+        "query_id": "seg::xafwfGVBxos_88",
+        "doc_id": "seg::eJZFUEQebbI_11"
       },
       {
         "query_id": "seg::xafwfGVBxos_88",
@@ -196,11 +208,19 @@
       },
       {
         "query_id": "vid::S9EGx6ik-18",
+        "doc_id": "vid::tSg3FAdWvzI"
+      },
+      {
+        "query_id": "vid::S9EGx6ik-18",
         "doc_id": "vid::7FU98O0JLHs"
       },
       {
         "query_id": "vid::S9EGx6ik-18",
         "doc_id": "vid::n0VhIVtviC0"
+      },
+      {
+        "query_id": "vid::S9EGx6ik-18",
+        "doc_id": "vid::qFjUgCZbzFQ"
       },
       {
         "query_id": "vid::S9EGx6ik-18",
@@ -211,8 +231,28 @@
         "doc_id": "vid::BAVrwcPDa-k"
       },
       {
-        "query_id": "vid::S9EGx6ik-18",
-        "doc_id": "mem::note_second-brain_projects_ytk_session-031-brief"
+        "query_id": "seg::251hsWgoTPM_49",
+        "doc_id": "seg::hZCBtPDe8-g_19"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::12J2XH2UxDc_36"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::DkZ8dJlO6yg_9"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::12J2XH2UxDc_11"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::DkZ8dJlO6yg_10"
+      },
+      {
+        "query_id": "seg::f4s1h2YETNY_16",
+        "doc_id": "seg::12J2XH2UxDc_28"
       },
       {
         "query_id": "seg::f4s1h2YETNY_16",
@@ -221,22 +261,6 @@
       {
         "query_id": "seg::f4s1h2YETNY_16",
         "doc_id": "seg::349r0xJFGNw_11"
-      },
-      {
-        "query_id": "seg::f4s1h2YETNY_16",
-        "doc_id": "seg::VcvhiDV_t3c_2"
-      },
-      {
-        "query_id": "seg::f4s1h2YETNY_16",
-        "doc_id": "seg::349r0xJFGNw_14"
-      },
-      {
-        "query_id": "seg::f4s1h2YETNY_16",
-        "doc_id": "seg::IHbsfvbfAto_18"
-      },
-      {
-        "query_id": "seg::f4s1h2YETNY_16",
-        "doc_id": "seg::VcvhiDV_t3c_11"
       },
       {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-02-24-spacecraft-786.md",
@@ -265,6 +289,10 @@
       {
         "query_id": "vid::rAzT5lcezPs",
         "doc_id": "vid::vLWSIGxpfYA"
+      },
+      {
+        "query_id": "vid::rAzT5lcezPs",
+        "doc_id": "vid::OZ3ZNhrPbF4"
       },
       {
         "query_id": "vid::kWMGG1zdGkA",
@@ -309,6 +337,10 @@
       {
         "query_id": "seg::251hsWgoTPM_39",
         "doc_id": "seg::hZCBtPDe8-g_10"
+      },
+      {
+        "query_id": "seg::y1QId4-F2I0_7",
+        "doc_id": "seg::qFjUgCZbzFQ_6"
       },
       {
         "query_id": "seg::y1QId4-F2I0_7",
@@ -371,8 +403,32 @@
         "doc_id": "vid::iQyg-KypKAA"
       },
       {
+        "query_id": "vid::ffuxDr_QCAI",
+        "doc_id": "vid::5N-okeDdIuI"
+      },
+      {
+        "query_id": "seg::QNW2IAj9IIE_17",
+        "doc_id": "seg::d-XRj2xItgg_2"
+      },
+      {
+        "query_id": "seg::QNW2IAj9IIE_17",
+        "doc_id": "seg::d-XRj2xItgg_1"
+      },
+      {
+        "query_id": "seg::QNW2IAj9IIE_17",
+        "doc_id": "seg::d-XRj2xItgg_7"
+      },
+      {
         "query_id": "seg::QNW2IAj9IIE_17",
         "doc_id": "seg::YERjv5J9dng_50"
+      },
+      {
+        "query_id": "seg::QNW2IAj9IIE_17",
+        "doc_id": "seg::d-XRj2xItgg_6"
+      },
+      {
+        "query_id": "seg::QNW2IAj9IIE_17",
+        "doc_id": "seg::d-XRj2xItgg_3"
       },
       {
         "query_id": "seg::YmLp8qe87A0_25",
@@ -400,6 +456,10 @@
       },
       {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-15-epicmap-1521.md",
+        "doc_id": "vid::Bbt8cEyzsTk"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-15-epicmap-1521.md",
         "doc_id": "vid::2J3uX8iRNng"
       },
       {
@@ -408,7 +468,7 @@
       },
       {
         "query_id": "vid::S5Tv_22ojbw",
-        "doc_id": "mem::note_sources_instagram_trainwithshay-2026-01-31-DUMYZK2kh5N"
+        "doc_id": "mem::memory_2026-07-26_ytk-recommendation-backfill-completed-after-laptop_d969c2"
       },
       {
         "query_id": "vid::S5Tv_22ojbw",
@@ -417,10 +477,6 @@
       {
         "query_id": "vid::S5Tv_22ojbw",
         "doc_id": "mem::note_sources_instagram_rndyrbrts-2026-04-02-DWpSK4uDhIO"
-      },
-      {
-        "query_id": "vid::S5Tv_22ojbw",
-        "doc_id": "mem::memory_2026-07-25_created-public-ytk-issue-128-to-survey-claude-mem_826288"
       },
       {
         "query_id": "vid::UnzD_bwylWs",
@@ -456,6 +512,10 @@
       },
       {
         "query_id": "seg::AF3XJT9YKpM_57",
+        "doc_id": "seg::8dGXWjpUDZA_15"
+      },
+      {
+        "query_id": "seg::AF3XJT9YKpM_57",
         "doc_id": "seg::5kjYReV2ruc_22"
       },
       {
@@ -468,11 +528,11 @@
       },
       {
         "query_id": "seg::AF3XJT9YKpM_57",
-        "doc_id": "seg::5kjYReV2ruc_25"
+        "doc_id": "seg::8dGXWjpUDZA_16"
       },
       {
         "query_id": "seg::AF3XJT9YKpM_57",
-        "doc_id": "seg::5kjYReV2ruc_20"
+        "doc_id": "seg::8dGXWjpUDZA_1"
       },
       {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-16-epicmap-1780.md",
@@ -481,6 +541,10 @@
       {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-19-epicmap-1850.md",
         "doc_id": "vid::7FU98O0JLHs"
+      },
+      {
+        "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-19-epicmap-1850.md",
+        "doc_id": "mem::note_sources_tiktok_thisguyvibecodes-2026-04-13-7628384442117049613-how-i-vibe-coded-a-warm-hand-drawn-design-superear-pt-2-bu"
       },
       {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-03-19-epicmap-1850.md",
@@ -496,7 +560,7 @@
       },
       {
         "query_id": "vid::kYhb7w2GNIs",
-        "doc_id": "vid::349r0xJFGNw"
+        "doc_id": "vid::_htzQZSIqyE"
       },
       {
         "query_id": "vid::GFz6KqZurFY",
@@ -509,6 +573,14 @@
       {
         "query_id": "seg::A3Ce9ulH4zg_28",
         "doc_id": "seg::W9PZ0vPibWk_46"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::CkoGWHyLTsk_10"
+      },
+      {
+        "query_id": "seg::svqu6FDiMAs_1",
+        "doc_id": "seg::CkoGWHyLTsk_9"
       },
       {
         "query_id": "seg::svqu6FDiMAs_1",
@@ -528,19 +600,15 @@
       },
       {
         "query_id": "seg::svqu6FDiMAs_1",
-        "doc_id": "seg::vHm6Ua6Vmno_3"
-      },
-      {
-        "query_id": "seg::svqu6FDiMAs_1",
-        "doc_id": "seg::UsIF5r8rAvk_3"
-      },
-      {
-        "query_id": "seg::svqu6FDiMAs_1",
-        "doc_id": "seg::V5UllFImvoE_9"
+        "doc_id": "seg::CkoGWHyLTsk_13"
       },
       {
         "query_id": "seg::DNqsMXH6Eog_2",
         "doc_id": "seg::n0VhIVtviC0_5"
+      },
+      {
+        "query_id": "seg::DNqsMXH6Eog_2",
+        "doc_id": "seg::Bbt8cEyzsTk_11"
       },
       {
         "query_id": "seg::DNqsMXH6Eog_2",
@@ -556,6 +624,10 @@
       },
       {
         "query_id": "vid::jdJ5jg0XSmU",
+        "doc_id": "vid::cPu3SecmgUU"
+      },
+      {
+        "query_id": "vid::jdJ5jg0XSmU",
         "doc_id": "mem::note_sources_instagram_rndyrbrts-2026-04-17-DXP0JAehshp"
       },
       {
@@ -568,7 +640,7 @@
       },
       {
         "query_id": "vid::HnVvjePLvT0",
-        "doc_id": "mem::tiktok_gabbe_aep-2025-04-11-7492102018845199638-this-movie-is-so-we"
+        "doc_id": "mem::note_sources_tiktok_gabbe.aep-2025-04-11-7492102018845199638-this-movie-is-so-weird-ib-voltzszn-eyeswideshut-tomcruise"
       },
       {
         "query_id": "vid::HnVvjePLvT0",
@@ -620,6 +692,10 @@
       },
       {
         "query_id": "seg::aiiIGDnT6JQ_16",
+        "doc_id": "seg::qJvvW9VOMgw_6"
+      },
+      {
+        "query_id": "seg::aiiIGDnT6JQ_16",
         "doc_id": "seg::ukCxiCR4_Us_3"
       },
       {
@@ -668,23 +744,23 @@
       },
       {
         "query_id": "vid::0iEfNt5vYWQ",
+        "doc_id": "vid::qjsG3a674Rg"
+      },
+      {
+        "query_id": "vid::0iEfNt5vYWQ",
         "doc_id": "mem::note_sources_instagram_justbustin-2026-07-21-DbElxdZRoPf"
       },
       {
         "query_id": "vid::0iEfNt5vYWQ",
-        "doc_id": "mem::tiktok_fukjacobfuknjones-2026-06-21-7653939596929158430-replying-to"
+        "doc_id": "mem::note_sources_tiktok_fukjacobfuknjones-2026-06-21-7653939596929158430-replying-to-makaron"
       },
       {
         "query_id": "vid::0iEfNt5vYWQ",
-        "doc_id": "mem::tiktok_gabbe_aep-2025-04-11-7492102018845199638-this-movie-is-so-we"
+        "doc_id": "vid::eJZFUEQebbI"
       },
       {
         "query_id": "vid::0iEfNt5vYWQ",
-        "doc_id": "mem::note_sources_instagram_xeocho-2026-07-20-DbB514pxKp0"
-      },
-      {
-        "query_id": "vid::0iEfNt5vYWQ",
-        "doc_id": "mem::memo_2026-07-25-1853-website-that-writes-your-a-very-convinci-8eb5bb"
+        "doc_id": "mem::note_sources_tiktok_gabbe.aep-2025-04-11-7492102018845199638-this-movie-is-so-weird-ib-voltzszn-eyeswideshut-tomcruise"
       },
       {
         "query_id": "vid::g8N_5WZzUfg",
@@ -707,8 +783,24 @@
         "doc_id": "mem::note_sources_instagram_rndyrbrts-2026-04-07-DW2EqyBh4LV"
       },
       {
+        "query_id": "seg::aqt5NJE2sJ8_3",
+        "doc_id": "seg::CkoGWHyLTsk_28"
+      },
+      {
+        "query_id": "seg::aqt5NJE2sJ8_3",
+        "doc_id": "seg::CkoGWHyLTsk_27"
+      },
+      {
         "query_id": "vid::BAVrwcPDa-k",
         "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-16-phase-5b-5g-sprint-complete-ytk-now-has-full-wri"
+      },
+      {
+        "query_id": "seg::qCpY4K9jtOg_17",
+        "doc_id": "seg::OZ3ZNhrPbF4_2"
+      },
+      {
+        "query_id": "seg::qCpY4K9jtOg_17",
+        "doc_id": "seg::OZ3ZNhrPbF4_3"
       },
       {
         "query_id": "seg::251hsWgoTPM_26",
@@ -743,12 +835,24 @@
         "doc_id": "seg::xUnRQ9vLXxo_11"
       },
       {
+        "query_id": "seg::gUK1imWyec0_12",
+        "doc_id": "seg::W9PZ0vPibWk_50"
+      },
+      {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-13-ytk-3006.md",
         "doc_id": "mem::memory_2026-07-20_built-a-full-ytk-architecture-reference-chart-tra_3b9f24"
       },
       {
         "query_id": "mem::inbox/memories/claude-mem/summaries/summary-2026-04-13-ytk-3006.md",
         "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-18-ytk-is-a-youtube-knowledge-management-tool-that-en"
+      },
+      {
+        "query_id": "vid::R1GZYfINs-k",
+        "doc_id": "mem::memory_2026-07-26_opened-ytk-issue-139-to-make-recs-a-live-all-sou_2c802a"
+      },
+      {
+        "query_id": "vid::R1GZYfINs-k",
+        "doc_id": "mem::memory_2026-07-26_ytk-recommendation-backfill-completed-after-laptop_d969c2"
       },
       {
         "query_id": "vid::8GRmLR__OGQ",
@@ -831,6 +935,10 @@
         "doc_id": "mem::note_inbox_memories_recovered-2026-04_2026-04-19-epicmap-developer-is-a-multi-tenant-discovery-an"
       },
       {
+        "query_id": "mem::inbox/memories/users-melocoton-config/purpose.md",
+        "doc_id": "vid::5N-okeDdIuI"
+      },
+      {
         "query_id": "vid::A8mokin_YOs",
         "doc_id": "mem::memory_2026-07-25_todo-deferred-by-user-on-2026-07-25-review-the_264134"
       },
@@ -844,7 +952,15 @@
       },
       {
         "query_id": "vid::vR1hF_N6i_c",
-        "doc_id": "mem::tiktok_joshmakeshift-2026-05-30-7645493710184058125-combining-my-ca"
+        "doc_id": "mem::note_sources_instagram_sewbakemake-2026-07-24-DbL8gARpXkR"
+      },
+      {
+        "query_id": "vid::vR1hF_N6i_c",
+        "doc_id": "mem::note_sources_tiktok_joshmakeshift-2026-05-30-7645493710184058125-combining-my-casio-ca53w-and-my-fitbit-air-first-of-my-quiet-tech-se"
+      },
+      {
+        "query_id": "vid::vR1hF_N6i_c",
+        "doc_id": "vid::ePCE-JgqSmE"
       },
       {
         "query_id": "vid::vR1hF_N6i_c",
@@ -857,10 +973,6 @@
       {
         "query_id": "vid::vR1hF_N6i_c",
         "doc_id": "mem::note_sources_instagram_splintech.designs-2026-06-08-DZTeCiwNVj2"
-      },
-      {
-        "query_id": "vid::vR1hF_N6i_c",
-        "doc_id": "mem::note_second-brain_projects_ytk_session-034-brief"
       },
       {
         "query_id": "seg::f4s1h2YETNY_10",
@@ -881,15 +993,15 @@
     },
     "per_bucket": {
       "memories": {
-        "ndcg@10": 0.6682469731939271,
+        "ndcg@10": 0.6666495908486898,
         "n": 79
       },
       "segments": {
-        "ndcg@10": 0.6184922091893978,
+        "ndcg@10": 0.6027803125477914,
         "n": 44
       },
       "videos": {
-        "ndcg@10": 0.7272082831467923,
+        "ndcg@10": 0.7223837386003565,
         "n": 33
       }
     }

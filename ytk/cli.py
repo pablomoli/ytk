@@ -1143,7 +1143,7 @@ def ingest(url: str, force: bool, note: str):
     """Fetch a web article, enrich with AI, and store in the vault."""
     from .ingest import enrich_web, fetch_web
     from .store import strip_frontmatter, upsert_doc
-    from .vault import write_web_note
+    from .vault import content_note_doc_id, write_web_note
 
     cfg = load_config()
 
@@ -1179,7 +1179,7 @@ def ingest(url: str, force: bool, note: str):
         note_path = write_web_note(content.url, content.title, content.author, content.date, result)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
-        doc_id = "web_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
+        doc_id = content_note_doc_id(note_path)
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(
             doc_id,
@@ -1207,7 +1207,12 @@ def add_instagram(url: str, note: str = "", refresh: bool = False):
     from .enrich import enrich_instagram, enrich_instagram_reel
     from .instagram import capture_reel_media, fetch_instagram
     from .store import strip_frontmatter, upsert_doc
-    from .vault import NoteAlreadyExists, refresh_instagram_note, write_instagram_note
+    from .vault import (
+        NoteAlreadyExists,
+        content_note_doc_id,
+        refresh_instagram_note,
+        write_instagram_note,
+    )
     from .vision import image_blocks
 
     cfg = load_config()
@@ -1303,7 +1308,7 @@ def add_instagram(url: str, note: str = "", refresh: bool = False):
         )
         console.print(f"\n[bold green]Note written:[/] {note_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
-        doc_id = "instagram_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
+        doc_id = content_note_doc_id(note_path)
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(
             doc_id,
@@ -1398,7 +1403,7 @@ def add_pinterest(url: str, note: str = ""):
     from .enrich import enrich_instagram
     from .pinterest import fetch_pinterest
     from .store import strip_frontmatter, upsert_doc
-    from .vault import NoteAlreadyExists, write_pinterest_note
+    from .vault import NoteAlreadyExists, content_note_doc_id, write_pinterest_note
     from .vision import image_blocks
 
     with console.status("[bold cyan]Fetching pin...[/]"):
@@ -1436,7 +1441,7 @@ def add_pinterest(url: str, note: str = ""):
         note_path = write_pinterest_note(pin, result)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
-        doc_id = "pinterest_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
+        doc_id = content_note_doc_id(note_path)
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(
             doc_id,
@@ -1461,7 +1466,7 @@ def add_tiktok(url: str, note: str = ""):
     from .enrich import enrich_tiktok
     from .store import strip_frontmatter, upsert_doc
     from .tiktok import fetch_tiktok, transcribe_tiktok
-    from .vault import NoteAlreadyExists, write_tiktok_note
+    from .vault import NoteAlreadyExists, content_note_doc_id, write_tiktok_note
     from .vision import download_video_temp, extract_frames, image_blocks
 
     cfg = load_config()
@@ -1557,7 +1562,7 @@ def add_tiktok(url: str, note: str = ""):
         )
         console.print(f"\n[bold green]Note written:[/] {note_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
-        doc_id = "tiktok_" + re.sub(r"[^a-zA-Z0-9_-]", "_", note_path.stem[:60])
+        doc_id = content_note_doc_id(note_path)
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(
             doc_id,
@@ -1720,7 +1725,7 @@ def add_reddit(url: str, note: str = ""):
         top_comments,
     )
     from .store import strip_frontmatter, upsert_doc
-    from .vault import write_reddit_note
+    from .vault import content_note_doc_id, write_reddit_note
 
     try:
         cookie = reddit_cookie_header()
@@ -1745,7 +1750,7 @@ def add_reddit(url: str, note: str = ""):
         note_path = write_reddit_note(post, result, comments)
         console.print(f"\n[bold green]Note written:[/] {note_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
-        doc_id = "reddit_" + re.sub(r"[^a-zA-Z0-9_-]", "_", post["id"])
+        doc_id = content_note_doc_id(note_path)
         body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
         upsert_doc(
             doc_id,
@@ -1869,7 +1874,7 @@ def add_imessage(contact: str, since: str | None, until: str | None):
         until = _parse_date(until)
     from .imessage import enrich_journal, export_conversation, find_exported_file, parse_txt
     from .store import strip_frontmatter, upsert_doc
-    from .vault import NoteAlreadyExists, write_journal_note
+    from .vault import NoteAlreadyExists, content_note_doc_id, write_journal_note
 
     with console.status("[bold cyan]Exporting conversation...[/]"):
         try:
@@ -1926,7 +1931,7 @@ def add_imessage(contact: str, since: str | None, until: str | None):
         written_path = write_journal_note(thread, result)
         console.print(f"\n[bold green]Note written:[/] {written_path}")
         console.print(LINK_REMINDER, style="dim", markup=False)
-        doc_id = "journal_" + re.sub(r"[^a-zA-Z0-9_-]", "_", written_path.stem[:60])
+        doc_id = content_note_doc_id(written_path)
         body = strip_frontmatter(written_path.read_text(encoding="utf-8"))
         upsert_doc(
             doc_id,
