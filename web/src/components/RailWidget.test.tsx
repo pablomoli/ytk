@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test } from "vitest";
+import { userEvent } from "@vitest/browser/context";
 import { RailWidget } from "./RailWidget";
 import { getPref } from "../lib/prefs";
 
@@ -142,4 +143,27 @@ test("forceOpenKey opens again for a new job with the same key, once the previou
     </RailWidget>,
   );
   expect(open("job")).toBe(true);
+});
+
+/* The bug this whole browser migration exists for (#135). A controlled open
+   attribute and the browser's default action both flip it on a summary click,
+   so they cancel and the first click does nothing.
+
+   This must use userEvent, not element.click(): a synthetic dispatch does not
+   reproduce the ordering between React's handler and the browser's default
+   action, and passes against the broken component. userEvent drives a real
+   trusted click through the browser, which is the only thing that catches it. */
+test("one real click toggles a section, in both directions", async () => {
+  render(
+    <RailWidget title="queue" prefKey="ytk:test:q" defaultOpen>
+      <p>q body</p>
+    </RailWidget>,
+  );
+  expect(open("queue")).toBe(true);
+
+  await userEvent.click(screen.getByText("queue"));
+  expect(open("queue")).toBe(false);
+
+  await userEvent.click(screen.getByText("queue"));
+  expect(open("queue")).toBe(true);
 });
