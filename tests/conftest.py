@@ -38,6 +38,13 @@ def _isolate_config(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _embedded_chroma_only(monkeypatch):
+    """Never let unit tests inherit the production Chroma server endpoint."""
+    monkeypatch.delenv("CHROMA_URL", raising=False)
+    monkeypatch.delenv("CHROMA_SERVER_PATH", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _no_browser(monkeypatch):
     """Make it impossible for a unit test to drive a real browser.
 

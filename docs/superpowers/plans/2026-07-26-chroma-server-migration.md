@@ -29,6 +29,8 @@
 **Files:**
 - Create: `ytk/chroma_runtime.py`
 - Create: `tests/test_chroma_runtime.py`
+- Modify: `pyproject.toml`
+- Modify: `uv.lock`
 - Modify: `ytk/store.py:41-108`
 - Modify: `tests/conftest.py:18-180`
 - Modify: `.env.example`
@@ -163,6 +165,9 @@ def _get_client() -> ClientAPI:
 ```
 
 Add `CHROMA_URL` and `CHROMA_SERVER_PATH` to `.env.example`.
+Pin `chromadb==1.5.9` in `pyproject.toml` and refresh `uv.lock` so development,
+the installed HTTP client, and the installed `chroma run` server use the same
+tested version.
 
 - [ ] **Step 5: Isolate pytest from production server configuration**
 
@@ -191,7 +196,7 @@ Expected: all pass without contacting port 8000.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add .env.example ytk/chroma_runtime.py ytk/store.py \
+git add .env.example pyproject.toml uv.lock ytk/chroma_runtime.py ytk/store.py \
   tests/conftest.py tests/test_chroma_runtime.py
 git commit -m "feat: add Chroma runtime client factory"
 ```
