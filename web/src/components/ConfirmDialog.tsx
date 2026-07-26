@@ -1,15 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
+import { useModalDialog } from "../lib/useModalDialog";
 
-/* Themed replacement for window.confirm, built on native <dialog> like
-   NoteViewer. onConfirm/onCancel are driven ONLY by explicit user intent —
-   never by the native 'close' event, which fires asynchronously (a queued
-   task). A ref-flag guard set in effect cleanup would already be reset by
-   StrictMode's remount before that queued event arrives, firing a spurious
-   callback a frame after opening. So: showModal in an effect, cleanup just
-   closes the dialog; Escape routes through onCancel via the 'cancel' event;
-   the cancel button and backdrop call onCancel directly; the confirm button
-   calls onConfirm directly. React unmount then closes the dialog in cleanup
-   with nothing wired to that close. */
+/* User intent is handled explicitly; lifecycle cleanup never invokes a
+   confirm or cancel callback. */
 export function ConfirmDialog({
   message,
   confirmLabel = "delete",
@@ -22,13 +15,7 @@ export function ConfirmDialog({
   onCancel: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (!dialog.open) dialog.showModal?.();
-    return () => dialog.close?.();
-  }, []);
+  useModalDialog(dialogRef);
 
   return (
     <dialog

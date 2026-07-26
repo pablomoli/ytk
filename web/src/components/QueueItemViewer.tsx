@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { QueueItem } from "../api/queue";
 import { sourceIcon } from "./icons";
 import { isOpenable, provenance } from "../lib/provenance";
 import { capturedLabel } from "../lib/captured";
+import { useModalDialog } from "../lib/useModalDialog";
 
 /* Inspecting a pending item without ingesting or selecting it (#123).
 
@@ -11,11 +12,8 @@ import { capturedLabel } from "../lib/captured";
    show is what the queue row carries, so it shows that honestly rather than
    fetching anything.
 
-   Native <dialog> for the same reasons NoteViewer uses one — top-layer
-   stacking, inert background, focus trap and restore, Escape, ::backdrop. And
-   for the same reason, onClose is driven only by explicit intent: the native
-   'close' event fires asynchronously, so Escape routes through onCancel and the
-   button and backdrop call onClose directly. */
+   Native <dialog> provides top-layer stacking, inert background, focus
+   management, Escape, and ::backdrop. */
 export function QueueItemViewer({
   item,
   selected,
@@ -31,15 +29,9 @@ export function QueueItemViewer({
   const [imageFailed, setImageFailed] = useState(false);
   const { domain, community } = provenance(item.url);
   const captured = capturedLabel(item.shared_at);
+  useModalDialog(dialogRef);
 
   const showImage = Boolean(item.preview_url) && !imageFailed;
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (!dialog.open) dialog.showModal?.();
-    return () => dialog.close?.();
-  }, []);
 
   return (
     <dialog
