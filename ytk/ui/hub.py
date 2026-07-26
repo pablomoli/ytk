@@ -1417,6 +1417,10 @@ def recs_list(kind: str | None = None) -> list[dict]:
     out = []
     for entry in recs.entries(kind):
         e = dict(entry)
+        # The store's field is canonical_key; the surface contract is `key`
+        # (what set_rec_status expects back). Without this alias every status
+        # click POSTed /api/recs/undefined/status and silently failed.
+        e["key"] = entry.get("canonical_key")
         e["sources"] = [{"title": _note_title(p), "path": p} for p in entry.get("sources", [])]
         out.append(e)
     return out

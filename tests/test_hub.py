@@ -1289,3 +1289,23 @@ def test_e7_post_rejects_invalid_trials_choices_and_bounds(client, e7_grove):
     ).status_code in (400, 409)
     assert client.post("/api/grove/e7/response", json={**base, "confidence": 9}).status_code == 422
     assert client.post("/api/grove/e7/response", json={**base, "rt_ms": -5}).status_code == 422
+
+
+def test_recs_list_exposes_key_the_status_endpoint_expects(monkeypatch):
+    """The store field is canonical_key but the surface contract is `key` —
+    set_rec_status takes it back verbatim. When the alias was missing, every
+    status click POSTed /api/recs/undefined/status and silently failed."""
+    from ytk import recs
+    from ytk.ui import hub as hub_mod
+
+    entry = {
+        "canonical_key": "tmdb:movie:348",
+        "kind": "movie",
+        "title": "Alien",
+        "sources": [],
+        "count": 0,
+        "status": None,
+    }
+    monkeypatch.setattr(recs, "entries", lambda kind=None: [dict(entry)])
+    rows = hub_mod.recs_list()
+    assert rows[0]["key"] == "tmdb:movie:348"
