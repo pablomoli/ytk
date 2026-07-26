@@ -1,5 +1,6 @@
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
-import { createContext, useState } from "react";
+import { createContext, useEffect, useState } from "react";
+import { observeStickyTop } from "../lib/stickyTop";
 
 // The single header bar exposes a right-aligned slot; each route portals its
 // page controls into it so there is exactly one header row on every page.
@@ -11,6 +12,11 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+
+  // The nav wraps its links at widths that don't line up with any padding
+  // breakpoint, so --sticky-top is measured rather than declared once here.
+  useEffect(() => observeStickyTop(), []);
+
   return (
     <HubControlsContext.Provider value={slot}>
       <header className="hub-nav">

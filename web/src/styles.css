@@ -14,13 +14,14 @@
 }
 
 :root {
-  /* Height of the sticky stack above the rail: .hub-nav plus .hub-body's
-     top padding. The filter chip row is portaled into .hub-nav, not a
-     separate sticky element, so it's already counted in the nav's height.
-     CSS cannot sum two sticky elements' rendered heights, so this is one
-     declared constant rather than a derived one — change it here if the
-     nav or the padding changes. scripts/probe_inbox_rail.py fails if it
-     drifts. */
+  /* Pre-JS fallback for the sticky stack above the rail: .hub-nav plus
+     .hub-body's top padding, at the common desktop width. The real value
+     is measured at runtime by web/src/lib/stickyTop.ts and written here.
+     It has to be measured rather than declared: .hub-nav's eleven links
+     re-wrap at widths that don't line up with .hub-body's padding
+     breakpoint, so the sum is non-monotonic in viewport width (102 at
+     1440-1152, up to 133 at 1100-1050, back down to 118 at 1024-980) — a
+     saw-tooth no media-query staircase can encode. */
   --sticky-top: 102px;
 }
 

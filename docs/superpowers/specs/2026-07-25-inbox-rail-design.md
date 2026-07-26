@@ -65,13 +65,27 @@ Declare the sticky stack height once as a custom property and derive from it:
 
 This resolves both failure modes with one value.
 
-`--sticky-top` is a single declared constant, not a computed one. CSS cannot sum the
-rendered heights of two sticky elements, and measuring them in JS with a `ResizeObserver`
-buys accuracy this page does not need at the cost of a layout dependency in script. The
-win is therefore one place to change rather than automatic derivation: if the nav's
-padding or the filter row's height changes, this variable must change with it. That is
-strictly better than today's four independently stale literals, and the browser probe
-would catch the drift.
+`--sticky-top` is measured at runtime, not declared once. Measuring the live hub across
+widths shows `stickyTop = navHeight + hubBodyPaddingTop` holds exactly at every sampled
+row, but the sum is not monotonic in viewport width:
+
+```
+width 1440-1152 : nav 84,  pad 18  -> 102
+width 1100-1050 : nav 115, pad 18  -> 133
+width 1024-980  : nav 102, pad 16  -> 118
+width 900       : nav 129, pad 16  -> 145
+width 820       : nav 237, pad 16  -> 253
+```
+
+It rises to 133, falls back to 118, then rises again to 145: `.hub-nav`'s eleven links
+re-wrap at widths that don't line up with `.hub-body`'s padding breakpoint, producing a
+saw-tooth. A single declared constant can only be right at one width. A media-query
+staircase fares no better — it can only step at the breakpoints chosen today, and any
+future change to the link count or their labels shifts the wrap points out from under it
+silently. `web/src/lib/stickyTop.ts` instead reads `.hub-nav`'s rendered height and
+`.hub-body`'s computed `padding-top` and writes the sum to `--sticky-top`, kept current via
+`ResizeObserver` on `.hub-nav` (falling back to a `resize` listener where unavailable). The
+CSS `:root` value stays as a pre-JS fallback for the common desktop width.
 
 Scope: correct the stale `100vh - 46px` constants **on the inbox path only**. A full
 sweep of `styles.css` is unrelated refactoring.
