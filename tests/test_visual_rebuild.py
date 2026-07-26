@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-
 import chromadb
 import pytest
 from click.testing import CliRunner
@@ -22,7 +20,7 @@ def test_reset_visual_collections_refuses_embedded_mode(tmp_path, monkeypatch):
 
 
 def test_rebuild_replaces_both_visual_collections_from_sources(tmp_path, monkeypatch):
-    from ytk import reels, store, visual
+    from ytk import store, visual
 
     client = chromadb.PersistentClient(path=str(tmp_path / "target"))
     cfg = runtime_config(
@@ -67,29 +65,27 @@ def test_rebuild_replaces_both_visual_collections_from_sources(tmp_path, monkeyp
     )
 
     pending_url = "https://new/"
-    state_path = tmp_path / "state.json"
-    state = reels.ReelsState()
-    state.pending = [
-        reels.ReelItem(
-            url=pending_url,
-            author="Pending author",
-            source="youtube",
-        )
-    ]
-    reels.save_state(state, state_path)
-    monkeypatch.setattr(reels, "STATE_PATH", state_path)
-    covers = tmp_path / ".ytk" / "covers"
-    covers.mkdir(parents=True)
-    pending_name = (
-        hashlib.sha1(pending_url.encode(), usedforsecurity=False).hexdigest()[:20] + ".jpg"
-    )
-    (covers / pending_name).write_bytes(b"pending")
-    monkeypatch.setattr(visual.Path, "home", classmethod(lambda cls: tmp_path))
+    pending_cover = tmp_path / "pending.jpg"
+    pending_cover.write_bytes(b"pending")
     monkeypatch.setattr(
         visual,
         "embed_images",
         lambda paths: [[float(index + 1)] * 4 for index, _ in enumerate(paths)],
     )
+
+    def sync_pending():
+        store.upsert_pending_visual(
+            pending_url,
+            [2.0] * 4,
+            {
+                "source": "youtube",
+                "title": "Pending author",
+                "image_path": str(pending_cover),
+            },
+        )
+        return 1, 0
+
+    monkeypatch.setattr(visual, "sync_pending_visual", sync_pending)
 
     saved, pending = visual.rebuild_visual_indexes()
 
@@ -108,7 +104,7 @@ def test_rebuild_replaces_both_visual_collections_from_sources(tmp_path, monkeyp
         {
             "source": "youtube",
             "title": "Pending author",
-            "image_path": str(covers / pending_name),
+            "image_path": str(pending_cover),
         }
     ]
     assert client.get_collection("keep_me").count() == 1
