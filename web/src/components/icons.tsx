@@ -23,6 +23,22 @@ const ICON_PATHS: Record<string, { fill: string; d: string }> = {
     fill: "#4ade80",
     d: "M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4zm6-4a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.9V22h2v-3.1A8 8 0 0 0 20 11h-2z",
   },
+  /* Simple built-here glyphs, not brand artwork. They exist because the filter
+     is icon-only (#126): reddit and imessage both used to resolve to the web
+     globe, so three of the eight cells rendered the same grey circle and could
+     not be told apart without hovering each one.
+
+     The eyes are drawn with the opposite arc sweep to the head, which punches
+     them out as holes under the nonzero fill rule — the icon renders as a
+     single <path> with a single fill and no stroke. */
+  reddit: {
+    fill: "#ff4500",
+    d: "M12 4.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 1 1 0-17zM9.3 11.6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3zM14.7 11.6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3zM12 1a1.5 1.5 0 1 1 0 3 1.5 1.5 0 1 1 0-3zM11.55 3h.9v2.4h-.9z",
+  },
+  imessage: {
+    fill: "#0b93f6",
+    d: "M12 4C6.9 4 3 7.1 3 11c0 2.2 1.2 4.1 3.2 5.4-.2 1.4-.9 2.7-2 3.6 1.9-.2 3.6-1 4.9-2 .9.2 1.9.3 2.9.3 5.1 0 9-3.1 9-7S17.1 4 12 4z",
+  },
 };
 
 const ICON_ALIASES: Record<string, string> = {
@@ -30,8 +46,10 @@ const ICON_ALIASES: Record<string, string> = {
   journal: "web",
 };
 
-/* The filterable source set — single source of truth for filter chips.
-   imessage has no dedicated icon and falls back to web (by design). */
+/* The filterable source set — single source of truth for the source filter.
+   Every entry must have its own ICON_PATHS glyph: the filter shows icons only
+   and reveals the name on hover, so two sources sharing a glyph are two cells
+   a reader cannot tell apart. icons.test.tsx guards this. */
 export const SOURCES = [
   "instagram",
   "youtube",
@@ -51,11 +69,18 @@ export function canonicalSource(source: string): string {
   return ICON_ALIASES[source] ?? source;
 }
 
-export function sourceIcon(source: string) {
+/* Which glyph a source actually resolves to, after aliases and the web
+   fallback. Exported so a test can assert the SOURCES set maps to distinct
+   glyphs rather than silently collapsing onto the fallback. */
+export function sourceIconKey(source: string): string {
   const key = canonicalSource(source);
-  const icon = ICON_PATHS[key] ?? ICON_PATHS.web;
+  return key in ICON_PATHS ? key : "web";
+}
+
+export function sourceIcon(source: string, size = 16) {
+  const icon = ICON_PATHS[sourceIconKey(source)]!;
   return (
-    <svg viewBox="0 0 24 24" fill={icon.fill} width="16" height="16" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill={icon.fill} width={size} height={size} aria-hidden="true">
       <path d={icon.d} />
     </svg>
   );

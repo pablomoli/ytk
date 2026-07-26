@@ -476,35 +476,93 @@ body {
   gap: 0.6rem;
 }
 
-.source-select-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+.source-select-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
 }
 
+/* One square tile per source: glyph only, name on hover. Selection is carried
+   by the tile's own fill and border rather than a checkbox the eye has to
+   find — but the input is still a real checkbox underneath, just not painted. */
 .source-option {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.35rem;
-  border-radius: 6px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 1px solid #ffffff14;
+  border-radius: 8px;
+  background: #ffffff05;
   color: #aaa;
   cursor: pointer;
-  font-size: 0.82rem;
+  overflow: hidden;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    opacity 0.15s;
 }
 
-.source-option:hover {
-  background: #ffffff0a;
+/* Unselected sources read as switched off rather than merely unhighlighted;
+   the brand colours in the glyphs are strong enough that a subtler treatment
+   left every tile looking active. */
+.source-option svg {
+  opacity: 0.35;
+  filter: grayscale(1);
+  transition:
+    opacity 0.15s,
+    filter 0.15s;
 }
 
 .source-option.on {
-  color: #eee;
+  border-color: #e2b04a66;
+  background: #e2b04a14;
 }
 
+.source-option.on svg {
+  opacity: 1;
+  filter: none;
+}
+
+.source-option:hover {
+  border-color: #e2b04a;
+}
+
+/* Visually hidden, not removed: this is the checkbox's accessible name. */
 .source-option input {
-  accent-color: #e2b04a;
-  cursor: pointer;
-  margin: 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.source-option-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 0.15rem;
+  /* Near-opaque: at 0.9 the brand colours ghosted through the name and made it
+     hard to read against the busier glyphs. */
+  background: #101010fa;
+  color: #eee;
+  font-size: 0.6rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: none;
+}
+
+.source-option:hover .source-option-label,
+.source-option:focus-within .source-option-label {
+  opacity: 1;
+}
+
+/* Keyboard users get the same ring the mouse gets a border for. */
+.source-option:focus-within {
+  outline: 2px solid #e2b04a;
+  outline-offset: 1px;
 }
 
 .source-select-actions {
