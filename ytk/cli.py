@@ -1765,6 +1765,33 @@ def add_reddit(url: str, note: str = ""):
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
 
 
+@cli.command(name="recs-refresh")
+@click.option(
+    "--unresolved-only",
+    is_flag=True,
+    help="Only retry entries that never resolved; skip metadata backfill of resolved ones.",
+)
+def recs_refresh(unresolved_only: bool):
+    """Re-resolve stored recs against TMDb / AniList / Google Books.
+
+    Retries every unresolved entry (a failed resolution is otherwise permanent
+    — record() only re-tries a title when a new note mentions it) and
+    backfills fields added since an entry was stored, such as genres.
+    Preserves status, sources, and first_seen; merges an entry that resolves
+    into an existing canonical twin.
+    """
+    from ytk import recs
+
+    with console.status("[cyan]Re-resolving recs...[/]"):
+        summary = recs.refresh(only_unresolved=unresolved_only)
+    console.print(
+        f"[green]Refreshed[/] {summary['total']} entries: "
+        f"{summary['resolved']} resolved, {summary['still_unresolved']} still unresolved, "
+        f"{summary['merged']} merged into canonical twins "
+        f"({summary['total_after']} entries now)."
+    )
+
+
 @cli.command(name="recs-backfill")
 @click.option("--limit", type=int, default=None, help="Scan at most N unscanned notes this run.")
 @click.option(
