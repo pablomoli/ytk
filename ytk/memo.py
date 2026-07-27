@@ -21,8 +21,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from .sdk import structured
-from .store import upsert_memory
 from .triage import ActionItem
 from .vault import _get_brain_path, remember
 
@@ -68,6 +66,8 @@ class MemoResult(BaseModel):
 
 def route(transcript: str, repos: list[str] | None = None) -> MemoResult:
     """Classify a memo transcript. One primary kind per memo (v1)."""
+    from .sdk import structured  # deferred: claude_agent_sdk costs ~120ms (#146)
+
     repo_hint = f"\nAvailable GitHub repos: {', '.join(repos)}\n" if repos else ""
     return structured(_SYSTEM_MEMO + repo_hint, transcript, MemoResult)
 
@@ -132,6 +132,8 @@ def finalize_memo_note(note_path: Path, route_kind: str, routed_lines: list[str]
 
 def index_memo_note(note_path: Path, transcript: str, kind: str) -> None:
     """Index the memo note into Chroma like other vault writes."""
+    from .store import upsert_memory  # deferred: chromadb costs ~330ms (#146)
+
     upsert_memory(f"memo_{note_path.stem}", transcript, ["memo", kind], str(note_path))
 
 
@@ -155,6 +157,8 @@ def execute_route(result: MemoResult, transcript: str, github_repos: list[str]) 
     lines: list[str] = []
 
     if result.kind == "memory":
+        from .store import upsert_memory  # deferred: chromadb costs ~330ms (#146)
+
         note_path, doc_id = remember(transcript, result.tags)
         upsert_memory(doc_id, transcript, result.tags, str(note_path))
         lines.append(f"memory -> {note_path.name}")

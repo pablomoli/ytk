@@ -90,7 +90,7 @@ def test_vocab_reaches_web_enrichment_prompt(monkeypatch):
         }
 
     monkeypatch.setattr("ytk.sdk.run_structured", fake)
-    monkeypatch.setattr("ytk.enrich.run_structured", fake)
+    monkeypatch.setattr("ytk.sdk.run_structured", fake)
 
     enrich_web(WebContent(url="u", title="t", author="a", date="d", text="body"))
     assert "taste-modeling" in seen["user"]

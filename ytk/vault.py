@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING
 from dotenv import load_dotenv
 
 from ytk.enrich import Enrichment
-from ytk.store import strip_frontmatter, upsert_doc
 
 if TYPE_CHECKING:
     from ytk.imessage import MessageThread
@@ -1198,6 +1197,7 @@ def reindex_vault(force: bool = False) -> int:
     Returns count of notes indexed.
     """
     from .cache import file_hash, load_index_cache, save_index_cache, update_cache_entry
+    from .store import strip_frontmatter, upsert_doc  # deferred: chromadb costs ~330ms (#146)
 
     brain = _get_brain_path()
     scan_dirs = [
