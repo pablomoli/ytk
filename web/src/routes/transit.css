@@ -317,9 +317,3 @@
     display: none;
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .interchange-halo {
-    animation: none;
-  }
-}

@@ -102,14 +102,7 @@ body {
 }
 
 #root {
-  width: 100%;
-  max-width: none;
   min-height: 100dvh;
-  text-align: left;
-  border-inline: none;
-  margin: 0;
-  display: block;
-  box-sizing: border-box;
 }
 
 /* The whole hub is one viewport-tall column: nav row, then everything else.
@@ -152,27 +145,6 @@ body {
   min-height: 0;
 }
 
-.hub-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.8rem 1rem;
-  background: #181818;
-}
-
-.hub-header h1 {
-  color: #4ade80;
-  font-weight: 600;
-  font-size: inherit;
-  margin: 0;
-}
-
-.hub-header .count {
-  color: #888;
-  margin-left: auto;
-  font-size: 0.85rem;
-}
-
 /* Wraps rather than overflowing (#137). The row could neither wrap nor shrink:
    both children have min-width auto, so they hold their min-content size, and
    on /grove at 820px that is 616px of links plus 456px of controls in an 820px
@@ -212,13 +184,7 @@ body {
 
 .hub-nav a {
   color: #e2b04a;
-  text-decoration: none;
   font-weight: 600;
-}
-
-.hub-nav a.active,
-.hub-nav a[aria-current="page"] {
-  color: #4ade80;
 }
 
 .hub-body {
@@ -393,6 +359,8 @@ body {
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
+  outline: 3px solid transparent;
+  transition: outline-color 0.15s;
 }
 
 .card img {
@@ -523,14 +491,6 @@ body {
   border-top-color: #e2b04a;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* Still legible as "working" without the rotation: a pulse carries the same
-     signal for anyone who has asked motion to stop. */
-  .dot-spinner {
-    animation: pulse 1.4s ease-in-out infinite;
-  }
 }
 
 .source-select-grid {
@@ -1216,9 +1176,6 @@ body {
   color: #4ade80;
   font-size: 0.68rem;
   font-weight: 600;
-}
-
-.memokind {
   margin-bottom: 0.35rem;
 }
 
@@ -1599,7 +1556,7 @@ body {
   flex-direction: column;
   gap: 0.5rem;
   padding-top: 0.7rem;
-  border-top: 1px solid var(--line, #3a352c);
+  border-top: 1px solid var(--line);
 }
 
 .rail-widget > summary {
@@ -1693,13 +1650,6 @@ body {
   font-size: 0.85rem;
 }
 
-/* --- card selection + ingest job feedback --- */
-
-.card {
-  outline: 3px solid transparent;
-  transition: outline-color 0.15s;
-}
-
 .card.selected {
   outline-color: #e2b04a;
 }
@@ -1766,8 +1716,8 @@ body {
 
 .btn.ghost {
   background: none;
-  border: 1px solid var(--line, #3a352c);
-  color: var(--mute, #9a9284);
+  border: 1px solid var(--line);
+  color: var(--mute);
 }
 
 .btn.ghost:hover {
@@ -1781,7 +1731,7 @@ body {
 }
 
 .batch-indicator {
-  color: var(--mute, #9a9284);
+  color: var(--mute);
   font-size: 0.76rem;
   font-variant-numeric: tabular-nums;
   margin-right: auto;
@@ -1808,7 +1758,7 @@ body {
   align-items: center;
   gap: 0.4rem;
   margin: 0.4rem 0 0.1rem;
-  color: var(--mute, #9a9284);
+  color: var(--mute);
   font-size: 0.78rem;
   cursor: pointer;
   user-select: none;
@@ -1847,13 +1797,13 @@ body {
   min-width: 10rem;
   padding: 0.5rem;
   background: var(--panel, #1c1a16);
-  border: 1px solid var(--line, #3a352c);
+  border: 1px solid var(--line);
   border-radius: 0.5rem;
   box-shadow: 0 8px 24px #00000066;
 }
 
 .source-pull-head {
-  color: var(--mute, #9a9284);
+  color: var(--mute);
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1892,7 +1842,7 @@ body {
 }
 
 .recap-hint {
-  color: var(--mute, #9a9284);
+  color: var(--mute);
   font-size: 0.78rem;
 }
 
@@ -1907,7 +1857,7 @@ body {
   padding: 1rem 1.15rem;
   max-width: 46rem;
   background: var(--panel, #1c1a16);
-  border: 1px solid var(--line, #3a352c);
+  border: 1px solid var(--line);
   border-radius: 0.6rem;
   line-height: 1.55;
 }
@@ -2058,7 +2008,7 @@ body {
 /* library */
 .library-search {
   background: none;
-  border: 1px solid var(--line, #3a352c);
+  border: 1px solid var(--line);
   color: inherit;
   font: inherit;
   padding: 0.3rem 0.6rem;
@@ -2137,7 +2087,7 @@ body {
   font-size: 0.85em;
   background: none;
   color: inherit;
-  border: 1px solid var(--line, #3a352c);
+  border: 1px solid var(--line);
   border-radius: 6px;
   padding: 0.6rem;
 }
@@ -2201,7 +2151,7 @@ body {
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--muted);
+  color: var(--mute);
   margin: 0 0 0.5rem;
 }
 .channel-list {
@@ -2234,7 +2184,7 @@ body {
   white-space: nowrap;
 }
 .channel-count {
-  color: var(--muted);
+  color: var(--mute);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
