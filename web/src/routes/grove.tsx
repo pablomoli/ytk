@@ -134,7 +134,7 @@ function GrovePage() {
 
   return (
     <div className="grove-page">
-      <HubControls>
+      <HubControls className="absolute top-3 right-4 z-10 p-0">
         <button className="fchip" onClick={() => handle.current?.replay()}>
           replay growth
         </button>

@@ -312,7 +312,7 @@ function GrowthWorkbench() {
     <main className="growth-page">
       <canvas ref={canvas} className="growth-canvas" aria-label="Concept culture petri dish" />
 
-      <HubControls>
+      <HubControls className="absolute top-3 right-4 z-10 p-0">
         <button
           className="fchip"
           onClick={() => setMutationEpoch((e) => e + 1)}

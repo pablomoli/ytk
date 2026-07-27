@@ -183,7 +183,7 @@ function TransitDemo() {
 
   return (
     <main className="transit-page">
-      <HubControls>
+      <HubControls className="absolute top-3 right-4 z-10 p-0">
         <button className={`fchip${focus === "all" ? " on" : ""}`} onClick={() => setFocus("all")}>
           all routes
         </button>
