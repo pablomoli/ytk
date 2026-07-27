@@ -6,7 +6,7 @@ import { parseNote } from "../lib/parseNote";
 import type { NoteFrontmatter, NoteSection } from "../lib/parseNote";
 import { renderInline } from "../lib/inlineMarkdown";
 import { DUR, gsap, reducedMotion } from "../lib/motion";
-import { useModalDialog } from "../lib/useModalDialog";
+import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import { PixelDissolve } from "./PixelDissolve";
 
 function splitBullets(body: string): string[] {
@@ -209,9 +209,8 @@ function NoteBody({ raw, note }: { raw: string; note: FreshNote }) {
   );
 }
 
-/* Native <dialog> gives the platform behaviors the old hand-rolled viewers
-   faked or lacked: top-layer stacking, inert background, focus trap, focus
-   restore on close, Escape (the dialog fires 'close'), and ::backdrop. */
+/* Radix Dialog supplies the modal behaviors: portal, inert background, focus
+   trap and restore, Escape, scroll lock (#136). */
 export function NoteViewer({
   note,
   onClose,
@@ -221,11 +220,10 @@ export function NoteViewer({
   onClose: () => void;
   originRect?: DOMRect | undefined;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const content = useNote(note.path);
   const similar = useSimilarNotes(note.path);
   const [revealing, setRevealing] = useState(true);
-  useModalDialog(dialogRef);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -253,49 +251,50 @@ export function NoteViewer({
 
   /* Lifecycle cleanup does not report user intent. */
   return (
-    <dialog
-      ref={dialogRef}
-      className="note-viewer"
-      aria-label={note.title}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-      onClick={(event) => {
-        if (event.target === dialogRef.current) onClose();
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
       }}
     >
-      <div className="note-panel">
-        {revealing ? (
-          <PixelDissolve seedKey={note.path} onDone={() => setRevealing(false)} />
-        ) : null}
-        <button className="btn viewer-close" type="button" onClick={onClose}>
-          close
-        </button>
-        {content.isLoading ? <p>loading note...</p> : null}
-        {content.isError ? <p>failed to load note: {String(content.error)}</p> : null}
-        {content.data ? <NoteBody raw={content.data.content} note={note} /> : null}
-        {similar.data?.length ? (
-          <div className="similar-items">
-            <span>visually similar</span>
-            {similar.data.map((item) => (
-              <a
-                key={item.item_id}
-                href={item.url || "#"}
-                target="_blank"
-                rel="noreferrer"
-                title={item.title || item.item_id}
-              >
-                <img
-                  src={`/api/visual-image?id=${encodeURIComponent(item.item_id)}`}
-                  loading="lazy"
-                  alt=""
-                />
-              </a>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </dialog>
+      <DialogContent
+        ref={dialogRef}
+        className="h-[calc(100vh-4rem)] w-[min(100vw-4rem,72rem)] p-0"
+        aria-describedby={undefined}
+      >
+        <DialogTitle className="sr-only">{note.title}</DialogTitle>
+        <div className="note-panel">
+          {revealing ? (
+            <PixelDissolve seedKey={note.path} onDone={() => setRevealing(false)} />
+          ) : null}
+          <button className="btn viewer-close" type="button" onClick={onClose}>
+            close
+          </button>
+          {content.isLoading ? <p>loading note...</p> : null}
+          {content.isError ? <p>failed to load note: {String(content.error)}</p> : null}
+          {content.data ? <NoteBody raw={content.data.content} note={note} /> : null}
+          {similar.data?.length ? (
+            <div className="similar-items">
+              <span>visually similar</span>
+              {similar.data.map((item) => (
+                <a
+                  key={item.item_id}
+                  href={item.url || "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={item.title || item.item_id}
+                >
+                  <img
+                    src={`/api/visual-image?id=${encodeURIComponent(item.item_id)}`}
+                    loading="lazy"
+                    alt=""
+                  />
+                </a>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

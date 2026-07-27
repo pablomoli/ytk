@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
+import { userEvent } from "@vitest/browser/context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeAll, expect, test, vi } from "vitest";
 import type { FreshNote } from "../api/fresh";
@@ -7,9 +8,15 @@ import { gsap } from "../lib/motion";
 import { NoteViewer } from "./NoteViewer";
 
 beforeAll(() => {
+  /* A valid note payload: useNote's own `enabled: Boolean(path)` overrides the
+     test QueryClient's enabled:false, so this stub really resolves. */
   vi.stubGlobal(
     "fetch",
-    vi.fn(() => Promise.resolve(new Response("{}"))),
+    vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ path: "sources/youtube/x.md", content: "" })),
+      ),
+    ),
   );
 });
 
@@ -33,9 +40,7 @@ const wrap = (ui: React.ReactElement) =>
   );
 
 test("opens as a modal dialog labelled by the note title", () => {
-  const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal");
   wrap(<NoteViewer note={note} onClose={() => {}} />);
-  expect(showModal).toHaveBeenCalled();
   expect(screen.getByRole("dialog", { hidden: true })).toHaveAccessibleName("a note");
 });
 
@@ -46,23 +51,29 @@ test("close button calls onClose", () => {
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
-test("backdrop click calls onClose", () => {
+test("backdrop click calls onClose", async () => {
   const onClose = vi.fn();
-  const { container } = wrap(<NoteViewer note={note} onClose={onClose} />);
-  fireEvent.click(container.querySelector("dialog")!);
+  wrap(<NoteViewer note={note} onClose={onClose} />);
+  /* Radix attaches its outside-pointerdown listener a macrotask after mount. */
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  const overlay = document.querySelector<HTMLElement>('[data-slot="dialog-overlay"]')!;
+  /* A real browser click at the corner, clear of the centered panel. */
+  await userEvent.click(overlay, { position: { x: 5, y: 5 } });
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
-test("escape (cancel event) calls onClose", () => {
+test("escape calls onClose", () => {
   const onClose = vi.fn();
-  const { container } = wrap(<NoteViewer note={note} onClose={onClose} />);
-  fireEvent(container.querySelector("dialog")!, new Event("cancel", { cancelable: true }));
+  wrap(<NoteViewer note={note} onClose={onClose} />);
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
 test("reveal overlay mounts and clears", () => {
-  const { container } = wrap(<NoteViewer note={note} onClose={() => {}} />);
-  expect(container.querySelector(".pixel-dissolve")).toBeInTheDocument();
+  wrap(<NoteViewer note={note} onClose={() => {}} />);
+  expect(document.querySelector(".pixel-dissolve")).toBeInTheDocument();
 });
 
 test("survives StrictMode double-mount without self-closing (async close event)", async () => {

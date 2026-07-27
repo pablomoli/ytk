@@ -1160,20 +1160,6 @@ body {
 }
 
 /* native <dialog>: the element is the panel wrapper, ::backdrop is the veil */
-.note-viewer {
-  width: min(100vw - 4rem, 72rem);
-  height: calc(100vh - 4rem);
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--bg1);
-  color: inherit;
-}
-
-.note-viewer::backdrop {
-  background: #000d;
-}
-
 .note-panel {
   position: relative;
   height: 100%;
@@ -1186,24 +1172,6 @@ body {
   margin: 0;
   white-space: pre-wrap;
   font-family: inherit;
-}
-
-/* Inspecting a PENDING item (#123). Narrower and content-height, unlike
-   .note-viewer: nothing here has been ingested, so there is only ever a
-   preview, some captured text and its provenance to show. Sizing it like the
-   note reader would promise a page of content that does not exist yet. */
-.queue-viewer {
-  width: min(100vw - 4rem, 34rem);
-  max-height: calc(100vh - 4rem);
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--bg1);
-  color: inherit;
-}
-
-.queue-viewer::backdrop {
-  background: #000d;
 }
 
 .queue-panel {
@@ -2053,31 +2021,6 @@ body {
   font-size: 0.85em;
   color: var(--dim, #8a8375);
   word-break: break-all;
-}
-
-/* confirm dialog — hairline border, brass action, quiet plane */
-.confirm-dialog {
-  width: min(92vw, 26rem);
-  padding: 1.1rem 1.2rem;
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--bg1);
-  color: var(--ink);
-}
-
-.confirm-dialog::backdrop {
-  background: #000a;
-}
-
-.confirm-dialog p {
-  margin: 0 0 1rem;
-  line-height: 1.45;
-}
-
-.confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
 }
 
 .ingest-ring {

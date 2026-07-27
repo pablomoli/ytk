@@ -91,7 +91,7 @@ test("says there is no original to open when the url is not a link", () => {
 /* A dead preview URL must degrade to the unavailable state rather than leaving
    a broken-image box, which is the same failure the cards had. */
 test("falls back to the unavailable state when the preview fails to load", () => {
-  const { container } = render(
+  render(
     <QueueItemViewer
       item={{ ...item, preview_url: "https://example.com/gone.jpg" }}
       selected={false}
@@ -100,8 +100,8 @@ test("falls back to the unavailable state when the preview fails to load", () =>
     />,
   );
 
-  fireEvent.error(container.querySelector("img")!);
+  fireEvent.error(document.querySelector('[data-slot="dialog-content"] img')!);
 
-  expect(container.querySelector("img")).toBeNull();
+  expect(document.querySelector('[data-slot="dialog-content"] img')).toBeNull();
   expect(screen.getByTestId("viewer-nopreview")).toBeInTheDocument();
 });

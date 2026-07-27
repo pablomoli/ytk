@@ -35,7 +35,10 @@ test("flips above the caret when there is no room below", () => {
 });
 
 test("never places the menu off the top of the screen", () => {
-  const a = anchorFor({ left: 400, right: 460, top: 20, bottom: 54 }, 600, { width: 1440, height: 300 });
+  const a = anchorFor({ left: 400, right: 460, top: 20, bottom: 54 }, 600, {
+    width: 1440,
+    height: 300,
+  });
   expect(a.top).toBeGreaterThanOrEqual(0);
 });
 
