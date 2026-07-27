@@ -13,9 +13,7 @@ beforeAll(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(() =>
-      Promise.resolve(
-        new Response(JSON.stringify({ path: "sources/youtube/x.md", content: "" })),
-      ),
+      Promise.resolve(new Response(JSON.stringify({ path: "sources/youtube/x.md", content: "" }))),
     ),
   );
 });

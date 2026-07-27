@@ -1690,64 +1690,10 @@ body {
 }
 
 /* Selective source pull: a caret next to "refresh" opens a checkbox popover. */
-.source-pull {
-  position: relative;
-  display: inline-flex;
-}
-
 .btn.caret {
   padding: 0.32rem 0.55rem;
   font-size: 0.8rem;
   line-height: 1;
-}
-
-/* Fixed and portaled to <body>, not absolute inside .source-pull: the rail
-   clips its overflow, so a child popover is cut off at the container edge and
-   the confirm button ends up unreachable on a laptop-height window. Left/top
-   are written inline from the caret's rect. */
-.source-pull-menu {
-  position: fixed;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  width: 200px;
-  box-sizing: border-box;
-  max-height: calc(100dvh - 2rem);
-  overflow-y: auto;
-  min-width: 10rem;
-  padding: 0.5rem;
-  background: var(--panel, #1c1a16);
-  border: 1px solid var(--line);
-  border-radius: 0.5rem;
-  box-shadow: 0 8px 24px #00000066;
-}
-
-.source-pull-head {
-  color: var(--mute);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 0.2rem;
-}
-
-.source-pull-row {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.15rem 0.1rem;
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-
-.source-pull-row input {
-  accent-color: #e2b04a;
-}
-
-.source-pull-menu .btn.primary {
-  margin-top: 0.4rem;
-  padding: 0.32rem 0.7rem;
-  font-size: 0.8rem;
 }
 
 /* Recap panel on the fresh feed. */
