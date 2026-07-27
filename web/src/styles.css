@@ -163,22 +163,6 @@ body {
   align-items: center;
 }
 
-/* margin-left: auto still right-aligns the slot when it shares a line, but it
-   must not hold that alignment against a line with no room — min-width: 0 lets
-   it drop to its own row instead of forcing the nav wider than the viewport. */
-.hub-controls {
-  margin-left: auto;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.hub-controls .count {
-  color: #888;
-}
-
 .hub-body {
   padding: 1rem;
   display: flex;

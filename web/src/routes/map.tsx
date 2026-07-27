@@ -239,7 +239,7 @@ function MapPage() {
     });
   return (
     <div className="map-page">
-      <HubControls>
+      <HubControls className="absolute top-3 right-4 z-10 p-0">
         <span className="count">{map.data?.points.length ?? 0} notes</span>
       </HubControls>
       <div className="map-controls" aria-label="Map controls">
