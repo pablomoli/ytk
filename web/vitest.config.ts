@@ -6,6 +6,9 @@ import { playwright } from "@vitest/browser-playwright";
 // cannot currently be loaded by the standalone Vitest runner.
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: { "@": new URL("./src", import.meta.url).pathname },
+  },
   optimizeDeps: {
     include: ["postprocessing", "react-dom/client", "three"],
   },
