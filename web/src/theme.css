@@ -1,8 +1,9 @@
 /* ytk design system — "observatory": editorial serif, one family.
    Everything is Newsreader — no sans, no mono. Data (counts, chips, stats,
    tags, metadata) is differentiated by size, tracked small caps, and tabular
-   numerals instead of a second typeface. Ported from ytk/ui/static/theme.css;
-   imported last in main.tsx so the shared identity wins on equal specificity. */
+   numerals instead of a second typeface. Route CSS loads after this file, so
+   identity holds by not being contradicted — never restate these properties
+   elsewhere (#136). */
 
 @font-face {
   font-family: "Newsreader";
