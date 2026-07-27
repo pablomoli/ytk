@@ -23,7 +23,6 @@ from pathlib import Path
 from pydantic import BaseModel, field_validator, model_validator
 
 from .config import load_config
-from .sdk import run_structured
 
 
 class KeyMoment(BaseModel):
@@ -296,6 +295,8 @@ def enrich_content(
     """Single enrichment node. Callers format their own content_block; this
     composes the system prompt for `source`, appends note + vocab to the user
     prompt, stages any images, and returns a validated Enrichment."""
+    from .sdk import run_structured  # deferred: claude_agent_sdk costs ~120ms (#146)
+
     if not tone:
         try:
             tone = load_config().hub.enrich_tone

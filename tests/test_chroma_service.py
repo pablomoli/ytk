@@ -132,7 +132,7 @@ def test_chroma_install_writes_and_bootstraps_launch_agent(tmp_path, monkeypatch
         calls.append((args, kwargs))
         return subprocess.CompletedProcess(args, 0, "", "")
 
-    monkeypatch.setattr(cli_mod, "runtime_config", lambda: cfg, raising=False)
+    monkeypatch.setattr("ytk.chroma_runtime.runtime_config", lambda: cfg)
     monkeypatch.setattr(cli_mod, "_CHROMA_PLIST", plist_path, raising=False)
     monkeypatch.setattr(cli_mod, "_CHROMA_LOG", log_path, raising=False)
     monkeypatch.setattr(cli_mod.shutil, "which", lambda name: "/usr/local/bin/ytk")
@@ -154,8 +154,8 @@ def test_ui_refuses_to_start_before_http_chroma_is_ready(tmp_path, monkeypatch):
         {"CHROMA_URL": "http://127.0.0.1:8000"},
         default_path=tmp_path / "legacy",
     )
-    monkeypatch.setattr(cli_mod, "runtime_config", lambda: cfg, raising=False)
-    monkeypatch.setattr(cli_mod, "wait_for_chroma", lambda config, timeout_s: False, raising=False)
+    monkeypatch.setattr("ytk.chroma_runtime.runtime_config", lambda: cfg)
+    monkeypatch.setattr("ytk.chroma_runtime.wait_for_chroma", lambda config, timeout_s: False)
 
     result = CliRunner().invoke(cli_mod.cli, ["ui"])
 

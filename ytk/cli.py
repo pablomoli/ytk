@@ -22,8 +22,6 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from .chroma_migrate import copy_collections, create_migration_clients, write_report
-from .chroma_runtime import launchd_plist, runtime_config, server_arguments, wait_for_chroma
 from .config import load_config
 from .enrich import enrich
 from .filter import FilterResult, check_post_enrichment, check_pre_transcript
@@ -54,8 +52,6 @@ from .memo import (
 from .memo import (
     write_memo_note as memo_write_note,
 )
-from .metadata import fetch_metadata
-from .store import search_segments, search_videos, upsert
 from .transcript import fetch_transcript, segments_to_text
 from .vault import LINK_REMINDER, NoteAlreadyExists, write_note
 from .workboard_cli import work as work_command
@@ -140,6 +136,9 @@ cli.add_command(work_command)
 @click.pass_context
 def add(ctx: click.Context, url: str, force: bool, note: str):
     """Fetch and ingest a URL, dispatched by source."""
+    from .metadata import fetch_metadata  # deferred: yt_dlp costs ~75ms (#146)
+    from .store import upsert  # deferred: chromadb costs ~330ms (#146)
+
     if re.search(r"instagram\.com/", url):
         ctx.invoke(add_instagram, url=url, note=note)
         return
@@ -508,6 +507,8 @@ def dive(video_id: str, query: str, n: int, rerank: bool | None):
 
     VIDEO_ID is the YouTube video ID (e.g. dQw4w9WgXcQ).
     """
+    from .store import search_segments  # deferred: chromadb costs ~330ms (#146)
+
     with console.status("[bold cyan]Searching segments...[/]"):
         results = search_segments(query, video_id=video_id, n=n, rerank=rerank)
 
@@ -656,6 +657,8 @@ def tags(n: int):
 )
 def search(query: str, n: int, rerank: bool | None):
     """Semantic search across ingested videos."""
+    from .store import search_videos  # deferred: chromadb costs ~330ms (#146)
+
     with console.status("[bold cyan]Searching...[/]"):
         results = search_videos(query, n=n, rerank=rerank)
 
@@ -2729,6 +2732,8 @@ def chroma_command():
 @chroma_command.command(name="serve")
 def chroma_serve():
     """Run the local Chroma server in the foreground."""
+    from .chroma_runtime import runtime_config, server_arguments  # deferred: chromadb (#146)
+
     cfg = runtime_config()
     executable = Path(sys.executable).with_name("chroma")
     if not executable.is_file():
@@ -2741,6 +2746,8 @@ def chroma_serve():
 @chroma_command.command(name="install")
 def chroma_install():
     """Install Chroma as an always-on loopback launchd agent."""
+    from .chroma_runtime import launchd_plist, runtime_config  # deferred: chromadb (#146)
+
     ytk_bin = shutil.which("ytk")
     if not ytk_bin:
         raise click.ClickException("ytk binary not found; run `uv tool install --reinstall .`")
@@ -2776,6 +2783,13 @@ def chroma_install():
 )
 def chroma_migrate(resume: bool, batch_size: int):
     """Copy healthy legacy collections into the local Chroma server."""
+    from .chroma_migrate import (  # deferred: chromadb costs ~330ms (#146)
+        copy_collections,
+        create_migration_clients,
+        write_report,
+    )
+    from .chroma_runtime import runtime_config
+
     cfg = runtime_config()
     if cfg.mode != "http":
         raise click.ClickException("CHROMA_URL must select the local Chroma HTTP server")
@@ -2813,6 +2827,8 @@ def chroma_restart():
 @chroma_command.command(name="status")
 def chroma_status():
     """Show launchd and heartbeat status for the local Chroma server."""
+    from .chroma_runtime import runtime_config, wait_for_chroma  # deferred: chromadb (#146)
+
     cfg = runtime_config()
     loaded = (
         subprocess.run(
@@ -2863,6 +2879,8 @@ def ui(ctx, host: str | None, port: int | None, reload: bool):
     """Run the hub in the foreground, or manage the background daemon."""
     if ctx.invoked_subcommand is not None:
         return
+    from .chroma_runtime import runtime_config, wait_for_chroma  # deferred: chromadb (#146)
+
     chroma_cfg = runtime_config()
     if chroma_cfg.mode == "http" and not wait_for_chroma(chroma_cfg, timeout_s=30.0):
         raise click.ClickException(f"Chroma server unavailable at {chroma_cfg.url}")

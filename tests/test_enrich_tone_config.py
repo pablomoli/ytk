@@ -16,8 +16,7 @@ def test_enrich_content_pulls_tone_from_config(monkeypatch):
     monkeypatch.setattr(e, "load_config", lambda: cfg)
     captured = {}
     monkeypatch.setattr(
-        e,
-        "run_structured",
+        "ytk.sdk.run_structured",
         lambda s, u, sc, add_dirs=None, **kw: (
             captured.update(system=s)
             or {
@@ -41,8 +40,7 @@ def test_explicit_tone_overrides_config(monkeypatch):
     monkeypatch.setattr(e, "load_config", lambda: cfg)
     captured = {}
     monkeypatch.setattr(
-        e,
-        "run_structured",
+        "ytk.sdk.run_structured",
         lambda s, u, sc, add_dirs=None, **kw: (
             captured.update(system=s)
             or {

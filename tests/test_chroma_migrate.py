@@ -153,7 +153,7 @@ def test_cli_refuses_migration_while_visual_indexing_is_enabled(tmp_path, monkey
             "CHROMA_SERVER_PATH": str(tmp_path / "server"),
         }
     )
-    monkeypatch.setattr(cli_mod, "runtime_config", lambda: cfg)
+    monkeypatch.setattr("ytk.chroma_runtime.runtime_config", lambda: cfg)
     monkeypatch.setenv("YTK_VISUAL_INDEX", "on")
 
     result = CliRunner().invoke(cli_mod.cli, ["chroma", "migrate"])
@@ -172,7 +172,7 @@ def test_cli_refuses_migration_when_legacy_and_server_paths_match(tmp_path, monk
             "CHROMA_SERVER_PATH": str(tmp_path / "same"),
         }
     )
-    monkeypatch.setattr(cli_mod, "runtime_config", lambda: cfg)
+    monkeypatch.setattr("ytk.chroma_runtime.runtime_config", lambda: cfg)
     monkeypatch.setenv("YTK_VISUAL_INDEX", "off")
 
     result = CliRunner().invoke(cli_mod.cli, ["chroma", "migrate"])
@@ -205,24 +205,22 @@ def test_cli_migrates_explicit_source_to_http_target_and_writes_report(tmp_path,
     calls = {}
 
     monkeypatch.setenv("YTK_VISUAL_INDEX", "off")
-    monkeypatch.setattr(cli_mod, "runtime_config", lambda: cfg)
+    monkeypatch.setattr("ytk.chroma_runtime.runtime_config", lambda: cfg)
 
     def fake_migration_clients(actual_config):
         calls["config"] = actual_config
         return source, target
 
-    monkeypatch.setattr(cli_mod, "create_migration_clients", fake_migration_clients)
+    monkeypatch.setattr("ytk.chroma_migrate.create_migration_clients", fake_migration_clients)
 
     def fake_copy(actual_source, actual_target, *, resume, batch_size):
         calls["copy"] = (actual_source, actual_target, resume, batch_size)
         return report
 
-    monkeypatch.setattr(cli_mod, "copy_collections", fake_copy, raising=False)
+    monkeypatch.setattr("ytk.chroma_migrate.copy_collections", fake_copy)
     monkeypatch.setattr(
-        cli_mod,
-        "write_report",
+        "ytk.chroma_migrate.write_report",
         lambda actual_report, recovery_dir: tmp_path / "migration.json",
-        raising=False,
     )
 
     result = CliRunner().invoke(

@@ -6,8 +6,6 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from .sdk import structured
-
 _SYSTEM_TRIAGE_BASE = """\
 You are extracting concrete, actionable tasks from a personal knowledge note.
 The note may be a journal entry, article summary, or video note.
@@ -44,5 +42,7 @@ class TriageResult(BaseModel):
 
 def extract_action_items(note_text: str, repos: list[str] | None = None) -> list[ActionItem]:
     """Extract structured action items from a vault note via Claude Code."""
+    from .sdk import structured  # deferred: claude_agent_sdk costs ~120ms (#146)
+
     repo_hint = f"\nAvailable GitHub repos: {', '.join(repos)}\n" if repos else ""
     return structured(_SYSTEM_TRIAGE_BASE + repo_hint, note_text, TriageResult).items

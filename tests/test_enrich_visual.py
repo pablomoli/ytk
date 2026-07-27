@@ -31,7 +31,7 @@ def _base64_image_block() -> dict:
 def test_enrich_text_only_no_add_dirs():
     from ytk.enrich import enrich
 
-    with patch("ytk.enrich.run_structured", return_value=_fake_enrichment_dict()) as mock_run:
+    with patch("ytk.sdk.run_structured", return_value=_fake_enrichment_dict()) as mock_run:
         enrich("transcript text", {"title": "T", "uploader": "U", "duration": 60, "tags": []})
 
     kwargs = mock_run.call_args.kwargs
@@ -54,7 +54,7 @@ def test_enrich_with_visual_blocks_materializes_to_add_dirs():
             seen_dirs.append(p)
         return _fake_enrichment_dict()
 
-    with patch("ytk.enrich.run_structured", side_effect=fake_run):
+    with patch("ytk.sdk.run_structured", side_effect=fake_run):
         enrich(
             "caption text",
             {"title": "T", "uploader": "U", "duration": 0, "tags": []},
@@ -70,7 +70,7 @@ def test_enrich_prompt_lists_frame_paths_when_visual():
     from ytk.enrich import enrich
 
     visual = [_base64_image_block()]
-    with patch("ytk.enrich.run_structured", return_value=_fake_enrichment_dict()) as mock_run:
+    with patch("ytk.sdk.run_structured", return_value=_fake_enrichment_dict()) as mock_run:
         enrich(
             "caption",
             {"title": "T", "uploader": "U", "duration": 0, "tags": []},
@@ -90,7 +90,7 @@ def test_enrich_none_visual_blocks_behaves_like_no_arg():
         prompts.append(prompt)
         return _fake_enrichment_dict()
 
-    with patch("ytk.enrich.run_structured", side_effect=fake_run):
+    with patch("ytk.sdk.run_structured", side_effect=fake_run):
         enrich("t", {"title": "T", "uploader": "U", "duration": 0, "tags": []})
         enrich("t", {"title": "T", "uploader": "U", "duration": 0, "tags": []}, visual_blocks=None)
 

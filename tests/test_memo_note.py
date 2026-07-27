@@ -54,7 +54,7 @@ def test_index_memo_note_upserts(tmp_path):
 
     note = tmp_path / "2026-07-05-1200-x.md"
     note.touch()
-    with patch("ytk.memo.upsert_memory") as ups:
+    with patch("ytk.store.upsert_memory") as ups:
         index_memo_note(note, "the transcript", "thought")
     ups.assert_called_once_with(
         "memo_2026-07-05-1200-x", "the transcript", ["memo", "thought"], str(note)

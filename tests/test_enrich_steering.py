@@ -23,7 +23,7 @@ def captured(monkeypatch):
         calls["prompt"] = user_prompt
         return dict(FAKE_RESULT)
 
-    monkeypatch.setattr("ytk.enrich.run_structured", fake)
+    monkeypatch.setattr("ytk.sdk.run_structured", fake)
     return calls
 
 

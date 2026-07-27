@@ -29,7 +29,7 @@ def _action_result(route="gh-issue", repo="pablomoli/ytk"):
 def test_memory_routes_to_remember(tmp_path):
     with (
         patch("ytk.memo.remember", return_value=(tmp_path / "atom.md", "memory_x")) as rem,
-        patch("ytk.memo.upsert_memory") as ups,
+        patch("ytk.store.upsert_memory") as ups,
     ):
         lines = execute_route(_memory_result(), "the transcript", [])
     rem.assert_called_once_with("the transcript", ["ytk"])

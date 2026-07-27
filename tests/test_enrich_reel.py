@@ -24,7 +24,7 @@ def captured(monkeypatch):
         calls["user"] = user
         return dict(_RESULT)
 
-    monkeypatch.setattr(enrich_mod, "run_structured", fake_run)
+    monkeypatch.setattr("ytk.sdk.run_structured", fake_run)
     return calls
 
 
