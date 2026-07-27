@@ -1,5 +1,6 @@
 import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 // The SPA is served by FastAPI at the root; built asset URLs live under
@@ -7,6 +8,9 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 // routes to the hub on :6969.
 export default defineConfig({
   base: "/",
+  resolve: {
+    alias: { "@": new URL("./src", import.meta.url).pathname },
+  },
   server: {
     port: 5173,
     proxy: {
@@ -43,6 +47,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    tailwindcss(),
     tanstackRouter({
       target: "react",
       routeFileIgnorePattern: String.raw`\.test\.tsx$`,

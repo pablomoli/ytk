@@ -24,7 +24,8 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "exactOptionalPropertyTypes": true,
-    "noImplicitReturns": true
+    "noImplicitReturns": true,
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src"]
 }

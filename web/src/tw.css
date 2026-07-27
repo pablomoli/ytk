@@ -1,0 +1,23 @@
+/* No preflight while hand-written CSS remains (#136). Unlayered app CSS
+   outranks these layers, so utilities style new chrome only. */
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Aliases into theme.css — the tokens' single source of truth. */
+@theme inline {
+  --color-bg0: var(--bg0);
+  --color-bg1: var(--bg1);
+  --color-bg2: var(--bg2);
+  --color-bg3: var(--bg3);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink2);
+  --color-mute: var(--mute);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-live: var(--live);
+  --font-serif: var(--serif);
+  --font-data: var(--data);
+  --radius-card: var(--r);
+  --ease-hub: var(--ease);
+}
