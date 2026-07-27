@@ -15,7 +15,6 @@ import { Card } from "../components/Card";
 import { MasonryGrid } from "../components/MasonryGrid";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
-import { HubControls } from "../components/HubControls";
 import { CountUp } from "../components/CountUp";
 import { IngestRing } from "../components/IngestRing";
 import { ScrambleStatus } from "../components/ScrambleStatus";
@@ -279,25 +278,29 @@ function InboxPage() {
 
   return (
     <div id="inbox-page" className="hub-page hub-page-fill">
-      <HubControls>
-        <span className="count">
-          <CountUp value={items.length} />
-          {q.data && q.data.length !== items.length ? (
-            <>
-              {" "}
-              of <CountUp value={q.data.length} />
-            </>
-          ) : (
-            ""
-          )}{" "}
-          pending
-        </span>
-      </HubControls>
       <div className="hub-body hub-row">
         <div className="grid-col">{body}</div>
         <aside className="rail">
           <div className="rail-scroll">
-            <RailWidget title="sources" prefKey={RAIL_SOURCES_PREF} defaultOpen>
+            <RailWidget
+            title="sources"
+            prefKey={RAIL_SOURCES_PREF}
+            defaultOpen
+            meta={
+              <>
+                <CountUp value={items.length} />
+                {q.data && q.data.length !== items.length ? (
+                  <>
+                    {" "}
+                    of <CountUp value={q.data.length} />
+                  </>
+                ) : (
+                  ""
+                )}{" "}
+                pending
+              </>
+            }
+          >
               <SourceSelect selection={selection} onChange={handleSourceChange} />
             </RailWidget>
 

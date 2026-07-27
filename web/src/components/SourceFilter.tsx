@@ -1,5 +1,8 @@
-import { SOURCES } from "./icons";
+import { SOURCES, sourceIcon } from "./icons";
+import { cn } from "../lib/utils";
 
+// Single-select source filter: same icon-tile vocabulary as the inbox's
+// SourceSelect, one source at a time.
 export function SourceFilter({
   value,
   onChange,
@@ -10,15 +13,18 @@ export function SourceFilter({
   onChange: (s?: string) => void;
 }) {
   return (
-    <span className="filters">
+    <span className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by source">
       {SOURCES.map((s) => (
         <button
           key={s}
-          className={`fchip${value === s ? " on" : ""}`}
+          type="button"
+          className={cn("source-option size-9", value === s && "on")}
           aria-pressed={value === s}
+          title={s}
           onClick={() => onChange(value === s ? undefined : s)}
         >
-          {s}
+          {sourceIcon(s, 18)}
+          <span className="source-option-label">{s}</span>
         </button>
       ))}
     </span>
