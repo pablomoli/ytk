@@ -171,12 +171,6 @@ body {
   flex: 1 0 auto;
 }
 
-.filters {
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
 .fog-level {
   width: 110px;
   accent-color: #e2b04a;

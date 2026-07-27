@@ -17,12 +17,14 @@ export function RailWidget({
   prefKey,
   defaultOpen = false,
   forceOpenKey,
+  meta,
   children,
 }: {
   title: string;
   prefKey: string;
   defaultOpen?: boolean;
   forceOpenKey?: string | number | null;
+  meta?: ReactNode;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
@@ -59,6 +61,7 @@ export function RailWidget({
     <details className="rail-widget" ref={ref} open={initialOpen} onToggle={persist}>
       <summary>
         <h2>{title}</h2>
+        {meta ? <span className="count float-right">{meta}</span> : null}
       </summary>
       {children}
     </details>
