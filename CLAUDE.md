@@ -150,6 +150,18 @@ debugging storage behavior. Start foreground servers and other long-running
 recipes in a visible tmux pane after listing panes; do not hide them in an
 unobserved background process.
 
+## CSS policy (#136)
+
+Hand-written CSS only shrinks. `web/css-budget.json` pins a per-file line
+ceiling enforced by `tests/test_css_budget.py`; `scripts/ratchet_css.py` locks
+gains in and refuses to raise a ceiling. New chrome styles itself with Tailwind
+utilities against the observatory tokens (`web/src/theme.css`, aliased in
+`web/src/tw.css`); interactive primitives are vendored Radix/shadcn components
+in `web/src/components/ui/`. What remains in `styles.css` and the route CSS is
+deliberately bespoke — identity surfaces and not-yet-touched chrome — never add
+rules there. `theme.css` is the identity layer and is exempt from the ratchet.
+Page controls render inside their page, never in the nav bar.
+
 ## Filter Config
 
 Default location: `~/.ytk/config.yaml` (auto-created with defaults if missing)
