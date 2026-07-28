@@ -25,6 +25,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from plot_assets import (
+    BLUE,
     CYAN,
     DIM,
     DPI,
@@ -35,8 +36,10 @@ from plot_assets import (
     TEXT,
     TICK_SIZE,
     figure,
+    fit3d,
     frame_panels,
     panel_title,
+    saturated_magma,
     style_axes,
 )
 
@@ -783,6 +786,214 @@ def fig08(res: dict) -> None:
     save(fig, "08-mosaic.png")
 
 
+def _umap3(X: np.ndarray, seed: int) -> np.ndarray:
+    import umap
+
+    return umap.UMAP(
+        n_components=3, n_neighbors=15, min_dist=0.10, metric="cosine", random_state=seed
+    ).fit_transform(X)
+
+
+def fig09(res: dict) -> None:
+    """The corpus as a solid, from four angles."""
+    X = np.load(OUTDIR / "vectors.npz")["X"]
+    meta = json.loads((OUTDIR / "tags.json").read_text())
+    sources = np.array(meta["sources"])
+    labels = meta["labels"]
+    P = _umap3(X, res["seed"])
+
+    ntags = np.array([len(t) for t in labels], float)
+    palette = {
+        "youtube": GOLD,
+        "instagram": CYAN,
+        "web": RED,
+        "tiktok": BLUE,
+        "pinterest": "#9159ff",
+        "reddit": "#ff9f43",
+        "journal": TEXT,
+    }
+    colors = np.array([palette.get(s, DIM) for s in sources])
+
+    fig, top = figure(
+        13.4,
+        13.8,
+        9,
+        "the corpus as a solid",
+        "493 notes in three dimensions, coloured by where they came from",
+        f"UMAP n_components=3, n_neighbors=15, min_dist=0.10, cosine, seed {res['seed']}  ·  "
+        f"point size = how many tags the note carries  ·  four viewing angles of one embedding",
+    )
+    views = [(18, 35), (18, 125), (62, 35), (62, 215)]
+    for k, (elev, azim) in enumerate(views):
+        ax = fig.add_subplot(2, 2, k + 1, projection="3d")
+        ax.scatter(
+            P[:, 0],
+            P[:, 1],
+            P[:, 2],
+            c=colors,
+            s=6 + 2.6 * ntags,
+            alpha=0.72,
+            linewidths=0,
+            depthshade=True,
+        )
+        fit3d(ax, P, zoom=1.55)
+        ax.view_init(elev=elev, azim=azim)
+        panel_title(ax, f"elev {elev}°, azim {azim}°")
+    fig.subplots_adjust(
+        left=MARGIN, right=1 - MARGIN, top=top, bottom=0.062, wspace=0.03, hspace=0.10
+    )
+
+    counts = {s: int((sources == s).sum()) for s in palette if (sources == s).sum()}
+    legend = "   ".join(f"{s} {n}" for s, n in sorted(counts.items(), key=lambda kv: -kv[1]))
+    fig.text(MARGIN, 0.030, legend, color=MUTED, fontsize=9.5)
+    fig.text(
+        MARGIN,
+        0.008,
+        "YouTube and Instagram interleave rather than separating, which is the point: the space is "
+        "organized by subject, not by where a note came from.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    save(fig, "09-corpus-3d.png")
+
+
+def fig10(res: dict) -> None:
+    """Five dimensions: position (3), colour (4), size (5).
+
+    The question this exists for: tagging quality is not uniform across the
+    corpus, so WHERE is it weak? Give every note a score -- the mean z of the
+    tags it carries -- and paint the solid with it.
+    """
+    X = np.load(OUTDIR / "vectors.npz")["X"]
+    meta = json.loads((OUTDIR / "tags.json").read_text())
+    labels, sources = meta["labels"], np.array(meta["sources"])
+    zmap = {r["tag"]: r["z"] for r in res["tags"]}
+    P = _umap3(X, res["seed"])
+
+    # a note's tag quality: mean z over its scorable tags. Notes whose tags are
+    # all rare get no score and are drawn as the dim background.
+    scored, quality = [], []
+    for i, ts in enumerate(labels):
+        zs = [zmap[t] for t in ts if t in zmap]
+        if zs:
+            scored.append(i)
+            quality.append(float(np.mean(zs)))
+    scored = np.array(scored)
+    quality = np.array(quality)
+    ntags = np.array([len([t for t in labels[i] if t in zmap]) for i in scored], float)
+    cmap = saturated_magma()
+
+    fig, top = figure(
+        16.5,
+        9.6,
+        10,
+        "where the tagging is weak",
+        "The same solid, painted by how informative each note's tags are",
+        f"{len(scored)} of {len(labels)} notes carry at least one scorable tag  ·  "
+        f"colour = mean z of a note's tags  ·  size = how many scorable tags it has  ·  "
+        f"the two right-hand panels split the same points by source",
+    )
+
+    # explicit grid: mixing add_subplot(1,2,1) with add_subplot(2,4,k) put the
+    # instagram panel underneath the big one
+    gs = fig.add_gridspec(
+        2,
+        4,
+        width_ratios=[1.0, 1.0, 0.78, 0.92],
+        left=0.015,
+        right=1 - MARGIN,
+        top=top,
+        bottom=0.215,
+        wspace=0.14,
+        hspace=0.26,
+    )
+
+    ax = fig.add_subplot(gs[:, 0:2], projection="3d")
+    ax.scatter(
+        P[:, 0], P[:, 1], P[:, 2], color=DIM, s=5, alpha=0.30, linewidths=0, depthshade=False
+    )
+    sc = ax.scatter(
+        P[scored, 0],
+        P[scored, 1],
+        P[scored, 2],
+        c=quality,
+        cmap=cmap,
+        vmin=0,
+        vmax=10,
+        s=8 + 4.2 * ntags,
+        alpha=0.88,
+        linewidths=0,
+        depthshade=True,
+    )
+    fit3d(ax, P, zoom=1.5)
+    ax.view_init(elev=22, azim=48)
+    panel_title(ax, "bright = its tags are informative; dark = its tags are generic", width=64)
+    box = ax.get_position()
+    cax = fig.add_axes([box.x0 + 0.06, 0.145, box.width - 0.12, 0.018])
+    cb = fig.colorbar(sc, cax=cax, orientation="horizontal")
+    cb.set_label("mean tag z for the note", color=MUTED, fontsize=TICK_SIZE)
+    cb.ax.tick_params(colors=MUTED, labelsize=TICK_SIZE - 1)
+    cb.outline.set_edgecolor("#2e2e36")
+    cb.ax._is_colorbar = True
+
+    for k, src in enumerate(["youtube", "instagram"]):
+        ax = fig.add_subplot(gs[k, 2], projection="3d")
+        m = sources[scored] == src
+        ax.scatter(
+            P[:, 0], P[:, 1], P[:, 2], color=DIM, s=3, alpha=0.22, linewidths=0, depthshade=False
+        )
+        ax.scatter(
+            P[scored[m], 0],
+            P[scored[m], 1],
+            P[scored[m], 2],
+            c=quality[m],
+            cmap=cmap,
+            vmin=0,
+            vmax=10,
+            s=11,
+            alpha=0.92,
+            linewidths=0,
+        )
+        fit3d(ax, P, zoom=1.72)
+        ax.view_init(elev=22, azim=48)
+        panel_title(ax, f"{src}  ·  mean z {quality[m].mean():.1f}", width=34)
+
+    ax = fig.add_subplot(gs[:, 3])
+    for src, col in [("youtube", GOLD), ("instagram", CYAN)]:
+        m = sources[scored] == src
+        ax.hist(
+            quality[m], bins=np.linspace(-2, 14, 34), color=col, alpha=0.62, density=True, label=src
+        )
+    ax.axvline(float(np.median(quality)), color=MUTED, linewidth=1.2, linestyle="--")
+    style_axes(ax)
+    ax.set_xlabel("mean tag z for the note")
+    ax.set_ylabel("density")
+    ax.legend(loc="upper right", fontsize=TICK_SIZE - 1, framealpha=0.0, labelcolor=TEXT)
+    yt = quality[sources[scored] == "youtube"]
+    ig = quality[sources[scored] == "instagram"]
+    panel_title(ax, f"youtube {yt.mean():.1f}  vs  instagram {ig.mean():.1f}", width=34)
+
+    fig.text(
+        MARGIN,
+        0.062,
+        f"Tag quality is not uniform. YouTube notes average {yt.mean():.1f} against "
+        f"{ig.mean():.1f} for Instagram — the longer the source text, the more specific the tags "
+        f"the model can justify.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    fig.text(
+        MARGIN,
+        0.034,
+        "Only YouTube has the bright tail above z=10. The dark regions are where the vault is "
+        "labelled 'reference' and 'learning' and nothing sharper — where a tag-driven search "
+        "would fail to reach.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    save(fig, "10-tag-quality-3d.png")
+
+
 def main() -> None:
     res = json.loads((OUTDIR / "results.json").read_text())
     plt.style.use("dark_background")
@@ -794,6 +1005,8 @@ def main() -> None:
     fig06(res)
     fig07(res)
     fig08(res)
+    fig09(res)
+    fig10(res)
 
 
 if __name__ == "__main__":
