@@ -27,6 +27,25 @@ CACHE = Path(os.path.expanduser("~/.ytk/fog-assets-cache.json"))
 OUTDIR = Path(__file__).resolve().parents[1] / "docs" / "assets" / "01-fog"
 
 # --- house style -----------------------------------------------------------
+# Computer Modern, the LaTeX/3Blue1Brown face. Set at import so every script
+# that imports this module inherits it, including the ones that call
+# plt.style.use("dark_background") afterwards -- that style touches colours,
+# not families.
+FONT_SERIF = "CMU Serif"
+FONT_MONO = "CMU Typewriter Text"
+
+
+def use_house_font() -> None:
+    import matplotlib as mpl
+
+    mpl.rcParams["font.family"] = "serif"
+    mpl.rcParams["font.serif"] = [FONT_SERIF, "STIX Two Text", "DejaVu Serif"]
+    mpl.rcParams["mathtext.fontset"] = "cm"
+    mpl.rcParams["axes.unicode_minus"] = False
+
+
+use_house_font()
+
 DPI = 200
 BG = "#08080a"  # figure background
 PANEL = "#000000"  # panel interior
@@ -86,17 +105,21 @@ def figure(w: float, ht: float, number: int, kicker: str, title: str, meta: str 
     lines = textwrap.wrap(title, 78)
     inch = lambda v: 1 - v / ht  # inches from the top -> figure fraction
 
+    # The kicker used to be letterspaced by joining characters with spaces,
+    # which cannot kern: every letter gap became one space and the real word
+    # gap became three, so the rhythm read as visibly wrong. Weight, colour and
+    # case carry the emphasis instead.
     fig.text(
         MARGIN,
         inch(0.40),
-        " ".join(f"FIGURE {number:02d}"),
+        f"FIGURE {number:02d}",
         color=GOLD,
-        fontsize=KICKER_SIZE,
+        fontsize=KICKER_SIZE + 0.5,
         fontweight="bold",
         va="baseline",
     )
     fig.text(
-        MARGIN + 0.088, inch(0.40), kicker.upper(), color=MUTED, fontsize=KICKER_SIZE, va="baseline"
+        MARGIN + 0.062, inch(0.40), kicker.upper(), color=MUTED, fontsize=KICKER_SIZE, va="baseline"
     )
     y = 0.78
     for line in lines:
