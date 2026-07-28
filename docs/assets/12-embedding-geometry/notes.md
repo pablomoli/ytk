@@ -1,6 +1,6 @@
 # Post material — the vault's embedding space is a cone, not a ball
 
-Working notes. Figures 01–03. Reproducible from the frozen `vectors.npz` in
+Working notes. Figures 01–06. Reproducible from the frozen `vectors.npz` in
 `../10-tag-coherence/` via `scripts/embedding_geometry.py`.
 
 Read-only: reads a frozen array. Touches neither the vault nor Chroma.
@@ -60,8 +60,8 @@ Scoring every tag against a size-matched null **in each geometry**:
 | median z | 4.9 | 16.7 |
 | tags passing z > 2 | 58 of 69 | **69 of 69** |
 
-The shared component was compressing the entire dynamic range. `ai-coding` goes
-from +17 to +61; `creative-coding` from +12 to +74.
+`ai-coding` goes from +17 to +61; `creative-coding` from +12 to +74. Note this
+is *not* the shared component compressing a range — see below; it reshuffles.
 
 **This is an actionable retrieval result.** Centring the stored vectors — a
 subtraction, no retraining — would sharply increase how well tags separate.
@@ -118,11 +118,46 @@ negative null.
 - **Centring is measured here on tag separation, not on retrieval.** They are
   related but not the same thing, and only the eval gate settles the second.
 
+## Same width, different content
+
+Figure 05 killed two of my own claims in a row, which is the best argument for
+drawing the thing.
+
+**First claim:** the shared direction buries the block structure. It does not —
+both panels carry the same blocks, and the spans are near-identical (raw 0.09 to
+0.51, centred −0.16 to 0.27; sd 0.086 and 0.089).
+
+**Second claim, made to explain the first:** then it must be a pure translation,
+adding a constant to every pair. That is also wrong, and the z-scores are what
+give it away — *a constant shift cannot move a z-score*, because it moves the
+observed value and the null by the same amount. The z-scores moved from 5.4 to
+23.0.
+
+Measured directly:
+
+| | |
+|---|---|
+| correlation, raw vs centred pair similarity | **0.759** (a translation gives 1.000) |
+| sd ratio, centred / raw | 1.028 |
+| centred variation *not* explained by a constant shift | **68.6%** |
+
+So the honest statement is **same width, different content**. Centring
+reshuffles which pairs are alike rather than sliding them all together. The
+block structure survives because clustering is ordinal and the coarse ordering
+holds; the tag scores move because they are absolute comparisons against a null,
+and the fine-grained pair relationships genuinely change.
+
+That also explains the rank correlation of +0.61 between the two geometries: a
+real reordering, exactly as this predicts.
+
 ## Figures
 
 - `01-the-cone.png` — the corpus does not fill its sphere; the mean vector is 11x longer than chance allows
 - `02-spectrum.png` — participation ratio 104 of 1024, no small set of directions carries the corpus
 - `03-dynamic-range.png` — every tag's z before and after centring, and the observed similarities behind it
+- `04-the-cone-drawn.png` — the geometry itself: the corpus, an isotropic control, and the centred corpus, with the origin marked in each
+- `05-gram-matrix.png` — all 493 notes against each other, one ordering, two geometries
+- `06-angular.png` — angle from the shared direction, against what randomness gives
 
 ## Sidecar
 

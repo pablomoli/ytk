@@ -435,12 +435,272 @@ def fig03(r: dict) -> None:
     save(fig, "03-dynamic-range.png")
 
 
+def _cone_basis(X: np.ndarray):
+    """A basis whose first axis IS the shared direction.
+
+    Projecting onto (mean direction, then the top two directions of what is left)
+    is what makes the cone visible. A plain PCA hides it, because PCA centres
+    first and the offset is exactly what centring removes.
+    """
+    mu = X.mean(0)
+    e1 = mu / np.linalg.norm(mu)
+    R = X - np.outer(X @ e1, e1)
+    _, _, Vt = np.linalg.svd(R - R.mean(0), full_matrices=False)
+    return np.vstack([e1, Vt[0], Vt[1]])
+
+
+def fig04(r: dict) -> None:
+    """Draw the cone. Real data, an isotropic control, and the centred data."""
+    X = np.load(SRC / "vectors.npz")["X"]
+    rng = np.random.default_rng(r["seed"])
+
+    # a genuinely isotropic control at the same n and dimension
+    Y = rng.normal(size=X.shape)
+    Y = _unit(Y)
+
+    B = _cone_basis(X)
+    P_real = X @ B.T
+    P_iso = Y @ _cone_basis(Y).T
+    Xc = _unit(X - X.mean(0))
+    P_cen = Xc @ _cone_basis(X).T  # same basis, so the shift is comparable
+
+    fig, top = figure(
+        16.5,
+        7.6,
+        4,
+        "the cone, drawn",
+        "The corpus does not surround its own origin — it leans",
+        "every note projected onto (the shared direction, then the two widest directions of what "
+        "is left)  ·  the gold arrow is the corpus mean  ·  the middle panel is 493 genuinely "
+        "isotropic vectors at the same dimension, for comparison",
+    )
+    panels = [
+        (P_real, "as stored — a cone", GOLD),
+        (P_iso, "isotropic control — surrounds the origin", DIM),
+        (P_cen, "centred — the cone becomes a ball", CYAN),
+    ]
+    for k, (P, title, col) in enumerate(panels):
+        ax = fig.add_subplot(1, 3, k + 1, projection="3d")
+        ax.scatter(
+            P[:, 0], P[:, 1], P[:, 2], s=11, color=col, alpha=0.60, linewidths=0, depthshade=True
+        )
+        ax.scatter([0], [0], [0], s=150, color=RED, marker="+", linewidths=2.6, zorder=9)
+        if k == 0:
+            m = P.mean(0)
+            ax.plot([0, m[0]], [0, m[1]], [0, m[2]], color=GOLD, linewidth=3.2, zorder=8)
+
+        # Each panel is scaled to its OWN extent, including the origin. In 1024
+        # dimensions an isotropic vector has components near 1/sqrt(1024), so a
+        # shared scale renders the control as a dot and the comparison reads as
+        # "less data" rather than "different shape". The question here is
+        # whether the cloud contains the origin, which is scale-free.
+        span = np.vstack([P, np.zeros(3)])
+        lo, hi = span.min(0), span.max(0)
+        c = (lo + hi) / 2
+        rad = float((hi - lo).max()) / 2 * 1.18
+        ax.set_xlim(c[0] - rad, c[0] + rad)
+        ax.set_ylim(c[1] - rad, c[1] + rad)
+        ax.set_zlim(c[2] - rad, c[2] + rad)
+        ax.set_box_aspect((1, 1, 1), zoom=1.5)
+        for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+            axis.set_pane_color((0.02, 0.02, 0.03, 1.0))
+            axis.line.set_color("#2e2e36")
+            axis._axinfo["grid"]["color"] = "#1e1e26"
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_zticklabels([])
+        ax.tick_params(length=0)
+        # no axis label: at this labelpad it collided with the footer, and the
+        # panel title plus the subtitle already say what the axes are
+        ax.view_init(elev=15, azim=-60)
+        panel_title(ax, title, width=32)
+
+    fig.subplots_adjust(left=0.005, right=0.995, top=top, bottom=0.135, wspace=0.0)
+    fig.text(
+        MARGIN,
+        0.062,
+        "The red cross is the origin. In the middle panel the cloud contains it — that is what "
+        "1024-dimensional randomness looks like. On the left the cloud sits entirely to one side, "
+        "with the gold arrow running from the origin out to the corpus mean.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    fig.text(
+        MARGIN,
+        0.034,
+        "Cosine similarity measures angle AT the origin, so when nothing surrounds the origin "
+        "every measurement inherits the lean. Panels are scaled independently — the question is "
+        "the shape, not the size.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    save(fig, "04-the-cone-drawn.png")
+
+
+def fig05(r: dict) -> None:
+    """Every note against every note, seriated. Structure hidden, then revealed."""
+    from scipy.cluster.hierarchy import leaves_list, linkage
+    from scipy.spatial.distance import squareform
+
+    X = np.load(SRC / "vectors.npz")["X"]
+    Xc = _unit(X - X.mean(0))
+
+    # one ordering, derived from the centred geometry, used for BOTH panels so
+    # the comparison is like-for-like rather than two different sortings
+    D = np.clip(1.0 - (Xc @ Xc.T), 0, None)
+    np.fill_diagonal(D, 0.0)
+    order = leaves_list(linkage(squareform(D, checks=False), method="average"))
+
+    G_raw = (X @ X.T)[np.ix_(order, order)]
+    G_cen = (Xc @ Xc.T)[np.ix_(order, order)]
+
+    fig, top = figure(
+        15.6,
+        8.6,
+        5,
+        "every note against every note",
+        "Same width, different content",
+        f"{len(X)}x{len(X)} cosine similarity  ·  rows ordered once by average-linkage on the "
+        f"centred distances and reused on the left  ·  each panel scaled to its own 1st-99th "
+        f"percentile, so what you are comparing is structure rather than absolute value",
+    )
+    gs = fig.add_gridspec(1, 2, left=0.04, right=0.925, top=top, bottom=0.135, wspace=0.13)
+
+    for k, (M, title) in enumerate(
+        [(G_raw, "as stored"), (G_cen, "after removing the shared direction")]
+    ):
+        iu = np.triu_indices(len(M), k=1)
+        lo, hi = np.percentile(M[iu], [1, 99])
+        ax = fig.add_subplot(gs[k])
+        im = ax.imshow(M, cmap="magma", vmin=lo, vmax=hi, interpolation="nearest")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for s in ax.spines.values():
+            s.set_color("#2e2e36")
+        cb = fig.colorbar(im, ax=ax, fraction=0.041, pad=0.015)
+        cb.ax.tick_params(colors=MUTED, labelsize=TICK_SIZE - 1)
+        cb.outline.set_edgecolor("#2e2e36")
+        cb.ax._is_colorbar = True
+        panel_title(ax, f"{title}  ·  range {lo:.2f} to {hi:.2f}", width=44)
+
+    # Two earlier captions here were wrong and the figure caught both. First:
+    # "the raw panel has no contrast" -- the spans are 0.42 and 0.43, so it has
+    # the same contrast. Then: "it is a pure translation" -- but a translation
+    # cannot move a z-score, and the z-scores moved a lot. The measurement
+    # below is what actually holds.
+    fig.text(
+        MARGIN,
+        0.052,
+        "Both panels are the same width (sd 0.086 and 0.089) and both carry the blocks — so the "
+        "offset is not burying structure. But it is not a simple shift either: raw and centred "
+        "pair similarities correlate at only 0.76, and 69% of the centred variation survives "
+        "removing a constant.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    fig.text(
+        MARGIN,
+        0.024,
+        "Same width, different content. Centring reshuffles WHICH pairs are alike rather than "
+        "moving them all together, which is why the tag scores moved so far while the block "
+        "structure stayed put.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    save(fig, "05-gram-matrix.png")
+
+
+def fig06(r: dict) -> None:
+    """How much of the sphere the corpus actually occupies."""
+    X = np.load(SRC / "vectors.npz")["X"]
+    rng = np.random.default_rng(r["seed"])
+    Y = _unit(rng.normal(size=X.shape))
+
+    mu = X.mean(0)
+    e = mu / np.linalg.norm(mu)
+    ang_real = np.degrees(np.arccos(np.clip(X @ e, -1, 1)))
+    my = Y.mean(0)
+    ang_iso = np.degrees(np.arccos(np.clip(Y @ (my / np.linalg.norm(my)), -1, 1)))
+
+    fig, top = figure(
+        16.5,
+        7.4,
+        6,
+        "how much sky the vault uses",
+        "Angle from the shared direction, against what randomness would give",
+        f"{len(X)} notes  ·  in {X.shape[1]} dimensions two random unit vectors are almost always "
+        f"near 90 degrees apart, which is why the control is a narrow spike",
+    )
+    gs = fig.add_gridspec(
+        1,
+        3,
+        width_ratios=[1.0, 1.0, 1.1],
+        left=0.045,
+        right=1 - MARGIN - 0.01,
+        top=top,
+        bottom=0.145,
+        wspace=0.26,
+    )
+
+    for k, (ang, name, col) in enumerate(
+        [(ang_real, "the vault", GOLD), (ang_iso, "isotropic control", DIM)]
+    ):
+        ax = fig.add_subplot(gs[k], projection="polar")
+        th = np.radians(ang)
+        counts, edges = np.histogram(th, bins=54, range=(0, np.pi / 2))
+        ax.bar(
+            (edges[:-1] + edges[1:]) / 2,
+            counts,
+            width=np.diff(edges),
+            color=col,
+            alpha=0.9,
+            edgecolor="none",
+        )
+        ax.set_thetamin(0)
+        ax.set_thetamax(90)
+        ax.set_facecolor("#000000")
+        ax.tick_params(colors=MUTED, labelsize=TICK_SIZE - 1)
+        ax.grid(color="#23232b", linewidth=0.7)
+        ax.set_yticklabels([])
+        panel_title(ax, f"{name}  ·  median {np.median(ang):.0f}°", width=34)
+
+    ax = fig.add_subplot(gs[2])
+    bins = np.linspace(0, 90, 60)
+    ax.hist(ang_real, bins=bins, color=GOLD, alpha=0.85, label="the vault")
+    ax.hist(ang_iso, bins=bins, color=DIM, alpha=0.85, label="isotropic")
+    ax.axvline(90, color=MUTED, linewidth=1.3, linestyle="--")
+    style_axes(ax)
+    ax.set_xlabel("angle from the shared direction (degrees)")
+    ax.set_ylabel("notes")
+    ax.legend(loc="upper left", fontsize=TICK_SIZE, framealpha=0.0, labelcolor=TEXT)
+    panel_title(
+        ax,
+        f"{np.median(ang_real):.0f}° versus {np.median(ang_iso):.0f}° — the vault leans, "
+        f"randomness does not",
+        width=52,
+    )
+
+    fig.text(
+        MARGIN,
+        0.045,
+        "High dimensions are counter-intuitive here: random vectors are nearly always orthogonal, "
+        "so the control piles up at 90 degrees. The vault sits about "
+        f"{90 - np.median(ang_real):.0f} degrees off that, every note, in the same direction.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    save(fig, "06-angular.png")
+
+
 def main() -> None:
     plt.style.use("dark_background")
     r = json.loads(RESULTS.read_text()) if RESULTS.exists() else analyze()
     fig01(r)
     fig02(r)
     fig03(r)
+    fig04(r)
+    fig05(r)
+    fig06(r)
 
 
 if __name__ == "__main__":
