@@ -196,6 +196,36 @@ Returns a structured `Enrichment` object:
 - `interest_tags` — lowercase hyphenated topic labels
 - `key_moments` — up to 8 timestamped moments specific enough to find from memory
 
+## arXiv ingestion convention (verified 2026-07-27)
+
+Never ingest an arXiv `/abs/` page. It succeeds and yields a near-useless note —
+abstract plus arXivLabs boilerplate, no paper — and the failure is silent, so
+search, `/quiz`, and concept notes all run against an abstract believing they
+hold the source. Rewrite first:
+
+| arXiv id | Ingest |
+|---|---|
+| `2312.*` and newer | `https://arxiv.org/html/<id>v1` |
+| older | `https://ar5iv.labs.arxiv.org/html/<id>` |
+
+Then **patch the frontmatter**: ar5iv extraction reliably yields an empty
+`author:` and a `date:` scraped from the references (measured 3/3 wrong, each
+differently — the 2020 Kaplan paper came out as 2015-11-01). Correct values come
+from the keyless arXiv API:
+
+```bash
+curl -sL "http://export.arxiv.org/api/query?id_list=<id>"   # <published>, <name>
+```
+
+Set `author:` (first author + ` et al.`), `date:`, and `arxiv:` as part of
+ingestion, not as later cleanup — a plausible-but-wrong date corrupts every
+date-sorted view silently. `transformer-circuits.pub`, `distill.pub`, and
+`gwern.net` need no rewrite and extract cleanly.
+
+Note that `sources/web/` notes carry no raw body (unlike `sources/youtube/`,
+which keeps `## Transcript`), so grounding a claim in the source means
+re-fetching `url:`. Tracked as part of #92; metadata gaps as part of #144.
+
 ## Obsidian Note Format (Phase 3)
 
 ```markdown
