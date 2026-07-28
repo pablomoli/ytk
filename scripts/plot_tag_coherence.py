@@ -994,6 +994,124 @@ def fig10(res: dict) -> None:
     save(fig, "10-tag-quality-3d.png")
 
 
+def _axes3d(ax, pts: np.ndarray, pad: float = 0.06) -> None:
+    """A 3D panel that reads as a CHART: visible panes, grid, ticks, labels.
+
+    fit3d() in plot_assets turns the axes off, which suits the fog renders where
+    the cloud is the whole subject. Here the question is where a tag sits inside
+    the space, so the box and its ticks are load-bearing.
+    """
+    lo, hi = pts.min(0), pts.max(0)
+    centre = (lo + hi) / 2
+    radius = float((hi - lo).max()) / 2 * (1 + pad)
+    ax.set_xlim(centre[0] - radius, centre[0] + radius)
+    ax.set_ylim(centre[1] - radius, centre[1] + radius)
+    ax.set_zlim(centre[2] - radius, centre[2] + radius)
+    ax.set_box_aspect((1, 1, 1), zoom=1.06)
+
+    pane = (0.03, 0.03, 0.04, 1.0)
+    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+        axis.set_pane_color(pane)
+        axis.line.set_color("#2e2e36")
+        axis._axinfo["grid"]["color"] = "#23232b"
+        axis._axinfo["grid"]["linewidth"] = 0.7
+    ax.tick_params(colors=MUTED, labelsize=TICK_SIZE - 2, pad=1.5)
+    ax.set_xlabel("UMAP 1", color=MUTED, fontsize=TICK_SIZE, labelpad=-4)
+    ax.set_ylabel("UMAP 2", color=MUTED, fontsize=TICK_SIZE, labelpad=-4)
+    ax.set_zlabel("UMAP 3", color=MUTED, fontsize=TICK_SIZE, labelpad=-4)
+    ax.set_facecolor("#000000")
+
+
+def fig11(res: dict) -> None:
+    """Figure 06 in three dimensions, on a real set of axes."""
+    X = np.load(OUTDIR / "vectors.npz")["X"]
+    meta = json.loads((OUTDIR / "tags.json").read_text())
+    labels = meta["labels"]
+    P = _umap3(X, res["seed"])
+
+    rows = res["tags"]
+    best, worst = rows[0], rows[-1]
+
+    fig, top = figure(
+        16.5,
+        9.6,
+        11,
+        "the same question, in three dimensions",
+        "Where does a tag actually sit inside the space?",
+        f"UMAP n_components=3, n_neighbors=15, min_dist=0.10, cosine, seed {res['seed']}  ·  "
+        f"identical layout in both panels, only the highlight changes  ·  "
+        f"spread = mean distance from the highlighted tag's own centroid",
+    )
+    gs = fig.add_gridspec(
+        1, 2, left=0.02, right=1 - MARGIN + 0.01, top=top, bottom=0.115, wspace=0.02
+    )
+
+    allspread = float(np.linalg.norm(P - P.mean(0), axis=1).mean())
+    for k, r in enumerate([best, worst]):
+        ok = r["z"] >= Z_PASS
+        hit = np.array([r["tag"] in ts for ts in labels])
+        ax = fig.add_subplot(gs[k], projection="3d")
+        ax.scatter(
+            P[~hit, 0],
+            P[~hit, 1],
+            P[~hit, 2],
+            s=9,
+            color=DIM,
+            alpha=0.40,
+            linewidths=0,
+            depthshade=True,
+        )
+        ax.scatter(
+            P[hit, 0],
+            P[hit, 1],
+            P[hit, 2],
+            s=42,
+            color=GOLD if ok else RED,
+            alpha=0.95,
+            linewidths=0,
+            depthshade=True,
+        )
+        # the highlighted tag's own centroid, and a hull-ish radius around it
+        c = P[hit].mean(0)
+        spread = float(np.linalg.norm(P[hit] - c, axis=1).mean())
+        ax.scatter(
+            [c[0]],
+            [c[1]],
+            [c[2]],
+            s=150,
+            facecolors="none",
+            edgecolors=GOLD if ok else RED,
+            linewidths=1.8,
+            zorder=8,
+        )
+        _axes3d(ax, P)
+        ax.view_init(elev=20, azim=44)
+        panel_title(
+            ax,
+            f"{r['tag']}  ·  n={r['n']}  ·  z={r['z']:+.1f}  ·  "
+            f"spread {spread:.1f} vs {allspread:.1f} for the corpus",
+            width=60,
+        )
+
+    fig.text(
+        MARGIN,
+        0.052,
+        "The ring marks each tag's own centre of mass. On the left the points sit around it; on "
+        "the right the centre is an artifact of averaging things that are nowhere near each other.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    fig.text(
+        MARGIN,
+        0.024,
+        "Rotating the view does not rescue the right-hand panel — there is no angle from which "
+        "'reference' looks like a cluster, which is what z = -3.4 means geometrically.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    save(fig, "11-sprayed-3d.png")
+
+
 def main() -> None:
     res = json.loads((OUTDIR / "results.json").read_text())
     plt.style.use("dark_background")
@@ -1007,6 +1125,7 @@ def main() -> None:
     fig08(res)
     fig09(res)
     fig10(res)
+    fig11(res)
 
 
 if __name__ == "__main__":

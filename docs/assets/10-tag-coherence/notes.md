@@ -138,6 +138,9 @@ sources genuinely differ. The mosaic localizes where to look, nothing more.
 - `06-sprayed-or-clustered.png` — UMAP of all 493 notes, twice, highlighting the best and worst tag. The picture of z = −3.4
 - `07-retrieval.png` — neighbour purity, and its agreement with cohesion
 - `08-mosaic.png` — tag vocabulary by source, tiles area-proportional, coloured by chi-square residual
+- `09-corpus-3d.png` — the corpus as a solid, four angles, coloured by source
+- `10-tag-quality-3d.png` — five dimensions: 3D position, colour by a note's mean tag z, size by tag count
+- `11-sprayed-3d.png` — figure 06 on real 3D axes. Spread 1.0 vs 1.8 against a corpus baseline of 1.9, with each tag's centre of mass ringed
 
 ## Sidecars
 
