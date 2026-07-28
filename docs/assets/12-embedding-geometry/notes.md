@@ -1,0 +1,129 @@
+# Post material — the vault's embedding space is a cone, not a ball
+
+Working notes. Figures 01–03. Reproducible from the frozen `vectors.npz` in
+`../10-tag-coherence/` via `scripts/embedding_geometry.py`.
+
+Read-only: reads a frozen array. Touches neither the vault nor Chroma.
+
+## The question
+
+*Toy Models of Superposition* asks what a network does when it has more features
+than dimensions. This asks the inverse of the vault's own space: **69 tag
+concepts live in 1024 dimensions.** They could all be mutually orthogonal with
+enormous room to spare. Are they?
+
+The number that prompted it: in the tag-coherence experiment, the median cosine
+between any two tag centroids was **0.70**. That looks like a space so crowded
+that every concept overlaps every other one.
+
+## The finding
+
+It isn't crowded. It's **offset**.
+
+| | as stored | after centring |
+|---|---|---|
+| mean cosine between two notes | **+0.259** | −0.002 |
+| median cosine between two tag centroids | **+0.699** | **−0.057** |
+| length of the corpus mean vector | **0.510** | — |
+| …if the notes were spread evenly | 0.045 | — |
+
+Every note sits at cosine **0.51** from a single shared direction. That one
+component is most of what any two notes have in common — and it is the same for
+all of them, so it carries no information at all. Subtract it and the tag
+centroids are essentially orthogonal.
+
+> The space was never crowded. There was one enormous shared offset sitting on
+> top of it, and everything else was measured through that.
+
+This is the anisotropy that Ethayarajh and Mu & Viswanath describe in language
+model embeddings, showing up in a personal vault at full strength.
+
+## What is behind the offset
+
+Removing the shared direction does **not** leave a low-dimensional remnant:
+
+- **participation ratio 104** of 1024 dimensions
+- the top component explains only **4.1%**
+- 30 components reach 41%, 100 reach 72%
+
+So: one enormous removable offset, and behind it a genuinely high-dimensional
+cloud using roughly a hundred effective directions. The offset is an artifact.
+The hundred dimensions are real.
+
+## What the offset was hiding
+
+Scoring every tag against a size-matched null **in each geometry**:
+
+| | as stored | centred |
+|---|---|---|
+| mean z | 5.4 | **23.0** |
+| median z | 4.9 | 16.7 |
+| tags passing z > 2 | 58 of 69 | **69 of 69** |
+
+The shared component was compressing the entire dynamic range. `ai-coding` goes
+from +17 to +61; `creative-coding` from +12 to +74.
+
+**This is an actionable retrieval result.** Centring the stored vectors — a
+subtraction, no retraining — would sharply increase how well tags separate.
+Whether it improves *search* is the obvious next test, and the retrieval eval
+gate is the instrument for it.
+
+Note that stripping the leading principal components as well (all-but-the-top)
+makes things **worse**, not better: mean z falls back to 5.9. The common mean is
+the problem; the top components are signal.
+
+## The correction this forces
+
+The tag-coherence write-up reported "the 16 most redundant label pairs" with
+values above 0.97. Those were measured on **uncentred** vectors, where every
+pair starts at 0.70.
+
+Recomputed after centring, the list mostly survives — `ai-coding + ai-agents`,
+`ai-agents + claude-code`, `neuroscience + cognitive-science`, `diy + gizmo` all
+stay in the top ten — but the values drop to ~0.93 and the order shifts.
+`mma + combat-sports` rises from #7 to #1. `education + learning` falls out
+entirely, precisely because both are generic tags sitting near the corpus mean,
+which is what inflated them.
+
+So: merge-these conclusion holds, the numbers were inflated.
+
+## And it complicates the `reference` headline
+
+`reference` scored z = −3.4 as stored — *anti*-coherent, notes sharing it less
+alike than random. After centring it scores **positive**.
+
+The honest reading is the observed value, not the sign:
+
+    as stored   reference +0.239   vs a null of +0.259
+    centred     reference +0.003   vs ai-coding +0.139
+
+Centred, notes sharing `reference` sit at **+0.003 — orthogonality**. They have
+nothing in common beyond what the whole corpus shares. Both geometries agree on
+the substance; they disagree on the sign, because centring forces a slightly
+negative null.
+
+> A tag that fails is not one that clusters badly. It is one whose notes are
+> unrelated to each other.
+
+## Caveats
+
+- **Rank correlation between the two geometries is only +0.61.** This is a real
+  reordering, not a rescaling. Which ranking is "right" depends on which space
+  you search in — and ytk searches the stored one, so the uncentred numbers are
+  the operationally relevant ones today.
+- **`reference`'s centred z is unstable across RNG seeds** (2.3 in one run, 7 in
+  another) because at n=125 the null's standard deviation is tiny and z divides
+  by it. The observed similarity is stable at +0.003; prefer it.
+- **One corpus, one encoder.** Specific to the v2 Qwen3/1024d epoch.
+- **Centring is measured here on tag separation, not on retrieval.** They are
+  related but not the same thing, and only the eval gate settles the second.
+
+## Figures
+
+- `01-the-cone.png` — the corpus does not fill its sphere; the mean vector is 11x longer than chance allows
+- `02-spectrum.png` — participation ratio 104 of 1024, no small set of directions carries the corpus
+- `03-dynamic-range.png` — every tag's z before and after centring, and the observed similarities behind it
+
+## Sidecar
+
+- `results.json` — isotropy stats, the spectrum, centroid similarities in both geometries, and per-tag observed/null/z for each
