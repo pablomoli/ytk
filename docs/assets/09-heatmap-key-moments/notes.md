@@ -21,14 +21,19 @@ becomes a measurement.
 
 ## The result
 
-| | mean replay intensity | lift over null |
-|---|---|---|
-| random offsets | 0.258 | — |
-| **generated key moments** | **0.302** | **+0.044** |
-| uploader's own chapters | 0.390 | +0.132 |
+| | mean replay intensity | lift over null | 95% CI |
+|---|---|---|---|
+| random offsets | 0.258 | — | |
+| **generated key moments** | **0.302** | **+0.044** | [+0.034, +0.053] |
+| uploader's own chapters | 0.390 | +0.121 | [+0.102, +0.140] |
 
 156 videos with a heatmap, 3,024 key moments, null = 200 uniform draws per
 video against that video's own curve (seed 20260728).
+
+Both intervals exclude zero, and they do not overlap each other — so "the
+timestamps beat chance" and "chapters beat the timestamps" are both real, not
+artifacts of a noisy mean. The win rate is 119/156 (76.3%), a sign test at
+z = 6.6.
 
 **The timestamps are better than chance, on 76% of videos, and they reach about
 a third of the lift a human uploader gets from the same curve.**
@@ -52,25 +57,48 @@ surfaced without a reference point.
 > We had been paying a model to approximate a signal we were already
 > downloading and discarding.
 
-## The actionable finding
+## The finding I nearly published, and why it did not survive
 
-Figure 03 was built to kill the result, not to support it — if lift tracked
-video duration, the experiment would be measuring the shape of long-video
-heatmaps rather than the quality of the timestamps.
+Figure 03 was built to kill the result, not support it — if lift tracked video
+duration, the experiment would be measuring the shape of long-video heatmaps
+rather than timestamp quality. It survived that (**r = +0.02**, flat).
 
-It survived that check (**r = +0.02** against duration, flat) and turned up
-something else on the way:
+On the way it turned up **lift falling as mark count rises, r = −0.15**, which
+came with a ready-made story: forty marks on a 78-minute video is a mark every
+two minutes, approaching uniform coverage, and uniform coverage cannot beat a
+uniform null by construction. Figure 02 seemed to show it — the best video has
+10 moments, the worst has 21.
 
-**lift falls as the number of marks rises — r = −0.15.**
+**It does not hold.** Checked properly:
 
-Which is obvious once seen. Forty marks on a 78-minute video is a mark every two
-minutes, approaching uniform coverage, and uniform coverage cannot beat a
-uniform null by construction. Figure 02 shows it directly: the best video has 10
-moments and +0.339, the worst has 21 and −0.061.
+- r = −0.1496, **p = 0.060**. At n = 156, |r| must exceed **0.156** for p < 0.05.
+  It lands just under the bar.
+- n_moments alone explains **2.2%** of the variance in lift.
+- A regression on n_moments + duration + heatmap peakiness reaches **R² = 0.040**.
+  Four percent. Essentially nothing is being explained.
+- Duration quartiles are non-monotone: +0.047, +0.022, +0.054, +0.051.
+- And the sign flips under the obvious reparameterization — marks **per minute**
+  correlates **+0.14**, the opposite direction. If dilution were the mechanism,
+  density is exactly the variable that should have carried it.
 
-The enrichment prompt says "up to 8 timestamped moments." Notes in the corpus
-carry 40. Whatever is or isn't enforcing that cap, the data says the cap was the
-right instinct — **fewer, more selective marks should score better.**
+The dilution story was plausible, had a mechanism, and had a worked example. It
+was still noise. Figure 03 now draws both fits dashed and states the noise floor
+on the panel, so the picture cannot imply a finding the arithmetic does not
+support.
+
+## The real find in the same territory
+
+Separately, and not statistical: `CLAUDE.md` claimed enrichment emits "up to 8
+timestamped moments." The live prompt in `ytk/enrich.py` says the opposite —
+*"Include as many as the content warrants; scale to length"* — with no cap
+anywhere. Notes in the corpus carry 40.
+
+That is documentation drift, worth fixing on its own terms. It is **not**
+evidence that a cap would help; this experiment cannot distinguish "fewer marks"
+from "better-chosen marks," and random subsampling could not either, since the
+expected mean of a random subset equals the mean of the full set. Testing a cap
+means generating new enrichments under a capped prompt and re-scoring — a real
+A/B, not a reanalysis of this data.
 
 ## The caveat that belongs in the post
 
@@ -88,11 +116,12 @@ videos is untested and unknowable by this method.
    rendered in the terminal, and never written to the note — they only survive
    when an uploader happens to duplicate their timestamps into the description.
    They are the strongest signal measured here.
-3. **Cap key moments harder.** The density correlation says selectivity is what
-   is being lost.
+3. **Fix the stale cap in the docs**, and decide deliberately whether the prompt
+   should have one. The data does not settle it — see above.
 4. A heatmap in the note also makes this experiment rerunnable per-video, which
    turns key-moment quality into something the enrichment eval can regress on
-   rather than a one-off study.
+   rather than a one-off study. That is also what would make a capped-prompt A/B
+   cheap enough to actually run.
 
 ## Figures
 

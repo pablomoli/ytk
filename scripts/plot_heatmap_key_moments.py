@@ -154,11 +154,14 @@ def fig01(res: dict) -> None:
     ax.set_xlabel("lift over that video's own null")
     ax.set_ylabel("videos")
     ax.legend(loc="upper right", fontsize=TICK_SIZE, framealpha=0.0, labelcolor=TEXT)
+    se = lift.std(ddof=1) / np.sqrt(len(lift))
+    se_ch = ch_lift.std(ddof=1) / np.sqrt(len(ch_lift))
     panel_title(
         ax,
-        f"key moments {lift.mean():+.3f} (sd {lift.std(ddof=1):.3f})  ·  "
-        f"chapters {ch_lift.mean():+.3f}",
-        width=52,
+        f"key moments {lift.mean():+.3f} [{lift.mean() - 1.96 * se:+.3f}, "
+        f"{lift.mean() + 1.96 * se:+.3f}]  ·  chapters {ch_lift.mean():+.3f} "
+        f"[{ch_lift.mean() - 1.96 * se_ch:+.3f}, {ch_lift.mean() + 1.96 * se_ch:+.3f}]",
+        width=58,
     )
 
     fig.text(
@@ -265,6 +268,11 @@ def fig03(res: dict) -> None:
         1, 3, left=0.055, right=1 - MARGIN - 0.015, top=top, bottom=0.135, wspace=0.30
     )
 
+    # |r| this size is inside the noise floor at this n; state the threshold on
+    # the panel rather than letting a drawn trend line imply a finding.
+    n = len(lift)
+    crit = 1.96 / np.sqrt(n - 2 + 1.96**2)
+
     for ax_i, (x, xlabel, title) in enumerate(
         [
             (dur, "video length (minutes)", "lift vs duration"),
@@ -276,10 +284,18 @@ def fig03(res: dict) -> None:
         ax.axhline(0, color=MUTED, linewidth=1.2)
         if len(x) > 2 and x.std() > 0:
             r = float(np.corrcoef(x, lift)[0, 1])
+            sig = abs(r) > crit
             slope, intercept = np.polyfit(x, lift, 1)
             xs = np.linspace(x.min(), x.max(), 50)
-            ax.plot(xs, slope * xs + intercept, color=CYAN, linewidth=1.6, alpha=0.9)
-            title = f"{title}  ·  r = {r:+.2f}"
+            ax.plot(
+                xs,
+                slope * xs + intercept,
+                color=CYAN if sig else DIM,
+                linewidth=1.6,
+                alpha=0.9,
+                linestyle="-" if sig else "--",
+            )
+            title = f"{title}  ·  r = {r:+.2f} ({'significant' if sig else 'n.s.'})"
         style_axes(ax)
         ax.set_xlabel(xlabel)
         ax.set_ylabel("lift over null")
@@ -306,7 +322,15 @@ def fig03(res: dict) -> None:
 
     fig.text(
         MARGIN,
-        0.045,
+        0.052,
+        f"Neither trend clears the noise floor: at n={n}, |r| must exceed {crit:.2f} for p<0.05. "
+        "Dashed fits are not findings.",
+        color=MUTED,
+        fontsize=9.5,
+    )
+    fig.text(
+        MARGIN,
+        0.022,
         "Videos without a heatmap are not a random sample: YouTube withholds the curve on "
         "low-view videos, so this measures the popular half of the corpus.",
         color=MUTED,

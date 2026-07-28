@@ -194,7 +194,10 @@ Returns a structured `Enrichment` object:
 - `key_concepts` — tools, commands, APIs, techniques with one-sentence explanations of how each was used in this specific video (max 8)
 - `insights` — 2–3 specific things worth remembering: gotchas, non-obvious tradeoffs, surprising techniques
 - `interest_tags` — lowercase hyphenated topic labels
-- `key_moments` — up to 8 timestamped moments specific enough to find from memory
+- `key_moments` — timestamped moments specific enough to find from memory. **No cap**: the
+  prompt says "include as many as the content warrants; scale to length", and notes in the
+  corpus carry up to 40. Whether a cap would help is untested — see
+  `docs/assets/09-heatmap-key-moments/notes.md`
 
 ## arXiv ingestion convention (verified 2026-07-27)
 
