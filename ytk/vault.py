@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import urllib.request
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -1189,82 +1190,121 @@ def append_daily_digest(note_path: Path, tags: list[str], thought: str) -> Path:
     return digest
 
 
-def reindex_vault(force: bool = False) -> int:
+# Trees another writer owns. Scanning one either duplicates its content under a
+# second, path-derived id or fights the owner for the same id (#147).
+_OWNED_ELSEWHERE = (
+    "sources/youtube",  # store.upsert, at ingest time
+    "sources/screenshots",  # snap.py upsert_memory as shot_<ts>; bodies are sub-MIN_EMBED_CHARS
+    "inbox/memos",  # memo.py upsert_memory as memo_<stem>
+)
+
+# Deliberately outside the searchable surface (#93).
+_NOT_SEARCHABLE = ("inbox/archived",)
+
+# Generated listings. Indexing an index makes it the answer to every query.
+_GENERATED = ("wiki/index.md",)
+
+
+def scan_exclusion(rel: Path) -> str | None:
+    """Why this vault file is not reindex_vault's to index, or None if it is.
+
+    Named reasons rather than one directory list: the three categories fail
+    differently, and collapsing them is what let notes/, me/, study/, and
+    vision-board/ sit unindexed while reindex reported success (#147).
     """
-    Scan vault directories and bulk-upsert changed .md files into ChromaDB.
-    Skips sources/youtube/ (indexed separately by store.upsert).
-    Skips files whose SHA256 hash matches the cache unless force=True.
-    Returns count of notes indexed.
+    posix = rel.as_posix()
+    for prefix in _OWNED_ELSEWHERE:
+        if posix == prefix or posix.startswith(prefix + "/"):
+            return "owned-elsewhere"
+    for prefix in _NOT_SEARCHABLE:
+        if posix == prefix or posix.startswith(prefix + "/"):
+            return "not-searchable"
+    if posix in _GENERATED:
+        return "generated"
+    parts = rel.parts
+    if parts[:2] == ("inbox", "memories") and (rel.name == "index.md" or "archived" in parts[2:-1]):
+        return "not-searchable"
+    return None
+
+
+@dataclass
+class ReindexReport:
+    """What a reindex pass actually covered.
+
+    Exists so "Indexed: 0 notes" can never again mean "your tree is not in the
+    scan list" (#147). Every .md under the brain path is either indexed,
+    unchanged, empty, or excluded for a named reason — and the four sum to
+    total_md, which is asserted by the caller-facing summary.
+    """
+
+    indexed: int = 0
+    unchanged: int = 0
+    empty: int = 0
+    excluded: dict[str, int] = field(default_factory=dict)
+    total_md: int = 0
+
+    @property
+    def considered(self) -> int:
+        return self.indexed + self.unchanged + self.empty
+
+    def summary(self) -> str:
+        parts = [f"{self.indexed} indexed", f"{self.unchanged} unchanged"]
+        if self.empty:
+            parts.append(f"{self.empty} empty")
+        for reason, n in sorted(self.excluded.items()):
+            parts.append(f"{n} {reason}")
+        return f"{self.total_md} notes under the vault: " + ", ".join(parts)
+
+
+def reindex_vault_report(force: bool = False) -> ReindexReport:
+    """Scan every .md under the vault and upsert the changed ones into ChromaDB.
+
+    Recursive by default with a named exclusion list, rather than an allowlist
+    of directories: a new tree is covered the day it is created instead of the
+    day someone notices it was never searchable.
+
+    Skips files whose SHA256 matches the cache unless force=True.
     """
     from .cache import file_hash, load_index_cache, save_index_cache, update_cache_entry
     from .store import strip_frontmatter, upsert_doc  # deferred: chromadb costs ~330ms (#146)
 
     brain = _get_brain_path()
-    scan_dirs = [
-        "inbox/memories",
-        "inbox",
-        "projects",
-        "decisions",
-        "debugging",
-        "tools",
-        "sources/instagram",
-        "sources/web",
-        "sources/journal",
-        "sources/tiktok",
-        "sources/reddit",
-        "sources/pinterest",
-        # sources/screenshots stays out: shot notes are sub-40-char stubs
-        # indexed via upsert_memory; scanning them would delete their vectors
-        # (upsert_doc clears anything under MIN_EMBED_CHARS).
-    ]
-    seen_paths: set[str] = set()
-    count = 0
-
+    report = ReindexReport()
     cache = load_index_cache()
 
-    for subdir in scan_dirs:
-        d = brain / subdir
-        if not d.exists():
+    for md_file in sorted(brain.rglob("*.md")):
+        report.total_md += 1
+        rel = md_file.relative_to(brain)
+
+        reason = scan_exclusion(rel)
+        if reason:
+            report.excluded[reason] = report.excluded.get(reason, 0) + 1
             continue
-        pattern = "*.md" if subdir == "inbox" else "**/*.md"
-        for md_file in d.glob(pattern):
-            str_path = str(md_file)
-            if str_path in seen_paths:
-                continue
-            seen_paths.add(str_path)
 
-            rel = md_file.relative_to(brain)
+        str_path = str(md_file)
+        if not force and cache.get(str_path) == file_hash(md_file):
+            report.unchanged += 1
+            continue
 
-            # Memory-atom MOCs are wikilink boilerplate. Archived memories
-            # are intentionally outside the searchable surface (#93).
-            is_memory = rel.parts[:2] == ("inbox", "memories")
-            if is_memory and (md_file.name == "index.md" or "archived" in rel.parts[2:-1]):
-                continue
-
-            if not force:
-                current_hash = file_hash(md_file)
-                if cache.get(str_path) == current_hash:
-                    continue
-
-            content = md_file.read_text(encoding="utf-8")
-            doc_id = vault_note_doc_id(md_file, brain, content)
-            body = strip_frontmatter(content)
-            if not body.strip():
-                update_cache_entry(md_file, cache)
-                continue
-            parts = str(rel).split("/")
-            tags = parts[:-1]
-            upsert_doc(
-                doc_id,
-                body,
-                {
-                    "doc_id": doc_id,
-                    "tags": ", ".join(tags),
-                    "source_path": str_path,
-                },
-            )
+        content = md_file.read_text(encoding="utf-8")
+        body = strip_frontmatter(content)
+        if not body.strip():
             update_cache_entry(md_file, cache)
-            count += 1
+            report.empty += 1
+            continue
+
+        doc_id = vault_note_doc_id(md_file, brain, content)
+        upsert_doc(
+            doc_id,
+            body,
+            {
+                "doc_id": doc_id,
+                "tags": ", ".join(str(rel).split("/")[:-1]),
+                "source_path": str_path,
+            },
+        )
+        update_cache_entry(md_file, cache)
+        report.indexed += 1
 
     # Remove stale entries for deleted files
     stale = [p for p in list(cache) if not Path(p).exists()]
@@ -1272,7 +1312,12 @@ def reindex_vault(force: bool = False) -> int:
         del cache[p]
 
     save_index_cache(cache)
-    return count
+    return report
+
+
+def reindex_vault(force: bool = False) -> int:
+    """Count-only wrapper over :func:`reindex_vault_report`."""
+    return reindex_vault_report(force=force).indexed
 
 
 def vault_note_doc_id(note_path: Path, brain: Path, content: str | None = None) -> str:

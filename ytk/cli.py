@@ -1073,7 +1073,7 @@ def memo_cmd(ctx: click.Context, dry_run: bool, text: str, quick: bool, from_aud
 @click.option("--force", is_flag=True, default=False, help="Re-embed all files, ignoring cache.")
 def reindex_cmd(force: bool):
     """Index all vault notes into ChromaDB for semantic search."""
-    from .vault import _get_brain_path, reindex_vault
+    from .vault import _get_brain_path, reindex_vault_report
 
     try:
         _get_brain_path()
@@ -1083,9 +1083,12 @@ def reindex_cmd(force: bool):
 
     label = "Re-indexing all vault notes..." if force else "Indexing changed vault notes..."
     with console.status(f"[bold cyan]{label}[/]"):
-        count = reindex_vault(force=force)
+        report = reindex_vault_report(force=force)
 
-    console.print(f"[bold green]Indexed:[/] {count} notes")
+    console.print(f"[bold green]Indexed:[/] {report.indexed} notes")
+    # Always print the scope. "Indexed: 0" is ambiguous on its own -- it reads as
+    # "nothing changed" when it can also mean "your tree was never in scope" (#147).
+    console.print(f"[dim]{report.summary()}[/]")
 
 
 @cli.command(name="graph")
