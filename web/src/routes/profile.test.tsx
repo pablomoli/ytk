@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 
 vi.mock("@tanstack/react-router", () => ({
@@ -80,6 +80,16 @@ test("renders the portrait prose below the categories", () => {
   expect(screen.getByText("You are an engineer-maker.")).toBeInTheDocument();
   const themes = container.querySelector(".profile-themes");
   expect(themes!.compareDocumentPosition(prose!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test("open state has one owner: band click opens a row, summary click closes it again", () => {
+  const { container } = renderPage();
+  const row = container.querySelector<HTMLDetailsElement>("#theme-agentic-ai-coding-craft")!;
+  expect(row.open).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "open Agentic AI coding craft" }));
+  expect(row.open).toBe(true);
+  fireEvent.click(row.querySelector("summary")!);
+  expect(row.open).toBe(false);
 });
 
 test("has no onboarding/self-explanation block", () => {

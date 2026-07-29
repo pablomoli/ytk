@@ -40,10 +40,14 @@ function ThemeRow({
   theme,
   rank,
   maxWeight,
+  open,
+  onToggle,
 }: {
   theme: ProfileTheme;
   rank: number;
   maxWeight: number;
+  open: boolean;
+  onToggle: () => void;
 }) {
   const share = Math.round(theme.weight * 100);
   const scale = theme.weight / maxWeight;
@@ -51,10 +55,23 @@ function ThemeRow({
   const freshFrac = theme.n_notes ? fresh / theme.n_notes : 0;
   const strip = theme.exemplars.filter((e) => e.thumb);
   return (
-    <details id={`theme-${theme.id}`} className="profile-theme group border-b border-line py-2">
+    <details
+      id={`theme-${theme.id}`}
+      open={open}
+      className="profile-theme group border-b border-line py-2"
+    >
       {/* fixed 10.5rem counts column: with max-content every row's track had a
           different width and bar lengths stopped being comparable */}
-      <summary className="grid cursor-pointer list-none items-center gap-x-4 [grid-template-columns:minmax(13rem,19rem)_1fr_10.5rem_8.5rem]">
+      <summary
+        onClick={(e) => {
+          // preventDefault keeps the browser from toggling the DOM attribute
+          // itself; open state has exactly one owner (React), so the spectrum
+          // strip and the summary can never disagree about what is open.
+          e.preventDefault();
+          onToggle();
+        }}
+        className="grid cursor-pointer list-none items-center gap-x-4 [grid-template-columns:minmax(13rem,19rem)_1fr_10.5rem_8.5rem]"
+      >
         <span className="truncate text-[1.02rem] text-ink" title={theme.label}>
           <span className="count mr-2 inline-block w-5 text-right text-mute">{rank}</span>
           {theme.label}
@@ -114,6 +131,27 @@ function ProfilePage() {
   const profile = useProfile();
   const run = useRunProfile();
   const [confirmSynth, setConfirmSynth] = useState(false);
+  const [openThemes, setOpenThemes] = useState<ReadonlySet<string>>(new Set());
+
+  const toggleTheme = (id: string) =>
+    setOpenThemes((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  const revealTheme = (id: string) => {
+    setOpenThemes((prev) => new Set(prev).add(id));
+    // after React commits the expansion, so centering sees the final height
+    requestAnimationFrame(() =>
+      document.getElementById(`theme-${id}`)?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block: "center",
+      }),
+    );
+  };
 
   if (profile.isLoading)
     return (
@@ -194,12 +232,7 @@ function ProfilePage() {
                 type="button"
                 title={`${i + 1} · ${theme.label} — ${Math.round(theme.weight * 100)}%`}
                 aria-label={`open ${theme.label}`}
-                onClick={() => {
-                  const row = document.getElementById(`theme-${theme.id}`) as HTMLDetailsElement;
-                  if (!row) return;
-                  row.open = true;
-                  row.scrollIntoView({ behavior: "smooth", block: "center" });
-                }}
+                onClick={() => revealTheme(theme.id)}
                 className={`${BAND_CLASSES[i % BAND_CLASSES.length]} flex min-w-[1.4rem] cursor-pointer items-center gap-1.5 overflow-hidden border-0 px-1.5 transition-opacity duration-150 ease-hub hover:opacity-80`}
                 style={{ flexGrow: pct, flexBasis: 0 }}
               >
@@ -214,7 +247,14 @@ function ProfilePage() {
           <section className="profile-themes">
             <h2 className="stat m-0 pb-2 text-mute">attention by theme</h2>
             {data.themes.map((theme, i) => (
-              <ThemeRow key={theme.id} theme={theme} rank={i + 1} maxWeight={maxWeight} />
+              <ThemeRow
+                key={theme.id}
+                theme={theme}
+                rank={i + 1}
+                maxWeight={maxWeight}
+                open={openThemes.has(theme.id)}
+                onToggle={() => toggleTheme(theme.id)}
+              />
             ))}
           </section>
           <section className="profile-prose border-line max-lg:border-t max-lg:pt-6 lg:border-l lg:pl-10">
