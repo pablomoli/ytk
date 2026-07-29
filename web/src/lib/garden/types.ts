@@ -54,4 +54,13 @@ export type ColonizeOptions = {
   rand: () => number;
   // optional lateral wobble per step, in world units
   jitter?: number;
+  // optional upward tilt added to each step, as a fraction of `step`
+  upBias?: number;
+  // steps a limb of the given branch order must run before it may fork
+  bareRun?: (order: number) => number;
+  // cosine spread past which a node's attractors are two branches, by order;
+  // higher splits more readily, so fine twigs fork on a narrower divergence
+  splitCos?: (order: number) => number;
+  // internode length by branch order, defaulting to `step` at every order
+  stepFor?: (order: number) => number;
 };

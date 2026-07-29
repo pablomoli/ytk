@@ -48,9 +48,10 @@ const PERSIST_EPS = 1e-6;
 // A tip on the crown axis has no meaningful azimuth, so its sector stops
 // bounding where stage 2 scatters attractors.
 const MIN_RADIAL_SHARE = 0.4;
-// Outer fraction of a limb that carries twigs, and how many seeds are taken
-// from it. The inner span stays bare, as on a real branch.
-const SEED_SPAN = 0.6;
+// Bare run before a limb carries anything, as a fraction of its own length.
+// Falls with order: the further out, the sooner a real branch starts branching.
+const BARE_BASE = 0.45;
+const BARE_DECAY = 0.5;
 const MAX_SEEDS = 6;
 // Pseudo-lobes for a one-node dendrogram. Thresholds are note counts, so a
 // two-note bucket does not get the branch count of a twenty-note one.
@@ -61,6 +62,8 @@ const SYNTH_STEP_B = 24;
 const LIMB_FILL = 0.85;
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
+const clampSlope = (v: number): number =>
+  v < -CLIMB_MAX ? -CLIMB_MAX : v > CLIMB_MAX ? CLIMB_MAX : v;
 
 const randomUnit = (rand: () => number): Vector3 => {
   const z = rand() * 2 - 1;
@@ -78,8 +81,21 @@ type LimbSpec = {
   steps: number;
   // planned world length; the sag load and ramp are both measured against it
   length: number;
+  // point inside the envelope the limb climbs toward; null on the trunk
+  target: Vector3 | null;
 };
 
+// Rise per unit outward run the limb aims for. 1 launches at 45 degrees from
+// vertical; the envelope shell caps it wherever there is less headroom.
+const CLIMB_RATIO = 1.5;
+// Cap on the aim slope, so a limb forking just under the shell does not launch
+// vertical and stall against it on its first step.
+const CLIMB_MAX = 2;
+// Exponent on the sag ramp that fades the climb out. The first step is at ramp
+// zero either way, so this shapes the arc without touching the launch angle.
+const CLIMB_FADE = 3;
+// Share of the climb a limb at the crown base still gets; the apex gets all.
+const CLIMB_LOW = 0.27;
 // Fraction of a limb over which sag reaches full strength. Past the midpoint
 // the order gradient lifts the inner half faster than droop overtakes it.
 const SAG_RAMP = 0.25;
@@ -89,12 +105,15 @@ const FLOOR_BAND = 0.3;
 
 const smoothstep = (t: number): number => t * t * (3 - 2 * t);
 
+export const bareFraction = (order: number): number =>
+  BARE_BASE * Math.pow(BARE_DECAY, Math.max(0, order - 1));
+
 // Evenly spaced nodes over the limb's outer span, tip always included.
-const limbSeeds = (chain: SkelNode[]): SkelNode[] => {
+const limbSeeds = (chain: SkelNode[], order: number): SkelNode[] => {
   if (chain.length === 0) return [];
   // Measured over the gaps, not the nodes: on a three-node limb the node form
   // hands over a single seed, which is a tenth of the limb rather than 0.6.
-  const tail = chain.slice(Math.max(0, Math.floor((chain.length - 1) * (1 - SEED_SPAN))));
+  const tail = chain.slice(Math.max(0, Math.floor((chain.length - 1) * bareFraction(order))));
   if (tail.length <= MAX_SEEDS) return tail;
   return Array.from(
     { length: MAX_SEEDS },
@@ -197,9 +216,20 @@ export function growScaffold(
       const ramp = clamp01(limbLength / Math.max(1e-6, SAG_RAMP * env.radius));
       // The trunk carries the crown; drooping it would fold the whole tree.
       const droop = spec.order === 0 ? 0 : sag * ramp * (1 - height);
-      // One signed scalar carries both tropisms; adding two opposed unit
+      // Slope of the line from here to the aim point. `outward` is a unit
+      // horizontal, so this scalar is literally the tangent of the climb angle.
+      let climb = 0;
+      if (spec.target) {
+        const run = Math.hypot(spec.target.x - from3.x, spec.target.z - from3.z);
+        // Fades on the same ramp that raises the droop: a persistent climb
+        // outpulls sag for the whole limb and no limb ever comes back down.
+        climb =
+          clampSlope((spec.target.y - from3.y) / Math.max(1e-6, run)) *
+          Math.pow(1 - ramp, CLIMB_FADE);
+      }
+      // One signed scalar carries all three tropisms; adding opposed unit
       // vectors would cancel to noise at the crossover.
-      let vertical = upPull - droop;
+      let vertical = upPull + climb - droop;
       // Soft floor: the downward pull dies off as the limb nears sagFloor, so
       // it eases into a shallow curve on its own and never has to be cut.
       if (vertical < 0) vertical *= smoothstep(clamp01((from3.y - params.sagFloor) / floorBand));
@@ -254,6 +284,7 @@ export function growScaffold(
       Math.ceil((env.center.y + env.halfHeight * TRUNK_TOP - origin.y) / stepScale),
     ),
     length: Math.max(stepScale, env.center.y + env.halfHeight * TRUNK_TOP - origin.y),
+    target: null,
   };
   const trunk = growLimb(root, new Vector3(0, 1, 0), trunkSpec);
 
@@ -274,7 +305,7 @@ export function growScaffold(
         clusterId: node.id,
         mass: node.mass,
         tip,
-        seeds: limbSeeds(chain),
+        seeds: limbSeeds(chain, order),
         azimuth,
         halfAngle,
       });
@@ -286,7 +317,7 @@ export function growScaffold(
     const candidates =
       order === 0
         ? chain.filter((n) => n.position.y >= forkBase)
-        : chain.slice(Math.floor(chain.length * 0.35));
+        : chain.slice(Math.floor(chain.length * bareFraction(order)));
     const sites = candidates.length > 0 ? candidates : [tip];
     const childHalf = halfAngle / kids.length;
 
@@ -325,7 +356,7 @@ export function growScaffold(
           clusterId: kid.id,
           mass: kid.mass,
           tip,
-          seeds: limbSeeds(chain),
+          seeds: limbSeeds(chain, order),
           azimuth,
           halfAngle,
         });
@@ -334,7 +365,6 @@ export function growScaffold(
       const childAzimuth =
         order === 0 ? i * GOLDEN : azimuth + childHalf * (2 * i + 1 - kids.length);
       const site = siteFor(i);
-      const band = bandFor(site);
       // Measured from the fork, not from the crown axis: an absolute target
       // sits behind any second-order fork, which then breaks on its first step.
       const startRadial = Math.hypot(site.position.x - env.center.x, site.position.z - env.center.z);
@@ -345,22 +375,33 @@ export function growScaffold(
         env.radius * 0.15,
         headroom * LIMB_FILL * ((scores[i] as number) / bestScore),
       );
+      const targetRadius = Math.min(env.radius, startRadial + reach);
+      // Aim at a point, not a direction: the shell height at the limb's own
+      // target radius is what stops the climb, so no order settles flat.
+      const shellY =
+        env.center.y +
+        env.halfHeight * Math.sqrt(Math.max(0, 1 - Math.pow(targetRadius / env.radius, 2)));
+      // Climb follows the height band: an old low limb is plagiotropic, and a
+      // steep launch there outpulls its own sag load for the whole limb.
+      const rise = CLIMB_RATIO * reach * (CLIMB_LOW + (1 - CLIMB_LOW) * bandFor(site));
+      const target = new Vector3(
+        env.center.x + targetRadius * Math.cos(childAzimuth),
+        Math.max(site.position.y, Math.min(shellY, site.position.y + rise)),
+        env.center.z + targetRadius * Math.sin(childAzimuth),
+      );
       const spec: LimbSpec = {
         order: order + 1,
         azimuth: childAzimuth,
-        targetRadius: Math.min(env.radius, startRadial + reach),
+        targetRadius,
         // Slack over the straight-line reach: a drooping or noisy limb walks a
         // longer path than it spans, and must not run out of steps first.
         steps: Math.max(2, Math.ceil((reach * 1.8) / stepScale)),
         length: reach,
+        target,
       };
-      // Launch angle follows the height band: a limb low in the crown leaves
-      // the trunk near-horizontal so the droop has nothing to undo first.
-      const startDir = new Vector3(
-        Math.cos(childAzimuth),
-        0.12 + 0.55 * band,
-        Math.sin(childAzimuth),
-      ).normalize();
+      const startDir = target.clone().sub(site.position);
+      if (startDir.lengthSq() < 1e-12) startDir.set(Math.cos(childAzimuth), 0.5, Math.sin(childAzimuth));
+      startDir.normalize();
       const grown = growLimb(site, startDir, spec);
       walk(kid, grown.length > 0 ? grown : [site], childAzimuth, childHalf, order + 1, seen);
     }

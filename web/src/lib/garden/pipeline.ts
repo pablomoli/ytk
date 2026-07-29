@@ -27,6 +27,9 @@ const BAND_PAD = 0.18;
 const BAND_HALF_MIN = 0.36;
 // Wider and an apex lobe's cloud drifts out of its own limb's attraction radius.
 const BAND_HALF_MAX = 0.45;
+// Lift of the band centre above the seeds, as a fraction of its half-width. A
+// band centred on the limb is isotropic, so twigs leave it at a right angle.
+const BAND_LIFT = 0.5;
 // Radial half-width around the limb's own span, in normalised crown radius.
 const RADIAL_PAD = 0.18;
 // Sector half-width nests one division per dendrogram level, so a depth-2 lobe
@@ -43,6 +46,29 @@ const KILL_STEPS = 2;
 // the same 90 attractors measured 40 nodes on one seed and 600 on the next.
 const NODES_PER_ATTRACTOR = 2;
 const JITTER_STEPS = 0.12;
+// Upward tilt on every twig step, as a fraction of the step.
+const TWIG_UP = 0.35;
+// Steps a twig limb runs bare before it may fork, halving each order: the
+// further out, the sooner branching starts.
+const TWIG_BARE_STEPS = 4;
+const TWIG_BARE_DECAY = 0.4;
+const twigBareRun = (order: number): number =>
+  Math.round(TWIG_BARE_STEPS * Math.pow(TWIG_BARE_DECAY, Math.max(0, order - 1)));
+// Angular divergence a node needs before it counts as two branches, relaxing
+// with order for the same reason: fine twigs fork on a narrower spread.
+// Capped: an unbounded relaxation splits on any spread at all and the order
+// ladder runs away into single-node stubs.
+const SPLIT_COS_BASE = 0.2;
+const SPLIT_COS_DECAY = 0.45;
+const SPLIT_COS_MAX = 0.88;
+const twigSplitCos = (order: number): number =>
+  Math.min(SPLIT_COS_MAX, 1 - (1 - SPLIT_COS_BASE) * Math.pow(SPLIT_COS_DECAY, Math.max(0, order - 1)));
+
+// Internodes shorten outward, floored so a deep twig stays a visible segment.
+const STEP_DECAY = 0.8;
+const STEP_MIN = 0.45;
+// Order the shortening starts at; earlier and the lobe seeds stop carrying.
+const STEP_FROM = 4;
 
 const countNodes = (root: SkelNode): number => {
   let n = 0;
@@ -132,8 +158,8 @@ export function growGardenTree(
       if (r < rLo) rLo = r;
       if (r > rHi) rHi = r;
     }
-    const center = (lo + hi) / 2;
     const half = Math.min(BAND_HALF_MAX, Math.max(BAND_HALF_MIN, (hi - lo) / 2 + BAND_PAD));
+    const center = (lo + hi) / 2 + BAND_LIFT * half;
     const radial = { min: rLo - RADIAL_PAD, max: rHi + RADIAL_PAD };
     const count = Math.min(
       Math.max(MIN_ATTRACTORS, nodeBudget * 2),
@@ -157,6 +183,11 @@ export function growGardenTree(
       maxNodes: Math.min(nodeBudget, Math.ceil(count * NODES_PER_ATTRACTOR)),
       rand,
       jitter: JITTER_STEPS * step,
+      upBias: TWIG_UP,
+      bareRun: twigBareRun,
+      splitCos: twigSplitCos,
+      stepFor: (order) =>
+        step * Math.max(STEP_MIN, Math.pow(STEP_DECAY, Math.max(0, order - STEP_FROM))),
     });
   }
 

@@ -57,6 +57,36 @@ class NodeGrid {
   }
 }
 
+// Cap on the run counter so a seed's Infinity does not poison the arithmetic.
+const MAX_RUN = 1e6;
+// One heading per angular cluster of the node's attractors. Splitting inside
+// the iteration is what lets a fork land on a limb's first node: a node can
+// otherwise only take its second child an iteration after its first.
+const headings = (dirs: Vector3[], mayFork: boolean, splitCos: number): Vector3[] => {
+  const mean = new Vector3();
+  for (const d of dirs) mean.add(d);
+  if (mean.lengthSq() < 1e-12) return [];
+  mean.normalize();
+  if (!mayFork || dirs.length < 2) return [mean];
+
+  let far = dirs[0] as Vector3;
+  let worst = Infinity;
+  for (const d of dirs) {
+    const dot = d.dot(mean);
+    if (dot < worst) {
+      worst = dot;
+      far = d;
+    }
+  }
+  if (worst >= splitCos) return [mean];
+
+  const a = new Vector3();
+  const b = new Vector3();
+  for (const d of dirs) (d.dot(mean) >= d.dot(far) ? a : b).add(d);
+  if (a.lengthSq() < 1e-12 || b.lengthSq() < 1e-12) return [mean];
+  return [a.normalize(), b.normalize()];
+};
+
 const randomUnit = (rand: () => number, out: Vector3): Vector3 => {
   const z = rand() * 2 - 1;
   const a = rand() * Math.PI * 2;
@@ -69,7 +99,18 @@ const randomUnit = (rand: () => number, out: Vector3): Vector3 => {
  * by appending children; returns how many nodes were added.
  */
 export function colonize(tips: SkelNode[], opts: ColonizeOptions): number {
-  const { step, killDistance, attractDistance, maxNodes, rand, jitter = 0 } = opts;
+  const {
+    step,
+    killDistance,
+    attractDistance,
+    maxNodes,
+    rand,
+    jitter = 0,
+    upBias = 0,
+    bareRun = () => 0,
+    splitCos = () => 0.2,
+    stepFor = () => step,
+  } = opts;
   if (tips.length === 0 || opts.attractors.length === 0) return 0;
   if (step <= 0 || attractDistance <= 0 || maxNodes <= 0) return 0;
 
@@ -93,10 +134,14 @@ export function colonize(tips: SkelNode[], opts: ColonizeOptions): number {
   // degenerate cloud that can never fall inside killDistance.
   const maxIterations = maxNodes + 8;
 
-  const pull = new Map<SkelNode, Vector3>();
+  const pull = new Map<SkelNode, Vector3[]>();
   const toward = new Vector3();
   const wobble = new Vector3();
   let added = 0;
+  // Steps a node sits from the start of its own limb. Seeds are handed in
+  // mid-limb, so they carry no run of their own and may fork at once.
+  const run = new Map<SkelNode, number>();
+  for (const tip of tips) run.set(tip, Infinity);
 
   for (let iter = 0; iter < maxIterations && remaining > 0 && added < maxNodes; iter++) {
     pull.clear();
@@ -113,8 +158,8 @@ export function colonize(tips: SkelNode[], opts: ColonizeOptions): number {
       if (hit.dist > attractDistance) continue;
       toward.subVectors(point, hit.node.position).divideScalar(hit.dist);
       const acc = pull.get(hit.node);
-      if (acc) acc.add(toward);
-      else pull.set(hit.node, toward.clone());
+      if (acc) acc.push(toward.clone());
+      else pull.set(hit.node, [toward.clone()]);
     }
     if (remaining === 0 || pull.size === 0) break;
 
@@ -122,27 +167,41 @@ export function colonize(tips: SkelNode[], opts: ColonizeOptions): number {
     const frontier = nodes.length;
     for (let n = 0; n < frontier && added < maxNodes; n++) {
       const parent = nodes[n] as SkelNode;
-      const acc = pull.get(parent);
-      if (!acc || acc.lengthSq() === 0) continue;
-      const heading = acc.clone().normalize().multiplyScalar(step);
-      if (jitter > 0) heading.addScaledVector(randomUnit(rand, wobble), jitter);
-      const len = heading.length();
-      if (len === 0) continue;
-      heading.divideScalar(len);
-      // First child continues the parent's axis; a later child is a fork and
-      // starts the next order.
-      const order = parent.children.length > 0 ? parent.order + 1 : parent.order;
-      const child = makeNode(
-        parent.position.clone().addScaledVector(heading, step),
-        heading,
-        parent.pathLength + step,
-        order,
-      );
-      parent.children.push(child);
-      nodes.push(child);
-      grid.insert(child);
-      added++;
-      grew++;
+      const dirs = pull.get(parent);
+      if (!dirs || dirs.length === 0) continue;
+      const parentRun = run.get(parent) ?? 0;
+      const mayFork = parentRun >= bareRun(parent.order);
+      for (const heading of headings(dirs, mayFork, splitCos(parent.order))) {
+        if (added >= maxNodes) break;
+        // First child continues the parent's axis; a later child is a fork and
+        // starts the next order.
+        const lateral = parent.children.length > 0;
+        if (lateral && !mayFork) break;
+        const order = lateral ? parent.order + 1 : parent.order;
+        // A child that jumps a full step ahead becomes nearest to the very
+        // attractors that would have forked its parent's base.
+        const reach = stepFor(order);
+        heading.multiplyScalar(reach);
+        // Only the departing child: the residue of an isotropic cloud is
+        // isotropic, so an untilted fork leaves at a right angle on the median.
+        if (lateral && upBias !== 0) heading.y += upBias * reach;
+        if (jitter > 0) heading.addScaledVector(randomUnit(rand, wobble), jitter);
+        const len = heading.length();
+        if (len === 0) continue;
+        heading.divideScalar(len);
+        const child = makeNode(
+          parent.position.clone().addScaledVector(heading, reach),
+          heading,
+          parent.pathLength + reach,
+          order,
+        );
+        parent.children.push(child);
+        nodes.push(child);
+        run.set(child, lateral ? 0 : Math.min(parentRun, MAX_RUN) + 1);
+        grid.insert(child);
+        added++;
+        grew++;
+      }
     }
     if (grew === 0) break;
   }
