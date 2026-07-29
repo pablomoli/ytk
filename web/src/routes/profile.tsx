@@ -10,10 +10,6 @@ import "../styles.css";
 
 export const Route = createFileRoute("/profile")({ component: ProfilePage });
 
-/* Spectrum bands cycle three brass steps; identity is positional (rank order,
-   hover title, 2px gaps) — color is texture here, never the identifier. */
-const BAND_CLASSES = ["bg-accent", "bg-accent/55", "bg-accent/30"];
-
 function Thumb({ exemplar, className }: { exemplar: ProfileExemplar; className: string }) {
   if (!exemplar.thumb) return null;
   return (
@@ -145,7 +141,6 @@ function ProfilePage() {
 
   const data = profile.data!;
   const maxWeight = Math.max(...data.themes.map((theme) => theme.weight), 0.0001);
-  const totalWeight = data.themes.reduce((sum, theme) => sum + theme.weight, 0) || 1;
   const totalNotes = data.themes.reduce((sum, theme) => sum + theme.n_notes, 0);
   const freshNotes = data.themes.reduce((sum, theme) => sum + (theme.fresh_notes ?? 0), 0);
   const portrait = data.claims?.length
@@ -168,28 +163,6 @@ function ProfilePage() {
             {data.embedding_model ? ` · ${data.embedding_model.split("/").pop()}` : ""}
             {data.reanchored_from ? " · re-anchored across an encoder swap" : ""}
           </p>
-        </div>
-
-        <div
-          className="flex h-9 w-full gap-[2px] overflow-hidden rounded-[6px]"
-          role="img"
-          aria-label="share of attention by theme"
-        >
-          {data.themes.map((theme, i) => {
-            const pct = (theme.weight / totalWeight) * 100;
-            return (
-              <span
-                key={theme.id}
-                title={`${theme.label} — ${Math.round(theme.weight * 100)}%`}
-                className={`${BAND_CLASSES[i % BAND_CLASSES.length]} flex min-w-[3px] items-center overflow-hidden transition-[flex-grow] duration-300 ease-hub`}
-                style={{ flexGrow: pct, flexBasis: 0 }}
-              >
-                {pct > 9 ? (
-                  <span className="stat truncate px-2 !text-bg0">{theme.label}</span>
-                ) : null}
-              </span>
-            );
-          })}
         </div>
 
         <div className="grid items-start gap-x-14 gap-y-8 lg:[grid-template-columns:minmax(0,7fr)_minmax(20rem,3fr)]">
