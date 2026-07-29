@@ -103,6 +103,15 @@ Constraint: sag fights the hemisphere fold that keeps canopy above ground. The
 downward pull needs a floor, or a long low limb gets driven through the ground
 plane and folded back, which reads as a kink rather than a droop.
 
+The floor must be a soft asymptote, not a clamp. Measured in
+`docs/assets/14-garden-allometry/03-tropism-axes.png`: clamping position after
+the fact (`y = max(y, sagFloor)`) makes the lowest limbs arc down, hit the
+floor and then run dead flat along it, which reads as clipping against an
+invisible wall. Attenuate the sag term as `y` approaches `sagFloor` so the limb
+eases into a shallow curve instead. A hard clamp stays only as a safety net
+that should never fire. Note that a test asserting `y >= sagFloor` passes for
+the clamped version too and will not catch this.
+
 **Branch length falls with height.** Lower limbs are longest, shortening toward
 the apex. Cluster persistence still ranks limb length — data stays
 authoritative — but a height-derived multiplier scales it, so the crown tapers
