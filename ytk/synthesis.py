@@ -614,6 +614,21 @@ def _write_profile_note(snapshot: InterestSnapshot) -> Path:
     return path
 
 
+def notes_since_snapshot() -> tuple[int, InterestSnapshot | None]:
+    """Return (embeddable-note delta vs the latest snapshot, that snapshot).
+
+    Delta is a plain count difference, not a captured_at comparison: timestamp
+    coverage is uneven across sources, so a date filter would undercount.
+    """
+    cfg = load_config()
+    gathered = get_all_videos() + get_content_memories(cfg.interest.content_sources)
+    current = sum(1 for n in gathered if n.get("embedding"))
+    previous = load_latest()
+    if previous is None:
+        return current, None
+    return current - previous.note_count, previous
+
+
 def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     """Gather -> cluster -> synthesize -> persist. Returns (snapshot, profile_path).
 

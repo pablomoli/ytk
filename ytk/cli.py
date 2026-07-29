@@ -823,9 +823,26 @@ def eval_cmd(update_baseline: bool, as_json: bool, top_k: int):
     is_flag=True,
     help="Re-render profile.md from the latest snapshot, skipping clustering and the Claude call.",
 )
-def profile_cmd(render_only: bool):
+@click.option(
+    "--if-stale",
+    "if_stale",
+    type=int,
+    default=None,
+    metavar="N",
+    help="Skip synthesis (exit 0) unless at least N notes were added since the last snapshot.",
+)
+def profile_cmd(render_only: bool, if_stale: int | None):
     """Synthesize a living interest profile from everything in the vault."""
-    from .synthesis import SynthesisTooSparse, rerender_latest, run_profile
+    from .synthesis import SynthesisTooSparse, notes_since_snapshot, rerender_latest, run_profile
+
+    if if_stale is not None and not render_only:
+        delta, previous = notes_since_snapshot()
+        if previous is not None and delta < if_stale:
+            console.print(
+                f"[yellow]Profile fresh enough:[/] {delta} new notes since "
+                f"{previous.generated_at[:10]} (threshold {if_stale}). Skipping."
+            )
+            return
 
     try:
         if render_only:
