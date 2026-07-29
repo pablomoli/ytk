@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useProfile, useRunProfile } from "../api/profile";
 import type { ProfileExemplar, ProfileTheme } from "../api/profile";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { HubControls } from "../components/HubControls";
 import { sourceIcon } from "../components/icons";
 import { ErrorState } from "../components/StateViews";
 import "../styles.css";
@@ -52,9 +51,11 @@ function ThemeRow({
   const freshFrac = theme.n_notes ? fresh / theme.n_notes : 0;
   const strip = theme.exemplars.filter((e) => e.thumb);
   return (
-    <details className="profile-theme group border-b border-line py-2">
-      <summary className="grid cursor-pointer list-none items-center gap-x-4 [grid-template-columns:minmax(11rem,17rem)_1fr_max-content_8.5rem]">
-        <span className="text-[1.02rem] text-ink">
+    <details id={`theme-${theme.id}`} className="profile-theme group border-b border-line py-2">
+      {/* fixed 10.5rem counts column: with max-content every row's track had a
+          different width and bar lengths stopped being comparable */}
+      <summary className="grid cursor-pointer list-none items-center gap-x-4 [grid-template-columns:minmax(13rem,19rem)_1fr_10.5rem_8.5rem]">
+        <span className="truncate text-[1.02rem] text-ink" title={theme.label}>
           <span className="count mr-2 inline-block w-5 text-right text-mute">{rank}</span>
           {theme.label}
         </span>
@@ -77,7 +78,7 @@ function ThemeRow({
             style={{ width: `${scale * freshFrac * 100}%` }}
           />
         </span>
-        <span className="count text-mute">
+        <span className="count text-right text-mute">
           {share}% · {theme.n_notes} notes
           {fresh && fresh < theme.n_notes ? ` · ${fresh} recent` : ""}
         </span>
@@ -123,12 +124,10 @@ function ProfilePage() {
 
   const resynthesize = () => setConfirmSynth(true);
 
-  const controls = (
-    <HubControls>
-      <button className="btn" type="button" onClick={resynthesize} disabled={run.isPending}>
-        {run.isPending ? "synthesizing..." : "re-synthesize"}
-      </button>
-    </HubControls>
+  const synthButton = (
+    <button className="btn" type="button" onClick={resynthesize} disabled={run.isPending}>
+      {run.isPending ? "synthesizing..." : "re-synthesize"}
+    </button>
   );
 
   const confirmDialog = confirmSynth ? (
@@ -146,10 +145,11 @@ function ProfilePage() {
   if (profile.isError) {
     return (
       <div className="hub-page">
-        {controls}
         <div className="hub-body">
           <ErrorState error={profile.error} />
-          <p className="text-mute">no snapshot yet — re-synthesize to build one.</p>
+          <p className="flex items-center gap-4 text-mute">
+            no snapshot yet — re-synthesize to build one. {synthButton}
+          </p>
         </div>
         {confirmDialog}
       </div>
@@ -167,7 +167,6 @@ function ProfilePage() {
 
   return (
     <div id="profile-page" className="hub-page">
-      {controls}
       <div className="hub-body">
         <div className="flex flex-wrap items-end gap-x-10 gap-y-4 pt-2">
           <Stat value={String(data.note_count)} label="notes" />
@@ -176,30 +175,37 @@ function ProfilePage() {
             value={totalNotes ? `${Math.round((freshNotes / totalNotes) * 100)}%` : "—"}
             label="recent"
           />
-          <p className="meta-line m-0 ml-auto self-end text-mute">
-            synthesized {data.generated_at.slice(0, 16).replace("T", " ")}
-            {data.embedding_model ? ` · ${data.embedding_model.split("/").pop()}` : ""}
-            {data.reanchored_from ? " · re-anchored across an encoder swap" : ""}
-          </p>
+          <div className="ml-auto flex items-center gap-5 self-end">
+            <p className="meta-line m-0 text-mute">
+              synthesized {data.generated_at.slice(0, 16).replace("T", " ")}
+              {data.embedding_model ? ` · ${data.embedding_model.split("/").pop()}` : ""}
+              {data.reanchored_from ? " · re-anchored across an encoder swap" : ""}
+            </p>
+            {synthButton}
+          </div>
         </div>
 
-        <div
-          className="flex h-9 w-full gap-[2px] overflow-hidden rounded-[6px]"
-          role="img"
-          aria-label="share of attention by theme, numbered by rank"
-        >
+        <div className="flex h-9 w-full gap-[2px] overflow-hidden rounded-[6px]">
           {data.themes.map((theme, i) => {
             const pct = (theme.weight / totalWeight) * 100;
             return (
-              <span
+              <button
                 key={theme.id}
+                type="button"
                 title={`${i + 1} · ${theme.label} — ${Math.round(theme.weight * 100)}%`}
-                className={`${BAND_CLASSES[i % BAND_CLASSES.length]} flex min-w-[1.4rem] items-center gap-1.5 overflow-hidden px-1.5`}
+                aria-label={`open ${theme.label}`}
+                onClick={() => {
+                  const row = document.getElementById(`theme-${theme.id}`) as HTMLDetailsElement;
+                  if (!row) return;
+                  row.open = true;
+                  row.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+                className={`${BAND_CLASSES[i % BAND_CLASSES.length]} flex min-w-[1.4rem] cursor-pointer items-center gap-1.5 overflow-hidden border-0 px-1.5 transition-opacity duration-150 ease-hub hover:opacity-80`}
                 style={{ flexGrow: pct, flexBasis: 0 }}
               >
                 <span className="count shrink-0 !text-bg0">{i + 1}</span>
                 {pct > 8 ? <span className="stat truncate !text-bg0/80">{theme.label}</span> : null}
-              </span>
+              </button>
             );
           })}
         </div>
