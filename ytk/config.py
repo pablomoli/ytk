@@ -46,6 +46,11 @@ class InterestConfig(BaseModel):
         gt=0,
         description="Capture-time half-life for recency-decayed theme weight and the maximum age of a claim's freshest evidence.",
     )
+    fresh_window_days: float = Field(
+        default=14.0,
+        gt=0,
+        description="Display-only window for the per-theme 'recent' overlay on the profile page. Separate from decay_half_life_days on purpose: a young corpus sits entirely inside the 90-day half-life, so an overlay tied to it reads 98% fresh and carries no signal, while shortening the half-life itself would lurch theme weights and fail portrait-claim grounding.",
+    )
     profile_eval_positives: int = Field(
         default=8,
         ge=1,

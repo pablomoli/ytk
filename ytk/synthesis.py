@@ -261,6 +261,7 @@ def assemble_snapshot(
     alpha: float | None = None,
     explicit_min: int = 5,
     decay_half_life_days: float = 90.0,
+    fresh_window_days: float | None = None,
 ) -> InterestSnapshot:
     """Combine clustering (authoritative note->theme mapping) with the LLM labels.
 
@@ -283,6 +284,18 @@ def assemble_snapshot(
         for item in notes
         if evidence_is_fresh(item.get("captured_at", ""), generated_at, decay_half_life_days)
     }
+    # Claim grounding stays on the half-life (fresh_ids); the overlay gets its
+    # own shorter window, else a corpus younger than the half-life paints ~100%
+    # of every theme "recent" and the two-tone bars carry nothing.
+    overlay_ids = (
+        fresh_ids
+        if fresh_window_days is None
+        else {
+            item["id"]
+            for item in notes
+            if evidence_is_fresh(item.get("captured_at", ""), generated_at, fresh_window_days)
+        }
+    )
     for c, idxs in grouped.items():
         tl = label_by_index.get(c)
         if tl is None:
@@ -325,7 +338,7 @@ def assemble_snapshot(
                 exemplar_titles=[notes[i]["title"] for i in exemplar_idx],
                 exemplar_sources=[notes[i].get("source", "") for i in exemplar_idx],
                 evidence_ids=tl.evidence_ids if tl else [],
-                fresh_note_count=sum(1 for i in idxs if notes[i]["id"] in fresh_ids),
+                fresh_note_count=sum(1 for i in idxs if notes[i]["id"] in overlay_ids),
                 centroid=centroid,
             )
         )
@@ -705,6 +718,7 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
                 alpha=cfg.interest.alpha,
                 explicit_min=cfg.interest.explicit_min,
                 decay_half_life_days=cfg.interest.decay_half_life_days,
+                fresh_window_days=cfg.interest.fresh_window_days,
             )
             break
         except ProfileGroundingError as exc:

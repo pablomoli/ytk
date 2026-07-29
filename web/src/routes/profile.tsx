@@ -10,6 +10,12 @@ import "../styles.css";
 
 export const Route = createFileRoute("/profile")({ component: ProfilePage });
 
+/* Spectrum bands cycle three brass steps; color is texture, never the
+   identifier. Identity is the rank numeral — the same number prefixes the
+   theme's row below, and choose_k keeps the distribution flat by design, so
+   most bands will never be wide enough to carry their label. */
+const BAND_CLASSES = ["bg-accent", "bg-accent/55", "bg-accent/30"];
+
 function Thumb({ exemplar, className }: { exemplar: ProfileExemplar; className: string }) {
   if (!exemplar.thumb) return null;
   return (
@@ -31,7 +37,15 @@ function Stat({ value, label }: { value: string; label: string }) {
   );
 }
 
-function ThemeRow({ theme, maxWeight }: { theme: ProfileTheme; maxWeight: number }) {
+function ThemeRow({
+  theme,
+  rank,
+  maxWeight,
+}: {
+  theme: ProfileTheme;
+  rank: number;
+  maxWeight: number;
+}) {
   const share = Math.round(theme.weight * 100);
   const scale = theme.weight / maxWeight;
   const fresh = theme.fresh_notes ?? 0;
@@ -40,7 +54,10 @@ function ThemeRow({ theme, maxWeight }: { theme: ProfileTheme; maxWeight: number
   return (
     <details className="profile-theme group border-b border-line py-2">
       <summary className="grid cursor-pointer list-none items-center gap-x-4 [grid-template-columns:minmax(11rem,17rem)_1fr_max-content_8.5rem]">
-        <span className="text-[1.02rem] text-ink">{theme.label}</span>
+        <span className="text-[1.02rem] text-ink">
+          <span className="count mr-2 inline-block w-5 text-right text-mute">{rank}</span>
+          {theme.label}
+        </span>
         <span
           className="profile-theme-bar relative h-[7px] overflow-hidden rounded-full bg-bg3"
           role="meter"
@@ -141,6 +158,7 @@ function ProfilePage() {
 
   const data = profile.data!;
   const maxWeight = Math.max(...data.themes.map((theme) => theme.weight), 0.0001);
+  const totalWeight = data.themes.reduce((sum, theme) => sum + theme.weight, 0) || 1;
   const totalNotes = data.themes.reduce((sum, theme) => sum + theme.n_notes, 0);
   const freshNotes = data.themes.reduce((sum, theme) => sum + (theme.fresh_notes ?? 0), 0);
   const portrait = data.claims?.length
@@ -165,11 +183,32 @@ function ProfilePage() {
           </p>
         </div>
 
+        <div
+          className="flex h-9 w-full gap-[2px] overflow-hidden rounded-[6px]"
+          role="img"
+          aria-label="share of attention by theme, numbered by rank"
+        >
+          {data.themes.map((theme, i) => {
+            const pct = (theme.weight / totalWeight) * 100;
+            return (
+              <span
+                key={theme.id}
+                title={`${i + 1} · ${theme.label} — ${Math.round(theme.weight * 100)}%`}
+                className={`${BAND_CLASSES[i % BAND_CLASSES.length]} flex min-w-[1.4rem] items-center gap-1.5 overflow-hidden px-1.5`}
+                style={{ flexGrow: pct, flexBasis: 0 }}
+              >
+                <span className="count shrink-0 !text-bg0">{i + 1}</span>
+                {pct > 8 ? <span className="stat truncate !text-bg0/80">{theme.label}</span> : null}
+              </span>
+            );
+          })}
+        </div>
+
         <div className="grid items-start gap-x-14 gap-y-8 lg:[grid-template-columns:minmax(0,7fr)_minmax(20rem,3fr)]">
           <section className="profile-themes">
             <h2 className="stat m-0 pb-2 text-mute">attention by theme</h2>
-            {data.themes.map((theme) => (
-              <ThemeRow key={theme.id} theme={theme} maxWeight={maxWeight} />
+            {data.themes.map((theme, i) => (
+              <ThemeRow key={theme.id} theme={theme} rank={i + 1} maxWeight={maxWeight} />
             ))}
           </section>
           <section className="profile-prose border-line max-lg:border-t max-lg:pt-6 lg:border-l lg:pl-10">

@@ -43,9 +43,11 @@ class Theme(BaseModel):
     # (youtube, instagram, tiktok, ...), so the hub can badge provenance.
     exemplar_sources: list[str] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)
-    # Recency overlay: how many of this theme's notes were captured within the
-    # decay half-life. Reported, never used to gate or merge themes — the
-    # taxonomy is full-history and independent of timestamp coverage.
+    # Recency overlay: how many of this theme's notes were captured within
+    # interest.fresh_window_days (not the decay half-life — a young corpus sits
+    # entirely inside 90 days and the overlay saturates). Reported, never used
+    # to gate or merge themes — the taxonomy is full-history and independent of
+    # timestamp coverage.
     fresh_note_count: int = 0
     centroid: list[float] | None = None
 
