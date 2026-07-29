@@ -509,17 +509,35 @@ def test_no_query_texts_outside_graph():
 
     chroma's query_texts kwarg embeds on the document path — for the
     instruction-aware v2 encoder that silently drops the query prefix
-    (measured: 3.8/10 top-10 overlap vs the correct path). graph.py is the
-    one legitimate caller: doc-to-doc similarity queries with document text.
+    (measured: 3.8/10 top-10 overlap vs the correct path). Legitimate callers
+    are doc-to-doc similarity queries with document text: graph.py, and
+    store.similar_memories (R1/#150 — a candidate memory is a document, and
+    A1's duplicate thresholds were calibrated on plain-doc embeddings).
     """
-    allowed = {"graph.py"}
+    # per-file "all", or per-function within a file — store.py must stay
+    # guarded overall because the user-query search functions live there
+    allowed = {"graph.py": None, "store.py": {"similar_memories"}}
     offenders = []
     for py in YTK_ROOT.rglob("*.py"):
         tree = ast.parse(py.read_text(encoding="utf-8"), filename=str(py))
+        funcs = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)]
+
+        def enclosing(lineno: int) -> str | None:
+            spans = [f for f in funcs if f.lineno <= lineno <= (f.end_lineno or f.lineno)]
+            return (
+                min(spans, key=lambda f: (f.end_lineno or f.lineno) - f.lineno).name
+                if spans
+                else None
+            )
+
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             for kw in node.keywords:
-                if kw.arg == "query_texts" and py.name not in allowed:
-                    offenders.append(f"{py.relative_to(YTK_ROOT.parent)}:{node.lineno}")
+                if kw.arg != "query_texts":
+                    continue
+                names = allowed.get(py.name, set())
+                if names is None or (names and enclosing(node.lineno) in names):
+                    continue
+                offenders.append(f"{py.relative_to(YTK_ROOT.parent)}:{node.lineno}")
     assert not offenders, f"query_texts used on a user-query path: {offenders}"

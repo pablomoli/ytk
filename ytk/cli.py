@@ -941,7 +941,7 @@ def remember_cmd(text: str, tags: str):
 
     TEXT may be omitted to read from stdin: echo 'note' | ytk remember -t foo
     """
-    from .store import upsert_memory
+    from .store import similar_memories, upsert_memory
     from .vault import remember as _remember
 
     if not text:
@@ -953,9 +953,15 @@ def remember_cmd(text: str, tags: str):
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
 
     try:
+        # neighbors queried before the write so the new note can't shadow them
+        neighbors = [nb for nb in similar_memories(text, n=5) if nb.similarity >= 0.60]
         note_path, doc_id = _remember(text, tag_list)
         upsert_memory(doc_id, text, tag_list, str(note_path))
         console.print(f"[bold green]Memory stored:[/] {note_path}")
+        if neighbors:
+            console.print("[yellow]Similar existing memories:[/]")
+            for nb in neighbors:
+                console.print(f"  {nb.similarity:.0%}  {nb.source_path}", markup=False)
         console.print(LINK_REMINDER, style="dim", markup=False)
     except OSError as exc:
         console.print(f"[red]Vault not configured:[/] {exc}")

@@ -1160,6 +1160,51 @@ def upsert_memory(doc_id: str, text: str, tags: list[str], source_path: str) -> 
     )
 
 
+@dataclass
+class MemoryNeighbor:
+    doc_id: str
+    source_path: str
+    similarity: float
+    excerpt: str
+
+
+def similar_memories(
+    text: str, n: int = 5, exclude_doc_id: str | None = None
+) -> list[MemoryNeighbor]:
+    """Nearest existing memories to a candidate text — R1 (#150).
+
+    Doc-to-doc similarity, so the candidate embeds through the plain document
+    path (query_texts routes through the EF's __call__), matching how the
+    stored memories were embedded and how A1's thresholds were calibrated.
+    """
+    col = _memories_collection()
+    if col.count() == 0:
+        return []
+    results = col.query(query_texts=[text], n_results=min(n * 3, col.count()))
+    out: list[MemoryNeighbor] = []
+    seen: set[str] = set()
+    for meta, doc, dist in zip(
+        chroma_field(results["metadatas"], "metadatas")[0],
+        chroma_field(results["documents"], "documents")[0],
+        chroma_field(results["distances"], "distances")[0],
+    ):
+        doc_id = meta_str(meta, "doc_id")
+        if doc_id in seen or doc_id == exclude_doc_id:
+            continue
+        seen.add(doc_id)
+        out.append(
+            MemoryNeighbor(
+                doc_id=doc_id,
+                source_path=meta_str(meta, "source_path"),
+                similarity=max(0.0, min(1.0, 1.0 - dist)),
+                excerpt=doc[:200],
+            )
+        )
+        if len(out) >= n:
+            break
+    return out
+
+
 def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[UnifiedResult]:
     """Semantic search across video summaries and memory notes, merged by distance.
 

@@ -82,14 +82,43 @@ def vault_write(path: str, content: str) -> str:
 
 
 @app.tool()
-def vault_remember(text: str, tags: list[str] | None = None) -> str:
-    """Store arbitrary text as an atomic memory note and index it for semantic search."""
-    from .store import upsert_memory
-    from .vault import remember
+def vault_remember(text: str, tags: list[str] | None = None, update_path: str | None = None) -> str:
+    """Store arbitrary text as an atomic memory note and index it for semantic search.
 
+    The result lists similar existing memories (R1/#150) — if one already covers
+    this, pass its brain-relative path as update_path to append there instead of
+    creating a near-duplicate. Nothing is ever merged or deleted automatically.
+    """
+    from .store import similar_memories, strip_frontmatter, upsert_doc, upsert_memory
+    from .vault import append_to_note, remember
+
+    if update_path:
+        note_path = append_to_note(update_path, text)
+        content = note_path.read_text(encoding="utf-8")
+        _id_match = re.search(r"^id:\s*(.+)$", content, re.MULTILINE)
+        doc_id = (
+            _id_match.group(1).strip()
+            if _id_match
+            else "note_" + update_path.replace("/", "_").replace(".md", "").replace(" ", "_")
+        )
+        upsert_doc(
+            doc_id,
+            strip_frontmatter(content),
+            {"doc_id": doc_id, "tags": ", ".join(tags or []), "source_path": str(note_path)},
+        )
+        return f"Appended to existing memory: {note_path}"
+
+    # neighbors are queried before the write so the new note can't shadow them
+    neighbors = similar_memories(text, n=5)
     note_path, doc_id = remember(text, tags or [])
     upsert_memory(doc_id, text, tags or [], str(note_path))
-    return f"Memory stored: {note_path}"
+    out = f"Memory stored: {note_path}"
+    close = [nb for nb in neighbors if nb.similarity >= 0.60]
+    if close:
+        out += "\n\nSimilar existing memories (pass update_path to append there instead):"
+        for nb in close:
+            out += f"\n  {nb.similarity:.0%}  {nb.source_path}\n      {nb.excerpt[:120]}"
+    return out
 
 
 @app.tool()

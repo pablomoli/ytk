@@ -67,6 +67,20 @@ def stale_memories(mem_dir: Path, days: int, now: datetime | None = None) -> lis
     return [p for d, p in sorted(dated) if d < cutoff]
 
 
+def append_to_note(rel_path: str, text: str) -> Path:
+    """Append a dated update section to an existing vault note — R1's
+    update-instead-of-duplicate path. Never rewrites existing content."""
+    brain = _get_brain_path()
+    path = (brain / rel_path).resolve()
+    if not path.is_relative_to(brain.resolve()):
+        raise ValueError(f"Path escapes brain root: {rel_path}")
+    if not path.exists():
+        raise FileNotFoundError(f"No note at {rel_path}")
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(f"\n\n---\n_{datetime.now():%Y-%m-%d} appended:_\n\n{text}\n")
+    return path
+
+
 class NoteAlreadyExists(Exception):
     """Raised when a note for the given video ID already exists in the vault."""
 
