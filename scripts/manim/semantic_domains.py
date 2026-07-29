@@ -1,9 +1,10 @@
 """Silent 3D companion clip for the semantic-domains figures (docs/assets/06-semantic-domains/).
 
 The rung's argument in motion: the map's positions were always semantic,
-only the labels were provenance. The cloud appears unlabeled, the
-shipped legend's colors sweep in (blue = path slugs, grey = `other`,
-figure-01's encoding), the camera orbits the blobs in 3D, then holds
+only the labels were provenance. The cloud appears unlabeled, then the
+shipped legend ignites bucket by bucket -- an overbright spark at each
+slug's core washing radially outward, largest first, leftovers dimming
+quietly to grey -- the camera orbits the blobs in 3D, then holds
 dead still while the colors crossfade to the garden buckets -- themes
 wake up gold, the three hackathon slugs unify, and every note has a home
 (rule-unmatched notes are adopted into the nearest bucket by embedding
@@ -41,12 +42,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from manim import (
     Dot,
     FadeIn,
+    FadeToColor,
     LaggedStart,
     ManimColor,
     MovingCameraScene,
+    Succession,
     ValueTracker,
     VGroup,
     config,
+    interpolate_color,
     rate_functions,
 )
 
@@ -120,30 +124,34 @@ class SemanticDomains(MovingCameraScene):
         other_c = ManimColor(OTHER)
         slug_color = {s: ManimColor(c) for s, c in BEFORE_PATH.items()}
 
-        # before: the shipped legend's path slugs via the exact shipped rule
-        def before_color(path: str) -> ManimColor:
-            slug = project_from_path(path)
-            return slug_color.get(slug, other_c)
-
         # after: the payload's live buckets; kind per label from counts.json
         kind_of = {e["label"]: e["kind"] for e in counts["after_bucketed"]}
-        after_colors = []
+        dom_color, dom_kind = [], []
         ti = 0
         for d in domains:
             kind = kind_of.get(d["label"], "other")
             if kind == "path" and d["label"] in AFTER_PATH:
-                after_colors.append(ManimColor(AFTER_PATH[d["label"]]))
+                dom_color.append(ManimColor(AFTER_PATH[d["label"]]))
             elif kind == "theme":
-                after_colors.append(ManimColor(WARM[ti % len(WARM)]))
+                dom_color.append(ManimColor(WARM[ti % len(WARM)]))
                 ti += 1
             else:
-                after_colors.append(other_c)
+                dom_color.append(other_c)
+            dom_kind.append(kind)
 
         rng = np.random.default_rng(7)
         idx = rng.permutation(len(points))[:2600]
         pts_xyz = z3[idx]
-        b_cols = [before_color(points[int(i)]["p"]) for i in idx]
-        a_cols = [after_colors[points[int(i)]["dom"]] for i in idx]
+
+        # before-key per dot: the shipped legend's slug via the exact shipped
+        # rule, everything else `other`; after-key: the live bucket label
+        b_key = []
+        for i in idx:
+            slug = project_from_path(points[int(i)]["p"])
+            b_key.append(slug if slug in BEFORE_PATH else "other")
+        a_key = [domains[points[int(i)]["dom"]]["label"] for i in idx]
+        b_cols = [slug_color.get(k, other_c) for k in b_key]
+        a_cols = [dom_color[points[int(i)]["dom"]] for i in idx]
 
         # the anchor carrying the updater must be the FIRST scene mobject
         anchor = Dot(fill_opacity=0.0, stroke_width=0)
@@ -169,16 +177,43 @@ class SemanticDomains(MovingCameraScene):
             rate_func=rate_functions.ease_out_sine,
         )
 
-        # the shipped legend sweeps in left-to-right: blue slugs, grey other
-        order = np.argsort([m.get_center()[0] for m in cloud])
+        white_c = ManimColor("#ffffff")
+
+        def ignition(members: list[int], color: ManimColor) -> LaggedStart:
+            """One bucket lights up: overbright spark washing radially out
+            from the bucket's core, settling into its color."""
+            centroid = pts_xyz[members].mean(axis=0)
+            radial = sorted(members, key=lambda i: float(np.sum((pts_xyz[i] - centroid) ** 2)))
+            spark = interpolate_color(color, white_c, 0.6)
+            return LaggedStart(
+                *(
+                    Succession(FadeToColor(cloud[i], spark), FadeToColor(cloud[i], color))
+                    for i in radial
+                ),
+                lag_ratio=2.0 / max(len(radial), 1),
+            )
+
+        # roll call: each slug ignites as a group, largest first...
+        members_of: dict[str, list[int]] = {}
+        for row, k in enumerate(b_key):
+            members_of.setdefault(k, []).append(row)
+        slugs = sorted(
+            (k for k in members_of if k != "other"),
+            key=lambda k: -len(members_of[k]),
+        )
         self.play(
             LaggedStart(
-                *(cloud[int(i)].animate.set_fill(color=b_cols[int(i)]) for i in order),
-                lag_ratio=0.0012,
+                *(ignition(members_of[k], slug_color[k]) for k in slugs),
+                lag_ratio=0.3,
             ),
-            run_time=2.4,
+            run_time=4.6,
         )
-        self.wait(0.5)
+        # ...and the leftovers dim quietly to grey -- the residue, unannounced
+        self.play(
+            *(FadeToColor(cloud[i], other_c) for i in members_of.get("other", [])),
+            run_time=0.9,
+        )
+        self.wait(0.4)
 
         # orbit the provenance blobs
         anchor.add_updater(refresh)
@@ -191,13 +226,27 @@ class SemanticDomains(MovingCameraScene):
         anchor.remove_updater(refresh)
         self.wait(0.5)
 
-        # the swap, camera dead still: identical layout, new membership
-        self.play(
-            *(m.animate.set_fill(color=c) for m, c in zip(cloud, a_cols)),
-            run_time=1.8,
-            rate_func=rate_functions.ease_in_out_sine,
+        # the swap, camera dead still: identical layout, new membership,
+        # delivered per destination bucket -- the merges pulse first, the
+        # grey mass catches fire, and the warm theme buckets close the show
+        changed_of: dict[str, list[int]] = {}
+        for row, (b, a) in enumerate(zip(b_cols, a_cols)):
+            if str(b) != str(a):
+                changed_of.setdefault(a_key[row], []).append(row)
+        dom_color_of = {d["label"]: c for d, c in zip(domains, dom_color)}
+        dom_kind_of = {d["label"]: k for d, k in zip(domains, dom_kind)}
+        dests = sorted(
+            changed_of,
+            key=lambda k: (dom_kind_of.get(k) == "theme", -len(changed_of[k])),
         )
-        self.wait(0.7)
+        self.play(
+            LaggedStart(
+                *(ignition(changed_of[k], dom_color_of[k]) for k in dests),
+                lag_ratio=0.25,
+            ),
+            run_time=4.6,
+        )
+        self.wait(0.6)
 
         # orbit the buckets home and settle onto the stills' view
         anchor.add_updater(refresh)
