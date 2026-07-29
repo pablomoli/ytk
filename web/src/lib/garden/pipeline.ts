@@ -24,7 +24,7 @@ export const scaffoldBudget = (maxNodes: number): number =>
 // Attractor latitude band, in normalised ellipsoid y: it follows the limb's own
 // height span, padded so a level limb does not get a flat plate of foliage.
 const BAND_PAD = 0.18;
-const BAND_HALF_MIN = 0.3;
+const BAND_HALF_MIN = 0.36;
 // Wider and an apex lobe's cloud drifts out of its own limb's attraction radius.
 const BAND_HALF_MAX = 0.45;
 // Radial half-width around the limb's own span, in normalised crown radius.
@@ -39,6 +39,9 @@ const MIN_ATTRACTORS = 12;
 const ATTRACT_FRACTION = 0.5;
 const ATTRACT_STEPS = 8;
 const KILL_STEPS = 2;
+// Twigs per attractor. Uncapped, a stalled lobe eats the whole node budget:
+// the same 90 attractors measured 40 nodes on one seed and 600 on the next.
+const NODES_PER_ATTRACTOR = 2;
 const JITTER_STEPS = 0.12;
 
 const countNodes = (root: SkelNode): number => {
@@ -52,14 +55,32 @@ const countNodes = (root: SkelNode): number => {
   return n;
 };
 
-// Node budget per lobe, by note mass, floored so no lobe ends bare and scaled
-// back down if the floors together overrun what is left.
-function twigBudgets(lobes: Lobe[], available: number): number[] {
-  if (lobes.length === 0) return [];
+// Sub-linear in note mass, renormalised to the same total. A linear share gave
+// epicmap's two heaviest lobes 76% of the twigs and left the apex a wisp.
+const MASS_EXPONENT = 0.5;
+function foliageMasses(lobes: Lobe[]): number[] {
   let total = 0;
-  for (const lobe of lobes) total += Math.max(0, lobe.mass);
-  const raw = lobes.map((lobe) => {
-    const share = total > 0 ? Math.max(0, lobe.mass) / total : 1 / lobes.length;
+  let weighted = 0;
+  const w = lobes.map((lobe) => {
+    const m = Math.max(0, lobe.mass);
+    total += m;
+    const v = Math.pow(m, MASS_EXPONENT);
+    weighted += v;
+    return v;
+  });
+  if (weighted <= 0) return w.map(() => 0);
+  const k = total / weighted;
+  return w.map((v) => v * k);
+}
+
+// Node budget per lobe, by foliage mass, floored so no lobe ends bare and
+// scaled back down if the floors together overrun what is left.
+function twigBudgets(masses: number[], available: number): number[] {
+  if (masses.length === 0) return [];
+  let total = 0;
+  for (const m of masses) total += Math.max(0, m);
+  const raw = masses.map((m) => {
+    const share = total > 0 ? Math.max(0, m) / total : 1 / masses.length;
     return Math.max(MIN_TWIG_NODES, Math.round(available * share));
   });
   const sum = raw.reduce((a, b) => a + b, 0);
@@ -90,7 +111,8 @@ export function growGardenTree(
 
   const step = Math.max(1e-4, params.twigStep);
   const attractDistance = Math.max(ATTRACT_FRACTION * env.radius, ATTRACT_STEPS * step);
-  const budgets = twigBudgets(lobes, Math.max(0, budget - countNodes(root)));
+  const masses = foliageMasses(lobes);
+  const budgets = twigBudgets(masses, Math.max(0, budget - countNodes(root)));
   for (let i = 0; i < lobes.length; i += 1) {
     const lobe = lobes[i] as Lobe;
     const nodeBudget = budgets[i] as number;
@@ -115,7 +137,7 @@ export function growGardenTree(
     const radial = { min: rLo - RADIAL_PAD, max: rHi + RADIAL_PAD };
     const count = Math.min(
       Math.max(MIN_ATTRACTORS, nodeBudget * 2),
-      Math.max(MIN_ATTRACTORS, Math.round(params.attractorsPerNote * Math.max(0, lobe.mass))),
+      Math.max(MIN_ATTRACTORS, Math.round(params.attractorsPerNote * (masses[i] as number))),
     );
     const attractors = Array.from({ length: count }, () =>
       sampleLobe(
@@ -132,7 +154,7 @@ export function growGardenTree(
       step,
       killDistance: KILL_STEPS * step,
       attractDistance,
-      maxNodes: nodeBudget,
+      maxNodes: Math.min(nodeBudget, Math.ceil(count * NODES_PER_ATTRACTOR)),
       rand,
       jitter: JITTER_STEPS * step,
     });

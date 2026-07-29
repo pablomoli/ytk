@@ -34,7 +34,17 @@ const GOLDEN = 2.399963;
 const GROUND_EPS = 0.03;
 // The ellipsoid's horizontal semi-axis is zero at its base, so a limb forking
 // lower than this leaves the envelope on its first step.
-const FORK_BAND_START = 0.25;
+const FORK_BAND_START = 0.1;
+// Weight of even spacing against cumulative mass when siting forks; pure mass
+// drives the lowest fork half way up, pure even spacing stacks the heaviest.
+const EVEN_WEIGHT = 0.6;
+// Fraction of the crown half-height above centre the trunk climbs to. The top
+// fork sits on the trunk's last node, so this also sets the crown's apex.
+const TRUNK_TOP = 0.85;
+// Limb length ranks on log persistence rescaled over the bucket's own range:
+// the raw ratio is dominated by one outlier and squashes every other cluster.
+const PERSIST_FLOOR = 0.25;
+const PERSIST_EPS = 1e-6;
 // A tip on the crown axis has no meaningful azimuth, so its sector stops
 // bounding where stage 2 scatters attractors.
 const MIN_RADIAL_SHARE = 0.4;
@@ -82,7 +92,9 @@ const smoothstep = (t: number): number => t * t * (3 - 2 * t);
 // Evenly spaced nodes over the limb's outer span, tip always included.
 const limbSeeds = (chain: SkelNode[]): SkelNode[] => {
   if (chain.length === 0) return [];
-  const tail = chain.slice(Math.max(0, Math.floor(chain.length * (1 - SEED_SPAN))));
+  // Measured over the gaps, not the nodes: on a three-node limb the node form
+  // hands over a single seed, which is a tenth of the limb rather than 0.6.
+  const tail = chain.slice(Math.max(0, Math.floor((chain.length - 1) * (1 - SEED_SPAN))));
   if (tail.length <= MAX_SEEDS) return tail;
   return Array.from(
     { length: MAX_SEEDS },
@@ -122,8 +134,23 @@ export function growScaffold(
     if (kids) kids.push(n);
     else byParent.set(n.parent, [n]);
   }
-  let maxPersistence = 1e-6;
-  for (const n of topo.nodes) maxPersistence = Math.max(maxPersistence, n.persistence);
+  let pLo = Infinity;
+  let pHi = -Infinity;
+  for (const n of topo.nodes) {
+    const p = Math.max(PERSIST_EPS, n.persistence);
+    if (p < pLo) pLo = p;
+    if (p > pHi) pHi = p;
+  }
+  const logLo = Math.log(pLo);
+  const logSpan = Math.log(pHi) - logLo;
+  // A bucket whose clusters share one persistence carries no ranking to read,
+  // so every limb takes the top of the range rather than a zero-span NaN.
+  const persistenceRank = (p: number): number =>
+    logSpan > 1e-9
+      ? PERSIST_FLOOR +
+        (1 - PERSIST_FLOOR) *
+          clamp01((Math.log(Math.max(PERSIST_EPS, p)) - logLo) / logSpan)
+      : 1;
   const rootMass = Math.max(1, rootTopo.mass);
 
   // A one-node dendrogram measures no structure to contradict, and without
@@ -222,8 +249,11 @@ export function growScaffold(
     order: 0,
     azimuth: 0,
     targetRadius: 0,
-    steps: Math.max(2, Math.ceil((env.center.y + env.halfHeight * 0.6 - origin.y) / stepScale)),
-    length: Math.max(stepScale, env.center.y + env.halfHeight * 0.6 - origin.y),
+    steps: Math.max(
+      2,
+      Math.ceil((env.center.y + env.halfHeight * TRUNK_TOP - origin.y) / stepScale),
+    ),
+    length: Math.max(stepScale, env.center.y + env.halfHeight * TRUNK_TOP - origin.y),
   };
   const trunk = growLimb(root, new Vector3(0, 1, 0), trunkSpec);
 
@@ -260,9 +290,21 @@ export function growScaffold(
     const sites = candidates.length > 0 ? candidates : [tip];
     const childHalf = halfAngle / kids.length;
 
+    // Children are sorted mass-descending, so even spacing alone stacks the
+    // heaviest ones adjacent and the crown reads as blobs.
+    let kidTotal = 0;
+    for (const kid of kids) kidTotal += Math.max(0, kid.mass);
+    let cumulative = 0;
+    const fractions = kids.map((kid, i) => {
+      const m = Math.max(0, kid.mass);
+      const massFraction = kidTotal > 0 ? (cumulative + m / 2) / kidTotal : (i + 0.5) / kids.length;
+      cumulative += m;
+      const evenFraction = kids.length === 1 ? 0 : i / (kids.length - 1);
+      return EVEN_WEIGHT * evenFraction + (1 - EVEN_WEIGHT) * massFraction;
+    });
     const siteFor = (i: number): SkelNode =>
       sites[
-        kids.length === 1 ? 0 : Math.round((i * (sites.length - 1)) / (kids.length - 1))
+        Math.round(clamp01(fractions[i] as number) * (sites.length - 1))
       ] as SkelNode;
     const bandFor = (n: SkelNode): number =>
       clamp01((n.position.y - forkBase) / Math.max(1e-6, crownTop - forkBase));
@@ -271,7 +313,7 @@ export function growScaffold(
     const scores = kids.map((kid, i) => {
       const heightFactor = 1 - lengthGradient * bandFor(siteFor(i));
       const share = Math.min(1, Math.max(MIN_RADIAL_SHARE, Math.sqrt(kid.mass / rootMass)));
-      return heightFactor * share * (0.35 + kid.persistence / maxPersistence);
+      return heightFactor * share * persistenceRank(kid.persistence);
     });
     const bestScore = Math.max(1e-9, ...scores);
 
