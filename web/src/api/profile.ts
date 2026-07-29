@@ -4,6 +4,7 @@ import { apiGet, apiSend, queryClient } from "./client";
 export type ProfileExemplar = {
   title: string;
   source: string;
+  thumb?: string | null;
 };
 
 export type ProfileTheme = {

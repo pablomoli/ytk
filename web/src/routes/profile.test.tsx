@@ -53,8 +53,9 @@ function renderPage() {
 }
 
 test("renders concrete category rows with counts", () => {
-  renderPage();
-  expect(screen.getByText("Agentic AI coding craft")).toBeInTheDocument();
+  const { container } = renderPage();
+  const rows = container.querySelector(".profile-themes");
+  expect(rows?.textContent).toContain("Agentic AI coding craft");
   expect(screen.getByText(/35% · 36 notes · 9 recent/)).toBeInTheDocument();
   expect(screen.getByText(/20% · 20 notes$/)).toBeInTheDocument(); // no "0 recent"
 });

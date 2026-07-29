@@ -1888,65 +1888,6 @@ body {
   padding: 1.5rem 0 2.5rem;
 }
 
-/* profile */
-.profile-body {
-  max-width: 46rem;
-  margin: 0 auto;
-}
-.profile-meta {
-  color: var(--dim, #8a8375);
-  margin: 0.5rem 0 1.5rem;
-}
-.profile-theme {
-  border-bottom: 1px solid var(--line);
-  padding: 0.4rem 0;
-}
-.profile-theme summary {
-  display: grid;
-  grid-template-columns: minmax(9rem, 15rem) 1fr auto;
-  align-items: center;
-  gap: 0.8rem;
-  cursor: pointer;
-  list-style: none;
-}
-.profile-theme-bar {
-  height: 6px;
-  background: var(--line);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.profile-theme-bar span {
-  display: block;
-  height: 100%;
-  width: 100%;
-  background: var(--accent);
-  transform-origin: left;
-  transition: transform 0.18s var(--ease);
-}
-.profile-theme-share {
-  color: var(--mute);
-  font-size: 0.85em;
-}
-.profile-theme p,
-.profile-theme ul {
-  color: var(--mute);
-  margin: 0.5rem 0;
-}
-.profile-prose {
-  margin-top: 2rem;
-  line-height: 1.65;
-}
-.profile-exemplar {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-.profile-exemplar svg {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-}
-
 /* settings extras */
 .settings-yaml {
   width: 100%;

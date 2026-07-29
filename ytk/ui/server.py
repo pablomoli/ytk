@@ -351,6 +351,40 @@ async def rec_status_api(key: str, req: RecStatusRequest):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+def _exemplar_thumbs(titles: list[str]) -> dict[str, str]:
+    """title -> /vault-media rel path for exemplars whose thumbnail exists.
+
+    Snapshots persist exemplar titles, not note ids, so ids are recovered from
+    the videos collection (metadata only — never embeddings) and checked
+    against the vault's thumbnails directory. Unresolvable titles (content
+    memories, deleted files) are simply absent; the page falls back to icons.
+    """
+    from ytk.store import _videos_collection, chroma_field, meta_str
+    from ytk.vault import _get_brain_path
+
+    wanted = {t for t in titles if t.strip()}
+    if not wanted:
+        return {}
+    try:
+        col = _videos_collection()
+        if col.count() == 0:
+            return {}
+        res = col.get(include=["metadatas"])
+    except Exception:
+        return {}  # thumbnails are a bonus; the profile must render without the store
+    brain = _get_brain_path()
+    out: dict[str, str] = {}
+    for vid, meta in zip(res["ids"], chroma_field(res["metadatas"], "metadatas")):
+        if "#" in vid:
+            continue
+        title = meta_str(meta, "title")
+        if title in wanted and title not in out:
+            rel = f"sources/youtube/thumbnails/{vid}-thumb.jpg"
+            if (brain / rel).is_file():
+                out[title] = rel
+    return out
+
+
 @app.get("/api/profile")
 async def profile_api():
     """The latest interest snapshot, shaped for the /profile page."""
@@ -359,6 +393,7 @@ async def profile_api():
     snap = interest.load_latest()
     if snap is None:
         raise HTTPException(status_code=404, detail="no interest snapshot yet — run ytk profile")
+    thumbs = _exemplar_thumbs([t for th in snap.themes for t in th.exemplar_titles[:3]])
     return {
         "generated_at": snap.generated_at,
         "note_count": snap.note_count,
@@ -378,7 +413,7 @@ async def profile_api():
                 "n_notes": len(t.note_ids),
                 "fresh_notes": t.fresh_note_count,
                 "exemplars": [
-                    {"title": title, "source": source}
+                    {"title": title, "source": source, "thumb": thumbs.get(title)}
                     for title, source in zip(
                         t.exemplar_titles[:3],
                         (t.exemplar_sources + [""] * 3)[:3],
