@@ -20,6 +20,7 @@ import { IngestRing } from "../components/IngestRing";
 import { ScrambleStatus } from "../components/ScrambleStatus";
 import { RailWidget } from "../components/RailWidget";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
+import { useBatchCursor } from "../lib/useBatchCursor";
 import { filterAndSortQueue } from "../lib/queueItems";
 import { formatElapsed } from "../lib/elapsed";
 import { pullSummary, pullingLabel } from "../lib/pullStatus";
@@ -81,7 +82,6 @@ function InboxPage() {
   const [inspecting, setInspecting] = useState<QueueItem | null>(null);
   const [chosenTags, setChosenTags] = useState<Set<string>>(new Set());
   const [thought, setThought] = useState("");
-  const [batch, setBatch] = useState(0);
   // Off by default: a cached ranking stays quiet until asked for. Persisted so
   // the choice sticks across visits (getPref reads localStorage).
   const [showMatches, setShowMatches] = useState(() => getPref(PROFILE_MATCHES_PREF));
@@ -102,9 +102,10 @@ function InboxPage() {
   // returns a new array identity every render and batchPicks never memoises.
   const allPicks = useMemo(() => profileRank.data?.picks ?? [], [profileRank.data?.picks]);
   const batchCount = Math.max(1, Math.ceil(allPicks.length / PROFILE_BATCH_SIZE));
-  const generatedAt = profileRank.data?.generated_at;
-  useEffect(() => setBatch(0), [generatedAt]); // a fresh ranking starts at batch 1
-  const activeBatch = Math.min(batch, batchCount - 1);
+  // The cursor persists keyed to the snapshot id, so a refresh keeps the
+  // user's place while a fresh ranking starts at batch 1 (#138).
+  const cursor = useBatchCursor(profileRank.data?.generated_at, batchCount);
+  const activeBatch = cursor.batch;
   const batchPicks = useMemo(
     () => allPicks.slice(activeBatch * PROFILE_BATCH_SIZE, (activeBatch + 1) * PROFILE_BATCH_SIZE),
     [allPicks, activeBatch],
@@ -367,7 +368,7 @@ function InboxPage() {
                 <div className="profile-rank-batch">
                   <button
                     className="btn"
-                    onClick={() => setBatch((b) => (b + 1) % batchCount)}
+                    onClick={cursor.advance}
                     disabled={batchCount <= 1}
                   >
                     reroll
@@ -377,7 +378,7 @@ function InboxPage() {
                   </span>
                   <button
                     className="btn ghost"
-                    onClick={() => setBatch(0)}
+                    onClick={cursor.reset}
                     disabled={activeBatch === 0}
                   >
                     reset
