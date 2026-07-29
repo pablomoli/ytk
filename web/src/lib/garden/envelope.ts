@@ -25,9 +25,7 @@ export function envelopeFor(
 ): Envelope {
   const cap = Math.max(1, maxNotes);
   const n = Math.max(0, nNotes);
-  // sqrt rather than log: it is already normalised to [0,1] against the
-  // largest bucket, needs no offset at n = 0, and compresses the head of the
-  // distribution without flattening the middle the way log does.
+  // sqrt, not log: already normalised to [0,1] and defined at n = 0.
   const t = clamp01(Math.sqrt(Math.min(n, cap) / cap));
 
   const height = Math.max(
@@ -90,9 +88,8 @@ export function sampleLobe(
 ): Vector3 {
   const u = unitBallPoint(rand);
   const half = Math.min(Math.PI, Math.max(0, halfAngle));
-  // The unit ball is azimuthally isotropic, so replacing the azimuth with a
-  // uniform draw over the sector stays uniform and keeps the radius — and so
-  // containment — untouched, whatever the sector does at +/-PI.
+  // The unit ball is azimuthally isotropic, so replacing the azimuth stays
+  // uniform and leaves the radius, and so containment, untouched at +/-PI.
   const horizontal = Math.hypot(u.x, u.z);
   const a = azimuth + (rand() * 2 - 1) * half;
   return toEnvelope(env, new Vector3(horizontal * Math.cos(a), u.y, horizontal * Math.sin(a)));

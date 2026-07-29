@@ -1,14 +1,12 @@
 // Stage 2: space colonization (Runions et al. 2007) below the measured
-// clusters. Twigs are generated texture under the resolution of the data, so
-// nothing here reads the dendrogram beyond the attractor cloud it was handed.
+// clusters. Nothing here reads the dendrogram beyond the attractors handed in.
 import { Vector3 } from "three";
 import { makeNode, type ColonizeOptions, type SkelNode } from "./types";
 
 type Hit = { node: SkelNode; dist: number };
 
-// Uniform hash grid over the growing node set. Cell size is the attraction
-// distance, so a nearest-node query touches a 3x3x3 neighbourhood instead of
-// every node.
+// Uniform hash grid over the growing node set; cell size is the attraction
+// distance, so a query touches a 3x3x3 neighbourhood instead of every node.
 class NodeGrid {
   private readonly cells = new Map<string, SkelNode[]>();
   private readonly inv: number;
@@ -79,9 +77,8 @@ export function colonize(tips: SkelNode[], opts: ColonizeOptions): number {
   const alive = new Uint8Array(attractors.length).fill(1);
   let remaining = attractors.length;
 
-  // Cell size is di, so a query touches 3x3x3 cells. Finer cells were measured
-  // 4-20x slower: most attractors have no node in range for most iterations,
-  // and a miss then pays hundreds of empty-cell lookups instead of 27.
+  // Finer cells measured 4-20x slower: most attractors miss, and a miss on a
+  // fine grid pays hundreds of empty-cell lookups instead of 27.
   const grid = new NodeGrid(attractDistance);
   const nodes: SkelNode[] = [];
   for (const tip of tips) {
@@ -132,9 +129,8 @@ export function colonize(tips: SkelNode[], opts: ColonizeOptions): number {
       const len = heading.length();
       if (len === 0) continue;
       heading.divideScalar(len);
-      // types.ts fixes the meaning of order: 0 on the trunk, +1 on each lateral
-      // child. The first child continues its parent's axis; a second or later
-      // child is a fork and starts the next order.
+      // First child continues the parent's axis; a later child is a fork and
+      // starts the next order.
       const order = parent.children.length > 0 ? parent.order + 1 : parent.order;
       const child = makeNode(
         parent.position.clone().addScaledVector(heading, step),

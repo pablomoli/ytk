@@ -1,15 +1,11 @@
-// Stage 3: girth. One bottom-up pass over a finished skeleton, replacing the
-// old top-down `weight * girth`. A limb's radius follows from the twigs it
-// carries, so height coupling needs no special case.
+// Stage 3: girth. One bottom-up pass over a finished skeleton.
 import type { SkelNode } from "./types";
 
-// Murray's law / the pipe model: r^n at a fork equals the sum of the children's
-// r^n. n = 2 is pure cross-section preservation (da Vinci); ~2.5 is the
-// empirical fit for real trees.
+// Murray's law: r^n at a fork equals the sum of the children's r^n. n = 2 is
+// cross-section preservation (da Vinci); ~2.5 is the empirical fit for trees.
 export function applyMurrayGirth(root: SkelNode, tipRadius: number, exponent: number): void {
-  // Explicit traversal, never recursion: an unbranched run is a chain of
-  // single-child nodes and skeletons here reach tens of thousands of nodes,
-  // so the call stack would overflow on a large garden.
+  // Explicit traversal, never recursion: runs reach tens of thousands of
+  // single-child nodes and the call stack would overflow.
   const order: SkelNode[] = [];
   const stack: SkelNode[] = [root];
   while (stack.length > 0) {
