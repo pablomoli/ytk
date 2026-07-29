@@ -3,9 +3,10 @@
 // Faithful port of Marius Ballot's procedural data-tree pipeline
 // (sources/youtube/procedural-3d-data-trees-in-three-js-a-shader-geometry-breakdown.md):
 // BFS node tree -> chain decomposition -> centripetal Catmull-Rom -> hand-built
-// TNB frames -> weight-sized vertex rings -> hand-stitched quad index buffer,
+// TNB frames -> radius-sized vertex rings -> hand-stitched quad index buffer,
 // with a backpropagated 0-1 depth attribute driving growth in the shaders.
 import { CatmullRomCurve3, Vector3 } from "three";
+import { makeNode, type SkelNode } from "./types";
 
 export type GardenParams = {
   seed: number;
@@ -16,8 +17,16 @@ export type GardenParams = {
   noise: number; // noise vector amplitude added to each step
   reach: number; // distance-from-root threshold that stops growth
   upBias: number; // 0-1 pull of every step toward +y
-  girth: number; // trunk radius at the root
-  girthDecay: number; // weight multiplier per generation
+  girth: number; // trunk radius at the root (aesthetic mode) / tip scale (data)
+  girthDecay: number; // weight multiplier per generation (aesthetic mode only)
+  pipeExponent: number; // Murray exponent; 2 is da Vinci, ~2.5 fits real trees
+  tipRadius: number; // world radius every twig end gets before the pipe pass
+  twigStep: number; // D, one space-colonization step
+  attractorsPerNote: number; // attractor cloud size per note in a cluster
+  orderDecay: number; // 0-1, per-order falloff of the upward pull
+  sag: number; // 0-1, gravity droop on older, lower limbs
+  sagFloor: number; // 0-1, droop floor as a fraction of the bare trunk height
+  lengthGradient: number; // 0-1, how much limb length falls with height
   ringSegments: number; // vertices per tube ring
   stiffness: number; // 0-1: how much a branch resists changing direction
   wind: number; // 0-1: branch + leaf sway amplitude
@@ -46,6 +55,14 @@ export const PRESETS: Record<string, GardenParams> = {
     upBias: 0.75,
     girth: 0.09,
     girthDecay: 0.94,
+    pipeExponent: 2.5,
+    tipRadius: 0.012,
+    twigStep: 0.06,
+    attractorsPerNote: 6,
+    orderDecay: 0.35,
+    sag: 0.7,
+    sagFloor: 0.45,
+    lengthGradient: 0.6,
     ringSegments: 12,
     stiffness: 0.6,
     wind: 0.65,
@@ -73,6 +90,14 @@ export const DEFAULT_PARAMS: GardenParams = {
   upBias: 0.55,
   girth: 0.12,
   girthDecay: 0.92,
+  pipeExponent: 2.5,
+  tipRadius: 0.012,
+  twigStep: 0.06,
+  attractorsPerNote: 6,
+  orderDecay: 0.35,
+  sag: 0.7,
+  sagFloor: 0.45,
+  lengthGradient: 0.6,
   ringSegments: 7,
   stiffness: 0.6,
   wind: 0.35,
@@ -88,18 +113,10 @@ export const DEFAULT_PARAMS: GardenParams = {
   wireBody: 0.12,
 };
 
-export type TreeNode = {
-  position: Vector3;
-  weight: number;
-  pathLength: number;
-  dir: Vector3;
-  children: TreeNode[];
-};
-
 // Root plates are wide and shallow: generate at near-canopy reach, then
 // compress vertically so the span mirrors the crown while staying shallow.
-export function flattenTree(root: TreeNode, yScale: number): TreeNode {
-  const walk = (n: TreeNode) => {
+export function flattenTree(root: SkelNode, yScale: number): SkelNode {
+  const walk = (n: SkelNode) => {
     n.position.y *= yScale;
     n.children.forEach(walk);
   };
@@ -129,23 +146,20 @@ const randomUnit = (rand: () => number): Vector3 => {
 // Complexity budget: BFS growth is exponential in branchChance and
 // reach/step, so a hard node cap keeps every knob combination interactive
 // and the scene shares the budget across trees via maxNodes.
-const MAX_NODES = 2200;
+const MAX_NODES = 4000;
 
 export function generateTree(
   params: GardenParams,
   rand: () => number,
   origin: Vector3,
   maxNodes: number = MAX_NODES,
-): TreeNode {
-  const root: TreeNode = {
-    position: origin.clone(),
-    weight: 1,
-    pathLength: 0,
-    dir: new Vector3(0, 1, 0),
-    children: [],
-  };
+): SkelNode {
+  const root = makeNode(origin.clone(), new Vector3(0, 1, 0), 0, 0);
+  // Both generators hand buildTreeGeometry the same node type, so this path
+  // resolves its top-down weight into an absolute radius on the spot.
+  root.radius = params.girth;
   const up = new Vector3(0, 1, 0);
-  const queue: TreeNode[] = [];
+  const queue: Array<{ node: SkelNode; weight: number }> = [];
   let nodes = 1;
   // Initial 1-4 children sphere-distributed around the root, biased upward so
   // the sapling leaves the ground (Ballot's sphere distribution, our bias).
@@ -159,20 +173,15 @@ export function generateTree(
       .add(direction.clone().multiplyScalar(params.stepScale * (0.7 + rand() * 0.6)));
     const firstSide = params.upBias >= 0 ? 1 : -1;
     if (firstPos.y * firstSide < 0.03) firstPos.y = firstSide * (0.03 + Math.abs(firstPos.y) * 0.3);
-    const child: TreeNode = {
-      position: firstPos,
-      weight: params.girthDecay,
-      pathLength: params.stepScale,
-      dir: direction,
-      children: [],
-    };
+    const child = makeNode(firstPos, direction, params.stepScale, 0);
+    child.radius = params.girthDecay * params.girth;
     root.children.push(child);
-    queue.push(child);
+    queue.push({ node: child, weight: params.girthDecay });
   }
   // BFS: each node extends along its root-to-node direction, scaled by a
   // random scalar, plus a noise vector; growth stops past the reach threshold.
   while (queue.length) {
-    const node = queue.shift()!;
+    const { node, weight } = queue.shift()!;
     const outward = node.position.clone().sub(origin).normalize();
     const count = rand() < params.branchChance ? 2 : 1;
     for (let i = 0; i < count; i++) {
@@ -206,15 +215,16 @@ export function generateTree(
       // da Vinci rule at forks: children split the parent's cross-section
       // area, so girth thins where the tree branches, not merely with age
       const girth = params.girthDecay * (count === 2 ? 0.72 : 1);
-      const child: TreeNode = {
+      const childWeight = weight * girth;
+      const child = makeNode(
         position,
-        weight: node.weight * girth,
-        pathLength: node.pathLength + step.length(),
-        dir: direction,
-        children: [],
-      };
+        direction,
+        node.pathLength + step.length(),
+        i === 0 ? node.order : node.order + 1,
+      );
+      child.radius = childWeight * params.girth;
       node.children.push(child);
-      queue.push(child);
+      queue.push({ node: child, weight: childWeight });
       nodes++;
     }
   }
@@ -223,44 +233,48 @@ export function generateTree(
 
 // Chains: maximal single-child runs between branch points, each starting at
 // its parent branch node so tubes stay connected. Ballot's "segments".
-type Chain = { points: Vector3[]; weights: number[]; depths: number[]; tip: boolean };
+type Chain = { points: Vector3[]; radii: number[]; depths: number[]; tip: boolean };
 
-function decompose(root: TreeNode): {
+function decompose(root: SkelNode): {
   chains: Chain[];
   tips: Array<{ position: Vector3; depth: number }>;
-  knuckles: Array<{ position: Vector3; weight: number; depth: number }>;
+  knuckles: Array<{ position: Vector3; radius: number; depth: number }>;
 } {
+  // Explicit stacks, never recursion: a colonized skeleton reaches tens of
+  // thousands of nodes and a per-node call frame overflows.
   let maxPath = 0;
-  const walkMax = (n: TreeNode) => {
+  const stack: SkelNode[] = [root];
+  while (stack.length > 0) {
+    const n = stack.pop() as SkelNode;
     maxPath = Math.max(maxPath, n.pathLength);
-    n.children.forEach(walkMax);
-  };
-  walkMax(root);
-  const depthOf = (n: TreeNode) => (maxPath > 0 ? n.pathLength / maxPath : 0);
+    for (const c of n.children) stack.push(c);
+  }
+  const depthOf = (n: SkelNode) => (maxPath > 0 ? n.pathLength / maxPath : 0);
   const chains: Chain[] = [];
   const tips: Array<{ position: Vector3; depth: number }> = [];
-  const knuckles: Array<{ position: Vector3; weight: number; depth: number }> = [];
-  const walk = (start: TreeNode) => {
+  const knuckles: Array<{ position: Vector3; radius: number; depth: number }> = [];
+  const branches: SkelNode[] = [root];
+  while (branches.length > 0) {
+    const start = branches.pop() as SkelNode;
     if (start.children.length > 1)
-      knuckles.push({ position: start.position, weight: start.weight, depth: depthOf(start) });
+      knuckles.push({ position: start.position, radius: start.radius, depth: depthOf(start) });
     for (const first of start.children) {
       const points = [start.position];
-      const weights = [start.weight];
+      const radii = [start.radius];
       const depths = [depthOf(start)];
       let node = first;
       while (true) {
         points.push(node.position);
-        weights.push(node.weight);
+        radii.push(node.radius);
         depths.push(depthOf(node));
         if (node.children.length !== 1) break;
-        node = node.children[0];
+        node = node.children[0] as SkelNode;
       }
-      chains.push({ points, weights, depths, tip: node.children.length === 0 });
+      chains.push({ points, radii, depths, tip: node.children.length === 0 });
       if (node.children.length === 0) tips.push({ position: node.position, depth: depthOf(node) });
-      else walk(node);
+      else branches.push(node);
     }
-  };
-  walk(root);
+  }
   return { chains, tips, knuckles };
 }
 
@@ -286,7 +300,7 @@ export type TreeGeometry = {
   }>;
 };
 
-export function buildTreeGeometry(params: GardenParams, root: TreeNode): TreeGeometry {
+export function buildTreeGeometry(params: GardenParams, root: SkelNode): TreeGeometry {
   const { chains, tips, knuckles } = decompose(root);
   const ring = params.ringSegments;
   const pos: number[] = [];
@@ -329,9 +343,9 @@ export function buildTreeGeometry(params: GardenParams, root: TreeNode): TreeGeo
       const local = f - j;
       // Endpoint to endpoint: the pipe model sets radius only at junctions, so
       // a per-control-point lerp leaves everything past the first interval flat.
-      const first = chain.weights[0] as number;
-      const last = chain.weights[chain.weights.length - 1] as number;
-      radii.push((first + (last - first) * t) * params.girth);
+      const first = chain.radii[0] as number;
+      const last = chain.radii[chain.radii.length - 1] as number;
+      radii.push(first + (last - first) * t);
       depths.push(chain.depths[j] + (chain.depths[j + 1] - chain.depths[j]) * local);
     }
     // TNB frames by parallel transport: tangent from neighbors, first normal
@@ -421,7 +435,7 @@ export function buildTreeGeometry(params: GardenParams, root: TreeNode): TreeGeo
   // knuckles: a small UV-sphere welded over every fork so parent and child
   // tubes meet inside solid geometry instead of showing open seams
   for (const k of knuckles) {
-    const r = Math.max(0.012, k.weight * params.girth * 1.18);
+    const r = Math.max(0.012, k.radius * 1.18);
     const lats = 4;
     const base = pos.length / 3;
     for (let li = 0; li <= lats; li++) {

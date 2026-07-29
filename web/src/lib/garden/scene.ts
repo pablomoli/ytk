@@ -30,9 +30,11 @@ import {
   ToneMappingMode,
   VignetteEffect,
 } from "postprocessing";
-import { generateDataTree } from "./datatree";
 import type { GardenPayload } from "./datatree";
+import { hashString } from "../growth/dna";
 import { buildLeafGeometry, DEFAULT_LEAF, leafBasis } from "./leaf";
+import { growGardenTree } from "./pipeline";
+import type { EnvelopeShape } from "./types";
 import { paletteFor, paletteOffset, palettePhase } from "./palette";
 import {
   leafFragment,
@@ -45,6 +47,22 @@ import {
 } from "./shaders";
 import { buildTreeGeometry, flattenTree, generateTree, rng } from "./tree";
 import type { GardenParams } from "./tree";
+
+// Skeleton budget shared across the garden, then per tree by note share; the
+// caps keep both a 30-bucket and a 2-bucket snapshot interactive.
+const GARDEN_NODES = 40_000;
+const MIN_TREE_NODES = 1_200;
+const MAX_TREE_NODES = 14_000;
+const GARDEN_ROOT_NODES = 4_000;
+
+// The crown envelope is anchored to `reach`, so the existing knob still sets
+// garden scale; note count only decides where a bucket sits inside the ramp.
+const HEIGHT_PER_REACH = 2.4;
+const SHAPE: Omit<EnvelopeShape, "maxHeight"> = {
+  spreadMin: 0.35,
+  spreadMax: 1.1,
+  trunkFraction: 0.35,
+};
 
 export type GardenLook = "foliage" | "x-ray";
 export const LOOKS: GardenLook[] = ["foliage", "x-ray"];
@@ -220,10 +238,11 @@ export function mountGarden(
     growSeconds = next.growSeconds;
     uniforms.uWind.value = next.wind;
     applyEffects(next);
-    const rand = rng(next.seed);
+    const layoutRand = rng(next.seed);
     const buckets = dataPayload?.buckets ?? [];
     const treeCount = buckets.length || next.trees;
     const maxBucketNotes = Math.max(1, ...buckets.map((b) => b.n_notes));
+    const totalNotes = Math.max(1, buckets.reduce((a, b) => a + Math.max(0, b.n_notes), 0));
     const ringRadius =
       buckets.length > 1 ? Math.max(2.4, Math.sqrt(treeCount) * next.reach * 0.42) : 0;
     if (buckets.length) {
@@ -246,21 +265,16 @@ export function mountGarden(
         : new Vector3(
             treeCount === 1 ? 0 : -spread / 2 + (t / Math.max(1, treeCount - 1)) * spread,
             0,
-            treeCount === 1 ? 0 : (rand() - 0.5) * next.reach,
+            treeCount === 1 ? 0 : (layoutRand() - 0.5) * next.reach,
           );
-      // topic size sets tree scale: epicmap towers, a two-note interest is
-      // a seedling. sqrt keeps the 1000x mass range within one garden.
       const bucket = buckets[t];
       const topic = bucket?.bucket ?? `seed:${next.seed}`;
       const requestedPalette = bucket?.palette;
-      const sizeScale = bucket ? 0.45 + 0.55 * Math.sqrt(bucket.n_notes / maxBucketNotes) : 1;
-      const treeParams = bucket
-        ? {
-            ...next,
-            reach: lastParams.reach * sizeScale,
-            girth: lastParams.girth * (0.5 + 0.5 * sizeScale),
-          }
-        : next;
+      const treeParams = next;
+      // Per tree, not per garden: one shared stream meant a single new note in
+      // one bucket shifted every later draw and reshuffled every other tree.
+      const treeSeed = (hashString(topic) ^ next.seed) >>> 0;
+      const rand = rng((treeSeed ^ 0x9e3779b9) >>> 0);
       const tubeGeo = (g: {
         position: Float32Array;
         roff: Float32Array;
@@ -280,13 +294,32 @@ export function mountGarden(
         lines.setAttribute("depth", new BufferAttribute(g.lineDepth, 1));
         return lines;
       };
-      const canopyBudget = Math.max(700, Math.floor(4400 / treeCount));
-      const tree = buildTreeGeometry(
-        treeParams,
-        bucket
-          ? generateDataTree(treeParams, rand, origin, bucket, canopyBudget)
-          : generateTree(treeParams, rand, origin, canopyBudget),
+      const share = bucket ? Math.max(0, bucket.n_notes) / totalNotes : 1 / treeCount;
+      const canopyBudget = Math.min(
+        MAX_TREE_NODES,
+        Math.max(MIN_TREE_NODES, Math.round(GARDEN_NODES * share)),
       );
+      const shape: EnvelopeShape = { ...SHAPE, maxHeight: next.reach * HEIGHT_PER_REACH };
+      const grownTree = bucket
+        ? growGardenTree(
+            bucket,
+            maxBucketNotes,
+            shape,
+            {
+              ...treeParams,
+              // The knob is a fraction of the bare trunk, resolved per tree:
+              // a world constant would sit above a seedling's crown base.
+              sagFloor: origin.y + treeParams.sagFloor * shape.maxHeight * SHAPE.trunkFraction,
+            },
+            treeSeed,
+            origin,
+            canopyBudget,
+          )
+        : null;
+      const skeleton = grownTree
+        ? grownTree.root
+        : generateTree(treeParams, rand, origin, canopyBudget);
+      const tree = buildTreeGeometry(treeParams, skeleton);
       const woodMaterials = tubeMaterialsFor(topic, requestedPalette);
       grown.push(
         tagged(
@@ -299,23 +332,26 @@ export function mountGarden(
       grown.push(
         tagged(new LineSegments(lineGeo(tree), lineMaterialFor(topic, requestedPalette)), "line"),
       );
-      // root system: the same organism grown the opposite way - shorter
-      // reach, inverted up bias, a touch gnarlier, darker wood
+      // root system: the same organism grown the opposite way - shorter reach,
+      // inverted up bias, girth from the trunk the pipe model just measured
+      const crownScale = grownTree
+        ? (grownTree.env.center.y + grownTree.env.halfHeight - origin.y) / shape.maxHeight
+        : 1;
       const rootParams = {
         ...treeParams,
-        reach: treeParams.reach * 0.8,
+        reach: treeParams.reach * 0.8 * crownScale,
         upBias: -0.45,
         initialChildren: Math.max(2, treeParams.initialChildren),
         branchChance: Math.min(0.6, treeParams.branchChance + 0.1),
         noise: treeParams.noise * 1.25,
         stepScale: treeParams.stepScale * 0.8,
-        girth: treeParams.girth * 1.1,
+        girth: grownTree ? grownTree.root.radius * 1.1 : treeParams.girth * 1.1,
         stiffness: treeParams.stiffness * 0.85,
       };
       const roots = buildTreeGeometry(
         rootParams,
         flattenTree(
-          generateTree(rootParams, rand, origin, Math.max(200, Math.floor(1200 / treeCount))),
+          generateTree(rootParams, rand, origin, Math.max(300, Math.floor(GARDEN_ROOT_NODES / treeCount))),
           0.4,
         ),
       );
