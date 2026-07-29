@@ -30,7 +30,6 @@ import {
   ToneMappingMode,
   VignetteEffect,
 } from "postprocessing";
-import { SeededGrainEffect } from "../grain";
 import { generateDataTree } from "./datatree";
 import type { GrovePayload } from "./datatree";
 import { buildLeafGeometry, DEFAULT_LEAF, leafBasis } from "./leaf";
@@ -74,9 +73,9 @@ export function mountGrove(
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI * 0.72;
 
-  /* Compositor: vignette + filmic tone response + AA + static seeded grain.
-     Output filtering only — nothing new is drawn. Grain never animates so
-     replays reproduce. */
+  /* Compositor: vignette + filmic tone response + AA. Output filtering only —
+     nothing new is drawn. No grain: the ground is a large flat translucent
+     surface, and per-pixel noise over it reads as a corrupted mesh. */
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   composer.addPass(
@@ -85,7 +84,6 @@ export function mountGrove(
       new SMAAEffect(),
       new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }),
       new VignetteEffect({ offset: 0.3, darkness: 0.55 }),
-      new SeededGrainEffect(0.05),
     ),
   );
 
