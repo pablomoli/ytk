@@ -91,3 +91,31 @@ def test_index_domains_orders_by_count_desc():
     assert [m["label"] for m in meta] == ["b", "a", "other"]
     assert [m["n"] for m in meta] == [4, 2, 1]
     assert dom == [1, 0, 0, 0, 2, 1, 0]
+
+
+def test_adopt_unplaced_joins_nearest_cluster():
+    import numpy as np
+
+    from ytk.mapdomains import UNPLACED, adopt_unplaced
+
+    rng = np.random.default_rng(3)
+    a = rng.normal((1, 0, 0), 0.05, (12, 3))
+    b = rng.normal((0, 1, 0), 0.05, (12, 3))
+    lost_a = rng.normal((1, 0, 0), 0.05, (3, 3))
+    lost_b = rng.normal((0, 1, 0), 0.05, (3, 3))
+    vecs = np.vstack([a, b, lost_a, lost_b])
+    labels = ["alpha"] * 12 + ["beta"] * 12 + [UNPLACED] * 6
+    out = adopt_unplaced(labels, vecs)
+    assert out[:24] == labels[:24]  # rule-matched notes never move
+    assert out[24:27] == ["alpha"] * 3
+    assert out[27:] == ["beta"] * 3
+    assert UNPLACED not in out
+
+
+def test_adopt_unplaced_no_placed_notes_is_noop():
+    import numpy as np
+
+    from ytk.mapdomains import UNPLACED, adopt_unplaced
+
+    labels = [UNPLACED, UNPLACED]
+    assert adopt_unplaced(labels, np.eye(2)) == labels

@@ -30,6 +30,7 @@ from ytk import ridges, signals
 from ytk.mapdomains import CONTENT_CATS as _CATS
 from ytk.mapdomains import (
     UNPLACED,
+    adopt_unplaced,
     bucket_labels,
     domain_labels,
     index_domains,
@@ -527,11 +528,21 @@ def main() -> None:
     if BUCKETS.exists():
         cfg = load_buckets(BUCKETS)
         notes = notes_from_metas(meta, content_theme, theme_names, _rel_path)
+        stale = {t for b in cfg.buckets for t in b.themes} - set(theme_names)
+        if stale:
+            # a profile re-synthesis renames themes and kills matchers
+            # silently -- it has happened twice (2026-07-25, 2026-07-29)
+            print(
+                "WARNING: STALE THEME MATCHERS in grove_buckets.yaml -- these "
+                f"match zero notes: {sorted(stale)}. Live themes: {sorted(theme_names)}"
+            )
         labels_str = bucket_labels(notes, cfg)
         n_unplaced = sum(1 for label in labels_str if label == UNPLACED)
+        labels_str = adopt_unplaced(labels_str, vecs)
         print(
             f"domains: bucket axis, {len(cfg.buckets)} buckets, "
-            f"{n_unplaced} unplaced ({100 * n_unplaced / len(labels_str):.0f}%)"
+            f"{n_unplaced} adopted by nearest-neighbour vote "
+            f"({100 * n_unplaced / len(labels_str):.0f}%)"
         )
     else:
         # No bucket config: fall back to the provenance axis rather than

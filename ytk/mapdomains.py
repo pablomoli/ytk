@@ -225,6 +225,37 @@ def notes_from_metas(
     return notes
 
 
+def adopt_unplaced(labels: list[str], vecs, k: int = 10) -> list[str]:
+    """Give every unmatched note the bucket its content already sits in.
+
+    kNN majority over the placed notes' embeddings; the nearest placed
+    neighbour breaks ties. Rule-matched notes are never reassigned, so the
+    user-authored buckets stay the anchors and adoption only extends their
+    reach.
+    """
+    import numpy as np
+
+    labels = list(labels)
+    placed = [i for i, label in enumerate(labels) if label != UNPLACED]
+    lost = [i for i, label in enumerate(labels) if label == UNPLACED]
+    if not lost or not placed:
+        return labels
+    x = np.asarray(vecs, dtype=np.float32)
+    x = x / np.maximum(np.linalg.norm(x, axis=1, keepdims=True), 1e-12)
+    sims = x[lost] @ x[placed].T
+    kk = min(k, len(placed))
+    for row, i in enumerate(lost):
+        top = np.argsort(sims[row])[-kk:]
+        votes = Counter(labels[placed[j]] for j in top)
+        best = max(votes.values())
+        tied = {label for label, n in votes.items() if n == best}
+        for j in reversed(top):
+            if labels[placed[j]] in tied:
+                labels[i] = labels[placed[j]]
+                break
+    return labels
+
+
 def index_domains(labels: list[str]) -> tuple[list[int], list[dict]]:
     """Stable indexing: domains ordered by count descending, ties broken by
     first occurrence. Returns (per-point index, domain meta)."""

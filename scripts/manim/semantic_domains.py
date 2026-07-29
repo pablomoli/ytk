@@ -5,8 +5,9 @@ only the labels were provenance. The cloud appears unlabeled, the
 shipped legend's colors sweep in (blue = path slugs, grey = `other`,
 figure-01's encoding), the camera orbits the blobs in 3D, then holds
 dead still while the colors crossfade to the garden buckets -- themes
-wake up gold, the three hackathon slugs unify, a third of the map goes
-grey -- and only then orbits again before settling onto the stills'
+wake up gold, the three hackathon slugs unify, and every note has a home
+(rule-unmatched notes are adopted into the nearest bucket by embedding
+kNN at map build) -- and only then orbits again before settling onto the stills'
 matplotlib view (elev 30, azim -60). The held camera is the point: the
 layout is visibly identical through the swap, so the change can only be
 membership, never projection (same device as 13-space-3d/TagInSpace).
