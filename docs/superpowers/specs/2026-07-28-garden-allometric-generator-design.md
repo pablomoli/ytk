@@ -73,7 +73,7 @@ shared garden-wide envelope would reintroduce the equal-width problem.
 
 ### Stage 1 - scaffold (`scaffold.ts`)
 
-The dendrogram builds trunk and major limbs, as today, with two changes.
+The dendrogram builds trunk and major limbs, as today, with four changes.
 
 **Gravitropism becomes a gradient by branch order.** Replace the constant
 `upBias` with `upPull = upBias * pow(orderDecay, order)`: the trunk is strongly
@@ -85,6 +85,28 @@ directly produces the up-and-out reading.
 dendrogram child owns an angular sector (golden-angle azimuth, as today) and a
 radial target proportional to its share of note mass. `reach` becomes an
 ellipsoid containment test instead of a sphere.
+
+**Gravity sag on old limbs.** A second tropism axis, perpendicular to the
+first: the order gradient runs trunk-to-twig, this one runs low-to-high. Older,
+lower, longer limbs are pulled downward under their own weight while young
+upper limbs angle toward the sky. Apply as a downward term scaled by limb
+length and by inverse height within the envelope, composed with — not replacing
+— the order gradient.
+
+The two axes together are what separate a tree silhouette from a shrub: lower
+limbs reaching out and drooping, crown reaching up. Source:
+`sources/youtube/why-i-stopped-using-tree-assets-in-my-game.md`, where the
+first model failed on exactly this and the fix came from pine biology rather
+than from any tool feature.
+
+Constraint: sag fights the hemisphere fold that keeps canopy above ground. The
+downward pull needs a floor, or a long low limb gets driven through the ground
+plane and folded back, which reads as a kink rather than a droop.
+
+**Branch length falls with height.** Lower limbs are longest, shortening toward
+the apex. Cluster persistence still ranks limb length — data stays
+authoritative — but a height-derived multiplier scales it, so the crown tapers
+instead of carrying full-length limbs to the apex.
 
 Retained from the current generator: `stiffness` blending of direction, the
 noise vector, and the hemisphere fold that keeps canopy above ground.
