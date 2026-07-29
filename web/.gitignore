@@ -28,3 +28,4 @@ web/.tanstack/
 # vitest browser-mode failure artifacts
 .vitest-attachments/
 __screenshots__/
+.gdump/
