@@ -4,10 +4,13 @@ import { writeFileSync } from "node:fs";
 import { Vector3 } from "three";
 import { growGardenTree } from "./garden/pipeline.js";
 import { DEFAULT_PARAMS } from "./garden/tree.js";
+import { growRootSystem } from "./garden/roots.js";
 
 const port = process.argv[2] ?? "6970";
 const bucketName = process.argv[3] ?? "epicmap";
 const out = process.argv[4] ?? "/tmp/skeleton.json";
+// "crown" (default) or "roots" -- roots are generated separately in scene.ts.
+const part = process.argv[5] ?? "crown";
 
 const res = await fetch(`http://localhost:${port}/api/garden`);
 const payload = await res.json();
@@ -29,15 +32,16 @@ const params = {
   sagFloor: DEFAULT_PARAMS.sagFloor * shape.maxHeight * shape.trunkFraction,
 };
 
-const { root, env } = growGardenTree(
-  bucket,
-  maxNotes,
-  shape,
-  params,
-  7,
-  new Vector3(0, 0, 0),
-  14000,
-);
+const origin = new Vector3(0, 0, 0);
+const grown = growGardenTree(bucket, maxNotes, shape, params, 7, origin, 14000);
+const env = grown.env;
+
+// Roots run the same pipeline as the crown, mirrored. Kept in step with the
+// data path in scene.ts; the aesthetic path is not dumped.
+const root =
+  part === "roots"
+    ? growRootSystem(bucket, env, params, grown.root.radius, 7, origin, 1600).root
+    : grown.root;
 
 // Flatten to a node list with parent links so limb structure is measurable.
 const nodes = [];

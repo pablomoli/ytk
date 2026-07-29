@@ -34,6 +34,7 @@ import type { GardenPayload } from "./datatree";
 import { hashString } from "../growth/dna";
 import { buildLeafGeometry, DEFAULT_LEAF, leafBasis } from "./leaf";
 import { growGardenTree } from "./pipeline";
+import { growRootSystem } from "./roots";
 import type { EnvelopeShape } from "./types";
 import { paletteFor, paletteOffset, palettePhase } from "./palette";
 import {
@@ -53,7 +54,13 @@ import type { GardenParams } from "./tree";
 const GARDEN_NODES = 40_000;
 const MIN_TREE_NODES = 1_200;
 const MAX_TREE_NODES = 14_000;
-const GARDEN_ROOT_NODES = 4_000;
+// Root budget is deliberately a fraction of the crown's: most of a root plate
+// sits under the ground disc, so hidden nodes buy nothing.
+const GARDEN_ROOT_NODES = 12_000;
+const MIN_ROOT_NODES = 240;
+const MAX_ROOT_NODES = 1_600;
+// Decorrelates the root RNG from the crown's without changing either alone.
+const ROOT_SEED = 0x5f356495;
 
 // The crown envelope is anchored to `reach`, so the existing knob still sets
 // garden scale; note count only decides where a bucket sits inside the ramp.
@@ -332,8 +339,8 @@ export function mountGarden(
       grown.push(
         tagged(new LineSegments(lineGeo(tree), lineMaterialFor(topic, requestedPalette)), "line"),
       );
-      // root system: the same organism grown the opposite way - shorter reach,
-      // inverted up bias, girth from the trunk the pipe model just measured
+      // root system: the same organism grown the opposite way. In data mode it
+      // runs the crown pipeline mirrored; aesthetic mode keeps the old BFS.
       const crownScale = grownTree
         ? (grownTree.env.center.y + grownTree.env.halfHeight - origin.y) / shape.maxHeight
         : 1;
@@ -348,13 +355,31 @@ export function mountGarden(
         girth: grownTree ? grownTree.root.radius * 1.1 : treeParams.girth * 1.1,
         stiffness: treeParams.stiffness * 0.85,
       };
-      const roots = buildTreeGeometry(
-        rootParams,
-        flattenTree(
-          generateTree(rootParams, rand, origin, Math.max(300, Math.floor(GARDEN_ROOT_NODES / treeCount))),
-          0.4,
-        ),
+      const rootBudget = Math.min(
+        MAX_ROOT_NODES,
+        Math.max(MIN_ROOT_NODES, Math.round(GARDEN_ROOT_NODES * share)),
       );
+      const rootSkeleton =
+        grownTree && bucket
+          ? growRootSystem(
+              bucket,
+              grownTree.env,
+              { ...treeParams, sagFloor: origin.y },
+              grownTree.root.radius,
+              (treeSeed ^ ROOT_SEED) >>> 0,
+              origin,
+              rootBudget,
+            ).root
+          : flattenTree(
+              generateTree(
+                rootParams,
+                rand,
+                origin,
+                Math.max(300, Math.floor(GARDEN_ROOT_NODES / treeCount)),
+              ),
+              0.4,
+            );
+      const roots = buildTreeGeometry(rootParams, rootSkeleton);
       // roots are anchored: same shaders, but their wind uniform is pinned to 0
       const still = (m: ShaderMaterial) => {
         m.uniforms.uWind = { value: 0 };

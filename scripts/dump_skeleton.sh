@@ -49,4 +49,4 @@ if [ -n "$ref" ]; then
 fi
 
 cp "$root/scripts/dump_skeleton.mjs" .gdump/dump.mjs
-node .gdump/dump.mjs "$port" "$bucket" "$out"
+node .gdump/dump.mjs "$port" "$bucket" "$out" "${5:-crown}"

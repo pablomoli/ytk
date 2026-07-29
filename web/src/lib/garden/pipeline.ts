@@ -70,7 +70,7 @@ const STEP_MIN = 0.45;
 // Order the shortening starts at; earlier and the lobe seeds stop carrying.
 const STEP_FROM = 4;
 
-const countNodes = (root: SkelNode): number => {
+export const countNodes = (root: SkelNode): number => {
   let n = 0;
   const stack: SkelNode[] = [root];
   while (stack.length > 0) {
@@ -114,31 +114,20 @@ function twigBudgets(masses: number[], available: number): number[] {
   return raw.map((v) => Math.max(1, Math.floor(v * scale)));
 }
 
-export function growGardenTree(
-  topo: BucketTopology,
-  maxNotes: number,
-  shape: EnvelopeShape,
+// Colonize one attractor cloud per lobe. Shared with the root system, which
+// runs the same call in a mirrored space with the tilt pointing the other way.
+export function growTwigs(
+  env: Envelope,
+  lobes: Lobe[],
   params: GrowthParams,
-  seed: number,
-  origin: Vector3,
-  maxNodes: number,
-): { root: SkelNode; env: Envelope } {
-  const env = envelopeFor(origin, topo.n_notes, maxNotes, shape);
-  const rand = rng(seed);
-  const budget = Math.max(2, Math.floor(maxNodes));
-  const { root, lobes } = growScaffold(
-    topo,
-    env,
-    params,
-    rand,
-    origin,
-    scaffoldBudget(budget),
-  );
-
+  rand: () => number,
+  available: number,
+  upBias: number = TWIG_UP,
+): void {
   const step = Math.max(1e-4, params.twigStep);
   const attractDistance = Math.max(ATTRACT_FRACTION * env.radius, ATTRACT_STEPS * step);
   const masses = foliageMasses(lobes);
-  const budgets = twigBudgets(masses, Math.max(0, budget - countNodes(root)));
+  const budgets = twigBudgets(masses, Math.max(0, available));
   for (let i = 0; i < lobes.length; i += 1) {
     const lobe = lobes[i] as Lobe;
     const nodeBudget = budgets[i] as number;
@@ -183,13 +172,29 @@ export function growGardenTree(
       maxNodes: Math.min(nodeBudget, Math.ceil(count * NODES_PER_ATTRACTOR)),
       rand,
       jitter: JITTER_STEPS * step,
-      upBias: TWIG_UP,
+      upBias,
       bareRun: twigBareRun,
       splitCos: twigSplitCos,
       stepFor: (order) =>
         step * Math.max(STEP_MIN, Math.pow(STEP_DECAY, Math.max(0, order - STEP_FROM))),
     });
   }
+}
+
+export function growGardenTree(
+  topo: BucketTopology,
+  maxNotes: number,
+  shape: EnvelopeShape,
+  params: GrowthParams,
+  seed: number,
+  origin: Vector3,
+  maxNodes: number,
+): { root: SkelNode; env: Envelope } {
+  const env = envelopeFor(origin, topo.n_notes, maxNotes, shape);
+  const rand = rng(seed);
+  const budget = Math.max(2, Math.floor(maxNodes));
+  const { root, lobes } = growScaffold(topo, env, params, rand, origin, scaffoldBudget(budget));
+  growTwigs(env, lobes, params, rand, budget - countNodes(root));
 
   // Last, over the finished skeleton: the trunk's radius is the sum of what it
   // ends up carrying, so a twig grown after this pass would never reach it.
