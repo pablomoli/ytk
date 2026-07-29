@@ -1,16 +1,25 @@
 """Silent 3D companion clip for the flow-pulses figures (docs/assets/03-flow-pulses/).
 
 The stills freeze four instants of the same web because a PNG cannot show
-motion -- this clip shows the thing itself. The 8 traced filaments carry
-the shader's exact brightness wave, brightness = 0.65 + 0.35*sin(arclen*18
-- time*4.5), the light freezes for a beat (the geometry never moves; only
-the light travels), then the camera orbits the pulsing web and settles
-onto the stills' matplotlib view (elev 30, azim -60).
+motion -- this clip shows the thing itself. Light is emitted from the
+web's 4 junction nodes and travels outward along each strand as soft
+packets (two offset trains per node, amplitude decaying with distance,
+purple troughs to cream crests), the light freezes for a beat (the
+geometry never moves; only the light travels), then the camera orbits
+the pulsing web and settles onto the stills' matplotlib view (elev 30,
+azim -60).
 
-Geometry, arclengths and per-vertex density come from the live map
-payload; palette from plot_assets so the clip cannot drift from the
-stills. Billboard reprojection from tracked view angles, same machinery
-as scripts/render_fog_video.py.
+Geometry, arclengths, per-vertex density and junction positions come
+from the live map payload; palette from plot_assets so the clip cannot
+drift from the stills. Billboard reprojection from tracked view angles,
+same machinery as scripts/render_fog_video.py.
+
+The invisible anchor that carries the per-frame updater is added to the
+scene BEFORE anything else, deliberately: manim's cairo renderer bakes
+every mobject listed before the first animated-or-updated one into a
+static background image per play, so an anchor added last freezes
+everything added before it (measured -- the fog held still through a
+110-degree orbit while the strands turned).
 
     uv run --with manim --with matplotlib manim -ql -r 540,540 \
         scripts/manim/flow_pulses.py FlowPulses           # draft
@@ -53,10 +62,13 @@ _CMAP = saturated_magma()
 # the stills' matplotlib camera; the clip ends on this view
 STILL_ELEV, STILL_AZIM = 30.0, -60.0
 
-# the shader's dials, verbatim from the figure-02 header
-WAVELEN_K, SPEED = 18.0, 4.5
+PEAK = "#fff3d0"  # pulse crest
 
-PEAK = "#fff3d0"  # pulse crest; trough stays gold
+# pulse train dials, in payload arclength units per second
+PULSE_SPEED = 0.55
+PULSE_PERIOD = 2.6
+PULSE_SIGMA = 0.17
+PULSE_DECAY = 3.5  # amplitude e-folding distance from the emitting node
 
 
 def fog_color(den: float) -> str:
@@ -83,6 +95,7 @@ class FlowPulses(MovingCameraScene):
 
         # filament columns: x, y, z, cumulative arclength, density
         fils = [np.asarray(f) for f in data["all"]["web"]["filaments"]]
+        junctions = np.asarray(data["all"]["web"]["junctions"])
 
         c3 = (xyz.min(axis=0) + xyz.max(axis=0)) / 2
         ref = project(xyz - c3, STILL_ELEV, STILL_AZIM)
@@ -94,26 +107,54 @@ class FlowPulses(MovingCameraScene):
         def place(p3: np.ndarray) -> np.ndarray:
             return project(p3 - c3, elev.get_value(), azim.get_value()) * scale
 
+        # the anchor carrying the updater must be the FIRST scene mobject
+        # (see module docstring); everything added after it re-renders
+        anchor = Dot(fill_opacity=0.0, stroke_width=0)
+        self.add(anchor)
+
         rng = np.random.default_rng(7)
         idx = rng.permutation(len(xyz))[:1500]
         fog_xyz, fog_den = xyz[idx], den[idx]
 
-        def splat(p: np.ndarray, d: float) -> Dot:
-            return Dot(
+        # two layers per splat, same recipe as the fog clip, so the points
+        # render identically across the series
+        def splat(p: np.ndarray, d: float) -> VGroup:
+            color = fog_color(d)
+            halo = Dot(
                 point=p,
-                radius=0.012 + 0.05 * d,
-                color=fog_color(d),
-                fill_opacity=0.08 + 0.38 * d,
+                radius=0.05 + 0.10 * d,
+                color=color,
+                fill_opacity=0.05 + 0.10 * d,
                 stroke_width=0,
             )
+            core = Dot(
+                point=p,
+                radius=0.010 + 0.038 * d,
+                color=color,
+                fill_opacity=0.12 + 0.55 * d,
+                stroke_width=0,
+            )
+            return VGroup(halo, core)
 
         fog = VGroup(*(splat(p, d) for p, d in zip(place(fog_xyz), fog_den)))
         fog.set_z_index(0)
 
-        # strands as short segments so the brightness wave resolves along
-        # the arc; stride 2 keeps the count near 500 across all 8 strands
-        seg_xyz, seg_arc, seg_w, seg_mobs = [], [], [], []
-        for f in fils:
+        # per strand: arclengths of the vertices a junction sits on; every
+        # strand gets at least its nearest-to-a-junction vertex as source
+        def sources_for(f: np.ndarray) -> np.ndarray:
+            verts, arcs = f[:, :3], f[:, 3]
+            d2 = ((verts[:, None, :] - junctions[None, :, :]) ** 2).sum(axis=2)
+            near = d2.min(axis=1)
+            hits = arcs[near < 0.05**2]
+            if len(hits) == 0:
+                hits = arcs[[int(near.argmin())]]
+            return np.unique(hits.round(3))
+
+        # strands as short segments so the packets resolve along the arc
+        seg_mobs, seg_xyz, seg_dist, seg_phase, seg_w = [], [], [], [], []
+        for s_i, f in enumerate(fils):
+            srcs = sources_for(f)
+            phase = float(rng.uniform(0, PULSE_PERIOD))
             for i in range(0, len(f) - 2, 2):
                 pair = f[i : i + 3 : 2, :3]
                 arc = float(f[i : i + 3 : 2, 3].mean())
@@ -121,11 +162,12 @@ class FlowPulses(MovingCameraScene):
                 w = 2.8 + 2.8 * d
                 seg = VMobject(stroke_color=GOLD, stroke_width=w)
                 seg.set_points_as_corners(place(pair))
-                seg.set_stroke(opacity=0.55)
-                seg_xyz.append(pair)
-                seg_arc.append(arc)
-                seg_w.append(w)
+                seg.set_stroke(opacity=0.4)
                 seg_mobs.append(seg)
+                seg_xyz.append(pair)
+                seg_dist.append(float(np.abs(arc - srcs).min()))
+                seg_phase.append(phase)
+                seg_w.append(w)
         strands = VGroup(*seg_mobs)
         strands.set_z_index(2)
 
@@ -133,26 +175,32 @@ class FlowPulses(MovingCameraScene):
         veil.set_z_index(1)
 
         purple_c, gold_c, peak_c = ManimColor(PURPLE), ManimColor(GOLD), ManimColor(PEAK)
+        dist_a = np.asarray(seg_dist)
+        phase_a = np.asarray(seg_phase)
+        w_a = np.asarray(seg_w)
+        decay = np.exp(-dist_a / PULSE_DECAY)
 
-        # one combined updater: reproject from the tracked angles and light
-        # every segment from the tracked clock -- attached to an anchor that
-        # is IN the scene (updaters never run on off-scene mobjects)
+        def brightness(t: float) -> np.ndarray:
+            # two offset packet trains per node: the second at half strength
+            # a half-period later reads as a heartbeat rather than a strobe
+            b = np.full_like(dist_a, 0.22)
+            for amp, off in ((0.85, 0.0), (0.45, PULSE_PERIOD / 2)):
+                front = ((t + phase_a + off) % PULSE_PERIOD) * PULSE_SPEED
+                b += amp * decay * np.exp(-(((dist_a - front) / PULSE_SIGMA) ** 2))
+            return np.clip(b, 0.0, 1.0)
+
         def refresh(_=None):
             t = clock.get_value()
             for grp, p in zip(fog, place(fog_xyz)):
                 grp.move_to(p)
-            for seg, pair, arc, w in zip(seg_mobs, seg_xyz, seg_arc, seg_w):
+            bs = brightness(t)
+            for seg, pair, b, w in zip(seg_mobs, seg_xyz, bs, w_a):
                 seg.set_points_as_corners(place(pair))
-                b = 0.65 + 0.35 * np.sin(arc * WAVELEN_K - t * SPEED)
-                # the stills' look: purple troughs, gold body, cream crests
-                u = (b - 0.3) / 0.7
-                if u < 0.5:
-                    color = interpolate_color(purple_c, gold_c, u * 2)
+                if b < 0.5:
+                    color = interpolate_color(purple_c, gold_c, b * 2)
                 else:
-                    color = interpolate_color(gold_c, peak_c, u * 2 - 1)
-                seg.set_stroke(color=color, opacity=0.3 + 0.7 * u, width=w * (0.7 + 0.8 * u))
-
-        anchor = Dot(fill_opacity=0.0, stroke_width=0)
+                    color = interpolate_color(gold_c, peak_c, b * 2 - 1)
+                seg.set_stroke(color=color, opacity=0.28 + 0.72 * b, width=w * (0.65 + 0.9 * b))
 
         # the web appears with the light off: fog first, then the strands
         self.play(
@@ -166,11 +214,10 @@ class FlowPulses(MovingCameraScene):
             run_time=2.4,
         )
 
-        self.add(anchor)
         anchor.add_updater(refresh)
 
-        # ignition: the light starts to travel, geometry and camera held
-        self.play(clock.animate.increment_value(3.2), run_time=3.2, rate_func=rate_functions.linear)
+        # ignition: packets leave the crossroads, geometry and camera held
+        self.play(clock.animate.increment_value(3.4), run_time=3.4, rate_func=rate_functions.linear)
 
         # the A-B beat from the stills, in time: the light freezes...
         self.wait(1.2)
@@ -194,6 +241,6 @@ class FlowPulses(MovingCameraScene):
             rate_func=rate_functions.ease_in_out_sine,
         )
 
-        # hold: pulses keep running on the canonical view
-        self.play(clock.animate.increment_value(2.5), run_time=2.5, rate_func=rate_functions.linear)
+        # hold: the heartbeat keeps running on the canonical view
+        self.play(clock.animate.increment_value(2.6), run_time=2.6, rate_func=rate_functions.linear)
         anchor.remove_updater(refresh)
