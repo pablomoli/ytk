@@ -10,6 +10,8 @@ import { chromium } from "./../web/node_modules/playwright/index.mjs";
 const port = process.argv[2] ?? "6970";
 const outDir = process.argv[3] ?? "/tmp/garden-capture";
 const grow = Number(process.argv[4] ?? 14);
+// Wheel clicks out from the default framing; fewer means a closer camera.
+const zoomOut = Number(process.argv[5] ?? 2);
 
 const browser = await chromium.launch({
   headless: true,
@@ -31,10 +33,17 @@ const knobs = page.locator("button", { hasText: /^knobs$/ });
 if (!(await knobs.getAttribute("class"))?.includes("on")) await knobs.click();
 await page.waitForTimeout(600);
 await page.evaluate((seconds) => {
-  const row = [...document.querySelectorAll("label, div")].find((el) =>
-    /grow time/i.test(el.textContent ?? ""),
+  // The range input is a sibling of its label, not a child, so walk up until a
+  // container holds both.
+  const label = [...document.querySelectorAll("*")].find(
+    (el) => el.children.length === 0 && /^\s*grow time\s*$/i.test(el.textContent ?? ""),
   );
-  const input = row?.querySelector('input[type="range"]');
+  let node = label;
+  let input = null;
+  for (let i = 0; i < 4 && node && !input; i += 1) {
+    node = node.parentElement;
+    input = node?.querySelector('input[type="range"]') ?? null;
+  }
   if (!input) return false;
   const setter = Object.getOwnPropertyDescriptor(
     window.HTMLInputElement.prototype,
@@ -43,7 +52,7 @@ await page.evaluate((seconds) => {
   setter?.call(input, String(seconds));
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.dispatchEvent(new Event("change", { bubbles: true }));
-  return true;
+  return input.value;
 }, grow);
 await page.waitForTimeout(900);
 if ((await knobs.getAttribute("class"))?.includes("on")) await knobs.click();
@@ -59,7 +68,7 @@ await page.waitForTimeout(15000); // let the first growth settle before framing
 const box = await page.locator("canvas").boundingBox();
 const cx = box.x + box.width / 2;
 const cy = box.y + box.height / 2;
-for (let i = 0; i < 4; i += 1) {
+for (let i = 0; i < zoomOut; i += 1) {
   await page.mouse.move(cx, cy);
   await page.mouse.wheel(0, 240);
   await page.waitForTimeout(120);

@@ -23,7 +23,9 @@ from plot_assets import FRAME, GOLD, MUTED, TEXT, use_house_font
 use_house_font()
 
 W, H, DPI = 1600, 900, 100
-GROW_START, GROW_SPAN = 0.6, 14.5
+# Synced to the measured growth window of the capture, not assumed: the shader
+# ramp compresses visible growth relative to the grow-time knob.
+GROW_START, GROW_SPAN = 0.5, 8.0
 
 KEY = [
     ("height", "notes in the topic, on a log scale"),
@@ -38,6 +40,8 @@ def main() -> None:
     outdir = Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/hudframes")
     seconds = float(sys.argv[2]) if len(sys.argv) > 2 else 20.0
     fps = int(sys.argv[3]) if len(sys.argv) > 3 else 15
+    start = float(sys.argv[4]) if len(sys.argv) > 4 else GROW_START
+    span = float(sys.argv[5]) if len(sys.argv) > 5 else GROW_SPAN
     outdir.mkdir(parents=True, exist_ok=True)
 
     fig = plt.figure(figsize=(W / DPI, H / DPI), dpi=DPI)
@@ -81,7 +85,7 @@ def main() -> None:
     total = int(seconds * fps)
     for i in range(total):
         t = i / fps
-        frac = min(1.0, max(0.0, (t - GROW_START) / GROW_SPAN))
+        frac = min(1.0, max(0.0, (t - start) / span))
         fill.set_width(max(1.0, 416 * frac))
         pct.set_text(f"{round(frac * 100)}%")
         fig.savefig(outdir / f"hud_{i:04d}.png", dpi=DPI, transparent=True)
