@@ -11,7 +11,7 @@ import re
 import shutil
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -29,6 +29,42 @@ load_dotenv()
 
 
 LINK_REMINDER = "Add [[wikilinks]] in Obsidian to connect this note to related notes."
+
+# R5 (#150): mtime is a sync artifact — one mass rewrite restamped 3,343 notes
+# on 2026-05-02 (docs/assets/memory-field/a2-mtime-divergence.png) — so age
+# decisions read the note's own stamp and touch mtime only as a last resort.
+_CAPTURED_RE = re.compile(r"^captured:\s*['\"]?(\d{4}-\d{2}-\d{2})", re.MULTILINE)
+_FM_DATE_RE = re.compile(r"^date:\s*['\"]?(\d{4}-\d{2}-\d{2})", re.MULTILINE)
+_NAME_DATE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})")
+
+
+def note_capture_date(path: Path) -> datetime:
+    """Best-known capture date: `captured:` frontmatter, then the dated
+    filename, then frontmatter `date:` (capture-equal for memory notes),
+    then mtime."""
+    try:
+        head = path.read_text(encoding="utf-8", errors="replace")[:2000]
+    except OSError:
+        head = ""
+    for match in (
+        _CAPTURED_RE.search(head),
+        _NAME_DATE_RE.match(path.name),
+        _FM_DATE_RE.search(head),
+    ):
+        if match:
+            try:
+                return datetime.strptime(match.group(1), "%Y-%m-%d")
+            except ValueError:
+                continue
+    return datetime.fromtimestamp(path.stat().st_mtime)
+
+
+def stale_memories(mem_dir: Path, days: int, now: datetime | None = None) -> list[Path]:
+    """Memory notes whose capture date is older than the cutoff, oldest first."""
+    now = now or datetime.now()
+    cutoff = now - timedelta(days=days)
+    dated = [(note_capture_date(p), p) for p in mem_dir.glob("*.md")]
+    return [p for d, p in sorted(dated) if d < cutoff]
 
 
 class NoteAlreadyExists(Exception):
@@ -162,6 +198,7 @@ url: {meta.get("url", "")}
 title: {meta.get("title", "")}
 uploader: {meta.get("uploader", "")}
 date: {date}
+captured: {datetime.now():%Y-%m-%d}
 tags:
 {tags_yaml}
 duration: {duration}
@@ -399,7 +436,8 @@ def write_web_note(url: str, title: str, author: str, date: str, enrichment: Enr
     insights = "\n".join(f"- {i}" for i in enrichment.insights)
 
     note_path.write_text(
-        f"---\nurl: {url}\ntitle: {title}\nauthor: {author}\ndate: {date}\ntags:\n{tags_yaml}\ntype: web\n---\n\n"
+        f"---\nurl: {url}\ntitle: {title}\nauthor: {author}\ndate: {date}\n"
+        f"captured: {datetime.now():%Y-%m-%d}\ntags:\n{tags_yaml}\ntype: web\n---\n\n"
         f"## Thesis\n{enrichment.thesis}\n\n"
         f"## Summary\n{enrichment.summary}\n\n"
         f"## Key Concepts\n{concepts}\n\n"
@@ -430,7 +468,8 @@ def write_reddit_note(post: dict, enrichment: Enrichment, comments: list[dict]) 
     body = (
         f"---\nurl: {post['permalink']}\ntitle: {post['title']}\n"
         f"subreddit: r/{post['subreddit']}\nauthor: u/{post['author']}\n"
-        f"date: {date}\ntags:\n{tags_yaml}\ntype: reddit\n---\n\n"
+        f"date: {date}\ncaptured: {datetime.now():%Y-%m-%d}\n"
+        f"tags:\n{tags_yaml}\ntype: reddit\n---\n\n"
         f"## Thesis\n{enrichment.thesis}\n\n"
         f"## Summary\n{enrichment.summary}\n\n"
         f"## Key Concepts\n{concepts}\n\n"
@@ -637,6 +676,7 @@ def _render_instagram_note(
 
     content = (
         f"---\nurl: {post.url}\nusername: {post.username}\ndate: {post.timestamp}\n"
+        f"captured: {datetime.now():%Y-%m-%d}\n"
         f"title: {enrichment.thesis}\n"
         f"tags:\n{tags_yaml}\ntype: instagram\n"
         f"{capture_yaml}"
@@ -1068,6 +1108,7 @@ def write_tiktok_note(
 
     content = (
         f"---\nurl: {post.url}\nusername: {post.username}\ndate: {post.timestamp}\n"
+        f"captured: {datetime.now():%Y-%m-%d}\n"
         f"title: {enrichment.thesis}\nduration: {post.duration}\n"
         f"tags:\n{tags_yaml}\ntype: tiktok\n"
         f"image_paths:{media_yaml}\n---\n\n"
@@ -1116,6 +1157,7 @@ def write_pinterest_note(pin, enrichment: Enrichment) -> Path:
 
     content = (
         f"---\nurl: {pin.url}\ntitle: {enrichment.thesis}\n"
+        f"captured: {datetime.now():%Y-%m-%d}\n"
         f"tags:\n{tags_yaml}\ntype: pinterest\n"
         f"image_paths:{image_paths_yaml}\n---\n\n"
     )

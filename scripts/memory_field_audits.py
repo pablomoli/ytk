@@ -364,7 +364,94 @@ def a3() -> None:
     save(fig, "a3-memo-bursts.png")
 
 
-AUDITS = {"a1": a1, "a2": a2, "a3": a3}
+# --- R5: gc dry-run diff ----------------------------------------------------
+
+
+def r5() -> None:
+    """What mtime-gc would have decided vs date-aware gc, on gc's own scope
+    (top-level inbox/memories/*.md), across candidate prune thresholds."""
+    from ytk.vault import _get_vault_path, note_capture_date
+
+    mem_dir = Path(_get_vault_path()) / "second-brain" / "inbox" / "memories"
+    now = datetime.now()
+    notes = list(mem_dir.glob("*.md"))
+    ages = {
+        p: (
+            (now - datetime.fromtimestamp(p.stat().st_mtime)).days,
+            (now - note_capture_date(p)).days,
+        )
+        for p in notes
+    }
+
+    thresholds = [30, 60, 90, 180]
+    rows = []
+    for t in thresholds:
+        mtime_prune = {p for p, (m, _) in ages.items() if m > t}
+        date_prune = {p for p, (_, d) in ages.items() if d > t}
+        rows.append(
+            {
+                "t": t,
+                "agree": len(mtime_prune & date_prune),
+                "wrongly_kept": len(date_prune - mtime_prune),  # stale, mtime hid it
+                "wrongly_pruned": len(mtime_prune - date_prune),  # fresh, mtime aged it
+            }
+        )
+    meta = f"{len(notes)} memory notes in gc scope · " + "  ".join(
+        f"{r['t']}d: {r['wrongly_kept']} hidden-stale / {r['wrongly_pruned']} false-stale"
+        for r in rows
+    )
+
+    fig, top = figure(
+        10.5,
+        6.4,
+        4,
+        "memory-field R5 — the consumer fix, measured",
+        "gc dry-run: mtime vs capture-date decisions",
+        meta,
+    )
+    ax = fig.add_axes([MARGIN + 0.05, 0.16, 1 - 2 * MARGIN - 0.09, top - 0.20])
+    style_axes(ax)
+    x = np.arange(len(thresholds))
+    width = 0.28
+    ax.bar(
+        x - width,
+        [r["agree"] for r in rows],
+        width,
+        color=BLUE,
+        alpha=0.8,
+        label="both agree: prune",
+    )
+    ax.bar(
+        x,
+        [r["wrongly_kept"] for r in rows],
+        width,
+        color=GOLD,
+        alpha=0.9,
+        label="hidden stale (mtime would keep)",
+    )
+    ax.bar(
+        x + width,
+        [r["wrongly_pruned"] for r in rows],
+        width,
+        color=RED,
+        alpha=0.9,
+        label="false stale (mtime would prune)",
+    )
+    ax.set_xticks(x, [f"{t}d" for t in thresholds])
+    ax.set_xlabel("prune threshold")
+    ax.set_ylabel("notes")
+    ax.legend(loc="upper left", frameon=False, labelcolor=TEXT, fontsize=9)
+    panel_title(ax, "Prune decisions per threshold: agreement and both disagreement classes")
+    footer(
+        fig,
+        f"{stamp()} · scope matches gc exactly: top-level inbox/memories/*.md · capture date per note_capture_date "
+        "(captured: > dated filename > frontmatter date: > mtime) · confound: notes with no stamp at all fall back to "
+        "mtime in both arms and can only agree",
+    )
+    save(fig, "r5-timestamp-fix.png")
+
+
+AUDITS = {"a1": a1, "a2": a2, "a3": a3, "r5": r5}
 
 
 def main() -> None:

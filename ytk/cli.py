@@ -2404,12 +2404,16 @@ def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_r
         report_orphans()
         return
 
+    # Ages come from the note's own capture stamp, never mtime (R5/#150): one
+    # sync event restamped 3,343 mtimes on 2026-05-02, so mtime ages are noise.
+    from .vault import note_capture_date, stale_memories
+
     now = datetime.now()
-    notes = sorted(mem_dir.glob("*.md"), key=lambda p: p.stat().st_mtime)
+    notes = sorted(mem_dir.glob("*.md"), key=note_capture_date)
 
     table = Table("File", "Age", "Tags", box=box.SIMPLE, show_header=True)
     for p in notes:
-        age_days = (now - datetime.fromtimestamp(p.stat().st_mtime)).days
+        age_days = (now - note_capture_date(p)).days
         content = p.read_text(encoding="utf-8")
         tag_match = re.search(r"^tags:\s*\n((?:  - .+\n)*)", content, re.MULTILINE)
         tags = ", ".join(re.findall(r"  - (.+)", tag_match.group(1))) if tag_match else ""
@@ -2417,8 +2421,7 @@ def gc(prune: int | None, refresh_projects: bool, prune_audio: int | None, dry_r
     console.print(Panel(table, title=f"[bold]Memories ({len(notes)})[/]", box=box.ROUNDED))
 
     if prune is not None:
-        cutoff = now - timedelta(days=prune)
-        to_archive = [p for p in notes if datetime.fromtimestamp(p.stat().st_mtime) < cutoff]
+        to_archive = stale_memories(mem_dir, days=prune, now=now)
         if not to_archive:
             console.print(f"[green]No memories older than {prune} days.[/]")
         else:
