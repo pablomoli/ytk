@@ -18,23 +18,21 @@ ffmpeg -hide_banner -loglevel error -y \
 FFPID=$!
 mark RECORDING
 
-# Cancel throws inside osascript -> non-zero exit. "giving up" after 300s
-# matches ffmpeg's -t cap; a timed-out dialog saves rather than discards.
-osascript >/dev/null 2>&1 <<'EOF'
-tell application "System Events"
-  activate
-  display dialog "recording — Save when done" with title "memo" \
-    buttons {"Cancel", "Save"} default button "Save" \
-    with icon note giving up after 300
-end tell
-EOF
-if [ $? -ne 0 ]; then
+# No "tell System Events": that sends Apple Events, which Karabiner's server
+# has no Automation permission for (fails -1743 before the dialog draws).
+# Plain display dialog renders from osascript's own process, permission-free.
+# "giving up" after 300s matches ffmpeg's -t cap; a timeout saves, and only a
+# real user Cancel discards — any other dialog failure keeps the audio.
+OSAERR=$(osascript -e 'display dialog "recording — Save when done" with title "memo" buttons {"Cancel", "Save"} default button "Save" with icon note giving up after 300' 2>&1 >/dev/null)
+OSARC=$?
+if [ $OSARC -ne 0 ] && echo "$OSAERR" | grep -q "User canceled"; then
   kill -9 "$FFPID" 2>/dev/null
   wait "$FFPID" 2>/dev/null
   rm -f "$OUT"
   mark CANCELLED
   exit 0
 fi
+[ $OSARC -ne 0 ] && mark "DIALOG_FAILED rc=$OSARC ${OSAERR//$'\n'/ }"
 kill -INT "$FFPID" 2>/dev/null
 ( sleep 3; kill -9 "$FFPID" 2>/dev/null ) &
 WATCHDOG=$!
