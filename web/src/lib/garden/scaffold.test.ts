@@ -243,6 +243,42 @@ describe("growScaffold", () => {
     expect(ids).toEqual([3, 4, 5, 6]);
   });
 
+  test("a lobe's seeds run along its limb and end at the tip", () => {
+    const { root, lobes } = grow(star(4), { lengthGradient: 0.2 });
+    const nodes = new Set(walk(root));
+    const byTip = new Map(limbs(root).map((l) => [l.tip, l]));
+    for (const lobe of lobes) {
+      expect(lobe.seeds.length).toBeGreaterThan(0);
+      for (const seed of lobe.seeds) expect(nodes.has(seed)).toBe(true);
+      expect(lobe.seeds[lobe.seeds.length - 1]).toBe(lobe.tip);
+      const spans = lobe.seeds.map((s) => s.pathLength);
+      for (let i = 1; i < spans.length; i += 1) {
+        expect(spans[i] as number).toBeGreaterThan(spans[i - 1] as number);
+      }
+      // a limb with room to spare hands over a stretch of itself, not its end
+      const limb = byTip.get(lobe.tip) as Limb;
+      if (limb.nodes.length < 3) continue;
+      expect(lobe.seeds.length).toBeGreaterThan(1);
+      const reachBack = lobe.tip.pathLength - (lobe.seeds[0] as SkelNode).pathLength;
+      expect(reachBack).toBeGreaterThan(limb.length * 0.4);
+    }
+  });
+
+  test("a one-node dendrogram gets pseudo-lobes, a real hierarchy does not", () => {
+    const synth = grow(topology([node(0, -1, 40, 0.5)]));
+    expect(synth.lobes.length).toBe(5);
+    const azimuths = synth.lobes.map((l) => l.azimuth);
+    expect(new Set(azimuths).size).toBe(azimuths.length);
+    expect(limbs(synth.root).filter((l) => l.order === 1).length).toBe(5);
+    for (const lobe of synth.lobes) expect(lobe.mass).toBeCloseTo(8, 9);
+
+    // note count sets the branch count, and only for the degenerate case
+    expect(grow(topology([node(0, -1, 2, 0.5)])).lobes.length).toBe(3);
+    expect(grow(topology([node(0, -1, 12, 0.5)])).lobes.length).toBe(4);
+    expect(grow(star(2)).lobes.map((l) => l.clusterId)).toEqual([1, 2]);
+    expect(grow(deep()).lobes.length).toBe(4);
+  });
+
   test("the same seed and topology yield an identical skeleton", () => {
     const fingerprint = (root: SkelNode) =>
       walk(root).map((n) => [
@@ -283,8 +319,7 @@ describe("growScaffold", () => {
   test("degenerate topologies terminate and return something valid", () => {
     const single = grow(topology([node(0, -1, 1, 0)]));
     expect(walk(single.root).length).toBeGreaterThan(1);
-    expect(single.lobes.length).toBe(1);
-    expect(single.lobes[0]?.clusterId).toBe(0);
+    expect(single.lobes.length).toBe(3);
 
     const empty = grow(topology([]));
     expect(walk(empty.root).length).toBe(1);

@@ -21,9 +21,17 @@ export type GrowthParams = ScaffoldParams & {
 export const SCAFFOLD_SHARE = 0.3;
 export const scaffoldBudget = (maxNodes: number): number =>
   Math.max(32, Math.floor(Math.max(2, Math.floor(maxNodes)) * SCAFFOLD_SHARE));
-// Half-width of the attractor latitude band, in normalised ellipsoid y. Wider
-// and an apex lobe's cloud drifts out of its own tip's attraction radius.
-const BAND_HALF = 0.3;
+// Attractor latitude band, in normalised ellipsoid y: it follows the limb's own
+// height span, padded so a level limb does not get a flat plate of foliage.
+const BAND_PAD = 0.18;
+const BAND_HALF_MIN = 0.3;
+// Wider and an apex lobe's cloud drifts out of its own limb's attraction radius.
+const BAND_HALF_MAX = 0.45;
+// Radial half-width around the limb's own span, in normalised crown radius.
+const RADIAL_PAD = 0.18;
+// Sector half-width nests one division per dendrogram level, so a depth-2 lobe
+// gets 0.07 rad and its cloud is a plane. Floored so a twig mass has volume.
+const MIN_LOBE_HALF = 0.35;
 const MIN_TWIG_NODES = 24;
 const MIN_ATTRACTORS = 12;
 // di as a fraction of crown radius, and its floor in steps. Too small and a
@@ -86,17 +94,40 @@ export function growGardenTree(
   for (let i = 0; i < lobes.length; i += 1) {
     const lobe = lobes[i] as Lobe;
     const nodeBudget = budgets[i] as number;
-    // The band follows the tip's own height in the crown; a lobe whose
-    // attractors span the whole ellipsoid grows nothing at all.
-    const center = (lobe.tip.position.y - env.center.y) / env.halfHeight;
+    const seeds = lobe.seeds.length > 0 ? lobe.seeds : [lobe.tip];
+    // The band follows the limb's own height span; a lobe whose attractors
+    // span the whole ellipsoid grows nothing at all.
+    let lo = Infinity;
+    let hi = -Infinity;
+    let rLo = Infinity;
+    let rHi = -Infinity;
+    for (const seed of seeds) {
+      const y = (seed.position.y - env.center.y) / env.halfHeight;
+      if (y < lo) lo = y;
+      if (y > hi) hi = y;
+      const r =
+        Math.hypot(seed.position.x - env.center.x, seed.position.z - env.center.z) / env.radius;
+      if (r < rLo) rLo = r;
+      if (r > rHi) rHi = r;
+    }
+    const center = (lo + hi) / 2;
+    const half = Math.min(BAND_HALF_MAX, Math.max(BAND_HALF_MIN, (hi - lo) / 2 + BAND_PAD));
+    const radial = { min: rLo - RADIAL_PAD, max: rHi + RADIAL_PAD };
     const count = Math.min(
       Math.max(MIN_ATTRACTORS, nodeBudget * 2),
       Math.max(MIN_ATTRACTORS, Math.round(params.attractorsPerNote * Math.max(0, lobe.mass))),
     );
     const attractors = Array.from({ length: count }, () =>
-      sampleLobe(env, lobe.azimuth, lobe.halfAngle, rand, { center, half: BAND_HALF }),
+      sampleLobe(
+        env,
+        lobe.azimuth,
+        Math.max(MIN_LOBE_HALF, lobe.halfAngle),
+        rand,
+        { center, half },
+        radial,
+      ),
     );
-    colonize([lobe.tip], {
+    colonize(seeds, {
       attractors,
       step,
       killDistance: KILL_STEPS * step,

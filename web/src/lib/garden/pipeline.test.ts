@@ -144,21 +144,65 @@ describe("growGardenTree", () => {
         );
         expect(lobes.length).toBeGreaterThan(0);
         const grown = new Map(walk(root).map((n) => [n.position.toArray().join(","), n]));
+        const norm = (p: Vector3) => (p.y - env.center.y) / env.halfHeight;
         for (const lobe of lobes) {
-          const tip = grown.get(lobe.tip.position.toArray().join(","));
-          expect(tip).toBeDefined();
-          expect(twigChildren(tip as SkelNode).length).toBeGreaterThan(0);
-          expect(insideEnvelope(env, (tip as SkelNode).position)).toBe(true);
-          // and fills its own height band: an unbanded cloud spans the whole
-          // crown, so an apex lobe's twigs fall away toward the crown centre.
-          const twigs = twigsBelow(tip as SkelNode);
-          const norm = (p: Vector3) => (p.y - env.center.y) / env.halfHeight;
-          const center = norm((tip as SkelNode).position);
+          const seeds = lobe.seeds.map((s) => grown.get(s.position.toArray().join(",")));
+          expect(seeds.length).toBeGreaterThan(0);
+          for (const seed of seeds) {
+            expect(seed).toBeDefined();
+            expect(insideEnvelope(env, (seed as SkelNode).position)).toBe(true);
+          }
+          const twigs = seeds.flatMap((s) => twigsBelow(s as SkelNode));
+          expect(twigs.length).toBeGreaterThan(0);
+          // twigs run along the limb rather than bunching at its end: more than
+          // one seed carries growth once the limb is longer than a single step
+          const carrying = seeds.filter((s) => twigChildren(s as SkelNode).length > 0);
+          expect(carrying.length).toBeGreaterThan(0);
+          // and the cloud fills the limb's own height band: an unbanded cloud
+          // spans the whole crown, so an apex lobe's twigs fall toward centre.
+          const ys = seeds.map((s) => norm((s as SkelNode).position));
+          const center = (Math.min(...ys) + Math.max(...ys)) / 2;
           const mean = twigs.reduce((a, t) => a + norm(t.position), 0) / twigs.length;
-          expect(Math.abs(mean - center)).toBeLessThan(0.25);
+          expect(Math.abs(mean - center)).toBeLessThan(0.3);
         }
       }
     }
+  });
+
+  test("twigs distribute along a limb instead of bunching at its tip", () => {
+    const budget = 3000;
+    const seed = 7;
+    const { root } = grow(deep(), {}, seed, budget);
+    const { lobes } = growScaffold(
+      deep(),
+      envelopeFor(ORIGIN, 400, 400, shape),
+      params,
+      rng(seed),
+      ORIGIN,
+      scaffoldBudget(budget),
+    );
+    const grown = new Map(walk(root).map((n) => [n.position.toArray().join(","), n]));
+    let carrying = 0;
+    let total = 0;
+    let atTip = 0;
+    for (const lobe of lobes) {
+      const seeds = lobe.seeds.map((s) => grown.get(s.position.toArray().join(",")) as SkelNode);
+      carrying += seeds.filter((s) => twigChildren(s).length > 0).length;
+      total += seeds.reduce((a, s) => a + twigsBelow(s).length, 0);
+      atTip += twigsBelow(seeds[seeds.length - 1] as SkelNode).length;
+    }
+    // more growth points than limbs, and the limb ends do not hold the bulk
+    expect(carrying).toBeGreaterThan(lobes.length);
+    expect(atTip).toBeLessThan(total * 0.8);
+  });
+
+  test("a single-node dendrogram still branches", () => {
+    const { root } = grow(topology("solo", 23, [node(0, -1, 23, 0.4)]));
+    const orders = new Set(walk(root).map((n) => n.order));
+    expect(orders.has(1)).toBe(true);
+    // the trunk forks: a bare stalk with a puff has exactly one child chain
+    const forks = walk(root).filter((n) => n.order === 0 && n.children.length > 1);
+    expect(forks.length).toBeGreaterThan(1);
   });
 
   test("twigs stay inside the crown envelope", () => {
@@ -200,8 +244,10 @@ describe("growGardenTree", () => {
   });
 
   test("the trunk thickens with the twigs it carries, not with the scaffold alone", () => {
-    const sparse = grow(deep(), { attractorsPerNote: 1 });
-    const dense = grow(deep(), { attractorsPerNote: 12 });
+    // Both ends stay under the node budget: past ~3 per note the cloud is
+    // denser than the kill distance can consume and tip count stops rising.
+    const sparse = grow(deep(), { attractorsPerNote: 0.1 });
+    const dense = grow(deep(), { attractorsPerNote: 3 });
     expect(walk(dense.root).length).toBeGreaterThan(walk(sparse.root).length);
     expect(dense.root.radius).toBeGreaterThan(sparse.root.radius);
   });

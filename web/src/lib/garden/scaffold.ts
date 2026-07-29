@@ -19,7 +19,10 @@ export type ScaffoldParams = {
 export type Lobe = {
   clusterId: number;
   mass: number;
-  tip: SkelNode; // where this cluster's twigs start
+  tip: SkelNode; // the limb's end
+  // nodes along the limb's outer span that stage 2 grows from; seeding only
+  // from the tip bunches every twig into one ball at the limb's end
+  seeds: SkelNode[];
   azimuth: number; // sector centre, radians
   halfAngle: number; // sector half-width
 };
@@ -35,6 +38,17 @@ const FORK_BAND_START = 0.25;
 // A tip on the crown axis has no meaningful azimuth, so its sector stops
 // bounding where stage 2 scatters attractors.
 const MIN_RADIAL_SHARE = 0.4;
+// Outer fraction of a limb that carries twigs, and how many seeds are taken
+// from it. The inner span stays bare, as on a real branch.
+const SEED_SPAN = 0.6;
+const MAX_SEEDS = 6;
+// Pseudo-lobes for a one-node dendrogram. Thresholds are note counts, so a
+// two-note bucket does not get the branch count of a twenty-note one.
+const SYNTH_STEP_A = 8;
+const SYNTH_STEP_B = 24;
+// Share of the radius still left at a fork that the strongest sibling takes.
+// Below 1 so a limb stops short of the envelope wall rather than skidding it.
+const LIMB_FILL = 0.85;
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -64,6 +78,17 @@ const SAG_RAMP = 0.25;
 const FLOOR_BAND = 0.3;
 
 const smoothstep = (t: number): number => t * t * (3 - 2 * t);
+
+// Evenly spaced nodes over the limb's outer span, tip always included.
+const limbSeeds = (chain: SkelNode[]): SkelNode[] => {
+  if (chain.length === 0) return [];
+  const tail = chain.slice(Math.max(0, Math.floor(chain.length * (1 - SEED_SPAN))));
+  if (tail.length <= MAX_SEEDS) return tail;
+  return Array.from(
+    { length: MAX_SEEDS },
+    (_, i) => tail[Math.round((i * (tail.length - 1)) / (MAX_SEEDS - 1))] as SkelNode,
+  );
+};
 
 export function growScaffold(
   topo: BucketTopology,
@@ -100,6 +125,21 @@ export function growScaffold(
   let maxPersistence = 1e-6;
   for (const n of topo.nodes) maxPersistence = Math.max(maxPersistence, n.persistence);
   const rootMass = Math.max(1, rootTopo.mass);
+
+  // A one-node dendrogram measures no structure to contradict, and without
+  // pseudo-lobes it renders as a bare stalk carrying a single attractor cloud.
+  if (topo.nodes.length === 1 && !byParent.has(rootTopo.id)) {
+    const count = rootTopo.mass >= SYNTH_STEP_B ? 5 : rootTopo.mass >= SYNTH_STEP_A ? 4 : 3;
+    byParent.set(
+      rootTopo.id,
+      Array.from({ length: count }, (_, i) => ({
+        id: rootTopo.id + 1 + i,
+        parent: rootTopo.id,
+        mass: Math.max(0, rootTopo.mass) / count,
+        persistence: rootTopo.persistence,
+      })),
+    );
+  }
 
   let budget = Math.max(0, maxNodes - 1);
 
@@ -200,7 +240,14 @@ export function growScaffold(
       .filter((k) => !seen.has(k.id))
       .sort((a, b) => b.mass - a.mass || a.id - b.id);
     if (kids.length === 0) {
-      lobes.push({ clusterId: node.id, mass: node.mass, tip, azimuth, halfAngle });
+      lobes.push({
+        clusterId: node.id,
+        mass: node.mass,
+        tip,
+        seeds: limbSeeds(chain),
+        azimuth,
+        halfAngle,
+      });
       return;
     }
 
@@ -213,30 +260,53 @@ export function growScaffold(
     const sites = candidates.length > 0 ? candidates : [tip];
     const childHalf = halfAngle / kids.length;
 
+    const siteFor = (i: number): SkelNode =>
+      sites[
+        kids.length === 1 ? 0 : Math.round((i * (sites.length - 1)) / (kids.length - 1))
+      ] as SkelNode;
+    const bandFor = (n: SkelNode): number =>
+      clamp01((n.position.y - forkBase) / Math.max(1e-6, crownTop - forkBase));
+    // Rank first, scale second. The three factors are each below 1, so their
+    // raw product left every limb a stub a quarter of the crown radius long.
+    const scores = kids.map((kid, i) => {
+      const heightFactor = 1 - lengthGradient * bandFor(siteFor(i));
+      const share = Math.min(1, Math.max(MIN_RADIAL_SHARE, Math.sqrt(kid.mass / rootMass)));
+      return heightFactor * share * (0.35 + kid.persistence / maxPersistence);
+    });
+    const bestScore = Math.max(1e-9, ...scores);
+
     for (let i = 0; i < kids.length; i += 1) {
       const kid = kids[i] as TopoNode;
       seen.add(kid.id);
       if (budget <= 0) {
-        lobes.push({ clusterId: kid.id, mass: kid.mass, tip, azimuth, halfAngle });
+        lobes.push({
+          clusterId: kid.id,
+          mass: kid.mass,
+          tip,
+          seeds: limbSeeds(chain),
+          azimuth,
+          halfAngle,
+        });
         continue;
       }
       const childAzimuth =
         order === 0 ? i * GOLDEN : azimuth + childHalf * (2 * i + 1 - kids.length);
-      const site = sites[
-        kids.length === 1 ? 0 : Math.round((i * (sites.length - 1)) / (kids.length - 1))
-      ] as SkelNode;
-
-      const band = clamp01((site.position.y - forkBase) / Math.max(1e-6, crownTop - forkBase));
-      const heightFactor = 1 - lengthGradient * band;
-      const share = Math.min(1, Math.max(MIN_RADIAL_SHARE, Math.sqrt(kid.mass / rootMass)));
-      const persistence = 0.35 + kid.persistence / maxPersistence;
+      const site = siteFor(i);
+      const band = bandFor(site);
+      // Measured from the fork, not from the crown axis: an absolute target
+      // sits behind any second-order fork, which then breaks on its first step.
+      const startRadial = Math.hypot(site.position.x - env.center.x, site.position.z - env.center.z);
+      const headroom = Math.max(0, env.radius - startRadial);
       // One reach, not two: an independent step budget and radial target let
       // whichever bound first cut the limb short and starve the sag ramp.
-      const reach = Math.max(env.radius * 0.15, env.radius * share * heightFactor * persistence);
+      const reach = Math.max(
+        env.radius * 0.15,
+        headroom * LIMB_FILL * ((scores[i] as number) / bestScore),
+      );
       const spec: LimbSpec = {
         order: order + 1,
         azimuth: childAzimuth,
-        targetRadius: reach,
+        targetRadius: Math.min(env.radius, startRadial + reach),
         // Slack over the straight-line reach: a drooping or noisy limb walks a
         // longer path than it spans, and must not run out of steps first.
         steps: Math.max(2, Math.ceil((reach * 1.8) / stepScale)),

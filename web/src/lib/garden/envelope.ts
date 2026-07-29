@@ -25,8 +25,9 @@ export function envelopeFor(
 ): Envelope {
   const cap = Math.max(1, maxNotes);
   const n = Math.max(0, nNotes);
-  // sqrt, not log: already normalised to [0,1] and defined at n = 0.
-  const t = clamp01(Math.sqrt(Math.min(n, cap) / cap));
+  // log1p, not sqrt: measured over the real bucket distribution, sqrt packs the
+  // seven smallest buckets into 1.90-2.56 world units; log spreads them 2.44-5.01.
+  const t = clamp01(Math.log1p(Math.min(n, cap)) / Math.log1p(cap));
 
   const height = Math.max(
     MIN_DIMENSION,
@@ -86,6 +87,7 @@ export function sampleLobe(
   halfAngle: number,
   rand: () => number,
   band?: { center: number; half: number },
+  radial?: { min: number; max: number },
 ): Vector3 {
   const u = unitBallPoint(rand);
   const half = Math.min(Math.PI, Math.max(0, halfAngle));
@@ -105,6 +107,14 @@ export function sampleLobe(
     const nowLimit = Math.sqrt(Math.max(0, 1 - next * next));
     horizontal = wasLimit > 1e-9 ? (horizontal / wasLimit) * nowLimit : nowLimit * rand();
     y = next;
+  }
+  if (radial) {
+    // Around the limb, not out from the crown axis: an unbounded radial extent
+    // scatters the cloud into a spike reaching back to the trunk.
+    const lo = Math.min(1, Math.max(0, radial.min));
+    const hi = Math.min(1, Math.max(lo, radial.max));
+    // Capped at the latitude's own disc, so containment survives the remap.
+    horizontal = Math.min(lo + (hi - lo) * rand(), Math.sqrt(Math.max(0, 1 - y * y)));
   }
   const a = azimuth + (rand() * 2 - 1) * half;
   return toEnvelope(env, new Vector3(horizontal * Math.cos(a), y, horizontal * Math.sin(a)));
