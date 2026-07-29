@@ -1,6 +1,6 @@
 """Condensed-tree topology: conversion, incremental attach, anchored rebuild.
 
-The tree cache contract (standing decision, 2026-07-12): a grove tree may
+The tree cache contract (standing decision, 2026-07-12): a garden tree may
 grow between builds but never reshuffle. Default build attaches new notes to
 existing branches; a full rebuild re-derives but keeps node identities via
 member-overlap anchoring.
@@ -10,8 +10,8 @@ import json
 
 import numpy as np
 
-import scripts.grove_lab.dendro as dendro
-from scripts.grove_lab.dendro import (
+import scripts.garden_lab.dendro as dendro
+from scripts.garden_lab.dendro import (
     anchor_nodes,
     attach_new_notes,
     fit_nodes,
@@ -103,7 +103,7 @@ def test_anchor_nodes_keeps_ids_by_member_overlap():
 
 
 def test_palette_change_updates_snapshot_without_rebuilding_topology(tmp_path, monkeypatch):
-    monkeypatch.setattr(dendro, "GROVE_DIR", tmp_path)
+    monkeypatch.setattr(dendro, "GARDEN_DIR", tmp_path)
     original_nodes = [
         {"id": 0, "parent": -1, "mass": 1, "persistence": 1.0, "centroid": [1.0, 0.0]}
     ]

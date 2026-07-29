@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../../api/client";
 import type { SettingsConfig } from "../../api/settings";
-import { useGroveBuckets, useSaveGroveBuckets } from "../../api/profile";
+import { useGardenBuckets, useSaveGardenBuckets } from "../../api/profile";
 import { CURSOR_PREF, getPref, setPref } from "../../lib/prefs";
 
 export type UpdateSettings = (update: (current: SettingsConfig) => void) => void;
@@ -540,9 +540,9 @@ export function MiscSection({ draft, update }: { draft: SettingsConfig; update: 
   );
 }
 
-export function GroveBucketsSection() {
-  const buckets = useGroveBuckets();
-  const save = useSaveGroveBuckets();
+export function GardenBucketsSection() {
+  const buckets = useGardenBuckets();
+  const save = useSaveGardenBuckets();
   const [text, setText] = useState<string>();
   const [status, setStatus] = useState("");
   useEffect(() => {
@@ -566,8 +566,8 @@ export function GroveBucketsSection() {
   return (
     <div className="settings-body">
       <p className="settings-hint">
-        topic buckets for the grove — one tree per bucket ({buckets.data?.path}). yaml is saved
-        verbatim, comments included; a save needs a grove rebuild to change the trees.
+        topic buckets for the garden — one tree per bucket ({buckets.data?.path}). yaml is saved
+        verbatim, comments included; a save needs a garden rebuild to change the trees.
       </p>
       <textarea
         className="settings-yaml"
@@ -713,8 +713,8 @@ export function SettingsSections({
       <IngestFiltersSection draft={draft} update={update} />
       <MiscSection draft={draft} update={update} />
       <details open>
-        <summary>Grove buckets</summary>
-        <GroveBucketsSection />
+        <summary>Garden buckets</summary>
+        <GardenBucketsSection />
       </details>
       <EnvironmentSection environment={environment} />
       <ToneSection

@@ -35,12 +35,13 @@ from ytk.mapdomains import (
     index_domains,
     load_buckets,
     notes_from_metas,
+    user_path,
 )
 
 SNAPSHOT = Path(os.path.expanduser("~/.ytk/interest/latest.json"))
 OUT = Path.home() / ".ytk" / "map.json"
-# The grove's config, read here too — one taste axis, two consumers (#106).
-BUCKETS = Path.home() / ".ytk" / "grove_buckets.yaml"
+# The garden's config, read here too — one taste axis, two consumers (#106).
+BUCKETS = user_path("garden_buckets.yaml", "grove_buckets.yaml")
 
 CONTENT_CATS = _CATS
 # Absolute cosine required for theme assignment. A fixed floor makes assignment

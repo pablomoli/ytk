@@ -1,4 +1,4 @@
-"""Ingest-time capture (grove v6 finding 15): every text upsert stamps
+"""Ingest-time capture (garden v6 finding 15): every text upsert stamps
 ingested_at (UTC ISO) exactly once — first write wins, re-upserts and
 reindexes preserve the original stamp, pre-existing records without the
 field stay honest (absent = unknown, never backfilled with a lie)."""

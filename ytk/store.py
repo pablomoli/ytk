@@ -92,7 +92,7 @@ _EPOCHS: dict[str, dict] = {
 }
 EMBEDDING_EPOCH = "v2"
 
-# Stamped into grove/map artifacts (dendro compares stamps to detect engine
+# Stamped into garden/map artifacts (dendro compares stamps to detect engine
 # changes); resolves from the active epoch so a cutover invalidates caches.
 _TEXT_MODEL = _EPOCHS[EMBEDDING_EPOCH]["model"]
 
@@ -599,7 +599,7 @@ def _with_ingest_time(col, ids: list[str], metas: list[dict]) -> list[Metadata]:
     before this field existed stay unstamped until they pass through an
     API upsert again — absent means unknown, never a backfilled guess.
     The embedder migration copies metadata verbatim, so stamps survive
-    re-embedding (grove v6 finding 15)."""
+    re-embedding (garden v6 finding 15)."""
     from datetime import datetime
 
     try:
@@ -666,7 +666,7 @@ def upsert_doc(doc_id: str, text: str, metadata: dict) -> None:
     Under parts epochs (v1/gte-small), documents are embedded as PARTS, same
     convention as videos: the embedder hard-truncates at 512 tokens, so a
     single vector for a long note silently drops the tail. The plain doc_id
-    is the representative vector that counting consumers (map, grove,
+    is the representative vector that counting consumers (map, garden,
     synthesis) use; '#'-suffixed parts exist for retrieval only and are
     collapsed by doc_id at query time. Tail parts are prefixed with the
     note's first line as situating context. Long-context epochs (v2/Qwen3)

@@ -18,6 +18,8 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
+from ytk.mapdomains import user_path
+
 _STATIC_DIR = Path(__file__).parent / "static"
 
 from contextlib import asynccontextmanager
@@ -439,17 +441,17 @@ def profile_run_api():
     return {"generated_at": snap.generated_at, "themes": len(snap.themes)}
 
 
-_GROVE_BUCKETS_PATH = Path.home() / ".ytk" / "grove_buckets.yaml"
+_GARDEN_BUCKETS_PATH = user_path("garden_buckets.yaml", "grove_buckets.yaml")
 
 
-@app.get("/api/grove-buckets")
-async def grove_buckets_get():
-    text = _GROVE_BUCKETS_PATH.read_text(encoding="utf-8") if _GROVE_BUCKETS_PATH.exists() else ""
-    return {"text": text, "path": str(_GROVE_BUCKETS_PATH)}
+@app.get("/api/garden-buckets")
+async def garden_buckets_get():
+    text = _GARDEN_BUCKETS_PATH.read_text(encoding="utf-8") if _GARDEN_BUCKETS_PATH.exists() else ""
+    return {"text": text, "path": str(_GARDEN_BUCKETS_PATH)}
 
 
-@app.put("/api/grove-buckets")
-async def grove_buckets_put(request: Request):
+@app.put("/api/garden-buckets")
+async def garden_buckets_put(request: Request):
     """Save the bucket file VERBATIM after validation — it is hand-authored
     yaml whose comments document the matching rules; round-tripping through a
     parser would destroy them."""
@@ -469,12 +471,12 @@ async def grove_buckets_put(request: Request):
         names.append(str(b["name"]))
     if len(set(names)) != len(names):
         raise HTTPException(status_code=422, detail="duplicate bucket names")
-    _GROVE_BUCKETS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _GROVE_BUCKETS_PATH.write_text(raw, encoding="utf-8")
+    _GARDEN_BUCKETS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _GARDEN_BUCKETS_PATH.write_text(raw, encoding="utf-8")
     return {
         "saved": True,
         "buckets": names,
-        "hint": "rebuild to apply: uv run --extra dev python -m scripts.grove_lab.dendro --rebuild",
+        "hint": "rebuild to apply: uv run --extra dev python -m scripts.garden_lab.dendro --rebuild",
     }
 
 
@@ -511,7 +513,7 @@ async def growth_philosophy_get():
 
 @app.put("/api/growth/philosophy")
 async def growth_philosophy_put(request: Request):
-    """Save verbatim — hand-authored markdown, same contract as grove-buckets."""
+    """Save verbatim — hand-authored markdown, same contract as garden-buckets."""
     raw = (await request.json()).get("text", "")
     if not raw.strip():
         raise HTTPException(status_code=422, detail="empty philosophy")
@@ -816,7 +818,7 @@ def _environment_info() -> dict:
         "embedding_model": store._EPOCHS[epoch]["model"],
         "collections": store.epoch_collection_name("ytk_*"),
         "app_bundle": Path("/Applications/ytk.app").exists(),
-        "grove_buckets_path": str(_GROVE_BUCKETS_PATH),
+        "garden_buckets_path": str(_GARDEN_BUCKETS_PATH),
     }
 
 
@@ -841,22 +843,22 @@ async def settings_put(request: Request):
     return {"saved": True, "restart_required": restart_required}
 
 
-_GROVE_DIR = Path.home() / ".ytk" / "grove"
+_GARDEN_DIR = user_path("garden", "grove")
 
 
-@app.get("/api/grove")
-async def grove_topology_api():
-    """Per-bucket tree topology snapshots for the grove's data-native mode.
+@app.get("/api/garden")
+async def garden_topology_api():
+    """Per-bucket tree topology snapshots for the garden's data-native mode.
 
     Serves render data only: centroids and member maps are attach-time
-    machinery (scripts/grove_lab/dendro.py) and stay server-side.
+    machinery (scripts/garden_lab/dendro.py) and stay server-side.
     """
-    snaps = sorted(_GROVE_DIR.glob("*.tree.json")) if _GROVE_DIR.exists() else []
+    snaps = sorted(_GARDEN_DIR.glob("*.tree.json")) if _GARDEN_DIR.exists() else []
     if not snaps:
         raise HTTPException(
             status_code=404,
-            detail="No grove topology built yet — run: "
-            "uv run --extra dev python -m scripts.grove_lab.dendro",
+            detail="No garden topology built yet — run: "
+            "uv run --extra dev python -m scripts.garden_lab.dendro",
         )
     buckets = []
     for p in snaps:
@@ -884,24 +886,24 @@ class E7Response(BaseModel):
 
 
 def _e7_manifest() -> dict:
-    path = _GROVE_DIR / "e7-manifest.json"
+    path = _GARDEN_DIR / "e7-manifest.json"
     if not path.exists():
         raise HTTPException(
-            status_code=404, detail="no E7 manifest; run scripts.grove_lab.e7_manifest"
+            status_code=404, detail="no E7 manifest; run scripts.garden_lab.e7_manifest"
         )
     return json.loads(path.read_text())
 
 
 def _e7_log(sha: str) -> list[dict]:
-    path = _GROVE_DIR / "e7-responses.jsonl"
+    path = _GARDEN_DIR / "e7-responses.jsonl"
     if not path.exists():
         return []
     rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
     return [r for r in rows if r.get("manifest_sha") == sha]
 
 
-@app.get("/api/grove/e7")
-async def grove_e7_manifest():
+@app.get("/api/garden/e7")
+async def garden_e7_manifest():
     """The public E7 manifest (truth lives only in the private answer key,
     never in this file) plus completed trial ids for safe resume."""
     manifest = _e7_manifest()
@@ -909,8 +911,8 @@ async def grove_e7_manifest():
     return manifest
 
 
-@app.post("/api/grove/e7/response")
-async def grove_e7_response(resp: E7Response):
+@app.post("/api/garden/e7/response")
+async def garden_e7_response(resp: E7Response):
     """Validated, idempotent, append-only. Correctness is never computed
     here — the answer key is not readable by this process's code path."""
     from datetime import datetime
@@ -933,7 +935,7 @@ async def grove_e7_response(resp: E7Response):
         "manifest_sha": manifest["sha256"],
         "ts": datetime.now(UTC).isoformat(timespec="seconds"),
     }
-    with (_GROVE_DIR / "e7-responses.jsonl").open("a") as f:
+    with (_GARDEN_DIR / "e7-responses.jsonl").open("a") as f:
         f.write(json.dumps(row) + "\n")
     return {"logged": True}
 
@@ -1003,7 +1005,7 @@ _SPA_ROUTES = {
     "inbox",
     "tags",
     "map",
-    "grove",
+    "garden",
     "growth",
     "profile",
     "settings",

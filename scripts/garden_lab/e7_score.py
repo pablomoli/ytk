@@ -12,7 +12,7 @@ claim; task 3 is exploratory. Exact binomial tails are conditional
 summaries for a single-subject case study, not population inference.
 
 Usage (after the run):
-    uv run --extra dev python -m scripts.grove_lab.e7_score
+    uv run --extra dev python -m scripts.garden_lab.e7_score
 """
 
 from __future__ import annotations
@@ -21,7 +21,9 @@ import argparse
 import json
 from pathlib import Path
 
-GROVE_DIR = Path.home() / ".ytk" / "grove"
+from ytk.mapdomains import user_path
+
+GARDEN_DIR = user_path("garden", "grove")
 
 BANDS = {3: "clear read", 2: "weak", 1: "no read", 0: "no read"}
 
@@ -44,14 +46,14 @@ def _cell(trials, responses, answers) -> dict:
     }
 
 
-def score(grove_dir: Path = GROVE_DIR, partial: bool = False) -> dict:
-    manifest = json.loads((grove_dir / "e7-manifest.json").read_text())
-    key = json.loads((grove_dir / "e7-answer-key.json").read_text())
+def score(garden_dir: Path = GARDEN_DIR, partial: bool = False) -> dict:
+    manifest = json.loads((garden_dir / "e7-manifest.json").read_text())
+    key = json.loads((garden_dir / "e7-answer-key.json").read_text())
     if key["public_sha256"] != manifest["sha256"]:
         raise SystemExit("answer key does not match the manifest")
     rows = [
         json.loads(line)
-        for line in (grove_dir / "e7-responses.jsonl").read_text().splitlines()
+        for line in (garden_dir / "e7-responses.jsonl").read_text().splitlines()
         if line.strip()
     ]
     responses = {r["trial"]: r for r in rows if r.get("manifest_sha") == manifest["sha256"]}
@@ -111,11 +113,11 @@ def main() -> None:
     ap.add_argument("--partial", action="store_true", help="salvage analysis of an aborted session")
     args = ap.parse_args()
     result = score(partial=args.partial)
-    out = Path(__file__).resolve().parents[2] / "docs" / "grove-lab" / "e7-results.json"
+    out = Path(__file__).resolve().parents[2] / "docs" / "garden-lab" / "e7-results.json"
     out.write_text(json.dumps(result, indent=1))
     # archive the raw log next to the results (preregistration amendment 3)
     archive = out.parent / "e7-responses.jsonl"
-    archive.write_text((GROVE_DIR / "e7-responses.jsonl").read_text())
+    archive.write_text((GARDEN_DIR / "e7-responses.jsonl").read_text())
     print(json.dumps(result, indent=1))
     print(f"\nwrote {out} and archived responses")
 

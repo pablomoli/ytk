@@ -1,4 +1,4 @@
-"""Data-native tree topology per grove bucket (E2).
+"""Data-native tree topology per garden bucket (E2).
 
 Renders the bucket's cluster hierarchy AS the branch structure: average-
 linkage agglomerative clustering on cosine distances in native 384-dim
@@ -20,14 +20,14 @@ Cache contract (standing decision, 2026-07-12): trees grow, never reshuffle.
               member overlap (Jaccard, greedy best-first — the map's
               anchor_names precedent)
 
-Snapshots: ~/.ytk/grove/{bucket}.tree.json, stamped with the embedding model;
+Snapshots: ~/.ytk/garden/{bucket}.tree.json, stamped with the embedding model;
 a model swap invalidates the cache (standing decision 3).
 
 Stability gate: split-half cross-transfer ARI (temporal halves where the
 bucket spans >= 21 days, bootstrap halves otherwise — labeled, not hidden).
 
 Usage:
-    uv run --extra dev python -m scripts.grove_lab.dendro [--rebuild] [--stability]
+    uv run --extra dev python -m scripts.garden_lab.dendro [--rebuild] [--stability]
 """
 
 from __future__ import annotations
@@ -35,13 +35,13 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 
 import numpy as np
 
+from ytk.mapdomains import user_path
 from ytk.store import _TEXT_MODEL
 
-GROVE_DIR = Path.home() / ".ytk" / "grove"
+GARDEN_DIR = user_path("garden", "grove")
 MIN_CLUSTER_NOTES = 30  # below this a tree is a trunk + n leaves (sapling)
 MIN_SPAN_DAYS = 21  # temporal halves only where real time passed
 SAPLING_ROOT = 0
@@ -266,8 +266,8 @@ def _exemplars(meta_idx, membership, meta, k=3):
 
 def build_bucket(name, vecs, meta_idx, meta, rebuild, run_stability, rng, palette=None):
     """Build or update one bucket snapshot; returns a status line."""
-    GROVE_DIR.mkdir(parents=True, exist_ok=True)
-    path = GROVE_DIR / f"{name}.tree.json"
+    GARDEN_DIR.mkdir(parents=True, exist_ok=True)
+    path = GARDEN_DIR / f"{name}.tree.json"
     keys = [_note_key(meta[i]) for i in meta_idx]
     u = _unit(vecs)
 
@@ -342,7 +342,7 @@ def main() -> None:
     ap.add_argument("--bucket", help="only this bucket")
     args = ap.parse_args()
 
-    from scripts.grove_lab.buckets import DEFAULT_CONFIG, assign, load_buckets, resolve_notes
+    from scripts.garden_lab.buckets import DEFAULT_CONFIG, assign, load_buckets, resolve_notes
 
     rng = np.random.default_rng(42)
     cfg = load_buckets(DEFAULT_CONFIG)

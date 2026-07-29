@@ -1154,7 +1154,7 @@ def test_api_delete_note_outside_vault_400(client, hub, spy_store):
     assert r.status_code == 400
 
 
-def test_grove_api_aggregates_snapshots_without_attach_machinery(client, tmp_path, monkeypatch):
+def test_garden_api_aggregates_snapshots_without_attach_machinery(client, tmp_path, monkeypatch):
     import json
 
     import ytk.ui.server as server
@@ -1179,12 +1179,12 @@ def test_grove_api_aggregates_snapshots_without_attach_machinery(client, tmp_pat
         ],
         "members": {"some/note.md": 0},
     }
-    grove = tmp_path / "grove"
-    grove.mkdir()
-    (grove / "visual-craft.tree.json").write_text(json.dumps(snap))
-    monkeypatch.setattr(server, "_GROVE_DIR", grove)
+    garden = tmp_path / "garden"
+    garden.mkdir()
+    (garden / "visual-craft.tree.json").write_text(json.dumps(snap))
+    monkeypatch.setattr(server, "_GARDEN_DIR", garden)
 
-    r = client.get("/api/grove")
+    r = client.get("/api/garden")
     assert r.status_code == 200
     data = r.json()
     assert len(data["buckets"]) == 1
@@ -1197,21 +1197,21 @@ def test_grove_api_aggregates_snapshots_without_attach_machinery(client, tmp_pat
     assert b["nodes"][0]["exemplars"] == ["a title"]
 
 
-def test_grove_api_404_when_no_snapshots(client, tmp_path, monkeypatch):
+def test_garden_api_404_when_no_snapshots(client, tmp_path, monkeypatch):
     import ytk.ui.server as server
 
-    monkeypatch.setattr(server, "_GROVE_DIR", tmp_path / "empty")
-    assert client.get("/api/grove").status_code == 404
+    monkeypatch.setattr(server, "_GARDEN_DIR", tmp_path / "empty")
+    assert client.get("/api/garden").status_code == 404
 
 
 @pytest.fixture
-def e7_grove(client, tmp_path, monkeypatch):
+def e7_garden(client, tmp_path, monkeypatch):
     import json
 
     import ytk.ui.server as server
 
-    grove = tmp_path / "grove"
-    grove.mkdir()
+    garden = tmp_path / "garden"
+    garden.mkdir()
     manifest = {
         "version": 2,
         "sha256": "abc",
@@ -1238,57 +1238,57 @@ def e7_grove(client, tmp_path, monkeypatch):
             },
         ],
     }
-    (grove / "e7-manifest.json").write_text(json.dumps(manifest))
-    monkeypatch.setattr(server, "_GROVE_DIR", grove)
-    return grove
+    (garden / "e7-manifest.json").write_text(json.dumps(manifest))
+    monkeypatch.setattr(server, "_GARDEN_DIR", garden)
+    return garden
 
 
-def test_e7_get_serves_manifest_with_completed_list(client, e7_grove):
-    r = client.get("/api/grove/e7")
+def test_e7_get_serves_manifest_with_completed_list(client, e7_garden):
+    r = client.get("/api/garden/e7")
     assert r.status_code == 200
     data = r.json()
     assert data["sha256"] == "abc"
     assert data["completed"] == []
     client.post(
-        "/api/grove/e7/response",
+        "/api/garden/e7/response",
         json={"trial": "T1-x-0", "choice": "left", "confidence": 4, "rt_ms": 2100},
     )
-    assert client.get("/api/grove/e7").json()["completed"] == ["T1-x-0"]
+    assert client.get("/api/garden/e7").json()["completed"] == ["T1-x-0"]
 
 
-def test_e7_post_validates_and_is_idempotent(client, e7_grove):
+def test_e7_post_validates_and_is_idempotent(client, e7_garden):
     import json
 
     ok = {"trial": "T1-x-0", "choice": "left", "confidence": 4, "rt_ms": 2100}
-    assert client.post("/api/grove/e7/response", json=ok).status_code == 200
+    assert client.post("/api/garden/e7/response", json=ok).status_code == 200
     # exact duplicate: acknowledged, not re-appended
-    dup = client.post("/api/grove/e7/response", json=ok)
+    dup = client.post("/api/garden/e7/response", json=ok)
     assert dup.status_code == 200 and dup.json().get("duplicate") is True
     # conflicting duplicate: rejected
-    conflict = client.post("/api/grove/e7/response", json={**ok, "choice": "right"})
+    conflict = client.post("/api/garden/e7/response", json={**ok, "choice": "right"})
     assert conflict.status_code == 409
-    log = (e7_grove / "e7-responses.jsonl").read_text().strip().splitlines()
+    log = (e7_garden / "e7-responses.jsonl").read_text().strip().splitlines()
     assert len(log) == 1 and json.loads(log[0])["choice"] == "left"
     # correctness never echoed anywhere
     assert "answer" not in dup.json() and "correct" not in dup.json()
 
 
-def test_e7_post_rejects_invalid_trials_choices_and_bounds(client, e7_grove):
+def test_e7_post_rejects_invalid_trials_choices_and_bounds(client, e7_garden):
     base = {"trial": "T1-x-0", "choice": "left", "confidence": 4, "rt_ms": 100}
-    assert client.post("/api/grove/e7/response", json={**base, "trial": "NOPE"}).status_code == 404
-    assert client.post("/api/grove/e7/response", json={**base, "choice": "up"}).status_code == 400
+    assert client.post("/api/garden/e7/response", json={**base, "trial": "NOPE"}).status_code == 404
+    assert client.post("/api/garden/e7/response", json={**base, "choice": "up"}).status_code == 400
     # 3-AFC choices come from the trial's options
     assert (
         client.post(
-            "/api/grove/e7/response", json={**base, "trial": "T3-x-0", "choice": "y"}
+            "/api/garden/e7/response", json={**base, "trial": "T3-x-0", "choice": "y"}
         ).status_code
         == 200
     )
     assert client.post(
-        "/api/grove/e7/response", json={**base, "trial": "T3-x-0", "choice": "left"}
+        "/api/garden/e7/response", json={**base, "trial": "T3-x-0", "choice": "left"}
     ).status_code in (400, 409)
-    assert client.post("/api/grove/e7/response", json={**base, "confidence": 9}).status_code == 422
-    assert client.post("/api/grove/e7/response", json={**base, "rt_ms": -5}).status_code == 422
+    assert client.post("/api/garden/e7/response", json={**base, "confidence": 9}).status_code == 422
+    assert client.post("/api/garden/e7/response", json={**base, "rt_ms": -5}).status_code == 422
 
 
 def test_recs_list_exposes_key_the_status_endpoint_expects(monkeypatch):

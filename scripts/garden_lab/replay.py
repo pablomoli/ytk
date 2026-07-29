@@ -1,5 +1,5 @@
 """Grow-only cache path dependence, v2 (design review applied: P1-P7,
-docs/grove-lab/path-dependence-design-review-codex.md).
+docs/garden-lab/path-dependence-design-review-codex.md).
 
 Replays a bucket's arrival through the production derivation
 (`fit_nodes`) and attach semantics, measuring divergence from fresh
@@ -36,10 +36,10 @@ from pathlib import Path
 
 import numpy as np
 
-from scripts.grove_lab.dendro import MIN_CLUSTER_NOTES, _unit, anchor_nodes
+from scripts.garden_lab.dendro import GARDEN_DIR, MIN_CLUSTER_NOTES, _unit, anchor_nodes
 
-INPUT_DIR = Path.home() / ".ytk" / "grove" / "replay-input"
-REFS_DIR = Path.home() / ".ytk" / "grove" / "replay-refs"
+INPUT_DIR = GARDEN_DIR / "replay-input"
+REFS_DIR = GARDEN_DIR / "replay-refs"
 CHECKPOINTS = (0.6, 0.7, 0.8, 0.9, 1.0)
 N_TRIPLETS = 3000
 USABLE_FLOOR = 200
@@ -61,7 +61,7 @@ def fit_nodes_capacity(vecs: np.ndarray, k_main: int | None = None):
     from scipy.cluster.hierarchy import fcluster, linkage
     from scipy.spatial.distance import pdist
 
-    from scripts.grove_lab.dendro import _formation_heights
+    from scripts.garden_lab.dendro import _formation_heights
 
     n = len(vecs)
     requested = int(np.clip(n // 80, 3, 9))
@@ -548,7 +548,7 @@ def _order_indices(meta_dates: list[str], order: str, n: int, seed: int) -> list
 
 
 def freeze() -> None:
-    from scripts.grove_lab.buckets import DEFAULT_CONFIG, assign, load_buckets, resolve_notes
+    from scripts.garden_lab.buckets import DEFAULT_CONFIG, assign, load_buckets, resolve_notes
     from ytk.store import _TEXT_MODEL
 
     INPUT_DIR.mkdir(parents=True, exist_ok=True)

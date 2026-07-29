@@ -58,7 +58,7 @@ MAP = Path(os.path.expanduser("~/.ytk/map.json"))
 SNAPSHOT_PATH = Path(os.path.expanduser("~/.ytk/interest/latest.json"))
 CACHE = OUTDIR / "counts.json"
 
-# Excluded from the grove by name; the map still has to place every point, so
+# Excluded from the garden by name; the map still has to place every point, so
 # the question is only whether they form a bucket or render as `unplaced`.
 HACKATHONS = ["niloc", "usf", "hacklytics-goldenbyte"]
 
@@ -95,7 +95,7 @@ def after_counts(with_hackathons: bool) -> list[dict]:
     """The bucket axis under the proposed remap, counted over the live corpus."""
     import yaml
 
-    from scripts.grove_lab.buckets import Bucket, BucketConfig, assign, resolve_notes
+    from scripts.garden_lab.buckets import Bucket, BucketConfig, assign, resolve_notes
 
     raw = yaml.safe_load(PROPOSAL.read_text())
     buckets = [
@@ -173,7 +173,7 @@ def null_study() -> dict:
     import numpy as np
 
     from scripts.build_map import CONTENT_CATS
-    from scripts.grove_lab.buckets import resolve_notes
+    from scripts.garden_lab.buckets import resolve_notes
 
     snap = json.loads(SNAPSHOT_PATH.read_text())
     themes = [t for t in snap["themes"] if t.get("centroid")]
@@ -246,7 +246,7 @@ def frozen_before() -> list[dict]:
 
 
 def compute() -> dict:
-    from scripts.grove_lab.buckets import resolve_notes
+    from scripts.garden_lab.buckets import resolve_notes
 
     _vecs, meta, notes = resolve_notes()
     return {

@@ -1,4 +1,4 @@
-// Shared grove shader sources. All palette, glow, pulse, and x-ray channels
+// Shared garden shader sources. All palette, glow, pulse, and x-ray channels
 // here are decorative; measured topology/mass only arrive through geometry.
 const RAMP = `float ramp(float p){ return .5 - .5*cos(clamp(p,0.,1.)*3.14159265); }`;
 

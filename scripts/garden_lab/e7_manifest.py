@@ -1,6 +1,6 @@
 """E7 readback manifest generator (preregistered protocol, Codex G1/G4/G6).
 
-Builds the immutable trial manifest for /grove?readback=1 from the three
+Builds the immutable trial manifest for /garden?readback=1 from the three
 large-bucket snapshots. Controls are constrained shuffles: parent
 assignments are permuted WITHIN each depth level, respecting every
 parent's child capacity — preserving node count, root degree, depth
@@ -13,7 +13,7 @@ before serving the subject. Refuses to overwrite an existing manifest
 without --force (which voids naive-subject status in the log).
 
 Usage:
-    uv run --extra dev python -m scripts.grove_lab.e7_manifest [--force]
+    uv run --extra dev python -m scripts.garden_lab.e7_manifest [--force]
 """
 
 from __future__ import annotations
@@ -22,13 +22,14 @@ import argparse
 import hashlib
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 
 import numpy as np
 
-GROVE_DIR = Path.home() / ".ytk" / "grove"
-MANIFEST = GROVE_DIR / "e7-manifest.json"  # public, truth-free (H1)
-ANSWER_KEY = GROVE_DIR / "e7-answer-key.json"  # private, never served
+from ytk.mapdomains import user_path
+
+GARDEN_DIR = user_path("garden", "grove")
+MANIFEST = GARDEN_DIR / "e7-manifest.json"  # public, truth-free (H1)
+ANSWER_KEY = GARDEN_DIR / "e7-answer-key.json"  # private, never served
 BUCKETS = ("epicmap", "ai-building", "visual-craft")
 TASK1_TRIALS_PER_BUCKET = 3
 TASK2_TRIALS_PER_BUCKET = 3
@@ -397,9 +398,9 @@ def main() -> None:
         raise SystemExit(f"{MANIFEST} exists; --force voids naive-subject status")
     snapshots = {}
     for b in BUCKETS:
-        p = GROVE_DIR / f"{b}.tree.json"
+        p = GARDEN_DIR / f"{b}.tree.json"
         if not p.exists():
-            raise SystemExit(f"missing snapshot {p}; run scripts.grove_lab.dendro first")
+            raise SystemExit(f"missing snapshot {p}; run scripts.garden_lab.dendro first")
         snapshots[b] = json.loads(p.read_text())
     public, key = build_manifest(snapshots, seed=args.seed)
     forced = " (FORCED - naive status voided)" if MANIFEST.exists() else ""

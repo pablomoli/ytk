@@ -1,13 +1,13 @@
-"""User-authored topic buckets for the grove (~/.ytk/grove_buckets.yaml).
+"""User-authored topic buckets for the garden (~/.ytk/garden_buckets.yaml).
 
-A bucket is a topic, not a directory (see the 2026-07-12 grove recon: the
+A bucket is a topic, not a directory (see the 2026-07-12 garden recon: the
 directory-provenance axis produced hackathon sprints and a 1,491-note
 `other`). Buckets declare membership rules; assignment is deterministic,
 first bucket wins, and unmatched notes stay unmatched — no catch-all.
 
 The matcher itself moved to `ytk.mapdomains` when the map became the second
 consumer of this axis (#106) — one implementation, and no cycle with
-normalize_slug. It is re-exported here so every grove_lab caller keeps its
+normalize_slug. It is re-exported here so every garden_lab caller keeps its
 import. What stays is the chroma/profile glue that reduces real notes to
 `Note` tuples, which reuses the same functions the map build already trusts
 (scripts/build_map.py).

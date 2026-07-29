@@ -2,7 +2,7 @@ import { Effect } from "postprocessing";
 import { Uniform } from "three";
 
 /* Static, seeded film grain: hash of the fragment coordinate, no time
-   uniform. Deterministic by design — grove/growth replays must reproduce
+   uniform. Deterministic by design — garden/growth replays must reproduce
    pixel-for-pixel, so the grain must never animate. */
 const fragment = /* glsl */ `
 uniform float intensity;

@@ -1,4 +1,4 @@
-// Grove procedural/data-tree geometry. Structural channels here are measured
+// Garden procedural/data-tree geometry. Structural channels here are measured
 // or generation controls; decorative material channels live in shaders.ts.
 // Faithful port of Marius Ballot's procedural data-tree pipeline
 // (sources/youtube/procedural-3d-data-trees-in-three-js-a-shader-geometry-breakdown.md):
@@ -7,7 +7,7 @@
 // with a backpropagated 0-1 depth attribute driving growth in the shaders.
 import { CatmullRomCurve3, Vector3 } from "three";
 
-export type GroveParams = {
+export type GardenParams = {
   seed: number;
   trees: number;
   initialChildren: number; // 1-4, sphere-distributed around the root
@@ -33,8 +33,8 @@ export type GroveParams = {
   wireBody: number; // decorative x-ray tube body opacity
 };
 
-// Named parameter presets persisted by the grove controls.
-export const PRESETS: Record<string, GroveParams> = {
+// Named parameter presets persisted by the garden controls.
+export const PRESETS: Record<string, GardenParams> = {
   "bonsai-80163": {
     seed: 80163,
     trees: 1,
@@ -62,7 +62,7 @@ export const PRESETS: Record<string, GroveParams> = {
   },
 };
 
-export const DEFAULT_PARAMS: GroveParams = {
+export const DEFAULT_PARAMS: GardenParams = {
   seed: 7,
   trees: 1,
   initialChildren: 1,
@@ -132,7 +132,7 @@ const randomUnit = (rand: () => number): Vector3 => {
 const MAX_NODES = 2200;
 
 export function generateTree(
-  params: GroveParams,
+  params: GardenParams,
   rand: () => number,
   origin: Vector3,
   maxNodes: number = MAX_NODES,
@@ -286,7 +286,7 @@ export type TreeGeometry = {
   }>;
 };
 
-export function buildTreeGeometry(params: GroveParams, root: TreeNode): TreeGeometry {
+export function buildTreeGeometry(params: GardenParams, root: TreeNode): TreeGeometry {
   const { chains, tips, knuckles } = decompose(root);
   const ring = params.ringSegments;
   const pos: number[] = [];

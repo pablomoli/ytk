@@ -1,7 +1,7 @@
-"""Report figures for the grove lab: bucket census + temporal density.
+"""Report figures for the garden lab: bucket census + temporal density.
 
-Emits PNGs into docs/grove-lab/. Reproducible from the live corpus:
-    uv run --extra dev python -m scripts.grove_lab.report_figs
+Emits PNGs into docs/garden-lab/. Reproducible from the live corpus:
+    uv run --extra dev python -m scripts.garden_lab.report_figs
 
 Palette: dataviz reference categorical slots 1-5 (validated 2026-07-12,
 light surface; aqua/yellow < 3:1 relieved by direct labels + report table).
@@ -19,9 +19,9 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 
-from scripts.grove_lab.buckets import DEFAULT_CONFIG, assign, load_buckets, resolve_notes
+from scripts.garden_lab.buckets import DEFAULT_CONFIG, assign, load_buckets, resolve_notes
 
-OUT = Path(__file__).resolve().parents[2] / "docs" / "grove-lab"
+OUT = Path(__file__).resolve().parents[2] / "docs" / "garden-lab"
 
 SURFACE = "#fcfcfb"
 INK = "#0b0b0b"
@@ -82,7 +82,7 @@ def fig_census(cfg, meta, labels) -> None:
     ax.set_xlim(0, left.max() * 1.09)
     ax.xaxis.set_major_formatter(lambda v, _: f"{int(v):,}")
     ax.set_title(
-        "Grove buckets: notes per topic by source category",
+        "Garden buckets: notes per topic by source category",
         loc="left",
         color=INK,
         fontsize=11,

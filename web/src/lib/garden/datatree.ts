@@ -1,11 +1,11 @@
-// Consumes /api/grove bucket snapshots (average-linkage cluster hierarchy,
-// scripts/grove_lab/dendro.py) and grows a TreeNode tree whose STRUCTURE is
+// Consumes /api/garden bucket snapshots (average-linkage cluster hierarchy,
+// scripts/garden_lab/dendro.py) and grows a TreeNode tree whose STRUCTURE is
 // the data: limb length = cluster persistence, girth = note mass via the
 // da Vinci area rule (child weight = parent * sqrt(mass ratio)), one tree
 // per bucket. The hand-tuned BFS generator remains as the aesthetic mode;
 // knobs (stiffness, noise, upBias, girth...) shape character in both.
 import { Vector3 } from "three";
-import type { GroveParams, TreeNode } from "./tree";
+import type { GardenParams, TreeNode } from "./tree";
 
 export type TopoNode = {
   id: number;
@@ -22,7 +22,7 @@ export type BucketTopology = {
   stability?: { kind: string; ari: number | null } | null;
   nodes: TopoNode[];
 };
-export type GrovePayload = {
+export type GardenPayload = {
   version: number;
   buckets: BucketTopology[];
   // explicit camera azimuth (radians) around the vertical axis; E7 records
@@ -40,7 +40,7 @@ const randomUnit = (rand: () => number): Vector3 => {
 const GOLDEN = 2.399963;
 
 export function generateDataTree(
-  params: GroveParams,
+  params: GardenParams,
   rand: () => number,
   origin: Vector3,
   topo: BucketTopology,
@@ -149,11 +149,11 @@ export function generateDataTree(
   return root;
 }
 
-export async function fetchGrovePayload(): Promise<GrovePayload | null> {
+export async function fetchGardenPayload(): Promise<GardenPayload | null> {
   try {
-    const r = await fetch("/api/grove");
+    const r = await fetch("/api/garden");
     if (!r.ok) return null;
-    return (await r.json()) as GrovePayload;
+    return (await r.json()) as GardenPayload;
   } catch {
     return null;
   }

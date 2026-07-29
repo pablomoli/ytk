@@ -1,4 +1,4 @@
-"""Bucket loader: user-authored topic axis for the grove.
+"""Bucket loader: user-authored topic axis for the garden.
 
 A bucket is a topic, not a directory. Assignment is rule-based (projects,
 themes, path prefixes), first bucket wins, and unmatched notes stay
@@ -7,7 +7,7 @@ unmatched (-1) — there is no catch-all bucket.
 
 import textwrap
 
-from scripts.grove_lab.buckets import Note, assign, load_buckets
+from scripts.garden_lab.buckets import Note, assign, load_buckets
 
 YAML = textwrap.dedent(
     """
@@ -28,7 +28,7 @@ YAML = textwrap.dedent(
 
 
 def _load(tmp_path):
-    f = tmp_path / "grove_buckets.yaml"
+    f = tmp_path / "garden_buckets.yaml"
     f.write_text(YAML)
     return load_buckets(f)
 
@@ -89,7 +89,7 @@ def test_unmatched_is_minus_one_never_other(tmp_path):
 
 
 def test_dedupe_keeps_first_of_each_key():
-    from scripts.grove_lab.buckets import dedupe_indices
+    from scripts.garden_lab.buckets import dedupe_indices
 
     # chroma double-indexes some notes (2026-07-12 finding: 3.6% of corpus);
     # identity is the note key, first occurrence wins

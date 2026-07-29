@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 import { PALETTE_IDS, paletteFor, paletteIdFor, sampleCosinePalette, stableHash } from "./palette";
 
-describe("grove palette identity", () => {
+describe("garden palette identity", () => {
   test("is stable for a topic and independent of array position", () => {
     const names = ["visual-craft", "ai-building", "epicmap"];
     const before = new Map(names.map((name) => [name, paletteIdFor(name)]));

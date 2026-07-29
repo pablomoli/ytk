@@ -75,8 +75,8 @@ function installApi(saveResponse: Response = json({ saved: true, restart_require
         saved.push(JSON.parse(init.body) as SettingsConfig);
         return saveResponse;
       }
-      if (path === "/api/grove-buckets")
-        return json({ text: "buckets: []\n", path: "~/.ytk/grove_buckets.yaml" });
+      if (path === "/api/garden-buckets")
+        return json({ text: "buckets: []\n", path: "~/.ytk/garden_buckets.yaml" });
       throw new Error(`unexpected request: ${path}`);
     }),
   );
@@ -103,7 +103,7 @@ test("loads one draft and saves scalar, nullable, list, checkbox, and rule-order
 
   expect(screen.getByText("loading settings...")).toBeInTheDocument();
   fireEvent.change(await screen.findByLabelText(/^host/), { target: { value: "0.0.0.0" } });
-  await screen.findByText(/topic buckets for the grove/);
+  await screen.findByText(/topic buckets for the garden/);
   fireEvent.change(screen.getByLabelText("max duration"), { target: { value: "" } });
   fireEvent.click(screen.getByLabelText("require captions"));
 

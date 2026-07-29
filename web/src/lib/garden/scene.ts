@@ -31,7 +31,7 @@ import {
   VignetteEffect,
 } from "postprocessing";
 import { generateDataTree } from "./datatree";
-import type { GrovePayload } from "./datatree";
+import type { GardenPayload } from "./datatree";
 import { buildLeafGeometry, DEFAULT_LEAF, leafBasis } from "./leaf";
 import { paletteFor, paletteOffset, palettePhase } from "./palette";
 import {
@@ -44,25 +44,25 @@ import {
   xrayTubeFragment,
 } from "./shaders";
 import { buildTreeGeometry, flattenTree, generateTree, rng } from "./tree";
-import type { GroveParams } from "./tree";
+import type { GardenParams } from "./tree";
 
-export type GroveLook = "foliage" | "x-ray";
-export const LOOKS: GroveLook[] = ["foliage", "x-ray"];
+export type GardenLook = "foliage" | "x-ray";
+export const LOOKS: GardenLook[] = ["foliage", "x-ray"];
 
-export type GroveHandle = {
-  regenerate: (params: GroveParams) => void;
-  setEffects: (params: GroveParams) => void;
-  setLook: (look: GroveLook) => void;
-  setData: (payload: GrovePayload | null) => void;
+export type GardenHandle = {
+  regenerate: (params: GardenParams) => void;
+  setEffects: (params: GardenParams) => void;
+  setLook: (look: GardenLook) => void;
+  setData: (payload: GardenPayload | null) => void;
   replay: () => void;
   destroy: () => void;
 };
 
-export function mountGrove(
+export function mountGarden(
   canvas: HTMLCanvasElement,
-  params: GroveParams,
-  look: GroveLook,
-): GroveHandle {
+  params: GardenParams,
+  look: GardenLook,
+): GardenHandle {
   const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true });
   const scene = new Scene();
   scene.fog = new FogExp2(new Color("#0a0a0c").getHex(), 0.055);
@@ -181,10 +181,10 @@ export function mountGrove(
   let progressTarget = 1;
   let growSeconds = params.growSeconds;
   let lastParams = params;
-  // data mode: one tree per bucket, structure from /api/grove topology
-  let dataPayload: GrovePayload | null = null;
+  // data mode: one tree per bucket, structure from /api/garden topology
+  let dataPayload: GardenPayload | null = null;
 
-  const applyEffects = (next: GroveParams) => {
+  const applyEffects = (next: GardenParams) => {
     uniforms.uPaletteTravel.value = next.paletteTravel;
     uniforms.uPaletteMotion.value = next.paletteMotion;
     uniforms.uPaletteStrength.value = next.paletteStrength;
@@ -208,13 +208,13 @@ export function mountGrove(
     foliage?: ShaderMaterial,
     xray?: ShaderMaterial,
   ) => {
-    object.userData.groveRole = role;
+    object.userData.gardenRole = role;
     object.userData.foliageMaterial = foliage;
     object.userData.xrayMaterial = xray;
     return object;
   };
 
-  const plant = (next: GroveParams) => {
+  const plant = (next: GardenParams) => {
     clear();
     lastParams = next;
     growSeconds = next.growSeconds;
@@ -249,7 +249,7 @@ export function mountGrove(
             treeCount === 1 ? 0 : (rand() - 0.5) * next.reach,
           );
       // topic size sets tree scale: epicmap towers, a two-note interest is
-      // a seedling. sqrt keeps the 1000x mass range within one grove.
+      // a seedling. sqrt keeps the 1000x mass range within one garden.
       const bucket = buckets[t];
       const topic = bucket?.bucket ?? `seed:${next.seed}`;
       const requestedPalette = bucket?.palette;
@@ -397,7 +397,7 @@ export function mountGrove(
 
   const applyLook = () => {
     grown.forEach((object) => {
-      const role = object.userData.groveRole;
+      const role = object.userData.gardenRole;
       object.visible =
         role === "leaves"
           ? currentLook === "foliage"

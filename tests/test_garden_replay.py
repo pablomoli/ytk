@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from scripts.grove_lab.replay import (
+from scripts.garden_lab.replay import (
     descendant_mass_metric,
     lca_distance_table,
     replay_cell,
@@ -118,7 +118,7 @@ def test_internal_node_centroids_init_from_descendants():
     """K2: a node with no DIRECT members (e.g. a limb whose notes all live
     in its sub-branches) must start with the centroid of its descendant
     mass, never a global-mean pseudo-observation."""
-    from scripts.grove_lab.replay import _stamp_centroids, fit_nodes_capacity
+    from scripts.garden_lab.replay import _stamp_centroids, fit_nodes_capacity
 
     vecs = _blobs(n=200)
     nodes, membership, _ = fit_nodes_capacity(vecs)
@@ -143,7 +143,7 @@ def test_absolute_debt_floor_delays_small_triggers():
     theta=0.25 alone fires at attached=25 (n=125); with floor=40 the first
     fire needs attached>=40 (n=140)."""
     vecs = _blobs(n=200)
-    from scripts.grove_lab.replay import replay_cell
+    from scripts.garden_lab.replay import replay_cell
 
     pure = replay_cell(
         vecs,
@@ -173,13 +173,13 @@ def test_production_centroid_mode_matches_dendro_semantics():
     """v6 finding 1: production mode = direct-member means, empty nodes get
     the global mean - exactly what dendro.build_bucket ships. Descendant
     mode exists only for the centroid-maintenance alternative."""
-    from scripts.grove_lab.replay import _stamp_centroids, fit_nodes_capacity
+    from scripts.garden_lab.replay import _stamp_centroids, fit_nodes_capacity
 
     vecs = _blobs(n=200)
     nodes, membership, _ = fit_nodes_capacity(vecs)
     prod = [dict(n) for n in nodes]
     _stamp_centroids(vecs, prod, membership, mode="production")
-    from scripts.grove_lab.dendro import _labels_of, _unit
+    from scripts.garden_lab.dendro import _labels_of, _unit
 
     u = _unit(vecs)
     lab = _labels_of(membership, len(vecs))
@@ -192,7 +192,7 @@ def test_production_centroid_mode_matches_dendro_semantics():
 def test_terminal_only_attach_never_targets_internal_nodes():
     """v6 finding 9: fresh fits assign notes to terminal nodes only;
     the terminal policy must do the same."""
-    from scripts.grove_lab.replay import replay_cell
+    from scripts.garden_lab.replay import replay_cell
 
     vecs = _blobs(n=200)
     cell = replay_cell(
@@ -213,7 +213,7 @@ def test_terminal_only_attach_never_targets_internal_nodes():
 def test_persistence_staleness_metric_present():
     """v6 finding 3: branch length (persistence) drift measured across
     matched nodes - rank correlation + normalized L1."""
-    from scripts.grove_lab.replay import replay_cell
+    from scripts.garden_lab.replay import replay_cell
 
     vecs = _blobs(n=200)
     cell = replay_cell(
@@ -231,7 +231,7 @@ def test_persistence_staleness_metric_present():
 
 
 def test_cells_carry_schema_and_engine_stamp():
-    from scripts.grove_lab.replay import SCHEMA_VERSION, replay_cell
+    from scripts.garden_lab.replay import SCHEMA_VERSION, replay_cell
 
     vecs = _blobs(n=200)
     cell = replay_cell(

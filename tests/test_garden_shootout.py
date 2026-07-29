@@ -8,7 +8,7 @@ is closest? Chance is 1/3; identical structure should score near 1.
 
 import numpy as np
 
-from scripts.grove_lab.shootout import knn_transfer, triplet_agreement
+from scripts.garden_lab.shootout import knn_transfer, triplet_agreement
 
 
 def _blobs(n_per=30, dim=8, seed=0, sep=8.0):
@@ -74,7 +74,7 @@ def test_structure_null_is_near_chance():
     from scipy.cluster.hierarchy import linkage
     from scipy.spatial.distance import pdist
 
-    from scripts.grove_lab.shootout import structure_null
+    from scripts.garden_lab.shootout import structure_null
 
     a, _ = _blobs(seed=7)
     b, _ = _blobs(seed=8)

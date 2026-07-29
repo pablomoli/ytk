@@ -1,8 +1,8 @@
 """Figures for the path-dependence report: divergence curves + policy
-frontier, from docs/grove-lab/replay-cells/*.json.
+frontier, from docs/garden-lab/replay-cells/*.json.
 
 Palette: dataviz reference slots (validated 2026-07-12).
-    uv run --extra dev --with matplotlib python -m scripts.grove_lab.path_figs
+    uv run --extra dev --with matplotlib python -m scripts.garden_lab.path_figs
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-LAB = Path(__file__).resolve().parents[2] / "docs" / "grove-lab"
+LAB = Path(__file__).resolve().parents[2] / "docs" / "garden-lab"
 CELLS = LAB / "replay-cells"
 
 SURFACE = "#fcfcfb"

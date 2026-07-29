@@ -12,7 +12,7 @@ explicitly named gates so they cannot be conflated:
 
 Buckets below the clustering floor are saplings (gate null).
 
-    uv run --extra dev python -m scripts.grove_lab.gate72
+    uv run --extra dev python -m scripts.garden_lab.gate72
 """
 
 from __future__ import annotations
@@ -22,11 +22,11 @@ from pathlib import Path
 
 import numpy as np
 
-from scripts.grove_lab.dendro import MIN_CLUSTER_NOTES, MIN_SPAN_DAYS, _unit
-from scripts.grove_lab.replay import _triplets, fit_nodes_capacity, lca_distance_table
-from scripts.grove_lab.shootout import structure_null, triplet_agreement
+from scripts.garden_lab.dendro import MIN_CLUSTER_NOTES, MIN_SPAN_DAYS, _unit
+from scripts.garden_lab.replay import _triplets, fit_nodes_capacity, lca_distance_table
+from scripts.garden_lab.shootout import structure_null, triplet_agreement
 
-OUT = Path(__file__).resolve().parents[2] / "docs" / "grove-lab" / "gate72.json"
+OUT = Path(__file__).resolve().parents[2] / "docs" / "garden-lab" / "gate72.json"
 TRIPLET_SEEDS = 10
 N_TRIPLETS = 2000
 
@@ -76,7 +76,7 @@ def main() -> None:
     from scipy.cluster.hierarchy import linkage
     from scipy.spatial.distance import pdist
 
-    from scripts.grove_lab.buckets import DEFAULT_CONFIG, assign, load_buckets, resolve_notes
+    from scripts.garden_lab.buckets import DEFAULT_CONFIG, assign, load_buckets, resolve_notes
     from ytk.store import _TEXT_MODEL
 
     cfg = load_buckets(DEFAULT_CONFIG)

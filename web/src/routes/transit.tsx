@@ -49,15 +49,15 @@ const STATIONS: Station[] = [
     evidence: "decision · profile-v2.md · signal 0.91",
   },
   {
-    id: "grove",
-    label: "grove experiments",
+    id: "garden",
+    label: "garden experiments",
     route: "ytk",
     x: 442,
     y: 222,
     side: "above",
     kind: "note",
     detail: "Related ytk work stays on the same line, ordered as a readable conceptual journey.",
-    evidence: "memory · grove.md · 41 linked notes",
+    evidence: "memory · garden.md · 41 linked notes",
   },
   {
     id: "map",

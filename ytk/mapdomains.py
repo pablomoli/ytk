@@ -9,16 +9,16 @@ interest-profile theme reaching only consumed content. That grouped the map by
 directory first (#106) — half the canvas was one project slug and a quarter
 was `other`.
 
-The axis is now the user-authored bucket config at ~/.ytk/grove_buckets.yaml,
-the same one the grove reads: one taste axis, two consumers. The two differ in
-exactly one obligation — the grove renders only matched notes, while the map
+The axis is now the user-authored bucket config at ~/.ytk/garden_buckets.yaml,
+the same one the garden reads: one taste axis, two consumers. The two differ in
+exactly one obligation — the garden renders only matched notes, while the map
 must place every point, so notes matching no bucket get an explicit `unplaced`
 class rather than vanishing or being handed a topic they do not belong to.
 
 Pure functions; scripts/build_map.py wires them to real vectors and the theme
-snapshot. The bucket matcher lives here rather than in scripts/grove_lab so
+snapshot. The bucket matcher lives here rather than in scripts/garden_lab so
 there is a single implementation and no import cycle with normalize_slug;
-scripts/grove_lab/buckets.py re-exports it alongside its chroma glue.
+scripts/garden_lab/buckets.py re-exports it alongside its chroma glue.
 """
 
 from __future__ import annotations
@@ -30,10 +30,20 @@ from pathlib import Path
 
 CONTENT_CATS = frozenset({"youtube", "instagram", "tiktok", "pinterest", "web", "screenshots"})
 OTHER = "other"
-# Matched no bucket. Rendered dim rather than dropped: the grove may omit what
+# Matched no bucket. Rendered dim rather than dropped: the garden may omit what
 # it cannot name, the map may not.
 UNPLACED = "unplaced"
-DEFAULT_CONFIG = Path.home() / ".ytk" / "grove_buckets.yaml"
+
+
+def user_path(name: str, legacy: str) -> Path:
+    # The grove -> garden rename must not orphan files already in ~/.ytk, so a
+    # missing new name falls back to the legacy one instead of starting empty.
+    base = Path.home() / ".ytk"
+    new = base / name
+    return base / legacy if not new.exists() and (base / legacy).exists() else new
+
+
+DEFAULT_CONFIG = user_path("garden_buckets.yaml", "grove_buckets.yaml")
 _SUMMARY_RE = re.compile(r"^summary-\d{4}-\d{2}-\d{2}-(.+?)-\d+\.md$")
 _USER_PREFIX_RE = re.compile(r"^users-melocoton(?:-developer)?-")
 

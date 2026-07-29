@@ -50,21 +50,21 @@ export function useRunProfile() {
   });
 }
 
-export type GroveBuckets = { text: string; path: string };
+export type GardenBuckets = { text: string; path: string };
 
-export function useGroveBuckets() {
+export function useGardenBuckets() {
   return useQuery({
-    queryKey: ["grove-buckets"],
-    queryFn: () => apiGet<GroveBuckets>("/api/grove-buckets"),
+    queryKey: ["garden-buckets"],
+    queryFn: () => apiGet<GardenBuckets>("/api/garden-buckets"),
   });
 }
 
-export function useSaveGroveBuckets() {
+export function useSaveGardenBuckets() {
   return useMutation({
     mutationFn: (text: string) =>
-      apiSend<{ saved: boolean; buckets: string[]; hint: string }>("/api/grove-buckets", "PUT", {
+      apiSend<{ saved: boolean; buckets: string[]; hint: string }>("/api/garden-buckets", "PUT", {
         text,
       }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["grove-buckets"] }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["garden-buckets"] }),
   });
 }

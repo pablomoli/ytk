@@ -2,19 +2,19 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { HubControls } from "../components/HubControls";
-import { fetchGrovePayload } from "../lib/grove/datatree";
-import type { GrovePayload, TopoNode } from "../lib/grove/datatree";
-import { DEFAULT_PARAMS } from "../lib/grove/tree";
-import type { GroveParams } from "../lib/grove/tree";
-import type { GroveHandle } from "../lib/grove/scene";
-import type { GroveLook } from "../lib/grove/scene";
+import { fetchGardenPayload } from "../lib/garden/datatree";
+import type { GardenPayload, TopoNode } from "../lib/garden/datatree";
+import { DEFAULT_PARAMS } from "../lib/garden/tree";
+import type { GardenParams } from "../lib/garden/tree";
+import type { GardenHandle } from "../lib/garden/scene";
+import type { GardenLook } from "../lib/garden/scene";
 import "../styles.css";
 
-const STORAGE = "grove-params-v1";
-const DATA_MODE = "grove-data-mode-v1";
-const LOOK = "grove-look-v1";
+const STORAGE = "garden-params-v1";
+const DATA_MODE = "garden-data-mode-v1";
+const LOOK = "garden-look-v1";
 
-const loadParams = (): GroveParams => {
+const loadParams = (): GardenParams => {
   try {
     return { ...DEFAULT_PARAMS, ...JSON.parse(localStorage.getItem(STORAGE) ?? "{}") };
   } catch {
@@ -22,23 +22,23 @@ const loadParams = (): GroveParams => {
   }
 };
 
-const loadLook = (): GroveLook => (localStorage.getItem(LOOK) === "x-ray" ? "x-ray" : "foliage");
+const loadLook = (): GardenLook => (localStorage.getItem(LOOK) === "x-ray" ? "x-ray" : "foliage");
 
-type GroveSearch = { readback?: boolean };
+type GardenSearch = { readback?: boolean };
 
-export const Route = createFileRoute("/grove")({
-  validateSearch: (search: Record<string, unknown>): GroveSearch =>
+export const Route = createFileRoute("/garden")({
+  validateSearch: (search: Record<string, unknown>): GardenSearch =>
     search.readback ? { readback: true } : {},
-  component: GroveRoute,
+  component: GardenRoute,
 });
 
-function GroveRoute() {
+function GardenRoute() {
   const { readback } = Route.useSearch();
-  return readback ? <ReadbackPage /> : <GrovePage />;
+  return readback ? <ReadbackPage /> : <GardenPage />;
 }
 
 const KNOBS: Array<{
-  key: keyof GroveParams;
+  key: keyof GardenParams;
   label: string;
   min: number;
   max: number;
@@ -68,7 +68,7 @@ const KNOBS: Array<{
   { key: "wireBody", label: "wire body", min: 0, max: 1, step: 0.02 },
 ];
 
-const EFFECT_KEYS = new Set<keyof GroveParams>([
+const EFFECT_KEYS = new Set<keyof GardenParams>([
   "paletteTravel",
   "paletteMotion",
   "paletteStrength",
@@ -77,26 +77,26 @@ const EFFECT_KEYS = new Set<keyof GroveParams>([
   "wireBody",
 ]);
 
-function GrovePage() {
+function GardenPage() {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const handle = useRef<GroveHandle>(undefined);
-  const [params, setParams] = useState<GroveParams>(loadParams);
+  const handle = useRef<GardenHandle>(undefined);
+  const [params, setParams] = useState<GardenParams>(loadParams);
   const [panelOpen, setPanelOpen] = useState(true);
   const [ready, setReady] = useState(false);
-  const [payload, setPayload] = useState<GrovePayload | null>(null);
+  const [payload, setPayload] = useState<GardenPayload | null>(null);
   const [dataMode, setDataMode] = useState(() => localStorage.getItem(DATA_MODE) === "on");
-  const [look, setLook] = useState<GroveLook>(loadLook);
+  const [look, setLook] = useState<GardenLook>(loadLook);
   const latestParams = useRef(params);
 
   useEffect(() => {
     let alive = true;
     // dynamic import keeps three out of every other route's bundle
-    void import("../lib/grove/scene").then((mod) => {
+    void import("../lib/garden/scene").then((mod) => {
       if (!alive || !canvas.current) return;
-      handle.current = mod.mountGrove(canvas.current, loadParams(), loadLook());
+      handle.current = mod.mountGarden(canvas.current, loadParams(), loadLook());
       setReady(true);
     });
-    void fetchGrovePayload().then((p) => {
+    void fetchGardenPayload().then((p) => {
       if (alive) setPayload(p);
     });
     return () => {
@@ -106,14 +106,14 @@ function GrovePage() {
     };
     // mount once; params are pushed through the handle below
   }, []);
-  // data mode: structure from bucket topology (/api/grove); aesthetic BFS
+  // data mode: structure from bucket topology (/api/garden); aesthetic BFS
   // stays one click away — the calibrated look is never lost, only bypassed
   useEffect(() => {
     if (!ready) return;
     handle.current?.setData(dataMode && payload ? payload : null);
   }, [dataMode, payload, ready]);
   const regenTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const apply = (next: GroveParams, effectsOnly = false) => {
+  const apply = (next: GardenParams, effectsOnly = false) => {
     setParams(next);
     latestParams.current = next;
     localStorage.setItem(STORAGE, JSON.stringify(next));
@@ -126,14 +126,14 @@ function GrovePage() {
     regenTimer.current = setTimeout(() => handle.current?.regenerate(latestParams.current), 160);
   };
   const reseed = () => apply({ ...params, seed: Math.floor(Math.random() * 1e6) });
-  const chooseLook = (next: GroveLook) => {
+  const chooseLook = (next: GardenLook) => {
     setLook(next);
     localStorage.setItem(LOOK, next);
     handle.current?.setLook(next);
   };
 
   return (
-    <div className="grove-page">
+    <div className="garden-page">
       <HubControls className="absolute top-3 right-4 z-10 p-0">
         <button className="fchip" onClick={() => handle.current?.replay()}>
           replay growth
@@ -176,9 +176,9 @@ function GrovePage() {
           {dataMode && payload ? `${payload.buckets.length} topics` : `seed ${params.seed}`}
         </span>
       </HubControls>
-      <canvas ref={canvas} className="grove-canvas" />
+      <canvas ref={canvas} className="garden-canvas" />
       {panelOpen ? (
-        <aside className="grove-panel">
+        <aside className="garden-panel">
           {KNOBS.map(({ key, label, min, max, step }) => (
             <label key={key}>
               <span>{label}</span>
@@ -202,7 +202,7 @@ function GrovePage() {
 }
 
 // ---------------------------------------------------------------------------
-// E7 readback (preregistered protocol, docs/grove-lab/e7-preregistration.md).
+// E7 readback (preregistered protocol, docs/garden-lab/e7-preregistration.md).
 // The manifest arrives with truth stripped; responses are appended raw and
 // correctness is never shown. Inline styles on purpose - trial UI, not product.
 // ---------------------------------------------------------------------------
@@ -240,14 +240,14 @@ function StimulusCanvas({
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    let handle: GroveHandle | undefined;
+    let handle: GardenHandle | undefined;
     let alive = true;
-    void import("../lib/grove/scene").then((mod) => {
+    void import("../lib/garden/scene").then((mod) => {
       if (!alive || !ref.current) return;
       // geometry_seed drives structure realization; camera_azimuth rotates
       // the viewpoint (separated per preregistration amendment 4). Single-
       // bucket payloads render scale-normalized + identically tinted.
-      handle = mod.mountGrove(
+      handle = mod.mountGarden(
         ref.current,
         { ...DEFAULT_PARAMS, seed: stim.geometry_seed, growSeconds: 0.8, wind: 0.2 },
         "foliage",
@@ -297,7 +297,7 @@ function ReadbackPage() {
   const rt = useRef(0);
 
   useEffect(() => {
-    fetch("/api/grove/e7")
+    fetch("/api/garden/e7")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
       .then((m: E7Manifest) => {
         setManifest(m);
@@ -306,7 +306,7 @@ function ReadbackPage() {
         const next = m.trials.findIndex((t) => !done.has(t.trial));
         setIndex(next === -1 ? m.trials.length : next);
       })
-      .catch(() => setError("no manifest - run scripts.grove_lab.e7_manifest first"));
+      .catch(() => setError("no manifest - run scripts.garden_lab.e7_manifest first"));
   }, []);
   // per-trial reset: nothing is clickable and RT does not run until every
   // canvas reports ready AND the growth animation has finished (H4)
@@ -351,7 +351,7 @@ function ReadbackPage() {
     if (submitting || choice === null) return;
     setSubmitting(true);
     setFailed(false);
-    fetch("/api/grove/e7/response", {
+    fetch("/api/garden/e7/response", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ trial: trial.trial, choice, confidence, rt_ms: rt.current }),

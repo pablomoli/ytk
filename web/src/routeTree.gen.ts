@@ -18,7 +18,7 @@ import { Route as MapRouteImport } from './routes/map'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as GrowthRouteImport } from './routes/growth'
-import { Route as GroveRouteImport } from './routes/grove'
+import { Route as GardenRouteImport } from './routes/garden'
 import { Route as ChannelsRouteImport } from './routes/channels'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -67,9 +67,9 @@ const GrowthRoute = GrowthRouteImport.update({
   path: '/growth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const GroveRoute = GroveRouteImport.update({
-  id: '/grove',
-  path: '/grove',
+const GardenRoute = GardenRouteImport.update({
+  id: '/garden',
+  path: '/garden',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChannelsRoute = ChannelsRouteImport.update({
@@ -86,7 +86,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/channels': typeof ChannelsRoute
-  '/grove': typeof GroveRoute
+  '/garden': typeof GardenRoute
   '/growth': typeof GrowthRoute
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
@@ -100,7 +100,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/channels': typeof ChannelsRoute
-  '/grove': typeof GroveRoute
+  '/garden': typeof GardenRoute
   '/growth': typeof GrowthRoute
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
@@ -115,7 +115,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/channels': typeof ChannelsRoute
-  '/grove': typeof GroveRoute
+  '/garden': typeof GardenRoute
   '/growth': typeof GrowthRoute
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
@@ -131,7 +131,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/channels'
-    | '/grove'
+    | '/garden'
     | '/growth'
     | '/inbox'
     | '/library'
@@ -145,7 +145,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/channels'
-    | '/grove'
+    | '/garden'
     | '/growth'
     | '/inbox'
     | '/library'
@@ -159,7 +159,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/channels'
-    | '/grove'
+    | '/garden'
     | '/growth'
     | '/inbox'
     | '/library'
@@ -174,7 +174,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChannelsRoute: typeof ChannelsRoute
-  GroveRoute: typeof GroveRoute
+  GardenRoute: typeof GardenRoute
   GrowthRoute: typeof GrowthRoute
   InboxRoute: typeof InboxRoute
   LibraryRoute: typeof LibraryRoute
@@ -251,11 +251,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GrowthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/grove': {
-      id: '/grove'
-      path: '/grove'
-      fullPath: '/grove'
-      preLoaderRoute: typeof GroveRouteImport
+    '/garden': {
+      id: '/garden'
+      path: '/garden'
+      fullPath: '/garden'
+      preLoaderRoute: typeof GardenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/channels': {
@@ -278,7 +278,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChannelsRoute: ChannelsRoute,
-  GroveRoute: GroveRoute,
+  GardenRoute: GardenRoute,
   GrowthRoute: GrowthRoute,
   InboxRoute: InboxRoute,
   LibraryRoute: LibraryRoute,

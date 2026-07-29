@@ -14,9 +14,9 @@ F3/Q5: ai-building's temporal non-stationarity gets a composition check —
 category mixture per temporal half, since source-mix change is a rival
 explanation to semantic drift.
 
-Artifact: docs/grove-lab/shootout-v2.json (versioned, embedding model
+Artifact: docs/garden-lab/shootout-v2.json (versioned, embedding model
 stamped). Usage:
-    uv run --extra dev --with hdbscan python -m scripts.grove_lab.shootout
+    uv run --extra dev --with hdbscan python -m scripts.garden_lab.shootout
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ KNN = 5
 
 # v3: triplet metric repaired per Codex v2 review (G3 symmetric/injective/
 # tie-skipping, G5 structure null, G7 HDBSCAN single-linkage-tree gate)
-OUT = Path(__file__).resolve().parents[2] / "docs" / "grove-lab" / "shootout-v3.json"
+OUT = Path(__file__).resolve().parents[2] / "docs" / "garden-lab" / "shootout-v3.json"
 
 
 def _unit(m: np.ndarray) -> np.ndarray:
@@ -215,7 +215,7 @@ def main() -> None:
     import warnings
 
     warnings.filterwarnings("ignore")
-    from scripts.grove_lab.buckets import DEFAULT_CONFIG, assign, load_buckets, resolve_notes
+    from scripts.garden_lab.buckets import DEFAULT_CONFIG, assign, load_buckets, resolve_notes
     from ytk.store import _TEXT_MODEL
 
     cfg = load_buckets(DEFAULT_CONFIG)

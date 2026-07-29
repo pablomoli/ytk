@@ -133,7 +133,7 @@ The hub is a small local web app for capture, review, and exploration:
 - `/tags` helps merge tag variants produced by enrichment.
 - `/map` renders a 3D UMAP projection of every text embedding, colored by
   provenance, with anchored cluster names that survive rebuilds.
-- `/grove` grows procedural trees whose branch structure is the measured
+- `/garden` grows procedural trees whose branch structure is the measured
   cluster hierarchy of each topic bucket — knowledge as a garden.
 - `/settings` edits `~/.ytk/config.yaml` with validation.
 
@@ -141,7 +141,7 @@ The hub is a small local web app for capture, review, and exploration:
 
 ![Map: 3D embedding projection colored by provenance](docs/assets/hub-map.png)
 
-![Grove: cluster hierarchies rendered as growing trees](docs/assets/hub-grove.png)
+![Garden: cluster hierarchies rendered as growing trees](docs/assets/hub-garden.png)
 
 On macOS, `ytk ui install` registers the hub as a launchd daemon. Use
 `ytk ui status`, `ytk ui restart`, and `ytk ui uninstall` to manage it.

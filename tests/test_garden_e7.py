@@ -8,7 +8,7 @@ subtrees (breaking which are adjacent). No hand-selection; seeded.
 import numpy as np
 import pytest
 
-from scripts.grove_lab.e7_manifest import shuffle_topology, topology_stats
+from scripts.garden_lab.e7_manifest import shuffle_topology, topology_stats
 
 # A 3-level topology: root(0) -> limbs 1,2,3 (child counts 2,1,0) ->
 # leaves 4..6. Masses/persistence distinct so payload moves are visible.
@@ -83,7 +83,7 @@ def _fake_snapshots():
 
 def _built():
 
-    from scripts.grove_lab.e7_manifest import build_manifest
+    from scripts.garden_lab.e7_manifest import build_manifest
 
     return build_manifest(_fake_snapshots(), seed=9)
 
@@ -180,7 +180,7 @@ def _fake_run(tmp_path, n_answered=None):
 def test_score_refuses_partial_runs(tmp_path):
     import pytest
 
-    from scripts.grove_lab.e7_score import score
+    from scripts.garden_lab.e7_score import score
 
     _fake_run(tmp_path, n_answered=5)
     with pytest.raises(SystemExit):
@@ -188,7 +188,7 @@ def test_score_refuses_partial_runs(tmp_path):
 
 
 def test_score_reports_primaries_and_constructs_separately(tmp_path):
-    from scripts.grove_lab.e7_score import score
+    from scripts.garden_lab.e7_score import score
 
     _fake_run(tmp_path)  # all answers correct
     result = score(tmp_path)

@@ -5,7 +5,7 @@ Publishes what the buckets actually are: coverage, overlap (notes matching
 alternative separation, and the exact dedupe arithmetic (F8's denominator
 complaint). Pure reporting; JSON artifact for the morning report.
 
-    uv run --extra dev python -m scripts.grove_lab.quality
+    uv run --extra dev python -m scripts.garden_lab.quality
 """
 
 from __future__ import annotations
@@ -16,12 +16,12 @@ from pathlib import Path
 
 import numpy as np
 
-OUT = Path(__file__).resolve().parents[2] / "docs" / "grove-lab" / "bucket-quality.json"
+OUT = Path(__file__).resolve().parents[2] / "docs" / "garden-lab" / "bucket-quality.json"
 
 
 def main() -> None:
     from scripts.build_map import load_points
-    from scripts.grove_lab.buckets import (
+    from scripts.garden_lab.buckets import (
         DEFAULT_CONFIG,
         _matches,
         assign,
@@ -29,7 +29,7 @@ def main() -> None:
         load_buckets,
         resolve_notes,
     )
-    from scripts.grove_lab.dendro import _unit
+    from scripts.garden_lab.dendro import _unit
     from ytk.store import _TEXT_MODEL
 
     # dedupe reconciliation with explicit denominators (F8)

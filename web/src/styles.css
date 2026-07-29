@@ -124,7 +124,7 @@ body {
 }
 /* Scrolling pages fade at the nav clip line instead of chopping content
    mid-glyph (#21). Only plain .hub-page routes: fill pages (inbox) manage
-   their own scroller and full-bleed canvases (grove, map) must not fade. */
+   their own scroller and full-bleed canvases (garden, map) must not fade. */
 .hub-outlet:has(> .hub-page):not(:has(.hub-page-fill)) {
   mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 100%);
 }
@@ -145,7 +145,7 @@ body {
 
 /* Wraps rather than overflowing (#137). The row could neither wrap nor shrink:
    both children have min-width auto, so they hold their min-content size, and
-   on /grove at 820px that is 616px of links plus 456px of controls in an 820px
+   on /garden at 820px that is 616px of links plus 456px of controls in an 820px
    row. The page scrolled sideways by up to 283px. */
 .hub-nav {
   display: flex;
@@ -1802,20 +1802,20 @@ body {
   }
 }
 
-/* grove workshop (prototype) */
+/* garden workshop (prototype) */
 /* Full-bleed canvas, but bounded by .hub-outlet rather than the viewport —
    fixed positioning here would paint straight over the nav. */
-.grove-page {
+.garden-page {
   position: absolute;
   inset: 0;
 }
-.grove-canvas {
+.garden-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
 }
-.grove-panel {
+.garden-panel {
   position: absolute;
   top: 1rem;
   right: 1rem;
@@ -1830,7 +1830,7 @@ body {
   flex-direction: column;
   gap: 0.35rem;
 }
-.grove-panel label {
+.garden-panel label {
   display: grid;
   grid-template-columns: 5.2rem 1fr 2.4rem;
   align-items: center;
@@ -1838,16 +1838,16 @@ body {
   color: #b7b5aa;
   font-size: 0.78rem;
 }
-.grove-panel input[type="range"] {
+.garden-panel input[type="range"] {
   width: 100%;
   accent-color: #8fb8a8;
 }
-.grove-panel em {
+.garden-panel em {
   font-style: normal;
   color: #83817a;
   text-align: right;
 }
-.grove-switcher {
+.garden-switcher {
   position: fixed;
   bottom: 1.2rem;
   left: 50%;
@@ -1864,7 +1864,7 @@ body {
   font-size: 0.8rem;
   letter-spacing: 0.06em;
 }
-.grove-switcher button {
+.garden-switcher button {
   border: 0;
   background: none;
   color: #f0eee7;
