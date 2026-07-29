@@ -344,7 +344,10 @@ def remember(text: str, tags: list[str] | None = None) -> tuple[Path, str]:
 
 
 def read_atom(project_slug: str, atom: str) -> str | None:
-    """Read an atomic note. Returns content body (no frontmatter) or None if missing."""
+    """Read an atomic note. Returns the current content body (no frontmatter,
+    no superseded history, no section heading) or None if missing — so
+    read-modify-write callers round-trip through write_atom without
+    compounding history into the current slice."""
     brain = _get_brain_path()
     path = brain / "inbox" / "memories" / project_slug / f"{atom}.md"
     if not path.resolve().is_relative_to(brain.resolve()):
@@ -355,23 +358,90 @@ def read_atom(project_slug: str, atom: str) -> str | None:
     if text.startswith("---"):
         end = text.find("---", 3)
         if end != -1:
-            return text[end + 3 :].strip()
-    return text.strip()
+            text = text[end + 3 :]
+    text = text.split(SUPERSEDED_DIVIDER)[0]
+    return _ATOM_SECTION_RE.sub("", text, count=1).strip()
+
+
+# R3 (#150): state and recent are the two atoms ytk overwrote while the whole
+# memory field (mem0, Letta, Zep) converged on never-delete-supersede. Design
+# locked by docs/assets/memory-field/r3-design-sim.png: one section per active
+# day (same-day rewrites replace, they don't stack), cap in-file, archive the
+# overflow. Other atoms (purpose, tech, questions) legitimately overwrite.
+HISTORY_ATOMS = {"state", "recent"}
+SUPERSEDED_DIVIDER = "<!-- superseded -->"
+ATOM_HISTORY_CAP = 10
+_ATOM_SECTION_RE = re.compile(r"^## (\d{4}-\d{2}-\d{2})\n", re.MULTILINE)
+_ATOM_UPDATED_RE = re.compile(r"^updated:\s*(\d{4}-\d{2}-\d{2})", re.MULTILINE)
+
+
+def _parse_atom_sections(body: str, legacy_date: str) -> list[tuple[str, str]]:
+    """Body -> [(date, text)] newest first; a sectionless legacy blob becomes
+    one section dated from the old frontmatter `updated:` stamp."""
+    body = body.replace(SUPERSEDED_DIVIDER, "")
+    matches = list(_ATOM_SECTION_RE.finditer(body))
+    if not matches:
+        text = body.strip()
+        return [(legacy_date, text)] if text else []
+    sections = []
+    for m, nxt in zip(matches, [*matches[1:], None]):
+        end = nxt.start() if nxt else len(body)
+        sections.append((m.group(1), body[m.end() : end].strip()))
+    return sections
 
 
 def write_atom(project_slug: str, atom: str, content: str) -> Path:
-    """Write an atomic note, creating the project folder if needed."""
+    """Write an atomic note, creating the project folder if needed.
+
+    History atoms supersede: content becomes today's section, prior days
+    demote under the divider, overflow beyond the cap appends to
+    {atom}-archive.md. Nothing is ever deleted."""
     brain = _get_brain_path()
     atom_dir = brain / "inbox" / "memories" / project_slug
     path = atom_dir / f"{atom}.md"
     if not path.resolve().is_relative_to(brain.resolve()):
         raise ValueError(f"Path escapes brain root: {project_slug}/{atom}")
     atom_dir.mkdir(parents=True, exist_ok=True)
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    path.write_text(
-        f"---\ntype: atom\natom: {atom}\nproject: {project_slug}\nupdated: {date_str}\n---\n\n{content}\n",
-        encoding="utf-8",
-    )
+    today = datetime.now().strftime("%Y-%m-%d")
+    frontmatter = f"---\ntype: atom\natom: {atom}\nproject: {project_slug}\nupdated: {today}\n---\n"
+
+    if atom not in HISTORY_ATOMS:
+        path.write_text(f"{frontmatter}\n{content}\n", encoding="utf-8")
+        return path
+
+    sections: list[tuple[str, str]] = []
+    if path.exists():
+        old = path.read_text(encoding="utf-8")
+        stamp = _ATOM_UPDATED_RE.search(old)
+        body = old
+        if body.startswith("---"):
+            end = body.find("---", 3)
+            body = body[end + 3 :] if end != -1 else body
+        sections = _parse_atom_sections(body, stamp.group(1) if stamp else today)
+
+    if sections and sections[0][0] == today:
+        sections[0] = (today, content.strip())  # same-day churn is not history
+    else:
+        sections.insert(0, (today, content.strip()))
+
+    if len(sections) > ATOM_HISTORY_CAP:
+        overflow = sections[ATOM_HISTORY_CAP:]
+        sections = sections[:ATOM_HISTORY_CAP]
+        archive = atom_dir / f"{atom}-archive.md"
+        if not archive.exists():
+            archive.write_text(
+                f"---\ntype: atom-archive\natom: {atom}\nproject: {project_slug}\n---\n",
+                encoding="utf-8",
+            )
+        with open(archive, "a", encoding="utf-8") as fh:
+            fh.writelines(f"\n## {date}\n{text}\n" for date, text in overflow)
+
+    rendered = f"{frontmatter}\n## {sections[0][0]}\n{sections[0][1]}\n"
+    if sections[1:]:
+        rendered += f"\n{SUPERSEDED_DIVIDER}\n"
+        for date, text in sections[1:]:
+            rendered += f"\n## {date}\n{text}\n"
+    path.write_text(rendered, encoding="utf-8")
     return path
 
 
@@ -1280,6 +1350,10 @@ def scan_exclusion(rel: Path) -> str | None:
     parts = rel.parts
     if parts[:2] == ("inbox", "memories") and (rel.name == "index.md" or "archived" in parts[2:-1]):
         return "not-searchable"
+    # atom history archives (R3) stay greppable on disk but never embed —
+    # they are superseded state by definition
+    if rel.name.endswith("-archive.md") and parts[:2] == ("inbox", "memories"):
+        return "not-searchable"
     return None
 
 
@@ -1322,7 +1396,11 @@ def reindex_vault_report(force: bool = False) -> ReindexReport:
     Skips files whose SHA256 matches the cache unless force=True.
     """
     from .cache import file_hash, load_index_cache, save_index_cache, update_cache_entry
-    from .store import strip_frontmatter, upsert_doc  # deferred: chromadb costs ~330ms (#146)
+    from .store import (  # deferred: chromadb costs ~330ms (#146)
+        live_slice,
+        strip_frontmatter,
+        upsert_doc,
+    )
 
     brain = _get_brain_path()
     report = ReindexReport()
@@ -1343,7 +1421,7 @@ def reindex_vault_report(force: bool = False) -> ReindexReport:
             continue
 
         content = md_file.read_text(encoding="utf-8")
-        body = strip_frontmatter(content)
+        body = live_slice(strip_frontmatter(content))
         if not body.strip():
             update_cache_entry(md_file, cache)
             report.empty += 1

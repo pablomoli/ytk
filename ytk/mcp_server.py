@@ -53,7 +53,7 @@ def vault_list() -> str:
 def vault_write(path: str, content: str) -> str:
     """Write or overwrite a note at a vault path and index it in ChromaDB for search."""
     from .cache import load_index_cache, save_index_cache, update_cache_entry
-    from .store import strip_frontmatter, upsert_doc
+    from .store import live_slice, strip_frontmatter, upsert_doc
     from .vault import write_raw
 
     note_path = write_raw(path, content)
@@ -63,7 +63,7 @@ def vault_write(path: str, content: str) -> str:
         if _id_match
         else "note_" + path.replace("/", "_").replace(".md", "").replace(" ", "_")
     )
-    body = strip_frontmatter(content)
+    body = live_slice(strip_frontmatter(content))
     parts = path.split("/")
     tags = parts[:-1]
     upsert_doc(
@@ -89,7 +89,7 @@ def vault_remember(text: str, tags: list[str] | None = None, update_path: str | 
     this, pass its brain-relative path as update_path to append there instead of
     creating a near-duplicate. Nothing is ever merged or deleted automatically.
     """
-    from .store import similar_memories, strip_frontmatter, upsert_doc, upsert_memory
+    from .store import live_slice, similar_memories, strip_frontmatter, upsert_doc, upsert_memory
     from .vault import append_to_note, remember
 
     if update_path:
@@ -103,7 +103,7 @@ def vault_remember(text: str, tags: list[str] | None = None, update_path: str | 
         )
         upsert_doc(
             doc_id,
-            strip_frontmatter(content),
+            live_slice(strip_frontmatter(content)),
             {"doc_id": doc_id, "tags": ", ".join(tags or []), "source_path": str(note_path)},
         )
         return f"Appended to existing memory: {note_path}"

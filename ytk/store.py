@@ -592,6 +592,17 @@ def strip_frontmatter(text: str) -> str:
     return text[m.end() :].lstrip() if m else text
 
 
+# R3 (#150): notes with superseded history embed only their live slice — the
+# history stays on disk and greppable, but two dated copies of a project's
+# state in one vector would smear the embedding across time.
+_SUPERSEDED_DIVIDER = "<!-- superseded -->"
+
+
+def live_slice(body: str) -> str:
+    """The pre-divider portion of a note body; the whole body when undivided."""
+    return body.split(_SUPERSEDED_DIVIDER)[0].rstrip()
+
+
 def _with_ingest_time(col, ids: list[str], metas: list[dict]) -> list[Metadata]:
     """Stamp ingested_at (UTC ISO) exactly once per id: first write wins,
     re-upserts carry the existing stamp forward (chroma upsert replaces

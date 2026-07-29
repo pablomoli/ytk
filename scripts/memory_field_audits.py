@@ -451,7 +451,83 @@ def r5() -> None:
     save(fig, "r5-timestamp-fix.png")
 
 
-AUDITS = {"a1": a1, "a2": a2, "a3": a3, "r5": r5}
+# --- R3 design checkpoint -----------------------------------------------------
+
+
+def r3sim() -> None:
+    """Pre-implementation design sim: state.md write pattern (directives 3+2+1
+    pointer-writes/week, seeder rewrite Sundays) under naive prepend-per-write
+    vs same-day-merge, cap 10 sections, overflow to archive."""
+    weeks, cap = 8, 10
+
+    def simulate(same_day_merge: bool):
+        sections: list[tuple[int, str]] = []
+        archive = 0
+        rows = []
+        for w in range(weeks):
+            for dow, writes in [(0, 3), (2, 2), (4, 1), (6, 1)]:
+                d = w * 7 + dow
+                for _ in range(writes):
+                    if same_day_merge and sections and sections[0][0] == d:
+                        sections[0] = (d, "merged")
+                    else:
+                        sections.insert(0, (d, "new"))
+                while len(sections) > cap:
+                    sections.pop()
+                    archive += 1
+            rows.append((w + 1, len(sections), archive))
+        return rows
+
+    naive = simulate(False)
+    merged = simulate(True)
+    meta = (
+        f"write pattern: 3+2+1 directive pointer-writes + 1 seeder rewrite per week · cap {cap} · "
+        f"after {weeks} weeks: naive archives {naive[-1][2]} sections (same-day churn), "
+        f"same-day-merge archives {merged[-1][2]} (one per active day)"
+    )
+
+    fig, top = figure(
+        10.5,
+        6.4,
+        5,
+        "memory-field R3 — design checkpoint, simulated before code",
+        "state.md history growth: naive prepend vs same-day merge",
+        meta,
+    )
+    ax = fig.add_axes([MARGIN + 0.05, 0.16, 1 - 2 * MARGIN - 0.09, top - 0.20])
+    style_axes(ax)
+    wk = [r[0] for r in naive]
+    ax.plot(wk, [r[2] for r in naive], color=RED, marker="o", label="naive: sections archived")
+    ax.plot(
+        wk,
+        [r[2] for r in merged],
+        color=BLUE,
+        marker="o",
+        label="same-day merge: sections archived",
+    )
+    ax.plot(
+        wk,
+        [r[1] for r in merged],
+        color=GOLD,
+        marker="s",
+        linestyle="--",
+        label="in-file sections (both cap at 10)",
+    )
+    ax.set_xlabel("week")
+    ax.set_ylabel("sections")
+    ax.legend(loc="upper left", frameon=False, labelcolor=TEXT, fontsize=9)
+    panel_title(
+        ax, "Same-day merge keeps one section per active day; naive archives triplicate churn"
+    )
+    footer(
+        fig,
+        f"{stamp()} · decision this figure locked: a second write on the same day replaces that day's section "
+        "(within-day granularity is churn, not history) · cap 10 holds ~2.5 weeks in-file, older days grep in the archive",
+    )
+    save(fig, "r3-design-sim.png")
+
+
+AUDITS = {"a1": a1, "a2": a2, "a3": a3, "r5": r5, "r3sim": r3sim}
 
 
 def main() -> None:
