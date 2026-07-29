@@ -9,7 +9,9 @@ export type MasonryLayout = {
 
 export function columnSpec(width: number, gap = 12, colMin = 190): { nCols: number; colW: number } {
   const nCols = Math.max(1, Math.floor((width + gap) / (colMin + gap)));
-  return { nCols, colW: (width - (nCols - 1) * gap) / nCols };
+  // floored: fractional widths round outward per card and the last column
+  // spills past the container, which reads as a horizontal scrollbar
+  return { nCols, colW: Math.floor((width - (nCols - 1) * gap) / nCols) };
 }
 
 /* Shortest-column masonry. Boxes are placed strictly in input order: each

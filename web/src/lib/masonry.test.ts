@@ -5,7 +5,9 @@ import { columnSpec, computeMasonryLayout } from "./masonry";
 test("columnSpec derives column count and width", () => {
   const { nCols, colW } = columnSpec(802);
   expect(nCols).toBe(4);
-  expect(colW).toBeCloseTo((802 - 3 * 12) / 4);
+  // floored: fractional widths spilled the last column past the container
+  expect(colW).toBe(Math.floor((802 - 3 * 12) / 4));
+  expect(nCols * colW + (nCols - 1) * 12).toBeLessThanOrEqual(802);
 });
 
 test("columnSpec never returns fewer than one column", () => {

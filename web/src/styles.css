@@ -525,12 +525,12 @@ body {
 }
 
 .source-option:hover .source-option-label,
-.source-option:focus-within .source-option-label {
+.source-option:has(input:focus-visible) .source-option-label {
   opacity: 1;
 }
 
-/* Keyboard users get the same ring the mouse gets a border for. */
-.source-option:focus-within {
+/* Keyboard ring. focus-visible, not focus-within: a click parked focus on the checkbox and the ring stuck like hover. */
+.source-option:has(input:focus-visible) {
   outline: 2px solid #e2b04a;
   outline-offset: 1px;
 }
@@ -1433,14 +1433,14 @@ body {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden auto;
   display: flex;
   flex-direction: column;
   gap: 1rem;
   /* Scrolled cards fade at the clip line instead of being chopped mid-corner
-     directly under the nav (#21). Side padding keeps rounded corners and
-     checkboxes inside the scroller's paint area. */
-  padding: 4px 4px 0;
+     directly under the nav (#21). Side padding keeps rounded corners, borders
+     and checkboxes inside the scroller's paint area. */
+  padding: 6px 6px 0;
   mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 100%);
 }
 
