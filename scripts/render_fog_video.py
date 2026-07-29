@@ -140,17 +140,21 @@ class FogToStrands(MovingCameraScene):
                     for layer in vg:
                         layer.set_points_as_corners(pts)
 
-        world = VGroup(fog, dashes, strands)
+        # updaters only run on mobjects that are IN the scene; fog/dashes/
+        # strands enter as children via FadeIn/Create, so the reprojection
+        # rides an invisible anchor added to the scene directly
+        anchor = Dot(fill_opacity=0.0, stroke_width=0)
+        self.add(anchor)
 
         def orbit(d_elev: float, d_azim: float, run_time: float):
-            world.add_updater(refresh)
+            anchor.add_updater(refresh)
             self.play(
                 elev.animate.increment_value(d_elev),
                 azim.animate.increment_value(d_azim),
                 run_time=run_time,
                 rate_func=rate_functions.ease_in_out_sine,
             )
-            world.remove_updater(refresh)
+            anchor.remove_updater(refresh)
 
         # fog condenses, dim points first, cores land last
         order = np.argsort(fog_den)
@@ -195,17 +199,20 @@ class FogToStrands(MovingCameraScene):
             run_time=5.5,
         )
 
+        # embers out before the pan; animating dashes during the arrival
+        # would transform their points and fight the reprojection updater
+        self.play(dashes.animate.set_stroke(opacity=0.0), run_time=0.8)
+
         # arrival: settle onto the stills' exact view -- the projection the
-        # figures show -- embers out, veil deepens, camera eases in
-        world.add_updater(refresh)
+        # figures show -- veil deepens, camera eases in
+        anchor.add_updater(refresh)
         self.play(
             elev.animate.set_value(STILL_ELEV),
             azim.animate.set_value(STILL_AZIM),
-            dashes.animate.set_stroke(opacity=0.0),
             veil.animate.set_fill(opacity=0.5),
             self.camera.frame.animate.scale(0.8),
             run_time=4.0,
             rate_func=rate_functions.ease_in_out_sine,
         )
-        world.remove_updater(refresh)
+        anchor.remove_updater(refresh)
         self.wait(1.5)
