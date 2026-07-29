@@ -178,3 +178,40 @@ describe("determinism", () => {
     expect(first.toArray()).not.toEqual(sampleLobe(env, 1.2, 0.5, c).toArray());
   });
 });
+
+describe("sampleLobe height band", () => {
+  const env = envelopeFor(new Vector3(0, 0, 0), 400, 400, SHAPE);
+
+  test("band keeps samples near the requested latitude and inside the ellipsoid", () => {
+    const rand = rng(4242);
+    const band = { center: 0.7, half: 0.15 };
+    for (let i = 0; i < 400; i += 1) {
+      const p = sampleLobe(env, 0.8, 0.5, rand, band);
+      expect(insideEnvelope(env, p)).toBe(true);
+      const yNorm = (p.y - env.center.y) / env.halfHeight;
+      expect(yNorm).toBeGreaterThanOrEqual(band.center - band.half - 1e-6);
+      expect(yNorm).toBeLessThanOrEqual(Math.min(1, band.center + band.half) + 1e-6);
+    }
+  });
+
+  test("an apex band never returns points from the crown floor", () => {
+    const rand = rng(99);
+    let lowest = Infinity;
+    for (let i = 0; i < 400; i += 1) {
+      const p = sampleLobe(env, -2.1, 0.4, rand, { center: 0.85, half: 0.12 });
+      lowest = Math.min(lowest, p.y);
+    }
+    expect(lowest).toBeGreaterThan(env.center.y);
+  });
+
+  test("omitting the band leaves the original full-height behaviour", () => {
+    const a = rng(7);
+    const b = rng(7);
+    for (let i = 0; i < 50; i += 1) {
+      const p = sampleLobe(env, 1.1, 0.3, a);
+      const q = sampleLobe(env, 1.1, 0.3, b);
+      expect(p.x).toBe(q.x);
+      expect(p.y).toBe(q.y);
+    }
+  });
+});

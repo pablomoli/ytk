@@ -85,12 +85,27 @@ export function sampleLobe(
   azimuth: number,
   halfAngle: number,
   rand: () => number,
+  band?: { center: number; half: number },
 ): Vector3 {
   const u = unitBallPoint(rand);
   const half = Math.min(Math.PI, Math.max(0, halfAngle));
   // The unit ball is azimuthally isotropic, so replacing the azimuth stays
   // uniform and leaves the radius, and so containment, untouched at +/-PI.
-  const horizontal = Math.hypot(u.x, u.z);
+  let horizontal = Math.hypot(u.x, u.z);
+  let y = u.y;
+  if (band) {
+    // Without a band a lobe's attractors span the whole crown height, so an
+    // apex tip can sit out of range of its own cloud and stage 2 returns zero.
+    const c = Math.min(1, Math.max(-1, band.center));
+    const h = Math.min(1, Math.max(0, band.half));
+    const next = Math.min(1, Math.max(-1, c + (rand() * 2 - 1) * h));
+    // Rescale the horizontal extent onto the new latitude's disc so the point
+    // keeps its relative fill and stays inside the ball.
+    const wasLimit = Math.sqrt(Math.max(0, 1 - y * y));
+    const nowLimit = Math.sqrt(Math.max(0, 1 - next * next));
+    horizontal = wasLimit > 1e-9 ? (horizontal / wasLimit) * nowLimit : nowLimit * rand();
+    y = next;
+  }
   const a = azimuth + (rand() * 2 - 1) * half;
-  return toEnvelope(env, new Vector3(horizontal * Math.cos(a), u.y, horizontal * Math.sin(a)));
+  return toEnvelope(env, new Vector3(horizontal * Math.cos(a), y, horizontal * Math.sin(a)));
 }
