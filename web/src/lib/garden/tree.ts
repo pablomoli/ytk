@@ -327,9 +327,14 @@ export function buildTreeGeometry(params: GardenParams, root: TreeNode): TreeGeo
       const f = t * (chain.points.length - 1);
       const j = Math.min(chain.points.length - 2, Math.floor(f));
       const local = f - j;
-      radii.push(
-        (chain.weights[j] + (chain.weights[j + 1] - chain.weights[j]) * local) * params.girth,
-      );
+      // Taper across the whole run, not between neighbouring control points.
+      // The pipe model gives every node in an unbranched run the radius of the
+      // fork below it, so a per-control-point lerp would dump the entire width
+      // change into the first interval and leave the rest a cylinder. Endpoint
+      // values are untouched, so junction radii stay exactly what girth set.
+      const first = chain.weights[0] as number;
+      const last = chain.weights[chain.weights.length - 1] as number;
+      radii.push((first + (last - first) * t) * params.girth);
       depths.push(chain.depths[j] + (chain.depths[j + 1] - chain.depths[j]) * local);
     }
     // TNB frames by parallel transport: tangent from neighbors, first normal
