@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -12,7 +13,9 @@ import subprocess
 import sys
 import warnings
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import TypeVar
 
@@ -1010,6 +1013,39 @@ def _collapse_by_video(metas: list[Metadata], dists: list[float]) -> list[tuple[
     return out
 
 
+# #150 A4: served-hit log for the usage-aware gc question (R6). Rank and
+# distance are recorded, not bare inclusion — served-is-not-used. Instrumentation
+# only: any failure is swallowed so logging can never break a search.
+_RETRIEVAL_LOG = Path.home() / ".ytk" / "retrieval_log.jsonl"
+
+
+def log_retrieval(surface: str, query: str, hits: Iterable[tuple[str, float]]) -> None:
+    target = os.environ.get("YTK_RETRIEVAL_LOG", str(_RETRIEVAL_LOG))
+    if target.strip().lower() == "off":
+        return
+    try:
+        ts = datetime.now(UTC).isoformat(timespec="seconds")
+        lines = [
+            json.dumps(
+                {
+                    "ts": ts,
+                    "surface": surface,
+                    "query": query,
+                    "doc_id": doc_id,
+                    "rank": rank,
+                    "distance": round(float(distance), 4),
+                }
+            )
+            for rank, (doc_id, distance) in enumerate(hits, start=1)
+        ]
+        if not lines:
+            return
+        with open(target, "a", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+    except OSError:
+        pass
+
+
 def search_videos(query: str, n: int = 5, rerank: bool | None = None) -> list[VideoResult]:
     """Search video-level collection. Returns up to n matches ranked by cosine similarity.
 
@@ -1050,7 +1086,9 @@ def search_videos(query: str, n: int = 5, rerank: bool | None = None) -> list[Vi
     if rerank_on and out:
         # thesis+summary is the representative doc the video was embedded on
         out = _apply_rerank(query, out, [f"{r.thesis}\n\n{r.summary}" for r in out], n)
-    return out[:n]
+    served = out[:n]
+    log_retrieval("videos", query, [(r.video_id, r.distance) for r in served])
+    return served
 
 
 def search_segments(
@@ -1094,7 +1132,9 @@ def search_segments(
         )
     if rerank_on and out:
         out = _apply_rerank(query, out, [r.text for r in out], n)
-    return out[:n]
+    served = out[:n]
+    log_retrieval("segments", query, [(f"{r.video_id}@{r.start:g}", r.distance) for r in served])
+    return served
 
 
 @dataclass
@@ -1189,8 +1229,11 @@ def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[Unifi
     pairs.sort(key=lambda p: p[0].distance)
     if rerank_on and pairs:
         pairs = pairs[:_RERANK_DEPTH]
-        return _apply_rerank(query, [p[0] for p in pairs], [p[1] for p in pairs], n)
-    return [p[0] for p in pairs[:n]]
+        served = _apply_rerank(query, [p[0] for p in pairs], [p[1] for p in pairs], n)
+    else:
+        served = [p[0] for p in pairs[:n]]
+    log_retrieval("all", query, [(r.doc_id, r.distance) for r in served])
+    return served
 
 
 def top_tags(n: int = 40) -> list[str]:

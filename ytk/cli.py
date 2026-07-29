@@ -304,24 +304,40 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
         console.print("[yellow]No URLs provided.[/] Pass URLs or --file <path>.")
         return
 
+    from ytk import capture_log
+    from ytk.reels import classify_url
+
     ok = 0
     skipped = 0
     failed = 0
     for i, url in enumerate(items, 1):
         console.rule(f"[bold]{i}/{len(items)}[/] {url}")
+        attempt_started = time.time()
         try:
             ctx.invoke(add, url=url, force=force)
             ok += 1
+            outcome, error = "ok", None
         except SystemExit as exc:
             if exc.code in (0, None):
                 skipped += 1
                 console.print("[dim]skipped (filtered or already ingested)[/]")
+                outcome, error = "skipped", None
             else:
                 failed += 1
                 console.print(f"[red]failed:[/] exited {exc.code}")
+                outcome, error = "error", f"exited {exc.code}"
         except Exception as exc:
             failed += 1
             console.print(f"[red]failed:[/] {exc}")
+            outcome, error = "error", str(exc)
+        capture_log.log_capture(
+            "feed",
+            url,
+            source=classify_url(url),
+            outcome=outcome,
+            error=error,
+            duration_s=time.time() - attempt_started,
+        )
 
     table = Table(box=box.SIMPLE, title="Feed Result")
     table.add_column("Total", justify="right")

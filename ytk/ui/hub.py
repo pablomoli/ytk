@@ -19,7 +19,7 @@ from datetime import UTC
 from pathlib import Path
 from typing import cast
 
-from ytk import directives, reels, vault
+from ytk import capture_log, directives, reels, vault
 from ytk.config import load_config
 from ytk.memo import (
     AUDIO_DIR as MEMO_AUDIO_DIR,
@@ -1295,12 +1295,23 @@ def _drain() -> None:
             _JOB["current_started"] = time.time()
             _JOB["queued"] = [e[0].url for e in _QUEUE[1:]]
             _persist_locked()
+        attempt_started = time.time()
         try:
             if item.source == "imessage":
                 note = INGEST_TEXT(item, thought)
             else:
                 INGEST(item.url, thought)
                 note = find_note_by_url(item.url, since=started - 5)
+            capture_log.log_capture(
+                "hub",
+                item.url,
+                source=item.source,
+                outcome="ok",
+                attempt=_ATTEMPTS.get(item.url),
+                duration_s=time.time() - attempt_started,
+                # ok with no note is the silent partial E5 exists to count
+                note_found=note is not None,
+            )
             if note and (tags or thought.strip()):
                 vault.annotate_note(note, tags, thought)
                 _embed_take(note, item.url, thought)
@@ -1311,6 +1322,15 @@ def _drain() -> None:
                     _JOB["linked"].extend(applied)
             _remove_from_queue(item.url)
         except Exception as exc:
+            capture_log.log_capture(
+                "hub",
+                item.url,
+                source=item.source,
+                outcome="error",
+                error=str(exc),
+                attempt=_ATTEMPTS.get(item.url),
+                duration_s=time.time() - attempt_started,
+            )
             with _LOCK:
                 _JOB["failures"].append({"url": item.url, "error": str(exc)})
         with _LOCK:
