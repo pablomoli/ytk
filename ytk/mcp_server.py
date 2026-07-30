@@ -140,6 +140,36 @@ def vault_reindex(force: bool = False) -> str:
 
 
 @app.tool()
+def vault_search_index(query: str, n: int = 10) -> str:
+    """Index-only semantic search: match%, type, doc id, capture date — no
+    excerpts. Fetch full text for chosen ids with vault_fetch (E2/#149)."""
+    from .store import memory_captured_at, search_all
+
+    results = search_all(query, n=n)
+    if not results:
+        return "No results found."
+    return "\n".join(
+        f"{(1 - r.distance):.0%}  [{r.type}] {r.doc_id}  "
+        f"{memory_captured_at(None, r.doc_id) or '-'}"
+        for r in results
+    )
+
+
+@app.tool()
+def vault_fetch(ids: list[str]) -> str:
+    """Fetch stored document text for explicit doc ids (from vault_search_index).
+
+    Returns the embedded text, not the raw file — video notes' transcripts
+    stay out of context unless you vault_read the note deliberately."""
+    from .store import fetch_docs
+
+    docs = fetch_docs(ids)
+    if not docs:
+        return "No documents found for those ids."
+    return "\n\n".join(f"=== {doc_id} ===\n{text}" for doc_id, text in docs)
+
+
+@app.tool()
 def work_list() -> str:
     """List active ytk GitHub Project items in canonical order."""
     from .workboard import format_queue, get_snapshot

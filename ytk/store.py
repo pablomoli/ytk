@@ -1174,6 +1174,29 @@ def upsert_memory(doc_id: str, text: str, tags: list[str], source_path: str) -> 
     )
 
 
+def fetch_docs(ids: list[str]) -> list[tuple[str, str]]:
+    """Stored document text by explicit doc id — E2's fetch layer (#149).
+
+    Returns the embedded text (parts merged in id order), NOT the raw vault
+    file: for video notes the file carries the full transcript, which is
+    exactly the token sink the index -> select -> fetch contract exists to
+    avoid. Unknown ids are skipped, preserving input order for the rest.
+    """
+    out: list[tuple[str, str]] = []
+    for doc_id in ids:
+        for col, key in (
+            (_memories_collection(), "doc_id"),
+            (_videos_collection(), "video_id"),
+        ):
+            got = col.get(where={key: doc_id}, include=["documents"])
+            if got["ids"]:
+                by_id = dict(zip(got["ids"], chroma_field(got["documents"], "documents")))
+                ordered = sorted(by_id, key=lambda i: (i != doc_id, i))
+                out.append((doc_id, "\n".join(by_id[i] for i in ordered)))
+                break
+    return out
+
+
 # R2 (#150): recency-decayed ranking for memory hits. Boost-only — a video's
 # score is its similarity untouched, and a memory can only gain. Default OFF
 # (lambda 0); the sweep sets YTK_MEMORY_DECAY_LAMBDA / _HALFLIFE. Unknown
