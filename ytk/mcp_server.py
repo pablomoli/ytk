@@ -35,18 +35,12 @@ def vault_search(query: str, n: int = 5) -> str:
 
 @app.tool()
 def vault_read(path: str) -> str:
-    """Read a vault note by relative path from the vault root (e.g. 'projects/ytk/session-001-brief.md')."""
+    """Read a vault note by relative path from the vault root (e.g.
+    'projects/ytk/session-001-brief.md'). For the full vault index, read
+    'wiki/index.md'."""
     from .vault import read_note
 
     return read_note(path)
-
-
-@app.tool()
-def vault_list() -> str:
-    """Return the current wiki/index.md contents — a structured index of all vault content."""
-    from .vault import list_index
-
-    return list_index()
 
 
 @app.tool()
@@ -235,38 +229,6 @@ def work_set_fields(
         f"#{updated.number}: kind={updated.kind or '-'} priority={updated.priority or '-'} "
         f"area={updated.area or '-'} stage={updated.stage or '-'} order={updated.order:g}"
     )
-
-
-@app.tool()
-def visual_similar(query: str, n: int = 8) -> str:
-    """Visually similar saves via SigLIP-2. QUERY may be a stored item id
-    (yt:<video_id>, ig:<shortcode>, tt:<id>, cover:<hash>), an absolute image
-    path, or a free-text description (uses the text tower)."""
-    import os
-
-    from . import visual as vis
-    from .store import get_visual_embedding
-    from .store import visual_similar as _similar
-
-    item_id = None
-    embedding = None
-    if get_visual_embedding(query) is not None:
-        item_id = query
-    elif os.path.isabs(query) and os.path.exists(query):
-        from pathlib import Path
-
-        embedding = vis.embed_images([Path(query)])[0]
-    else:
-        embedding = vis.embed_text(query)
-
-    results = _similar(item_id=item_id, embedding=embedding, n=n)
-    if not results:
-        return "No matches. Has `ytk visual index` been run?"
-    lines = []
-    for r in results:
-        label = r.title or r.item_id
-        lines.append(f"[{r.distance:.3f}] {label} ({r.source}) {r.url or r.image_path}")
-    return "\n".join(lines)
 
 
 def main() -> None:
