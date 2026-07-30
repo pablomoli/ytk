@@ -1,0 +1,16 @@
+{"query": "instagram ffppod", "gold": "note_sources_instagram_ffppod-2026-07-22-DbGzaRxCrPK", "older": "note_sources_instagram_ffppod-2026-07-18-Da8bnJvlDyE", "sim": 0.929}
+{"query": "encoder migration phase", "gold": "memory_2026-07-17_encoder-migration-phase-1-landed-session-023-202_49b445", "older": "memory_2026-07-16_encoder-migration-phase-0-pre-flight-passed-3-3-s_bcf411", "sim": 0.833}
+{"query": "instagram felixleezd", "gold": "memory_2026-04-20_instagram-post-by-felixleezd-verified-april-7", "older": "note_sources_instagram_felixleezd-2026-04-07-DW1WZmhFFWa", "sim": 0.829}
+{"query": "oracle tarot webapp", "gold": "memory_2026-06-02_oracle-tarot-webapp-plan-4-generative-layer-sh_722cfb", "older": "memory_2026-06-01_oracle-tarot-webapp-users-melocoton-developer-o_755129", "sim": 0.809}
+{"query": "ytk hub", "gold": "memory_2026-07-25_ytk-hub-masonry-instability-diagnosed-2026-07-25_b0f19a", "older": "memory_2026-07-10_ytk-hub-react-migration-phase-2b-completion-202_699863", "sim": 0.772}
+{"query": "tiktok merideth adhdeducation key", "gold": "tiktok_merideth_adhdeducation-2026-06-10-7649870642908531982-key-ta", "older": "tiktok_merideth_adhdeducation-2026-06-02-7646883384207084813-key-ta", "sim": 0.735}
+{"query": "epicmap fieldwork", "gold": "memory_2026-07-04_epicmap-retired-the-fieldwork-model-entirely-202_e893d0", "older": "memory_2026-07-03_epicmap-fieldwork-backfill-2026-07-03-pablo-dec_2d550d", "sim": 0.729}
+{"query": "ytk", "gold": "memory_2026-07-04_ytk-phase-9-shipped-ytk-reels-syncs-the-instagr_dbdb4c", "older": "memory_2026-04-20_ytk-now-saves-images-alongside-notes-instagram-i", "sim": 0.719}
+{"query": "epicmap shipped", "gold": "memory_2026-07-05_epicmap-report-round-2-shipped-on-feature-job-imag_760b31", "older": "memory_2026-04-25_epicmap-session-2026-04-25-shipped-weekly-client", "sim": 0.719}
+{"query": "reels", "gold": "memory_2026-07-18_instagram-reels-arc-session-026-reels-were-inge_46ab23", "older": "memory_2026-07-04_ytk-reels-live-testing-surfaced-three-non-obvious_e7a2ae", "sim": 0.715}
+{"query": "retrieval eval", "gold": "memory_2026-07-25_ytk-111-the-retrieval-eval-gate-was-permanently_02eaf9", "older": "memory_2026-07-17_session-025-shipped-the-retrieval-eval-regression_148236", "sim": 0.714}
+{"query": "ytk shipped", "gold": "memory_2026-07-06_ytk-512-token-cliff-fix-shipped-2026-07-06-commi_aacf9c", "older": "memory_2026-07-05_ytk-voice-memo-capture-shipped-2026-07-05-branch_bdfad2", "sim": 0.701}
+{"query": "ytk imessage", "gold": "memory_2026-07-06_ytk-session-jul-5-6-2026-imessage-became-a-fir_7e8b3d", "older": "memory_2026-04-20_ytk-imessage-pipeline-fix-apr-20-2026-write-j", "sim": 0.7}
+{"query": "epicmap audit", "gold": "memory_2026-07-04_epicmap-architecture-audit-2026-07-04-three-fan_d95be9", "older": "memory_2026-07-03_epicmap-dashboard-staleness-checklist-gate-audit_56c3ea", "sim": 0.694}
+{"query": "epicmap page", "gold": "memory_2026-07-11_epicmap-metadata-page-redesign-merged-to-master-7_1c5917", "older": "memory_2026-07-03_epicmap-map-page-viewport-fix-jul-3-2026-commit_ae9a3c", "sim": 0.687}
+{"query": "grove", "gold": "memory_2026-07-13_e7-grove-readback-complete-2026-07-13-the-grove_2a4ef0", "older": "memory_2026-07-12_grove-e2-shipped-session-019-trees-now-grow-fro_bd8a9e", "sim": 0.687}
