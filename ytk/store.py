@@ -1167,8 +1167,58 @@ def upsert_memory(doc_id: str, text: str, tags: list[str], source_path: str) -> 
             "doc_id": doc_id,
             "tags": ", ".join(tags),
             "source_path": source_path,
+            # R2/#150: capture date in metadata, forward-only; older docs
+            # fall back to the date in their doc_id at ranking time
+            "captured": datetime.now(UTC).strftime("%Y-%m-%d"),
         },
     )
+
+
+# R2 (#150): recency-decayed ranking for memory hits. Boost-only — a video's
+# score is its similarity untouched, and a memory can only gain. Default OFF
+# (lambda 0); the sweep sets YTK_MEMORY_DECAY_LAMBDA / _HALFLIFE. Unknown
+# capture dates get zero boost, not recency_factor's neutral 1.0: freshness a
+# record cannot prove must not move its rank (timestamp-coverage bias).
+_DOC_ID_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
+
+
+def memory_captured_at(meta: Metadata | None, doc_id: str) -> str:
+    stamped = meta_str(meta, "captured")
+    if stamped:
+        return stamped
+    m = _DOC_ID_DATE_RE.search(doc_id)
+    return m.group(1) if m else ""
+
+
+def _memory_decay_params() -> tuple[float, float]:
+    lam = float(os.environ.get("YTK_MEMORY_DECAY_LAMBDA", "0") or 0)
+    half = float(os.environ.get("YTK_MEMORY_DECAY_HALFLIFE", "90") or 90)
+    return lam, half
+
+
+def apply_memory_decay(
+    results: list[UnifiedResult],
+    lam: float,
+    half_life_days: float,
+    now: datetime | None = None,
+    captured: dict[str, str] | None = None,
+) -> list[UnifiedResult]:
+    """Stable re-sort by sim * (1 + lam * recency); memories only can gain."""
+    if lam <= 0:
+        return results
+    from .signals import recency_factor
+
+    now = now or datetime.now(UTC)
+
+    def score(r: UnifiedResult) -> float:
+        sim = 1.0 - r.distance
+        if r.type != "memory":
+            return sim
+        at = (captured or {}).get(r.doc_id) or memory_captured_at(None, r.doc_id)
+        factor = recency_factor(at, now, half_life_days) if at else 0.0
+        return sim * (1.0 + lam * factor)
+
+    return sorted(results, key=score, reverse=True)
 
 
 @dataclass
@@ -1283,9 +1333,14 @@ def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[Unifi
             )
 
     pairs.sort(key=lambda p: p[0].distance)
+    lam, half_life = _memory_decay_params()
     if rerank_on and pairs:
         pairs = pairs[:_RERANK_DEPTH]
         served = _apply_rerank(query, [p[0] for p in pairs], [p[1] for p in pairs], n)
+    elif lam > 0:
+        # decay is scoped to the plain path: the cross-encoder re-scores on
+        # text, and blending two score systems is a different experiment
+        served = apply_memory_decay([p[0] for p in pairs], lam, half_life)[:n]
     else:
         served = [p[0] for p in pairs[:n]]
     log_retrieval("all", query, [(r.doc_id, r.distance) for r in served])
