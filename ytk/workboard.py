@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 
 # What json.loads can actually hand back. Spelled out so the gh payloads below
@@ -38,6 +38,10 @@ PROJECT_ID = "PVT_kwHOA9tX2c4Beb83"
 REPOSITORY = "pablomoli/ytk"
 STAGE_FIELD_ID = "PVTSSF_lAHOA9tX2c4Beb83zhY2L9I"
 STATUS_FIELD_ID = "PVTSSF_lAHOA9tX2c4Beb83zhY2Lww"
+KIND_FIELD_ID = "PVTSSF_lAHOA9tX2c4Beb83zhY2L0s"
+PRIORITY_FIELD_ID = "PVTSSF_lAHOA9tX2c4Beb83zhY2L0w"
+AREA_FIELD_ID = "PVTSSF_lAHOA9tX2c4Beb83zhY2L04"
+ORDER_FIELD_ID = "PVTF_lAHOA9tX2c4Beb83zhY2L_o"
 
 STAGES = {
     "triage": ("Triage", "fc0d7e07", "f75ad846"),
@@ -47,6 +51,50 @@ STAGES = {
     "verify": ("Verify", "a57ba5cb", "47fc9ee4"),
     "done": ("Done", "da33651d", "98236657"),
 }
+
+KINDS = {
+    "bug": ("Bug", "876a56d3"),
+    "ux-debt": ("UX debt", "c00ba423"),
+    "feature": ("Feature", "d80cfc4b"),
+    "investigation": ("Investigation", "3008fcc0"),
+    "maintenance": ("Maintenance", "0ebb6648"),
+    "initiative": ("Initiative", "846037e6"),
+}
+
+PRIORITIES = {
+    "p0": ("P0", "fde7982d"),
+    "p1": ("P1", "bac73afb"),
+    "p2": ("P2", "f6d637cc"),
+    "p3": ("P3", "6d5cca7a"),
+}
+
+AREAS = {
+    "hub-ui": ("Hub UI", "93f91cba"),
+    "capture-and-ingest": ("Capture and ingest", "c06585f7"),
+    "retrieval-and-eval": ("Retrieval and eval", "5f632254"),
+    "map-growth-and-grove": ("Map growth and grove", "0a5f15d1"),
+    "vault": ("Vault", "edf96c19"),
+    "platform": ("Platform", "06fb732b"),
+    "research": ("Research", "5a5f43aa"),
+}
+
+# Every field a triaged item is expected to carry. audit() reports absences here.
+REQUIRED_FIELDS = ("kind", "priority", "area", "stage", "order")
+
+
+def _slug(value: str) -> str:
+    return value.strip().lower().replace("_", "-").replace(" ", "-")
+
+
+def _resolve(table: dict[str, tuple[str, str]], value: str, label: str) -> tuple[str, str]:
+    """Map a loose spelling ('in progress', 'Hub UI', 'p1') onto a field option."""
+    key = _slug(value)
+    if key in table:
+        return table[key]
+    for name, option in table.values():
+        if _slug(name) == key:
+            return (name, option)
+    raise WorkboardError(f"Unknown {label} {value!r}. Choose one of: {', '.join(table)}")
 
 
 class WorkboardError(RuntimeError):
@@ -69,6 +117,41 @@ class WorkItem:
     order: float
     blocked_by: tuple[int, ...] = ()
     open_subissues: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True)
+class FieldUpdate:
+    issue_number: int
+    kind: str | None = None
+    priority: str | None = None
+    area: str | None = None
+    stage: str | None = None
+    order: float | None = None
+
+
+def _plan_writes(update: FieldUpdate) -> tuple[dict[str, str], list[tuple[str, str]]]:
+    """Resolve an update into settled display names and (field_id, option_id) writes."""
+    resolved: dict[str, str] = {}
+    writes: list[tuple[str, str]] = []
+    if update.kind is not None:
+        resolved["kind"], option = _resolve(KINDS, update.kind, "kind")
+        writes.append((KIND_FIELD_ID, option))
+    if update.priority is not None:
+        resolved["priority"], option = _resolve(PRIORITIES, update.priority, "priority")
+        writes.append((PRIORITY_FIELD_ID, option))
+    if update.area is not None:
+        resolved["area"], option = _resolve(AREAS, update.area, "area")
+        writes.append((AREA_FIELD_ID, option))
+    if update.stage is not None:
+        stage_key = _slug(update.stage)
+        if stage_key not in STAGES:
+            raise WorkboardError(
+                f"Unknown stage {update.stage!r}. Choose one of: {', '.join(STAGES)}"
+            )
+        resolved["stage"], stage_option, status_option = STAGES[stage_key]
+        writes.append((STAGE_FIELD_ID, stage_option))
+        writes.append((STATUS_FIELD_ID, status_option))
+    return resolved, writes
 
 
 @dataclass(frozen=True)
@@ -215,6 +298,172 @@ class WorkboardClient:
         self._set_single_select(item.item_id, STATUS_FIELD_ID, status_option)
         return replace(item, stage=stage_name)
 
+    def add_issue(self, issue_number: int) -> str:
+        """Put an issue on the board, returning its item id. Idempotent."""
+        existing = next(
+            (item for item in self.snapshot().items if item.number == issue_number),
+            None,
+        )
+        if existing is not None:
+            return existing.item_id
+        return self._add_item(issue_number)
+
+    def _add_item(self, issue_number: int) -> str:
+        payload = self._load_json(
+            self._run_gh(
+                [
+                    "project",
+                    "item-add",
+                    str(PROJECT_NUMBER),
+                    "--owner",
+                    PROJECT_OWNER,
+                    "--url",
+                    f"https://github.com/{REPOSITORY}/issues/{issue_number}",
+                    "--format",
+                    "json",
+                ]
+            )
+        )
+        item_id = _as_str(_as_dict(payload).get("id"))
+        if not item_id:
+            raise WorkboardError(f"Adding #{issue_number} returned no item id")
+        return item_id
+
+    def set_fields(
+        self,
+        issue_number: int,
+        *,
+        kind: str | None = None,
+        priority: str | None = None,
+        area: str | None = None,
+        stage: str | None = None,
+        order: float | None = None,
+        create: bool = False,
+    ) -> WorkItem:
+        """Set any subset of the board fields on one issue.
+
+        Every value is resolved before the first network call, so a typo costs
+        nothing and never leaves the item half-written.
+        """
+        update = FieldUpdate(
+            issue_number=issue_number,
+            kind=kind,
+            priority=priority,
+            area=area,
+            stage=stage,
+            order=order,
+        )
+        return self.set_many([update], create=create)[0]
+
+    def set_many(
+        self, updates: Sequence[FieldUpdate], *, create: bool = False
+    ) -> tuple[WorkItem, ...]:
+        """Apply field updates to many issues against a single board read.
+
+        Reading item-list is by far the most expensive call here, so a per-item
+        snapshot exhausts the GraphQL budget on a bulk fill.
+        """
+        planned = [(update, _plan_writes(update)) for update in updates]
+
+        snapshot = self.snapshot()
+        by_number = {item.number: item for item in snapshot.items}
+        added: dict[int, str] = {}
+        if create:
+            for update, _ in planned:
+                if update.issue_number not in by_number:
+                    added[update.issue_number] = self._add_item(update.issue_number)
+
+        results: list[WorkItem] = []
+        for update, (resolved, writes) in planned:
+            item = by_number.get(update.issue_number)
+            if item is None:
+                # A just-added item is not in item-list yet, so trust the id
+                # add_issue returned rather than the stale read.
+                fresh_id = added.get(update.issue_number, "")
+                if not fresh_id:
+                    raise WorkboardError(
+                        f"Issue #{update.issue_number} is not in ytk Project {PROJECT_NUMBER}"
+                    )
+                item = WorkItem(
+                    item_id=fresh_id,
+                    number=update.issue_number,
+                    title="",
+                    url=f"https://github.com/{REPOSITORY}/issues/{update.issue_number}",
+                    priority="",
+                    area="",
+                    kind="",
+                    stage="",
+                    order=float("inf"),
+                )
+            for field_id, option in writes:
+                self._set_single_select(item.item_id, field_id, option)
+            if update.order is not None:
+                self._set_number(item.item_id, ORDER_FIELD_ID, update.order)
+            settled = replace(item, **resolved)
+            if update.order is not None:
+                settled = replace(settled, order=float(update.order))
+            results.append(settled)
+        return tuple(results)
+
+    def audit(self) -> tuple[tuple[int, ...], tuple[tuple[WorkItem, tuple[str, ...]], ...]]:
+        """Open issues missing from the board, and board items missing fields."""
+        snapshot = self.snapshot()
+        issue_payload = self._load_json(
+            self._run_gh(
+                [
+                    "issue",
+                    "list",
+                    "--repo",
+                    REPOSITORY,
+                    "--state",
+                    "open",
+                    "--limit",
+                    "200",
+                    "--json",
+                    "number",
+                ]
+            )
+        )
+        open_numbers = {
+            number
+            for number in (
+                _as_int(_as_dict(entry).get("number")) for entry in _as_list(issue_payload)
+            )
+            if number is not None
+        }
+        on_board = {item.number for item in snapshot.items}
+        missing = tuple(sorted(open_numbers - on_board))
+
+        incomplete: list[tuple[WorkItem, tuple[str, ...]]] = []
+        for item in snapshot.items:
+            if item.number not in open_numbers:
+                continue
+            gaps = tuple(
+                field
+                for field in REQUIRED_FIELDS
+                # order is a float: absent reads as inf, never empty string
+                if (item.order == float("inf") if field == "order" else not getattr(item, field))
+            )
+            if gaps:
+                incomplete.append((item, gaps))
+        return missing, tuple(incomplete)
+
+    def _set_number(self, item_id: str, field_id: str, value: float) -> None:
+        self._run_gh(
+            [
+                "project",
+                "item-edit",
+                "--id",
+                item_id,
+                "--project-id",
+                PROJECT_ID,
+                "--field-id",
+                field_id,
+                "--number",
+                str(value),
+            ]
+        )
+
     def _set_single_select(self, item_id: str, field_id: str, option_id: str) -> None:
         self._run_gh(
             [
@@ -245,6 +494,52 @@ def get_snapshot() -> WorkboardSnapshot:
 
 def set_issue_stage(issue_number: int, stage: str) -> WorkItem:
     return WorkboardClient().set_stage(issue_number, stage)
+
+
+def set_issue_fields(
+    issue_number: int,
+    *,
+    kind: str | None = None,
+    priority: str | None = None,
+    area: str | None = None,
+    stage: str | None = None,
+    order: float | None = None,
+    create: bool = False,
+) -> WorkItem:
+    return WorkboardClient().set_fields(
+        issue_number,
+        kind=kind,
+        priority=priority,
+        area=area,
+        stage=stage,
+        order=order,
+        create=create,
+    )
+
+
+def audit_board() -> tuple[tuple[int, ...], tuple[tuple[WorkItem, tuple[str, ...]], ...]]:
+    return WorkboardClient().audit()
+
+
+def format_audit(
+    missing: tuple[int, ...],
+    incomplete: tuple[tuple[WorkItem, tuple[str, ...]], ...],
+) -> str:
+    lines = ["ytk workboard audit"]
+    if missing:
+        lines.append(f"Open but not on the board ({len(missing)}):")
+        lines.extend(f"  #{number}" for number in missing)
+    else:
+        lines.append("Open but not on the board: none")
+    if incomplete:
+        lines.append(f"On the board with missing fields ({len(incomplete)}):")
+        lines.extend(
+            f"  #{item.number} missing {', '.join(gaps)} — {item.title}"
+            for item, gaps in incomplete
+        )
+    else:
+        lines.append("On the board with missing fields: none")
+    return "\n".join(lines)
 
 
 def format_snapshot(snapshot: WorkboardSnapshot) -> str:

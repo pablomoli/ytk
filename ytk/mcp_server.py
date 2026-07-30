@@ -165,6 +165,49 @@ def work_set_stage(issue_number: int, stage: str) -> str:
 
 
 @app.tool()
+def work_audit() -> str:
+    """Report open ytk issues missing from the Project board, and board items with empty fields."""
+    from .workboard import audit_board, format_audit
+
+    missing, incomplete = audit_board()
+    return format_audit(missing, incomplete)
+
+
+@app.tool()
+def work_set_fields(
+    issue_number: int,
+    kind: str | None = None,
+    priority: str | None = None,
+    area: str | None = None,
+    stage: str | None = None,
+    order: float | None = None,
+    create: bool = False,
+) -> str:
+    """Set any subset of a ytk issue's Project fields. Set create=True to add it to the board first.
+
+    kind: bug, ux-debt, feature, investigation, maintenance, initiative.
+    priority: p0-p3. area: hub-ui, capture-and-ingest, retrieval-and-eval,
+    map-growth-and-grove, vault, platform, research.
+    stage: triage, needs-evidence, ready, in-progress, verify, done.
+    """
+    from .workboard import set_issue_fields
+
+    updated = set_issue_fields(
+        issue_number,
+        kind=kind,
+        priority=priority,
+        area=area,
+        stage=stage,
+        order=order,
+        create=create,
+    )
+    return (
+        f"#{updated.number}: kind={updated.kind or '-'} priority={updated.priority or '-'} "
+        f"area={updated.area or '-'} stage={updated.stage or '-'} order={updated.order:g}"
+    )
+
+
+@app.tool()
 def visual_similar(query: str, n: int = 8) -> str:
     """Visually similar saves via SigLIP-2. QUERY may be a stored item id
     (yt:<video_id>, ig:<shortcode>, tt:<id>, cover:<hash>), an absolute image
