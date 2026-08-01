@@ -62,3 +62,19 @@ test("setTarget overrides pointer state for the focus tween", () => {
   expect(out.yaw).toBeCloseTo(1.0, 3);
   expect(out.pitch).toBeCloseTo(0.5, 3);
 });
+
+test("wheel moves zoom toward its clamp and settles, yaw unaffected", () => {
+  const c = createControls();
+  const before = c.step(1 / 60);
+  c.wheel(1000); // dy>0 zooms out, clamps at 1
+  let out = before;
+  for (let i = 0; i < 600; i++) out = c.step(1 / 60);
+  expect(out.zoom).toBeCloseTo(1, 3);
+  expect(out.yaw).toBeCloseTo(before.yaw, 6); // wheel no longer touches yaw
+
+  const c2 = createControls();
+  c2.wheel(-1000); // dy<0 zooms in, clamps at 0
+  let out2 = { yaw: 0, pitch: 0, zoom: 0.5 };
+  for (let i = 0; i < 600; i++) out2 = c2.step(1 / 60);
+  expect(out2.zoom).toBeCloseTo(0, 3);
+});

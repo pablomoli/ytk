@@ -24,10 +24,14 @@ const DOLLY = 0.76;
 const DIM_FOCUS = 0.25;
 const DIM_FILTER = 0.15;
 
-const ORBIT_R = 2.6; // globe-mode rest camera radius
 // mirrors DOLLY's stand-off distance-from-tile, kept outside the unit sphere:
 // same ~40% viewport-height apex fraction, viewed from the outside instead of the origin.
 const GLOBE_APEX = 1 + 0.238;
+const GLOBE_R_CLOSE = 1.45; // wheel zoom=0: globe orbit radius
+const GLOBE_R_FAR = 4.0; // wheel zoom=1: globe orbit radius
+const restGlobeR = (z: number) => GLOBE_R_CLOSE + z * (GLOBE_R_FAR - GLOBE_R_CLOSE);
+const FOV_ZOOMED = 50; // wheel zoom=0: inside-mode fov (narrow)
+const FOV_WIDE = 70; // wheel zoom=1: inside-mode fov (wide); default zoom 0.5 -> 60
 
 const VERT = /* glsl */ `
 precision highp float;
@@ -147,12 +151,13 @@ export function mountOrb(
   scene.add(new Mesh(geo, material));
 
   const controls = createControls();
-  const zoom = { dolly: 0 }; // inside mode: 0 at rest, 1 at apex
-  const orbitR = { r: ORBIT_R }; // globe mode: current camera radius, rest -> apex
+  const focusDolly = { dolly: 0 }; // inside mode: 0 at rest, 1 at apex
+  const orbitR = { r: restGlobeR(0.5) }; // globe mode: current camera radius, rest -> apex
   let mode: OrbViewMode = "inside";
   let focused = -1;
   let hovered: number | null = null;
   let pointerNdc: [number, number] | null = null;
+  let liveZoom = 0.5; // controls' wheel-zoom channel, latched each frame for focusTile/doBlur to read outside the loop
   let focusRaf1 = 0, focusRaf2 = 0; // reduced-motion focus's double-rAF; cancelled on dispose
   let focusCall: ReturnType<typeof gsap.delayedCall> | undefined; // pending onOpen handoff at 75% dolly
   const dir = new Vector3();
@@ -162,8 +167,10 @@ export function mountOrb(
   // mode's orbit mapping (inside: forward = D; globe: camera position = R*D).
   const anglesFor = (i: number): { yaw: number; pitch: number } => {
     const x = centers[i * 3], y = centers[i * 3 + 1], z = centers[i * 3 + 2];
+    // globe branch negated to match the flipped orbit-position signs below
+    // (user-felt trackball semantics, set empirically 2026-08-01)
     return mode === "globe"
-      ? { yaw: Math.atan2(x, z), pitch: Math.asin(-y) }
+      ? { yaw: -Math.atan2(x, z), pitch: -Math.asin(-y) }
       : { yaw: Math.atan2(x, -z), pitch: Math.asin(y) };
   };
 
@@ -207,13 +214,15 @@ export function mountOrb(
     focusCall = undefined;
     const done = () => { focused = -1; material.uniforms.uFocused.value = -1; };
     if (reducedMotion()) {
-      if (mode === "globe") orbitR.r = ORBIT_R; else zoom.dolly = 0;
+      if (mode === "globe") orbitR.r = restGlobeR(liveZoom); else focusDolly.dolly = 0;
       material.uniforms.uDim.value = 1;
       done();
       return;
     }
-    if (mode === "globe") gsap.to(orbitR, { r: ORBIT_R, duration: DUR.morph, onComplete: done });
-    else gsap.to(zoom, { dolly: 0, duration: DUR.morph, onComplete: done });
+    // blur resumes at the live wheel-zoom radius, not a frozen constant, since
+    // the user may have scrolled while focused
+    if (mode === "globe") gsap.to(orbitR, { r: restGlobeR(liveZoom), duration: DUR.morph, onComplete: done });
+    else gsap.to(focusDolly, { dolly: 0, duration: DUR.morph, onComplete: done });
     gsap.to(material.uniforms.uDim, { value: 1, duration: DUR.morph });
   }
 
@@ -228,7 +237,7 @@ export function mountOrb(
     const { yaw, pitch } = anglesFor(i);
     if (reducedMotion()) {
       controls.setTarget(yaw, pitch);
-      if (mode === "globe") orbitR.r = GLOBE_APEX; else zoom.dolly = 1;
+      if (mode === "globe") orbitR.r = GLOBE_APEX; else focusDolly.dolly = 1;
       material.uniforms.uDim.value = DIM_FOCUS;
       // one frame so the camera pose lands before projecting; handles tracked
       // so dispose() can cancel them if focus() fires just before unmount
@@ -238,8 +247,12 @@ export function mountOrb(
       return;
     }
     controls.setTarget(yaw, pitch);
-    if (mode === "globe") gsap.to(orbitR, { r: GLOBE_APEX, duration: DUR.reveal });
-    else gsap.to(zoom, { dolly: 1, duration: DUR.reveal });
+    if (mode === "globe") {
+      orbitR.r = restGlobeR(liveZoom); // seed the tween's start at the live wheel-zoom radius, not a stale one
+      gsap.to(orbitR, { r: GLOBE_APEX, duration: DUR.reveal });
+    } else {
+      gsap.to(focusDolly, { dolly: 1, duration: DUR.reveal });
+    }
     gsap.to(material.uniforms.uDim, { value: DIM_FOCUS, duration: DUR.reveal });
     // let the FLIP panel start growing before the dolly finishes arriving,
     // so camera and panel motion overlap instead of running end-to-end
@@ -252,20 +265,27 @@ export function mountOrb(
     raf = requestAnimationFrame(loop);
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-    const { yaw, pitch } = controls.step(dt);
+    const { yaw, pitch, zoom } = controls.step(dt);
+    liveZoom = zoom;
     if (mode === "globe") {
-      // orbit-from-outside: camera circles the sphere at radius orbitR.r,
-      // always looking at the center; radius shrinks toward GLOBE_APEX on focus.
-      const cosP = Math.cos(pitch);
-      const r = orbitR.r;
-      camera.position.set(Math.sin(yaw) * cosP * r, -Math.sin(pitch) * r, Math.cos(yaw) * cosP * r);
+      // orbit-from-outside: camera circles the sphere at radius orbitR.r while
+      // focused, otherwise at the live wheel-zoom radius; always looking at
+      // the center. Signs flipped vs. inside mode: user-felt trackball
+      // semantics, set empirically 2026-08-01.
+      const gyaw = -yaw, gpitch = -pitch;
+      const cosP = Math.cos(gpitch);
+      const r = focused >= 0 ? orbitR.r : restGlobeR(zoom);
+      camera.position.set(Math.sin(gyaw) * cosP * r, -Math.sin(gpitch) * r, Math.cos(gyaw) * cosP * r);
       camera.lookAt(0, 0, 0);
     } else {
+      // wheel zoom drives fov directly; independent of the focus dolly below
+      const fov = FOV_ZOOMED + zoom * (FOV_WIDE - FOV_ZOOMED);
+      if (fov !== camera.fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
       // orbit-from-origin: camera rotates in place, dollies toward the focused tile
       camera.position.set(0, 0, 0);
-      if (focused >= 0 && zoom.dolly > 0) {
+      if (focused >= 0 && focusDolly.dolly > 0) {
         dir.set(centers[focused * 3], centers[focused * 3 + 1], centers[focused * 3 + 2]);
-        camera.position.addScaledVector(dir, zoom.dolly * DOLLY);
+        camera.position.addScaledVector(dir, focusDolly.dolly * DOLLY);
       }
       camera.rotation.set(0, 0, 0);
       camera.rotateY(-yaw);
@@ -312,7 +332,7 @@ export function mountOrb(
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerup", onUp);
       canvas.removeEventListener("wheel", onWheel);
-      gsap.killTweensOf(zoom);
+      gsap.killTweensOf(focusDolly);
       gsap.killTweensOf(orbitR);
       gsap.killTweensOf(material.uniforms.uDim);
       plane.dispose();

@@ -2,12 +2,27 @@ import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import type { LayoutName } from "../api/orb";
 import { useOrb } from "../api/orb";
+import { apiGet, queryClient } from "../api/client";
+import type { SimilarItem } from "../api/fresh";
 import { NoteViewer } from "../components/NoteViewer";
 import { ErrorState } from "../components/StateViews";
 import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import { mountOrb } from "../lib/orb/scene";
 import { orbPointToFreshNote } from "../lib/orb/note";
 import "../styles.css";
+
+// same queryKey/queryFn shape as useNote/useSimilarNotes (api/fresh.ts) so the
+// warmed cache entry is the exact one those hooks read on open
+function prefetchNote(path: string): void {
+  void queryClient.prefetchQuery({
+    queryKey: ["note", path],
+    queryFn: () => apiGet<{ path: string; content: string }>(`/api/note?path=${encodeURIComponent(path)}`),
+  });
+  void queryClient.prefetchQuery({
+    queryKey: ["similar", path],
+    queryFn: () => apiGet<SimilarItem[]>(`/api/similar?note=${encodeURIComponent(path)}&n=8`),
+  });
+}
 
 export const Route = createFileRoute("/orb")({ component: OrbPage });
 
@@ -31,7 +46,10 @@ function OrbPage() {
     const canvas = canvasRef.current;
     if (!canvas || !data) return;
     const handle = mountOrb(canvas, data, {
-      onHover: setHovered,
+      onHover: (i) => {
+        setHovered(i);
+        if (i !== null) prefetchNote(data.points[i].p);
+      },
       onOpen: (i, rect) => setOpen({ i, rect }),
     });
     handleRef.current = handle;

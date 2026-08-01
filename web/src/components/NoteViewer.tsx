@@ -231,6 +231,7 @@ export function NoteViewer({
     gsap.killTweensOf(dialog);
     let tween: ReturnType<typeof gsap.from> | undefined;
     let overlayTween: ReturnType<typeof gsap.from> | undefined;
+    let overlayRaf1 = 0, overlayRaf2 = 0;
     if (originRect && !reducedMotion()) {
       const to = dialog.getBoundingClientRect();
       /* transform FLIP: play the panel from the card's rect into place */
@@ -243,13 +244,24 @@ export function NoteViewer({
         onComplete: () => gsap.set(dialog, { clearProps: "transform" }),
       });
       // the orb's dimmed-sphere backdrop must not vanish in one frame when the
-      // apex zoom hands off to this panel; fade the overlay in alongside it
-      const overlay = document.querySelector('[data-slot="dialog-overlay"]');
-      if (overlay) overlayTween = gsap.from(overlay, { opacity: 0, duration: DUR.reveal });
+      // apex zoom hands off to this panel; fade the overlay in alongside it.
+      // Radix's portal can attach the overlay after this effect runs, so a
+      // synchronous query can miss it — try next frame, then once more, then
+      // give up silently rather than fight the portal's own timing.
+      const tryFadeOverlay = () => {
+        const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+        if (overlay) overlayTween = gsap.from(overlay, { opacity: 0, duration: DUR.reveal });
+        return Boolean(overlay);
+      };
+      overlayRaf1 = requestAnimationFrame(() => {
+        if (!tryFadeOverlay()) overlayRaf2 = requestAnimationFrame(tryFadeOverlay);
+      });
     }
     return () => {
       tween?.kill();
       overlayTween?.kill();
+      cancelAnimationFrame(overlayRaf1);
+      cancelAnimationFrame(overlayRaf2);
       gsap.set(dialog, { clearProps: "transform" });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

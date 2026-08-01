@@ -7,13 +7,14 @@ export const PITCH_MAX = (75 * Math.PI) / 180;
 const TAP_PX = 6;
 const STIFFNESS = 60; // spring toward target; ~0.3s to settle
 const FRICTION = 10; // exponential decay of thrown velocity; sim-checked, see task-7-report.md
+const ZOOM_SENS = 0.0012; // wheel dy -> zoom fraction; no reference value given, tuned by feel
 
 export type OrbControls = {
   down(x: number, y: number): void;
   move(x: number, y: number): void;
   up(): { tap: boolean };
   wheel(dy: number): void;
-  step(dt: number): { yaw: number; pitch: number };
+  step(dt: number): { yaw: number; pitch: number; zoom: number };
   setTarget(yaw: number, pitch: number): void;
   readonly dragging: boolean;
 };
@@ -22,12 +23,14 @@ export function createControls(): OrbControls {
   let yaw = 0, pitch = 0; // rendered angles
   let tyaw = 0, tpitch = 0; // spring targets
   let vyaw = 0, vpitch = 0; // throw velocity (rad/s), post-release only
+  let zoom = 0.5, tzoom = 0.5; // wheel-driven zoom channel: 0 close/zoomed, 1 far/wide
   let dragging = false;
   let lastX = 0, lastY = 0, travel = 0;
   let lastDX = 0, lastDY = 0;
   let dtSinceMove = 0; // real elapsed time since the last move(), for velocity-on-release
 
   const clamp = () => { tpitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, tpitch)); };
+  const clampZoom = () => { tzoom = Math.max(0, Math.min(1, tzoom)); };
 
   return {
     get dragging() { return dragging; },
@@ -63,7 +66,7 @@ export function createControls(): OrbControls {
       }
       return { tap };
     },
-    wheel(dy) { tyaw -= dy * SENS * 0.5; },
+    wheel(dy) { tzoom += dy * ZOOM_SENS; clampZoom(); }, // dy>0 zooms out (toward 1)
     setTarget(y, p) { tyaw = y; tpitch = p; vyaw = vpitch = 0; clamp(); },
     step(dt) {
       if (dragging) dtSinceMove += dt;
@@ -77,7 +80,8 @@ export function createControls(): OrbControls {
       const k = 1 - Math.exp(-STIFFNESS * dt);
       yaw += (tyaw - yaw) * k;
       pitch += (tpitch - pitch) * k;
-      return { yaw, pitch };
+      zoom += (tzoom - zoom) * k;
+      return { yaw, pitch, zoom };
     },
   };
 }
