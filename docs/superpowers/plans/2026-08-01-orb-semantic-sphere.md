@@ -1156,7 +1156,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-SENS, STIFFNESS, FRICTION = 0.0022, 60.0, 4.0
+SENS, STIFFNESS, FRICTION = 0.0022, 60.0, 10.0
 DT = 1 / 60
 
 
@@ -1325,7 +1325,7 @@ export const SENS = 0.0022; // rad per px
 export const PITCH_MAX = (75 * Math.PI) / 180;
 const TAP_PX = 6;
 const STIFFNESS = 60; // spring toward target; ~0.3s to settle
-const FRICTION = 4; // exponential decay of thrown velocity
+const FRICTION = 10; // exponential decay of thrown velocity; 4 settled 2-3x too slow in the T7 sim
 
 export type OrbControls = {
   down(x: number, y: number): void;
