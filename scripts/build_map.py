@@ -516,6 +516,31 @@ def _vault_rel(path: str) -> str | None:
     return path[i + len(marker) :] if i != -1 else None
 
 
+def _frontmatter_image(path: Path) -> str | None:
+    """First image_paths entry from a note's frontmatter, or None if the
+    field, the frontmatter, or its closing fence is absent."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if not text.startswith("---"):
+        return None
+    end = text.find("\n---", 3)
+    if end == -1:
+        return None
+    fm = text[:end]
+    lines = fm.splitlines()
+    for i, line in enumerate(lines):
+        if line.strip() == "image_paths:":
+            for entry in lines[i + 1 :]:
+                stripped = entry.strip()
+                if stripped.startswith("- "):
+                    return stripped[2:].strip()
+                break
+            return None
+    return None
+
+
 def attach_sphere() -> None:
     """Compute the /orb sphere layouts (ytk/spheremap.py) from the stored c3
     coordinates plus live store vectors, and attach thumbnail paths. Aligned
@@ -548,13 +573,27 @@ def attach_sphere() -> None:
         if m.get("url") and m.get("image_path")
     }
     n_thumbs = 0
+    n_fallback = 0
+    root = _vault_root()
     for p in cpts:
         t = thumbs.get(p.get("u"))
         rel = _vault_rel(t) if t else None
         if rel:
             p["thumb"] = rel
             n_thumbs += 1
-    print(f"  thumbs: {n_thumbs}/{len(cpts)}; sample: {[p.get('thumb') for p in cpts[:3]]}")
+            continue
+        note_rel = p.get("p")
+        if not note_rel:
+            continue
+        img = _frontmatter_image(root / note_rel)
+        if img and (root / "second-brain" / img).exists():
+            p["thumb"] = img
+            n_thumbs += 1
+            n_fallback += 1
+    print(
+        f"  thumbs: {n_thumbs}/{len(cpts)} ({n_fallback} from frontmatter fallback); "
+        f"sample: {[p.get('thumb') for p in cpts[:3]]}"
+    )
     OUT.write_text(json.dumps(data))
 
 
