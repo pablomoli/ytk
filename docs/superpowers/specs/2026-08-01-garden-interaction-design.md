@@ -210,9 +210,12 @@ design. Simulate the rule in Python first — corrections are free there.
 Question: what fraction of members per bucket have a frontmatter
 `date:`, and what does the file-date fallback distribution look like?
 Method: walk every `members` path in every snapshot, read frontmatter,
-plot per-bucket coverage bars and a date histogram per source type
-(youtube/web/tiktok/instagram — web notes have known metadata gaps,
-#144). Kill criterion: if fallback dominates (>40% overall or any major
+and render two figures: a bucket × source-type matrix heatmap of
+coverage (youtube/web/tiktok/instagram — web notes have known metadata
+gaps, #144), and the full capture-date timeline as a strip plot colored
+by date source (frontmatter vs file fallback), so fallback dates show
+*where* they cluster in time — a fallback stripe concentrated in one
+import epoch reads very differently from one smeared everywhere. Kill criterion: if fallback dominates (>40% overall or any major
 bucket >60%), the scrub replays file-system archaeology rather than
 capture history — the design needs a date-repair pass first, not
 plumbing.
@@ -241,9 +244,16 @@ instead.
 
 **C4 — binding churn across growth (matplotlib, before baking ids).**
 Question: does hash-onto-sites keep notes on their twigs as the tree
-grows? Method: simulate consecutive snapshots (replay attach over the
-real history, as `replay.py` already does for topology), apply the
-binding at each step, plot the fraction of notes that keep their site.
+grows? Method: simulate consecutive snapshots (replay attach over the real
+history, as `replay.py` already does for topology), apply the binding
+at each step, and render churn as an alluvial diagram for one mid-size
+bucket — every note a ribbon from its site at step k to its site at
+k+1, stable notes as straight runs, churn as crossings — plus the
+per-step churn fraction across all buckets as small multiples. The
+alluvial makes the *mechanism* of churn visible (does one new note
+shift everything downstream of its hash slot, or is displacement
+local?), which the fraction alone cannot say and which decides what
+"sticky assignment" must actually pin.
 Kill criterion: churn >5% per attach step breaks the "same note, same
 twig" promise — switch to sticky assignment (existing bindings persist,
 only new notes hash) before touching the scene.
