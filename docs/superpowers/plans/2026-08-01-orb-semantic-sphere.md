@@ -41,6 +41,17 @@ browser mode in real Chromium).
 - `~/.ytk/map.json` is a local data artifact — never committed.
 - The retrieval eval gate is NOT touched by this work (no `ytk/store.py` /
   `ytk/retrieval_gate.py` / `eval/retrieval/` changes allowed).
+- **Visual checkpoints are mandatory, not decorative.** Every task that
+  computes geometry or picks a motion/physics constant renders a matplotlib
+  artifact to the scratchpad, OPENS it (Read the PNG), and judges it before
+  committing — a checkpoint that is generated but not looked at is not a
+  checkpoint. Rules are simulated in Python before they are coded in
+  TypeScript or GLSL: corrections are free in a plot and expensive in a
+  shader. Checkpoint PNGs/mp4s are working artifacts: scratchpad only,
+  never committed, sent to the user with SendUserFile at review points.
+  Scratchpad root for all of them:
+  `/private/tmp/claude-501/-Users-melocoton-Developer-ytk/a880b851-b1c2-4d8c-a41c-6109fa752743/scratchpad/`
+  (referred to as `$SCRATCH` below).
 
 ## Data contracts (read before any task)
 
@@ -146,13 +157,46 @@ print(f"mean NN angle: {nn_ang.mean():.2f} deg, tile radius {theta_deg:.2f} deg,
 Run: `uv run python /private/tmp/claude-501/-Users-melocoton-Developer-ytk/a880b851-b1c2-4d8c-a41c-6109fa752743/scratchpad/haversine_spike.py`
 Expected: completes in under ~2 min. Record every printed number.
 
-- [ ] **Step 4: Verdict**
+- [ ] **Step 4: Matplotlib checkpoint — look at the sphere, not just the score**
 
-PASS if: no exception, no NaNs, unit check < 1e-6, trustworthiness > 0.
-Report all numbers (they seed Task 2's expectations and the final
-comparison). If it raises or NaNs: report the traceback verbatim — Task 2
-then implements `haversine()` to catch the failure and return `None`, and
-the plan proceeds with radial + lattice only.
+Append to the spike script (or run as a second script) and re-run:
+
+```python
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from build_map import assign_themes  # theme colors need the snapshot
+import json
+snapshot = json.loads((Path.home() / ".ytk" / "interest" / "latest.json").read_text())
+themes = assign_themes(cvecs, snapshot)
+
+lon = np.arctan2(xyz[:, 1], xyz[:, 0])
+lat = np.arcsin(np.clip(xyz[:, 2], -1, 1))
+fig, ax = plt.subplots(subplot_kw={"projection": "mollweide"}, figsize=(10, 5))
+ax.scatter(lon, lat, c=themes, cmap="tab20", s=10)
+bad = nn_ang < theta_deg
+ax.scatter(lon[bad], lat[bad], facecolors="none", edgecolors="red", s=60, linewidths=0.8)
+ax.set_title(f"haversine, trust={t:.3f}, overlap={int(bad.sum())} (red rings)")
+ax.grid(alpha=0.2)
+fig.savefig("/private/tmp/claude-501/-Users-melocoton-Developer-ytk/a880b851-b1c2-4d8c-a41c-6109fa752743/scratchpad/spike-haversine-mollweide.png", dpi=110)
+print("wrote spike-haversine-mollweide.png")
+```
+
+Then READ the PNG (Read tool) and answer in the report: do theme colors
+form coherent regions, or salt-and-pepper? Is the sphere covered, or is
+half of it bald? A trustworthiness number cannot answer either question.
+
+- [ ] **Step 5: Verdict**
+
+PASS if: no exception, no NaNs, unit check < 1e-6, trustworthiness > 0, AND
+the Mollweide plot shows usable coverage (theme regions visible, no
+dominant bald hemisphere). Report all numbers plus the plot verdict, and
+send the PNG to the user with SendUserFile. If it raises or NaNs: report
+the traceback verbatim — Task 2 then implements `haversine()` to catch the
+failure and return `None`, and the plan proceeds with radial + lattice
+only.
 
 ---
 
@@ -609,7 +653,62 @@ STOP and report — the atlas URL scheme in Task 6 depends on this.
 Record the full score table in your report; it decides nothing here but the
 user reads it at review.
 
-- [ ] **Step 6: Lint and commit**
+- [ ] **Step 6: Matplotlib checkpoint — all three real layouts, side by side**
+
+Write and run `$SCRATCH/layouts_checkpoint.py`:
+
+```python
+"""Render every sphere layout from the real map.json for eyeball review."""
+import json
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+
+SCRATCH = Path("/private/tmp/claude-501/-Users-melocoton-Developer-ytk/a880b851-b1c2-4d8c-a41c-6109fa752743/scratchpad")
+data = json.loads((Path.home() / ".ytk" / "map.json").read_text())
+sphere = data["content"]["sphere"]
+cpts = [p for p in data["points"] if "c3" in p]
+themes = np.array([p.get("th", -1) for p in cpts])
+names = [k for k in ("radial", "haversine", "lattice") if sphere.get(k)]
+fig, axes = plt.subplots(
+    len(names), 1, subplot_kw={"projection": "mollweide"}, figsize=(10, 4.6 * len(names))
+)
+axes = np.atleast_1d(axes)
+for ax, name in zip(axes, names):
+    xyz = np.array(sphere[name])
+    lon, lat = np.arctan2(xyz[:, 1], xyz[:, 0]), np.arcsin(np.clip(xyz[:, 2], -1, 1))
+    dots = np.clip(xyz @ xyz.T, -1, 1)
+    np.fill_diagonal(dots, -1)
+    nn = np.degrees(np.arccos(dots.max(axis=1)))
+    theta = np.degrees(0.5 * np.sqrt(4 * np.pi / len(xyz)))
+    bad = nn < theta
+    ax.scatter(lon, lat, c=themes, cmap="tab20", s=10)
+    ax.scatter(lon[bad], lat[bad], facecolors="none", edgecolors="red", s=60, linewidths=0.8)
+    s = sphere["scores"][name]
+    chosen = " [CHOSEN]" if sphere["chosen"] == name else ""
+    ax.set_title(
+        f"{name}{chosen}  trust={s['trustworthiness']:.3f}  "
+        f"overlap={s['overlap']} ({100 * s['overlap_frac']:.1f}%)"
+    )
+    ax.grid(alpha=0.2)
+fig.tight_layout()
+fig.savefig(SCRATCH / "layouts-real.png", dpi=110)
+print(f"wrote {SCRATCH / 'layouts-real.png'}")
+```
+
+READ the PNG. Judge each layout: theme regions coherent? radial's clumps as
+bad as predicted? lattice's theme runs contiguous (contiguous color bands
+along the spiral — broken bands mean the greedy walk is buggy even if every
+test passes)? Send the PNG to the user with SendUserFile and record your
+verdict next to the score table. If the eye and the score disagree about
+`chosen`, say so explicitly — that disagreement goes to the user, not under
+the rug.
+
+- [ ] **Step 7: Lint and commit**
 
 ```bash
 uv run ruff check scripts/build_map.py tests/test_spheremap_attach.py && uv run ruff format scripts/build_map.py tests/test_spheremap_attach.py
@@ -1014,6 +1113,91 @@ git commit -m "feat(orb): canvas atlas — 1024 slots, theme placeholders, incre
   clamped to +-75 deg. `SENS = 0.0022` rad/px. Tap threshold 6 px total
   travel.
 
+- [ ] **Step 0: Simulate the spring in Python first (matplotlib checkpoint)**
+
+The constants `STIFFNESS = 60` and `FRICTION = 4` below are proposals, not
+facts. Prove them in a plot before coding TypeScript — a wrong-feeling
+spring found here costs one re-run; found in the browser it costs a build
+cycle. Write and run `$SCRATCH/spring_sim.py`:
+
+```python
+"""Simulate the orb camera spring: drag-follow, throw inertia, settle."""
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+
+SENS, STIFFNESS, FRICTION = 0.0022, 60.0, 4.0
+DT = 1 / 60
+
+
+def simulate(gesture):
+    """gesture: list of (kind, x) per frame; returns yaw trace."""
+    yaw = tyaw = vyaw = 0.0
+    dragging = False
+    last_x = last_dx = 0.0
+    trace = []
+    for kind, x in gesture:
+        if kind == "down":
+            dragging, last_x, vyaw = True, x, 0.0
+        elif kind == "move" and dragging:
+            last_dx = x - last_x
+            last_x = x
+            tyaw += last_dx * SENS
+        elif kind == "up" and dragging:
+            dragging = False
+            vyaw = last_dx * SENS * 60
+        if not dragging:
+            tyaw += vyaw * DT
+            vyaw *= np.exp(-FRICTION * DT)
+        yaw += (tyaw - yaw) * (1 - np.exp(-STIFFNESS * DT))
+        trace.append(yaw)
+    return np.array(trace)
+
+
+frames = lambda n, kind="idle": [(kind, 0.0)] * n
+# gesture 1: slow 200px drag over 0.5s, hold, release
+slow = [("down", 0.0)] + [("move", x) for x in np.linspace(6, 200, 30)] + \
+       frames(12, ) + [("up", 200.0)] + frames(120)
+# gesture 2: fast 300px flick over 6 frames, release mid-motion
+flick = [("down", 0.0)] + [("move", x) for x in np.linspace(50, 300, 6)] + \
+        [("up", 300.0)] + frames(180)
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+for ax, (name, g) in zip(axes, [("slow drag + hold", slow), ("flick + coast", flick)]):
+    tr = simulate(g)
+    t = np.arange(len(tr)) * DT
+    ax.plot(t, np.degrees(tr))
+    ax.set_title(name)
+    ax.set_xlabel("s")
+    ax.set_ylabel("yaw deg")
+    ax.grid(alpha=0.3)
+    # settle time: last frame where |yaw - final| > 0.05 deg
+    final = tr[-1]
+    moving = np.abs(tr - final) > np.radians(0.05)
+    settle = (np.max(np.flatnonzero(moving)) + 1) * DT if moving.any() else 0.0
+    release = next(i for i, (k, _) in enumerate(g) if k == "up") * DT
+    ax.axvline(release, color="gray", ls="--", lw=0.8)
+    ax.set_xlabel(f"s   (settles {settle - release:.2f}s after release)")
+    print(f"{name}: travel {np.degrees(final):.1f} deg, "
+          f"settle {settle - release:.2f}s after release")
+SCRATCH = Path("/private/tmp/claude-501/-Users-melocoton-Developer-ytk/a880b851-b1c2-4d8c-a41c-6109fa752743/scratchpad")
+fig.tight_layout()
+fig.savefig(SCRATCH / "spring-sim.png", dpi=110)
+print(f"wrote {SCRATCH / 'spring-sim.png'}")
+```
+
+READ the PNG and check the lenis criteria: drag tracks with no visible lag
+ramp (the follow curve hugs the input during drag), the flick coasts
+noticeably past release (a visible curve, not a wall), and both settle
+0.3-0.8s after release with NO overshoot oscillation (a damped spring that
+wiggles is under-damped — raise STIFFNESS or lower the throw velocity
+factor). If constants change here, carry the changed values into the
+TypeScript below AND into this plan file (edit it), so Step 3's code and
+the simulation never disagree. Report the final constants and settle times.
+
 - [ ] **Step 1: Write the failing test**
 
 ```typescript
@@ -1318,6 +1502,142 @@ git commit -m "feat(orb): manual tile picking and screen-rect projection"
 
 ---
 
+### Task 9a: Manim previz of the focus choreography (gates Task 9's motion constants)
+
+The spec carries an internal contradiction the implementation must not
+inherit: it names both "dolly to 0.62 of the radius" and "tile subtends
+~60% of viewport height", but at fov 60 with tile half-size 0.055 those
+disagree — the on-screen full-height fraction is `f = 0.055 / (d * tan 30)`
+where `d = 1 - DOLLY`, so DOLLY 0.62 gives f = 0.25 and f = 0.60 needs
+DOLLY = 0.84. This task renders the candidate apexes as first-person motion
+so the constant is chosen by eye before Task 9 hardcodes it. Discovery
+task: nothing committed; deliverables are mp4s and a verdict.
+
+**Files:**
+- Create: `$SCRATCH/orb_previz.py` (scratchpad, NOT committed)
+
+**Interfaces:**
+- Consumes: nothing from other tasks.
+- Produces: the chosen `DOLLY` value and confirmation (or revision) of
+  `DUR.reveal` (0.6s) + dim 0.25 — Task 9 copies these into `scene.ts`.
+
+- [ ] **Step 1: Invoke the manim skill, then write the previz scene**
+
+Invoke the `manimce-best-practices` skill before writing manim code.
+Constraint from measured experience (memory: cairo static partition): the
+cairo renderer bakes mobjects added before the first animated one into a
+frozen background per play — everything that must move or dim in a play
+must itself be animated in that play, and motion must be verified by
+pixel-diffing frames, not by the render exiting 0.
+
+`$SCRATCH/orb_previz.py`:
+
+```python
+"""First-person previz of the /orb focus zoom: tile grows to APEX of the
+viewport height on the house ease while the wall dims to 0.25."""
+import numpy as np
+from manim import (
+    BLACK, GREY_C, WHITE, YELLOW, Scene, Square, Text, VGroup, config,
+)
+
+
+def house(t: float) -> float:
+    # CustomEase "0.25,0.1,0.25,1" from web/src/lib/motion.ts, sampled
+    u = np.linspace(0, 1, 256)
+    x = 3 * u * (1 - u) ** 2 * 0.25 + 3 * u**2 * (1 - u) * 0.25 + u**3
+    y = 3 * u * (1 - u) ** 2 * 0.10 + 3 * u**2 * (1 - u) * 1.0 + u**3
+    return float(np.interp(t, x, y))
+
+
+class ApexBase(Scene):
+    APEX = 0.60  # tile height as fraction of viewport height at zoom apex
+
+    def construct(self):
+        self.camera.background_color = BLACK
+        gap = 1.15
+        wall = VGroup(
+            *[
+                Square(0.62, fill_opacity=1, fill_color=GREY_C, stroke_width=0)
+                .move_to([x * gap, y * gap, 0])
+                for x in range(-4, 5)
+                for y in range(-3, 4)
+            ]
+        )
+        focus = wall[len(wall) // 2]
+        focus.set_fill(YELLOW)
+        others = VGroup(*[t for t in wall if t is not focus])
+        dolly = 1 - 0.055 / (self.APEX * np.tan(np.pi / 6))
+        label = Text(f"apex {self.APEX:.0%}  dolly {dolly:.2f}", font_size=22)
+        label.to_corner(np.array([-1, 1, 0]))
+        self.add(wall, label)
+        target_h = config.frame_height * self.APEX
+        self.play(
+            focus.animate.set(height=target_h),
+            others.animate.set_opacity(0.25).scale(1.0 + self.APEX * 0.55),
+            run_time=0.6,
+            rate_func=house,
+        )
+        self.wait(0.4)
+        self.play(
+            focus.animate.set(height=0.62),
+            others.animate.set_opacity(1.0).scale(1 / (1.0 + self.APEX * 0.55)),
+            run_time=0.3,
+            rate_func=house,
+        )
+        self.wait(0.2)
+
+
+class Apex25(ApexBase):
+    APEX = 0.25  # the spec's DOLLY=0.62 in disguise
+
+
+class Apex40(ApexBase):
+    APEX = 0.40
+
+
+class Apex60(ApexBase):
+    APEX = 0.60  # the spec's stated viewport fraction
+```
+
+- [ ] **Step 2: Render all three variants**
+
+```bash
+cd "$SCRATCH" && uv run --with manim manim -ql --media_dir "$SCRATCH/media" orb_previz.py Apex25 Apex40 Apex60
+```
+Expected: three mp4s under `$SCRATCH/media/videos/orb_previz/480p15/`.
+
+- [ ] **Step 3: Verify motion by pixel-diff (a clean exit proves nothing)**
+
+```bash
+cd "$SCRATCH" && for v in Apex25 Apex40 Apex60; do
+  f="media/videos/orb_previz/480p15/$v.mp4"
+  ffmpeg -loglevel error -y -ss 0.05 -i "$f" -frames:v 1 "$v-a.png" -ss 0.45 -i "$f" -frames:v 1 "$v-b.png"
+done && uv run --with pillow python -c "
+from PIL import Image, ImageChops
+for v in ('Apex25', 'Apex40', 'Apex60'):
+    a, b = Image.open(f'{v}-a.png'), Image.open(f'{v}-b.png')
+    bbox = ImageChops.difference(a, b).getbbox()
+    print(v, 'moves' if bbox else 'STATIC - render is a frozen frame')
+    assert bbox, v
+"
+```
+Expected: three lines of `moves`. A STATIC result means the cairo baking
+trap fired — fix the scene (everything that changes must be inside the
+play) before proceeding.
+
+- [ ] **Step 4: Watch and decide**
+
+Send the three mp4s to the user with SendUserFile, naming each variant and
+its implied DOLLY (Apex25 -> 0.62, Apex40 -> 0.76, Apex60 -> 0.84). State
+a recommendation with a reason (judge: does the apex leave enough dimmed
+context around the tile for the NoteViewer to visibly grow out of it, or
+does the tile already fill the frame?). The chosen APEX fixes `DOLLY = 1 -
+0.055 / (APEX * tan 30 deg)` in Task 9. If the user does not reply at this
+checkpoint, proceed with Apex40 (DOLLY 0.76) as the middle reading of the
+contradictory spec and flag it as provisional in the Task 9 commit message.
+
+---
+
 ### Task 9: `web/src/lib/orb/scene.ts` — the sphere scene
 
 **Files:**
@@ -1350,11 +1670,13 @@ Behavior spec (from the design doc): fov 60 camera at origin; one draw call
 sphere, per-instance atlas UV + index); tile half-size 0.055 at radius 1
 (near the ~4.5 deg cell radius); hover scale 1.06 via uniform; tap → zoom:
 controls target tween to the tile's yaw/pitch + dolly along the tile
-direction to 0.62 of the radius, others dim to 0.25, `DUR.reveal` on
-HOUSE ease (repo register — the spec's ~0.5s power2.inOut maps here), then
-`onOpen` with the projected rect; `reducedMotion()` skips straight to
-`onOpen`. Theme filter dims non-matching tiles to 0.15. Drag suppresses
-hover and tap.
+direction to the DOLLY chosen in Task 9a's previz, others dim to 0.25,
+`DUR.reveal` on HOUSE ease (repo register — the spec's ~0.5s power2.inOut
+maps here), then `onOpen` with the projected rect; `reducedMotion()` skips
+straight to `onOpen`. Theme filter dims non-matching tiles to 0.15. Drag
+suppresses hover and tap. Before writing code: read Task 9a's verdict and
+set `DOLLY` accordingly; also carry any constants revised by Task 7's
+Step 0 spring simulation.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1441,7 +1763,9 @@ import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
 
 export const TILE_HALF = 0.055; // ~4.5deg cell radius at 505 tiles
-const DOLLY = 0.62; // camera travel toward the tile at focus apex
+// From Task 9a's previz verdict: DOLLY = 1 - 0.055/(APEX * tan 30deg).
+// 0.76 is the Apex40 default; replace with the user's chosen apex.
+const DOLLY = 0.76;
 const DIM_FOCUS = 0.25;
 const DIM_FILTER = 0.15;
 
@@ -1960,10 +2284,21 @@ user reviews and gives the merge go explicitly.
   scene incl. hover/zoom/dim/dispose (T9), route+nav+theme filter+NoteViewer
   handoff (T10), QA incl. layout-flip eyeball (T11). Haversine-verified-first
   is T1. Reduced-motion path covered in T9 code and test.
+- Visual checkpoints: Mollweide plot in the T1 spike, three-layout
+  comparison on real data in T3, spring simulation before the TS port in
+  T7 Step 0, manim first-person previz of the zoom in T9a (chooses DOLLY),
+  headless screenshots in T11. Every checkpoint is read/watched and
+  verdicted, and its artifact goes to the user via SendUserFile.
 - Spec deviations, deliberate: zoom uses the house ease register
   (`DUR.reveal`, 0.6s) instead of the spec's ~0.5s power2.inOut — repo
   convention wins; overlap threshold is the equal-area formula (~4.5 deg at
   505) rather than the spec's ~4.2 approximation. Both flagged for review.
+- Spec contradiction found while planning, resolved by measurement: the
+  spec's "dolly to 0.62" and "tile subtends ~60% of viewport height"
+  disagree (0.62 -> 25% height at fov 60, tile half 0.055; 60% needs
+  0.84). T9a renders the candidates and the eye decides; the plan defaults
+  to the middle reading (Apex40, DOLLY 0.76) if the checkpoint goes
+  unanswered.
 - Types consistent across tasks: `OrbPoint{p,t,c,u,d,th,thumb}` (T4 JSON =
   T5 type), `uvRect{u,v,s}` (T6 = T9 usage), `createControls` surface (T7 =
   T9 usage), `OrbHandle` (T9 = T10 usage), `FreshNote` bridge fields match
