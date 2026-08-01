@@ -940,6 +940,40 @@ async def garden_e7_response(resp: E7Response):
     return {"logged": True}
 
 
+# module-level so tests monkeypatch the path; /api/map resolves its own copy
+_ORB_MAP = Path.home() / ".ytk" / "map.json"
+
+
+@app.get("/api/orb")
+async def orb_api():
+    """The /orb sphere gallery: content points + precomputed sphere layouts.
+    Thin by design — every coordinate comes from build_map.py --attach-sphere."""
+    if not _ORB_MAP.exists():
+        raise HTTPException(status_code=404, detail="No map built yet")
+    data = json.loads(_ORB_MAP.read_text())
+    sphere = (data.get("content") or {}).get("sphere")
+    if not sphere:
+        raise HTTPException(
+            status_code=404,
+            detail="No sphere block — run: uv run python scripts/build_map.py --attach-sphere",
+        )
+    points = [
+        {
+            "p": p.get("p", ""),
+            "t": p.get("t", ""),
+            "c": p.get("c", ""),
+            "u": p.get("u") or None,
+            "d": p.get("d") or None,
+            "th": p.get("th", -1),
+            "thumb": p.get("thumb") or None,
+        }
+        for p in data["points"]
+        if "c3" in p
+    ]
+    themes = [g.get("label", "") for g in data["content"].get("groups", [])]
+    return {"points": points, "themes": themes, "sphere": sphere}
+
+
 @app.get("/api/map")
 async def map_data_api():
     map_path = Path.home() / ".ytk" / "map.json"
