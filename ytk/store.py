@@ -161,10 +161,15 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
     """Embedding function for instruction-aware retrieval models (Qwen3).
 
     __call__ embeds plain — that is the document path, and it is also correct
-    for doc-to-doc similarity queries (graph.py queries with document text via
-    query_texts, which routes through here). User queries must NOT take this
-    path: chroma's EF protocol exposes only one call, so search functions
-    embed queries via embed_query() and pass query_embeddings explicitly.
+    for doc-to-doc similarity queries (graph.py and similar_memories query with
+    document text via query_texts, which chroma routes to embed_query and so to
+    __call__). User queries must NOT take this path: they carry the retrieval
+    instruction prefix, so search functions call embed_user_query() and pass
+    query_embeddings explicitly.
+
+    Never name that prefixed method embed_query: chroma's EF base class owns
+    that name with list-in/list-out semantics and calls it on every query_texts
+    path, so an incompatible override breaks doc-to-doc retrieval at runtime.
     """
 
     def __init__(
@@ -211,7 +216,7 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
         )
         return [[float(x) for x in e] for e in embs]
 
-    def embed_query(self, text: str) -> list[float]:
+    def embed_user_query(self, text: str) -> list[float]:
         return self([self._query_prefix + text])[0]
 
     @staticmethod
@@ -271,10 +276,9 @@ def _embed_query(query: str, epoch: str | None = None) -> list[float]:
     which would embed the query on the document path.
     """
     ef = _get_ef(epoch)
-    # explicit isinstance, not duck typing: chroma's EF base class also
-    # defines embed_query, but with list-in/list-out semantics
+    # v1's stock EF has no prefixed path; only InstructionAwareEF does
     if isinstance(ef, InstructionAwareEF):
-        return ef.embed_query(query)
+        return ef.embed_user_query(query)
     return [float(x) for x in ef([query])[0]]
 
 

@@ -128,6 +128,35 @@ def test_embed_query_uses_instruction_prefix_on_v2(store_v2):
     assert prefixed != pytest.approx(plain)
 
 
+def test_chroma_embed_query_protocol_is_the_plain_doc_path_on_v2(store_v2):
+    """chroma calls ef.embed_query(input=[...]) on every query_texts path.
+
+    The name is chroma's, with list-in/list-out semantics defaulting to
+    __call__. ytk's prefixed user-query path must not squat on it — doing so
+    made query_texts raise TypeError on v2, the production epoch.
+    """
+    ef = store_v2._get_ef()
+    assert isinstance(ef, store_v2.InstructionAwareEF)
+    q = "cache line contention"
+    assert ef.embed_query(input=[q])[0] == pytest.approx(ef([q])[0])
+    prefix = store_v2._EPOCHS["v2"]["query_prefix"]
+    assert ef.embed_user_query(q) == pytest.approx(ef([prefix + q])[0])
+
+
+def test_query_texts_runs_against_a_v2_collection(store_v2):
+    """The doc-to-doc callers (graph.py, similar_memories) go through here.
+
+    Covered only at v1 or against a stubbed collection until now, so a v2-only
+    EF regression reached production unseen.
+    """
+    store_v2.upsert_doc(
+        "cache", "false sharing: cores fight over one cache line", {"source_path": "/a.md"}
+    )
+    store_v2.upsert_doc("bread", "sourdough starter feeding schedule", {"source_path": "/b.md"})
+    res = store_v2._memories_collection().query(query_texts=["cache line contention"], n_results=2)
+    assert res["ids"][0][0] == "cache"
+
+
 def test_embed_query_v1_matches_stock_ef(store):
     q = "cache line contention"
     assert store._embed_query(q) == pytest.approx([float(x) for x in store._get_ef()([q])[0]])
