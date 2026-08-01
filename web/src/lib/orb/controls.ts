@@ -41,8 +41,9 @@ export function createControls(): OrbControls {
       lastDX = x - lastX; lastDY = y - lastY;
       travel += Math.hypot(lastDX, lastDY);
       lastX = x; lastY = y;
-      tyaw += lastDX * SENS;
-      tpitch += lastDY * SENS;
+      // grab-the-wall: drag right moves the wall right, so yaw/pitch move opposite the pointer
+      tyaw -= lastDX * SENS;
+      tpitch -= lastDY * SENS;
       clamp();
       dtSinceMove = 0; // velocity-on-release measures from here, not an assumed frame rate
     },
@@ -53,12 +54,12 @@ export function createControls(): OrbControls {
       // throw: last move's delta over actual elapsed time; no elapsed step() means
       // no time basis for a rate, so no velocity (avoids a div-by-zero spurious throw)
       if (!tap && dtSinceMove > 0) {
-        vyaw = (lastDX * SENS) / dtSinceMove;
-        vpitch = (lastDY * SENS) / dtSinceMove;
+        vyaw = -(lastDX * SENS) / dtSinceMove;
+        vpitch = -(lastDY * SENS) / dtSinceMove;
       }
       return { tap };
     },
-    wheel(dy) { tyaw += dy * SENS * 0.5; },
+    wheel(dy) { tyaw -= dy * SENS * 0.5; },
     setTarget(y, p) { tyaw = y; tpitch = p; vyaw = vpitch = 0; clamp(); },
     step(dt) {
       if (dragging) dtSinceMove += dt;

@@ -9,7 +9,8 @@ test("drag maps pixel deltas to yaw/pitch at SENS", () => {
   // settle the spring
   let out = { yaw: 0, pitch: 0 };
   for (let i = 0; i < 600; i++) out = c.step(1 / 60);
-  expect(out.yaw).toBeCloseTo(100 * SENS, 3);
+  // grab-the-wall: dragging right moves the wall right, so yaw goes negative
+  expect(out.yaw).toBeCloseTo(-100 * SENS, 3);
   expect(out.pitch).toBeCloseTo(0, 5);
 });
 
@@ -34,7 +35,7 @@ test("release keeps momentum then settles (inertia)", () => {
   const atRelease = c.step(1 / 60).yaw;
   for (let i = 0; i < 120; i++) c.step(1 / 60);
   const later = c.step(1 / 60).yaw;
-  expect(later).toBeGreaterThan(atRelease); // coasted past the release point
+  expect(later).toBeLessThan(atRelease); // grab-the-wall: rightward drag throws yaw negative, coasts further negative
   const settled = (() => { let o = c.step(1 / 60); for (let i = 0; i < 900; i++) o = c.step(1 / 60); return o; })();
   const next = c.step(1 / 60);
   expect(Math.abs(next.yaw - settled.yaw)).toBeLessThan(1e-4); // spring at rest
