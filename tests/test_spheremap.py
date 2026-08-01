@@ -81,6 +81,14 @@ def test_choose_ignores_missing_layouts():
     assert choose(scores) == "lattice"  # radial over bound, haversine absent
 
 
+def test_choose_falls_back_to_fidelity_when_nothing_is_legible():
+    scores = {
+        "radial": {"trustworthiness": 0.95, "overlap_frac": 0.30},
+        "lattice": {"trustworthiness": 0.80, "overlap_frac": 0.20},
+    }
+    assert choose(scores) == "radial"  # all over bound, best trust wins
+
+
 def test_sphere_block_schema_without_umap():
     rng = np.random.default_rng(2)
     vecs = rng.normal(size=(30, 8))
