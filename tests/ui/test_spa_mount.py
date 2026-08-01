@@ -12,7 +12,7 @@ def test_root_serves_spa_index():
 
 
 def test_deep_links_serve_spa_index():
-    for path in ("/inbox", "/tags", "/map", "/settings"):
+    for path in ("/inbox", "/tags", "/map", "/settings", "/orb"):
         r = client.get(path)
         assert r.status_code == 200, path
         assert 'id="root"' in r.text, path

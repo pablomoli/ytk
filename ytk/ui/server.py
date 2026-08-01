@@ -1044,6 +1044,7 @@ _SPA_ROUTES = {
     "profile",
     "settings",
     "channels",
+    "orb",
     "recs",
 }
 
