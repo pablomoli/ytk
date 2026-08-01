@@ -2185,7 +2185,10 @@ function OrbPage() {
 
   const scores = data?.sphere.scores;
   return (
-    <div className="relative h-[calc(100vh-var(--nav-h,3rem))] overflow-hidden">
+    {/* amended in review: --nav-h exists nowhere and nav height is not a
+        nameable constant (#134) — full-bleed routes fill via the
+        .hub-outlet flex column, as .map-page does */}
+    <div className="relative flex-1 min-h-0 overflow-hidden">
       <canvas ref={canvasRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
       {data ? (
         <div className="absolute left-4 top-4 flex flex-col gap-2 text-xs">
