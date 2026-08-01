@@ -13,6 +13,9 @@ export const Route = createFileRoute("/orb")({ component: OrbPage });
 
 const LAYOUTS: LayoutName[] = ["radial", "haversine", "lattice"];
 
+// build_map sometimes emits raw Obsidian embed syntax in titles; strip for display only
+const captionTitle = (t: string) => t.replace(/!\[\[([^\]]+)\]\]/g, "$1").trim();
+
 function OrbPage() {
   const orb = useOrb();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -43,7 +46,14 @@ function OrbPage() {
   const scores = data?.sphere.scores;
   return (
     <div className="relative flex-1 min-h-0 overflow-hidden">
-      <canvas ref={canvasRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
+      {!data ? (
+        <div className="flex-1 grid place-items-center text-sm opacity-60">loading the sphere</div>
+      ) : (
+        <canvas
+          ref={canvasRef}
+          className={`h-full w-full ${hovered !== null && !open ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
+        />
+      )}
       {data ? (
         <div className="absolute left-4 top-4 flex flex-col gap-2 text-xs">
           <div className="flex gap-1">
@@ -85,7 +95,7 @@ function OrbPage() {
       ) : null}
       {data && hovered !== null && !open ? (
         <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm">
-          {data.points[hovered].t}
+          {captionTitle(data.points[hovered].t)}
           {data.points[hovered].d ? <span className="ml-2 opacity-60">{data.points[hovered].d}</span> : null}
         </div>
       ) : null}

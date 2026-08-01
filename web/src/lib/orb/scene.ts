@@ -17,7 +17,7 @@ import { buildAtlas, COLS, uvRect } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
 
-export const TILE_HALF = 0.055; // ~4.5deg cell radius at 505 tiles
+export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-set scale (~500 tiles)
 // Apex40 previz verdict (user-reviewed, Apex Manim render): DOLLY = 1 -
 // 0.055/(0.40 * tan 30deg) = 0.76. Final; do not derive from a different apex.
 const DOLLY = 0.76;
@@ -95,7 +95,10 @@ export function mountOrb(
   const centers = new Float32Array(n * 3);
   const writeLayout = (name: LayoutName) => {
     const arr = data.sphere[name] ?? data.sphere[data.sphere.chosen];
-    if (!arr) return;
+    if (!arr || arr.length < n) {
+      console.warn(`orb: layout "${name}" missing or short (${arr?.length ?? 0} < ${n}); keeping current centers`);
+      return;
+    }
     for (let i = 0; i < n; i++) centers.set(arr[i], i * 3);
   };
   writeLayout(data.sphere.chosen);

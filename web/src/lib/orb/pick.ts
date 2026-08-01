@@ -1,13 +1,13 @@
 import { PerspectiveCamera, Vector3 } from "three";
 
 /* Tiles are shader-positioned quads, invisible to three's Raycaster; picking
-   is ray-vs-plane per tile in JS. 505 tiles is trivially cheap per frame. */
+   is ray-vs-plane per tile in JS — trivially cheap at the content-set scale. */
 
 const UP = new Vector3(0, 1, 0);
 const ALT = new Vector3(1, 0, 0);
 
 // pickTile runs per pointermove; writes into caller-supplied vectors instead
-// of allocating so 505-tile loops don't churn the GC.
+// of allocating so the per-tile loop doesn't churn the GC at content-set scale.
 function computeBasis(center: Vector3, outN: Vector3, outE1: Vector3, outE2: Vector3): void {
   outN.copy(center).negate().normalize(); // tiles face the origin
   const ref = Math.abs(outN.y) > 0.9 ? ALT : UP;

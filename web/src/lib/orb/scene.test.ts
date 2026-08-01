@@ -70,6 +70,24 @@ test("clamps instance count to atlas capacity and warns instead of silently drop
   warnSpy.mockRestore();
 });
 
+test("setLayout warns and keeps current centers when the target array is shorter than the point count", async () => {
+  const d = data();
+  d.sphere.lattice = [[0, 0, 1], [0, -1, 0]]; // truncated: fewer rows than points
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const canvas = document.createElement("canvas");
+  canvas.width = 400;
+  canvas.height = 300;
+  document.body.appendChild(canvas);
+  const handle = mountOrb(canvas, d, { onHover: vi.fn(), onOpen: vi.fn() });
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  expect(() => handle.setLayout("lattice")).not.toThrow();
+  expect(warnSpy).toHaveBeenCalledTimes(1);
+  expect(warnSpy.mock.calls[0][0]).toContain("lattice");
+  handle.dispose();
+  canvas.remove();
+  warnSpy.mockRestore();
+});
+
 test("focus fires onOpen with a viewport rect (reduced motion path)", async () => {
   window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as never; // reducedMotion
   const canvas = document.createElement("canvas");
