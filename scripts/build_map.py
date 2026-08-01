@@ -485,6 +485,68 @@ def attach_terrain() -> None:
         )
 
 
+def _content_alignment(points: list[dict], meta: list[dict], content_cats) -> list[int]:
+    """Store rows must still match map.json rows one-to-one; the sphere pass
+    is index-aligned, so any drift means a stale map — rebuild, not guess."""
+    if len(points) != len(meta):
+        raise SystemExit(
+            f"map.json has {len(points)} points but the store has {len(meta)} — "
+            "stale map; run the full build first"
+        )
+    for i, (p, m) in enumerate(zip(points, meta)):
+        if p["t"] != m["title"]:
+            raise SystemExit(
+                f"map.json point {i} is {p['t']!r} but store row is "
+                f"{m['title']!r} — stale map; run the full build first"
+            )
+    cidx = [i for i, m in enumerate(meta) if m["cat"] in content_cats]
+    map_cidx = [i for i, p in enumerate(points) if "c3" in p]
+    if cidx != map_cidx:
+        raise SystemExit("content membership drifted since the map build — rebuild")
+    return cidx
+
+
+def attach_sphere() -> None:
+    """Compute the /orb sphere layouts (ytk/spheremap.py) from the stored c3
+    coordinates plus live store vectors, and attach thumbnail paths. Aligned
+    by index to the existing map.json; aborts loudly on drift."""
+    from ytk.spheremap import sphere_block
+    from ytk.store import _get_client
+
+    data = json.loads(OUT.read_text())
+    vecs, meta, _docs = load_points()
+    cidx = _content_alignment(data["points"], meta, CONTENT_CATS)
+    cpts = [data["points"][i] for i in cidx]
+    c3 = np.array([p["c3"] for p in cpts])
+    themes = [p.get("th", -1) for p in cpts]
+    nn = int(data["content"]["params"].get("n_neighbors", 30))
+    md = float(data["content"]["params"].get("min_dist", 0.05))
+    print(f"sphere: {len(cpts)} content points, nn={nn} min_dist={md}")
+    block = sphere_block(vecs[cidx], c3, themes, n_neighbors=nn, min_dist=md)
+    for name, s in block["scores"].items():
+        mark = " <- chosen" if name == block["chosen"] else ""
+        print(
+            f"  {name}: trust={s['trustworthiness']:.4f} "
+            f"meanNN={s['mean_nn_deg']:.2f}deg overlap={s['overlap']} "
+            f"({100 * s['overlap_frac']:.1f}%){mark}"
+        )
+    data["content"]["sphere"] = block
+    client = _get_client()
+    thumbs = {
+        m["url"]: m["image_path"]
+        for m in client.get_collection("ytk_visual").get(include=["metadatas"])["metadatas"]
+        if m.get("url") and m.get("image_path")
+    }
+    n_thumbs = 0
+    for p in cpts:
+        t = thumbs.get(p.get("u"))
+        if t:
+            p["thumb"] = t
+            n_thumbs += 1
+    print(f"  thumbs: {n_thumbs}/{len(cpts)}; sample: {[p.get('thumb') for p in cpts[:3]]}")
+    OUT.write_text(json.dumps(data))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sweep", action="store_true", help="fit UMAP params per view")
@@ -494,9 +556,17 @@ def main() -> None:
         action="store_true",
         help="only (re)compute density terrain over the existing map.json layout",
     )
+    ap.add_argument(
+        "--attach-sphere",
+        action="store_true",
+        help="only (re)compute the /orb sphere layouts over the existing map.json",
+    )
     args = ap.parse_args()
     if args.attach_terrain:
         attach_terrain()
+        return
+    if args.attach_sphere:
+        attach_sphere()
         return
 
     snapshot = json.loads(SNAPSHOT.read_text())
@@ -633,6 +703,7 @@ def main() -> None:
     )
     print(f"wrote {OUT}: {len(points)} points, {len(cidx)} content members")
     attach_terrain()
+    attach_sphere()
 
 
 if __name__ == "__main__":
