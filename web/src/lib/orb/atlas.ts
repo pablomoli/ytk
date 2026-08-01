@@ -1,4 +1,4 @@
-import { CanvasTexture, SRGBColorSpace } from "three";
+import { CanvasTexture } from "three";
 import type { OrbPoint } from "../../api/orb";
 
 export const ATLAS_SIZE = 4096;
@@ -36,7 +36,8 @@ export function buildAtlas(
     ctx.fillRect(col, row, TILE, TILE);
   });
   const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
+  // RawShaderMaterial has no output-encode chunk, so tagging this sRGB would
+  // double-darken; leave NoColorSpace and let the canvas bytes pass through.
   let disposed = false;
   const loads = points.map((p, i) => {
     if (!p.thumb) return Promise.resolve();

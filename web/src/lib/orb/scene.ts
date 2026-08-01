@@ -142,6 +142,7 @@ export function mountOrb(
   let hovered: number | null = null;
   let pointerNdc: [number, number] | null = null;
   let focusRaf1 = 0, focusRaf2 = 0; // reduced-motion focus's double-rAF; cancelled on dispose
+  let focusCall: ReturnType<typeof gsap.delayedCall> | undefined; // pending onOpen handoff at 75% dolly
   const dir = new Vector3();
 
   const ndcOf = (e: PointerEvent): [number, number] => {
@@ -199,8 +200,11 @@ export function mountOrb(
       return;
     }
     controls.setTarget(yaw, pitch);
-    gsap.to(zoom, { dolly: 1, duration: DUR.reveal, onComplete: () => cb.onOpen(i, apexRect(i)) });
+    gsap.to(zoom, { dolly: 1, duration: DUR.reveal });
     gsap.to(material.uniforms.uDim, { value: DIM_FOCUS, duration: DUR.reveal });
+    // let the FLIP panel start growing before the dolly finishes arriving,
+    // so camera and panel motion overlap instead of running end-to-end
+    focusCall = gsap.delayedCall(DUR.reveal * 0.75, () => cb.onOpen(i, apexRect(i)));
   }
 
   let raf = 0;
@@ -244,6 +248,8 @@ export function mountOrb(
     setThemeFilter(th) { material.uniforms.uTheme.value = th ?? -1; },
     focus: focusTile,
     blur() {
+      focusCall?.kill();
+      focusCall = undefined;
       const done = () => { focused = -1; material.uniforms.uFocused.value = -1; };
       if (reducedMotion()) { zoom.dolly = 0; material.uniforms.uDim.value = 1; done(); return; }
       gsap.to(zoom, { dolly: 0, duration: DUR.morph, onComplete: done });
@@ -253,6 +259,7 @@ export function mountOrb(
       cancelAnimationFrame(raf);
       cancelAnimationFrame(focusRaf1);
       cancelAnimationFrame(focusRaf2);
+      focusCall?.kill();
       resize.disconnect();
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);

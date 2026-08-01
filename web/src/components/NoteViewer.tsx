@@ -230,6 +230,7 @@ export function NoteViewer({
     if (!dialog) return;
     gsap.killTweensOf(dialog);
     let tween: ReturnType<typeof gsap.from> | undefined;
+    let overlayTween: ReturnType<typeof gsap.from> | undefined;
     if (originRect && !reducedMotion()) {
       const to = dialog.getBoundingClientRect();
       /* transform FLIP: play the panel from the card's rect into place */
@@ -241,9 +242,14 @@ export function NoteViewer({
         scaleY: originRect.height / to.height,
         onComplete: () => gsap.set(dialog, { clearProps: "transform" }),
       });
+      // the orb's dimmed-sphere backdrop must not vanish in one frame when the
+      // apex zoom hands off to this panel; fade the overlay in alongside it
+      const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+      if (overlay) overlayTween = gsap.from(overlay, { opacity: 0, duration: DUR.reveal });
     }
     return () => {
       tween?.kill();
+      overlayTween?.kill();
       gsap.set(dialog, { clearProps: "transform" });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
