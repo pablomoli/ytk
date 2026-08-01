@@ -196,7 +196,83 @@ Failure modes:
   snapshot) shows a "note missing — reindex" row in the panel rather
   than an empty pane.
 
-## 6. Tests
+## 6. Checkpoints — rule out the unknowns before code
+
+Section 0 is backend work, and every unknown in this design is a
+data-shape question. Each checkpoint below is a script under
+`scripts/garden_lab/` producing figures into a
+`docs/assets/15-garden-interaction/` folder (the 14-garden-allometry
+pattern: measure on the real snapshots, look at the figure, then build).
+Each names the question it settles and what result kills or reshapes the
+design. Simulate the rule in Python first — corrections are free there.
+
+**C1 — date coverage (matplotlib, before any dendro.py change).**
+Question: what fraction of members per bucket have a frontmatter
+`date:`, and what does the file-date fallback distribution look like?
+Method: walk every `members` path in every snapshot, read frontmatter,
+plot per-bucket coverage bars and a date histogram per source type
+(youtube/web/tiktok/instagram — web notes have known metadata gaps,
+#144). Kill criterion: if fallback dominates (>40% overall or any major
+bucket >60%), the scrub replays file-system archaeology rather than
+capture history — the design needs a date-repair pass first, not
+plumbing.
+
+**C2 — site vs note cardinality (matplotlib, before binding).**
+Question: which regime is the canopy actually in? Method: run
+`buildTreeGeometry`'s site logic (port the sampling rule to Python, or
+dump `leafSites` counts from a headless run) against real per-cluster
+member counts; scatter sites vs notes per cluster across all buckets.
+Kill criterion: if most clusters are sites ≫ notes, the wrap design is
+dead weight and the binding should decorate a subset of sites instead;
+if notes ≫ sites everywhere, multi-note sites are the norm and the
+panel's list view becomes the primary pick experience, not the edge
+case.
+
+**C3 — subtree derivation validity (matplotlib, before the scrub).**
+Question: does filter-members-then-recompute-mass actually produce
+well-formed trees at every T? Method: run the derivation at weekly T
+steps over each bucket's real history; plot nodes-alive vs T, per-node
+mass trajectories, and assert-count parent-chain breaks and
+zero-mass-parent-with-live-children cases. Kill criterion: any
+non-monotone node count or orphaned child at any T means the derivation
+rule is wrong (likely around nodes whose members all postdate their
+children's) and the model needs per-node birth = min(member dates)
+instead.
+
+**C4 — binding churn across growth (matplotlib, before baking ids).**
+Question: does hash-onto-sites keep notes on their twigs as the tree
+grows? Method: simulate consecutive snapshots (replay attach over the
+real history, as `replay.py` already does for topology), apply the
+binding at each step, plot the fraction of notes that keep their site.
+Kill criterion: churn >5% per attach step breaks the "same note, same
+twig" promise — switch to sticky assignment (existing bindings persist,
+only new notes hash) before touching the scene.
+
+**C5 — growth replay as motion (manim, before the scrub UI).**
+Question: does the derived subtree sequence read as growth, or does it
+flicker? Method: animate one mid-size bucket's derivation over real
+dates as a 2D radial dendrogram — nodes appear at their derived birth,
+mass drives radius. This is the temporal artifact hunt C3's static
+plots can't do: pops, resurrections, mass oscillation are visible in
+motion at a glance. Cairo note: anchor the updater on the scene's first
+add (measured trap — mobjects added before the first animated one bake
+into a frozen background). Kill criterion: visible resurrection or
+reshuffle means the invariant assumption fails on real data.
+
+**C6 — season dynamics (matplotlib, before seasons ship).**
+Question: with the default window, does the replay actually breathe?
+Method: heatmap of the per-cluster season scalar over weekly T, buckets
+× time. Kill criterion: if the map is near-uniform (everything
+perpetually fresh or perpetually dormant), the interest-profile default
+is wrong for the garden and the knob needs its own tuned default before
+the feature is judged.
+
+C1 and C2 run before section 0 is considered done; C3 and C4 gate the
+binding; C5 gates the scrub; C6 gates seasons. Figures and their
+notes.md stay in the assets folder, stamped with the commit they
+measured — numbers are never copied forward across engine changes.
+
+## 7. Tests
 
 - Binding determinism: same input → same site assignment.
 - Binding cardinality: sites ≫ notes leaves unbound sites picking as
@@ -213,17 +289,24 @@ Failure modes:
 
 ## Build order
 
-1. Data plumbing (section 0: member dates in dendro.py + backfill +
+1. C1 date coverage + C2 cardinality (checkpoints, no code changes)
+2. Data plumbing (section 0: member dates in dendro.py + backfill +
    `/api/garden/members`)
-2. Binding (client-side site assignment + baked attributes; invisible)
-3. Filter-then-regrow perf measurement (the section-3 gate)
-4. Picking + panel
-5. Scrub + play
-6. Seasons
+3. C3 derivation validity + C4 binding churn (checkpoints)
+4. Binding (client-side site assignment + baked attributes; invisible)
+5. Filter-then-regrow perf measurement (the section-3 gate)
+6. Picking + panel
+7. C5 replay motion (manim checkpoint)
+8. Scrub + play
+9. C6 season dynamics (checkpoint)
+10. Seasons
 
-Steps 1–2 are pure infrastructure with no visible change; the first
-user-visible payoff is step 4. That is deliberate — #153 names identity
-as the blocker, and both interactive features are hostage to it.
+Steps 1–4 are measurement and infrastructure with no visible change;
+the first user-visible payoff is step 6. That is deliberate — #153
+names identity as the blocker, and both interactive features are
+hostage to it. Every checkpoint runs before the code it gates; a killed
+checkpoint reshapes the section it belongs to before implementation
+starts, when the correction is free.
 
 ## Deferred: prune and graft
 
