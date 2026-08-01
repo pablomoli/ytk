@@ -16,6 +16,9 @@ test("maps an orb point onto the NoteViewer contract", () => {
   expect(note.url).toBe("https://youtu.be/x");
   expect(note.thumbnail).toBe(p.thumb);
   expect(note.tags).toEqual([]);
+  expect(note.date).toBe("2026-01-02");
+  expect(note.added).toBe("2026-01-02");
+  expect(note.has_take).toBe(false);
 });
 
 test("nulls stay null and stem survives odd paths", () => {
@@ -23,4 +26,6 @@ test("nulls stay null and stem survives odd paths", () => {
   expect(note.stem).toBe("a");
   expect(note.url).toBeNull();
   expect(note.date).toBeNull();
+  expect(note.added).toBe("");
+  expect(note.has_take).toBe(false);
 });

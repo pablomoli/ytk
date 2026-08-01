@@ -7,6 +7,7 @@ import { ErrorState } from "../components/StateViews";
 import type { OrbHandle } from "../lib/orb/scene";
 import { mountOrb } from "../lib/orb/scene";
 import { orbPointToFreshNote } from "../lib/orb/note";
+import "../styles.css";
 
 export const Route = createFileRoute("/orb")({ component: OrbPage });
 
@@ -41,7 +42,7 @@ function OrbPage() {
 
   const scores = data?.sphere.scores;
   return (
-    <div className="relative h-[calc(100vh-var(--nav-h,3rem))] overflow-hidden">
+    <div className="relative flex-1 min-h-0 overflow-hidden">
       <canvas ref={canvasRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
       {data ? (
         <div className="absolute left-4 top-4 flex flex-col gap-2 text-xs">
