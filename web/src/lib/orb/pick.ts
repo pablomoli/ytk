@@ -6,13 +6,22 @@ import { PerspectiveCamera, Vector3 } from "three";
 const UP = new Vector3(0, 1, 0);
 const ALT = new Vector3(1, 0, 0);
 
-function basis(center: Vector3): { n: Vector3; e1: Vector3; e2: Vector3 } {
-  const n = center.clone().negate().normalize(); // tiles face the origin
-  const ref = Math.abs(n.y) > 0.9 ? ALT : UP;
-  const e1 = new Vector3().crossVectors(ref, n).normalize();
-  const e2 = new Vector3().crossVectors(n, e1);
-  return { n, e1, e2 };
+// pickTile runs per pointermove; writes into caller-supplied vectors instead
+// of allocating so 505-tile loops don't churn the GC.
+function computeBasis(center: Vector3, outN: Vector3, outE1: Vector3, outE2: Vector3): void {
+  outN.copy(center).negate().normalize(); // tiles face the origin
+  const ref = Math.abs(outN.y) > 0.9 ? ALT : UP;
+  outE1.crossVectors(ref, outN).normalize();
+  outE2.crossVectors(outN, outE1);
 }
+
+const _origin = new Vector3();
+const _dir = new Vector3();
+const _c = new Vector3();
+const _n = new Vector3();
+const _e1 = new Vector3();
+const _e2 = new Vector3();
+const _hit = new Vector3();
 
 export function pickTile(
   ndcX: number,
@@ -21,20 +30,19 @@ export function pickTile(
   centers: Float32Array,
   half: number,
 ): number | null {
-  const origin = camera.position.clone();
-  const dir = new Vector3(ndcX, ndcY, 0.5).unproject(camera).sub(origin).normalize();
+  _origin.copy(camera.position);
+  _dir.set(ndcX, ndcY, 0.5).unproject(camera).sub(_origin).normalize();
   let best: number | null = null;
   let bestT = Infinity;
-  const c = new Vector3();
   for (let i = 0; i * 3 < centers.length; i++) {
-    c.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
-    const { n, e1, e2 } = basis(c);
-    const denom = dir.dot(n);
+    _c.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
+    computeBasis(_c, _n, _e1, _e2);
+    const denom = _dir.dot(_n);
     if (Math.abs(denom) < 1e-9) continue;
-    const t = c.clone().sub(origin).dot(n) / denom;
+    const t = _hit.copy(_c).sub(_origin).dot(_n) / denom;
     if (t <= 0 || t >= bestT) continue;
-    const hit = origin.clone().addScaledVector(dir, t).sub(c);
-    if (Math.abs(hit.dot(e1)) <= half && Math.abs(hit.dot(e2)) <= half) {
+    _hit.copy(_origin).addScaledVector(_dir, t).sub(_c);
+    if (Math.abs(_hit.dot(_e1)) <= half && Math.abs(_hit.dot(_e2)) <= half) {
       best = i;
       bestT = t;
     }
@@ -49,7 +57,10 @@ export function tileScreenRect(
   vw: number,
   vh: number,
 ): DOMRect {
-  const { e1, e2 } = basis(center);
+  const n = new Vector3();
+  const e1 = new Vector3();
+  const e2 = new Vector3();
+  computeBasis(center, n, e1, e2);
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
     const corner = center.clone().addScaledVector(e1, a * half).addScaledVector(e2, b * half);

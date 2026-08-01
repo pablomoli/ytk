@@ -31,3 +31,10 @@ test("pickTile prefers the nearer of stacked tiles", () => {
   const centers = new Float32Array([0, 0, -1, 0, 0, 1]);
   expect(pickTile(0, 0, camera(), centers, 0.08)).toBe(0);
 });
+
+test("pickTile picks the nearer of two valid t>0 hits regardless of order", () => {
+  // both tiles face the origin and both intersect the central ray in front
+  // of the camera (t=2 and t=1); the later-indexed nearer tile must win
+  const centers = new Float32Array([0, 0, -2, 0, 0, -1]);
+  expect(pickTile(0, 0, camera(), centers, 0.08)).toBe(1);
+});
