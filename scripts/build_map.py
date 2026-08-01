@@ -506,6 +506,16 @@ def _content_alignment(points: list[dict], meta: list[dict], content_cats) -> li
     return cidx
 
 
+def _vault_rel(path: str) -> str | None:
+    """map.json thumb paths are served at /vault-media/<rel>, mounted at the
+    vault's second-brain root -- an absolute path is useless to that route."""
+    if path.startswith("sources/"):
+        return path
+    marker = "second-brain/"
+    i = path.find(marker)
+    return path[i + len(marker) :] if i != -1 else None
+
+
 def attach_sphere() -> None:
     """Compute the /orb sphere layouts (ytk/spheremap.py) from the stored c3
     coordinates plus live store vectors, and attach thumbnail paths. Aligned
@@ -540,8 +550,9 @@ def attach_sphere() -> None:
     n_thumbs = 0
     for p in cpts:
         t = thumbs.get(p.get("u"))
-        if t:
-            p["thumb"] = t
+        rel = _vault_rel(t) if t else None
+        if rel:
+            p["thumb"] = rel
             n_thumbs += 1
     print(f"  thumbs: {n_thumbs}/{len(cpts)}; sample: {[p.get('thumb') for p in cpts[:3]]}")
     OUT.write_text(json.dumps(data))
