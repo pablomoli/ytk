@@ -8,8 +8,17 @@ const ALT = new Vector3(1, 0, 0);
 
 // pickTile runs per pointermove; writes into caller-supplied vectors instead
 // of allocating so the per-tile loop doesn't churn the GC at content-set scale.
-function computeBasis(center: Vector3, outN: Vector3, outE1: Vector3, outE2: Vector3): void {
-  outN.copy(center).negate().normalize(); // tiles face the origin
+// facing=1 (inside): n faces the origin. facing=-1 (globe): n faces outward;
+// the resulting e1/e2 handedness flip is what keeps thumbnails un-mirrored
+// when the same tile is viewed from outside the sphere.
+function computeBasis(
+  center: Vector3,
+  outN: Vector3,
+  outE1: Vector3,
+  outE2: Vector3,
+  facing: 1 | -1 = 1,
+): void {
+  outN.copy(center).negate().normalize().multiplyScalar(facing);
   const ref = Math.abs(outN.y) > 0.9 ? ALT : UP;
   outE1.crossVectors(ref, outN).normalize();
   outE2.crossVectors(outN, outE1);
@@ -29,6 +38,7 @@ export function pickTile(
   camera: PerspectiveCamera,
   centers: Float32Array,
   half: number,
+  facing: 1 | -1 = 1,
 ): number | null {
   _origin.copy(camera.position);
   _dir.set(ndcX, ndcY, 0.5).unproject(camera).sub(_origin).normalize();
@@ -36,9 +46,12 @@ export function pickTile(
   let bestT = Infinity;
   for (let i = 0; i * 3 < centers.length; i++) {
     _c.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
-    computeBasis(_c, _n, _e1, _e2);
+    computeBasis(_c, _n, _e1, _e2, facing);
     const denom = _dir.dot(_n);
-    if (Math.abs(denom) < 1e-9) continue;
+    // denom >= 0: ray and normal don't oppose, so the ray meets the tile's
+    // back face (or is parallel) — reject; this is what makes the same tile
+    // pickable from the origin side but not the outside side, or vice versa.
+    if (denom >= -1e-9) continue;
     const t = _hit.copy(_c).sub(_origin).dot(_n) / denom;
     if (t <= 0 || t >= bestT) continue;
     _hit.copy(_origin).addScaledVector(_dir, t).sub(_c);
@@ -56,11 +69,12 @@ export function tileScreenRect(
   half: number,
   vw: number,
   vh: number,
+  facing: 1 | -1 = 1,
 ): DOMRect {
   const n = new Vector3();
   const e1 = new Vector3();
   const e2 = new Vector3();
-  computeBasis(center, n, e1, e2);
+  computeBasis(center, n, e1, e2, facing);
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
     const corner = center.clone().addScaledVector(e1, a * half).addScaledVector(e2, b * half);

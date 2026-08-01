@@ -4,7 +4,7 @@ import type { LayoutName } from "../api/orb";
 import { useOrb } from "../api/orb";
 import { NoteViewer } from "../components/NoteViewer";
 import { ErrorState } from "../components/StateViews";
-import type { OrbHandle } from "../lib/orb/scene";
+import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import { mountOrb } from "../lib/orb/scene";
 import { orbPointToFreshNote } from "../lib/orb/note";
 import "../styles.css";
@@ -21,6 +21,7 @@ function OrbPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<OrbHandle | null>(null);
   const [layout, setLayout] = useState<LayoutName | null>(null);
+  const [viewMode, setViewMode] = useState<OrbViewMode>("inside");
   const [theme, setTheme] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const [open, setOpen] = useState<{ i: number; rect: DOMRect } | null>(null);
@@ -35,6 +36,7 @@ function OrbPage() {
     });
     handleRef.current = handle;
     setLayout(data.sphere.chosen);
+    setViewMode("inside"); // matches the freshly mounted handle's initial mode
     return () => {
       handleRef.current = null;
       handle.dispose();
@@ -76,6 +78,17 @@ function OrbPage() {
                 </button>
               );
             })}
+            <button
+              type="button"
+              className="ml-2 rounded px-2 py-1 bg-white/5 hover:bg-white/10"
+              onClick={() => {
+                const next: OrbViewMode = viewMode === "inside" ? "globe" : "inside";
+                setViewMode(next);
+                handleRef.current?.setView(next);
+              }}
+            >
+              {viewMode === "inside" ? "globe" : "inside"}
+            </button>
           </div>
           <select
             className="rounded bg-white/5 px-2 py-1"

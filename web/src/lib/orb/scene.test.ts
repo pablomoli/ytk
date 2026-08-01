@@ -105,3 +105,37 @@ test("focus fires onOpen with a viewport rect (reduced motion path)", async () =
   handle.dispose();
   canvas.remove();
 });
+
+test("setView(\"globe\") renders without shader errors and disposes clean", async () => {
+  const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  const canvas = document.createElement("canvas");
+  canvas.width = 400;
+  canvas.height = 300;
+  document.body.appendChild(canvas);
+  const handle = mountOrb(canvas, data(), { onHover: vi.fn(), onOpen: vi.fn() });
+  handle.setView("globe");
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  expect(errSpy).not.toHaveBeenCalled();
+  handle.dispose();
+  canvas.remove();
+  errSpy.mockRestore();
+});
+
+test("focus fires onOpen with a positive-width rect in globe view (reduced motion path)", async () => {
+  window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as never; // reducedMotion
+  const canvas = document.createElement("canvas");
+  canvas.width = 400;
+  canvas.height = 300;
+  document.body.appendChild(canvas);
+  const onOpen = vi.fn();
+  const handle = mountOrb(canvas, data(), { onHover: vi.fn(), onOpen });
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  handle.setView("globe");
+  handle.focus(0);
+  await vi.waitFor(() => expect(onOpen).toHaveBeenCalled());
+  const [i, rect] = onOpen.mock.calls[0];
+  expect(i).toBe(0);
+  expect(rect.width).toBeGreaterThan(0);
+  handle.dispose();
+  canvas.remove();
+});

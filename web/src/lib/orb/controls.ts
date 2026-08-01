@@ -41,9 +41,13 @@ export function createControls(): OrbControls {
       lastDX = x - lastX; lastDY = y - lastY;
       travel += Math.hypot(lastDX, lastDY);
       lastX = x; lastY = y;
-      // grab-the-wall: drag right moves the wall right, so yaw/pitch move opposite the pointer
+      // grab-the-wall on both axes, but the camera applies the two angles
+      // differently (rotateY(-yaw) vs rotateX(pitch)), so the negation that
+      // makes "drag right -> content right" true does NOT also make
+      // "drag down -> content down" true: yaw is negated at input to cancel
+      // the camera's own negation; pitch is not, since the camera has none.
       tyaw -= lastDX * SENS;
-      tpitch -= lastDY * SENS;
+      tpitch += lastDY * SENS;
       clamp();
       dtSinceMove = 0; // velocity-on-release measures from here, not an assumed frame rate
     },
@@ -55,7 +59,7 @@ export function createControls(): OrbControls {
       // no time basis for a rate, so no velocity (avoids a div-by-zero spurious throw)
       if (!tap && dtSinceMove > 0) {
         vyaw = -(lastDX * SENS) / dtSinceMove;
-        vpitch = -(lastDY * SENS) / dtSinceMove;
+        vpitch = (lastDY * SENS) / dtSinceMove; // same per-axis convention as move()
       }
       return { tap };
     },

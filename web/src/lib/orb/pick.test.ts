@@ -38,3 +38,15 @@ test("pickTile picks the nearer of two valid t>0 hits regardless of order", () =
   const centers = new Float32Array([0, 0, -2, 0, 0, -1]);
   expect(pickTile(0, 0, camera(), centers, 0.08)).toBe(1);
 });
+
+test("facing flips which side of a tile is pickable", () => {
+  const cam = new PerspectiveCamera(60, 800 / 600, 0.01, 10);
+  cam.position.set(0, 0, -3);
+  cam.lookAt(0, 0, 0);
+  cam.updateMatrixWorld();
+  const centers = new Float32Array([0, 0, -1]);
+  // facing=1: normal faces the origin, i.e. away from this outside camera — backface, no hit
+  expect(pickTile(0, 0, cam, centers, 0.08, 1)).toBeNull();
+  // facing=-1: normal flips to face outward, toward the camera — front face, hits
+  expect(pickTile(0, 0, cam, centers, 0.08, -1)).toBe(0);
+});

@@ -4,14 +4,17 @@ import { createControls, PITCH_MAX, SENS } from "./controls";
 test("drag maps pixel deltas to yaw/pitch at SENS", () => {
   const c = createControls();
   c.down(100, 100);
-  c.move(200, 100); // 100px right
+  c.move(200, 200); // 100px right, 100px down
   c.up();
   // settle the spring
   let out = { yaw: 0, pitch: 0 };
   for (let i = 0; i < 600; i++) out = c.step(1 / 60);
-  // grab-the-wall: dragging right moves the wall right, so yaw goes negative
+  // yaw is negated at input (cancels the camera's own rotateY(-yaw)) so a
+  // rightward drag reads as negative yaw; pitch is not negated (the camera's
+  // rotateX(pitch) has no matching flip) so a downward drag reads positive —
+  // both land on "content follows the pointer" once the camera applies them.
   expect(out.yaw).toBeCloseTo(-100 * SENS, 3);
-  expect(out.pitch).toBeCloseTo(0, 5);
+  expect(out.pitch).toBeCloseTo(100 * SENS, 3);
 });
 
 test("pitch clamps at +-75deg", () => {
