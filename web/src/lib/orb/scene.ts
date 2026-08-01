@@ -13,13 +13,13 @@ import {
 } from "three";
 import { DUR, gsap, reducedMotion } from "../motion";
 import type { LayoutName, OrbData } from "../../api/orb";
-import { buildAtlas, uvRect } from "./atlas";
+import { buildAtlas, COLS, uvRect } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
 
 export const TILE_HALF = 0.055; // ~4.5deg cell radius at 505 tiles
-// From Task 9a's previz verdict: DOLLY = 1 - 0.055/(APEX * tan 30deg).
-// 0.76 is the Apex40 default; replace with the user's chosen apex.
+// Apex40 previz verdict (user-reviewed, Apex Manim render): DOLLY = 1 -
+// 0.055/(0.40 * tan 30deg) = 0.76. Final; do not derive from a different apex.
 const DOLLY = 0.76;
 const DIM_FOCUS = 0.25;
 const DIM_FILTER = 0.15;
@@ -31,10 +31,12 @@ in vec2 uv;
 in vec3 iPos;   // tile center on the unit sphere
 in vec3 iUv;    // atlas u, v, span
 in float iIdx;
+in float iTheme; // per-instance theme id
 uniform mat4 modelViewMatrix, projectionMatrix;
 uniform float uHovered, uHoverScale;
 out vec2 vUv;
 out float vIdx;
+out float vTheme;
 void main() {
   vec3 n = normalize(-iPos); // tiles face the origin
   vec3 ref = abs(n.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
@@ -44,6 +46,7 @@ void main() {
   vec3 world = iPos + (e1 * position.x + e2 * position.y) * s;
   vUv = vec2(iUv.x + uv.x * iUv.z, iUv.y + uv.y * iUv.z);
   vIdx = iIdx;
+  vTheme = iTheme; // constant across the quad; interpolation is a no-op
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }`;
 
@@ -54,13 +57,13 @@ uniform float uFocused, uDim;      // focus dimming: everyone but uFocused
 uniform float uTheme, uThemeDim;   // theme filter dim factor
 in vec2 vUv;
 in float vIdx;
-uniform float uThemes[1024];       // per-instance theme id, uploaded once
+in float vTheme;
 out vec4 outColor;
 void main() {
   vec3 c = texture(uAtlas, vUv).rgb;
   float dim = 1.0;
   if (uFocused >= 0.0 && abs(vIdx - uFocused) >= 0.5) dim *= uDim;
-  if (uTheme >= 0.0 && abs(uThemes[int(vIdx)] - uTheme) >= 0.5) dim *= uThemeDim;
+  if (uTheme >= 0.0 && abs(vTheme - uTheme) >= 0.5) dim *= uThemeDim;
   outColor = vec4(c * dim, 1.0);
 }`;
 
@@ -77,12 +80,17 @@ export function mountOrb(
   data: OrbData,
   cb: { onHover(i: number | null): void; onOpen(i: number, rect: DOMRect): void },
 ): OrbHandle {
-  const n = data.points.length;
+  const cap = COLS * COLS; // atlas has exactly this many slots; beyond it uvRect wraps
+  const n = Math.min(data.points.length, cap);
+  if (n < data.points.length) {
+    console.warn(`orb: dropping ${data.points.length - n} points beyond atlas capacity (${cap})`);
+  }
+  const points = data.points.slice(0, n);
   const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   const camera = new PerspectiveCamera(60, canvas.clientWidth / Math.max(1, canvas.clientHeight), 0.01, 10);
   const scene = new Scene();
-  const atlas = buildAtlas(data.points, data.themes.length, () => {});
+  const atlas = buildAtlas(points, data.themes.length, () => {});
 
   const centers = new Float32Array(n * 3);
   const writeLayout = (name: LayoutName) => {
@@ -100,16 +108,17 @@ export function mountOrb(
   const iPos = new InstancedBufferAttribute(centers, 3);
   geo.setAttribute("iPos", iPos);
   const uvs = new Float32Array(n * 3);
-  data.points.forEach((_, i) => {
+  points.forEach((_, i) => {
     const r = uvRect(i);
     uvs.set([r.u, r.v, r.s], i * 3);
   });
   geo.setAttribute("iUv", new InstancedBufferAttribute(uvs, 3));
   geo.setAttribute("iIdx", new InstancedBufferAttribute(Float32Array.from({ length: n }, (_, i) => i), 1));
+  const themes = new Float32Array(n);
+  points.forEach((p, i) => { themes[i] = p.th; });
+  geo.setAttribute("iTheme", new InstancedBufferAttribute(themes, 1));
   geo.instanceCount = n;
 
-  const themeArr = new Float32Array(1024).fill(-1);
-  data.points.forEach((p, i) => { themeArr[i] = p.th; });
   const material = new RawShaderMaterial({
     glslVersion: GLSL3,
     vertexShader: VERT,
@@ -120,7 +129,6 @@ export function mountOrb(
       uHovered: { value: -1 }, uHoverScale: { value: 1.06 },
       uFocused: { value: -1 }, uDim: { value: 1 },
       uTheme: { value: -1 }, uThemeDim: { value: DIM_FILTER },
-      uThemes: { value: themeArr },
     },
   });
   scene.add(new Mesh(geo, material));
@@ -130,17 +138,28 @@ export function mountOrb(
   let focused = -1;
   let hovered: number | null = null;
   let pointerNdc: [number, number] | null = null;
+  let focusRaf1 = 0, focusRaf2 = 0; // reduced-motion focus's double-rAF; cancelled on dispose
   const dir = new Vector3();
 
-  const onDown = (e: PointerEvent) => { canvas.setPointerCapture(e.pointerId); controls.down(e.clientX, e.clientY); };
-  const onMove = (e: PointerEvent) => {
+  const ndcOf = (e: PointerEvent): [number, number] => {
     const r = canvas.getBoundingClientRect();
-    pointerNdc = [((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1)];
+    return [((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1)];
+  };
+  const onDown = (e: PointerEvent) => {
+    canvas.setPointerCapture(e.pointerId);
+    pointerNdc = ndcOf(e); // seed so a tap-without-move still has a pick target
+    controls.down(e.clientX, e.clientY);
+  };
+  const onMove = (e: PointerEvent) => {
+    pointerNdc = ndcOf(e);
     controls.move(e.clientX, e.clientY);
   };
   const onUp = (e: PointerEvent) => {
     const { tap } = controls.up();
-    if (tap && hovered !== null && focused < 0) focusTile(hovered);
+    if (tap && focused < 0 && pointerNdc) {
+      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF);
+      if (hit !== null) focusTile(hit);
+    }
     canvas.releasePointerCapture(e.pointerId);
   };
   const onWheel = (e: WheelEvent) => controls.wheel(e.deltaY);
@@ -157,6 +176,11 @@ export function mountOrb(
   function focusTile(i: number) {
     focused = i;
     material.uniforms.uFocused.value = i;
+    // the NoteViewer is about to cover the tile; a caption left over from
+    // hover must not stay live behind it
+    hovered = null;
+    material.uniforms.uHovered.value = -1;
+    cb.onHover(null);
     const x = centers[i * 3], y = centers[i * 3 + 1], z = centers[i * 3 + 2];
     const yaw = Math.atan2(x, -z); // camera looks down -Z at yaw 0
     const pitch = Math.asin(y);
@@ -164,8 +188,11 @@ export function mountOrb(
       controls.setTarget(yaw, pitch);
       zoom.dolly = 1;
       material.uniforms.uDim.value = DIM_FOCUS;
-      // one frame so the camera pose lands before projecting
-      requestAnimationFrame(() => requestAnimationFrame(() => cb.onOpen(i, apexRect(i))));
+      // one frame so the camera pose lands before projecting; handles tracked
+      // so dispose() can cancel them if focus() fires just before unmount
+      focusRaf1 = requestAnimationFrame(() => {
+        focusRaf2 = requestAnimationFrame(() => cb.onOpen(i, apexRect(i)));
+      });
       return;
     }
     controls.setTarget(yaw, pitch);
@@ -221,6 +248,8 @@ export function mountOrb(
     },
     dispose() {
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(focusRaf1);
+      cancelAnimationFrame(focusRaf2);
       resize.disconnect();
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);
