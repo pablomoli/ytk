@@ -52,6 +52,14 @@ browser mode in real Chromium).
   Scratchpad root for all of them:
   `/private/tmp/claude-501/-Users-melocoton-Developer-ytk/a880b851-b1c2-4d8c-a41c-6109fa752743/scratchpad/`
   (referred to as `$SCRATCH` below).
+- **Checkpoints wear the incumbent house style — `docs/assets/README.md` is
+  the contract.** Import from `scripts/plot_assets.py` (`figure()`,
+  `panel_title`, `style_axes`, `frame_panels`, the palette constants);
+  never restate hex values or fonts. Save with `frame_panels(fig)` then
+  `fig.savefig(out, dpi=200, facecolor=BG)`. Manim scenes take their colors
+  from `scripts.plot_assets` too (reference consumer:
+  `scripts/manim/semantic_domains.py`), use `Text` never `MathTex` (no
+  dvisvgm on this machine), and verify motion by pixel-diff per the README.
 
 ## Data contracts (read before any task)
 
@@ -658,8 +666,11 @@ user reads it at review.
 Write and run `$SCRATCH/layouts_checkpoint.py`:
 
 ```python
-"""Render every sphere layout from the real map.json for eyeball review."""
+"""Render every sphere layout from the real map.json for eyeball review.
+House style per docs/assets/README.md: imported, never restated."""
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -668,17 +679,32 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+sys.path.insert(0, str(Path("scripts").resolve()))
+from plot_assets import BG, FRAME, MARGIN, MUTED, PANEL, RED, TICK_SIZE, figure, frame_panels, panel_title
+
+plt.style.use("dark_background")
+
 SCRATCH = Path("/private/tmp/claude-501/-Users-melocoton-Developer-ytk/a880b851-b1c2-4d8c-a41c-6109fa752743/scratchpad")
 data = json.loads((Path.home() / ".ytk" / "map.json").read_text())
 sphere = data["content"]["sphere"]
 cpts = [p for p in data["points"] if "c3" in p]
 themes = np.array([p.get("th", -1) for p in cpts])
 names = [k for k in ("radial", "haversine", "lattice") if sphere.get(k)]
-fig, axes = plt.subplots(
-    len(names), 1, subplot_kw={"projection": "mollweide"}, figsize=(10, 4.6 * len(names))
+stamp = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+meta = "  ·  ".join(
+    f"{n}: trust {sphere['scores'][n]['trustworthiness']:.3f}, "
+    f"overlap {100 * sphere['scores'][n]['overlap_frac']:.0f}%"
+    for n in names
 )
-axes = np.atleast_1d(axes)
-for ax, name in zip(axes, names):
+fig, top = figure(
+    12.6,
+    4.9 * len(names) + 2.2,
+    2,
+    "orb checkpoint",
+    "Three sphere layouts over the live content embedding",
+    f"{len(cpts)} notes  ·  chosen: {sphere['chosen']}  ·  {meta}  ·  {stamp}",
+)
+for k, name in enumerate(names):
     xyz = np.array(sphere[name])
     lon, lat = np.arctan2(xyz[:, 1], xyz[:, 0]), np.arcsin(np.clip(xyz[:, 2], -1, 1))
     dots = np.clip(xyz @ xyz.T, -1, 1)
@@ -686,17 +712,17 @@ for ax, name in zip(axes, names):
     nn = np.degrees(np.arccos(dots.max(axis=1)))
     theta = np.degrees(0.5 * np.sqrt(4 * np.pi / len(xyz)))
     bad = nn < theta
-    ax.scatter(lon, lat, c=themes, cmap="tab20", s=10)
-    ax.scatter(lon[bad], lat[bad], facecolors="none", edgecolors="red", s=60, linewidths=0.8)
-    s = sphere["scores"][name]
-    chosen = " [CHOSEN]" if sphere["chosen"] == name else ""
-    ax.set_title(
-        f"{name}{chosen}  trust={s['trustworthiness']:.3f}  "
-        f"overlap={s['overlap']} ({100 * s['overlap_frac']:.1f}%)"
-    )
-    ax.grid(alpha=0.2)
-fig.tight_layout()
-fig.savefig(SCRATCH / "layouts-real.png", dpi=110)
+    ax = fig.add_subplot(len(names), 1, k + 1, projection="mollweide")
+    ax.set_facecolor(PANEL)
+    ax.scatter(lon, lat, c=themes, cmap="tab20", s=11, linewidths=0)
+    ax.scatter(lon[bad], lat[bad], facecolors="none", edgecolors=RED, s=60, linewidths=0.8)
+    chosen = "  [CHOSEN]" if sphere["chosen"] == name else ""
+    panel_title(ax, f"{name}{chosen} — red rings mark tiles closer than one tile radius", width=86)
+    ax.grid(alpha=0.22, color=FRAME)
+    ax.tick_params(colors=MUTED, labelsize=TICK_SIZE - 1)
+fig.subplots_adjust(left=MARGIN, right=1 - MARGIN, top=top, bottom=MARGIN + 0.01, hspace=0.24)
+frame_panels(fig)
+fig.savefig(SCRATCH / "layouts-real.png", dpi=200, facecolor=BG)
 print(f"wrote {SCRATCH / 'layouts-real.png'}")
 ```
 
@@ -1165,29 +1191,49 @@ slow = [("down", 0.0)] + [("move", x) for x in np.linspace(6, 200, 30)] + \
 # gesture 2: fast 300px flick over 6 frames, release mid-motion
 flick = [("down", 0.0)] + [("move", x) for x in np.linspace(50, 300, 6)] + \
         [("up", 300.0)] + frames(180)
-fig, axes = plt.subplots(1, 2, figsize=(11, 4))
-for ax, (name, g) in zip(axes, [("slow drag + hold", slow), ("flick + coast", flick)]):
+
+# house style per docs/assets/README.md — imported, never restated
+sys.path.insert(0, str(Path("scripts").resolve()))
+from plot_assets import BG, BLUE, DIM, GOLD, MARGIN, MUTED, figure, frame_panels, panel_title, style_axes
+
+plt.style.use("dark_background")
+fig, top = figure(
+    12.6,
+    6.4,
+    3,
+    "orb checkpoint",
+    "The camera spring under two gestures, before a line of TypeScript",
+    f"SENS {SENS}  ·  STIFFNESS {STIFFNESS:.0f}  ·  FRICTION {FRICTION:.0f}  ·  60 fps steps",
+)
+for k, (name, g, color) in enumerate(
+    [("slow drag + hold", slow, GOLD), ("flick + coast", flick, BLUE)]
+):
+    ax = fig.add_subplot(1, 2, k + 1)
     tr = simulate(g)
     t = np.arange(len(tr)) * DT
-    ax.plot(t, np.degrees(tr))
-    ax.set_title(name)
-    ax.set_xlabel("s")
+    ax.plot(t, np.degrees(tr), color=color, lw=2.0)
+    style_axes(ax)
     ax.set_ylabel("yaw deg")
-    ax.grid(alpha=0.3)
+    ax.grid(alpha=0.25, color=DIM)
     # settle time: last frame where |yaw - final| > 0.05 deg
     final = tr[-1]
     moving = np.abs(tr - final) > np.radians(0.05)
     settle = (np.max(np.flatnonzero(moving)) + 1) * DT if moving.any() else 0.0
-    release = next(i for i, (k, _) in enumerate(g) if k == "up") * DT
-    ax.axvline(release, color="gray", ls="--", lw=0.8)
+    release = next(i for i, (kk, _) in enumerate(g) if kk == "up") * DT
+    ax.axvline(release, color=MUTED, ls="--", lw=0.9)
     ax.set_xlabel(f"s   (settles {settle - release:.2f}s after release)")
+    panel_title(ax, name)
     print(f"{name}: travel {np.degrees(final):.1f} deg, "
           f"settle {settle - release:.2f}s after release")
 SCRATCH = Path("/private/tmp/claude-501/-Users-melocoton-Developer-ytk/a880b851-b1c2-4d8c-a41c-6109fa752743/scratchpad")
-fig.tight_layout()
-fig.savefig(SCRATCH / "spring-sim.png", dpi=110)
+fig.subplots_adjust(left=MARGIN + 0.03, right=1 - MARGIN, top=top, bottom=0.16, wspace=0.26)
+frame_panels(fig)
+fig.savefig(SCRATCH / "spring-sim.png", dpi=200, facecolor=BG)
 print(f"wrote {SCRATCH / 'spring-sim.png'}")
 ```
+
+(Add `import sys` next to `from pathlib import Path` at the top of the
+script.)
 
 READ the PNG and check the lenis criteria: drag tracks with no visible lag
 ramp (the follow curve hugs the input during drag), the flick coasts
@@ -1534,11 +1580,16 @@ pixel-diffing frames, not by the render exiting 0.
 
 ```python
 """First-person previz of the /orb focus zoom: tile grows to APEX of the
-viewport height on the house ease while the wall dims to 0.25."""
+viewport height on the house ease while the wall dims to 0.25.
+Colors from scripts.plot_assets per docs/assets/README.md."""
+import os
+import sys
+
 import numpy as np
-from manim import (
-    BLACK, GREY_C, WHITE, YELLOW, Scene, Square, Text, VGroup, config,
-)
+from manim import Scene, Square, Text, VGroup, config
+
+sys.path.insert(0, "/Users/melocoton/Developer/ytk.feature-orb")
+from scripts.plot_assets import BG, DIM, GOLD
 
 
 def house(t: float) -> float:
@@ -1553,18 +1604,18 @@ class ApexBase(Scene):
     APEX = 0.60  # tile height as fraction of viewport height at zoom apex
 
     def construct(self):
-        self.camera.background_color = BLACK
+        self.camera.background_color = BG
         gap = 1.15
         wall = VGroup(
             *[
-                Square(0.62, fill_opacity=1, fill_color=GREY_C, stroke_width=0)
+                Square(0.62, fill_opacity=1, fill_color=DIM, stroke_width=0)
                 .move_to([x * gap, y * gap, 0])
                 for x in range(-4, 5)
                 for y in range(-3, 4)
             ]
         )
         focus = wall[len(wall) // 2]
-        focus.set_fill(YELLOW)
+        focus.set_fill(GOLD)
         others = VGroup(*[t for t in wall if t is not focus])
         dolly = 1 - 0.055 / (self.APEX * np.tan(np.pi / 6))
         label = Text(f"apex {self.APEX:.0%}  dolly {dolly:.2f}", font_size=22)
