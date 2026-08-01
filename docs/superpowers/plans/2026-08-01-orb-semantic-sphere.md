@@ -2034,8 +2034,13 @@ export function mountOrb(
 }
 ```
 
-Note: `uThemes` as a 1024-float uniform array works because instance count is
-capped by the atlas (1024 slots) — same ceiling, one comment in the code.
+Note (amended in review): the original `uThemes` 1024-float uniform array was
+DISPROVED — GLSL ES packs it as 1024 vec4 registers against a WebGL2
+guaranteed minimum of 224, and three.js swallows the link failure into
+console.error, so the failure mode on real GPUs is a silently empty scene.
+Theme identity ships as a per-instance `iTheme` attribute instead (same
+plumbing as `iIdx`), and instance count clamps to the atlas ceiling
+(`COLS * COLS`) with a loud console.warn when points are dropped.
 
 - [ ] **Step 4: Run test**
 
