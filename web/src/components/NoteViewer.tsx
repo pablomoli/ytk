@@ -228,12 +228,22 @@ export function NoteViewer({
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
+    console.log(
+      `[orb-debug] viewer effect reducedMotion=${reducedMotion()} originRect=${
+        originRect
+          ? JSON.stringify({ x: originRect.x, y: originRect.y, w: originRect.width, h: originRect.height })
+          : null
+      }`,
+    );
     gsap.killTweensOf(dialog);
     let tween: ReturnType<typeof gsap.from> | undefined;
     let overlayTween: ReturnType<typeof gsap.from> | undefined;
     let overlayRaf1 = 0, overlayRaf2 = 0;
     if (originRect && !reducedMotion()) {
       const to = dialog.getBoundingClientRect();
+      console.log(
+        `[orb-debug] flip dialogRect=${JSON.stringify({ x: to.x, y: to.y, w: to.width, h: to.height })}`,
+      );
       /* transform FLIP: play the panel from the card's rect into place */
       tween = gsap.from(dialog, {
         duration: DUR.morph,
@@ -241,7 +251,10 @@ export function NoteViewer({
         y: originRect.top + originRect.height / 2 - (to.top + to.height / 2),
         scaleX: originRect.width / to.width,
         scaleY: originRect.height / to.height,
-        onComplete: () => gsap.set(dialog, { clearProps: "transform" }),
+        onComplete: () => {
+          console.log("[orb-debug] flip complete");
+          gsap.set(dialog, { clearProps: "transform" });
+        },
       });
       // the orb's dimmed-sphere backdrop must not vanish in one frame when the
       // apex zoom hands off to this panel; fade the overlay in alongside it.
@@ -254,7 +267,14 @@ export function NoteViewer({
         return Boolean(overlay);
       };
       overlayRaf1 = requestAnimationFrame(() => {
-        if (!tryFadeOverlay()) overlayRaf2 = requestAnimationFrame(tryFadeOverlay);
+        const found1 = tryFadeOverlay();
+        console.log(`[orb-debug] overlay attempt1 found=${found1}`);
+        if (!found1) {
+          overlayRaf2 = requestAnimationFrame(() => {
+            const found2 = tryFadeOverlay();
+            console.log(`[orb-debug] overlay attempt2 found=${found2}`);
+          });
+        }
       });
     }
     return () => {
