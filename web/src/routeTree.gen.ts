@@ -14,6 +14,7 @@ import { Route as TagsRouteImport } from './routes/tags'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RecsRouteImport } from './routes/recs'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as OrbRouteImport } from './routes/orb'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as InboxRouteImport } from './routes/inbox'
@@ -45,6 +46,11 @@ const RecsRoute = RecsRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrbRoute = OrbRouteImport.update({
+  id: '/orb',
+  path: '/orb',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MapRoute = MapRouteImport.update({
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
+  '/orb': typeof OrbRoute
   '/profile': typeof ProfileRoute
   '/recs': typeof RecsRoute
   '/settings': typeof SettingsRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
+  '/orb': typeof OrbRoute
   '/profile': typeof ProfileRoute
   '/recs': typeof RecsRoute
   '/settings': typeof SettingsRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
+  '/orb': typeof OrbRoute
   '/profile': typeof ProfileRoute
   '/recs': typeof RecsRoute
   '/settings': typeof SettingsRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/library'
     | '/map'
+    | '/orb'
     | '/profile'
     | '/recs'
     | '/settings'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/library'
     | '/map'
+    | '/orb'
     | '/profile'
     | '/recs'
     | '/settings'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/library'
     | '/map'
+    | '/orb'
     | '/profile'
     | '/recs'
     | '/settings'
@@ -179,6 +191,7 @@ export interface RootRouteChildren {
   InboxRoute: typeof InboxRoute
   LibraryRoute: typeof LibraryRoute
   MapRoute: typeof MapRoute
+  OrbRoute: typeof OrbRoute
   ProfileRoute: typeof ProfileRoute
   RecsRoute: typeof RecsRoute
   SettingsRoute: typeof SettingsRoute
@@ -221,6 +234,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orb': {
+      id: '/orb'
+      path: '/orb'
+      fullPath: '/orb'
+      preLoaderRoute: typeof OrbRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/map': {
@@ -283,6 +303,7 @@ const rootRouteChildren: RootRouteChildren = {
   InboxRoute: InboxRoute,
   LibraryRoute: LibraryRoute,
   MapRoute: MapRoute,
+  OrbRoute: OrbRoute,
   ProfileRoute: ProfileRoute,
   RecsRoute: RecsRoute,
   SettingsRoute: SettingsRoute,
