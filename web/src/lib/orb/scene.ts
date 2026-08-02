@@ -167,7 +167,14 @@ export function mountOrb(
       uFacing: { value: 1 },
     },
   });
-  scene.add(new Mesh(geo, material));
+  const mesh = new Mesh(geo, material);
+  // geo's bounding sphere is computed from the base plane's local vertices
+  // only (three has no notion of the iPos instance attribute's extent), so
+  // auto frustum-culling sees a near-zero-radius sphere at the origin instead
+  // of the true unit-sphere spread of instances; disable it rather than hand-
+  // roll a correct bound for a single always-small draw call.
+  mesh.frustumCulled = false;
+  scene.add(mesh);
 
   const controls = createControls();
   const focusDolly = { dolly: 0 }; // inside mode: 0 at rest, 1 at apex
