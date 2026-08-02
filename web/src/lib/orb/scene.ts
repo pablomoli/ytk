@@ -27,11 +27,30 @@ const DIM_FILTER = 0.15;
 // mirrors DOLLY's stand-off distance-from-tile, kept outside the unit sphere:
 // same ~40% viewport-height apex fraction, viewed from the outside instead of the origin.
 const GLOBE_APEX = 1 + 0.238;
-const GLOBE_R_CLOSE = 1.45; // wheel zoom=0: globe orbit radius
-const GLOBE_R_FAR = 4.0; // wheel zoom=1: globe orbit radius
-const restGlobeR = (z: number) => GLOBE_R_CLOSE + z * (GLOBE_R_FAR - GLOBE_R_CLOSE);
-const FOV_ZOOMED = 50; // wheel zoom=0: inside-mode fov (narrow)
-const FOV_WIDE = 70; // wheel zoom=1: inside-mode fov (wide); default zoom 0.5 -> 60
+export const GLOBE_R_CLOSE = 1.30; // wheel zoom=0: globe orbit radius (camera 1.30, tiles at 1.0, near 0.01 — no clip)
+export const GLOBE_R_FAR = 4.0; // wheel zoom=1: globe orbit radius
+export const restGlobeR = (z: number) => GLOBE_R_CLOSE + z * (GLOBE_R_FAR - GLOBE_R_CLOSE);
+
+// inside mode: wheel zoom drives a forward dolly instead of fov (fov is fixed
+// at the camera's constructed 60). Bound: tiles at radius 1, TILE_HALF 0.055,
+// near plane 0.01 -> at zoom=1 (offset=MAX_FWD) distance to the tile plane is
+// 1 - 0.72 = 0.28, comfortably above the 0.2 invariant and the near plane.
+export const MAX_FWD = 0.72;
+// pure so it's unit-testable without a camera/canvas: offset for the inside
+// dolly at a given wheel-zoom value.
+export function wheelDollyOffset(zoom: number): number {
+  return zoom * MAX_FWD;
+}
+
+// Firefox/Gecko reports WheelEvent.deltaMode 1 (DOM_DELTA_LINE, ~3/tick)
+// where Chromium reports 0 (DOM_DELTA_PIXEL, ~100/tick); mode 2 is
+// DOM_DELTA_PAGE. Normalizing here (not in controls.wheel) keeps the pixel
+// accumulator in controls.ts engine-agnostic.
+export function normalizeWheelDelta(deltaY: number, deltaMode: number, clientHeight: number): number {
+  if (deltaMode === 1) return deltaY * 33;
+  if (deltaMode === 2) return deltaY * clientHeight;
+  return deltaY;
+}
 
 const VERT = /* glsl */ `
 precision highp float;
@@ -195,7 +214,8 @@ export function mountOrb(
     }
     canvas.releasePointerCapture(e.pointerId);
   };
-  const onWheel = (e: WheelEvent) => controls.wheel(e.deltaY);
+  const onWheel = (e: WheelEvent) =>
+    controls.wheel(normalizeWheelDelta(e.deltaY, e.deltaMode, canvas.clientHeight));
   canvas.addEventListener("pointerdown", onDown);
   canvas.addEventListener("pointermove", onMove);
   canvas.addEventListener("pointerup", onUp);
@@ -284,9 +304,6 @@ export function mountOrb(
       camera.position.set(Math.sin(gyaw) * cosP * r, -Math.sin(gpitch) * r, Math.cos(gyaw) * cosP * r);
       camera.lookAt(0, 0, 0);
     } else {
-      // wheel zoom drives fov directly; independent of the focus dolly below
-      const fov = FOV_ZOOMED + zoom * (FOV_WIDE - FOV_ZOOMED);
-      if (fov !== camera.fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
       // orbit-from-origin: camera rotates in place, dollies toward the focused tile
       camera.position.set(0, 0, 0);
       if (focused >= 0 && focusDolly.dolly > 0) {
@@ -296,6 +313,13 @@ export function mountOrb(
       camera.rotation.set(0, 0, 0);
       camera.rotateY(-yaw);
       camera.rotateX(pitch);
+      // wheel dolly: forward along the look direction, after orientation so it
+      // moves along where the camera is actually pointed. Focus flight owns the
+      // camera while focused; on blur this resumes from wherever zoom already is.
+      if (focused < 0) {
+        camera.getWorldDirection(dir);
+        camera.position.addScaledVector(dir, wheelDollyOffset(zoom));
+      }
     }
     camera.updateMatrixWorld();
     if (!controls.dragging && focused < 0 && pointerNdc) {

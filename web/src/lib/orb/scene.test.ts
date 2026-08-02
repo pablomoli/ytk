@@ -1,7 +1,15 @@
 import { expect, test, vi } from "vitest";
 import type { OrbData } from "../../api/orb";
 import { COLS } from "./atlas";
-import { mountOrb } from "./scene";
+import {
+  GLOBE_R_CLOSE,
+  GLOBE_R_FAR,
+  MAX_FWD,
+  mountOrb,
+  normalizeWheelDelta,
+  restGlobeR,
+  wheelDollyOffset,
+} from "./scene";
 
 function data(): OrbData {
   return {
@@ -119,6 +127,34 @@ test("setView(\"globe\") renders without shader errors and disposes clean", asyn
   handle.dispose();
   canvas.remove();
   errSpy.mockRestore();
+});
+
+test("wheel delta normalizes across engines: 3 lines (Gecko) ~= 100px (Chromium) per physical tick", () => {
+  const gecko = normalizeWheelDelta(3, 1, 800);
+  const chromium = normalizeWheelDelta(100, 0, 800);
+  expect(Math.abs(gecko - chromium)).toBeLessThan(5); // 3*33=99 vs 100: within a couple units, not orders of magnitude
+});
+
+test("wheel delta passes pixel mode through unchanged and scales page mode by viewport height", () => {
+  expect(normalizeWheelDelta(42, 0, 800)).toBe(42);
+  expect(normalizeWheelDelta(2, 2, 800)).toBe(1600);
+});
+
+test("inside-mode wheel dolly offset never exceeds MAX_FWD across the zoom range", () => {
+  for (const zoom of [0, 0.25, 0.5, 0.75, 1]) {
+    expect(Math.abs(wheelDollyOffset(zoom))).toBeLessThanOrEqual(MAX_FWD + 1e-9);
+  }
+  // at zoom=1 offset==MAX_FWD; with a unit look direction this is the camera's
+  // full position magnitude, and 1 - MAX_FWD = 0.28 > 0.2 (the required bound)
+  expect(wheelDollyOffset(1)).toBeCloseTo(MAX_FWD, 6);
+  expect(1 - MAX_FWD).toBeGreaterThan(0.2);
+});
+
+test("globe orbit radius clamps at [1.30, 4.0]", () => {
+  expect(restGlobeR(0)).toBeCloseTo(GLOBE_R_CLOSE, 6);
+  expect(restGlobeR(1)).toBeCloseTo(GLOBE_R_FAR, 6);
+  expect(GLOBE_R_CLOSE).toBeCloseTo(1.30, 6);
+  expect(GLOBE_R_FAR).toBeCloseTo(4.0, 6);
 });
 
 test("focus fires onOpen with a positive-width rect in globe view (reduced motion path)", async () => {
