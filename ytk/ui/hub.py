@@ -1093,6 +1093,47 @@ def memo_status() -> dict:
         return dict(_memo_job)
 
 
+_reflect_job: dict = {"state": "idle", "detail": "", "path": ""}
+
+
+def start_reflect(path: str, question: str, answer: str) -> bool:
+    """Run the reflection second loop (#98) in a background thread.
+
+    Single-flight like memos: re-enrichment holds a model call plus a
+    re-embed, and two concurrent rewrites of one note would race. False
+    when a reflection is already running.
+    """
+    with _LOCK:
+        if _reflect_job["state"] == "running":
+            return False
+        _reflect_job.update(state="running", detail="", path=path)
+    threading.Thread(target=_reflect_worker, args=(path, question, answer), daemon=True).start()
+    return True
+
+
+def _reflect_worker(path: str, question: str, answer: str) -> None:
+    global _LIB_CACHE
+    try:
+        from ytk.reflect import reflect_note
+
+        reflect_note(path, question, answer)
+        with _LOCK:
+            # the note's card (tags, has_take) is stale now; drop the cache
+            _LIB_CACHE = None
+            _reflect_job.update(state="done", detail="", path=path)
+    except Exception as exc:
+        import logging
+
+        logging.getLogger("ytk.hub").warning("reflect failed for %s: %s", path, exc)
+        with _LOCK:
+            _reflect_job.update(state="error", detail=str(exc), path=path)
+
+
+def reflect_status() -> dict:
+    with _LOCK:
+        return dict(_reflect_job)
+
+
 def start_memo(audio_bytes: bytes, filename: str, text: str) -> bool:
     """Run the memo pipeline in a background thread. False if one is running."""
     with _LOCK:

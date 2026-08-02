@@ -2,7 +2,10 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import type { SettingsConfig } from "../../api/settings";
 import { cloneSettings } from "../../lib/settingsDraft";
+import { ASK_PROMPT_DEFAULT, ASK_PROMPT_PREF } from "../../lib/askPrompt";
+import { getStringPref } from "../../lib/prefs";
 import {
+  AskPromptSection,
   CadenceSection,
   EnvironmentSection,
   HubSection,
@@ -128,4 +131,20 @@ test("tone and environment sections remain controlled by their callers", () => {
 
   rerender(<EnvironmentSection environment={{ chroma_mode: "embedded" }} />);
   expect(screen.getByText("embedded")).toBeInTheDocument();
+});
+
+test("ask prompt section persists the pref and never stores the default", () => {
+  localStorage.removeItem(ASK_PROMPT_PREF);
+  render(<AskPromptSection />);
+  const input = screen.getByLabelText(/^ask prompt/);
+
+  expect(input).toHaveAttribute("placeholder", ASK_PROMPT_DEFAULT);
+  expect(input).toHaveValue("");
+
+  fireEvent.change(input, { target: { value: "quiz me on {id}" } });
+  expect(getStringPref(ASK_PROMPT_PREF)).toBe("quiz me on {id}");
+
+  fireEvent.change(input, { target: { value: "  " } });
+  expect(getStringPref(ASK_PROMPT_PREF)).toBeNull();
+  localStorage.removeItem(ASK_PROMPT_PREF);
 });

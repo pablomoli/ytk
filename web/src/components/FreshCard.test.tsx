@@ -31,6 +31,20 @@ test("opens through its button and keeps external links separate", () => {
   expect(onOpen).toHaveBeenCalledTimes(1);
 });
 
+test("ask copies the prompt, flips its label, and never opens the card", async () => {
+  const onOpen = vi.fn();
+  const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+  const { container } = render(<FreshCard note={note} onOpen={onOpen} onDelete={() => {}} />);
+
+  fireEvent.click(container.firstElementChild!); // card background opens
+  fireEvent.click(screen.getByRole("button", { name: "ask" }));
+  await screen.findByRole("button", { name: "copied" });
+
+  expect(writeText).toHaveBeenCalledWith("tell me something about sources/video.md");
+  expect(onOpen).toHaveBeenCalledTimes(1);
+  writeText.mockRestore();
+});
+
 test("renders memos as text cards without a vault image", () => {
   render(
     <FreshCard

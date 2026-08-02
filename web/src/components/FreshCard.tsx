@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import type { FreshNote } from "../api/fresh";
+import { copyAskPrompt } from "../lib/askPrompt";
 import { useHoverDecode } from "../lib/useHoverDecode";
 import { sourceIcon } from "./icons";
 import { MemoWaveform } from "./MemoWaveform";
@@ -17,6 +18,7 @@ export function FreshCard({
   onDelete: (note: FreshNote) => void;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [askCopied, setAskCopied] = useState(false);
   const [revealed, setRevealed] = useState(false); // image bytes arrived
   const [reveal, setReveal] = useState(true); // dissolve still owed
   const isMemo = note.source === "memo";
@@ -24,6 +26,11 @@ export function FreshCard({
   const decode = useHoverDecode();
 
   const open = () => onOpen(note, cardRef.current?.getBoundingClientRect());
+  const ask = async () => {
+    if (!(await copyAskPrompt(note.path))) return;
+    setAskCopied(true);
+    window.setTimeout(() => setAskCopied(false), 1500);
+  };
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest("a, button")) return;
     open();
@@ -88,6 +95,9 @@ export function FreshCard({
             ) : null}
             <button className="card-open" type="button" onClick={open}>
               open note
+            </button>
+            <button className="card-open" type="button" onClick={ask}>
+              {askCopied ? "copied" : "ask"}
             </button>
           </div>
         </div>

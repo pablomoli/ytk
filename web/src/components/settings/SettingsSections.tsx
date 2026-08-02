@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { ApiError } from "../../api/client";
 import type { SettingsConfig } from "../../api/settings";
 import { useGardenBuckets, useSaveGardenBuckets } from "../../api/profile";
-import { CURSOR_PREF, getPref, setPref } from "../../lib/prefs";
+import { ASK_PROMPT_DEFAULT, ASK_PROMPT_PREF } from "../../lib/askPrompt";
+import { CURSOR_PREF, getPref, getStringPref, setPref, setStringPref } from "../../lib/prefs";
 
 export type UpdateSettings = (update: (current: SettingsConfig) => void) => void;
 type FieldError = (path: string) => string | undefined;
@@ -656,6 +657,27 @@ export function ToneSection({
   );
 }
 
+export function AskPromptSection() {
+  return (
+    <details open>
+      <summary>Ask prompt</summary>
+      <div className="settings-body">
+        <label>
+          ask prompt
+          <input
+            defaultValue={getStringPref(ASK_PROMPT_PREF) ?? ""}
+            placeholder={ASK_PROMPT_DEFAULT}
+            onChange={(event) =>
+              setStringPref(ASK_PROMPT_PREF, event.target.value.trim() ? event.target.value : null)
+            }
+          />
+          <span className="settings-pill">{"{id}"} becomes the note path</span>
+        </label>
+      </div>
+    </details>
+  );
+}
+
 export function ExperimentsSection() {
   return (
     <details open>
@@ -728,6 +750,7 @@ export function SettingsSections({
         previewPending={previewPending}
         previewData={previewData}
       />
+      <AskPromptSection />
       <ExperimentsSection />
     </>
   );

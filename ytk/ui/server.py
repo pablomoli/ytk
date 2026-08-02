@@ -143,6 +143,12 @@ class IngestRequest(BaseModel):
     thought: str = ""
 
 
+class ReflectRequest(BaseModel):
+    path: str
+    question: str
+    answer: str
+
+
 @app.post("/api/queue/add")
 async def queue_add_api(req: QueueAddRequest):
     from ytk.ui import hub
@@ -289,6 +295,24 @@ async def memo_status_api():
     from ytk.ui import hub
 
     return hub.memo_status()
+
+
+@app.post("/api/reflect")
+async def reflect_api(req: ReflectRequest):
+    from ytk.ui import hub
+
+    if not req.answer.strip():
+        raise HTTPException(status_code=422, detail="answer required")
+    if not hub.start_reflect(req.path, req.question, req.answer):
+        raise HTTPException(status_code=409, detail="a reflection is already running")
+    return {"status": "accepted"}
+
+
+@app.get("/api/reflect/status")
+async def reflect_status_api():
+    from ytk.ui import hub
+
+    return hub.reflect_status()
 
 
 @app.get("/api/fresh")

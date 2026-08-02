@@ -1,6 +1,8 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FreshNote } from "../api/fresh";
 import { useNote, useSimilarNotes } from "../api/fresh";
+import { ApiError, apiGet, apiSend } from "../api/client";
+import { copyAskPrompt } from "../lib/askPrompt";
 import { sourceIcon } from "./icons";
 import { parseNote } from "../lib/parseNote";
 import type { NoteFrontmatter, NoteSection } from "../lib/parseNote";
@@ -209,6 +211,16 @@ function NoteBody({ raw, note }: { raw: string; note: FreshNote }) {
   );
 }
 
+const REFLECT_QUESTION = "why did you save this?";
+
+type ReflectStatus = {
+  state: "idle" | "running" | "done" | "error";
+  detail?: string | null;
+  path?: string | null;
+};
+
+type ReflectPhase = "idle" | "sending" | "running" | "busy" | "error";
+
 /* Radix Dialog supplies the modal behaviors: portal, inert background, focus
    trap and restore, Escape, scroll lock (#136). */
 export function NoteViewer({
@@ -223,6 +235,67 @@ export function NoteViewer({
   const content = useNote(note.path);
   const similar = useSimilarNotes(note.path);
   const [revealing, setRevealing] = useState(true);
+
+  const [reflectOpen, setReflectOpen] = useState(false);
+  const [reflectAnswer, setReflectAnswer] = useState("");
+  const [reflectPhase, setReflectPhase] = useState<ReflectPhase>("idle");
+  const [reflectDetail, setReflectDetail] = useState("");
+  const [askCopied, setAskCopied] = useState(false);
+  const askTimerRef = useRef(0);
+
+  const refetchNote = content.refetch;
+  useEffect(() => {
+    if (reflectPhase !== "running") return;
+    const poll = window.setInterval(() => {
+      apiGet<ReflectStatus>("/api/reflect/status")
+        .then((status) => {
+          if (status.state === "done" && status.path === note.path) {
+            setReflectPhase("idle");
+            setReflectOpen(false);
+            setReflectAnswer("");
+            void refetchNote();
+          } else if (status.state === "error") {
+            setReflectDetail(status.detail || "reflection failed");
+            setReflectPhase("error");
+          }
+        })
+        .catch(() => {}); // transient poll failure: keep polling
+    }, 2000);
+    return () => window.clearInterval(poll);
+  }, [reflectPhase, note.path, refetchNote]);
+
+  useEffect(() => () => window.clearTimeout(askTimerRef.current), []);
+
+  const submitReflection = (event: React.FormEvent) => {
+    event.preventDefault();
+    const answer = reflectAnswer.trim();
+    if (!answer || reflectPhase === "sending" || reflectPhase === "running") return;
+    setReflectDetail("");
+    setReflectPhase("sending");
+    apiSend<{ status: string }>("/api/reflect", "POST", {
+      path: note.path,
+      question: REFLECT_QUESTION,
+      answer,
+    })
+      .then(() => setReflectPhase("running"))
+      .catch((error: unknown) => {
+        if (error instanceof ApiError && error.status === 409) {
+          setReflectPhase("busy");
+          return;
+        }
+        setReflectDetail(error instanceof Error ? error.message : String(error));
+        setReflectPhase("error");
+      });
+  };
+
+  const handleAsk = () => {
+    void copyAskPrompt(note.path).then((copied) => {
+      if (!copied) return;
+      setAskCopied(true);
+      window.clearTimeout(askTimerRef.current);
+      askTimerRef.current = window.setTimeout(() => setAskCopied(false), 1500);
+    });
+  };
 
   // Radix's portal can attach the dialog node after Gecko runs the parent's
   // mount effect, leaving a ref read there null and silently skipping the
@@ -300,6 +373,53 @@ export function NoteViewer({
           <button className="btn viewer-close" type="button" onClick={onClose}>
             close
           </button>
+          <div className="float-right mr-[0.5rem] flex items-center gap-[0.4rem]">
+            <button className="btn" type="button" onClick={handleAsk}>
+              {askCopied ? "copied" : "ask"}
+            </button>
+            <button className="btn" type="button" onClick={() => setReflectOpen((open) => !open)}>
+              reflect
+            </button>
+          </div>
+          {reflectOpen ? (
+            <form
+              className="clear-both flex items-center gap-[0.4rem] pt-[0.6rem] pb-[0.4rem]"
+              onSubmit={submitReflection}
+            >
+              <input
+                className="min-w-0 flex-1 rounded-card border border-line bg-bg1 px-[0.6rem] py-[0.35rem] text-[0.85rem] text-ink placeholder:text-mute focus:border-accent focus:outline-none"
+                type="text"
+                value={reflectAnswer}
+                placeholder={REFLECT_QUESTION}
+                onChange={(event) => setReflectAnswer(event.target.value)}
+              />
+              <button
+                className="btn"
+                type="submit"
+                disabled={!reflectAnswer.trim() || reflectPhase === "sending" || reflectPhase === "running"}
+              >
+                {reflectPhase === "sending" || reflectPhase === "running" ? "reflecting" : "submit"}
+              </button>
+            </form>
+          ) : null}
+          {reflectPhase === "busy" ? (
+            <p className="clear-both my-[0.2rem] text-[0.78rem] text-mute">one at a time</p>
+          ) : null}
+          {reflectPhase === "error" && reflectDetail ? (
+            <p className="clear-both my-[0.2rem] text-[0.78rem] text-mute">
+              {reflectDetail}{" "}
+              <button
+                className="cursor-pointer border-0 bg-transparent p-0 text-[0.78rem] text-ink2 underline"
+                type="button"
+                onClick={() => {
+                  setReflectDetail("");
+                  setReflectPhase("idle");
+                }}
+              >
+                dismiss
+              </button>
+            </p>
+          ) : null}
           {content.isLoading ? <p>loading note...</p> : null}
           {content.isError ? <p>failed to load note: {String(content.error)}</p> : null}
           {content.data ? <NoteBody raw={content.data.content} note={note} /> : null}

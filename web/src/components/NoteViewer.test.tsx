@@ -98,6 +98,58 @@ test("survives StrictMode double-mount without self-closing (async close event)"
   expect(screen.getByRole("dialog", { hidden: true })).toBeInTheDocument();
 });
 
+test("reflect reveals an input and submits the answer as the reflect POST body", async () => {
+  vi.mocked(fetch).mockClear();
+  wrap(<NoteViewer note={note} onClose={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "reflect", hidden: true }));
+  fireEvent.change(screen.getByPlaceholderText("why did you save this?"), {
+    target: { value: "because it maps my taste" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "submit", hidden: true }));
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  const call = vi.mocked(fetch).mock.calls.find(([url]) => url === "/api/reflect");
+  expect(call).toBeDefined();
+  const init = call![1] as RequestInit;
+  expect(init.method).toBe("POST");
+  expect(JSON.parse(init.body as string)).toEqual({
+    path: "sources/youtube/x.md",
+    question: "why did you save this?",
+    answer: "because it maps my taste",
+  });
+});
+
+test("empty reflect answer cannot submit", async () => {
+  vi.mocked(fetch).mockClear();
+  wrap(<NoteViewer note={note} onClose={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "reflect", hidden: true }));
+  const submit = screen.getByRole("button", { name: "submit", hidden: true });
+  expect(submit).toBeDisabled();
+  /* Whitespace-only is empty too. */
+  fireEvent.change(screen.getByPlaceholderText("why did you save this?"), {
+    target: { value: "   " },
+  });
+  expect(submit).toBeDisabled();
+  fireEvent.click(submit);
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  expect(vi.mocked(fetch).mock.calls.find(([url]) => url === "/api/reflect")).toBeUndefined();
+});
+
+test("ask copies the prompt for this note and shows the copied state", async () => {
+  const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+  wrap(<NoteViewer note={note} onClose={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "ask", hidden: true }));
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  expect(writeText).toHaveBeenCalledWith(expect.stringContaining("sources/youtube/x.md"));
+  expect(screen.getByRole("button", { name: "copied", hidden: true })).toBeInTheDocument();
+  writeText.mockRestore();
+});
+
 test("StrictMode double-mount with an originRect kills the stale morph tween, not stacks a second one", async () => {
   const onClose = vi.fn();
   const originRect = { left: 10, top: 10, width: 200, height: 150 } as DOMRect;

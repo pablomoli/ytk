@@ -789,6 +789,39 @@ def orphaned_memory_vectors() -> list[dict[str, str]]:
     return out
 
 
+def update_video_enrichment(video_id: str, enrichment: Enrichment) -> bool:
+    """Replace a video's enrichment-derived doc and metadata in place (#98).
+
+    The reflection second loop produces a new Enrichment for an already
+    indexed video. Only enrichment-derived content changes: the representative
+    doc is rebuilt as thesis+summary with any accumulated "My take:" lines
+    re-appended, and thesis/summary/tags metadata is refreshed on every part.
+    date/ingest_time/description and the part scheme survive untouched —
+    rebuilding those from note frontmatter would re-derive dates through a
+    second format and drift. Returns False when the video is not indexed.
+    """
+    col = _videos_collection()
+    got = col.get(ids=[video_id], include=["documents", "metadatas"])
+    if not got["ids"]:
+        return False
+    old_doc = chroma_field(got["documents"], "documents")[0] or ""
+    doc = enrichment.thesis + "\n\n" + enrichment.summary
+    take_at = old_doc.find("\n\nMy take: ")
+    if take_at != -1:
+        # takes may be multiline; everything from the first marker is take text
+        doc += old_doc[take_at:]
+    meta = dict(chroma_field(got["metadatas"], "metadatas")[0])
+    meta.update(
+        {
+            "thesis": enrichment.thesis,
+            "summary": enrichment.summary,
+            "tags": ", ".join(enrichment.interest_tags),
+        }
+    )
+    col.upsert(ids=[video_id], documents=[doc], metadatas=[meta])
+    return True
+
+
 def append_video_take(video_id: str, thought: str) -> None:
     """Append the user's take to a video's representative doc and re-embed.
 
