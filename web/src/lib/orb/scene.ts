@@ -227,7 +227,6 @@ export function mountOrb(
   }
 
   function focusTile(i: number) {
-    console.log(`[orb-debug] focus i=${i} reducedMotion=${reducedMotion()} mode=${mode}`);
     focused = i;
     material.uniforms.uFocused.value = i;
     // the NoteViewer is about to cover the tile; a caption left over from
@@ -237,7 +236,6 @@ export function mountOrb(
     cb.onHover(null);
     const { yaw, pitch } = anglesFor(i);
     if (reducedMotion()) {
-      console.log("[orb-debug] focus path=reduced");
       controls.setTarget(yaw, pitch);
       if (mode === "globe") orbitR.r = GLOBE_APEX; else focusDolly.dolly = 1;
       material.uniforms.uDim.value = DIM_FOCUS;
@@ -246,13 +244,11 @@ export function mountOrb(
       focusRaf1 = requestAnimationFrame(() => {
         focusRaf2 = requestAnimationFrame(() => {
           const rect = apexRect(i);
-          console.log(`[orb-debug] onOpen rect=${JSON.stringify({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })}`);
           cb.onOpen(i, rect);
         });
       });
       return;
     }
-    console.log("[orb-debug] focus path=animated");
     controls.setTarget(yaw, pitch);
     if (mode === "globe") {
       orbitR.r = restGlobeR(liveZoom); // seed the tween's start at the live wheel-zoom radius, not a stale one
@@ -265,7 +261,6 @@ export function mountOrb(
     // so camera and panel motion overlap instead of running end-to-end
     focusCall = gsap.delayedCall(DUR.reveal * 0.75, () => {
       const rect = apexRect(i);
-      console.log(`[orb-debug] onOpen rect=${JSON.stringify({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })}`);
       cb.onOpen(i, rect);
     });
   }

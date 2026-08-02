@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { FreshNote } from "../api/fresh";
 import { useNote, useSimilarNotes } from "../api/fresh";
 import { sourceIcon } from "./icons";
@@ -220,72 +220,64 @@ export function NoteViewer({
   onClose: () => void;
   originRect?: DOMRect | undefined;
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const content = useNote(note.path);
   const similar = useSimilarNotes(note.path);
   const [revealing, setRevealing] = useState(true);
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    console.log(
-      `[orb-debug] viewer effect reducedMotion=${reducedMotion()} originRect=${
-        originRect
-          ? JSON.stringify({ x: originRect.x, y: originRect.y, w: originRect.width, h: originRect.height })
-          : null
-      }`,
-    );
-    gsap.killTweensOf(dialog);
-    let tween: ReturnType<typeof gsap.from> | undefined;
-    let overlayTween: ReturnType<typeof gsap.from> | undefined;
-    let overlayRaf1 = 0, overlayRaf2 = 0;
-    if (originRect && !reducedMotion()) {
-      const to = dialog.getBoundingClientRect();
-      console.log(
-        `[orb-debug] flip dialogRect=${JSON.stringify({ x: to.x, y: to.y, w: to.width, h: to.height })}`,
-      );
-      /* transform FLIP: play the panel from the card's rect into place */
-      tween = gsap.from(dialog, {
-        duration: DUR.morph,
-        x: originRect.left + originRect.width / 2 - (to.left + to.width / 2),
-        y: originRect.top + originRect.height / 2 - (to.top + to.height / 2),
-        scaleX: originRect.width / to.width,
-        scaleY: originRect.height / to.height,
-        onComplete: () => {
-          console.log("[orb-debug] flip complete");
-          gsap.set(dialog, { clearProps: "transform" });
-        },
-      });
-      // the orb's dimmed-sphere backdrop must not vanish in one frame when the
-      // apex zoom hands off to this panel; fade the overlay in alongside it.
-      // Radix's portal can attach the overlay after this effect runs, so a
-      // synchronous query can miss it — try next frame, then once more, then
-      // give up silently rather than fight the portal's own timing.
-      const tryFadeOverlay = () => {
-        const overlay = document.querySelector('[data-slot="dialog-overlay"]');
-        if (overlay) overlayTween = gsap.from(overlay, { opacity: 0, duration: DUR.reveal });
-        return Boolean(overlay);
-      };
-      overlayRaf1 = requestAnimationFrame(() => {
-        const found1 = tryFadeOverlay();
-        console.log(`[orb-debug] overlay attempt1 found=${found1}`);
-        if (!found1) {
-          overlayRaf2 = requestAnimationFrame(() => {
-            const found2 = tryFadeOverlay();
-            console.log(`[orb-debug] overlay attempt2 found=${found2}`);
-          });
-        }
-      });
-    }
-    return () => {
-      tween?.kill();
-      overlayTween?.kill();
-      cancelAnimationFrame(overlayRaf1);
-      cancelAnimationFrame(overlayRaf2);
-      gsap.set(dialog, { clearProps: "transform" });
-    };
+  // Radix's portal can attach the dialog node after Gecko runs the parent's
+  // mount effect, leaving a ref read there null and silently skipping the
+  // open animation; a callback ref fires exactly when the node attaches, in
+  // any engine, regardless of portal timing.
+  const didAnimate = useRef(false);
+  const tweenRef = useRef<ReturnType<typeof gsap.from>>();
+  const overlayTweenRef = useRef<ReturnType<typeof gsap.from>>();
+  const overlayRafRef = useRef<[number, number]>([0, 0]);
+
+  const dialogCallbackRef = useCallback(
+    (dialog: HTMLDivElement | null) => {
+      if (!dialog) {
+        tweenRef.current?.kill();
+        overlayTweenRef.current?.kill();
+        cancelAnimationFrame(overlayRafRef.current[0]);
+        cancelAnimationFrame(overlayRafRef.current[1]);
+        return;
+      }
+      if (didAnimate.current) return; // React may re-invoke with the same node
+      didAnimate.current = true;
+      gsap.killTweensOf(dialog);
+      if (originRect && !reducedMotion()) {
+        const to = dialog.getBoundingClientRect();
+        /* transform FLIP: play the panel from the card's rect into place */
+        tweenRef.current = gsap.from(dialog, {
+          duration: DUR.morph,
+          x: originRect.left + originRect.width / 2 - (to.left + to.width / 2),
+          y: originRect.top + originRect.height / 2 - (to.top + to.height / 2),
+          scaleX: originRect.width / to.width,
+          scaleY: originRect.height / to.height,
+          onComplete: () => {
+            gsap.set(dialog, { clearProps: "transform" });
+          },
+        });
+        // the orb's dimmed-sphere backdrop must not vanish in one frame when the
+        // apex zoom hands off to this panel; fade the overlay in alongside it.
+        // Radix's portal can attach the overlay after this fires, so a
+        // synchronous query can miss it — try next frame, then once more, then
+        // give up silently rather than fight the portal's own timing.
+        const tryFadeOverlay = () => {
+          const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+          if (overlay) overlayTweenRef.current = gsap.from(overlay, { opacity: 0, duration: DUR.reveal });
+          return Boolean(overlay);
+        };
+        overlayRafRef.current[0] = requestAnimationFrame(() => {
+          if (!tryFadeOverlay()) {
+            overlayRafRef.current[1] = requestAnimationFrame(tryFadeOverlay);
+          }
+        });
+      }
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    [],
+  );
 
   /* Lifecycle cleanup does not report user intent. */
   return (
@@ -296,7 +288,7 @@ export function NoteViewer({
       }}
     >
       <DialogContent
-        ref={dialogRef}
+        ref={dialogCallbackRef}
         className="h-[calc(100vh-4rem)] w-[min(100vw-4rem,72rem)] p-0"
         aria-describedby={undefined}
       >
