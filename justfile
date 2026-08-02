@@ -49,9 +49,10 @@ build-web:
 eval:
     cd "{{ repo }}" && uv run ytk eval
 
-# Run the hub in the foreground.
-ui:
-    cd "{{ repo }}" && uv run ytk ui
+# Run the hub in the foreground. Optional port frees :6969 for the live hub
+# when testing a branch checkout: `just ui 8877`.
+ui port="":
+    cd "{{ repo }}" && uv run ytk ui {{ if port == "" { "" } else { "--port " + port } }}
 
 # Restart the installed hub service.
 ui-restart:
