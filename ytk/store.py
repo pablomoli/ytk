@@ -789,13 +789,15 @@ def orphaned_memory_vectors() -> list[dict[str, str]]:
     return out
 
 
-def update_video_enrichment(video_id: str, enrichment: Enrichment) -> bool:
+def update_video_enrichment(video_id: str, enrichment: Enrichment, reflection: str = "") -> bool:
     """Replace a video's enrichment-derived doc and metadata in place (#98).
 
     The reflection second loop produces a new Enrichment for an already
     indexed video. Only enrichment-derived content changes: the representative
     doc is rebuilt as thesis+summary with any accumulated "My take:" lines
-    re-appended, and thesis/summary/tags metadata is refreshed on every part.
+    re-appended and the reflection answer embedded verbatim — the user's own
+    words boosting semantic match is the spec's automatic weighting, and the
+    non-youtube path already embeds them via the note body.
     date/ingest_time/description and the part scheme survive untouched —
     rebuilding those from note frontmatter would re-derive dates through a
     second format and drift. Returns False when the video is not indexed.
@@ -806,16 +808,27 @@ def update_video_enrichment(video_id: str, enrichment: Enrichment) -> bool:
         return False
     old_doc = chroma_field(got["documents"], "documents")[0] or ""
     doc = enrichment.thesis + "\n\n" + enrichment.summary
-    take_at = old_doc.find("\n\nMy take: ")
-    if take_at != -1:
-        # takes may be multiline; everything from the first marker is take text
-        doc += old_doc[take_at:]
+    # user text may be multiline; everything from the first marker is the
+    # accumulated take/reflection tail and survives re-enrichment wholesale
+    tail_at = min(
+        (
+            at
+            for at in (old_doc.find("\n\nMy take: "), old_doc.find("\n\nMy reflection: "))
+            if at != -1
+        ),
+        default=-1,
+    )
+    if tail_at != -1:
+        doc += old_doc[tail_at:]
+    if reflection.strip() and reflection.strip() not in doc:
+        doc += f"\n\nMy reflection: {reflection.strip()}"
     meta = dict(chroma_field(got["metadatas"], "metadatas")[0])
     meta.update(
         {
             "thesis": enrichment.thesis,
             "summary": enrichment.summary,
             "tags": ", ".join(enrichment.interest_tags),
+            "reflected": True,
         }
     )
     col.upsert(ids=[video_id], documents=[doc], metadatas=[meta])
@@ -1094,6 +1107,29 @@ def log_retrieval(surface: str, query: str, hits: Iterable[tuple[str, float]]) -
         pass
 
 
+def _reflected_boost() -> float:
+    """The config knob, clamped to [0, 1). Defaults off: turning it on is a
+    search-behavior change and must pass the retrieval gate first (#98)."""
+    try:
+        from .config import load_config
+
+        return min(max(load_config().search_reflected_boost, 0.0), 0.99)
+    except Exception:
+        return 0.0
+
+
+def _apply_reflected_boost(
+    scored: list[tuple[Metadata, float]], boost: float
+) -> list[tuple[Metadata, float]]:
+    """Shrink reflected items' distances and re-rank. Identity at boost 0."""
+    if not boost:
+        return scored
+    return sorted(
+        ((m, d * (1.0 - boost) if m and m.get("reflected") else d) for m, d in scored),
+        key=lambda pair: pair[1],
+    )
+
+
 def search_videos(query: str, n: int = 5, rerank: bool | None = None) -> list[VideoResult]:
     """Search video-level collection. Returns up to n matches ranked by cosine similarity.
 
@@ -1112,9 +1148,12 @@ def search_videos(query: str, n: int = 5, rerank: bool | None = None) -> list[Vi
         query_embeddings=[_embed_query(query)], n_results=min(fetch * 3, col.count())
     )
     out: list[VideoResult] = []
-    collapsed = _collapse_by_video(
-        chroma_field(results["metadatas"], "metadatas")[0],
-        chroma_field(results["distances"], "distances")[0],
+    collapsed = _apply_reflected_boost(
+        _collapse_by_video(
+            chroma_field(results["metadatas"], "metadatas")[0],
+            chroma_field(results["distances"], "distances")[0],
+        ),
+        _reflected_boost(),
     )
     for meta, dist in collapsed[:fetch]:
         tags = meta_str(meta, "tags")
@@ -1339,13 +1378,17 @@ def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[Unifi
     # memories on the stored document
     pairs: list[tuple[UnifiedResult, str]] = []
     query_emb = _embed_query(query)
+    boost = _reflected_boost()
 
     vcol = _videos_collection()
     if vcol.count() > 0:
         vr = vcol.query(query_embeddings=[query_emb], n_results=min(fetch * 3, vcol.count()))
-        collapsed = _collapse_by_video(
-            chroma_field(vr["metadatas"], "metadatas")[0],
-            chroma_field(vr["distances"], "distances")[0],
+        collapsed = _apply_reflected_boost(
+            _collapse_by_video(
+                chroma_field(vr["metadatas"], "metadatas")[0],
+                chroma_field(vr["distances"], "distances")[0],
+            ),
+            boost,
         )
         for meta, dist in collapsed[:fetch]:
             summary = meta_str(meta, "summary")
@@ -1378,6 +1421,10 @@ def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[Unifi
             if doc_id in seen_docs:  # best-ranked part already represents this doc
                 continue
             seen_docs.add(doc_id)
+            # parts of one doc share the flag, so a uniform discount keeps the
+            # best-part dedup above valid
+            if boost and meta and meta.get("reflected"):
+                dist = dist * (1.0 - boost)
             pairs.append(
                 (
                     UnifiedResult(

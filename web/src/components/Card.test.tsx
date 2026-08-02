@@ -219,6 +219,90 @@ test("withholds the open-original link when there is no canonical url", () => {
   expect(screen.getByRole("checkbox")).toBeInTheDocument();
 });
 
+/* --- #98: reflection badge --- */
+
+const QUESTION = "why does this matter to you?";
+const flagged = {
+  url: "https://example.com/a",
+  source: "web",
+  text: "Hello",
+  reflection_question: QUESTION,
+  reflection_answered: false,
+};
+
+test("only flagged items wear the reflection badge", () => {
+  render(
+    <Card
+      item={{ url: "https://example.com/a", source: "web", text: "Hello" }}
+      onInspect={noop}
+      onToggleSelect={noop}
+    />,
+  );
+  expect(screen.queryByRole("button", { name: /reflection/i })).not.toBeInTheDocument();
+
+  render(<Card item={flagged} onInspect={noop} onToggleSelect={noop} />);
+  expect(screen.getByRole("button", { name: /reflection question/i })).toBeInTheDocument();
+});
+
+test("the badge reveals the answer input without selecting or inspecting", () => {
+  const onInspect = vi.fn();
+  const onToggleSelect = vi.fn();
+  render(<Card item={flagged} onInspect={onInspect} onToggleSelect={onToggleSelect} />);
+
+  fireEvent.click(screen.getByRole("button", { name: /reflection question/i }));
+
+  expect(onInspect).not.toHaveBeenCalled();
+  expect(onToggleSelect).not.toHaveBeenCalled();
+  expect(screen.getByPlaceholderText(QUESTION)).toBeInTheDocument();
+});
+
+test("submitting an answer posts it and flips the badge to answered", () => {
+  const fetchMock = vi.fn(
+    async () => new Response(JSON.stringify({ stored: true }), { status: 200 }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  render(<Card item={flagged} onInspect={noop} onToggleSelect={noop} />);
+
+  fireEvent.click(screen.getByRole("button", { name: /reflection question/i }));
+  const input = screen.getByPlaceholderText(QUESTION);
+  fireEvent.change(input, { target: { value: "it maps my interests" } });
+  fireEvent.submit(input.closest("form")!);
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/reflect-answer",
+    expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ url: "https://example.com/a", answer: "it maps my interests" }),
+    }),
+  );
+  expect(screen.getByRole("button", { name: /reflection answered/i })).toBeInTheDocument();
+  vi.unstubAllGlobals();
+});
+
+test("an answered item renders the badge subdued", () => {
+  render(
+    <Card
+      item={{ ...flagged, reflection_answered: true }}
+      onInspect={noop}
+      onToggleSelect={noop}
+    />,
+  );
+  expect(screen.getByRole("button", { name: /reflection answered/i })).toHaveClass("opacity-60");
+});
+
+test("an empty submit on an unanswered item posts nothing", () => {
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  render(<Card item={flagged} onInspect={noop} onToggleSelect={noop} />);
+
+  fireEvent.click(screen.getByRole("button", { name: /reflection question/i }));
+  fireEvent.submit(screen.getByPlaceholderText(QUESTION).closest("form")!);
+
+  expect(fetchMock).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: /reflection question/i })).toBeInTheDocument();
+  vi.unstubAllGlobals();
+});
+
 /* A reddit item with no media used to fall back to a large tile captioned only
    "reddit". It must stay identifiable from its provenance alone. */
 test("an imageless reddit item still shows its community, author and date", () => {

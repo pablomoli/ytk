@@ -14,8 +14,20 @@ export const refreshSources = (opts?: { only?: string[]; force?: boolean }) => {
   const qs = params.toString();
   return apiSend<PullResult>(`/api/queue/refresh${qs ? `?${qs}` : ""}`, "POST");
 };
-export const ingest = (urls: string[], tags?: string[], thought?: string) =>
-  apiSend("/api/ingest", "POST", { urls, tags, thought });
+export type IngestPayload = {
+  urls: string[];
+  tags?: string[];
+  thought?: string;
+  /* url -> answer; absent entirely when nothing was answered (#98). */
+  reflections?: Record<string, string>;
+};
+
+/* JSON.stringify drops undefined members, so an absent reflections map never
+   reaches the wire as a key. */
+export const ingest = (payload: IngestPayload) => apiSend("/api/ingest", "POST", payload);
+
+export const reflectAnswer = (url: string, answer: string) =>
+  apiSend<{ stored: boolean }>("/api/reflect-answer", "POST", { url, answer });
 
 export const useAddUrls = () =>
   useMutation({
@@ -37,8 +49,7 @@ export const useRefreshSources = () =>
 
 export const useIngest = () =>
   useMutation({
-    mutationFn: ({ urls, tags, thought }: { urls: string[]; tags?: string[]; thought?: string }) =>
-      ingest(urls, tags, thought),
+    mutationFn: (payload: IngestPayload) => ingest(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["queue"] });
       void queryClient.invalidateQueries({ queryKey: ["job"] });

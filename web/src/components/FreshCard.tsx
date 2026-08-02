@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import type { FormEvent, MouseEvent } from "react";
+import { ApiError, apiSend } from "../api/client";
 import type { FreshNote } from "../api/fresh";
 import { copyAskPrompt } from "../lib/askPrompt";
 import { useHoverDecode } from "../lib/useHoverDecode";
@@ -7,6 +8,10 @@ import { sourceIcon } from "./icons";
 import { MemoWaveform } from "./MemoWaveform";
 import { PixelBloom } from "./PixelBloom";
 import { PixelDissolve } from "./PixelDissolve";
+
+const REFLECT_QUESTION = "why did you save this?";
+
+type ReflectState = "idle" | "sending" | "reflecting" | "busy";
 
 export function FreshCard({
   note,
@@ -21,6 +26,9 @@ export function FreshCard({
   const [askCopied, setAskCopied] = useState(false);
   const [revealed, setRevealed] = useState(false); // image bytes arrived
   const [reveal, setReveal] = useState(true); // dissolve still owed
+  const [reflectOpen, setReflectOpen] = useState(false);
+  const [reflectAnswer, setReflectAnswer] = useState("");
+  const [reflectState, setReflectState] = useState<ReflectState>("idle");
   const isMemo = note.source === "memo";
   const cardRef = useRef<HTMLElement>(null);
   const decode = useHoverDecode();
@@ -31,8 +39,33 @@ export function FreshCard({
     setAskCopied(true);
     window.setTimeout(() => setAskCopied(false), 1500);
   };
+  const toggleReflect = () => {
+    setReflectOpen((openNow) => !openNow);
+    if (reflectState === "busy") setReflectState("idle");
+  };
+  const submitReflection = (event: FormEvent) => {
+    event.preventDefault();
+    const answer = reflectAnswer.trim();
+    if (!answer || reflectState === "sending") return;
+    setReflectState("sending");
+    apiSend<{ status: string }>("/api/reflect", "POST", {
+      path: note.path,
+      question: REFLECT_QUESTION,
+      answer,
+    })
+      .then(() => {
+        setReflectState("reflecting");
+        setReflectOpen(false);
+        setReflectAnswer("");
+        window.setTimeout(() => setReflectState("idle"), 2000);
+      })
+      .catch((error: unknown) => {
+        setReflectState(error instanceof ApiError && error.status === 409 ? "busy" : "idle");
+      });
+  };
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("a, button")) return;
+    // form covers the reflect input and its gaps, not just the controls
+    if ((event.target as HTMLElement).closest("a, button, form")) return;
     open();
   };
   return (
@@ -99,7 +132,31 @@ export function FreshCard({
             <button className="card-open" type="button" onClick={ask}>
               {askCopied ? "copied" : "ask"}
             </button>
+            <button className="card-open" type="button" onClick={toggleReflect}>
+              {reflectState === "reflecting" ? "reflecting" : "reflect"}
+            </button>
           </div>
+          {reflectOpen ? (
+            <form className="mt-[0.4rem] flex items-center gap-[0.4rem]" onSubmit={submitReflection}>
+              <input
+                className="min-w-0 flex-1 rounded-card border border-line bg-bg1 px-[0.6rem] py-[0.35rem] text-[0.85rem] text-ink placeholder:text-mute focus:border-accent focus:outline-none"
+                type="text"
+                value={reflectAnswer}
+                placeholder={REFLECT_QUESTION}
+                onChange={(event) => setReflectAnswer(event.target.value)}
+              />
+              <button
+                className="card-open"
+                type="submit"
+                disabled={!reflectAnswer.trim() || reflectState === "sending"}
+              >
+                submit
+              </button>
+            </form>
+          ) : null}
+          {reflectState === "busy" ? (
+            <div className="mt-[0.2rem] text-[0.78rem] text-mute">one at a time</div>
+          ) : null}
         </div>
       )}
     </article>

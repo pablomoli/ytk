@@ -141,11 +141,17 @@ class IngestRequest(BaseModel):
     urls: list[str]
     tags: list[str] = []
     thought: str = ""
+    reflections: dict[str, str] = {}
 
 
 class ReflectRequest(BaseModel):
     path: str
     question: str
+    answer: str
+
+
+class ReflectAnswerRequest(BaseModel):
+    url: str
     answer: str
 
 
@@ -226,7 +232,18 @@ async def queue_api():
 
     from ytk.ui import hub
 
-    items = [dict(asdict(item), n=i) for i, item in enumerate(hub.queue_items(), 1)]
+    # reflection fields live on the API payload, not ReelItem (#163: the
+    # queue schema stays lean; derived/system fields attach at the edge)
+    answers = hub.reflection_answers()
+    items = [
+        dict(
+            asdict(item),
+            n=i,
+            reflection_question=hub.reflection_question(item.url),
+            reflection_answered=item.url in answers,
+        )
+        for i, item in enumerate(hub.queue_items(), 1)
+    ]
     return {"items": items}
 
 
@@ -260,6 +277,10 @@ def recap_api(n: int = 12):
 async def ingest_api(req: IngestRequest):
     from ytk.ui import hub
 
+    # answers persist before the drain starts, so they survive a hub restart
+    # exactly like the queue itself does
+    for url, answer in req.reflections.items():
+        hub.store_reflection_answer(url, answer)
     try:
         started = hub.start_ingest(req.urls, req.tags, req.thought)
     except ValueError as exc:
@@ -313,6 +334,15 @@ async def reflect_status_api():
     from ytk.ui import hub
 
     return hub.reflect_status()
+
+
+@app.post("/api/reflect-answer")
+async def reflect_answer_api(req: ReflectAnswerRequest):
+    """Store (or clear, with an empty answer) a pending item's reflection."""
+    from ytk.ui import hub
+
+    hub.store_reflection_answer(req.url, req.answer)
+    return {"stored": bool(req.answer.strip())}
 
 
 @app.get("/api/fresh")

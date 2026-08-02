@@ -165,14 +165,22 @@ def _read_meta(frontmatter: str) -> dict[str, str]:
     return {k: v.strip() for k, v in re.findall(r"^(\w+): (.+)$", frontmatter, re.MULTILINE)}
 
 
-def _reembed(rel_path: str, note_path: Path, meta: dict[str, str], enrichment: Enrichment) -> None:
+def _reembed(
+    rel_path: str,
+    note_path: Path,
+    meta: dict[str, str],
+    enrichment: Enrichment,
+    reflection: str = "",
+) -> None:
     from . import store
 
     if "sources/youtube/" in rel_path:
         try:
             from .transcript import _video_id
 
-            if store.update_video_enrichment(_video_id(meta.get("url", "")), enrichment):
+            if store.update_video_enrichment(
+                _video_id(meta.get("url", "")), enrichment, reflection=reflection
+            ):
                 return
         except ValueError:
             pass
@@ -193,11 +201,12 @@ def _reembed(rel_path: str, note_path: Path, meta: dict[str, str], enrichment: E
                 "doc_id": doc_id,
                 "tags": ", ".join(enrichment.interest_tags),
                 "source_path": str(note_path),
+                "reflected": True,
             },
         )
 
 
-def _append_why_i_save(question: str, answer: str, title: str, today: str) -> None:
+def append_why_i_save(question: str, answer: str, title: str, today: str) -> None:
     """The stated-intent corpus for profile synthesis. Best-effort: the note
     already holds the reflection."""
     from .vault import read_note, write_raw
@@ -247,6 +256,6 @@ def reflect_note(rel_path: str, question: str, answer: str) -> Path:
 
     note_path = write_raw(rel_path, new_fm + new_body)
 
-    _reembed(rel_path, note_path, meta, enrichment)
-    _append_why_i_save(question.strip(), answer.strip(), meta.get("title", rel_path), today)
+    _reembed(rel_path, note_path, meta, enrichment, reflection=answer.strip())
+    append_why_i_save(question.strip(), answer.strip(), meta.get("title", rel_path), today)
     return note_path

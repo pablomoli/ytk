@@ -144,6 +144,11 @@ class HubConfig(BaseModel):
 class Config(BaseModel):
     filters: FilterConfig = Field(default_factory=FilterConfig)
     hub: HubConfig = Field(default_factory=HubConfig)
+    search_reflected_boost: float = Field(
+        default=0.0,
+        description="Fraction by which a reflected item's distance shrinks in ranking (#98). "
+        "0 disables. Any nonzero default must first pass `ytk eval`.",
+    )
     whisper_model: str = Field(
         default="base", description="faster-whisper model size: base | small | medium | large"
     )

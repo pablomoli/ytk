@@ -82,6 +82,18 @@ function InboxPage() {
   const [inspecting, setInspecting] = useState<QueueItem | null>(null);
   const [chosenTags, setChosenTags] = useState<Set<string>>(new Set());
   const [thought, setThought] = useState("");
+  const [reflection, setReflection] = useState("");
+  /* First flagged, unanswered item in the selection, in queue order. One
+     question is enough prompting; the rest keep their card badges (#98). */
+  const reflectTarget = useMemo(
+    () =>
+      (q.data ?? []).find((i) => sel.has(i.url) && i.reflection_question && !i.reflection_answered),
+    [q.data, sel],
+  );
+  /* A typed answer must never ride along under a different item's url. */
+  useEffect(() => {
+    setReflection("");
+  }, [reflectTarget?.url]);
   // Off by default: a cached ranking stays quiet until asked for. Persisted so
   // the choice sticks across visits (getPref reads localStorage).
   const [showMatches, setShowMatches] = useState(() => getPref(PROFILE_MATCHES_PREF));
@@ -234,12 +246,20 @@ function InboxPage() {
 
   const handleIngest = () => {
     if (sel.size === 0) return;
+    const answer = reflection.trim();
     ingest.mutate(
-      { urls: [...sel], tags: [...chosenTags], thought },
+      {
+        urls: [...sel],
+        tags: [...chosenTags],
+        thought,
+        // Spread so an empty answer sends no reflections key at all.
+        ...(reflectTarget && answer ? { reflections: { [reflectTarget.url]: answer } } : {}),
+      },
       {
         onSuccess: () => {
           setSel(new Set());
           setThought("");
+          setReflection("");
         },
       },
     );
@@ -284,24 +304,24 @@ function InboxPage() {
         <aside className="rail">
           <div className="rail-scroll">
             <RailWidget
-            title="sources"
-            prefKey={RAIL_SOURCES_PREF}
-            defaultOpen
-            meta={
-              <>
-                <CountUp value={items.length} />
-                {q.data && q.data.length !== items.length ? (
-                  <>
-                    {" "}
-                    of <CountUp value={q.data.length} />
-                  </>
-                ) : (
-                  ""
-                )}{" "}
-                pending
-              </>
-            }
-          >
+              title="sources"
+              prefKey={RAIL_SOURCES_PREF}
+              defaultOpen
+              meta={
+                <>
+                  <CountUp value={items.length} />
+                  {q.data && q.data.length !== items.length ? (
+                    <>
+                      {" "}
+                      of <CountUp value={q.data.length} />
+                    </>
+                  ) : (
+                    ""
+                  )}{" "}
+                  pending
+                </>
+              }
+            >
               <SourceSelect selection={selection} onChange={handleSourceChange} />
             </RailWidget>
 
@@ -366,21 +386,13 @@ function InboxPage() {
               ) : null}
               {showMatches && allPicks.length > 0 && profileRank.data?.state !== "running" ? (
                 <div className="profile-rank-batch">
-                  <button
-                    className="btn"
-                    onClick={cursor.advance}
-                    disabled={batchCount <= 1}
-                  >
+                  <button className="btn" onClick={cursor.advance} disabled={batchCount <= 1}>
                     reroll
                   </button>
                   <span className="batch-indicator" aria-live="polite">
                     batch {activeBatch + 1}/{batchCount}
                   </span>
-                  <button
-                    className="btn ghost"
-                    onClick={cursor.reset}
-                    disabled={activeBatch === 0}
-                  >
+                  <button className="btn ghost" onClick={cursor.reset} disabled={activeBatch === 0}>
                     reset
                   </button>
                 </div>
@@ -422,6 +434,25 @@ function InboxPage() {
                   </button>
                 ))}
               </div>
+              {reflectTarget ? (
+                <div className="mb-2 font-data text-[12.5px]" data-testid="rail-reflection">
+                  <div className="truncate text-mute">
+                    {(reflectTarget.text || reflectTarget.author || reflectTarget.url).slice(
+                      0,
+                      120,
+                    )}
+                    {reflectTarget.text && reflectTarget.author ? ` · ${reflectTarget.author}` : ""}
+                  </div>
+                  <p className="my-1 italic text-ink2">{reflectTarget.reflection_question}</p>
+                  <input
+                    className="w-full rounded-[6px] border border-line bg-bg3 px-1.5 py-1 text-ink placeholder:text-mute"
+                    aria-label="Reflection answer"
+                    placeholder="answer (optional)"
+                    value={reflection}
+                    onChange={(e) => setReflection(e.target.value)}
+                  />
+                </div>
+              ) : null}
               <textarea
                 className="thought"
                 aria-label="Thought to add to selected items"

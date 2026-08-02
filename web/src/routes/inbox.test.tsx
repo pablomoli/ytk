@@ -19,8 +19,16 @@ vi.mock("../components/HubControls", () => ({
   HubControls: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock("../components/MasonryGrid", () => ({
+  /* Real CSS hides .masonry children until the real grid stamps data-placed;
+     the mock stamps it via wrappers so cards reach the accessibility tree. */
   MasonryGrid: ({ children }: { children: React.ReactNode }) => (
-    <main className="masonry">{children}</main>
+    <main className="masonry">
+      {(Array.isArray(children) ? children : [children]).map((c, i) => (
+        <div data-placed="1" key={i}>
+          {c}
+        </div>
+      ))}
+    </main>
   ),
 }));
 vi.mock("../lib/useInfiniteWindow", () => ({
@@ -28,12 +36,23 @@ vi.mock("../lib/useInfiniteWindow", () => ({
 }));
 
 const startRank = vi.fn();
+const ingestMutate = vi.fn();
 const queue = [
   { url: "new", source: "tiktok", text: "Newest ordinary item", shared_at: "2026-07-20" },
   { url: "match", source: "tiktok", text: "Strong profile match", shared_at: "2026-07-01" },
   { url: "other-match", source: "pinterest", text: "Other profile match", shared_at: "2026-06-01" },
   // Hidden by default (#126), so it is only in the grid when asked for.
   { url: "red", source: "reddit", text: "Reddit item", shared_at: "2026-05-01" },
+  // Carries a reflection question (#98).
+  {
+    url: "flagged",
+    source: "tiktok",
+    text: "Flagged item",
+    author: "ana",
+    shared_at: "2026-04-01",
+    reflection_question: "why does this matter to you?",
+    reflection_answered: false,
+  },
 ];
 
 const completedRank = {
@@ -74,7 +93,9 @@ vi.mock("../api/job", () => ({
 vi.mock("../api/mutations", () => ({
   useAddUrls: () => ({ mutate: vi.fn(), isPending: false }),
   useRefreshSources: () => ({ mutate: vi.fn(), isPending: false }),
-  useIngest: () => ({ mutate: vi.fn(), isPending: false }),
+  useIngest: () => ({ mutate: ingestMutate, isPending: false }),
+  // Card imports this from the same module; the factory must supply it too.
+  reflectAnswer: vi.fn(async () => ({ stored: true })),
 }));
 vi.mock("../api/profileRank", () => ({
   useProfileRank: () => rankQuery,
@@ -96,6 +117,7 @@ beforeEach(() => {
   routeSearch = {};
   rankQuery = { data: completedRank, isError: false };
   startRank.mockClear();
+  ingestMutate.mockClear();
   localStorage.clear();
 });
 
@@ -242,6 +264,57 @@ test("reroll pages through stratified batches, moves the highlight, and wraps", 
   fireEvent.click(screen.getByRole("button", { name: "reroll" }));
   fireEvent.click(screen.getByRole("button", { name: "reroll" }));
   expect(screen.getByText("batch 1/2")).toBeInTheDocument();
+});
+
+/* --- #98: rail reflection question --- */
+
+const selectCard = (label: string) =>
+  fireEvent.click(screen.getByRole("checkbox", { name: `Select ${label}` }));
+const ingestButton = () =>
+  [...document.querySelectorAll(".rail-footer button")].find(
+    (b) => b.textContent?.trim() === "ingest",
+  ) as HTMLButtonElement;
+
+test("selecting a flagged item surfaces its question above the thought box", () => {
+  renderPage();
+  expect(screen.queryByTestId("rail-reflection")).not.toBeInTheDocument();
+
+  selectCard("Newest ordinary item");
+  expect(screen.queryByTestId("rail-reflection")).not.toBeInTheDocument();
+
+  selectCard("Flagged item");
+  const block = screen.getByTestId("rail-reflection");
+  expect(block).toHaveTextContent("why does this matter to you?");
+  // Addressed by the item's title/author line.
+  expect(block).toHaveTextContent("Flagged item");
+  expect(block).toHaveTextContent("ana");
+  // Above the existing thought box.
+  const thought = screen.getByLabelText("Thought to add to selected items");
+  expect(block.compareDocumentPosition(thought) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test("the reflection answer joins the ingest payload keyed by url", () => {
+  renderPage();
+  selectCard("Flagged item");
+  fireEvent.change(screen.getByLabelText("Reflection answer"), {
+    target: { value: "it tracks my craft" },
+  });
+  fireEvent.click(ingestButton());
+
+  expect(ingestMutate).toHaveBeenCalledTimes(1);
+  expect(ingestMutate.mock.calls[0][0]).toMatchObject({
+    urls: ["flagged"],
+    reflections: { flagged: "it tracks my craft" },
+  });
+});
+
+test("ingesting with the answer empty sends no reflections key", () => {
+  renderPage();
+  selectCard("Flagged item");
+  fireEvent.click(ingestButton());
+
+  expect(ingestMutate).toHaveBeenCalledTimes(1);
+  expect(ingestMutate.mock.calls[0][0]).not.toHaveProperty("reflections");
 });
 
 test("the rail splits into five independently collapsible widgets", async () => {

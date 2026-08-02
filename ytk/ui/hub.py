@@ -53,6 +53,55 @@ from ytk.ui import source_refresh
 STATE_PATH = reels.STATE_PATH
 JOB_PATH = STATE_PATH.parent / "ingest-job.json"
 PROFILE_RANK_PATH = STATE_PATH.parent / "profile-rank.json"
+REFLECTIONS_PATH = STATE_PATH.parent / "reflections.json"
+
+# Curated reflection questions (#98). Selection is a property of the item:
+# a stable content hash, not runtime randomness, so every surface agrees on
+# which items carry a question with zero stored state.
+REFLECTION_POOL = (
+    "why did you save this?",
+    "what did this promise you?",
+    "when will you actually use this?",
+    "what would you build with this?",
+    "what does this connect to that you already know?",
+)
+
+
+def reflection_question(url: str) -> str | None:
+    """The item's question, or None for the ~9 in 10 items not flagged."""
+    import hashlib
+
+    h = int(hashlib.md5(url.encode("utf-8"), usedforsecurity=False).hexdigest(), 16)
+    if h % 10 != 0:
+        return None
+    return REFLECTION_POOL[h % len(REFLECTION_POOL)]
+
+
+def reflection_answers() -> dict[str, str]:
+    try:
+        data = json.loads(REFLECTIONS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {k: v for k, v in data.items() if isinstance(k, str) and isinstance(v, str)}
+
+
+def store_reflection_answer(url: str, answer: str) -> None:
+    """Persist an answer against its URL; empty answer clears the entry."""
+    with _LOCK:
+        answers = reflection_answers()
+        if answer.strip():
+            answers[url] = answer.strip()
+        else:
+            answers.pop(url, None)
+        try:
+            REFLECTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+            tmp = REFLECTIONS_PATH.with_suffix(".tmp")
+            tmp.write_text(json.dumps(answers, indent=2), encoding="utf-8")
+            tmp.replace(REFLECTIONS_PATH)
+        except OSError:
+            pass
+
+
 # The discovery sources refresh_sources knows how to pull from. `web` and `memo`
 # in the frontend source filter are ingest *types*, not pull sources, so they
 # are deliberately absent here.
@@ -1337,6 +1386,15 @@ def _drain() -> None:
             _JOB["queued"] = [e[0].url for e in _QUEUE[1:]]
             _persist_locked()
         attempt_started = time.time()
+        # a stored reflection answer rides the thought channel (#98): same
+        # user_note mechanism as the batch thought, so it steers enrichment
+        # and lands in the note/digest through the existing annotate path
+        question = reflection_question(item.url)
+        reflection = reflection_answers().get(item.url, "")
+        if reflection:
+            q = question or REFLECTION_POOL[0]
+            prefix = f"{thought.strip()}\n\n" if thought.strip() else ""
+            thought = f"{prefix}{q} {reflection}"
         try:
             if item.source == "imessage":
                 note = INGEST_TEXT(item, thought)
@@ -1361,6 +1419,18 @@ def _drain() -> None:
                 with _LOCK:
                     _JOB["annotated"] += 1
                     _JOB["linked"].extend(applied)
+            if reflection:
+                from datetime import datetime
+
+                from ytk.reflect import append_why_i_save
+
+                q = question or REFLECTION_POOL[0]
+                title = note.stem if note else item.url
+                append_why_i_save(q, reflection, title, f"{datetime.now():%Y-%m-%d}")
+                store_reflection_answer(item.url, "")
+            elif note and question:
+                # flagged, ingested unanswered: one passive line, never a nag
+                vault.append_reflection_prompt(note, question)
             _remove_from_queue(item.url)
         except Exception as exc:
             capture_log.log_capture(

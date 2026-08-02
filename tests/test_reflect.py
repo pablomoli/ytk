@@ -141,3 +141,63 @@ def test_reflection_section_appends_when_no_tail():
     out = append_reflection_section(body, "q?", "a", "2026-08-02")
     assert out.rstrip().endswith("a")
     assert "## Reflection" in out
+
+
+class _FakeVideosCol:
+    def __init__(self, doc: str):
+        self.doc = doc
+        self.upserted: tuple | None = None
+
+    def get(self, ids, include):
+        return {
+            "ids": list(ids),
+            "documents": [self.doc],
+            "metadatas": [{"thesis": "t", "date": "20260101"}],
+        }
+
+    def upsert(self, ids, documents, metadatas):
+        self.upserted = (ids, documents, metadatas)
+
+
+def test_update_video_enrichment_embeds_reflection_and_keeps_tail(monkeypatch):
+    from ytk import store
+
+    col = _FakeVideosCol("old t\n\nold s\n\nMy take: earlier take")
+    monkeypatch.setattr(store, "_videos_collection", lambda: col)
+    assert store.update_video_enrichment("v", NEW, reflection="my words") is True
+    doc = col.upserted[1][0]
+    assert doc.startswith("NEW THESIS\n\nNEW SUMMARY")
+    assert "My take: earlier take" in doc
+    assert "My reflection: my words" in doc
+    assert col.upserted[2][0]["date"] == "20260101"
+
+
+def test_reflected_boost_identity_at_zero_and_reranks_when_on():
+    from ytk.store import _apply_reflected_boost
+
+    scored = [({"reflected": True}, 0.5), ({"title": "x"}, 0.4)]
+    assert _apply_reflected_boost(scored, 0.0) == scored
+    boosted = _apply_reflected_boost(scored, 0.3)
+    # 0.5 * 0.7 = 0.35 < 0.4: the reflected item overtakes
+    assert boosted[0][0].get("reflected") is True
+    assert boosted[1][1] == 0.4
+
+
+def test_update_video_enrichment_stamps_reflected_metadata(monkeypatch):
+    from ytk import store
+
+    col = _FakeVideosCol("t\n\ns")
+    monkeypatch.setattr(store, "_videos_collection", lambda: col)
+    store.update_video_enrichment("v", NEW, reflection="words")
+    assert col.upserted[2][0]["reflected"] is True
+
+
+def test_update_video_enrichment_carries_reflection_tail_without_takes(monkeypatch):
+    from ytk import store
+
+    col = _FakeVideosCol("old t\n\nold s\n\nMy reflection: first words")
+    monkeypatch.setattr(store, "_videos_collection", lambda: col)
+    assert store.update_video_enrichment("v", NEW, reflection="second words") is True
+    doc = col.upserted[1][0]
+    assert "My reflection: first words" in doc
+    assert "My reflection: second words" in doc

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import type { KeyboardEvent, MouseEvent, SyntheticEvent } from "react";
+import type { FormEvent, KeyboardEvent, MouseEvent, SyntheticEvent } from "react";
 import type { QueueItem } from "../api/queue";
+import { reflectAnswer } from "../api/mutations";
 import type { ProfileRankPick } from "../api/profileRank";
 import { PixelBloom } from "./PixelBloom";
 import { sourceIcon } from "./icons";
@@ -122,6 +123,57 @@ function CardActions({
   );
 }
 
+/* Reflection badge (#98): a sibling of the inspect target, like CardActions,
+   so activating it can never bubble into selection or the viewer. Answered
+   state flips locally; the queue refetches on its own schedule. */
+function CardReflection({ item }: { item: QueueItem }) {
+  const [answered, setAnswered] = useState(Boolean(item.reflection_answered));
+  const [open, setOpen] = useState(false);
+  const [answer, setAnswer] = useState("");
+  const question = item.reflection_question;
+  if (!question) return null;
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const text = answer.trim();
+    // Empty submit on an unanswered item stores nothing; on an answered one it
+    // clears the stored answer (the backend's empty-answer semantics).
+    if (text || answered) {
+      void reflectAnswer(item.url, text);
+      setAnswered(Boolean(text));
+    }
+    setOpen(false);
+  };
+
+  return (
+    <div className="px-[0.6rem] pb-[0.6rem] font-data text-[12px]">
+      <button
+        type="button"
+        className={`inline-grid h-5 w-5 place-items-center rounded-full border border-line bg-bg3 leading-none ${
+          answered ? "text-mute opacity-60" : "text-ink2 hover:border-accent hover:text-accent"
+        }`}
+        aria-expanded={open}
+        aria-label={`${answered ? "Reflection answered" : "Reflection question"}: ${question}`}
+        title={question}
+        onClick={() => setOpen((v) => !v)}
+      >
+        ?
+      </button>
+      {open ? (
+        <form onSubmit={handleSubmit}>
+          <input
+            className="mt-1.5 w-full rounded-[6px] border border-line bg-bg3 px-1.5 py-1 text-ink placeholder:text-mute"
+            aria-label={`Answer: ${question}`}
+            placeholder={question}
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+          />
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
 export function Card({
   item,
   onInspect,
@@ -206,6 +258,7 @@ export function Card({
           </div>
           {themeTag}
         </div>
+        <CardReflection item={item} />
       </div>
     );
   }
@@ -245,6 +298,7 @@ export function Card({
           {themeTag}
         </div>
       </div>
+      <CardReflection item={item} />
     </div>
   );
 }
