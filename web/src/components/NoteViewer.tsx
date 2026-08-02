@@ -229,8 +229,8 @@ export function NoteViewer({
   // open animation; a callback ref fires exactly when the node attaches, in
   // any engine, regardless of portal timing.
   const didAnimate = useRef(false);
-  const tweenRef = useRef<ReturnType<typeof gsap.from>>();
-  const overlayTweenRef = useRef<ReturnType<typeof gsap.from>>();
+  const tweenRef = useRef<ReturnType<typeof gsap.from> | undefined>(undefined);
+  const overlayTweenRef = useRef<ReturnType<typeof gsap.from> | undefined>(undefined);
   const overlayRafRef = useRef<[number, number]>([0, 0]);
 
   const dialogCallbackRef = useCallback(
