@@ -101,11 +101,11 @@ function RoadPanel({
   onClose: () => void;
 }) {
   return (
-    <aside className="absolute bottom-3 left-3 z-10 max-h-[64vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
+    <aside className="absolute left-3 top-14 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
       <header className="mb-2 flex items-center justify-between">
         <span className="text-xs uppercase tracking-widest text-mute">road</span>
         <button
-          className="px-1 text-mute hover:text-ink"
+          className="cursor-pointer appearance-none border-0 bg-transparent px-1 font-data text-sm text-mute hover:text-ink"
           onClick={onClose}
           aria-label="Close road mode"
         >
@@ -129,11 +129,11 @@ function RoadPanel({
           <p className="mb-2 text-xs text-mute">
             {angle?.toFixed(1)}&deg; apart &middot; background {background?.toFixed(3)}
           </p>
-          <ol aria-label="Road itinerary">
+          <ol className="m-0 list-none p-0" aria-label="Road itinerary">
             {route.waypoints.map((waypoint, index) => (
               <li key={index}>
                 <button
-                  className="grid w-full grid-cols-[2.6rem_1fr] gap-2 rounded px-1 py-0.5 text-left hover:bg-bg2"
+                  className="grid w-full cursor-pointer appearance-none grid-cols-[2.6rem_1fr] gap-2 rounded border-0 bg-transparent px-1 py-1 text-left font-data text-sm text-ink hover:bg-bg2"
                   onClick={() => onFly(waypoint.pointIndex)}
                 >
                   <span className="text-xs leading-5 text-mute">
