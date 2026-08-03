@@ -51,6 +51,12 @@ def _footer(fig, y: float, text: str, width: int = 132) -> None:
     fig.text(MARGIN, y, textwrap.fill(text, width), color=MUTED, fontsize=9.5, linespacing=1.6)
 
 
+def _legend(ax, loc: str = "best") -> None:
+    leg = ax.legend(frameon=False, fontsize=TICK_SIZE, loc=loc)
+    for t in leg.get_texts():
+        t.set_color(MUTED)
+
+
 def _curve(ax, curve: dict, color: str, label: str | None = None) -> None:
     ns = np.array(sorted(int(k) for k in curve))
     mean = np.array([curve[str(n)]["mean"] for n in ns])
@@ -80,18 +86,19 @@ def fig01(r: dict) -> None:
     )
 
     ax = fig.add_subplot(gs[0])
-    _curve(ax, e1["mean_norm_vs_n"], GOLD)
+    _curve(ax, e1["mean_norm_vs_n"], GOLD, label="fresh corpus, subsampled")
     ns = np.array(sorted(int(k) for k in e1["mean_norm_vs_n"]))
-    ax.plot(ns, 1 / np.sqrt(ns), color=RED, linewidth=1.2, linestyle="--")
-    ax.text(ns[1], 1 / np.sqrt(ns[1]) + 0.012, "isotropic 1/sqrt(n)", color=RED, fontsize=TICK_SIZE)
-    ax.axhline(fz["mean_norm"], color=CYAN, linewidth=1.0, linestyle=":")
-    ax.text(
-        ns[-2],
-        fz["mean_norm"] - 0.03,
-        f"freeze {fz['mean_norm']:.3f}",
-        color=CYAN,
-        fontsize=TICK_SIZE,
+    ax.plot(
+        ns, 1 / np.sqrt(ns), color=RED, linewidth=1.2, linestyle="--", label="isotropic 1/sqrt(n)"
     )
+    ax.axhline(
+        fz["mean_norm"],
+        color=CYAN,
+        linewidth=1.0,
+        linestyle=":",
+        label=f"frozen snapshot ({fz['mean_norm']:.3f})",
+    )
+    _legend(ax, "center right")
     style_axes(ax)
     ax.set_xlabel("notes sampled from the fresh corpus")
     ax.set_ylabel("length of the mean vector")
@@ -105,8 +112,9 @@ def fig01(r: dict) -> None:
         ("isotropic reference", fz["mean_norm_isotropic"], fr["mean_norm_isotropic"]),
     ]
     y = np.arange(len(rows))[::-1]
-    ax.barh(y + 0.18, [v for _, v, _ in rows], height=0.32, color=CYAN, alpha=0.85)
-    ax.barh(y - 0.18, [v for _, _, v in rows], height=0.32, color=GOLD, alpha=0.85)
+    ax.barh(y + 0.18, [v for _, v, _ in rows], height=0.32, color=CYAN, alpha=0.85, label="freeze")
+    ax.barh(y - 0.18, [v for _, _, v in rows], height=0.32, color=GOLD, alpha=0.85, label="fresh")
+    _legend(ax, "lower right")
     for yi, (lab, a, b) in zip(y, rows):
         ax.text(a + 0.008, yi + 0.18, f"freeze {a:.4f}", color=CYAN, fontsize=8.2, va="center")
         ax.text(b + 0.008, yi - 0.18, f"fresh  {b:.4f}", color=GOLD, fontsize=8.2, va="center")
@@ -140,11 +148,11 @@ def fig02(r: dict) -> None:
     )
     gs = fig.add_gridspec(1, 1, left=0.055, right=1 - MARGIN - 0.015, top=top, bottom=0.24)
     ax = fig.add_subplot(gs[0])
-    _curve(ax, e2["pr_vs_n"], GOLD)
+    _curve(ax, e2["pr_vs_n"], GOLD, label="fresh corpus, subsampled")
     ns = np.array(sorted(int(k) for k in e2["pr_vs_n"]))
-    ax.plot(ns, ns - 1, color=RED, linewidth=1.2, linestyle="--")
-    ax.text(ns[0] + 6, ns[0] + 8, "hard cap n-1", color=RED, fontsize=TICK_SIZE, rotation=30)
-    ax.scatter([493], [e2["freeze"]], s=52, c=CYAN, zorder=6, linewidths=0)
+    ax.plot(ns, ns - 1, color=RED, linewidth=1.2, linestyle="--", label="hard cap n-1")
+    ax.scatter([493], [e2["freeze"]], s=52, c=CYAN, zorder=6, linewidths=0, label="frozen snapshot")
+    _legend(ax, "lower right")
     ax.annotate(
         f"frozen snapshot  {e2['freeze']:.1f}",
         (493, e2["freeze"]),
@@ -201,16 +209,28 @@ def fig03(r: dict) -> None:
     gs = fig.add_gridspec(1, 1, left=0.30, right=0.70, top=top, bottom=0.20)
     ax = fig.add_subplot(gs[0])
     lim = float(max(zf.max(), zg.max())) * 1.08
-    ax.plot([0, lim], [0, lim], color=MUTED, linewidth=1.0, linestyle="--", alpha=0.6)
-    ax.axhline(2, color=RED, linewidth=1.0, linestyle=":", alpha=0.8)
+    ax.plot(
+        [0, lim], [0, lim], color=MUTED, linewidth=1.0, linestyle="--", alpha=0.6, label="y = x"
+    )
+    ax.axhline(2, color=RED, linewidth=1.0, linestyle=":", alpha=0.8, label="z = 2 threshold")
     ax.axvline(2, color=RED, linewidth=1.0, linestyle=":", alpha=0.8)
-    ax.text(lim * 0.86, 2.4, "z = 2", color=RED, fontsize=TICK_SIZE)
-    ax.scatter(zf, zg, s=22, c=GOLD, alpha=0.85, linewidths=0)
-    for tag in set(e3["flips_below_2"] + e3["flips_above_2"] + ["creative-coding", "ai"]):
-        if tag not in shared:
-            continue
+    ax.scatter(zf, zg, s=22, c=GOLD, alpha=0.85, linewidths=0, label="shared tags")
+    flagged = [
+        t
+        for t in set(e3["flips_below_2"] + e3["flips_above_2"] + ["creative-coding", "ai"])
+        if t in shared
+    ]
+    for pos, tag in enumerate(flagged):
         i = shared.index(tag)
-        ax.scatter([zf[i]], [zg[i]], s=34, c=RED, zorder=6, linewidths=0)
+        ax.scatter(
+            [zf[i]],
+            [zg[i]],
+            s=34,
+            c=RED,
+            zorder=6,
+            linewidths=0,
+            label="threshold crossers and largest movers" if pos == 0 else None,
+        )
         ax.annotate(
             tag,
             (zf[i], zg[i]),
@@ -220,6 +240,7 @@ def fig03(r: dict) -> None:
             fontsize=8.6,
         )
     ax.set_aspect("equal")
+    _legend(ax, "upper left")
     style_axes(ax)
     ax.set_xlabel("z on the frozen snapshot")
     ax.set_ylabel("z on the fresh corpus")
@@ -381,7 +402,7 @@ def fig06(c: dict) -> None:
     )
 
     ax = fig.add_subplot(gs[0])
-    ax.plot(ranks, share, color=GOLD, linewidth=2.0)
+    ax.plot(ranks, share, color=GOLD, linewidth=2.0, label="observed concentration")
     for k in (10, 50):
         ax.scatter([k], [share[k - 1]], s=34, c=CYAN, zorder=5, linewidths=0)
         ax.annotate(
@@ -392,8 +413,10 @@ def fig06(c: dict) -> None:
             color=CYAN,
             fontsize=TICK_SIZE,
         )
-    ax.plot(ranks, ranks / len(counts), color=RED, linewidth=1.1, linestyle="--")
-    ax.text(len(counts) * 0.55, 0.42, "uniform share", color=RED, fontsize=TICK_SIZE, rotation=24)
+    ax.plot(
+        ranks, ranks / len(counts), color=RED, linewidth=1.1, linestyle="--", label="uniform share"
+    )
+    _legend(ax, "upper left")
     ax.set_xscale("log")
     style_axes(ax)
     ax.set_xlabel("notes ranked by paths served (log)")
