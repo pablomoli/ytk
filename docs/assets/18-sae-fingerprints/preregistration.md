@@ -87,6 +87,22 @@ Judgment call recorded up front: whether the set-diff readout beats the
 existing Haiku narration is subjective; both are shown side by side and
 the verdict is argued, not scored.
 
+### 18.4b — continuous cross-space agreement (registered 2026-08-03, after
+### 18.4's quantized companion failed at r = 0.391)
+
+Question: was the 18.4 companion failure the quantization or the absence of
+a relationship? Replace fifteenths-quantized Jaccard with a continuous
+measure: per tag, the full 16384-dim differential-z vector from 18.4; per
+tag pair, the cosine between those z-vectors (SAE side) against the Qwen
+centroid cosine, over the same 45 pairs.
+Prediction: r >= 0.4 — same threshold as the failed companion, kept
+deliberately: if quantization was the problem, removing it should clear
+the same bar, not a lowered one.
+Control: z-vectors recomputed under shuffled tags give r near 0.
+Kill: none; either answer resolves the question. Declared context: the
+18.4 point estimates were already seen when this was registered — the
+z-vectors themselves are reused, only the pair-similarity measure is new.
+
 ## Section 19 — rank metrics (Phase A, offline; Phase B only through the gate)
 
 Metrics: cosine, cosine-centred, L1, Spearman (rank-transform then cosine),
