@@ -1,0 +1,72 @@
+[
+ {
+  "claim": "Gemma Scope (original) is DeepMind's open SAE suite for Gemma 2 2B and 9B (all layers/sublayers) plus select layers of 27B, released Aug 2024, CC-BY-4.0, on HuggingFace.",
+  "verdict": "CONFIRMED",
+  "correction": "HF page confirms: 'comprehensive, open suite of sparse autoencoders for Gemma 2 9B and 2B' with all-layer coverage at attention/MLP/residual sites (width 2^14) plus larger widths (2^15-2^20) at select layers, select-layer 27B PT and 9B IT SAEs, cc-by-4.0 license, arXiv 2408.05147 (Aug 2024), JumpReLU. The >400 SAEs / >30M features counts are from the arXiv abstract, not stated on the HF page itself, but nothing contradicts them."
+ },
+ {
+  "claim": "Neuronpedia's flagship/default Gemma Scope demo configuration is Gemma 2 2B PT residual stream, layer 20, width 16k, average L0 71.",
+  "verdict": "CONFIRMED",
+  "correction": "The google/gemma-scope README has a literal section 'Which SAE is in the Neuronpedia demo?' answering: huggingface.co/google/gemma-scope-2b-pt-res/tree/main/layer_20/width_16k/average_l0_71 \u2014 i.e. 2B PT residual, layer 20, 16k, average L0 71."
+ },
+ {
+  "claim": "Gemma Scope 2 exists and covers Gemma 3 \u2014 direct answer to whether a newer-generation equivalent exists.",
+  "verdict": "CONFIRMED",
+  "correction": "PDF header dated 2025-09-16, authors Callum McDougall, Arthur Conmy, J\u00e1nos Kram\u00e1r, Tom Lieberum, Senthooran Rajamanoharan, Neel Nanda (Google). Abstract: JumpReLU SAEs and skip-transcoders on all layers and sub-layers of Gemma 3 at 270M, 1B, 4B, 12B, 27B; every model has a finetuned IT variant; 'permissive CC-BY-4.0 license on HuggingFace'. HF repo google/gemma-scope-2 exists (public, cc-by-4.0, lastModified 2025-12-19, consistent with the claimed blog release date)."
+ },
+ {
+  "claim": "Gemma Scope 2's exact selected-layer indices per Gemma 3 model size (zero-indexed transformer blocks) are given in Table 1 of the technical paper.",
+  "verdict": "CONFIRMED",
+  "correction": "Table 1 (p.6) layer sets match exactly in model-size order: {5,9,12,15}, {7,13,17,22}, {9,17,22,29}, {12,24,31,41}, {16,31,40,53}. Select-layer SAEs: widths {16k,64k,256k,1m} at L0s {10,50,150}; all-layer SAEs: {16k,256k} at L0s {10,100}. Footnote a: 'Only the residual stream SAEs have a 1m-width released.' Zero-indexing confirmed in Section 3.1: 'We zero-index the layers, so layer 0 refers to the first transformer block after the embedding layer.' (Model-name column labels did not render in extraction, but group order is pinned by the CLT rows appearing only for the two smallest models, matching the text's '270M, 1B'.)"
+ },
+ {
+  "claim": "Llama Scope provides 256 TopK SAEs across every layer and 4 sublayer positions of Llama-3.1-8B-Base only, widths 32k/128k, Apache 2.0 licensed.",
+  "verdict": "CONFIRMED",
+  "correction": "HF page: 'a suite of 256 improved TopK SAEs, trained on each layer and sublayer of the Llama-3.1-8B-Base model'; positions R/A/M/TC; 32K and 128K widths (8x/32x expansion); apache-2.0; arXiv 2410.20526; attention-position (LXA) SAEs noted to 'have a lot of inactive features' and marked '(Not recommended)'."
+ },
+ {
+  "claim": "Neuronpedia's canonical API docs live at docs.neuronpedia.org, with an interactive OpenAPI/Scalar reference at neuronpedia.org/api-doc, and the docs page explicitly says the API is a work in progress.",
+  "verdict": "CONFIRMED",
+  "correction": "docs.neuronpedia.org/api contains the exact sentence 'The API is a work-in-progress and will be more fleshed out in the coming days.' and links to neuronpedia.org/api-doc where you can 'test the API directly in your browser'."
+ },
+ {
+  "claim": "The base API host is https://www.neuronpedia.org/api/* \u2014 all endpoints below are relative to that.",
+  "verdict": "CONFIRMED",
+  "correction": "NLA demo notebook sets BASE_URL = \"https://www.neuronpedia.org\" and calls f\"{BASE_URL}/api/...\"; every route swagger block uses /api/* paths."
+ },
+ {
+  "claim": "Feature metadata + explanations: GET /api/feature/{modelId}/{layer}/{index} \u2014 no auth required for public models, returns the feature record including its explanations and top activations.",
+  "verdict": "CONFIRMED",
+  "correction": "Route source verified: swagger 'Get Feature ... Returns a feature, including its activations and explanations', params modelId (default gpt2-small), layer (default 0-res-jb), index (number, default 14057); handler is withOptionalUser calling getNeuronOptimized, 404 with ERROR_NOT_FOUND_MESSAGE when not found."
+ },
+ {
+  "claim": "Batch feature metadata fetch: POST /api/features accepts an array of {modelId, layer, index, maxActsToReturn?} and returns metadata for all of them in one call, preserving request order.",
+  "verdict": "CONFIRMED",
+  "correction": "Route source verified: yup array schema of {modelId: string required, layer: string required, index: integer required, maxActsToReturn?: integer}; response re-sorted to match input order. Implementation nuance: only the FIRST element's maxActsToReturn is honored (getNeurons(features, user, featuresRequest[0].maxActsToReturn)), and the re-sort keys on index alone \u2014 fine for single-SAE batches, order can be imprecise if the same index appears under different layers."
+ },
+ {
+  "claim": "Activation testing on a single named feature: POST /api/activation/new \u2014 the closest match to 'run activation tests on caller-supplied text' but scoped to one specific feature you already know the index of.",
+  "verdict": "CONFIRMED",
+  "correction": "Route source verified: body {feature: {modelId, source, index}, customText: string | string[]} (also accepts legacy 'neuron'/'layer' keys); response schema InferenceActivationResultSingle with tokens[], activations{layer, index, values[], maxValue, maxValueIndex, dfaValues[], dfaTargetIndex, dfaMaxValue}, error?; swagger example is gpt2-small/9-res-jb/200 with 'Hello world'; handler is withOptionalUser. Minor: swagger types feature.index as string (default \"200\"), not number."
+ },
+ {
+  "claim": "POST /api/search-all runs full inference over the whole text, returns top-N firing features across a chosen SAE set/layers, and natively accepts an array of texts for batch mode.",
+  "verdict": "CONFIRMED",
+  "correction": "Route source verified: body {modelId, sourceSet, text: string|string[], selectedLayers ([] = all SAEs in set), sortIndexes ([] = sort by max activation), ignoreBos default true, densityThreshold default -1, numResults default 50 max 100}; batch branch calls runInferenceActivationAll and returns {results: [{tokens, result[], counts, sortIndexes}]} \u2014 one object per input text; result items carry modelId, layer, index (string), maxValue, maxValueIndex, values[], dfaValues[], dfaTargetIndex, dfaMaxValue. Swagger description verbatim: 'Equivalent to the https://neuronpedia.org/search functionality. Contact us to increase your rate limit for free if you hit it.'"
+ },
+ {
+  "claim": "Explanation-text semantic search exists as POST /api/explanation/search (one model + list of SAE layers) and POST /api/explanation/search-all (all of Neuronpedia).",
+  "verdict": "CONFIRMED",
+  "correction": "Both route sources verified: /api/explanation/search yup schema {modelId required (swagger default gemma-2-2b), layers: string[] required (default ['20-gemmascope-res-16k','21-gemmascope-res-16k']), query required min 3, offset?}; search-all drops modelId/layers. Both call getExplanationEmbeddingSql then searchExplanationsVec / searchExplanationsAllVec; MAX_EXPLANATION_SEARCH_RESULTS = 20 (lib/db/explanation.ts) with hasMore/nextOffset pagination; response {request, results, resultsCount, hasMore, nextOffset}. The OPENAI_API_KEY-for-self-hosters consequence is an inference from the OpenAI embedding dependency, not directly tested."
+ },
+ {
+  "claim": "Authentication: free API key from the account page, sent in header x-api-key; anonymous access works for most read/inference endpoints; a key only raises rate limits and only if allowlisted.",
+  "verdict": "CONFIRMED",
+  "correction": "env.ts: API_KEY_HEADER_NAME = 'x-api-key' and HIGHER_LIMIT_API_TOKENS = process.env.HIGHER_LIMIT_API_TOKENS?.split(',') (lines 160-162). with-user.ts withAuthedUser 401 message verbatim: 'Specify your API key in the header x-api-key. Your API key is under Settings on neuronpedia.org.' NLA notebook verbatim: 'Anonymous access is fine \u2014 the API doesn't require a key. With a key from your account page you get higher rate limits.' All routes in this plan use withOptionalUser. INFERENCE_SERVER_SECRET is indeed a separate internal env var (env.ts line 95)."
+ },
+ {
+  "claim": "Rate limits enforced per source-IP via Upstash/Vercel-KV sliding window, 60-minute window, published per-endpoint table; higher tier requires the key to be on the HIGHER_LIMIT_API_TOKENS allowlist.",
+  "verdict": "CONFIRMED",
+  "correction": "middleware.ts verified: RATE_LIMIT_WINDOW = '60 m'; Ratelimit.slidingWindow over @vercel/kv; bucket key is ipAddress(request); tier chosen by HIGHER_LIMIT_API_TOKENS.includes(apiKey). Normal limits match exactly: activation/new 1000, explanation/search 200, steer 120, search-topk-by-token 500, search-all 1600. Higher: activation/new 3000, explanation/search 3000, steer 1000 (note search-all stays 1600 in both tiers). 429 body: 'Contact ${CONTACT_EMAIL_ADDRESS} to increase your rate limit' with default johnny@neuronpedia.org (env.ts 26-27). ENABLE_RATE_LIMITER = process.env.ENABLE_RATE_LIMITER === 'true'; its production value is indeed unverifiable from outside."
+ }
+]
