@@ -562,5 +562,123 @@
     "both_coherent": true
    }
   ]
+ },
+ "barycentric": {
+  "real_novel": 3,
+  "degenerate_novel": 0,
+  "triples": [
+   {
+    "notes": [
+     "Let's build GPT: from scratch, in code, ",
+     "Bad Apple!! but it's a fluid simulation",
+     "marimo_io-2026-07-14-Dax-us0O7-s"
+    ],
+    "novel": true
+   },
+   {
+    "notes": [
+     "soda-2026-07-12-DarTzUipT2d",
+     "techwith.ram-2026-07-09-DakiTf8CRXb",
+     "stargir1z-2026-07-21-DbDYTOjsm5D"
+    ],
+    "novel": false
+   },
+   {
+    "notes": [
+     "xeocho-2026-07-20-DbB514pxKp0",
+     "Working at DeepMind, Interview Tips & do",
+     "jul-27-2026-17866123292"
+    ],
+    "novel": false
+   },
+   {
+    "notes": [
+     "Can RNG design better MONSTERS than me?",
+     "How to Write a Paper in a Weekend (By Pr",
+     "aixplained.io-2026-07-04-DaXeYgpBXMU"
+    ],
+    "novel": true
+   },
+   {
+    "notes": [
+     "ffppod-2026-07-18-Da8bnJvlDyE",
+     "\"Save for Later\" Has No Later",
+     "One Must Imagine Sisyphus Important"
+    ],
+    "novel": false
+   },
+   {
+    "notes": [
+     "Here's Where Agentic UI Is Actually Goin",
+     "erinmerylstudy-2026-07-19-Da9oM3IG_ff",
+     "erinmerylstudy-2026-07-11-DaqrXzlyDFJ"
+    ],
+    "novel": false
+   },
+   {
+    "notes": [
+     "namedotcom-2026-04-06-762572574797339369",
+     "pinterest-306174474692151881",
+     "richardvnd-2026-06-03-DZHm3oAoZYs"
+    ],
+    "novel": false
+   },
+   {
+    "notes": [
+     "Stylized Cartoon Shader In THREE.JS ( Fu",
+     "bottomlinebydrishti-2026-04-07-DW2DwdUDP",
+     "How Your Brain Makes Its Own Electricity"
+    ],
+    "novel": false
+   },
+   {
+    "notes": [
+     "cabeza_patata-2026-07-14-Daxp5aJM1VA",
+     "Become the Most WELL-ROUNDED Dev",
+     "farrahmeralicbc-2026-05-29-DY7UJ_VCd6-"
+    ],
+    "novel": true
+   },
+   {
+    "notes": [
+     "ffppod-2026-07-12-DatKwQtCPtU",
+     "k45ink-2026-07-22-DbEzuv3DH2Y",
+     "How I Built a Difference | My Engineerin"
+    ],
+    "novel": false
+   }
+  ]
+ },
+ "extrapolation": {
+  "background": 0.2593879699707031,
+  "operationalization": "p5 across census pairs must exceed background",
+  "quantiles": {
+   "1.0": {
+    "median": 0.5593991279602051,
+    "p5": 0.40834221839904783,
+    "frac_above_bg": 1.0
+   },
+   "1.1": {
+    "median": 0.538089394569397,
+    "p5": 0.38397011160850525,
+    "frac_above_bg": 1.0
+   },
+   "1.25": {
+    "median": 0.4945133924484253,
+    "p5": 0.3404696524143219,
+    "frac_above_bg": 1.0
+   },
+   "1.5": {
+    "median": 0.39816534519195557,
+    "p5": 0.24797165989875794,
+    "frac_above_bg": 0.9320794148380356
+   },
+   "1.75": {
+    "median": 0.27464422583580017,
+    "p5": 0.13786324858665466,
+    "frac_above_bg": 0.5569487983281086
+   }
+  },
+  "confirmed_at_1_5": false
  }
 }

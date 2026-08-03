@@ -52,12 +52,47 @@ between cities; this says every pair of major cities already has a paved
 crossing. Acquisition targeting, if it ever matters, must look below tag
 granularity (note-level gap stretches), not at it.
 
+## 20.2 — barycentric blends: CONFIRMED at exactly the bar
+
+3 of 10 seeded cross-tag triples produce a barycenter whose top retrieved
+note differs from all three pairwise midpoints' tops (registered >= 3);
+the degenerate control (note + its two nearest neighbors) shows 0/10, as
+expected. Three-note blends are a real query mode, but a marginal one —
+seven times out of ten the pairwise roads already cover the territory.
+Worth exposing in a path interface as a variant, not a headline.
+
+## 20.3 — extrapolation: FAILED, with the usable leash measured
+
+Registered: support stays above background through t = 1.5.
+Operationalized at run time (the registration did not fix the statistic;
+recorded as such): 5th percentile across the 957 census arcs. Measured:
+p5 crosses background just before 1.5 (0.248 vs 0.259; 93.2% of walks
+still above). Full profile: t <= 1.25 is fully safe (100% above
+background), 1.5 loses the bottom 7%, 1.75 collapses (44% below). "More
+of B, away from A" is a usable query with a shorter leash than predicted
+— t <= 1.25 as the default cap, which is the number an interface slider
+should enforce.
+
 ## Figures
 
 - `01-highway.png` — vocabulary handover + feature lanes for the
   registered highway
 - `02-missing-bridges.png` — 45 bridges in a 0.07-wide band, the one
   starred crossing barely under the median
+- `03-blends-extrapolation.png` — barycentric novelty vs control; support
+  decay past the end of the road
+
+## Corpus action items produced by sections 17-20 (filed)
+
+- #166 — duplicate-ingestion audit + ingest-time content-identity guard
+  (from 19.3: duplicates are re-ingestions with different texts).
+- #167 — boilerplate contamination: strip at ingest, find retroactively by
+  ranking notes on the cookie-policy SAE feature (from 18.4's creator
+  panel) — the fingerprint matrix doubles as a data-quality scanner.
+- #168 — tag consolidation: near-synonym sprawl measured by centroid
+  cosine + co-occurrence (from the coherence top-5 being near-clones and
+  creator failing coherence).
+- #164 — the two-store env fork (infrastructure, from 18.2's incident).
 
 ## Render
 

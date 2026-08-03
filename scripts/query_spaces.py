@@ -401,5 +401,180 @@ def main() -> None:
     save(fig, "02-missing-bridges.png")
 
 
+def blends_and_extrapolation() -> None:
+    """20.2 barycentric blends + 20.3 extrapolation (registered)."""
+    X = unit(np.load(GROWTH / "vectors-fresh.npz")["X"].astype(np.float32))
+    meta = json.loads((GROWTH / "tags-fresh.json").read_text())
+    labels, names = meta["labels"], meta["names"]
+    n = len(X)
+    background = float((X @ X.T)[np.triu_indices(n, 1)].mean())
+    rng = np.random.default_rng(SEED + 1)
+    counts = Counter(t for ls in labels for t in ls)
+    big = [t for t, _ in counts.most_common(N_TAGS)]
+    by_tag = {t: [i for i, ls in enumerate(labels) if t in ls] for t in big}
+
+    def top_excluding(v: np.ndarray, excl: set[int]) -> int:
+        sims = X @ v
+        for e in excl:
+            sims[e] = -np.inf
+        return int(sims.argmax())
+
+    # ---- 20.2 barycentric novelty, real triples vs degenerate control
+    def novelty(triples: list[tuple[int, int, int]]) -> list[bool]:
+        out = []
+        for a, b, c in triples:
+            excl = {a, b, c}
+            bary = top_excluding(unit(X[a] + X[b] + X[c]), excl)
+            mids = {
+                top_excluding(unit(X[a] + X[b]), excl),
+                top_excluding(unit(X[b] + X[c]), excl),
+                top_excluding(unit(X[a] + X[c]), excl),
+            }
+            out.append(bary not in mids)
+        return out
+
+    real_triples = []
+    for _ in range(10):
+        ta, tb, tc = rng.choice(len(big), size=3, replace=False)
+        real_triples.append(
+            (
+                int(rng.choice(by_tag[big[ta]])),
+                int(rng.choice(by_tag[big[tb]])),
+                int(rng.choice(by_tag[big[tc]])),
+            )
+        )
+    cos_full = X @ X.T
+    np.fill_diagonal(cos_full, -np.inf)
+    degen_triples = []
+    for _ in range(10):
+        a = int(rng.integers(0, n))
+        nnb = np.argsort(-cos_full[a])[:2]
+        degen_triples.append((a, int(nnb[0]), int(nnb[1])))
+    nov_real = novelty(real_triples)
+    nov_degen = novelty(degen_triples)
+    print(
+        f"20.2 barycentric novelty: real {sum(nov_real)}/10 (registered >= 3)  ·  "
+        f"degenerate control {sum(nov_degen)}/10 (expected ~0)"
+    )
+
+    # ---- 20.3 extrapolation past B on the census pairs
+    S_cos = cos_full.copy()
+    nn_idx = S_cos.argmax(axis=1)
+    pairs_nn = sorted({(min(i, int(j)), max(i, int(j))) for i, j in enumerate(nn_idx)})
+    crng = np.random.default_rng(20260804)
+    pairs_rand: set[tuple[int, int]] = set()
+    while len(pairs_rand) < 500:
+        a, b = (int(v) for v in crng.integers(0, n, 2))
+        if a != b and (min(a, b), max(a, b)) not in pairs_nn:
+            pairs_rand.add((min(a, b), max(a, b)))
+    all_pairs = pairs_nn + sorted(pairs_rand)
+    ts_ext = [1.0, 1.1, 1.25, 1.5, 1.75]
+    # operationalization chosen at run time (registered wording said only
+    # "support stays above background through t = 1.5"): judged on the 5th
+    # percentile across all census pairs — 95% of walks must stay above.
+    quant = {}
+    for t in ts_ext:
+        sups = []
+        for i, j in all_pairs:
+            v = slerp(X[i], X[j], float(t))
+            sims = X @ v
+            sims[[i, j]] = -np.inf
+            sups.append(float(sims.max()))
+        sups = np.array(sups)
+        quant[t] = {
+            "median": float(np.median(sups)),
+            "p5": float(np.percentile(sups, 5)),
+            "frac_above_bg": float((sups > background).mean()),
+        }
+        print(
+            f"  t={t:.2f}  median {quant[t]['median']:.3f}  p5 {quant[t]['p5']:.3f}  "
+            f"above-bg {quant[t]['frac_above_bg']:.1%}"
+        )
+    confirmed = quant[1.5]["p5"] > background
+    print(
+        f"20.3 verdict at t=1.5: p5 {quant[1.5]['p5']:.3f} vs background {background:.3f} -> "
+        f"{'CONFIRMED' if confirmed else 'FAILED'}"
+    )
+
+    prev = json.loads((OUTDIR / "results.json").read_text())
+    prev["barycentric"] = {
+        "real_novel": int(sum(nov_real)),
+        "degenerate_novel": int(sum(nov_degen)),
+        "triples": [
+            {"notes": [names[k][:40] for k in tr], "novel": bool(nv)}
+            for tr, nv in zip(real_triples, nov_real)
+        ],
+    }
+    prev["extrapolation"] = {
+        "background": background,
+        "operationalization": "p5 across census pairs must exceed background",
+        "quantiles": {str(t): q for t, q in quant.items()},
+        "confirmed_at_1_5": bool(confirmed),
+    }
+    (OUTDIR / "results.json").write_text(json.dumps(prev, indent=1))
+
+    fig, top_ = figure(
+        16.5,
+        6.8,
+        3,
+        "query spaces",
+        "Blends that pairwise roads cannot ask, and the road past the end",
+        "left: barycenter of 3 cross-tag notes vs its three pairwise midpoints, 10 seeded "
+        "triples + degenerate control  ·  right: support extrapolating past B on the 957 "
+        "census arcs  ·  registered: novelty >= 3/10; p5 above background through t = 1.5",
+    )
+    gs = fig.add_gridspec(
+        1,
+        2,
+        width_ratios=[1, 1.5],
+        left=0.07,
+        right=1 - MARGIN - 0.015,
+        top=top_,
+        bottom=0.21,
+        wspace=0.30,
+    )
+    ax = fig.add_subplot(gs[0])
+    bars = ax.bar(
+        [0, 1],
+        [sum(nov_real), sum(nov_degen)],
+        color=[GOLD, MUTED],
+        width=0.55,
+    )
+    for b, v in zip(bars, [sum(nov_real), sum(nov_degen)]):
+        ax.text(
+            b.get_x() + b.get_width() / 2, v + 0.15, str(v), ha="center", color=MUTED, fontsize=10
+        )
+    ax.axhline(3, color=RED, linewidth=1.0, linestyle="--", label="registered threshold")
+    ax.set_xticks([0, 1], ["cross-tag triples", "degenerate control"], fontsize=9)
+    ax.set_ylim(0, 10.5)
+    leg = ax.legend(frameon=False, fontsize=TICK_SIZE, loc="upper right")
+    for t_ in leg.get_texts():
+        t_.set_color(MUTED)
+    style_axes(ax)
+    ax.set_ylabel("triples where the barycenter finds a new note (of 10)")
+    panel_title(ax, "does a 3-blend ask anything new?", width=44)
+
+    ax = fig.add_subplot(gs[1])
+    med = [quant[t]["median"] for t in ts_ext]
+    p5 = [quant[t]["p5"] for t in ts_ext]
+    ax.plot(
+        ts_ext, med, color=GOLD, linewidth=2.0, marker="o", markersize=5, label="median support"
+    )
+    ax.plot(ts_ext, p5, color=BLUE, linewidth=1.6, marker="o", markersize=4, label="5th percentile")
+    ax.axhline(background, color=RED, linewidth=1.1, linestyle="--", label="corpus background")
+    ax.axvline(1.5, color=MUTED, linewidth=0.9, linestyle=":", alpha=0.7)
+    leg = ax.legend(frameon=False, fontsize=TICK_SIZE, loc="upper right")
+    for t_ in leg.get_texts():
+        t_.set_color(MUTED)
+    style_axes(ax)
+    ax.set_xlabel("t along the arc (1.0 = endpoint B; beyond is 'more B, away from A')")
+    ax.set_ylabel("support of nearest real note")
+    panel_title(ax, "past the end of the road", width=44)
+    save(fig, "03-blends-extrapolation.png")
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "blends":
+        blends_and_extrapolation()
+    else:
+        main()
