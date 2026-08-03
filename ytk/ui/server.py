@@ -352,6 +352,22 @@ async def fresh_api(n: int = 30):
     return hub.fresh_notes(n=n)
 
 
+@app.get("/api/path")
+def path_api(a: str, b: str, stops: int = 9, k: int = 3):
+    from ytk.ui import hub
+
+    stops = max(3, min(stops, 21))
+    k = max(1, min(k, 5))
+    try:
+        return hub.compute_path(a, b, stops=stops, k=k)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/api/library")
 async def library_api(n: int = 60, offset: int = 0, source: str = "", q: str = ""):
     """The whole ingested store as cards — the fresh feed without the window."""

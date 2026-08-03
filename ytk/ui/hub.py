@@ -1653,3 +1653,104 @@ def _note_card(md, brain, memos) -> dict:
             date=(meta.get("captured") or "")[:10] or entry["date"],
         )
     return entry
+
+
+# ---------------------------------------------------------------------------
+# Path view: roads between two notes (docs/assets/15-20 program, measured
+# constants: cosine retrieval, content-identity dedup, endpoints excluded)
+# ---------------------------------------------------------------------------
+
+_PATH_CACHE: dict = {}
+
+
+def path_vectors() -> tuple[list[dict], object]:
+    """Video metadata + unit vectors from the live store, cached by count."""
+    import numpy as np
+
+    import ytk.vault  # noqa: F401  — sets CHROMA_URL; bare store import reads a stale DB (#164)
+    from ytk import store
+
+    col = store._videos_collection()
+    count = col.count()
+    if _PATH_CACHE.get("count") != count:
+        got = col.get(include=["embeddings", "metadatas"])
+        embeddings = got["embeddings"]
+        metadatas = got["metadatas"]
+        if embeddings is None or metadatas is None:
+            raise RuntimeError("videos collection returned no embeddings/metadatas")
+        X = np.asarray(embeddings, dtype=np.float32)
+        X /= np.linalg.norm(X, axis=1, keepdims=True) + 1e-12
+        _PATH_CACHE.update(count=count, metas=list(metadatas), X=X)
+    return _PATH_CACHE["metas"], _PATH_CACHE["X"]
+
+
+def _resolve_path_endpoint(query: str, metas: list[dict]) -> int:
+    """video_id or url exactly, else unique case-insensitive title substring."""
+    q = query.strip()
+    for i, m in enumerate(metas):
+        if q and (m.get("video_id") == q or m.get("url") == q):
+            return i
+    ql = q.lower()
+    hits = [i for i, m in enumerate(metas) if ql and ql in str(m.get("title", "")).lower()]
+    if not hits:
+        raise LookupError(f"no note matches {query!r}")
+    if len(hits) > 1:
+        titles = ", ".join(str(metas[i].get("title", ""))[:40] for i in hits[:4])
+        raise ValueError(f"{query!r} is ambiguous: {titles}")
+    return hits[0]
+
+
+def compute_path(a: str, b: str, stops: int = 9, k: int = 3, fetch=path_vectors) -> dict:
+    """Slerp itinerary from note a to note b over the videos collection.
+
+    Endpoints and their content-duplicates (same video_id) are excluded from
+    retrieval; support is raw cosine so the frontend can judge against the
+    corpus background it fetches once.
+    """
+    import numpy as np
+
+    metas, X = fetch()
+    ia = _resolve_path_endpoint(a, metas)
+    ib = _resolve_path_endpoint(b, metas)
+    if ia == ib:
+        raise ValueError("both endpoints resolve to the same note")
+    dup_ids = {metas[ia].get("video_id"), metas[ib].get("video_id")} - {None}
+    excluded = [i for i, m in enumerate(metas) if m.get("video_id") in dup_ids]
+
+    va, vb = X[ia], X[ib]
+    om = float(np.arccos(np.clip(float(va @ vb), -1.0, 1.0)))
+    out_stops = []
+    for t in np.linspace(0.0, 1.0, max(2, stops)):
+        v = (np.sin((1 - t) * om) * va + np.sin(t * om) * vb) / (np.sin(om) + 1e-12)
+        sims = X @ v
+        sims[excluded] = -np.inf
+        top = [j for j in np.argsort(-sims)[:k] if np.isfinite(sims[j])]
+        out_stops.append(
+            {
+                "t": round(float(t), 4),
+                "support": round(float(sims[top[0]]), 4),
+                "notes": [
+                    {
+                        "title": str(metas[j].get("title", ""))[:120],
+                        "url": metas[j].get("url"),
+                        "video_id": metas[j].get("video_id"),
+                        "weight": round(float(sims[j]), 4),
+                    }
+                    for j in top
+                ],
+            }
+        )
+    iu = np.triu_indices(len(X), k=1)
+    background = float((X @ X.T)[iu].mean()) if len(X) > 1 else 0.0
+    endpoint = lambda i: {
+        "title": str(metas[i].get("title", ""))[:120],
+        "url": metas[i].get("url"),
+        "video_id": metas[i].get("video_id"),
+    }
+    return {
+        "a": endpoint(ia),
+        "b": endpoint(ib),
+        "angle_deg": round(float(np.degrees(om)), 1),
+        "background": round(background, 4),
+        "stops": out_stops,
+    }
