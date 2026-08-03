@@ -1,0 +1,31 @@
+{
+ "seed": 20260807,
+ "tag_match_at_10_pct": {
+  "cosine": 82.04,
+  "cosine-centred": 83.26,
+  "L1": 81.92,
+  "spearman": 81.65,
+  "spearman-centred": 82.94,
+  "csls": 82.59
+ },
+ "permuted_floor_pct": 41.41,
+ "gaps": {
+  "raw_spearman_minus_cosine": -0.39,
+  "centred": -0.32
+ },
+ "hub": {
+  "top10_share_cosine": 0.1223,
+  "top10_share_csls": 0.0625,
+  "median_min_support_shift": -0.0119
+ },
+ "duplicate_rank": {
+  "cosine": 2,
+  "csls": 2,
+  "spearman": 2,
+  "L1": 2
+ },
+ "continuous_cross_space": {
+  "r": 0.832,
+  "shuffled_mean_r": 0.757
+ }
+}
