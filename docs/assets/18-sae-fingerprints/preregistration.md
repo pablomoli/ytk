@@ -148,6 +148,53 @@ narration) section 18.5 selects. The first artifact of section 20 is the
 road between the two strongest coherent interests, so the machinery is
 demonstrated on interests that matter, not a deliberately weird pair.
 
+## Section 20 — query spaces (detailed registration 2026-08-03, after 18/19)
+
+Inherited instrument rules: cosine retrieval (19.1's verdict), content-identity
+dedup, mass presence, sum pooling, auto-names as probed hypotheses.
+
+### 20.1 — the highway: tag-centroid road between the two strongest interests
+
+Endpoint rule, fixed before looking: A = the most coherent tag by fresh z
+(17-corpus-growth E3); B = the next most coherent tag whose Qwen centroid
+cosine with A is below the median of the 45 large-tag pairs (guaranteeing a
+genuinely distinct region). Nine slerp stops between unit centroids, top-3
+notes per stop, feature lanes from the tags' mean fingerprints (top-256
+vocabularies).
+Predictions: (a) support >= corpus background at every stop; (b) A-side
+feature share monotone in t, Spearman rho <= -0.8; (c) at least one stop's
+top note carries neither endpoint tag — a genuine bridge note.
+Control: shuffled stop order for (b), as in 18.5.
+Kill: none — each sub-verdict recorded separately.
+
+### 20.2 — barycentric blends (registered now, runs later)
+
+Spherical weighted mean of 3 notes vs the three pairwise midpoints.
+Prediction: in >= 3 of 10 seeded coherent triples, the barycenter's top
+retrieved note differs from all three midpoints' top notes — the mode
+expresses queries pairwise roads cannot. Control: degenerate triples
+(note plus its two nearest neighbors) should show no such novelty.
+
+### 20.3 — extrapolation past an endpoint (registered now, runs later)
+
+Walk t in (1, 1.75] beyond B on the A->B arc ("more of B, away from A").
+Prediction: support decays with t but stays above corpus background
+through t = 1.5 — the cone keeps even extrapolations inhabited.
+Verdict decides whether "more of this, less of that" is a usable query.
+
+### 20.4 — gap hunting: the missing-bridges list
+
+All 161k note pairs' midpoint support (t = 0.5, endpoints excluded from
+retrieval). Aggregate to the 45 large-tag pairs: mean midpoint support
+per tag pair, against endpoint centroid cosine.
+Prediction: at least 2 of the 45 pairs combine two individually coherent
+tags (fresh z > 2) with mean midpoint support below the all-pairs median
+— genuinely weak bridges between real interests, i.e. named acquisition
+targets for the feed. Control: the relationship between endpoint cosine
+and midpoint support is reported alongside, so "weak bridge" is never
+just "distant endpoints" restated.
+Kill: none — an empty acquisition list is itself the answer.
+
 ## Standing rules
 
 - Frozen artifacts are never overwritten; every results.json stamps seed
