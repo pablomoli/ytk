@@ -13,6 +13,9 @@ import { decay, pushSample, releaseVelocity } from "./mapInertia";
 import type { VelocitySample } from "./mapInertia";
 
 export type MapHover = { point: MapPoint; x: number; y: number };
+// A road waypoint by data.points index; positions resolve per frame in
+// placeRoad() so the overlay tracks morph/dim/relief exactly like labels.
+export type RoadWaypointRef = { index: number; kind: "a" | "stop" | "b"; title: string };
 export type MapRenderer = {
   setView: (view: "all" | "content") => void;
   setDimension: (flat: boolean) => void;
@@ -29,6 +32,11 @@ export type MapRenderer = {
   setFog: (on: boolean) => void;
   setFogLevel: (level: number) => void;
   setFogShell: (on: boolean) => void;
+  // Road mode: while a pick callback is set, point clicks report to it and
+  // the drill-down focus behavior is suspended.
+  setRoadPick: (cb?: (point: MapPoint) => void) => void;
+  setRoute: (route?: RoadWaypointRef[]) => void;
+  flyTo: (point: MapPoint) => void;
   destroy: () => void;
 };
 
@@ -748,6 +756,11 @@ export function mountMapRenderer(
     rank: number;
     n: number;
   }> = [];
+  let roadPick: ((point: MapPoint) => void) | undefined;
+  let route: RoadWaypointRef[] | undefined;
+  let roadGroup: SVGGElement | undefined;
+  let roadPath: SVGPathElement | undefined;
+  let roadDots: SVGCircleElement[] = [];
   let morph = location.hash === "#content" ? 1 : 0;
   let morphTarget = morph;
   let dimVal = location.hash === "#2d" ? 0 : 1;
@@ -1547,6 +1560,7 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
     draw(now * 0.001);
     if (post) postprocess();
     placeLabels();
+    placeRoad();
     frame = animating() ? requestAnimationFrame(render) : 0;
   };
   const placeLabels = () => {
@@ -1610,6 +1624,8 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
       }
       labels.replaceChildren();
       leaders?.replaceChildren();
+      // the road group survives label rebuilds — it is owned by setRoute
+      if (roadGroup) leaders?.appendChild(roadGroup);
       const single = contentView ? focus.dom !== undefined : focus.sub !== undefined;
       labelItems = entries
         .filter((entry) => entry.n && buckets.get(entry.key)!.n)
@@ -1693,6 +1709,65 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
       }
       placed.push({ x, y, width });
     }
+  };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const buildRoad = () => {
+    if (!leaders) return;
+    if (!roadGroup) {
+      roadGroup = document.createElementNS(SVG_NS, "g");
+      roadPath = document.createElementNS(SVG_NS, "path");
+      roadPath.setAttribute("fill", "none");
+      roadPath.setAttribute("stroke", "rgba(217,164,65,0.55)");
+      roadPath.setAttribute("stroke-width", "1.5");
+      roadPath.setAttribute("stroke-dasharray", "6 5");
+      roadGroup.appendChild(roadPath);
+      leaders.appendChild(roadGroup);
+    }
+    for (const dot of roadDots) dot.remove();
+    roadDots = [];
+    roadPath?.setAttribute("d", "");
+    roadGroup.style.display = route ? "" : "none";
+    if (!route) return;
+    for (const waypoint of route) {
+      const dot = document.createElementNS(SVG_NS, "circle");
+      const endpoint = waypoint.kind !== "stop";
+      dot.setAttribute("r", endpoint ? "5" : "3.5");
+      dot.setAttribute("fill", endpoint ? "#f0eee7" : "#d9a441");
+      dot.setAttribute("stroke", "rgba(0,0,0,0.6)");
+      dot.setAttribute("stroke-width", "1");
+      dot.style.pointerEvents = "auto";
+      dot.style.cursor = "pointer";
+      const title = document.createElementNS(SVG_NS, "title");
+      title.textContent = waypoint.title;
+      dot.appendChild(title);
+      dot.addEventListener("click", () => {
+        const item = renderedPoints[waypoint.index];
+        if (item) flyTo(item.point);
+        wake();
+      });
+      roadGroup.appendChild(dot);
+      roadDots.push(dot);
+    }
+  };
+  const placeRoad = () => {
+    if (!roadGroup || !route) return;
+    let d = "";
+    route.forEach((waypoint, k) => {
+      const item = renderedPoints[waypoint.index];
+      const dot = roadDots[k];
+      if (!item) {
+        if (dot) dot.style.display = "none";
+        return;
+      }
+      const [x, y] = project(worldOf(item));
+      d += `${d ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
+      if (dot) {
+        dot.setAttribute("cx", x.toFixed(1));
+        dot.setAttribute("cy", y.toFixed(1));
+        dot.style.display = "";
+      }
+    });
+    roadPath?.setAttribute("d", d);
   };
   const pick = (event: MouseEvent) => {
     if (drag) return;
@@ -1804,6 +1879,10 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
   // owns the focus state — the renderer only reports via onFocus.
   const click = () => {
     if (moved >= 4) return;
+    if (roadPick) {
+      if (hoveredPoint) roadPick(hoveredPoint);
+      return;
+    }
     if (!hoveredPoint) {
       flyItem = undefined;
       scaleTarget = scale;
@@ -1954,6 +2033,18 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
     },
     setFogShell: (next) => {
       fogShell = next;
+      wake();
+    },
+    setRoadPick: (cb) => {
+      roadPick = cb;
+    },
+    setRoute: (next) => {
+      route = next && next.length >= 2 ? next : undefined;
+      buildRoad();
+      wake();
+    },
+    flyTo: (point) => {
+      flyTo(point);
       wake();
     },
     destroy: () => {
