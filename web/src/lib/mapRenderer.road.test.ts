@@ -99,6 +99,25 @@ describe("road overlay", () => {
     expect(leaders.querySelectorAll("circle")).toHaveLength(3);
   });
 
+  it("keeps the loop alive: dashes march and the active stop pulses", async () => {
+    const r = mount();
+    r.setRoute(ROUTE);
+    r.setRouteActive(1);
+    await frames(2);
+    const path = leaders.querySelector("path")!;
+    const offset1 = path.getAttribute("stroke-dashoffset");
+    const radii = new Set<string>();
+    for (let i = 0; i < 6; i++) {
+      await frames(3);
+      radii.add(leaders.querySelectorAll("circle")[1]!.getAttribute("r")!);
+    }
+    expect(path.getAttribute("stroke-dashoffset")).not.toBe(offset1);
+    expect(radii.size).toBeGreaterThan(1);
+    r.setRouteActive(undefined);
+    await frames(2);
+    expect(leaders.querySelectorAll("circle")[1]!.getAttribute("r")).toBe("3.5");
+  });
+
   it("routes point clicks to the road pick and suspends drill-down focus", async () => {
     let focused = 0;
     const r = mount(() => {

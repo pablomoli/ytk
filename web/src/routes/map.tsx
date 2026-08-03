@@ -88,6 +88,9 @@ function RoadPanel({
   angle,
   background,
   route,
+  activeStop,
+  driving,
+  onDrive,
   onFly,
   onClose,
 }: {
@@ -97,20 +100,33 @@ function RoadPanel({
   angle?: number | undefined;
   background?: number | undefined;
   route?: MapRoute | undefined;
-  onFly: (pointIndex: number) => void;
+  activeStop?: number | undefined;
+  driving: boolean;
+  onDrive: () => void;
+  onFly: (pointIndex: number, waypointIndex: number) => void;
   onClose: () => void;
 }) {
   return (
     <aside className="absolute left-3 top-14 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
       <header className="mb-2 flex items-center justify-between">
         <span className="text-xs uppercase tracking-widest text-mute">road</span>
-        <button
-          className="cursor-pointer appearance-none border-0 bg-transparent px-1 font-data text-sm text-mute hover:text-ink"
-          onClick={onClose}
-          aria-label="Close road mode"
-        >
-          x
-        </button>
+        <span>
+          {route ? (
+            <button
+              className="cursor-pointer appearance-none border-0 bg-transparent px-1 font-data text-xs uppercase tracking-widest text-accent hover:text-ink"
+              onClick={onDrive}
+            >
+              {driving ? "stop" : "drive"}
+            </button>
+          ) : null}
+          <button
+            className="cursor-pointer appearance-none border-0 bg-transparent px-1 font-data text-sm text-mute hover:text-ink"
+            onClick={onClose}
+            aria-label="Close road mode"
+          >
+            x
+          </button>
+        </span>
       </header>
       {!ends.a ? <p className="text-mute">click a note to start the road</p> : null}
       {ends.a && !ends.b ? (
@@ -133,8 +149,10 @@ function RoadPanel({
             {route.waypoints.map((waypoint, index) => (
               <li key={index}>
                 <button
-                  className="grid w-full cursor-pointer appearance-none grid-cols-[2.6rem_1fr] gap-2 rounded border-0 bg-transparent px-1 py-1 text-left font-data text-sm text-ink hover:bg-bg2"
-                  onClick={() => onFly(waypoint.pointIndex)}
+                  className={`grid w-full cursor-pointer appearance-none grid-cols-[2.6rem_1fr] gap-2 rounded border-0 px-1 py-1 text-left font-data text-sm hover:bg-bg2 ${
+                    index === activeStop ? "bg-bg2 text-accent" : "bg-transparent text-ink"
+                  }`}
+                  onClick={() => onFly(waypoint.pointIndex, index)}
                 >
                   <span className="text-xs leading-5 text-mute">
                     {waypoint.kind === "stop" ? waypoint.ts[0]?.toFixed(2) : waypoint.kind}
@@ -293,6 +311,11 @@ function MapPage() {
       roadPath.data && map.data ? joinRoute(roadPath.data, map.data.points) : undefined,
     [roadPath.data, map.data],
   );
+  // Drive the road: the camera visits each waypoint in order, the itinerary
+  // row and the map dot track the current stop, and any manual action stops
+  // the tour.
+  const [activeStop, setActiveStop] = useState<number | undefined>(undefined);
+  const [driving, setDriving] = useState(false);
   useEffect(() => {
     renderer.current?.setRoute(
       route?.waypoints.map((waypoint) => ({
@@ -301,7 +324,26 @@ function MapPage() {
         title: waypoint.title,
       })),
     );
+    setActiveStop(undefined);
+    setDriving(false);
   }, [route]);
+  useEffect(() => {
+    renderer.current?.setRouteActive(activeStop);
+  }, [activeStop]);
+  useEffect(() => {
+    if (!driving || !route || !map.data) return;
+    const stop = activeStop ?? 0;
+    if (stop >= route.waypoints.length) {
+      setDriving(false);
+      setActiveStop(undefined);
+      return;
+    }
+    setActiveStop(stop);
+    const point = map.data.points[route.waypoints[stop].pointIndex];
+    if (point) renderer.current?.flyTo(point);
+    const id = setTimeout(() => setActiveStop(stop + 1), 2200);
+    return () => clearTimeout(id);
+  }, [driving, activeStop, route, map.data]);
   // Scrubber readout. The slider's position is a quantile, so the date it
   // corresponds to has to be looked up in the sorted dates rather than
   // interpolated between the endpoints — that is the whole point of ranking.
@@ -591,7 +633,15 @@ function MapPage() {
             angle={roadPath.data?.angle_deg}
             background={roadPath.data?.background}
             route={route}
-            onFly={(pointIndex) => {
+            activeStop={activeStop}
+            driving={driving}
+            onDrive={() => {
+              setActiveStop(undefined);
+              setDriving((current) => !current);
+            }}
+            onFly={(pointIndex, waypointIndex) => {
+              setDriving(false);
+              setActiveStop(waypointIndex);
               const point = map.data?.points[pointIndex];
               if (point) renderer.current?.flyTo(point);
             }}

@@ -36,6 +36,8 @@ export type MapRenderer = {
   // the drill-down focus behavior is suspended.
   setRoadPick: (cb?: (point: MapPoint) => void) => void;
   setRoute: (route?: RoadWaypointRef[]) => void;
+  // index into the current route whose dot pulses (the stop being driven)
+  setRouteActive: (k?: number) => void;
   flyTo: (point: MapPoint) => void;
   destroy: () => void;
 };
@@ -758,6 +760,8 @@ export function mountMapRenderer(
   }> = [];
   let roadPick: ((point: MapPoint) => void) | undefined;
   let route: RoadWaypointRef[] | undefined;
+  let routeSet = new Set<number>();
+  let routeActive: number | undefined;
   let roadGroup: SVGGElement | undefined;
   let roadPath: SVGPathElement | undefined;
   let roadDots: SVGCircleElement[] = [];
@@ -914,7 +918,10 @@ export function mountMapRenderer(
         const isContent = point.cx !== undefined;
         const lens = mediaOnly && !isContent ? 0.04 : recency;
         const sig = signalOnly && point.r < 1 ? 0.04 : lens;
-        const alphaFor = (base: number) => (sig === 0.04 ? 0.04 : base * sig);
+        // Road spotlight: an active route drops everything off-road to a
+        // whisper so the itinerary notes are the only bright things left.
+        const road = routeSet.size && !routeSet.has(index) ? 0.07 : 1;
+        const alphaFor = (base: number) => (sig === 0.04 ? 0.04 : base * sig) * road;
         const domColor = point.dom >= 0 ? (domColorArr[point.dom] ?? gray) : gray;
         const subColor = point.g >= 0 ? (subColorArr[point.g] ?? domColor) : domColor;
         const themeColor = point.th !== undefined && point.th >= 0 ? rampColor(point.th / 7) : gray;
@@ -936,7 +943,7 @@ export function mountMapRenderer(
           ...subColor,
           alpha0,
           alpha1,
-          3.2 + point.r * 1.8 + (point.c3 ? 0.8 : 0),
+          3.2 + point.r * 1.8 + (point.c3 ? 0.8 : 0) + (routeSet.has(index) ? 2.6 : 0),
           group,
           domain,
           phases[index],
@@ -1477,6 +1484,9 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
     // which reads as a rendering bug rather than a missing feature. Reduced
     // motion pins the clock, so there the loop is free to park.
     if (!reduceMotion && webT > 0.01 && dimVal > 0.01) return true;
+    // An active road marches its dashes and pulses its focused stop on a live
+    // clock; parking would freeze both mid-motion. Reduced motion pins them.
+    if (!reduceMotion && route) return true;
     return view !== "content" && focusLevel(focus) !== "overview";
   };
   // Restart a parked loop. lastFrame resets so the first frame back uses the
@@ -1560,7 +1570,7 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
     draw(now * 0.001);
     if (post) postprocess();
     placeLabels();
-    placeRoad();
+    placeRoad(now * 0.001);
     frame = animating() ? requestAnimationFrame(render) : 0;
   };
   const placeLabels = () => {
@@ -1717,9 +1727,9 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
       roadGroup = document.createElementNS(SVG_NS, "g");
       roadPath = document.createElementNS(SVG_NS, "path");
       roadPath.setAttribute("fill", "none");
-      roadPath.setAttribute("stroke", "rgba(217,164,65,0.55)");
-      roadPath.setAttribute("stroke-width", "1.5");
-      roadPath.setAttribute("stroke-dasharray", "6 5");
+      roadPath.setAttribute("stroke", "rgba(217,164,65,0.8)");
+      roadPath.setAttribute("stroke-width", "2");
+      roadPath.setAttribute("stroke-dasharray", "7 6");
       roadGroup.appendChild(roadPath);
       leaders.appendChild(roadGroup);
     }
@@ -1749,7 +1759,7 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
       roadDots.push(dot);
     }
   };
-  const placeRoad = () => {
+  const placeRoad = (time = 0) => {
     if (!roadGroup || !route) return;
     let d = "";
     route.forEach((waypoint, k) => {
@@ -1764,10 +1774,19 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
       if (dot) {
         dot.setAttribute("cx", x.toFixed(1));
         dot.setAttribute("cy", y.toFixed(1));
+        const base = waypoint.kind !== "stop" ? 5 : 3.5;
+        // the focused stop breathes; everything else holds its size
+        const r =
+          k === routeActive && !reduceMotion ? base + 2.5 + Math.sin(time * 4) * 1.2 : base;
+        dot.setAttribute("r", r.toFixed(1));
         dot.style.display = "";
       }
     });
-    roadPath?.setAttribute("d", d);
+    // dashes march from A toward B so the road reads as flowing, not painted
+    if (roadPath) {
+      roadPath.setAttribute("d", d);
+      if (!reduceMotion) roadPath.setAttribute("stroke-dashoffset", (-time * 14).toFixed(1));
+    }
   };
   const pick = (event: MouseEvent) => {
     if (drag) return;
@@ -2040,7 +2059,14 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
     },
     setRoute: (next) => {
       route = next && next.length >= 2 ? next : undefined;
+      routeSet = new Set(route?.map((waypoint) => waypoint.index) ?? []);
+      routeActive = undefined;
       buildRoad();
+      geometryDirty = true;
+      wake();
+    },
+    setRouteActive: (k) => {
+      routeActive = k;
       wake();
     },
     flyTo: (point) => {
