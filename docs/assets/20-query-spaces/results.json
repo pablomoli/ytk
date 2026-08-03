@@ -1,0 +1,566 @@
+{
+ "seed": 20260808,
+ "highway": {
+  "a": "ai-agents",
+  "b": "machine-learning",
+  "centroid_cos": 0.8624,
+  "verdicts": {
+   "support_above_background": true,
+   "min_support": 0.7496,
+   "background": 0.2594,
+   "rho": -1.0,
+   "null_abs_rho_p95": 0.635,
+   "any_bridge_stop": false,
+   "n_bridge_stops": 0
+  },
+  "stops": [
+   {
+    "t": 0.0,
+    "support": 0.7929,
+    "retrieved": [
+     "How I Use Obsidian + Claude Code to Run My Life",
+     "How This Ex-Meta L8 Engineer Ships 40 PRs a Day with AI ",
+     "I Tested Opus 5 vs. Fable 5. What You Need to Know."
+    ],
+    "top_is_bridge": false
+   },
+   {
+    "t": 0.125,
+    "support": 0.788,
+    "retrieved": [
+     "How I Use Obsidian + Claude Code to Run My Life",
+     "I Tested Opus 5 vs. Fable 5. What You Need to Know.",
+     "How This Ex-Meta L8 Engineer Ships 40 PRs a Day with AI "
+    ],
+    "top_is_bridge": false
+   },
+   {
+    "t": 0.25,
+    "support": 0.7799,
+    "retrieved": [
+     "I Tested Opus 5 vs. Fable 5. What You Need to Know.",
+     "How I Use Obsidian + Claude Code to Run My Life",
+     "How This Ex-Meta L8 Engineer Ships 40 PRs a Day with AI "
+    ],
+    "top_is_bridge": false
+   },
+   {
+    "t": 0.375,
+    "support": 0.7737,
+    "retrieved": [
+     "I Tested Opus 5 vs. Fable 5. What You Need to Know.",
+     "How I Use Obsidian + Claude Code to Run My Life",
+     "How This Ex-Meta L8 Engineer Ships 40 PRs a Day with AI "
+    ],
+    "top_is_bridge": false
+   },
+   {
+    "t": 0.5,
+    "support": 0.7641,
+    "retrieved": [
+     "I Tested Opus 5 vs. Fable 5. What You Need to Know.",
+     "How I Use Obsidian + Claude Code to Run My Life",
+     "stephen_blum_code-2026-07-04-DaYvHPcFwrk"
+    ],
+    "top_is_bridge": false
+   },
+   {
+    "t": 0.625,
+    "support": 0.7522,
+    "retrieved": [
+     "stephen_blum_code-2026-07-04-DaYvHPcFwrk",
+     "I Tested Opus 5 vs. Fable 5. What You Need to Know.",
+     "Sholto Douglas & Trenton Bricken \u2014 How LLMs actually thi"
+    ],
+    "top_is_bridge": false
+   },
+   {
+    "t": 0.75,
+    "support": 0.7504,
+    "retrieved": [
+     "stephen_blum_code-2026-07-04-DaYvHPcFwrk",
+     "Sholto Douglas & Trenton Bricken \u2014 How LLMs actually thi",
+     "How GPT, Claude, and Gemini are actually trained and ser"
+    ],
+    "top_is_bridge": false
+   },
+   {
+    "t": 0.875,
+    "support": 0.7496,
+    "retrieved": [
+     "How GPT, Claude, and Gemini are actually trained and ser",
+     "Sholto Douglas & Trenton Bricken \u2014 How LLMs actually thi",
+     "stephen_blum_code-2026-07-04-DaYvHPcFwrk"
+    ],
+    "top_is_bridge": false
+   },
+   {
+    "t": 1.0,
+    "support": 0.7537,
+    "retrieved": [
+     "How GPT, Claude, and Gemini are actually trained and ser",
+     "Sholto Douglas & Trenton Bricken \u2014 How LLMs actually thi",
+     "stephen_blum_code-2026-07-04-DaYvHPcFwrk"
+    ],
+    "top_is_bridge": false
+   }
+  ],
+  "lanes": [
+   {
+    "index": 9147,
+    "side": "A",
+    "name": "git commands and related terminology"
+   },
+   {
+    "index": 3878,
+    "side": "A",
+    "name": "terms related to software capabilities and user experience"
+   },
+   {
+    "index": 4329,
+    "side": "A",
+    "name": "features related to software updates and functionalities"
+   },
+   {
+    "index": 325,
+    "side": "A",
+    "name": " aspects related to software and programming structures or commands"
+   },
+   {
+    "index": 5240,
+    "side": "A",
+    "name": " references to automated testing in programming contexts"
+   },
+   {
+    "index": 6289,
+    "side": "A",
+    "name": " references to software tools and their functionalities"
+   },
+   {
+    "index": 6631,
+    "side": "shared",
+    "name": "proper nouns.\n"
+   },
+   {
+    "index": 12763,
+    "side": "shared",
+    "name": "terms related to privilege and social identity"
+   },
+   {
+    "index": 6143,
+    "side": "shared",
+    "name": "words and phrases related to scientific or technical processes and observations, particularly in medical or biological contexts."
+   },
+   {
+    "index": 9622,
+    "side": "shared",
+    "name": "references to convolutional neural networks (CNNs) and their capabilities"
+   },
+   {
+    "index": 9501,
+    "side": "B",
+    "name": "concepts related to tensor operations and error handling in machine learning"
+   },
+   {
+    "index": 10899,
+    "side": "B",
+    "name": "terms related to artificial neural networks and their structure"
+   },
+   {
+    "index": 7673,
+    "side": "B",
+    "name": "terms and concepts related to loss functions and optimization in machine learning"
+   },
+   {
+    "index": 6279,
+    "side": "B",
+    "name": "terms related to algorithms used for feature selection and data processing methodologies"
+   },
+   {
+    "index": 13860,
+    "side": "B",
+    "name": "statements related to election integrity and voter registration"
+   },
+   {
+    "index": 1038,
+    "side": "B",
+    "name": "terms related to financial modeling, particularly in the context of statistical estimation and theoretical foundations"
+   }
+  ]
+ },
+ "bridges": {
+  "all_pairs_median": 0.5770391225814819,
+  "tag_pairs": [
+   {
+    "a": "creator",
+    "b": "video-essay",
+    "n_pairs": 11719,
+    "mean_mid_support": 0.5566,
+    "centroid_cos": 0.8981,
+    "both_coherent": false
+   },
+   {
+    "a": "reference",
+    "b": "video-essay",
+    "n_pairs": 15160,
+    "mean_mid_support": 0.5641,
+    "centroid_cos": 0.9286,
+    "both_coherent": false
+   },
+   {
+    "a": "creator",
+    "b": "education",
+    "n_pairs": 11529,
+    "mean_mid_support": 0.5645,
+    "centroid_cos": 0.8985,
+    "both_coherent": false
+   },
+   {
+    "a": "cool-vis",
+    "b": "video-essay",
+    "n_pairs": 14752,
+    "mean_mid_support": 0.5677,
+    "centroid_cos": 0.8846,
+    "both_coherent": false
+   },
+   {
+    "a": "reference",
+    "b": "creator",
+    "n_pairs": 15294,
+    "mean_mid_support": 0.5678,
+    "centroid_cos": 0.9582,
+    "both_coherent": false
+   },
+   {
+    "a": "video-essay",
+    "b": "education",
+    "n_pairs": 10389,
+    "mean_mid_support": 0.568,
+    "centroid_cos": 0.9555,
+    "both_coherent": false
+   },
+   {
+    "a": "creative-coding",
+    "b": "video-essay",
+    "n_pairs": 12039,
+    "mean_mid_support": 0.569,
+    "centroid_cos": 0.8226,
+    "both_coherent": false
+   },
+   {
+    "a": "reference",
+    "b": "education",
+    "n_pairs": 14847,
+    "mean_mid_support": 0.5731,
+    "centroid_cos": 0.9446,
+    "both_coherent": false
+   },
+   {
+    "a": "learning",
+    "b": "creator",
+    "n_pairs": 16351,
+    "mean_mid_support": 0.5741,
+    "centroid_cos": 0.9295,
+    "both_coherent": false
+   },
+   {
+    "a": "learning",
+    "b": "video-essay",
+    "n_pairs": 15571,
+    "mean_mid_support": 0.5742,
+    "centroid_cos": 0.9402,
+    "both_coherent": false
+   },
+   {
+    "a": "creative-coding",
+    "b": "education",
+    "n_pairs": 11915,
+    "mean_mid_support": 0.5758,
+    "centroid_cos": 0.8285,
+    "both_coherent": false
+   },
+   {
+    "a": "cool-vis",
+    "b": "creator",
+    "n_pairs": 15001,
+    "mean_mid_support": 0.5765,
+    "centroid_cos": 0.9437,
+    "both_coherent": true
+   },
+   {
+    "a": "cool-vis",
+    "b": "education",
+    "n_pairs": 14349,
+    "mean_mid_support": 0.5771,
+    "centroid_cos": 0.8975,
+    "both_coherent": false
+   },
+   {
+    "a": "reference",
+    "b": "cool-vis",
+    "n_pairs": 18510,
+    "mean_mid_support": 0.5788,
+    "centroid_cos": 0.9564,
+    "both_coherent": false
+   },
+   {
+    "a": "video-essay",
+    "b": "build-idea",
+    "n_pairs": 10946,
+    "mean_mid_support": 0.5792,
+    "centroid_cos": 0.8948,
+    "both_coherent": false
+   },
+   {
+    "a": "learning",
+    "b": "reference",
+    "n_pairs": 20355,
+    "mean_mid_support": 0.581,
+    "centroid_cos": 0.9642,
+    "both_coherent": false
+   },
+   {
+    "a": "creative-coding",
+    "b": "creator",
+    "n_pairs": 12207,
+    "mean_mid_support": 0.5811,
+    "centroid_cos": 0.9248,
+    "both_coherent": true
+   },
+   {
+    "a": "reference",
+    "b": "creative-coding",
+    "n_pairs": 15900,
+    "mean_mid_support": 0.582,
+    "centroid_cos": 0.9144,
+    "both_coherent": false
+   },
+   {
+    "a": "learning",
+    "b": "education",
+    "n_pairs": 13902,
+    "mean_mid_support": 0.5826,
+    "centroid_cos": 0.9771,
+    "both_coherent": false
+   },
+   {
+    "a": "learning",
+    "b": "cool-vis",
+    "n_pairs": 20539,
+    "mean_mid_support": 0.5845,
+    "centroid_cos": 0.9161,
+    "both_coherent": false
+   },
+   {
+    "a": "creator",
+    "b": "research",
+    "n_pairs": 12279,
+    "mean_mid_support": 0.5852,
+    "centroid_cos": 0.8748,
+    "both_coherent": true
+   },
+   {
+    "a": "learning",
+    "b": "creative-coding",
+    "n_pairs": 16961,
+    "mean_mid_support": 0.5856,
+    "centroid_cos": 0.8704,
+    "both_coherent": false
+   },
+   {
+    "a": "research",
+    "b": "video-essay",
+    "n_pairs": 11360,
+    "mean_mid_support": 0.5879,
+    "centroid_cos": 0.9395,
+    "both_coherent": false
+   },
+   {
+    "a": "education",
+    "b": "build-idea",
+    "n_pairs": 10767,
+    "mean_mid_support": 0.5879,
+    "centroid_cos": 0.913,
+    "both_coherent": false
+   },
+   {
+    "a": "creator",
+    "b": "build-idea",
+    "n_pairs": 10702,
+    "mean_mid_support": 0.5881,
+    "centroid_cos": 0.9638,
+    "both_coherent": true
+   },
+   {
+    "a": "reference",
+    "b": "build-idea",
+    "n_pairs": 13427,
+    "mean_mid_support": 0.5891,
+    "centroid_cos": 0.9738,
+    "both_coherent": false
+   },
+   {
+    "a": "reference",
+    "b": "research",
+    "n_pairs": 15315,
+    "mean_mid_support": 0.5912,
+    "centroid_cos": 0.9372,
+    "both_coherent": false
+   },
+   {
+    "a": "cool-vis",
+    "b": "research",
+    "n_pairs": 15234,
+    "mean_mid_support": 0.5946,
+    "centroid_cos": 0.8861,
+    "both_coherent": true
+   },
+   {
+    "a": "cool-vis",
+    "b": "creative-coding",
+    "n_pairs": 12867,
+    "mean_mid_support": 0.5949,
+    "centroid_cos": 0.9755,
+    "both_coherent": true
+   },
+   {
+    "a": "creative-coding",
+    "b": "research",
+    "n_pairs": 12588,
+    "mean_mid_support": 0.5956,
+    "centroid_cos": 0.8213,
+    "both_coherent": true
+   },
+   {
+    "a": "learning",
+    "b": "build-idea",
+    "n_pairs": 15208,
+    "mean_mid_support": 0.5966,
+    "centroid_cos": 0.9402,
+    "both_coherent": false
+   },
+   {
+    "a": "cool-vis",
+    "b": "build-idea",
+    "n_pairs": 13228,
+    "mean_mid_support": 0.5973,
+    "centroid_cos": 0.9491,
+    "both_coherent": true
+   },
+   {
+    "a": "research",
+    "b": "education",
+    "n_pairs": 11220,
+    "mean_mid_support": 0.5989,
+    "centroid_cos": 0.9562,
+    "both_coherent": false
+   },
+   {
+    "a": "ai",
+    "b": "creator",
+    "n_pairs": 13447,
+    "mean_mid_support": 0.6016,
+    "centroid_cos": 0.8511,
+    "both_coherent": true
+   },
+   {
+    "a": "ai",
+    "b": "video-essay",
+    "n_pairs": 12298,
+    "mean_mid_support": 0.6016,
+    "centroid_cos": 0.9098,
+    "both_coherent": false
+   },
+   {
+    "a": "creative-coding",
+    "b": "build-idea",
+    "n_pairs": 11190,
+    "mean_mid_support": 0.602,
+    "centroid_cos": 0.9161,
+    "both_coherent": true
+   },
+   {
+    "a": "learning",
+    "b": "research",
+    "n_pairs": 15633,
+    "mean_mid_support": 0.6022,
+    "centroid_cos": 0.9583,
+    "both_coherent": false
+   },
+   {
+    "a": "research",
+    "b": "build-idea",
+    "n_pairs": 11048,
+    "mean_mid_support": 0.606,
+    "centroid_cos": 0.9157,
+    "both_coherent": true
+   },
+   {
+    "a": "reference",
+    "b": "ai",
+    "n_pairs": 17139,
+    "mean_mid_support": 0.6068,
+    "centroid_cos": 0.8985,
+    "both_coherent": false
+   },
+   {
+    "a": "cool-vis",
+    "b": "ai",
+    "n_pairs": 16906,
+    "mean_mid_support": 0.6076,
+    "centroid_cos": 0.8445,
+    "both_coherent": true
+   },
+   {
+    "a": "ai",
+    "b": "creative-coding",
+    "n_pairs": 13716,
+    "mean_mid_support": 0.6088,
+    "centroid_cos": 0.8032,
+    "both_coherent": true
+   },
+   {
+    "a": "ai",
+    "b": "education",
+    "n_pairs": 12299,
+    "mean_mid_support": 0.6106,
+    "centroid_cos": 0.9132,
+    "both_coherent": false
+   },
+   {
+    "a": "learning",
+    "b": "ai",
+    "n_pairs": 17236,
+    "mean_mid_support": 0.6171,
+    "centroid_cos": 0.9308,
+    "both_coherent": false
+   },
+   {
+    "a": "ai",
+    "b": "build-idea",
+    "n_pairs": 12149,
+    "mean_mid_support": 0.6208,
+    "centroid_cos": 0.8908,
+    "both_coherent": true
+   },
+   {
+    "a": "ai",
+    "b": "research",
+    "n_pairs": 11720,
+    "mean_mid_support": 0.6305,
+    "centroid_cos": 0.9612,
+    "both_coherent": true
+   }
+  ],
+  "weak_coherent": [
+   {
+    "a": "cool-vis",
+    "b": "creator",
+    "n_pairs": 15001,
+    "mean_mid_support": 0.5765,
+    "centroid_cos": 0.9437,
+    "both_coherent": true
+   }
+  ]
+ }
+}
