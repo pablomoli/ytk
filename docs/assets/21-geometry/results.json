@@ -1,0 +1,220 @@
+{
+ "seed": 20260803,
+ "commit": "355d0e1",
+ "tags": [
+  "learning",
+  "reference",
+  "cool-vis",
+  "ai",
+  "creative-coding",
+  "creator",
+  "research",
+  "video-essay",
+  "education",
+  "build-idea"
+ ],
+ "sizes": [
+  151,
+  145,
+  142,
+  121,
+  114,
+  112,
+  111,
+  106,
+  105,
+  104
+ ],
+ "21.1": {
+  "subset_null_disjoint": false,
+  "mean_abs_cos": 0.3077641725540161,
+  "iso_mean_abs_cos_p95": 0.029646283765295812,
+  "spread": 1.28050696849823,
+  "subset_spread_p95": 0.5453789204359054,
+  "participation_ratio": 4.619019519085681,
+  "iso_pr_p5": 9.882509831137245,
+  "subset_pr_p5": 8.820035458620005,
+  "pair_cos_min": -0.46639135479927063,
+  "pair_cos_max": 0.8141156435012817,
+  "verdict_a_nonorthogonal": true,
+  "verdict_b_structured": true,
+  "verdict_c_pr_le_5": true
+ },
+ "21.2": {
+  "decoder_mean_abs_cos": 0.04280707120464457,
+  "decoder_iso_p95": 0.017576331121896573,
+  "decoder_mean_cos_signed": -0.01269790323487681,
+  "decoder_frac_hits": 12,
+  "antipodal_pairs": [
+   {
+    "i": 6631,
+    "j": 8684,
+    "cos": -0.9921
+   },
+   {
+    "i": 5052,
+    "j": 8366,
+    "cos": -0.9896
+   },
+   {
+    "i": 1530,
+    "j": 5533,
+    "cos": -0.9737
+   },
+   {
+    "i": 1692,
+    "j": 10931,
+    "cos": -0.9712
+   },
+   {
+    "i": 4784,
+    "j": 5328,
+    "cos": -0.9678
+   },
+   {
+    "i": 10419,
+    "j": 14881,
+    "cos": -0.9603
+   },
+   {
+    "i": 549,
+    "j": 10640,
+    "cos": -0.9262
+   },
+   {
+    "i": 9982,
+    "j": 14537,
+    "cos": 0.5715
+   }
+  ],
+  "decoder_frac_hits_null_p95": 0.0,
+  "decoder_D_min": 0.49178333294995696,
+  "decoder_D_max": 0.9908197995207091,
+  "centroid_min_pair_cos": -0.46639135479927063,
+  "centroid_D": [
+   0.438618156367154,
+   0.6931435094987395,
+   0.4624331321701345,
+   0.4509721166221585,
+   0.3793957138766104,
+   0.5337096192604122,
+   0.3644579071262282,
+   0.4798437473619323,
+   0.3810808013386878,
+   0.630621267246266
+  ],
+  "verdict_a1_nonisotropic": true,
+  "verdict_a2_no_plateaus": false,
+  "verdict_b_no_antipodal": true,
+  "parallelogram_top5": [
+   {
+    "cos": -0.91,
+    "ab": "cool-vis-research",
+    "cd": "ai-creative-coding"
+   },
+   {
+    "cos": -0.893,
+    "ab": "learning-creative-coding",
+    "cd": "cool-vis-education"
+   },
+   {
+    "cos": 0.799,
+    "ab": "cool-vis-education",
+    "cd": "creative-coding-video-essay"
+   },
+   {
+    "cos": 0.795,
+    "ab": "cool-vis-education",
+    "cd": "creative-coding-research"
+   },
+   {
+    "cos": -0.78,
+    "ab": "learning-creative-coding",
+    "cd": "cool-vis-research"
+   }
+  ]
+ },
+ "21.3": {
+  "n_slots": 1215,
+  "top10_slot_share": 0.8905349794238683,
+  "max_degree": 37,
+  "notes_deg_ge_3": 17,
+  "notes_deg_ge_4": 17,
+  "null_angle_median": 69.22734815503111,
+  "true_crossings": 16,
+  "top_crossings": [
+   {
+    "note": 4,
+    "degree": 37,
+    "max_angle": 89.97076732269261,
+    "title": "How I Use Obsidian + Claude Code to Run My Life"
+   },
+   {
+    "note": 235,
+    "degree": 35,
+    "max_angle": 89.98460197866109,
+    "title": "Sholto Douglas & Trenton Bricken \u2014 How LLMs actually think"
+   },
+   {
+    "note": 398,
+    "degree": 35,
+    "max_angle": 89.91037736945401,
+    "title": "rndyrbrts-2026-05-30-DY8TYwpCd8P"
+   },
+   {
+    "note": 561,
+    "degree": 32,
+    "max_angle": 89.97076732269261,
+    "title": "jul-29-2026-17866123292"
+   },
+   {
+    "note": 416,
+    "degree": 24,
+    "max_angle": 89.90523700511716,
+    "title": "stephen_blum_code-2026-07-04-DaYvHPcFwrk"
+   },
+   {
+    "note": 250,
+    "degree": 18,
+    "max_angle": 89.7849039244665,
+    "title": "This Skill Just Made Kimi K3 a 10X Better Designer"
+   },
+   {
+    "note": 175,
+    "degree": 18,
+    "max_angle": 89.23084605141452,
+    "title": "Turn Claude Into A Design GENIUS In 3 Simple Steps"
+   },
+   {
+    "note": 247,
+    "degree": 17,
+    "max_angle": 89.78244733337252,
+    "title": "How GPT, Claude, and Gemini are actually trained and served \u2013 Reiner P"
+   },
+   {
+    "note": 516,
+    "degree": 17,
+    "max_angle": 86.62107030492967,
+    "title": "chladni-cymatics-2-0"
+   },
+   {
+    "note": 505,
+    "degree": 12,
+    "max_angle": 87.41210277590305,
+    "title": "jul-23-2026-17866123292"
+   }
+  ],
+  "verdict_a_share_ge_25pct": true,
+  "verdict_b_3_true_crossings": true,
+  "kill_no_deg3": false
+ },
+ "21.4": {
+  "single_crossing_roads": 31,
+  "flip_counts": {
+   "1": 31,
+   "0": 13,
+   "2": 1
+  },
+  "kill_construct_void": true
+ }
+}
