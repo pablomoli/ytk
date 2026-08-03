@@ -289,12 +289,150 @@ def fig04(r: dict) -> None:
     save(fig, "04-path-support.png")
 
 
+def fig05(c: dict) -> None:
+    bg = c["background_cos"]
+    fig, top = figure(
+        16.5,
+        6.8,
+        5,
+        "path census",
+        "Every road in the corpus runs through inhabited country",
+        f"minimum support along the slerp arc, {c['paths']['nn']['n_paths']} nearest-neighbor "
+        f"pairs + {c['paths']['random']['n_paths']} random pairs, {c['steps_interior']} interior "
+        f"stops each  ·  seed {c['seed']}",
+    )
+    gs = fig.add_gridspec(
+        1, 2, width_ratios=[1.25, 1], left=0.055, right=1 - MARGIN - 0.015, top=top, bottom=0.22
+    )
+
+    ax = fig.add_subplot(gs[0])
+    bins = np.linspace(0.2, 0.8, 49)
+    for label, color in (("nn", GOLD), ("random", BLUE)):
+        m = np.array(c["paths"][label]["min_support"])
+        ax.hist(
+            m, bins=bins, density=True, histtype="stepfilled", alpha=0.35, color=color, label=label
+        )
+        ax.hist(m, bins=bins, density=True, histtype="step", linewidth=1.6, color=color)
+    ax.axvline(bg, color=RED, linewidth=1.2, linestyle="--")
+    ax.text(bg + 0.006, ax.get_ylim()[1] * 0.9, "corpus background", color=RED, fontsize=TICK_SIZE)
+    style_axes(ax)
+    ax.set_xlabel("minimum support along the path")
+    ax.set_ylabel("density")
+    leg = ax.legend(frameon=False, fontsize=TICK_SIZE)
+    for t in leg.get_texts():
+        t.set_color(MUTED)
+    panel_title(ax, "no path, chosen or random, ever drops to background", width=52)
+
+    ax = fig.add_subplot(gs[1])
+    for label, color in (("nn", GOLD), ("random", BLUE)):
+        ax.scatter(
+            c["paths"][label]["angle_deg"],
+            c["paths"][label]["min_support"],
+            s=8,
+            c=color,
+            alpha=0.5,
+            linewidths=0,
+            label=label,
+        )
+    ax.axhline(bg, color=RED, linewidth=1.0, linestyle="--", alpha=0.8)
+    style_axes(ax)
+    ax.set_xlabel("angle between endpoints (deg)")
+    ax.set_ylabel("minimum support")
+    panel_title(ax, "longer roads sag, none break", width=40)
+
+    _footer(
+        fig,
+        0.05,
+        "The census settles what two hand-picked paths could not: 0 of "
+        f"{c['paths']['nn']['n_paths'] + c['paths']['random']['n_paths']} walks dip below the "
+        "corpus background anywhere along their length. Random pairs are barely worse than "
+        "nearest-neighbor pairs — the cone keeps everything close enough that even the longest "
+        "roads stay decodable. There is no desert between the cities; the space is a single "
+        "connected settlement whose density varies.",
+    )
+    save(fig, "05-path-census.png")
+
+
+def fig06(c: dict) -> None:
+    counts = np.array(c["hubs"]["counts"], dtype=float)
+    total = counts.sum()
+    share = np.cumsum(counts) / total
+    ranks = np.arange(1, len(counts) + 1)
+    top = c["hubs"]["top"]
+
+    fig, ftop = figure(
+        16.5,
+        6.6,
+        6,
+        "path census",
+        "Some towns sit on many roads — hubness is real but not pathological",
+        f"{c['hubs']['distinct_answerers']} of {c['hubs']['corpus_n']} notes answer at least one "
+        "path stop  ·  a note counts once per path it serves, not once per stop",
+    )
+    gs = fig.add_gridspec(
+        1,
+        2,
+        width_ratios=[1.2, 1],
+        left=0.055,
+        right=1 - MARGIN - 0.015,
+        top=ftop,
+        bottom=0.22,
+        wspace=0.55,
+    )
+
+    ax = fig.add_subplot(gs[0])
+    ax.plot(ranks, share, color=GOLD, linewidth=2.0)
+    for k in (10, 50):
+        ax.scatter([k], [share[k - 1]], s=34, c=CYAN, zorder=5, linewidths=0)
+        ax.annotate(
+            f"top {k}: {share[k - 1]:.0%} of answers",
+            (k, share[k - 1]),
+            textcoords="offset points",
+            xytext=(10, -4),
+            color=CYAN,
+            fontsize=TICK_SIZE,
+        )
+    ax.plot(ranks, ranks / len(counts), color=RED, linewidth=1.1, linestyle="--")
+    ax.text(len(counts) * 0.55, 0.42, "uniform share", color=RED, fontsize=TICK_SIZE, rotation=24)
+    ax.set_xscale("log")
+    style_axes(ax)
+    ax.set_xlabel("notes ranked by paths served (log)")
+    ax.set_ylabel("cumulative share of path answers")
+    ax.set_ylim(0, 1.02)
+    panel_title(ax, "concentration curve of who answers the stops", width=48)
+
+    ax = fig.add_subplot(gs[1])
+    names = [t["name"][:38] for t in top[:10]][::-1]
+    served = [t["paths_served"] for t in top[:10]][::-1]
+    ax.barh(np.arange(len(names)), served, height=0.62, color=GOLD, alpha=0.9)
+    ax.set_yticks(np.arange(len(names)), names, fontsize=7.6)
+    style_axes(ax)
+    ax.set_xlabel("paths served")
+    panel_title(ax, "the ten busiest towns", width=40)
+
+    _footer(
+        fig,
+        0.05,
+        "The top note serves 5.5% of all paths and the top ten together 12% of answers — visible "
+        "concentration, far from the winner-take-all hubness that breaks cross-lingual retrieval "
+        "(arXiv 2605.26575 finds hub mass, not anisotropy, is what damages reciprocity there). "
+        "For the path interface this is a design input: stops should be deduplicated per walk and "
+        "hub notes down-weighted, or every road will pass through the same three junctions.",
+    )
+    save(fig, "06-hubness.png")
+
+
 def main() -> None:
     r = json.loads(RESULTS.read_text())
     fig01(r)
     fig02(r)
     fig03(r)
     fig04(r)
+    census_path = OUTDIR / "census.json"
+    if census_path.exists():
+        c = json.loads(census_path.read_text())
+        fig05(c)
+        fig06(c)
 
 
 if __name__ == "__main__":

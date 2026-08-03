@@ -290,12 +290,94 @@ def analyze() -> dict:
     return out
 
 
+def census() -> dict:
+    """E5 — path support for every nearest-neighbor pair and a random-pair
+    sample, plus who actually answers the stops (the hubness question)."""
+    from collections import Counter
+
+    X, meta = _load("fresh")
+    names = meta["names"]
+    n = len(X)
+    S = X @ X.T
+    np.fill_diagonal(S, -1.0)
+    nn = S.argmax(1)
+
+    pairs_nn = sorted({(min(i, int(j)), max(i, int(j))) for i, j in enumerate(nn)})
+    rng = np.random.default_rng(SEED)
+    pairs_rand: set[tuple[int, int]] = set()
+    while len(pairs_rand) < 500:
+        i, j = (int(v) for v in rng.integers(0, n, 2))
+        if i != j and (min(i, j), max(i, j)) not in pairs_nn:
+            pairs_rand.add((min(i, j), max(i, j)))
+
+    ts = np.linspace(0, 1, PATH_STEPS)[1:-1]  # interior stops only
+
+    def walk(i: int, j: int) -> tuple[float, float, float, list[int]]:
+        Q = np.stack([slerp(X[i], X[j], float(t)) for t in ts])
+        sup = Q @ X.T
+        sup[:, [i, j]] = -1.0
+        best = sup.argmax(1)
+        vals = sup[np.arange(len(ts)), best]
+        angle = float(np.degrees(np.arccos(np.clip(X[i] @ X[j], -1, 1))))
+        return float(vals.min()), float(np.median(vals)), angle, [int(b) for b in best]
+
+    hub_counts: Counter[int] = Counter()
+    rows = {}
+    for label, pairs in (("nn", pairs_nn), ("random", sorted(pairs_rand))):
+        mins, medians, angles = [], [], []
+        for i, j in pairs:
+            mn, md, ang, best = walk(i, j)
+            mins.append(mn)
+            medians.append(md)
+            angles.append(ang)
+            hub_counts.update(set(best))  # one vote per path, not per stop
+        rows[label] = {
+            "n_paths": len(pairs),
+            "min_support": [round(v, 4) for v in mins],
+            "median_support": [round(v, 4) for v in medians],
+            "angle_deg": [round(v, 2) for v in angles],
+        }
+
+    ranked = hub_counts.most_common()
+    total_paths = rows["nn"]["n_paths"] + rows["random"]["n_paths"]
+    out = {
+        "seed": SEED,
+        "steps_interior": len(ts),
+        "background_cos": cone_stats(X)["mean_pairwise_cos"],
+        "paths": rows,
+        "hubs": {
+            "distinct_answerers": len(ranked),
+            "corpus_n": n,
+            "top": [
+                {"name": names[i][:60], "paths_served": c, "share": round(c / total_paths, 4)}
+                for i, c in ranked[:15]
+            ],
+            "counts": [c for _, c in ranked],
+        },
+    }
+    (OUTDIR / "census.json").write_text(json.dumps(out, indent=1))
+    for label in ("nn", "random"):
+        m = np.array(rows[label]["min_support"])
+        print(
+            f"{label:6s} {rows[label]['n_paths']} paths  min-support "
+            f"p5 {np.percentile(m, 5):.3f}  median {np.median(m):.3f}  "
+            f"below background: {(m < out['background_cos']).mean():.1%}"
+        )
+    print(
+        f"hubs: {len(ranked)} of {n} notes ever answer a stop; "
+        f"top note serves {ranked[0][1]}/{total_paths} paths ({names[ranked[0][0]][:50]})"
+    )
+    return out
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "analyze"
     if cmd == "harvest":
         harvest()
     elif cmd == "analyze":
         analyze()
+    elif cmd == "census":
+        census()
     elif cmd == "plot":
         from growth_plots import main as plot_main
 
