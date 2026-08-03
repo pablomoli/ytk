@@ -195,6 +195,126 @@ and midpoint support is reported alongside, so "weak bridge" is never
 just "distant endpoints" restated.
 Kill: none — an empty acquisition list is itself the answer.
 
+## Section 21 — road-network geometry (registered 2026-08-03, before any
+## measurement; artifacts land in docs/assets/21-geometry/)
+
+Motivating methodology: Toy Models of Superposition (Elhage et al. 2022,
+transformer-circuits.pub/2022/toy_model) — features under packing pressure
+arrange into readable geometry (antipodal pairs, polytopes, measured via
+per-feature dimensionality and angle spectra) — and the SAE-scale follow-up
+(Li et al. 2024, arXiv 2410.19750), which finds lobes and power-law spectra
+rather than crystals at real-model scale. Section 21 transplants those
+instruments to two object sets we already hold: centred Qwen tag centroids
+and the 31 mass-present cone features' decoder directions.
+
+Declared priors (all previously measured, all informing predictions below):
+cone ‖mean‖ = 0.51 (section 12); corpus effective dimension ~104 and the
+pair-plane shadow inflation 8.4x with local-PCA separation 3.3x (section 15);
+median large-tag-pair raw centroid cosine 0.9161 and the 20.1 highway;
+census top-10 answerer share 12% (section 17); monotone vocabulary handover
+rho = -1.0 on both measured roads (18.5, 20.1); 45 tag-pair bridge supports
+in a 0.556-0.631 band (20.4).
+
+### 21.0 — instrument rules for geometry
+
+Not a hypothesis. All angle and subspace measurements run on centred,
+renormalized vectors (subtract the corpus mean, renormalize) unless a row
+explicitly compares centred vs raw — section 15 measured that raw pair-planes
+inherit the offset and look 8.4x more structured than they are. Road
+machinery inherits: cosine retrieval on raw vectors (production behavior,
+19.1), content-identity dedup, stops = 9, k = 3. The road set for 21.3/21.4
+is the 45 large-tag-pair centroid roads. Every null is same-n, same-dim,
+matched-construction, per the section 15 isotropic-control pattern.
+
+### 21.1 — the shape of the city map
+
+Question: after centring, do the 10 large-tag centroids arrange as generic
+near-orthogonal high-d directions, or as a structured low-dimensional
+constellation?
+Measurements: pairwise cosine matrix of centred unit centroids; participation
+ratio of their Gram eigenspectrum.
+Predictions: (a) mean pairwise |cos| exceeds the isotropic null p95 (10
+random unit vectors in R^1024); (b) the cosine spread (max minus min) exceeds
+the subset-centroid null p95 (centroids of 10 random disjoint same-size note
+subsets) — tags are real directions, not noise around the mean; (c)
+participation ratio <= 5: the interest constellation is thicker than a plane
+but far thinner than 10 dimensions.
+Control: the two nulls above, 1000 draws each.
+Kill: none — each sub-verdict stands alone.
+
+### 21.2 — polytope probe: does anything here crystallize?
+
+Question: do either (a) the 31 cone features' SAE decoder directions (Gemma
+space, W_dec rows) or (b) the 10 centred tag centroids show the toy-paper
+signatures — clustered per-feature dimensionality fractions or angle peaks at
+polytope values?
+Instrument: per-vector dimensionality D_i = ‖v_i‖^2 / sum_j (v_i · v_j)^2 over
+unit vectors (the paper's measure), plus the full angle histogram.
+Predictions, registered in the skeptical direction: (a) the 31 decoder
+directions are non-isotropic (mean pairwise cos exceeds isotropic p95 — they
+were selected for co-activation) but show NO crystalline plateaus:
+dimensionality fractions do not cluster within 0.02 of {1/4, 1/3, 2/5, 1/2,
+3/7} beyond the null rate. Rationale recorded now: crystals in the toy paper
+come from sparsity pressure at forced low width; a 16k SAE at L0~71 is under
+mild pressure, and Li et al. find no crystals at this scale without
+projecting out distractor dimensions. (b) tag centroids contain no antipodal
+pair (min pairwise centred cos > -0.5): interests oppose by absence, not
+negation.
+Control: plateau clustering and angle peaks judged against 1000 isotropic
+draws of matching count and dimension.
+Kill: none. A confirmed plateau would contradict the registered direction and
+be the headline; that is the point of registering skeptically.
+Exploratory (no prediction, no verdict): parallelogram probe over centroid
+quadruples (c_a - c_b vs c_c - c_d), reported descriptively only.
+
+### 21.3 — intersections: where roads cross
+
+Question: do the 45 tag roads share notes, and do shared notes sit at genuine
+crossings or in near-parallel merges?
+Instrument: road-degree per note = number of roads retrieving it at any stop.
+Crossing angle at a shared note = angle between the two roads' slerp tangent
+directions at the stops where it appears (tangents analytic from the slerp).
+Predictions: (a) stop-slot concentration exceeds the census: top-10 notes by
+road-degree hold >= 25% of the 1215 stop slots (45 roads x 9 stops x k=3;
+census arcs measured 12% and tag roads run through denser country); (b) true
+crossings exist: at least 3 notes with road-degree >= 4 whose maximum
+pairwise crossing angle >= 60 degrees.
+Control: crossing angles judged against the tangent-angle distribution of
+random road pairs at random stops — "wide" means above that distribution's
+median, and the 60-degree bar is absolute.
+Kill: if no note reaches road-degree 3, intersections do not exist at
+tag-road granularity; 21.4 is skipped and the section reports the negative.
+
+### 21.4 — roundabouts: where the handover concentrates
+
+Question: 18.5 and 20.1 showed each road hands its vocabulary over
+monotonically; do the handover points of many roads land on the same notes?
+Instrument: per road, the handover stop is the first t where B-side
+mass-feature share exceeds A-side (fingerprints.npz, sum pooling); the
+handover note is that stop's top retrieved note.
+Predictions: (a) concentration: the most frequent handover note serves >= 4
+of the 45 roads, exceeding the shuffle null p95; (b) handover notes have
+higher 21.3 road-degree than non-handover stop notes (permutation p < 0.05)
+— the places where traffic changes vocabulary are the places where many
+roads meet, which is what a roundabout is.
+Control: handover position shuffled uniformly among each road's stops, 1000
+draws, concentration recomputed.
+Kill: if fewer than 35 of 45 roads have a single well-defined crossing (share
+curve crosses 0.5 exactly once), the monotone-handover result does not
+generalize and the roundabout construct is void — reported as such, with the
+non-monotone roads shown.
+
+### 21.5 — the map (deliverable, not hypothesis)
+
+Render the geometry: the centred corpus projected onto the basis 21.1
+selects (centroid subspace, falling back to local PCA per section 15's
+measured lesson that fitted axes beat arbitrary ones 3.3x), with all 45
+roads drawn, interstates ranked by min-stop-support (stroke width),
+intersections and roundabouts marked where 21.3/21.4 confirm them. House
+figure style: legends on every panel, one claim per figure. A live /map
+overlay reuses the road layer shipped on feature/map-road and is a separate
+decision after the static map exists.
+
 ## Standing rules
 
 - Frozen artifacts are never overwritten; every results.json stamps seed
