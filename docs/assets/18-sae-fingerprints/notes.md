@@ -56,6 +56,37 @@ prediction failed and is reported as failed. The pilot proceeds with the
 two instrument rules above; if baseline-corrected reading in 18.3/18.4
 still surfaces garbage, that is the real kill.
 
+## 18.1 — local rig cross-validation (2026-08-02)
+
+**Prediction: CONFIRMED, with one instrument correction en route.** The
+first scoring pass compared local top-10-by-sum over all 16k features
+against the API's top-10 — but the API only returns its top-100 features
+by peak activation, so the two sides ranked over different candidate
+pools. Unrestricted overlap (2.0/10 mean) exactly equals the count of
+local winners present in the API pool at all, and median relative
+activation difference on shared features was already ~2% — values agreed,
+pools did not. Pool-matched scoring (rank both sides inside the API's
+candidate set): **10/10 on all five notes, mean relative activation
+difference 0.4-2.3%**, against the registered >= 7/10 and <= 10%.
+
+The rig — unsloth-mirror Gemma 2 2B bf16 on CPU, hook
+`blocks.20.hook_resid_post`, SAE `gemma-scope-2b-pt-res /
+layer_20/width_16k/average_l0_71` — is validated as an instrument. The
+mirror-vs-official weight question is closed by the same numbers.
+
+Carried forward:
+
+1. **The API's 100-feature cap is a real ceiling**, not a nuisance: most
+   of a note's high-mass (dense) features fall outside its top-100 by
+   peak. Corpus statistics computed from API responses would be silently
+   truncated — the batch must be local. (`rig-validation.json` keeps both
+   overlap numbers.)
+2. **Measured throughput: 25-43s/note on CPU** (~330-530 tokens each),
+   so the full batch is ~4.5 CPU-hours. An MPS run is only admissible if
+   it passes this same validation procedure against the now-trusted CPU
+   reference.
+
 ## Next
 
-18.1 local rig cross-validation (CPU, sae-lens), then the batch.
+18.2 batch (device: CPU, or MPS if it passes the same validation), then
+18.3 cone naming.

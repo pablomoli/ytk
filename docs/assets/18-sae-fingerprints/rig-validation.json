@@ -1,0 +1,229 @@
+{
+ "sae": "gemma-scope-2b-pt-res/layer_20/width_16k/average_l0_71",
+ "model_source": "unsloth/gemma-2-2b",
+ "hook": "blocks.20.hook_resid_post",
+ "notes": [
+  {
+   "note": "How To De-Slop A Codebase Ruined By AI (with one skill)",
+   "tokens": 333,
+   "secs_local": 25.1,
+   "local_top10": [
+    6631,
+    6143,
+    12434,
+    5431,
+    12763,
+    9768,
+    2373,
+    11773,
+    1530,
+    7459
+   ],
+   "local_top10_pooled": [
+    6631,
+    15509,
+    9147,
+    8684,
+    3223,
+    9982,
+    10881,
+    14537,
+    7585,
+    7400
+   ],
+   "api_top10": [
+    6631,
+    15509,
+    9147,
+    8684,
+    3223,
+    9982,
+    10881,
+    14537,
+    7585,
+    7400
+   ],
+   "overlap_pooled": 10,
+   "overlap_unrestricted": 1,
+   "median_rel_diff": 0.0232
+  },
+  {
+   "note": "Tech interviews with NeetCode",
+   "tokens": 338,
+   "secs_local": 28.4,
+   "local_top10": [
+    12763,
+    11773,
+    6143,
+    6631,
+    5431,
+    12969,
+    7459,
+    9768,
+    8684,
+    1530
+   ],
+   "local_top10_pooled": [
+    8684,
+    10253,
+    15509,
+    3223,
+    10881,
+    7400,
+    7182,
+    5816,
+    9982,
+    10461
+   ],
+   "api_top10": [
+    8684,
+    10253,
+    15509,
+    3223,
+    10881,
+    7400,
+    7182,
+    5816,
+    9982,
+    10461
+   ],
+   "overlap_pooled": 10,
+   "overlap_unrestricted": 1,
+   "median_rel_diff": 0.0219
+  },
+  {
+   "note": "System Design for Beginners (Full Guide)",
+   "tokens": 359,
+   "secs_local": 28.5,
+   "local_top10": [
+    6631,
+    12434,
+    10931,
+    549,
+    9768,
+    12763,
+    5431,
+    14881,
+    6143,
+    743
+   ],
+   "local_top10_pooled": [
+    6631,
+    3643,
+    3223,
+    8208,
+    7336,
+    15509,
+    8684,
+    10881,
+    15019,
+    14537
+   ],
+   "api_top10": [
+    6631,
+    3643,
+    3223,
+    8208,
+    7336,
+    15509,
+    8684,
+    10881,
+    15019,
+    14537
+   ],
+   "overlap_pooled": 10,
+   "overlap_unrestricted": 1,
+   "median_rel_diff": 0.0216
+  },
+  {
+   "note": "randyroberts-DWpSK4uDhIO-tribe-brain-heatmap",
+   "tokens": 528,
+   "secs_local": 43.5,
+   "local_top10": [
+    6631,
+    12763,
+    6143,
+    549,
+    8684,
+    6232,
+    1692,
+    14320,
+    2511,
+    10476
+   ],
+   "local_top10_pooled": [
+    6631,
+    8684,
+    14320,
+    2511,
+    15509,
+    4690,
+    5644,
+    16269,
+    10733,
+    3771
+   ],
+   "api_top10": [
+    6631,
+    8684,
+    14320,
+    2511,
+    15509,
+    4690,
+    5644,
+    16269,
+    10733,
+    3771
+   ],
+   "overlap_pooled": 10,
+   "overlap_unrestricted": 4,
+   "median_rel_diff": 0.0134
+  },
+  {
+   "note": "Turn Claude Into A Design GENIUS In 3 Simple Steps",
+   "tokens": 314,
+   "secs_local": 23.8,
+   "local_top10": [
+    6631,
+    549,
+    12763,
+    9622,
+    12969,
+    9768,
+    9595,
+    6143,
+    10931,
+    1530
+   ],
+   "local_top10_pooled": [
+    6631,
+    9622,
+    9595,
+    3223,
+    15509,
+    10881,
+    9982,
+    11078,
+    7400,
+    4385
+   ],
+   "api_top10": [
+    6631,
+    9622,
+    9595,
+    3223,
+    15509,
+    10881,
+    9982,
+    11078,
+    7400,
+    4385
+   ],
+   "overlap_pooled": 10,
+   "overlap_unrestricted": 3,
+   "median_rel_diff": 0.0037
+  }
+ ],
+ "mean_overlap_pooled": 10.0,
+ "mean_overlap_unrestricted": 2.0
+}
