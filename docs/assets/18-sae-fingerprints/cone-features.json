@@ -1,0 +1,151 @@
+{
+ "n_notes": 568,
+ "presence": "top-256 per note by summed activation",
+ "features_over_90pct": 31,
+ "features_over_70pct": 56,
+ "union_features_over_90pct": 953,
+ "mean_note_l0_union": 5209.290492957746,
+ "auto_name_caveat": "auto-explanations are hypotheses; 4932 'drug usage' fires on ' session'/' repo'/' skill' in a coding note",
+ "top": [
+  {
+   "index": 6631,
+   "df_mass": 1.0,
+   "df_union": 1.0,
+   "mean_sum": 8342.1,
+   "name": "proper nouns.\n"
+  },
+  {
+   "index": 12763,
+   "df_mass": 1.0,
+   "df_union": 1.0,
+   "mean_sum": 5512.8,
+   "name": "terms related to privilege and social identity"
+  },
+  {
+   "index": 8684,
+   "df_mass": 1.0,
+   "df_union": 1.0,
+   "mean_sum": 4405.1,
+   "name": " technical jargon and programming-related terms"
+  },
+  {
+   "index": 549,
+   "df_mass": 1.0,
+   "df_union": 1.0,
+   "mean_sum": 4330.4,
+   "name": "text that involves programming and code structure"
+  },
+  {
+   "index": 6143,
+   "df_mass": 1.0,
+   "df_union": 1.0,
+   "mean_sum": 3862.1,
+   "name": "words and phrases related to scientific or technical processes and observations, particularly in medical or biological contexts."
+  },
+  {
+   "index": 9768,
+   "df_mass": 1.0,
+   "df_union": 1.0,
+   "mean_sum": 3666.9,
+   "name": "terms related to control and authority, particularly in political or systemic contexts"
+  },
+  {
+   "index": 1692,
+   "df_mass": 1.0,
+   "df_union": 1.0,
+   "mean_sum": 3154.9,
+   "name": "legal and technical terminology related to statutes and inventions"
+  },
+  {
+   "index": 10931,
+   "df_mass": 0.9489,
+   "df_union": 1.0,
+   "mean_sum": 2657.5,
+   "name": "keywords and parameters commonly associated with programming and configuration files"
+  },
+  {
+   "index": 743,
+   "df_mass": 1.0,
+   "df_union": 1.0,
+   "mean_sum": 2357.8,
+   "name": " proper nouns and specific terms related to people or entities"
+  },
+  {
+   "index": 5431,
+   "df_mass": 0.9437,
+   "df_union": 0.9894,
+   "mean_sum": 2336.9,
+   "name": "connections between actions and consequences related to financial or social obligations"
+  },
+  {
+   "index": 15509,
+   "df_mass": 1.0,
+   "df_union": 1.0,
+   "mean_sum": 2240.6,
+   "name": "words likely to be near the end of sentences"
+  },
+  {
+   "index": 1530,
+   "df_mass": 0.9718,
+   "df_union": 1.0,
+   "mean_sum": 2160.8,
+   "name": "technical terms related to inventions and scientific descriptions"
+  },
+  {
+   "index": 5533,
+   "df_mass": 0.9683,
+   "df_union": 1.0,
+   "mean_sum": 2066.8,
+   "name": "terms related to medical and biological testing and analysis"
+  },
+  {
+   "index": 8366,
+   "df_mass": 0.9982,
+   "df_union": 1.0,
+   "mean_sum": 2042.6,
+   "name": "verbs and their related forms, often related to medical or technical contexts"
+  },
+  {
+   "index": 14881,
+   "df_mass": 0.9525,
+   "df_union": 1.0,
+   "mean_sum": 1886.8,
+   "name": " phrases related to lubrication and mechanical properties"
+  },
+  {
+   "index": 8820,
+   "df_mass": 0.9965,
+   "df_union": 1.0,
+   "mean_sum": 1855.3,
+   "name": "references to ethical concerns and issues related to accountability"
+  },
+  {
+   "index": 10640,
+   "df_mass": 0.9806,
+   "df_union": 1.0,
+   "mean_sum": 1744.9,
+   "name": "information about critiques and evaluations in research studies"
+  },
+  {
+   "index": 12767,
+   "df_mass": 0.831,
+   "df_union": 0.963,
+   "mean_sum": 1698.1,
+   "name": "references to historical or significant events related to change or progress"
+  },
+  {
+   "index": 5052,
+   "df_mass": 0.9877,
+   "df_union": 1.0,
+   "mean_sum": 1697.0,
+   "name": "the beginning of a document or section, likely signaling the start of significant content"
+  },
+  {
+   "index": 10419,
+   "df_mass": 0.9296,
+   "df_union": 1.0,
+   "mean_sum": 1313.2,
+   "name": "technical terms and specific concepts related to scientific research and modeling"
+  }
+ ]
+}
