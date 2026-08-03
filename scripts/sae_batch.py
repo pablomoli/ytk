@@ -18,6 +18,7 @@ fingerprints.npz {sum, max} float16 plus manifest.json.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import time
@@ -113,11 +114,20 @@ def batch(device: str) -> None:
         sums, maxes, ntok = encode_sums(model, sae_module, text)
         S[k] = sums.astype(np.float16)
         M[k] = maxes.astype(np.float16)
-        manifest.append({"i": k, "name": name, "tokens": ntok, "skipped": False})
+        manifest.append(
+            {
+                "i": k,
+                "name": name,
+                "tokens": ntok,
+                "skipped": False,
+                "sha256": hashlib.sha256(text[:MAX_CHARS].encode()).hexdigest()[:12],
+            }
+        )
         if (k + 1) % 25 == 0:
             rate = (k + 1) / (time.time() - t0)
             print(
-                f"{k + 1}/{len(names)}  {rate:.2f} notes/s  eta {(len(names) - k - 1) / rate / 60:.0f} min"
+                f"{k + 1}/{len(names)}  {rate:.2f} notes/s  eta {(len(names) - k - 1) / rate / 60:.0f} min",
+                flush=True,
             )
 
     np.savez_compressed(OUTDIR / "fingerprints.npz", sum=S, max=M)
@@ -129,6 +139,68 @@ def batch(device: str) -> None:
     )
 
 
+def fallback_texts() -> dict[str, str]:
+    """name -> text for notes whose Chroma document is empty: metadata
+    thesis+summary for videos, the vault file body for memory-backed notes."""
+    import ytk.vault  # noqa: F401  — sets CHROMA_URL; bare store import reads a stale DB (#164)
+    from ytk import store
+
+    texts: dict[str, str] = {}
+    vids = store._videos_collection().get(include=["metadatas"])
+    for meta in vids["metadatas"]:
+        key = str(meta.get("title", meta.get("video_id", "")))[:80]
+        body = " ".join(str(meta.get(k, "") or "") for k in ("thesis", "summary", "description"))
+        if body.strip():
+            texts[key] = body
+    mem = store._memories_collection().get(include=["metadatas"])
+    for meta in mem["metadatas"]:
+        path = str(meta.get("source_path", ""))
+        if not path:
+            continue
+        key = Path(path).stem[:80]
+        if key in texts:
+            continue
+        p = Path(path)
+        if p.exists():
+            raw = p.read_text(encoding="utf-8", errors="ignore")
+            body = raw.split("## Transcript")[0]
+            if body.strip():
+                texts[key] = body[-6000:]
+    return texts
+
+
+def backfill(device: str) -> None:
+    """Re-run only the rows the batch skipped, using fallback text sources."""
+    import numpy as np
+
+    data = np.load(OUTDIR / "fingerprints.npz")
+    S, M = data["sum"].copy(), data["max"].copy()
+    manifest = json.loads((OUTDIR / "manifest.json").read_text())
+    todo = [m for m in manifest["notes"] if m["skipped"]]
+    meta = json.loads((OUTDIR.parent / "17-corpus-growth" / "tags-fresh.json").read_text())
+    names = meta["names"]
+    fb = fallback_texts()
+    have = [m for m in todo if fb.get(names[m["i"]], "").strip()]
+    print(f"{len(todo)} skipped rows, {len(have)} recoverable via fallback texts")
+
+    model, sae_module = load_rig(device)
+    t0 = time.time()
+    for j, m in enumerate(have):
+        sums, maxes, ntok = encode_sums(model, sae_module, fb[names[m["i"]]])
+        S[m["i"]] = sums.astype(np.float16)
+        M[m["i"]] = maxes.astype(np.float16)
+        m["skipped"] = False
+        m["tokens"] = ntok
+        m["text_source"] = "fallback"
+        if (j + 1) % 25 == 0:
+            print(f"{j + 1}/{len(have)}  {(j + 1) / (time.time() - t0):.2f} notes/s", flush=True)
+
+    np.savez_compressed(OUTDIR / "fingerprints.npz", sum=S, max=M)
+    (OUTDIR / "manifest.json").write_text(json.dumps(manifest))
+    left = sum(1 for m in manifest["notes"] if m["skipped"])
+    print(f"done in {(time.time() - t0) / 60:.0f} min  ·  {left} rows remain skipped")
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "validate-mps"
     sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -136,5 +208,7 @@ if __name__ == "__main__":
         validate_mps()
     elif cmd == "batch":
         batch(sys.argv[2] if len(sys.argv) > 2 else "cpu")
+    elif cmd == "backfill":
+        backfill(sys.argv[2] if len(sys.argv) > 2 else "mps")
     else:
         raise SystemExit(f"unknown command: {cmd}")
