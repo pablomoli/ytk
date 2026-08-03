@@ -918,9 +918,10 @@ export function mountMapRenderer(
         const isContent = point.cx !== undefined;
         const lens = mediaOnly && !isContent ? 0.04 : recency;
         const sig = signalOnly && point.r < 1 ? 0.04 : lens;
-        // Road spotlight: an active route drops everything off-road to a
-        // whisper so the itinerary notes are the only bright things left.
-        const road = routeSet.size && !routeSet.has(index) ? 0.07 : 1;
+        // Road spotlight: off-road points recede but stay readable — 0.38
+        // keeps the constellation legible under the lit itinerary; 0.07
+        // erased the map and read as points disappearing.
+        const road = routeSet.size && !routeSet.has(index) ? 0.38 : 1;
         const alphaFor = (base: number) => (sig === 0.04 ? 0.04 : base * sig) * road;
         const domColor = point.dom >= 0 ? (domColorArr[point.dom] ?? gray) : gray;
         const subColor = point.g >= 0 ? (subColorArr[point.g] ?? domColor) : domColor;
