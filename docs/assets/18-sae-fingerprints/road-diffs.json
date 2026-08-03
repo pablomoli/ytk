@@ -1,0 +1,236 @@
+{
+ "seed": 20260806,
+ "pair": {
+  "a": "Every Software Engineer Interview Question I Got in 2026 (Coding, System Design",
+  "b": "randyroberts-DWpSK4uDhIO-tribe-brain-heatmap"
+ },
+ "excluded_rows": 3,
+ "vocab": {
+  "a_only": 183,
+  "b_only": 183,
+  "shared": 73
+ },
+ "a_share_by_stop": [
+  0.7853,
+  0.7528,
+  0.752,
+  0.7123,
+  0.5631,
+  0.5566,
+  0.4165,
+  0.416,
+  0.3756
+ ],
+ "spearman_rho": -1.0,
+ "null_abs_rho_p95": 0.633,
+ "stops": [
+  {
+   "t": 0.0,
+   "retrieved": [
+    "Tech interviews with NeetCode",
+    "The future of computer science",
+    "System Design for Beginners (Full Guide)"
+   ],
+   "weights": [
+    0.339,
+    0.333,
+    0.328
+   ],
+   "a_share": 0.7853
+  },
+  {
+   "t": 0.125,
+   "retrieved": [
+    "Tech interviews with NeetCode",
+    "System Design for Beginners (Full Guide)",
+    "How To De-Slop A Codebase Ruined By AI (with one skill)"
+   ],
+   "weights": [
+    0.342,
+    0.333,
+    0.326
+   ],
+   "a_share": 0.7528
+  },
+  {
+   "t": 0.25,
+   "retrieved": [
+    "How To De-Slop A Codebase Ruined By AI (with one skill)",
+    "Tech interviews with NeetCode",
+    "System Design for Beginners (Full Guide)"
+   ],
+   "weights": [
+    0.337,
+    0.334,
+    0.328
+   ],
+   "a_share": 0.752
+  },
+  {
+   "t": 0.375,
+   "retrieved": [
+    "How To De-Slop A Codebase Ruined By AI (with one skill)",
+    "This Skill Just Made Kimi K3 a 10X Better Designer",
+    "Tech interviews with NeetCode"
+   ],
+   "weights": [
+    0.347,
+    0.327,
+    0.326
+   ],
+   "a_share": 0.7123
+  },
+  {
+   "t": 0.5,
+   "retrieved": [
+    "How To De-Slop A Codebase Ruined By AI (with one skill)",
+    "_y7_y7_y7_-2026-06-17-DZr5Z9luHRK",
+    "This Skill Just Made Kimi K3 a 10X Better Designer"
+   ],
+   "weights": [
+    0.34,
+    0.332,
+    0.328
+   ],
+   "a_share": 0.5631
+  },
+  {
+   "t": 0.625,
+   "retrieved": [
+    "_y7_y7_y7_-2026-06-17-DZr5Z9luHRK",
+    "How To De-Slop A Codebase Ruined By AI (with one skill)",
+    "This Skill Just Made Kimi K3 a 10X Better Designer"
+   ],
+   "weights": [
+    0.352,
+    0.326,
+    0.321
+   ],
+   "a_share": 0.5566
+  },
+  {
+   "t": 0.75,
+   "retrieved": [
+    "_y7_y7_y7_-2026-06-17-DZr5Z9luHRK",
+    "rndyrbrts-2026-03-31-DWiJtpTgiNY",
+    "realrobertgutierrez-2026-07-07-DagBy7RKUD1"
+   ],
+   "weights": [
+    0.364,
+    0.322,
+    0.314
+   ],
+   "a_share": 0.4165
+  },
+  {
+   "t": 0.875,
+   "retrieved": [
+    "_y7_y7_y7_-2026-06-17-DZr5Z9luHRK",
+    "rndyrbrts-2026-03-31-DWiJtpTgiNY",
+    "realrobertgutierrez-2026-07-07-DagBy7RKUD1"
+   ],
+   "weights": [
+    0.369,
+    0.32,
+    0.311
+   ],
+   "a_share": 0.416
+  },
+  {
+   "t": 1.0,
+   "retrieved": [
+    "_y7_y7_y7_-2026-06-17-DZr5Z9luHRK",
+    "rndyrbrts-2026-03-31-DWiJtpTgiNY",
+    "marimo_io-2026-07-14-Dax-us0O7-s"
+   ],
+   "weights": [
+    0.37,
+    0.316,
+    0.314
+   ],
+   "a_share": 0.3756
+  }
+ ],
+ "lanes": [
+  {
+   "index": 9996,
+   "side": "A",
+   "name": "computer programming constructs and concepts"
+  },
+  {
+   "index": 10253,
+   "side": "A",
+   "name": " references to job offers and recruitment processes"
+  },
+  {
+   "index": 11773,
+   "side": "A",
+   "name": "references to programming languages and related technical concepts"
+  },
+  {
+   "index": 12969,
+   "side": "A",
+   "name": "terms related to local search marketing and SEO strategies"
+  },
+  {
+   "index": 1548,
+   "side": "A",
+   "name": "expressions of personal giving or philanthropic actions"
+  },
+  {
+   "index": 14736,
+   "side": "A",
+   "name": "data related to academic performance metrics and standardized test scores"
+  },
+  {
+   "index": 12763,
+   "side": "shared",
+   "name": "terms related to privilege and social identity"
+  },
+  {
+   "index": 6631,
+   "side": "shared",
+   "name": "proper nouns.\n"
+  },
+  {
+   "index": 6143,
+   "side": "shared",
+   "name": "words and phrases related to scientific or technical processes and observations, particularly in medical or biological contexts."
+  },
+  {
+   "index": 549,
+   "side": "shared",
+   "name": "text that involves programming and code structure"
+  },
+  {
+   "index": 14320,
+   "side": "B",
+   "name": "numeric representations in a structured format"
+  },
+  {
+   "index": 2511,
+   "side": "B",
+   "name": " references to colors and their usage in graphical representations"
+  },
+  {
+   "index": 10476,
+   "side": "B",
+   "name": " references to software projects and development details"
+  },
+  {
+   "index": 12520,
+   "side": "B",
+   "name": "terms related to visual aesthetics and colors"
+  },
+  {
+   "index": 12348,
+   "side": "B",
+   "name": "mentions of cognitive performance metrics and event rates"
+  },
+  {
+   "index": 9268,
+   "side": "B",
+   "name": "concepts related to psychological and emotional processes"
+  }
+ ]
+}

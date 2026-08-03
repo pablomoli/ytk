@@ -1,0 +1,1012 @@
+{
+ "seed": 20260805,
+ "null_draws": 200,
+ "tags": [
+  "learning",
+  "reference",
+  "cool-vis",
+  "ai",
+  "creative-coding",
+  "creator",
+  "research",
+  "video-essay",
+  "education",
+  "build-idea"
+ ],
+ "per_tag": {
+  "learning": {
+   "n": 151,
+   "set15": [
+    215,
+    11112,
+    3357,
+    14787,
+    8131,
+    15632,
+    10131,
+    106,
+    6127,
+    9081,
+    15846,
+    6598,
+    14352,
+    11017,
+    5794
+   ],
+   "top": [
+    {
+     "index": 215,
+     "z": 8.4,
+     "share": 0.000326463341480121,
+     "name": "expressions of understanding or confusion"
+    },
+    {
+     "index": 11112,
+     "z": 7.7,
+     "share": 0.0003883586614392698,
+     "name": "references to educational materials and activities aimed at enhancing learning experiences"
+    },
+    {
+     "index": 3357,
+     "z": 7.3,
+     "share": 0.0005836245254613459,
+     "name": "references to formal education and training experiences"
+    },
+    {
+     "index": 14787,
+     "z": 7.3,
+     "share": 0.0001567631697980687,
+     "name": " concepts related to learning and education"
+    },
+    {
+     "index": 8131,
+     "z": 6.9,
+     "share": 0.0001447633549105376,
+     "name": "the concept of knowledge, particularly in relation to expertise and understanding in various fields"
+    },
+    {
+     "index": 15632,
+     "z": 6.7,
+     "share": 0.0007289061904884875,
+     "name": "academic affiliations and institutional citations"
+    },
+    {
+     "index": 10131,
+     "z": 6.7,
+     "share": 0.0003642782976385206,
+     "name": "phrases expressing language fluency and competence."
+    },
+    {
+     "index": 106,
+     "z": 6.6,
+     "share": 0.00016934114682953805,
+     "name": "verbs and phrases related to teaching and learning"
+    }
+   ],
+   "n_sig": 158,
+   "max_null_z": 4.7
+  },
+  "reference": {
+   "n": 145,
+   "set15": [
+    11536,
+    14142,
+    8956,
+    6539,
+    11362,
+    675,
+    2092,
+    4020,
+    3566,
+    10602,
+    7363,
+    3398,
+    15115,
+    11897,
+    14929
+   ],
+   "top": [
+    {
+     "index": 11536,
+     "z": 8.6,
+     "share": 6.455636321334168e-05,
+     "name": "headings and subheadings in a document"
+    },
+    {
+     "index": 14142,
+     "z": 8.5,
+     "share": 1.2864016753155738e-05,
+     "name": "code comment syntax"
+    },
+    {
+     "index": 8956,
+     "z": 8.4,
+     "share": 5.44601098226849e-05,
+     "name": " references to additional files or supplementary materials"
+    },
+    {
+     "index": 6539,
+     "z": 8.4,
+     "share": 0.00019471466657705605,
+     "name": " references to various types of content, including articles, products, and user interactions"
+    },
+    {
+     "index": 11362,
+     "z": 8.4,
+     "share": 4.8891793994698673e-05,
+     "name": "isolated or standalone punctuation"
+    },
+    {
+     "index": 675,
+     "z": 8.3,
+     "share": 1.288507610297529e-05,
+     "name": "the start of a new section in a document"
+    },
+    {
+     "index": 2092,
+     "z": 8.2,
+     "share": 1.3410055544227362e-05,
+     "name": "PHP and template syntax elements in a code or markup document"
+    },
+    {
+     "index": 4020,
+     "z": 8.2,
+     "share": 4.6839377318974584e-05,
+     "name": "the presence of hyphens or long dash indicators"
+    }
+   ],
+   "n_sig": 376,
+   "max_null_z": 4.7
+  },
+  "cool-vis": {
+   "n": 142,
+   "set15": [
+    4663,
+    14304,
+    324,
+    3627,
+    5221,
+    7270,
+    636,
+    3310,
+    811,
+    10733,
+    15961,
+    524,
+    1314,
+    7932,
+    14283
+   ],
+   "top": [
+    {
+     "index": 4663,
+     "z": 9.2,
+     "share": 0.0018171673873439431,
+     "name": "references to artistic disciplines and practices"
+    },
+    {
+     "index": 14304,
+     "z": 8.5,
+     "share": 0.0003870890650432557,
+     "name": "actions related to the combination, merging, or formation of components in a process"
+    },
+    {
+     "index": 324,
+     "z": 8.5,
+     "share": 0.00015724750119261444,
+     "name": "technical specifications and documentation details"
+    },
+    {
+     "index": 3627,
+     "z": 8.5,
+     "share": 0.0003996739978902042,
+     "name": "descriptions of the alignment and orientation of physical systems in a multi-dimensional space"
+    },
+    {
+     "index": 5221,
+     "z": 8.1,
+     "share": 0.0007725213072262704,
+     "name": "terms related to fluid dynamics and motion mechanics"
+    },
+    {
+     "index": 7270,
+     "z": 7.9,
+     "share": 0.00025175121845677495,
+     "name": " references to images and their credits"
+    },
+    {
+     "index": 636,
+     "z": 7.6,
+     "share": 0.0005499129765667021,
+     "name": "technical terms related to electronic signals and their processing"
+    },
+    {
+     "index": 3310,
+     "z": 7.6,
+     "share": 0.0005890256143175066,
+     "name": "elements related to statistical analysis and plotting results"
+    }
+   ],
+   "n_sig": 617,
+   "max_null_z": 4.7
+  },
+  "ai": {
+   "n": 121,
+   "set15": [
+    9622,
+    8450,
+    6583,
+    16265,
+    4109,
+    15005,
+    5499,
+    2980,
+    13322,
+    7673,
+    2036,
+    14892,
+    16011,
+    12691,
+    1916
+   ],
+   "top": [
+    {
+     "index": 9622,
+     "z": 16.9,
+     "share": 0.012592961080372334,
+     "name": "references to convolutional neural networks (CNNs) and their capabilities"
+    },
+    {
+     "index": 8450,
+     "z": 13.6,
+     "share": 0.003796322736889124,
+     "name": "keywords related to the development and implications of artificial intelligence and autonomous technologies"
+    },
+    {
+     "index": 6583,
+     "z": 13.4,
+     "share": 0.0010943692177534103,
+     "name": "references to loss functions in machine learning contexts"
+    },
+    {
+     "index": 16265,
+     "z": 12.7,
+     "share": 0.0041435519233345985,
+     "name": "terms related to entity recognition processes in text analysis"
+    },
+    {
+     "index": 4109,
+     "z": 11.9,
+     "share": 0.0020325554069131613,
+     "name": "technical terms related to neural networks and deep learning"
+    },
+    {
+     "index": 15005,
+     "z": 10.4,
+     "share": 0.0001335801207460463,
+     "name": "terms related to intelligence and intellectual capabilities"
+    },
+    {
+     "index": 5499,
+     "z": 10.3,
+     "share": 0.0003466031630523503,
+     "name": "references to different types of models, particularly in a scientific context"
+    },
+    {
+     "index": 2980,
+     "z": 10.2,
+     "share": 0.0018388627795502543,
+     "name": "references to current events or announcements related to governance and political figures"
+    }
+   ],
+   "n_sig": 224,
+   "max_null_z": 4.7
+  },
+  "creative-coding": {
+   "n": 114,
+   "set15": [
+    8686,
+    3905,
+    10866,
+    2061,
+    5649,
+    4663,
+    10000,
+    15874,
+    12487,
+    16281,
+    9861,
+    10733,
+    12917,
+    3665,
+    3304
+   ],
+   "top": [
+    {
+     "index": 8686,
+     "z": 12.1,
+     "share": 0.004535181447863579,
+     "name": " terms and parameters related to shading and lighting in graphics programming"
+    },
+    {
+     "index": 3905,
+     "z": 10.8,
+     "share": 0.0025787996128201485,
+     "name": "terms related to media usage and copyright considerations"
+    },
+    {
+     "index": 10866,
+     "z": 10.5,
+     "share": 0.0006316154613159597,
+     "name": " concepts related to rendering techniques and graphical processing in programming"
+    },
+    {
+     "index": 2061,
+     "z": 10.4,
+     "share": 0.0009796954691410065,
+     "name": "medical imaging terms and metrics related to diagnostic accuracy"
+    },
+    {
+     "index": 5649,
+     "z": 10.1,
+     "share": 0.004713717382401228,
+     "name": "technical terms related to animation and game development"
+    },
+    {
+     "index": 4663,
+     "z": 10.0,
+     "share": 0.002196722663938999,
+     "name": "references to artistic disciplines and practices"
+    },
+    {
+     "index": 10000,
+     "z": 9.7,
+     "share": 0.001196830766275525,
+     "name": "code elements related to the properties and methods of UI sliders"
+    },
+    {
+     "index": 15874,
+     "z": 9.6,
+     "share": 0.0007282816804945469,
+     "name": "references to processes related to data handling and manipulation"
+    }
+   ],
+   "n_sig": 421,
+   "max_null_z": 4.7
+  },
+  "creator": {
+   "n": 112,
+   "set15": [
+    14054,
+    189,
+    14249,
+    3405,
+    6539,
+    7582,
+    10979,
+    9613,
+    13208,
+    6473,
+    6532,
+    3232,
+    11536,
+    2997,
+    887
+   ],
+   "top": [
+    {
+     "index": 14054,
+     "z": 8.7,
+     "share": 0.00020116378436796367,
+     "name": "specific categories and details related to sports players and media content"
+    },
+    {
+     "index": 189,
+     "z": 8.7,
+     "share": 6.809584010625258e-05,
+     "name": "information related to geography and location"
+    },
+    {
+     "index": 14249,
+     "z": 8.6,
+     "share": 6.820702401455492e-05,
+     "name": "links to privacy and cookie policies"
+    },
+    {
+     "index": 3405,
+     "z": 8.2,
+     "share": 0.0001810058020055294,
+     "name": " sections that indicate a significant event or outcome"
+    },
+    {
+     "index": 6539,
+     "z": 8.0,
+     "share": 0.00020813409355469048,
+     "name": " references to various types of content, including articles, products, and user interactions"
+    },
+    {
+     "index": 7582,
+     "z": 7.9,
+     "share": 0.0007512415177188814,
+     "name": " references to medical terms and conditions"
+    },
+    {
+     "index": 10979,
+     "z": 7.9,
+     "share": 0.0002625212073326111,
+     "name": "sections and headings related to references, notes, and acknowledgments in documents"
+    },
+    {
+     "index": 9613,
+     "z": 7.8,
+     "share": 0.00019506769604049623,
+     "name": "the presence of specific formatting tags or control characters in a document"
+    }
+   ],
+   "n_sig": 418,
+   "max_null_z": 4.7
+  },
+  "research": {
+   "n": 111,
+   "set15": [
+    12691,
+    9622,
+    9957,
+    8275,
+    4019,
+    10202,
+    7293,
+    13322,
+    2036,
+    11270,
+    5267,
+    1151,
+    13933,
+    12124,
+    8903
+   ],
+   "top": [
+    {
+     "index": 12691,
+     "z": 11.1,
+     "share": 0.002067566616460681,
+     "name": "technical terms related to electron interactions and their effects in physics"
+    },
+    {
+     "index": 9622,
+     "z": 10.5,
+     "share": 0.00864703394472599,
+     "name": "references to convolutional neural networks (CNNs) and their capabilities"
+    },
+    {
+     "index": 9957,
+     "z": 9.8,
+     "share": 3.843816739390604e-05,
+     "name": "scientific discussions and descriptions related to health and medical research"
+    },
+    {
+     "index": 8275,
+     "z": 9.5,
+     "share": 0.0004174562345724553,
+     "name": "references to academia and scholarly achievements"
+    },
+    {
+     "index": 4019,
+     "z": 9.5,
+     "share": 0.0006221323856152594,
+     "name": "formal language and attributes typically found in academic publications"
+    },
+    {
+     "index": 10202,
+     "z": 9.2,
+     "share": 0.0001499157806392759,
+     "name": " names of authors or researchers"
+    },
+    {
+     "index": 7293,
+     "z": 9.1,
+     "share": 0.000175087945535779,
+     "name": "sentences involving research methodologies and specific investigative actions"
+    },
+    {
+     "index": 13322,
+     "z": 8.8,
+     "share": 0.0007579255034215748,
+     "name": "terms related to algorithms and data processing methodologies"
+    }
+   ],
+   "n_sig": 423,
+   "max_null_z": 4.7
+  },
+  "video-essay": {
+   "n": 106,
+   "set15": [
+    37,
+    4282,
+    4547,
+    8006,
+    8917,
+    7885,
+    12857,
+    5324,
+    6727,
+    9516,
+    1179,
+    10051,
+    4736,
+    15524,
+    1789
+   ],
+   "top": [
+    {
+     "index": 37,
+     "z": 10.3,
+     "share": 0.0002875899081118405,
+     "name": " punctuated phrases and statements"
+    },
+    {
+     "index": 4282,
+     "z": 9.5,
+     "share": 0.0003147078095935285,
+     "name": "repetitions of the article \"the\" in various contexts"
+    },
+    {
+     "index": 4547,
+     "z": 9.1,
+     "share": 0.0005923021817579865,
+     "name": "terms related to political systems and social structures"
+    },
+    {
+     "index": 8006,
+     "z": 8.4,
+     "share": 0.00015327378059737384,
+     "name": "words related to legal implications and violations"
+    },
+    {
+     "index": 8917,
+     "z": 8.2,
+     "share": 0.00011922051635337994,
+     "name": "phrases that indicate significant announcements or events and their implications"
+    },
+    {
+     "index": 7885,
+     "z": 8.1,
+     "share": 0.0005987732438370585,
+     "name": " elements related to discussions and reflections on past events"
+    },
+    {
+     "index": 12857,
+     "z": 7.7,
+     "share": 0.0001388607342960313,
+     "name": "themes relating to the significance and impact of history"
+    },
+    {
+     "index": 5324,
+     "z": 7.7,
+     "share": 0.00015256433107424527,
+     "name": "discussions about existence and belief"
+    }
+   ],
+   "n_sig": 543,
+   "max_null_z": 4.7
+  },
+  "education": {
+   "n": 105,
+   "set15": [
+    15846,
+    14352,
+    215,
+    11112,
+    11017,
+    1038,
+    4506,
+    11127,
+    679,
+    2545,
+    6598,
+    7990,
+    3975,
+    5282,
+    12833
+   ],
+   "top": [
+    {
+     "index": 15846,
+     "z": 9.6,
+     "share": 0.0016482010250911117,
+     "name": "mathematical terminology and expressions related to vectors and equations"
+    },
+    {
+     "index": 14352,
+     "z": 9.3,
+     "share": 0.0027993828989565372,
+     "name": "terms associated with academic contributions and achievements in mathematics"
+    },
+    {
+     "index": 215,
+     "z": 8.6,
+     "share": 0.00038136038347147405,
+     "name": "expressions of understanding or confusion"
+    },
+    {
+     "index": 11112,
+     "z": 8.2,
+     "share": 0.000484931020764634,
+     "name": "references to educational materials and activities aimed at enhancing learning experiences"
+    },
+    {
+     "index": 11017,
+     "z": 8.1,
+     "share": 0.0007458826876245439,
+     "name": "concepts related to international education and global collaboration"
+    },
+    {
+     "index": 1038,
+     "z": 7.9,
+     "share": 0.0012097753351554275,
+     "name": "terms related to financial modeling, particularly in the context of statistical estimation and theoretical foundations"
+    },
+    {
+     "index": 4506,
+     "z": 7.9,
+     "share": 0.0015810607001185417,
+     "name": "terms related to physical laws and scientific principles"
+    },
+    {
+     "index": 11127,
+     "z": 7.7,
+     "share": 0.00044725878979079425,
+     "name": "statistical and mathematical terms, especially those related to distributions and analysis methodologies"
+    }
+   ],
+   "n_sig": 342,
+   "max_null_z": 4.7
+  },
+  "build-idea": {
+   "n": 104,
+   "set15": [
+    10949,
+    11897,
+    3566,
+    7363,
+    6404,
+    675,
+    3398,
+    2092,
+    5644,
+    4020,
+    7932,
+    11362,
+    8446,
+    12078,
+    16357
+   ],
+   "top": [
+    {
+     "index": 10949,
+     "z": 11.6,
+     "share": 4.353854092187248e-05,
+     "name": "instances of mathematical expressions or technical notation"
+    },
+    {
+     "index": 11897,
+     "z": 10.8,
+     "share": 1.218019133375492e-05,
+     "name": "elements and functions related to form handling in a programming context"
+    },
+    {
+     "index": 3566,
+     "z": 10.6,
+     "share": 2.0565685190376826e-05,
+     "name": "PHP opening tags and other related PHP/XML syntax"
+    },
+    {
+     "index": 7363,
+     "z": 10.6,
+     "share": 6.884729373268783e-05,
+     "name": " sentences or phrases that indicate the end of a section or document"
+    },
+    {
+     "index": 6404,
+     "z": 10.5,
+     "share": 0.00014219919103197753,
+     "name": "the presence of section headings or bullet points in a text"
+    },
+    {
+     "index": 675,
+     "z": 10.5,
+     "share": 1.5211395293590613e-05,
+     "name": "the start of a new section in a document"
+    },
+    {
+     "index": 3398,
+     "z": 10.5,
+     "share": 1.4897339497110806e-05,
+     "name": " instances of negation in conditions"
+    },
+    {
+     "index": 2092,
+     "z": 10.4,
+     "share": 1.607966623851098e-05,
+     "name": "PHP and template syntax elements in a code or markup document"
+    }
+   ],
+   "n_sig": 957,
+   "max_null_z": 4.7
+  }
+ },
+ "pairs": [
+  {
+   "a": "learning",
+   "b": "reference",
+   "jaccard": 0.0,
+   "cos": 0.9642
+  },
+  {
+   "a": "learning",
+   "b": "cool-vis",
+   "jaccard": 0.0,
+   "cos": 0.9161
+  },
+  {
+   "a": "learning",
+   "b": "ai",
+   "jaccard": 0.0,
+   "cos": 0.9308
+  },
+  {
+   "a": "learning",
+   "b": "creative-coding",
+   "jaccard": 0.0,
+   "cos": 0.8704
+  },
+  {
+   "a": "learning",
+   "b": "creator",
+   "jaccard": 0.0,
+   "cos": 0.9295
+  },
+  {
+   "a": "learning",
+   "b": "research",
+   "jaccard": 0.0,
+   "cos": 0.9583
+  },
+  {
+   "a": "learning",
+   "b": "video-essay",
+   "jaccard": 0.0,
+   "cos": 0.9402
+  },
+  {
+   "a": "learning",
+   "b": "education",
+   "jaccard": 0.25,
+   "cos": 0.9771
+  },
+  {
+   "a": "learning",
+   "b": "build-idea",
+   "jaccard": 0.0,
+   "cos": 0.9402
+  },
+  {
+   "a": "reference",
+   "b": "cool-vis",
+   "jaccard": 0.0,
+   "cos": 0.9564
+  },
+  {
+   "a": "reference",
+   "b": "ai",
+   "jaccard": 0.0,
+   "cos": 0.8985
+  },
+  {
+   "a": "reference",
+   "b": "creative-coding",
+   "jaccard": 0.0,
+   "cos": 0.9144
+  },
+  {
+   "a": "reference",
+   "b": "creator",
+   "jaccard": 0.0714,
+   "cos": 0.9582
+  },
+  {
+   "a": "reference",
+   "b": "research",
+   "jaccard": 0.0,
+   "cos": 0.9372
+  },
+  {
+   "a": "reference",
+   "b": "video-essay",
+   "jaccard": 0.0,
+   "cos": 0.9286
+  },
+  {
+   "a": "reference",
+   "b": "education",
+   "jaccard": 0.0,
+   "cos": 0.9446
+  },
+  {
+   "a": "reference",
+   "b": "build-idea",
+   "jaccard": 0.3636,
+   "cos": 0.9738
+  },
+  {
+   "a": "cool-vis",
+   "b": "ai",
+   "jaccard": 0.0,
+   "cos": 0.8445
+  },
+  {
+   "a": "cool-vis",
+   "b": "creative-coding",
+   "jaccard": 0.0714,
+   "cos": 0.9755
+  },
+  {
+   "a": "cool-vis",
+   "b": "creator",
+   "jaccard": 0.0,
+   "cos": 0.9437
+  },
+  {
+   "a": "cool-vis",
+   "b": "research",
+   "jaccard": 0.0,
+   "cos": 0.8861
+  },
+  {
+   "a": "cool-vis",
+   "b": "video-essay",
+   "jaccard": 0.0,
+   "cos": 0.8846
+  },
+  {
+   "a": "cool-vis",
+   "b": "education",
+   "jaccard": 0.0,
+   "cos": 0.8975
+  },
+  {
+   "a": "cool-vis",
+   "b": "build-idea",
+   "jaccard": 0.0345,
+   "cos": 0.9491
+  },
+  {
+   "a": "ai",
+   "b": "creative-coding",
+   "jaccard": 0.0,
+   "cos": 0.8032
+  },
+  {
+   "a": "ai",
+   "b": "creator",
+   "jaccard": 0.0,
+   "cos": 0.8511
+  },
+  {
+   "a": "ai",
+   "b": "research",
+   "jaccard": 0.1538,
+   "cos": 0.9612
+  },
+  {
+   "a": "ai",
+   "b": "video-essay",
+   "jaccard": 0.0,
+   "cos": 0.9098
+  },
+  {
+   "a": "ai",
+   "b": "education",
+   "jaccard": 0.0,
+   "cos": 0.9132
+  },
+  {
+   "a": "ai",
+   "b": "build-idea",
+   "jaccard": 0.0,
+   "cos": 0.8908
+  },
+  {
+   "a": "creative-coding",
+   "b": "creator",
+   "jaccard": 0.0,
+   "cos": 0.9248
+  },
+  {
+   "a": "creative-coding",
+   "b": "research",
+   "jaccard": 0.0,
+   "cos": 0.8213
+  },
+  {
+   "a": "creative-coding",
+   "b": "video-essay",
+   "jaccard": 0.0,
+   "cos": 0.8226
+  },
+  {
+   "a": "creative-coding",
+   "b": "education",
+   "jaccard": 0.0,
+   "cos": 0.8285
+  },
+  {
+   "a": "creative-coding",
+   "b": "build-idea",
+   "jaccard": 0.0,
+   "cos": 0.9161
+  },
+  {
+   "a": "creator",
+   "b": "research",
+   "jaccard": 0.0,
+   "cos": 0.8748
+  },
+  {
+   "a": "creator",
+   "b": "video-essay",
+   "jaccard": 0.0,
+   "cos": 0.8981
+  },
+  {
+   "a": "creator",
+   "b": "education",
+   "jaccard": 0.0,
+   "cos": 0.8985
+  },
+  {
+   "a": "creator",
+   "b": "build-idea",
+   "jaccard": 0.0,
+   "cos": 0.9638
+  },
+  {
+   "a": "research",
+   "b": "video-essay",
+   "jaccard": 0.0,
+   "cos": 0.9395
+  },
+  {
+   "a": "research",
+   "b": "education",
+   "jaccard": 0.0,
+   "cos": 0.9562
+  },
+  {
+   "a": "research",
+   "b": "build-idea",
+   "jaccard": 0.0,
+   "cos": 0.9157
+  },
+  {
+   "a": "video-essay",
+   "b": "education",
+   "jaccard": 0.0,
+   "cos": 0.9555
+  },
+  {
+   "a": "video-essay",
+   "b": "build-idea",
+   "jaccard": 0.0,
+   "cos": 0.8948
+  },
+  {
+   "a": "education",
+   "b": "build-idea",
+   "jaccard": 0.0,
+   "cos": 0.913
+  }
+ ],
+ "jaccard_cos_r": 0.391,
+ "null_z_p95": 4.7
+}

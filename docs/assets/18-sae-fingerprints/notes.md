@@ -133,8 +133,63 @@ cockpit, 'offs' from trade-offs) and glue tokens. Rule carried into
 auto-name, and probe any load-bearing feature at token level via
 `/api/activation/new` before quoting it.
 
-## Next
+## 18.4 — tag regions as feature sets (2026-08-03)
 
-18.4 tag regions as differential feature sets (with tag-shuffle control),
-then 18.5 roads as feature diffs. Both read fingerprints.npz; both apply
-the mass-presence and set-not-name rules above.
+**Primary prediction: CONFIRMED, 9 of 10 tags coherent** (registered >= 7,
+kill < 4). Judged set-wise per panel (fig 03): `ai` (CNNs, loss functions,
+entity recognition), `creative-coding` (shader parameters, rendering,
+animation), `research` (scientific discussion, academia, author names,
+methods), `reference` (headings, code-comment syntax, file references),
+`learning`/`education` (understanding, educational material, math and
+academic vocabulary), `cool-vis` (artistic disciplines, images, fluid
+dynamics), `build-idea` (math expressions, functions, PHP/template
+syntax, section structure), `video-essay` (coherent as register:
+punctuated essayistic prose, article density, plus politics/legal
+topics). The failure is `creator`: geography, cookie-policy links,
+medical terms — diffuse, no readable signature. Every tag's top features
+stand far above the tag-shuffle null (real z 7-17 vs chance p95 4.7), so
+the control behaves.
+
+**Quantitative companion: FAILED, marginally.** Registered: top-15
+feature-set Jaccard vs Qwen centroid cosine at r >= 0.4. Measured:
+r = 0.391. An earlier unregistered top-8 operationalization gave 0.420
+and is not the number of record. The relationship is visibly real
+(fig 04: reference+build-idea 0.36, learning+education 0.25, ai+research
+0.15 sit exactly where Qwen puts them) but Jaccard on 15-element sets is
+quantized at fifteenths and mostly zero, so the correlation rides on four
+points. A follow-up with a continuous set-overlap measure (rank-biased or
+weighted) belongs in the next round — as a new registered experiment,
+not a retrofit.
+
+## 18.5 — roads as feature turnover (2026-08-03)
+
+**Prediction: CONFIRMED, maximally.** A-side share of endpoint-exclusive
+mass falls perfectly monotonically across all 9 stops: Spearman rho =
+-1.000 against the registered <= -0.8, with shuffled-order chance |rho|
+p95 = 0.63. Vocabularies all non-empty: 183 A-only, 73 shared, 183
+B-only. The share curve (fig 05) crosses at t ~ 0.65, not 0.5 — the
+tech-heavy corpus keeps middle stops speaking A's vocabulary longer.
+The lanes read: gold drains (programming constructs, job
+offers/recruitment, programming languages), blue fills (colors in
+graphics, visual aesthetics, cognitive performance, psychological
+concepts), cyan persists (proper nouns, technical register — the cone).
+The content-dedup rule from E6 is applied by shortcode marker, not row
+index.
+
+Side-by-side verdict vs the E6 Haiku narration (blend-demo.md in
+17-corpus-growth): the feature readout names *what changes*; the
+narration says *what it means*. They are complements, not substitutes —
+the road interface should show lanes and let narration be the optional
+gloss, which also makes most road renders free of any model call.
+
+## Section verdict
+
+Five experiments, five pre-registered predictions: 18.0 failed (fixed
+the ranking instrument), 18.1 confirmed after a pool-matching
+correction, 18.3 confirmed (31-feature cone, named), 18.4 primary
+confirmed 9/10 with the quantitative companion failed at r = 0.391 vs
+0.4, 18.5 confirmed at rho = -1.0. The SAE-fingerprint layer earns its
+place: the cone is readable, tags have vocabularies, roads have named
+turnover. Everything downstream inherits four instrument rules: sum over
+tokens, mass presence, pool-matched comparisons, and auto-names as
+hypotheses probed at token level when load-bearing.
