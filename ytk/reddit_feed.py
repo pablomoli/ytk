@@ -150,29 +150,31 @@ def is_external(post: dict) -> bool:
     return domain not in _REDDIT_DOMAINS
 
 
+_TEXT_CAP = 2000
+
+
 def post_to_reelitem(post: dict):
-    """Map a post to a queue item.
-
-    External link posts carry the external URL so existing ytk ingestion (video,
-    article, ...) handles them natively, with the subreddit as author for
-    provenance. Self posts and Reddit-hosted media carry the permalink and go
-    through the Reddit ingest handler (selftext + comments).
-    """
-    from ytk import reels
-
-    external = is_external(post)
-    url = post["url"] if external else post["permalink"]
+    """Map a post to a queue item. Posts always stay Reddit-native: the
+    permalink is the item URL and external links ride as attachments."""
     from datetime import datetime
+
+    from ytk import reels
 
     created = post.get("created_utc")
     shared_at = datetime.fromtimestamp(created, tz=UTC).strftime("%Y-%m-%d") if created else None
+    attachments = []
+    if is_external(post) and post["url"]:
+        attachments.append({"url": post["url"], "kind": "link"})
+    text = post["selftext"][:_TEXT_CAP] if post["selftext"] else None
     return reels.ReelItem(
-        url=url,
+        url=post["permalink"],
         author=f"r/{post['subreddit']}",
         shared_at=shared_at,
         preview_url=post["thumbnail"],
-        source=reels.classify_url(url) if external else "reddit",
-        text=post["title"],
+        source="reddit",
+        text=text,
+        title=post["title"] or None,
+        attachments=attachments or None,
     )
 
 
@@ -206,7 +208,11 @@ def sync_subreddits(
             seen.add(post["fullname"])
             state.reddit_seen.append(post["fullname"])
             item = post_to_reelitem(post)
-            if item.url in known_urls:
+            # Check both the item URL and any external URL in attachments
+            urls_to_check = [item.url]
+            if item.attachments:
+                urls_to_check.extend(att["url"] for att in item.attachments if att.get("url"))
+            if any(url in known_urls for url in urls_to_check):
                 continue
             known_urls.add(item.url)
             state.pending.append(item)

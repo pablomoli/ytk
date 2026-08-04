@@ -23,7 +23,17 @@ def _listing(*posts):
     return {"data": {"children": [{"kind": "t3", "data": p} for p in posts]}}
 
 
-def _post(pid, title="A post", is_self=False, url=None, domain="example.com", sub="TouchDesigner"):
+def _post(
+    pid,
+    title="A post",
+    is_self=False,
+    url=None,
+    domain="example.com",
+    sub="TouchDesigner",
+    selftext=None,
+):
+    if selftext is None:
+        selftext = "body text" if is_self else ""
     return {
         "id": pid,
         "name": f"t3_{pid}",
@@ -34,7 +44,7 @@ def _post(pid, title="A post", is_self=False, url=None, domain="example.com", su
         "score": 42,
         "num_comments": 10,
         "is_self": is_self,
-        "selftext": "body text" if is_self else "",
+        "selftext": selftext,
         "url": url
         if url is not None
         else (
@@ -77,13 +87,25 @@ class TestParsePosts:
 
 
 class TestIsExternalAndMapping:
-    def test_external_link_post_uses_native_url_and_source(self):
+    def test_external_link_post_stays_reddit(self):
         (p,) = parse_posts(_listing(_post("abc", url="https://youtu.be/xyz", domain="youtu.be")))
         assert is_external(p) is True
         item = post_to_reelitem(p)
-        assert item.url == "https://youtu.be/xyz"
-        assert item.source == "youtube"
+        assert item.source == "reddit"
+        assert item.url.endswith("/comments/abc/slug/")
+        assert item.title == "A post"
         assert item.author == "r/TouchDesigner"
+        assert {"url": "https://youtu.be/xyz", "kind": "link"} in (item.attachments or [])
+
+    def test_selftext_capped(self):
+        (p,) = parse_posts(_listing(_post("abc", is_self=True, selftext="x" * 5000)))
+        item = post_to_reelitem(p)
+        assert len(item.text) == 2000
+
+    def test_self_post_has_no_link_attachment(self):
+        (p,) = parse_posts(_listing(_post("abc", is_self=True, selftext="body")))
+        item = post_to_reelitem(p)
+        assert not item.attachments
 
     def test_self_post_uses_permalink_and_reddit_source(self):
         (p,) = parse_posts(_listing(_post("abc", is_self=True)))
