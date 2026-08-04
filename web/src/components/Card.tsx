@@ -50,11 +50,14 @@ function itemLabel(item: QueueItem): string {
 function CardMeta({ item }: { item: QueueItem }) {
   const place = provenance(item.url).label;
   const captured = capturedLabel(item.shared_at);
+  // With permalinks universal, a reddit item's provenance community and its
+  // author are the same string (r/rust); showing both doubles it on the card.
+  const showPlace = place && place !== item.source && place !== item.author;
   return (
     <div className="sub">
       {sourceIcon(item.source)}
       <span data-testid="card-source">{item.source}</span>
-      {place && place !== item.source ? (
+      {showPlace ? (
         <>
           <span className="sub-dot" aria-hidden="true">
             ·

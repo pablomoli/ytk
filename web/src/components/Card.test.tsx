@@ -349,6 +349,26 @@ test("playlist row renders its title once, no hostname echo", () => {
   expect(screen.queryByText("youtube.com")).not.toBeInTheDocument();
 });
 
+/* --- provenance suppression: reddit's permalink community equals author --- */
+
+test("reddit meta row shows r/rust once, not doubled as place and author", () => {
+  render(
+    <Card
+      item={{
+        url: "https://www.reddit.com/r/rust/comments/abc/x/",
+        source: "reddit",
+        author: "r/rust",
+        text: "A post",
+      }}
+      onInspect={noop}
+      onToggleSelect={noop}
+    />,
+  );
+  expect(screen.queryByTestId("card-place")).not.toBeInTheDocument();
+  expect(screen.getByTestId("card-author")).toHaveTextContent("r/rust");
+  expect(screen.getAllByText("r/rust")).toHaveLength(1);
+});
+
 test("bare row shows neutral state, never the URL as a heading", () => {
   render(
     <Card
