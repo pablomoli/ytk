@@ -71,7 +71,7 @@ def pull_youtube(
         pending.append(
             reels.ReelItem(
                 url=url,
-                author=video.get("title") or None,
+                title=video.get("title") or None,
                 shared_at=(video.get("added_at") or "")[:10] or None,
                 preview_url=f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
                 source="youtube",
@@ -93,7 +93,7 @@ def pull_pinterest(state: reels.ReelsState, fetch: PinterestFetcher) -> int:
         pending.append(
             reels.ReelItem(
                 url=url,
-                author=pin.get("title"),
+                title=pin.get("title"),
                 shared_at=pin.get("date"),
                 preview_url=pin.get("image"),
                 source="pinterest",

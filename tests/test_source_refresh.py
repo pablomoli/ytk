@@ -32,7 +32,8 @@ def test_youtube_deduplicates_pending_batch_and_processed_videos() -> None:
         "https://www.youtube.com/watch?v=known",
         "https://www.youtube.com/watch?v=new",
     ]
-    assert state.pending[-1].author == "New title"
+    assert state.pending[-1].title == "New title"
+    assert state.pending[-1].author is None
     assert state.pending[-1].shared_at == "2026-07-04"
 
 
@@ -56,7 +57,8 @@ def test_pinterest_normalizes_feed_metadata_and_skips_known_urls() -> None:
     assert inserted == 1
     item = state.pending[-1]
     assert item.source == "pinterest"
-    assert item.author == "A pin"
+    assert item.title == "A pin"
+    assert item.author is None
     assert item.preview_url == "https://i.pinimg.com/new.jpg"
     assert item.shared_at == "2026-07-04"
 
@@ -90,6 +92,34 @@ def test_imessage_keeps_prose_with_its_session_and_routes_bare_links() -> None:
     assert state.pending[1].url == "https://example.com/a"
     assert state.pending[1].source == "web"
     assert auto_ingest_ids == ["https://example.com/a"]
+
+
+def test_pull_youtube_stores_title_as_title() -> None:
+    state = reels.ReelsState()
+    videos = [
+        {"video_id": "abc123DEF45", "title": "Video title", "added_at": "2026-08-01T00:00:00Z"}
+    ]
+    pull_youtube(state, lambda: videos, lambda vid: False)
+    row = state.pending[0]
+    assert row.title == "Video title"
+    assert row.author is None
+    assert row.preview_url == "https://i.ytimg.com/vi/abc123DEF45/hqdefault.jpg"
+
+
+def test_pull_pinterest_stores_title_as_title() -> None:
+    state = reels.ReelsState()
+    pins = [
+        {
+            "url": "https://pin.example/1",
+            "title": "Pin title",
+            "image": "https://img/1.jpg",
+            "date": "2026-08-01",
+        }
+    ]
+    pull_pinterest(state, lambda: pins)
+    row = state.pending[0]
+    assert row.title == "Pin title"
+    assert row.author is None
 
 
 @pytest.mark.parametrize("adapter", [pull_instagram, pull_tiktok, pull_reddit])
