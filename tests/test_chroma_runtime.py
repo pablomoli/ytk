@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import socket
 import subprocess
 import sys
@@ -218,3 +219,31 @@ def test_cleanup_regression_left_no_chroma_systems():
     from chromadb.api.client import SharedSystemClient
 
     assert SharedSystemClient._identifier_to_system == {}
+
+
+def test_runtime_resolves_canonical_env_without_prior_ytk_imports(tmp_path):
+    """Bare `from ytk import store` must see the same runtime as the CLI (#164).
+
+    CHROMA_URL lives in ~/.ytk/.env. If only ytk.vault/ytk.cli load that file,
+    any process importing store alone silently runs embedded against the stale
+    legacy snapshot. Pin: chroma_runtime itself loads the canonical env.
+    """
+    ytk_dir = tmp_path / ".ytk"
+    ytk_dir.mkdir()
+    (ytk_dir / ".env").write_text("CHROMA_URL=http://127.0.0.1:8000\n", encoding="utf-8")
+
+    env = {k: v for k, v in os.environ.items() if k != "CHROMA_URL"}
+    env["HOME"] = str(tmp_path)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from ytk.chroma_runtime import runtime_config; print(runtime_config().mode)",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "http"

@@ -142,7 +142,6 @@ def batch(device: str) -> None:
 def fallback_texts() -> dict[str, str]:
     """name -> text for notes whose Chroma document is empty: metadata
     thesis+summary for videos, the vault file body for memory-backed notes."""
-    import ytk.vault  # noqa: F401  — sets CHROMA_URL; bare store import reads a stale DB (#164)
     from ytk import store
 
     texts: dict[str, str] = {}

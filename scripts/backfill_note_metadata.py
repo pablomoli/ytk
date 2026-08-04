@@ -14,7 +14,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import ytk.vault  # noqa: F401  — sets CHROMA_URL; bare store import reads a stale DB (#164)
 from ytk import store
 from ytk.vault import note_identity_fields
 

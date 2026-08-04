@@ -1674,7 +1674,6 @@ def path_vectors() -> tuple[list[dict], object]:
     """
     import numpy as np
 
-    import ytk.vault  # noqa: F401  — sets CHROMA_URL; bare store import reads a stale DB (#164)
     from ytk import store
 
     col = store._videos_collection()

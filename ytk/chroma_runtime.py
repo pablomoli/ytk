@@ -13,6 +13,12 @@ from urllib.parse import urlparse
 
 import chromadb
 from chromadb.api import ClientAPI
+from dotenv import load_dotenv
+
+# CHROMA_URL lives in ~/.ytk/.env; the module that reads it must load it, or
+# runtime selection depends on whether ytk.vault/ytk.cli was imported first (#164).
+load_dotenv(Path.home() / ".ytk" / ".env")
+load_dotenv()
 
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 

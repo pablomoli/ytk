@@ -36,7 +36,6 @@ def post(url: str, body: dict | list) -> dict | list:
 
 
 def main() -> None:
-    import ytk.vault  # noqa: F401  — sets CHROMA_URL; bare store import reads a stale DB (#164)
     from ytk import store
 
     vids = store._videos_collection().get(include=["documents", "metadatas"])

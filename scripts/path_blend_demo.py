@@ -43,7 +43,6 @@ class StopBlend(BaseModel):
 
 def note_texts() -> dict[str, str]:
     """name -> text, keyed exactly the way harvest() keys names."""
-    import ytk.vault  # noqa: F401  — sets CHROMA_URL; bare store import reads a stale DB (#164)
     from ytk import store
 
     texts: dict[str, str] = {}
