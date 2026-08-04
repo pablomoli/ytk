@@ -1535,6 +1535,11 @@ def reindex_vault(force: bool = False) -> int:
     return reindex_vault_report(force=force).indexed
 
 
+def get_brain_path() -> Path:
+    """Public accessor: strict-mode callers must not reach for _get_brain_path."""
+    return _get_brain_path()
+
+
 def find_note_by_url(url: str, since: float) -> Path | None:
     """Locate the note a pipeline run just wrote by its frontmatter url.
 

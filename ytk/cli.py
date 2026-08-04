@@ -22,6 +22,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from .batch_cli import batch_group as batch_command
 from .config import load_config
 from .enrich import enrich
 from .filter import FilterResult, check_post_enrichment, check_pre_transcript
@@ -127,6 +128,7 @@ def cli():
 
 
 cli.add_command(work_command)
+cli.add_command(batch_command)
 
 
 @cli.command()

@@ -540,3 +540,12 @@ def short_title(thesis: str) -> str:
         return distill_titles([text])[0]
     except Exception:
         return text[: TITLE_MAX_CHARS - 3].rsplit(" ", 1)[0] + "..."
+
+
+# Public aliases for cross-module callers (#148): strict-mode consumers must
+# not import the underscore names.
+ENRICHMENT_SCHEMA = _SCHEMA
+build_system = _build_system
+description_block = _description_block
+fmt_ts = _fmt_ts
+vocab_block = _vocab_block
