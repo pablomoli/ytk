@@ -346,12 +346,75 @@ def test_audit_reports_absent_issues_and_empty_fields():
     ]
     run_gh, _ = _board_fixture(items, [21, 153, 160])
 
-    missing, incomplete = WorkboardClient(run_gh=run_gh).audit()
+    missing, incomplete, ghosts = WorkboardClient(run_gh=run_gh).audit()
 
     assert missing == (160,)
-    # #999 is closed, so it is not audited even though it sits on the board
+    # #999 is closed at Done — the correct terminal state, so neither audited nor a ghost
     assert [item.number for item, _ in incomplete] == [153]
     assert set(incomplete[0][1]) == {"kind", "priority", "area", "stage", "order"}
+    assert ghosts == ()
+
+
+def test_next_ready_and_in_progress_skip_rows_whose_issue_is_closed():
+    """#147 was served as the Next: pick twice after closing (#162)."""
+    items = [
+        _item(147, area="Vault", kind="Bug", order=1, priority="P1", stage="Ready"),
+        _item(107, area="Vault", kind="Initiative", order=2, priority="P2", stage="In progress"),
+        _item(148, area="Vault", kind="Feature", order=3, priority="P1", stage="Ready"),
+    ]
+    run_gh, _ = _board_fixture(items, [148])
+
+    snapshot = WorkboardClient(run_gh=run_gh).snapshot()
+
+    assert snapshot.next_ready is not None
+    assert snapshot.next_ready.number == 148
+    assert [item.number for item in snapshot.in_progress] == []
+    assert [item.number for item in snapshot.ghosts] == [147, 107]
+
+
+def test_archive_ghosts_archives_closed_live_rows_and_nothing_else():
+    """Closed at Done is the terminal state; closed at any live stage is drift.
+
+    Archiving Done rows would empty the board's visible history to fix a
+    problem it does not have.
+    """
+    items = [
+        _item(40, area="Vault", kind="Feature", order=22, priority="P2", stage="Ready"),
+        _item(148, area="Vault", kind="Feature", order=3, priority="P1", stage="Ready"),
+        _item(999, area="Vault", kind="Bug", order=4, priority="P1", stage="Done"),
+    ]
+    run_gh, mutations = _board_fixture(items, [148])
+
+    archived = WorkboardClient(run_gh=run_gh).archive_ghosts()
+
+    assert [item.number for item in archived] == [40]
+    assert mutations == [
+        ["project", "item-archive", "3", "--owner", "pablomoli", "--id", "item-40"]
+    ]
+
+
+def test_format_queue_marks_ghost_rows():
+    items = [
+        _item(40, area="Vault", kind="Feature", order=22, priority="P2", stage="Ready"),
+    ]
+    run_gh, _ = _board_fixture(items, [])
+
+    queue = workboard.format_queue(WorkboardClient(run_gh=run_gh).snapshot())
+
+    assert "issue closed" in queue
+
+
+def test_snapshot_refuses_ghost_classification_at_the_issue_read_limit():
+    """A saturated open-issue read cannot distinguish closed from unread (#162).
+
+    Misclassification is not survivable here: archive_ghosts would archive
+    live rows. Fail loudly and name the constant to bump.
+    """
+    items = [_item(1, area="Vault", kind="Bug", order=1, priority="P1", stage="Ready")]
+    run_gh, _ = _board_fixture(items, list(range(1, workboard.ISSUE_LIST_LIMIT + 1)))
+
+    with pytest.raises(WorkboardError, match="ISSUE_LIST_LIMIT"):
+        WorkboardClient(run_gh=run_gh).snapshot()
 
 
 def test_add_issue_returns_existing_item_without_adding_twice():

@@ -81,6 +81,10 @@ AREAS = {
 # Every field a triaged item is expected to carry. audit() reports absences here.
 REQUIRED_FIELDS = ("kind", "priority", "area", "stage", "order")
 
+# Both gh list reads share one cap so ghost detection can tell when the open-issue
+# read saturated: a closed row and an unread row look identical past this line (#162).
+ISSUE_LIST_LIMIT = 200
+
 
 def _slug(value: str) -> str:
     return value.strip().lower().replace("_", "-").replace(" ", "-")
@@ -117,6 +121,7 @@ class WorkItem:
     order: float
     blocked_by: tuple[int, ...] = ()
     open_subissues: tuple[int, ...] = ()
+    closed: bool = False
 
 
 @dataclass(frozen=True)
@@ -159,6 +164,7 @@ class WorkboardSnapshot:
     items: tuple[WorkItem, ...]
     in_progress: tuple[WorkItem, ...]
     next_ready: WorkItem | None
+    ghosts: tuple[WorkItem, ...] = ()
 
 
 def run_gh(args: list[str]) -> str:
@@ -209,7 +215,7 @@ class WorkboardClient:
                     "--state",
                     "open",
                     "--limit",
-                    "200",
+                    str(ISSUE_LIST_LIMIT),
                     "--json",
                     "number,blockedBy,subIssues,title",
                 ]
@@ -221,6 +227,13 @@ class WorkboardClient:
             number = _as_int(issue.get("number"))
             if number is not None:
                 issue_state[number] = issue
+        if len(issue_state) >= ISSUE_LIST_LIMIT:
+            # Past the cap, "not in the open set" stops meaning "closed", and
+            # archive_ghosts would archive live rows. Refuse rather than guess.
+            raise WorkboardError(
+                f"Open-issue read saturated at {ISSUE_LIST_LIMIT} rows; "
+                "raise ISSUE_LIST_LIMIT before trusting ghost detection"
+            )
 
         def _open_numbers(state: dict[str, JsonValue], field: str) -> tuple[int, ...]:
             nodes = _as_list(_as_dict(state.get(field)).get("nodes"))
@@ -258,18 +271,26 @@ class WorkboardClient:
                     item,
                     blocked_by=_open_numbers(state, "blockedBy"),
                     open_subissues=_open_numbers(state, "subIssues"),
+                    closed=number not in issue_state,
                 )
             )
 
         ordered = tuple(sorted(items, key=lambda item: (item.order, item.number)))
+        # Closed issues stay in items so set_stage/set_fields can still reach
+        # their rows, but they must never be recommended as work (#162).
         in_progress = tuple(
-            item for item in ordered if item.stage == "In progress" and not item.open_subissues
+            item
+            for item in ordered
+            if item.stage == "In progress" and not item.open_subissues and not item.closed
         )
         next_ready = next(
             (
                 item
                 for item in ordered
-                if item.stage == "Ready" and not item.blocked_by and not item.open_subissues
+                if item.stage == "Ready"
+                and not item.blocked_by
+                and not item.open_subissues
+                and not item.closed
             ),
             None,
         )
@@ -277,6 +298,9 @@ class WorkboardClient:
             items=ordered,
             in_progress=in_progress,
             next_ready=next_ready,
+            # Closed at Done is the terminal state, not drift; a ghost is a
+            # closed issue still holding a live stage (#162).
+            ghosts=tuple(item for item in ordered if item.closed and item.stage != "Done"),
         )
 
     def set_stage(self, issue_number: int, stage: str) -> WorkItem:
@@ -405,8 +429,15 @@ class WorkboardClient:
             results.append(settled)
         return tuple(results)
 
-    def audit(self) -> tuple[tuple[int, ...], tuple[tuple[WorkItem, tuple[str, ...]], ...]]:
-        """Open issues missing from the board, and board items missing fields."""
+    def audit(
+        self,
+    ) -> tuple[
+        tuple[int, ...],
+        tuple[tuple[WorkItem, tuple[str, ...]], ...],
+        tuple[WorkItem, ...],
+    ]:
+        """Open issues missing from the board, board items missing fields, and
+        board rows whose issue is closed. Reconciles both directions (#162)."""
         snapshot = self.snapshot()
         issue_payload = self._load_json(
             self._run_gh(
@@ -418,7 +449,7 @@ class WorkboardClient:
                     "--state",
                     "open",
                     "--limit",
-                    "200",
+                    str(ISSUE_LIST_LIMIT),
                     "--json",
                     "number",
                 ]
@@ -446,7 +477,24 @@ class WorkboardClient:
             )
             if gaps:
                 incomplete.append((item, gaps))
-        return missing, tuple(incomplete)
+        return missing, tuple(incomplete), snapshot.ghosts
+
+    def archive_ghosts(self) -> tuple[WorkItem, ...]:
+        """Archive every board row whose issue is closed; returns what was archived."""
+        ghosts = self.snapshot().ghosts
+        for item in ghosts:
+            self._run_gh(
+                [
+                    "project",
+                    "item-archive",
+                    str(PROJECT_NUMBER),
+                    "--owner",
+                    PROJECT_OWNER,
+                    "--id",
+                    item.item_id,
+                ]
+            )
+        return ghosts
 
     def _set_number(self, item_id: str, field_id: str, value: float) -> None:
         self._run_gh(
@@ -517,13 +565,22 @@ def set_issue_fields(
     )
 
 
-def audit_board() -> tuple[tuple[int, ...], tuple[tuple[WorkItem, tuple[str, ...]], ...]]:
+def audit_board() -> tuple[
+    tuple[int, ...],
+    tuple[tuple[WorkItem, tuple[str, ...]], ...],
+    tuple[WorkItem, ...],
+]:
     return WorkboardClient().audit()
+
+
+def archive_board_ghosts() -> tuple[WorkItem, ...]:
+    return WorkboardClient().archive_ghosts()
 
 
 def format_audit(
     missing: tuple[int, ...],
     incomplete: tuple[tuple[WorkItem, tuple[str, ...]], ...],
+    ghosts: tuple[WorkItem, ...],
 ) -> str:
     lines = ["ytk workboard audit"]
     if missing:
@@ -539,6 +596,12 @@ def format_audit(
         )
     else:
         lines.append("On the board with missing fields: none")
+    if ghosts:
+        lines.append(f"Board rows whose issue is closed ({len(ghosts)}):")
+        lines.extend(f"  #{item.number} [{item.stage}] — {item.title}" for item in ghosts)
+        lines.append("Archive them with: ytk work audit --fix (or work_audit fix=true)")
+    else:
+        lines.append("Board rows whose issue is closed: none")
     return "\n".join(lines)
 
 
@@ -564,4 +627,7 @@ def format_queue(snapshot: WorkboardSnapshot) -> str:
 
 
 def _format_item(item: WorkItem) -> str:
-    return f"#{item.number} {item.title} [{item.priority} | {item.stage} | Order {item.order:g}]"
+    row = f"#{item.number} {item.title} [{item.priority} | {item.stage} | Order {item.order:g}]"
+    if item.closed:
+        row += " [issue closed — ghost row, run work audit --fix]"
+    return row

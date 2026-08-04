@@ -189,12 +189,20 @@ def work_set_stage(issue_number: int, stage: str) -> str:
 
 
 @app.tool()
-def work_audit() -> str:
-    """Report open ytk issues missing from the Project board, and board items with empty fields."""
-    from .workboard import audit_board, format_audit
+def work_audit(fix: bool = False) -> str:
+    """Reconcile the ytk Project board against issue state in both directions:
+    open issues missing from the board, rows with empty fields, and rows whose
+    issue is closed. fix=True archives the closed-issue rows."""
+    from .workboard import archive_board_ghosts, audit_board, format_audit
 
-    missing, incomplete = audit_board()
-    return format_audit(missing, incomplete)
+    missing, incomplete, ghosts = audit_board()
+    prefix = ""
+    if fix and ghosts:
+        archived = archive_board_ghosts()
+        numbers = ", ".join(f"#{item.number}" for item in archived)
+        prefix = f"Archived {len(archived)} ghost rows: {numbers}\n"
+        ghosts = ()
+    return prefix + format_audit(missing, incomplete, ghosts)
 
 
 @app.tool()

@@ -48,13 +48,21 @@ def work_set_stage(issue_number: int, stage: str):
 
 
 @work.command(name="audit")
-def work_audit():
-    """Report open issues missing from the board, and board items with empty fields."""
+@click.option("--fix", is_flag=True, help="Archive board rows whose issue is closed.")
+def work_audit(fix: bool):
+    """Reconcile the board against issue state in both directions."""
     try:
-        missing, incomplete = workboard_service.audit_board()
+        missing, incomplete, ghosts = workboard_service.audit_board()
+        if fix and ghosts:
+            archived = workboard_service.archive_board_ghosts()
+            click.echo(
+                f"Archived {len(archived)} ghost rows: "
+                + ", ".join(f"#{item.number}" for item in archived)
+            )
+            ghosts = ()
     except workboard_service.WorkboardError as exc:
         raise click.ClickException(str(exc)) from exc
-    click.echo(workboard_service.format_audit(missing, incomplete))
+    click.echo(workboard_service.format_audit(missing, incomplete, ghosts))
 
 
 @work.command(name="set-fields")
