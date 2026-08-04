@@ -2,6 +2,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMap, isMapV2 } from "../api/map";
 import type { MapData, MapDomain, MapPoint } from "../api/map";
+import { usePath } from "../api/path";
+import { ApiError } from "../api/client";
+import { joinRoute } from "../lib/mapRoute";
+import type { MapRoute } from "../lib/mapRoute";
 import { ErrorState } from "../components/StateViews";
 import { mapDomainColor, mapGroupColor, mapSubColor, mountMapRenderer } from "../lib/mapRenderer";
 import type { MapHover } from "../lib/mapRenderer";
@@ -69,6 +73,106 @@ function MapTooltip({
   );
 }
 
+const pathErrorDetail = (error: unknown): string => {
+  if (error instanceof ApiError && typeof error.body === "object" && error.body !== null) {
+    const detail = (error.body as Record<string, unknown>).detail;
+    if (typeof detail === "string") return detail;
+  }
+  return error instanceof Error ? error.message : "path request failed";
+};
+
+function RoadPanel({
+  ends,
+  loading,
+  error,
+  angle,
+  background,
+  route,
+  activeStop,
+  driving,
+  onDrive,
+  onFly,
+  onClose,
+}: {
+  ends: { a?: MapPoint; b?: MapPoint };
+  loading: boolean;
+  error: unknown;
+  angle?: number | undefined;
+  background?: number | undefined;
+  route?: MapRoute | undefined;
+  activeStop?: number | undefined;
+  driving: boolean;
+  onDrive: () => void;
+  onFly: (pointIndex: number, waypointIndex: number) => void;
+  onClose: () => void;
+}) {
+  return (
+    <aside className="absolute left-3 top-14 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
+      <header className="mb-2 flex items-center justify-between">
+        <span className="text-xs uppercase tracking-widest text-mute">road</span>
+        <span>
+          {route ? (
+            <button
+              className="cursor-pointer appearance-none border-0 bg-transparent px-1 font-data text-xs uppercase tracking-widest text-accent hover:text-ink"
+              onClick={onDrive}
+            >
+              {driving ? "stop" : "drive"}
+            </button>
+          ) : null}
+          <button
+            className="cursor-pointer appearance-none border-0 bg-transparent px-1 font-data text-sm text-mute hover:text-ink"
+            onClick={onClose}
+            aria-label="Close road mode"
+          >
+            x
+          </button>
+        </span>
+      </header>
+      {!ends.a ? <p className="text-mute">click a note to start the road</p> : null}
+      {ends.a && !ends.b ? (
+        <p className="text-mute">
+          from <span className="text-ink">{ends.a.t}</span> - click the destination
+        </p>
+      ) : null}
+      {loading ? <p className="text-mute">routing...</p> : null}
+      {error != null ? (
+        <p className="text-live" role="alert">
+          {pathErrorDetail(error)}
+        </p>
+      ) : null}
+      {route ? (
+        <>
+          <p className="mb-2 text-xs text-mute">
+            {angle?.toFixed(1)}&deg; apart &middot; background {background?.toFixed(3)}
+          </p>
+          <ol className="m-0 list-none p-0" aria-label="Road itinerary">
+            {route.waypoints.map((waypoint, index) => (
+              <li key={index}>
+                <button
+                  className={`grid w-full cursor-pointer appearance-none grid-cols-[2.6rem_1fr] gap-2 rounded border-0 px-1 py-1 text-left font-data text-sm hover:bg-bg2 ${
+                    index === activeStop ? "bg-bg2 text-accent" : "bg-transparent text-ink"
+                  }`}
+                  onClick={() => onFly(waypoint.pointIndex, index)}
+                >
+                  <span className="text-xs leading-5 text-mute">
+                    {waypoint.kind === "stop" ? waypoint.ts[0]?.toFixed(2) : waypoint.kind}
+                  </span>
+                  <span>
+                    {waypoint.title}
+                    {waypoint.support !== null ? (
+                      <span className="ml-1 text-xs text-accent">{waypoint.support.toFixed(3)}</span>
+                    ) : null}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </>
+      ) : null}
+    </aside>
+  );
+}
+
 function MapPage() {
   const map = useMap();
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -93,6 +197,8 @@ function MapPage() {
   const [hover, setHover] = useState<MapFocus>();
   const [hiddenDoms, setHiddenDoms] = useState<Set<number>>(new Set());
   const [legendOpen, setLegendOpen] = useState(true);
+  const [roadMode, setRoadMode] = useState(false);
+  const [roadEnds, setRoadEnds] = useState<{ a?: MapPoint; b?: MapPoint }>({});
   const renderer = useRef<ReturnType<typeof mountMapRenderer> | undefined>(undefined);
   const flatRef = useRef(flat);
   useEffect(() => {
@@ -181,6 +287,63 @@ function MapPage() {
   useEffect(() => {
     renderer.current?.setLegendOpen(legendOpen);
   }, [legendOpen]);
+  // Two picks fill A then B; a third starts a new road. Points without a url
+  // cannot resolve as /api/path endpoints, so they are ignored.
+  useEffect(() => {
+    renderer.current?.setRoadPick(
+      roadMode
+        ? (point) => {
+            if (!point.u) return;
+            setRoadEnds((ends) =>
+              !ends.a || ends.b
+                ? { a: point }
+                : point.u === ends.a.u
+                  ? ends
+                  : { a: ends.a, b: point },
+            );
+          }
+        : undefined,
+    );
+  }, [roadMode, map.data]);
+  const roadPath = usePath(roadEnds.a?.u ?? undefined, roadEnds.b?.u ?? undefined);
+  const route = useMemo(
+    () =>
+      roadPath.data && map.data ? joinRoute(roadPath.data, map.data.points) : undefined,
+    [roadPath.data, map.data],
+  );
+  // Drive the road: the camera visits each waypoint in order, the itinerary
+  // row and the map dot track the current stop, and any manual action stops
+  // the tour.
+  const [activeStop, setActiveStop] = useState<number | undefined>(undefined);
+  const [driving, setDriving] = useState(false);
+  useEffect(() => {
+    renderer.current?.setRoute(
+      route?.waypoints.map((waypoint) => ({
+        index: waypoint.pointIndex,
+        kind: waypoint.kind,
+        title: waypoint.title,
+      })),
+    );
+    setActiveStop(undefined);
+    setDriving(false);
+  }, [route]);
+  useEffect(() => {
+    renderer.current?.setRouteActive(activeStop);
+  }, [activeStop]);
+  useEffect(() => {
+    if (!driving || !route || !map.data) return;
+    const stop = activeStop ?? 0;
+    if (stop >= route.waypoints.length) {
+      setDriving(false);
+      setActiveStop(undefined);
+      return;
+    }
+    setActiveStop(stop);
+    const point = map.data.points[route.waypoints[stop].pointIndex];
+    if (point) renderer.current?.flyTo(point);
+    const id = setTimeout(() => setActiveStop(stop + 1), 2200);
+    return () => clearTimeout(id);
+  }, [driving, activeStop, route, map.data]);
   // Scrubber readout. The slider's position is a quantile, so the date it
   // corresponds to has to be looked up in the sorted dates rather than
   // interpolated between the endpoints — that is the whole point of ranking.
@@ -229,6 +392,14 @@ function MapPage() {
     setFocus({}, next);
     setHiddenDoms(new Set());
     setHover(undefined);
+    // Non-content waypoints have no honest position in the content view, so
+    // the road does not survive a view switch.
+    setRoadMode(false);
+    setRoadEnds({});
+  };
+  const closeRoad = () => {
+    setRoadMode(false);
+    setRoadEnds({});
   };
   const toggleHidden = (dom: number) =>
     setHiddenDoms((current) => {
@@ -288,6 +459,13 @@ function MapPage() {
           </button>
           <button className="fchip" onClick={() => setFlat((current) => !current)}>
             {flat ? "3d" : "2d"}
+          </button>
+          <button
+            className={`fchip${roadMode ? " on" : ""}`}
+            onClick={() => (roadMode ? closeRoad() : setRoadMode(true))}
+            title="Pick two notes and walk the slerp road between them"
+          >
+            road
           </button>
         </div>
         {timeOn ? (
@@ -447,6 +625,29 @@ function MapPage() {
             </div>
           )}
         </aside>
+        {roadMode ? (
+          <RoadPanel
+            ends={roadEnds}
+            loading={roadPath.isLoading}
+            error={roadPath.error}
+            angle={roadPath.data?.angle_deg}
+            background={roadPath.data?.background}
+            route={route}
+            activeStop={activeStop}
+            driving={driving}
+            onDrive={() => {
+              setActiveStop(undefined);
+              setDriving((current) => !current);
+            }}
+            onFly={(pointIndex, waypointIndex) => {
+              setDriving(false);
+              setActiveStop(waypointIndex);
+              const point = map.data?.points[pointIndex];
+              if (point) renderer.current?.flyTo(point);
+            }}
+            onClose={closeRoad}
+          />
+        ) : null}
         {pointHover && hoverInfo ? (
           <MapTooltip hover={pointHover} domain={hoverInfo.domain} sub={hoverInfo.sub} />
         ) : null}
