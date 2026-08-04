@@ -151,8 +151,7 @@ def queue_items() -> list[reels.ReelItem]:
 def queue_add(urls: list[str]) -> int:
     """Classify, dedupe, and persist pasted URLs, hydrated before the write.
 
-    Hydration is network I/O, so _LOCK is released for it; state is reloaded
-    before the save so a concurrent mutation isn't clobbered.
+    Hydration is network I/O, so _LOCK releases for it; state reloads before save.
     """
     with _LOCK:
         state = reels.load_state(STATE_PATH)
@@ -791,12 +790,7 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
             s: (only is None or s in only) and _pull_due(state, s, cadence, force)
             for s in sorted(PULL_SOURCES)
         }
-        # Hydration is not a discovery source: it never adds items, so it sits
-        # outside PULL_SOURCES/PULL_SEAMS (that map exists to keep discovery
-        # pulls offline-stubbable, and its network I/O runs unlocked below,
-        # unlike the per-source pulls above). A scoped refresh (only=...) —
-        # e.g. the imessage watcher's frequent force=True poll — must never
-        # trigger it, so force only applies to hydrate when unscoped.
+        # Scoped refreshes (only=...) must never hydrate; hydration's network I/O runs unlocked below.
         hydrate_due = only is None and _pull_due(state, "hydrate", cadence, force)
         if not any(due.values()) and not hydrate_due:
             result["skipped"] = True
@@ -969,11 +963,7 @@ def cover_for(item_url: str) -> Path | None:
 def cover_invalidate(item_url: str) -> None:
     """Drop a cached cover so the next request re-downloads it.
 
-    Called wherever hydration changes preview_url out from under an
-    already-cached cover file (queue_add's hydrate step, refresh_sources'
-    hydrate-backfill merge). Rediscovery via reels.refresh does not call
-    this: a present cover survives a preview_url swap, repairing itself
-    only if the cache entry is ever independently missing.
+    Call on every preview_url change from hydration; reels.refresh does not call this.
     """
     import hashlib
 

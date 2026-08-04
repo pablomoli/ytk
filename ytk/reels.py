@@ -347,12 +347,8 @@ def fetch_new_links(
 def refresh(client, state: ReelsState, peer: str | None = None) -> ReelsState:
     """Drain new DM messages into the pending queue and advance the cursor.
 
-    Advancing the cursor here is safe because the items are persisted in
-    `pending` until each one is ingested. Existing pending entries win over
-    rediscovered duplicates, except preview_url: Instagram's CDN links expire,
-    so a non-empty rediscovered preview_url replaces the (possibly dead) one
-    already held. Cached cover files are untouched here; the hub invalidates
-    them where it observes the change.
+    Existing entries win over rediscovered duplicates, except a non-empty
+    rediscovered preview_url (Instagram's CDN links expire).
     """
     items, new_state = fetch_new_items(client, state, peer=peer)
     existing = [_as_item(e) for e in state.pending]
