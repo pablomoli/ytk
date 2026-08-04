@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from ytk import reels
 from ytk.reels import (
     ReelItem,
     ReelsState,
@@ -721,3 +722,39 @@ def test_item_source_round_trip_and_legacy_classification(tmp_path):
     loaded = load_state(path)
     assert loaded.pending[0].source == "youtube"
     assert loaded.pending[1].source == "tiktok"  # classified on migration
+
+
+# --- new fields: title, attachments, hydration stamps ---------------------------
+
+
+def test_as_item_parses_new_fields():
+    item = reels._as_item(
+        {
+            "url": "https://example.com/a",
+            "title": "A title",
+            "attachments": [{"url": "https://example.com/i.jpg", "kind": "image"}],
+            "hydrated_at": "2026-08-04",
+            "hydrate_error": None,
+        }
+    )
+    assert item.title == "A title"
+    assert item.attachments == [{"url": "https://example.com/i.jpg", "kind": "image"}]
+    assert item.hydrated_at == "2026-08-04"
+    assert item.hydrate_error is None
+
+
+def test_as_item_defaults_new_fields_for_legacy_rows():
+    item = reels._as_item({"url": "https://example.com/a"})
+    assert item.title is None
+    assert item.attachments is None
+    assert item.hydrated_at is None
+    assert item.hydrate_error is None
+
+
+def test_state_roundtrip_preserves_new_fields(tmp_path):
+    state = reels.ReelsState()
+    state.pending.append(reels.ReelItem(url="https://example.com/a", title="T"))
+    path = tmp_path / "state.json"
+    reels.save_state(state, path)
+    loaded = reels.load_state(path)
+    assert loaded.pending[0].title == "T"

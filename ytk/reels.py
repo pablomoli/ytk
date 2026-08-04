@@ -26,11 +26,17 @@ class ReelItem:
     """A queued link plus whatever metadata its discovery source carried."""
 
     url: str
-    author: str | None = None  # content author's username, not the sender
+    author: str | None = (
+        None  # creator provenance (channel, username, r/sub); never the content title
+    )
     shared_at: str | None = None  # YYYY-MM-DD the item entered the queue
-    preview_url: str | None = None  # cover image (signed CDN URL, expires)
+    preview_url: str | None = None  # ephemeral; hydration and rediscovery may overwrite
     source: str = "instagram"  # instagram | tiktok | youtube | web | imessage
-    text: str | None = None  # inline body for text sources (imessage), no URL to fetch
+    text: str | None = None  # body/caption text; never a title
+    title: str | None = None  # content title; never a handle or URL
+    attachments: list | None = None  # [{url, kind: image|video|link}]
+    hydrated_at: str | None = None  # stamped on any hydration attempt
+    hydrate_error: str | None = None  # set on permanent failure
 
 
 def classify_url(url: str) -> str:
@@ -59,6 +65,10 @@ def _as_item(entry) -> ReelItem:
         preview_url=entry.get("preview_url"),
         source=entry.get("source") or classify_url(entry["url"]),
         text=entry.get("text"),
+        title=entry.get("title"),
+        attachments=entry.get("attachments"),
+        hydrated_at=entry.get("hydrated_at"),
+        hydrate_error=entry.get("hydrate_error"),
     )
 
 
