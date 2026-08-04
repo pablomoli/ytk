@@ -38,6 +38,14 @@ def _isolate_config(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _capture_log_to_tmp(tmp_path, monkeypatch):
+    """The E5 instrument (#149) appends to ~/.ytk/capture_log.jsonl by default;
+    six days of its baseline window were 92% pytest fixtures because tests
+    inherited that target. Redirect rather than disable: tests assert on records."""
+    monkeypatch.setenv("YTK_CAPTURE_LOG", str(tmp_path / "capture_log.jsonl"))
+
+
+@pytest.fixture(autouse=True)
 def _embedded_chroma_only(tmp_path, monkeypatch):
     """Never let unit tests inherit production Chroma runtime settings."""
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))

@@ -1049,16 +1049,7 @@ def _embed_take(note: Path, url: str, thought: str) -> None:
 
 def find_note_by_url(url: str, since: float) -> Path | None:
     """Locate the note a pipeline run just wrote by its frontmatter url."""
-    sources = vault._get_brain_path() / "sources"
-    if not sources.exists():
-        return None
-    for md in sources.glob("**/*.md"):
-        if md.stat().st_mtime < since:
-            continue
-        head = md.read_text(encoding="utf-8")[:2000]
-        if re.search(rf"^url:\s*{re.escape(url)}\s*$", head, re.MULTILINE):
-            return md
-    return None
+    return vault.find_note_by_url(url, since)
 
 
 def job_status() -> dict:

@@ -1535,6 +1535,24 @@ def reindex_vault(force: bool = False) -> int:
     return reindex_vault_report(force=force).indexed
 
 
+def find_note_by_url(url: str, since: float) -> Path | None:
+    """Locate the note a pipeline run just wrote by its frontmatter url.
+
+    The capture log's note_found field (#149 E5, #148) is only as honest as
+    this check; every ingest surface must use the same one.
+    """
+    sources = _get_brain_path() / "sources"
+    if not sources.exists():
+        return None
+    for md in sources.glob("**/*.md"):
+        if md.stat().st_mtime < since:
+            continue
+        head = md.read_text(encoding="utf-8")[:2000]
+        if re.search(rf"^url:\s*{re.escape(url)}\s*$", head, re.MULTILINE):
+            return md
+    return None
+
+
 def note_identity_fields(content: str) -> dict[str, str]:
     """title/url from a note's frontmatter block, empty-safe, for metadata."""
     head = content[:2000]

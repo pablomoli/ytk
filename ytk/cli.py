@@ -313,10 +313,16 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
     for i, url in enumerate(items, 1):
         console.rule(f"[bold]{i}/{len(items)}[/] {url}")
         attempt_started = time.time()
+        note_found = None
         try:
             ctx.invoke(add, url=url, force=force)
             ok += 1
             outcome, error = "ok", None
+            # Same verification hub drains use: "ok" without a note is the
+            # silent-loss class E5 measures, and feed was blind to it (#148).
+            from ytk.vault import find_note_by_url
+
+            note_found = find_note_by_url(url, since=attempt_started - 5) is not None
         except SystemExit as exc:
             if exc.code in (0, None):
                 skipped += 1
@@ -337,6 +343,7 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
             outcome=outcome,
             error=error,
             duration_s=time.time() - attempt_started,
+            note_found=note_found,
         )
 
     table = Table(box=box.SIMPLE, title="Feed Result")
