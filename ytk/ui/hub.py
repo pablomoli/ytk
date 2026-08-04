@@ -744,6 +744,19 @@ def _pull_due(state: reels.ReelsState, source: str, cadence_minutes: dict, force
     return time.time() - last >= cadence_minutes.get(source, fallback) * 60
 
 
+def hydrate_pending(state: reels.ReelsState, limit: int = 25) -> int:
+    """Backfill metadata newest-first; every attempt stamps the item."""
+    attempted = 0
+    for item in reversed(state.pending):
+        if attempted >= limit:
+            break
+        if item.hydrated_at is not None:
+            continue
+        hydrate.hydrate_item(item)
+        attempted += 1
+    return attempted
+
+
 def refresh_sources(force: bool = False, only: set | None = None) -> dict:
     """Pull new items from all discovery sources into the queue.
 
@@ -831,6 +844,13 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
                 state.last_pulls["imessage"] = now
             except Exception as exc:
                 result["errors"].append(f"imessage: {exc}")
+
+        if _pull_due(state, "hydrate", cadence, force):
+            try:
+                hydrate_pending(state)
+                state.last_pulls["hydrate"] = now
+            except Exception as exc:
+                result["errors"].append(f"hydrate: {exc}")
 
         # prune anything the vault already has a note for (re-pulled duplicates)
         try:

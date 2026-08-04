@@ -1002,6 +1002,90 @@ def test_refresh_sources_pulls_pinterest_feeds(hub, monkeypatch):
     assert pin.preview_url == "https://i.pinimg.com/x.jpg"
 
 
+# --- hydration backfill -----------------------------------------------------
+
+
+def test_hydrate_pending_newest_first_and_limited(hub, monkeypatch):
+    state = reels.ReelsState()
+    for i in range(5):
+        state.pending.append(reels.ReelItem(url=f"https://example.com/{i}", source="web"))
+    seen = []
+
+    def fake_hydrate(item, **kwargs):
+        seen.append(item.url)
+        item.hydrated_at = "2026-08-04"
+        return False
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", fake_hydrate)
+    n = hub.hydrate_pending(state, limit=3)
+    assert n == 3
+    assert seen == [
+        "https://example.com/4",
+        "https://example.com/3",
+        "https://example.com/2",
+    ]
+
+
+def test_hydrate_pending_skips_already_stamped(hub, monkeypatch):
+    state = reels.ReelsState()
+    state.pending.append(
+        reels.ReelItem(url="https://example.com/a", source="web", hydrated_at="2026-08-01")
+    )
+    monkeypatch.setattr(
+        hub.hydrate, "hydrate_item", lambda item, **k: (_ for _ in ()).throw(AssertionError)
+    )
+    assert hub.hydrate_pending(state, limit=10) == 0
+
+
+def test_refresh_sources_hydrates_pending_backfill(hub, monkeypatch):
+    _quiet_other_sources(hub, monkeypatch)
+    monkeypatch.setattr(hub, "IM_FETCH", list)
+    state = reels.ReelsState()
+    state.pending.append(reels.ReelItem(url="https://example.com/old", source="web"))
+    reels.save_state(state, hub.STATE_PATH)
+
+    calls = []
+
+    def fake_hydrate(item, **kwargs):
+        calls.append(item.url)
+        item.hydrated_at = "2026-08-04"
+        return False
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", fake_hydrate)
+
+    hub.refresh_sources()
+
+    assert calls == ["https://example.com/old"]
+    st = reels.load_state(hub.STATE_PATH)
+    assert st.pending[0].hydrated_at == "2026-08-04"
+    assert "hydrate" in st.last_pulls
+
+
+def test_refresh_sources_hydrate_backfill_throttled(hub, monkeypatch):
+    _quiet_other_sources(hub, monkeypatch)
+    monkeypatch.setattr(hub, "IM_FETCH", list)
+    state = reels.ReelsState()
+    state.pending.append(reels.ReelItem(url="https://example.com/old", source="web"))
+    reels.save_state(state, hub.STATE_PATH)
+
+    calls = []
+
+    def fake_hydrate(item, **kwargs):
+        calls.append(item.url)
+        item.hydrated_at = "2026-08-04"
+        return False
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", fake_hydrate)
+
+    first = hub.refresh_sources()
+    assert first.get("skipped") is not True
+    assert calls == ["https://example.com/old"]
+
+    second = hub.refresh_sources()  # immediately after: throttled like the source pulls
+    assert second["skipped"] is True
+    assert calls == ["https://example.com/old"]  # not called again
+
+
 def test_ingest_forwards_thought_to_pipeline(hub):
     url = "https://www.instagram.com/reel/steer/"
     hub.queue_add([url])
