@@ -1,9 +1,14 @@
 /* Where a queued item came from, read off its canonical URL.
 
-   The queue API returns url, source, author, shared_at, text and preview_url —
-   no title, domain or community. Rather than widen that payload, this derives
-   the provenance a card needs from the URL it already has, which keeps the
-   whole of #123 in the browser and out of the ingest path. */
+   The queue API returns url, source, author, shared_at, text, preview_url and
+   (since #163) title — no domain or community. Rather than widen that payload
+   further, this derives the provenance a card needs from the URL it already
+   has, which keeps the whole of #123 in the browser and out of the ingest
+   path. For first-party platform domains (youtube, youtu.be, instagram,
+   tiktok, pinterest) the label is empty when the URL names no community: the
+   source badge already says "youtube", so the domain would only echo it
+   (#163). Third-party domains still label themselves — a reddit or generic
+   web item has no other provenance to show. */
 
 export type Provenance = {
   /* Hostname without a leading www., empty when the URL will not parse. */
@@ -67,8 +72,13 @@ export function isOpenable(url: string): boolean {
   }
 }
 
+/* First-party platform domains: the source badge already names these, so an
+   unnamed community should not fall back to printing the domain too. */
+const FIRST_PARTY = ["youtube.com", "youtu.be", "instagram.com", "tiktok.com", "pinterest.com"];
+
 export function provenance(url: string): Provenance {
   const domain = host(url);
   const named = community(domain, path(url));
-  return { domain, ...(named ? { community: named } : {}), label: named ?? domain };
+  const firstParty = FIRST_PARTY.some((d) => domain === d || domain.endsWith(`.${d}`));
+  return { domain, ...(named ? { community: named } : {}), label: named ?? (firstParty ? "" : domain) };
 }

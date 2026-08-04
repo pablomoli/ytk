@@ -33,9 +33,11 @@ function cardClassName(selected?: boolean, state?: CardState, profileMatch?: boo
 }
 
 /* What to call this item in an accessible name, in decreasing order of how much
-   it actually says. The URL is the last resort rather than the first, because
-   an Instagram reel id names nothing a reader recognises. */
+   it actually says. Title first — it is the content's own name, when the item
+   has one (#163) — then the body excerpt, then author, and the URL only as a
+   last resort, because an Instagram reel id names nothing a reader recognises. */
 function itemLabel(item: QueueItem): string {
+  if (item.title) return item.title.slice(0, 80);
   const text = excerpt(item.text);
   if (text) return text.slice(0, 80);
   if (item.author) return `${item.source} item by ${item.author}`;
@@ -292,7 +294,13 @@ export function Card({
         )}
         {state === "ingesting" ? <div className="spinner" /> : null}
         <div className="meta">
-          <div className="title">{excerpt(item.text) || item.author || item.url}</div>
+          {/* Title, then body excerpt, then a neutral state — never the author
+              (creator provenance, not a heading) or the raw URL (#163). */}
+          <div className="title">
+            {item.title || excerpt(item.text) || (
+              <span className="card-untitled text-mute italic">untitled</span>
+            )}
+          </div>
           <CardMeta item={item} />
           {stage === "fallback" ? <p className="card-nopreview">no preview available</p> : null}
           {themeTag}

@@ -329,3 +329,33 @@ test("an imageless reddit item still shows its community, author and date", () =
   expect(screen.getByText("A post about borrow checking")).toBeInTheDocument();
   expect(screen.getByText(/no preview available/i)).toBeInTheDocument();
 });
+
+/* --- #163: titles are titles, not the platform hostname or the raw url --- */
+
+test("playlist row renders its title once, no hostname echo", () => {
+  render(
+    <Card
+      item={{
+        url: "https://www.youtube.com/watch?v=abc",
+        source: "youtube",
+        title: "Attention is all you need",
+        text: null,
+      }}
+      onInspect={noop}
+      onToggleSelect={noop}
+    />,
+  );
+  expect(screen.getAllByText("Attention is all you need")).toHaveLength(1);
+  expect(screen.queryByText("youtube.com")).not.toBeInTheDocument();
+});
+
+test("bare row shows neutral state, never the URL as a heading", () => {
+  render(
+    <Card
+      item={{ url: "https://www.youtube.com/watch?v=abc", source: "youtube", text: null }}
+      onInspect={noop}
+      onToggleSelect={noop}
+    />,
+  );
+  expect(screen.getByText("untitled")).toBeInTheDocument();
+});
