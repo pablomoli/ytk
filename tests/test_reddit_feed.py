@@ -7,6 +7,7 @@ import pytest
 from ytk.reddit_feed import (
     RedditAuthError,
     build_content_block,
+    external_video_url,
     fetch_comments,
     fetch_listing,
     is_external,
@@ -118,6 +119,22 @@ class TestIsExternalAndMapping:
         (p,) = parse_posts(_listing(_post("abc", url="https://v.redd.it/xyz", domain="v.redd.it")))
         assert is_external(p) is False
         assert post_to_reelitem(p).source == "reddit"
+
+
+class TestExternalVideoUrl:
+    def test_external_video_url_detects_youtube(self):
+        post = _post("abc", url="https://youtu.be/abc123DEF45", domain="youtu.be", is_self=False)
+        assert external_video_url(post) == "https://youtu.be/abc123DEF45"
+
+    def test_external_video_url_none_for_articles(self):
+        post = _post(
+            "abc", url="https://blog.example.com/post", domain="blog.example.com", is_self=False
+        )
+        assert external_video_url(post) is None
+
+    def test_external_video_url_none_for_self_posts(self):
+        post = _post("abc", is_self=True)
+        assert external_video_url(post) is None
 
 
 class TestFetchListingGuards:

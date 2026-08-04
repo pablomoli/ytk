@@ -1764,13 +1764,14 @@ def add_reddit(url: str, note: str = ""):
     from .reddit_feed import (
         RedditAuthError,
         build_content_block,
+        external_video_url,
         fetch_comments,
         post_from_thread,
         reddit_cookie_header,
         top_comments,
     )
     from .store import strip_frontmatter, upsert_doc
-    from .vault import content_note_doc_id, write_reddit_note
+    from .vault import _cross_link_notes, content_note_doc_id, write_reddit_note
 
     try:
         cookie = reddit_cookie_header()
@@ -1806,6 +1807,16 @@ def add_reddit(url: str, note: str = ""):
                 "source_path": str(note_path),
             },
         )
+
+        video_url = external_video_url(post)
+        if video_url:
+            from . import db, hydrate
+
+            vid = hydrate.youtube_video_id(video_url)
+            if vid and not db.is_processed(vid):
+                ctx = click.get_current_context()
+                ctx.invoke(add, url=video_url, note=note)
+            _cross_link_notes(note_path, video_url)
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
 

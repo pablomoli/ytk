@@ -150,6 +150,16 @@ def is_external(post: dict) -> bool:
     return domain not in _REDDIT_DOMAINS
 
 
+def external_video_url(post: dict) -> str | None:
+    """The post's external URL when it's a link to a YouTube video, else None."""
+    from ytk import reels
+
+    if not is_external(post):
+        return None
+    url = post.get("url") or ""
+    return url if reels.classify_url(url) == "youtube" else None
+
+
 _TEXT_CAP = 2000
 
 

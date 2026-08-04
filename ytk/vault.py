@@ -36,6 +36,7 @@ LINK_REMINDER = "Add [[wikilinks]] in Obsidian to connect this note to related n
 _CAPTURED_RE = re.compile(r"^captured:\s*['\"]?(\d{4}-\d{2}-\d{2})", re.MULTILINE)
 _FM_DATE_RE = re.compile(r"^date:\s*['\"]?(\d{4}-\d{2}-\d{2})", re.MULTILINE)
 _NAME_DATE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})")
+_FM_URL_RE = re.compile(r"^url:\s*(\S+)", re.MULTILINE)
 
 
 def note_capture_date(path: Path) -> datetime:
@@ -571,6 +572,47 @@ def write_reddit_note(post: dict, enrichment: Enrichment, comments: list[dict]) 
 
     note_path.write_text(body, encoding="utf-8")
     return note_path
+
+
+def _append_related_link(note_path: Path, target_stem: str) -> None:
+    """Append a `## Related` wikilink to target_stem, skipping if already present."""
+    link = f"[[{target_stem}]]"
+    text = note_path.read_text(encoding="utf-8")
+    if link in text:
+        return
+    if "## Related" in text:
+        text = text.rstrip("\n") + f"\n{link}\n"
+    else:
+        text = text.rstrip("\n") + f"\n\n## Related\n{link}\n"
+    note_path.write_text(text, encoding="utf-8")
+
+
+def _cross_link_notes(reddit_note: Path, video_url: str, search_dir: Path | None = None) -> None:
+    """Wikilink a Reddit note and the YouTube note it links to, both ways.
+
+    Finds the note in search_dir (default sources/youtube/) whose frontmatter
+    `url:` matches video_url, then appends a `## Related` wikilink to each
+    note pointing at the other. No-op if no matching note exists; idempotent
+    on repeat calls (skips the append when the link is already present).
+    """
+    if search_dir is None:
+        search_dir = _get_brain_path() / "sources" / "youtube"
+    video_note = None
+    for candidate in search_dir.glob("*.md"):
+        if candidate == reddit_note:
+            continue
+        try:
+            text = candidate.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        m = _FM_URL_RE.search(text)
+        if m and m.group(1) == video_url:
+            video_note = candidate
+            break
+    if video_note is None:
+        return
+    _append_related_link(reddit_note, video_note.stem)
+    _append_related_link(video_note, reddit_note.stem)
 
 
 def write_journal_note(thread: MessageThread, enrichment: Enrichment, suffix: str = "") -> Path:
