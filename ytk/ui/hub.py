@@ -11,6 +11,7 @@ the daily digest, and removed from the queue.
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 import threading
@@ -789,7 +790,14 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
             s: (only is None or s in only) and _pull_due(state, s, cadence, force)
             for s in sorted(PULL_SOURCES)
         }
-        if not any(due.values()):
+        # Hydration is not a discovery source: it never adds items, so it sits
+        # outside PULL_SOURCES/PULL_SEAMS (that map exists to keep discovery
+        # pulls offline-stubbable, and its network I/O runs unlocked below,
+        # unlike the per-source pulls above). A scoped refresh (only=...) —
+        # e.g. the imessage watcher's frequent force=True poll — must never
+        # trigger it, so force only applies to hydrate when unscoped.
+        hydrate_due = only is None and _pull_due(state, "hydrate", cadence, force)
+        if not any(due.values()) and not hydrate_due:
             result["skipped"] = True
             result["skipped_sources"] = list(due)
             return result
@@ -845,12 +853,10 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
             except Exception as exc:
                 result["errors"].append(f"imessage: {exc}")
 
-        if _pull_due(state, "hydrate", cadence, force):
-            try:
-                hydrate_pending(state)
-                state.last_pulls["hydrate"] = now
-            except Exception as exc:
-                result["errors"].append(f"hydrate: {exc}")
+        # Snapshot here, hydrate after the lock is released below — hydration
+        # is network I/O and must not stall queue_add/ingest/other refreshes
+        # the way holding _LOCK across it would (mirrors queue_add's pattern).
+        hydrate_snapshot = copy.deepcopy(state.pending) if hydrate_due else []
 
         # prune anything the vault already has a note for (re-pulled duplicates)
         try:
@@ -863,6 +869,31 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
 
         state.last_pull_at = now
         reels.save_state(state, STATE_PATH)
+
+    # Hydrate the snapshot outside _LOCK (network I/O), then reload the live
+    # state and merge by url onto items still missing hydrated_at — a
+    # concurrent writer (queue_add, another refresh) wins over the snapshot.
+    if hydrate_due:
+        snapshot_state = reels.ReelsState(pending=hydrate_snapshot)
+        try:
+            hydrate_pending(snapshot_state)
+        except Exception as exc:
+            result["errors"].append(f"hydrate: {exc}")
+        hydrated = {i.url: i for i in snapshot_state.pending if i.hydrated_at is not None}
+        with _LOCK:
+            state = reels.load_state(STATE_PATH)
+            for item in state.pending:
+                src = hydrated.get(item.url)
+                if src is None or item.hydrated_at is not None:
+                    continue
+                item.title = src.title
+                item.author = src.author
+                item.text = src.text
+                item.preview_url = src.preview_url
+                item.hydrated_at = src.hydrated_at
+                item.hydrate_error = src.hydrate_error
+            state.last_pulls["hydrate"] = now
+            reels.save_state(state, STATE_PATH)
 
     # $$-marked sessions bypass the inbox pick — ingest them now. Done outside
     # the lock: enrichment is slow, and start_ingest re-acquires the lock.

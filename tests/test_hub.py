@@ -1086,6 +1086,81 @@ def test_refresh_sources_hydrate_backfill_throttled(hub, monkeypatch):
     assert calls == ["https://example.com/old"]  # not called again
 
 
+def test_refresh_sources_scoped_refresh_never_hydrates(hub, monkeypatch):
+    # The imessage chat.db watcher calls refresh_sources(force=True,
+    # only={"imessage"}) on an ~8s poll; force must not leak into hydration
+    # for a scoped call, or hydration would fire on nearly every tick.
+    _quiet_other_sources(hub, monkeypatch)
+    monkeypatch.setattr(hub, "IM_FETCH", list)
+    state = reels.ReelsState()
+    state.pending.append(reels.ReelItem(url="https://example.com/old", source="web"))
+    reels.save_state(state, hub.STATE_PATH)
+    monkeypatch.setattr(
+        hub.hydrate, "hydrate_item", lambda item, **k: (_ for _ in ()).throw(AssertionError)
+    )
+
+    hub.refresh_sources(force=True, only={"imessage"})
+
+    st = reels.load_state(hub.STATE_PATH)
+    assert st.pending[0].hydrated_at is None
+    assert "hydrate" not in st.last_pulls
+
+
+def test_refresh_sources_unscoped_hydrates_even_when_all_sources_throttled(hub, monkeypatch):
+    # Hydration is intentionally left out of PULL_SOURCES/`due`, so its own
+    # due-ness must still be able to carry an otherwise-fully-throttled cycle.
+    _quiet_other_sources(hub, monkeypatch)
+    monkeypatch.setattr(hub, "IM_FETCH", list)
+    state = reels.ReelsState()
+    state.pending.append(reels.ReelItem(url="https://example.com/old", source="web"))
+    now = time.time()
+    for s in hub.PULL_SOURCES:
+        state.last_pulls[s] = now
+    reels.save_state(state, hub.STATE_PATH)
+
+    calls = []
+
+    def fake_hydrate(item, **kwargs):
+        calls.append(item.url)
+        item.hydrated_at = "2026-08-04"
+        return False
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", fake_hydrate)
+
+    result = hub.refresh_sources()
+
+    assert result["skipped"] is False
+    assert calls == ["https://example.com/old"]
+    st = reels.load_state(hub.STATE_PATH)
+    assert st.pending[0].hydrated_at == "2026-08-04"
+
+
+def test_refresh_sources_hydration_does_not_hold_the_lock(hub, monkeypatch):
+    # Regression guard for the network-under-_LOCK bug: hydrate_item must be
+    # able to acquire _LOCK itself (as queue_add would concurrently) while
+    # a hydration is in flight.
+    _quiet_other_sources(hub, monkeypatch)
+    monkeypatch.setattr(hub, "IM_FETCH", list)
+    state = reels.ReelsState()
+    state.pending.append(reels.ReelItem(url="https://example.com/old", source="web"))
+    reels.save_state(state, hub.STATE_PATH)
+
+    lock_free_during_hydrate = []
+
+    def fake_hydrate(item, **kwargs):
+        lock_free_during_hydrate.append(hub._LOCK.acquire(blocking=False))
+        if lock_free_during_hydrate[-1]:
+            hub._LOCK.release()
+        item.hydrated_at = "2026-08-04"
+        return False
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", fake_hydrate)
+
+    hub.refresh_sources()
+
+    assert lock_free_during_hydrate == [True]
+
+
 def test_ingest_forwards_thought_to_pipeline(hub):
     url = "https://www.instagram.com/reel/steer/"
     hub.queue_add([url])
