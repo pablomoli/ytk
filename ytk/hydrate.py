@@ -101,9 +101,15 @@ def hydrate_item(
     old_preview = item.preview_url
     item.hydrated_at = date.today().isoformat()
     item.hydrate_error = None
+    kind = reels.classify_url(item.url)
+    # No authenticated fetcher exists for these: an unauthenticated GET returns
+    # login-page junk and would clobber a signed CDN preview_url. Still stamp
+    # hydrated_at so these rows don't eat the backfill budget every cycle.
+    if kind in ("instagram", "tiktok"):
+        return item.preview_url != old_preview
     fields: dict[str, str | None] = {}
     try:
-        if reels.classify_url(item.url) == "youtube":
+        if kind == "youtube":
             fields = _youtube_fields(item.url, fetch_json)
         elif item.url.startswith("http"):
             fields = _web_fields(fetch_html(item.url))

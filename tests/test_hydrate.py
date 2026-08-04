@@ -92,3 +92,52 @@ def test_hydrate_failure_marks_and_does_not_raise():
     hydrate.hydrate_item(item, fetch_json=boom, fetch_html=boom)
     assert item.hydrated_at is not None
     assert "OSError" in item.hydrate_error
+
+
+def test_hydrate_instagram_skips_fetch_but_stamps():
+    item = reels.ReelItem(url="https://www.instagram.com/reel/abc123/", source="instagram")
+
+    def boom(url):
+        raise AssertionError("fetcher must not be called for instagram")
+
+    changed = hydrate.hydrate_item(item, fetch_json=boom, fetch_html=boom)
+    assert item.hydrated_at is not None
+    assert item.hydrate_error is None
+    assert item.title is None
+    assert item.author is None
+    assert item.text is None
+    assert item.preview_url is None
+    assert changed is False
+
+
+def test_hydrate_tiktok_skips_fetch_but_stamps():
+    item = reels.ReelItem(url="https://www.tiktok.com/@user/video/123", source="tiktok")
+
+    def boom(url):
+        raise AssertionError("fetcher must not be called for tiktok")
+
+    changed = hydrate.hydrate_item(item, fetch_json=boom, fetch_html=boom)
+    assert item.hydrated_at is not None
+    assert item.hydrate_error is None
+    assert item.title is None
+    assert item.author is None
+    assert item.text is None
+    assert item.preview_url is None
+    assert changed is False
+
+
+def test_hydrate_instagram_does_not_clobber_existing_preview():
+    item = reels.ReelItem(
+        url="https://www.instagram.com/p/xyz/",
+        source="instagram",
+        title="Kept",
+        preview_url="https://scontent.cdninstagram.com/signed.jpg",
+    )
+
+    def boom(url):
+        raise AssertionError("fetcher must not be called for instagram")
+
+    changed = hydrate.hydrate_item(item, fetch_json=boom, fetch_html=boom)
+    assert item.title == "Kept"
+    assert item.preview_url == "https://scontent.cdninstagram.com/signed.jpg"
+    assert changed is False
