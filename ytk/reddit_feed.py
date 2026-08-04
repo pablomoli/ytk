@@ -18,6 +18,7 @@ posts are never read.
 
 from __future__ import annotations
 
+import html
 import json
 import re
 import shutil
@@ -106,6 +107,33 @@ def fetch_listing(
     return listing if isinstance(listing, dict) else {}
 
 
+def _gallery_attachments(d: dict) -> list[dict]:
+    """Gallery images/animations as attachment dicts, in gallery_data order."""
+    if not d.get("is_gallery"):
+        return []
+    metadata = d.get("media_metadata") or {}
+    order = [it.get("media_id") for it in (d.get("gallery_data") or {}).get("items") or []] or list(
+        metadata.keys()
+    )
+    out = []
+    for media_id in order:
+        s = (metadata.get(media_id) or {}).get("s") or {}
+        animated = s.get("mp4") or s.get("gif")
+        url = animated or s.get("u")
+        if not url:
+            continue
+        out.append({"url": html.unescape(url), "kind": "video" if animated else "image"})
+    return out
+
+
+def _video_attachment(d: dict) -> dict | None:
+    """Reddit-hosted video's fallback MP4 as a single attachment, else None."""
+    if not d.get("is_video"):
+        return None
+    fallback = ((d.get("media") or {}).get("reddit_video") or {}).get("fallback_url")
+    return {"url": html.unescape(fallback), "kind": "video"} if fallback else None
+
+
 def parse_posts(listing: dict) -> list[dict]:
     """Flatten a listing response into post dicts (t3 children only)."""
     posts = []
@@ -135,6 +163,8 @@ def parse_posts(listing: dict) -> list[dict]:
                 "thumbnail": thumb if thumb.startswith("http") else None,
                 "created_utc": d.get("created_utc"),
                 "over_18": bool(d.get("over_18")),
+                "gallery": _gallery_attachments(d),
+                "video": _video_attachment(d),
             }
         )
     return posts
@@ -175,6 +205,9 @@ def post_to_reelitem(post: dict):
     attachments = []
     if is_external(post) and post["url"]:
         attachments.append({"url": post["url"], "kind": "link"})
+    attachments.extend(post.get("gallery") or [])
+    if post.get("video"):
+        attachments.append(post["video"])
     text = post["selftext"][:_TEXT_CAP] if post["selftext"] else None
     return reels.ReelItem(
         url=post["permalink"],

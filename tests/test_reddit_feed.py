@@ -121,6 +121,85 @@ class TestIsExternalAndMapping:
         assert post_to_reelitem(p).source == "reddit"
 
 
+class TestGalleryAndVideoAttachments:
+    def _gallery_post(self, pid="gal1"):
+        post = _post(pid, is_self=True, selftext="")
+        post["is_gallery"] = True
+        post["media_metadata"] = {
+            "img2id": {
+                "status": "valid",
+                "e": "Image",
+                "m": "image/jpg",
+                "s": {
+                    "u": "https://preview.redd.it/img2id.jpg?width=1080&amp;format=pjpg&amp;s=bbb"
+                },
+            },
+            "img1id": {
+                "status": "valid",
+                "e": "Image",
+                "m": "image/jpg",
+                "s": {
+                    "u": "https://preview.redd.it/img1id.jpg?width=1080&amp;format=pjpg&amp;s=aaa"
+                },
+            },
+        }
+        post["gallery_data"] = {
+            "items": [{"media_id": "img1id", "id": 1}, {"media_id": "img2id", "id": 2}]
+        }
+        return post
+
+    def test_gallery_post_extracts_ordered_unescaped_image_attachments(self):
+        (p,) = parse_posts(_listing(self._gallery_post()))
+        item = post_to_reelitem(p)
+        assert item.attachments == [
+            {
+                "url": "https://preview.redd.it/img1id.jpg?width=1080&format=pjpg&s=aaa",
+                "kind": "image",
+            },
+            {
+                "url": "https://preview.redd.it/img2id.jpg?width=1080&format=pjpg&s=bbb",
+                "kind": "image",
+            },
+        ]
+
+    def test_gallery_post_animated_item_becomes_video_kind(self):
+        post = self._gallery_post()
+        post["media_metadata"]["img1id"]["s"] = {
+            "gif": "https://preview.redd.it/img1id.gif?s=aaa",
+            "mp4": "https://preview.redd.it/img1id.mp4?s=aaa",
+        }
+        (p,) = parse_posts(_listing(post))
+        item = post_to_reelitem(p)
+        assert item.attachments[0] == {
+            "url": "https://preview.redd.it/img1id.mp4?s=aaa",
+            "kind": "video",
+        }
+
+    def test_reddit_video_post_becomes_single_video_attachment(self):
+        post = _post("vid1", url="https://v.redd.it/xyz", domain="v.redd.it")
+        post["is_video"] = True
+        post["media"] = {
+            "reddit_video": {
+                "fallback_url": "https://v.redd.it/xyz/DASH_480.mp4?source=fallback&amp;a=1",
+                "height": 480,
+            }
+        }
+        (p,) = parse_posts(_listing(post))
+        item = post_to_reelitem(p)
+        assert item.attachments == [
+            {"url": "https://v.redd.it/xyz/DASH_480.mp4?source=fallback&a=1", "kind": "video"}
+        ]
+
+    def test_external_link_and_selftext_posts_have_no_gallery_attachments(self):
+        (p,) = parse_posts(_listing(_post("abc", url="https://youtu.be/xyz", domain="youtu.be")))
+        item = post_to_reelitem(p)
+        assert item.attachments == [{"url": "https://youtu.be/xyz", "kind": "link"}]
+
+        (p2,) = parse_posts(_listing(_post("abc2", is_self=True, selftext="body")))
+        item2 = post_to_reelitem(p2)
+        assert item2.attachments is None
+
+
 class TestExternalVideoUrl:
     def test_external_video_url_detects_youtube(self):
         post = _post("abc", url="https://youtu.be/abc123DEF45", domain="youtu.be", is_self=False)
