@@ -114,6 +114,22 @@ def test_queue_add_classifies_dedupes_persists(hub):
     assert reels.load_state(hub.STATE_PATH).pending[0].url == "https://youtu.be/abc"
 
 
+def test_queue_add_hydrates_new_items(hub, monkeypatch):
+    def fake_hydrate(item, **kwargs):
+        item.title = "Hydrated"
+        item.hydrated_at = "2026-08-04"
+        return False
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", fake_hydrate)
+    added = hub.queue_add(["https://www.youtube.com/watch?v=abc123DEF45"])
+    assert added == 1
+    items = hub.queue_items()
+    assert items[0].title == "Hydrated"
+    assert items[0].hydrated_at == "2026-08-04"
+    # persisted, not just held in memory
+    assert reels.load_state(hub.STATE_PATH).pending[0].title == "Hydrated"
+
+
 def test_ingest_annotates_digests_and_dequeues(hub):
     url = "https://www.instagram.com/reel/abc/"
     hub.queue_add([url])

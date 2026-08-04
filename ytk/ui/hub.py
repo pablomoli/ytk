@@ -19,7 +19,7 @@ from datetime import UTC
 from pathlib import Path
 from typing import cast
 
-from ytk import capture_log, directives, reels, vault
+from ytk import capture_log, directives, hydrate, reels, vault
 from ytk.config import load_config
 from ytk.memo import (
     AUDIO_DIR as MEMO_AUDIO_DIR,
@@ -148,10 +148,24 @@ def queue_items() -> list[reels.ReelItem]:
 
 
 def queue_add(urls: list[str]) -> int:
+    """Classify, dedupe, and persist pasted URLs, hydrated before the write.
+
+    Hydration is network I/O, so _LOCK is released for it; state is reloaded
+    before the save so a concurrent mutation isn't clobbered.
+    """
     with _LOCK:
         state = reels.load_state(STATE_PATH)
         added = reels.add_urls(state, urls)
-        if added:
+    for item in added:
+        hydrate.hydrate_item(item)
+    if added:
+        with _LOCK:
+            state = reels.load_state(STATE_PATH)
+            known = {i.url for i in state.pending}
+            for item in added:
+                if item.url not in known:
+                    state.pending.append(item)
+                    known.add(item.url)
             reels.save_state(state, STATE_PATH)
     return len(added)
 
