@@ -211,9 +211,25 @@ class TestSyncSubreddits:
             ),
         )
         state = ReelsState()
+        # External URL in extra_known does NOT suppress: Reddit posts dedup by
+        # permalink (first-class identity), not by linked content URL. Linked
+        # content dedup is handled in the ingest path via cross-linking.
         added = sync_subreddits(state, "c=1", ["Sub"], extra_known={"https://ex.com/1"})
-        assert added == 0
+        assert added == 1
         assert state.reddit_seen == ["t3_a1"]
+        assert state.pending[0].url.endswith("/comments/a1/slug/")
+
+        # But permalink in extra_known DOES suppress: don't queue the same
+        # Reddit post twice.
+        state2 = ReelsState()
+        added2 = sync_subreddits(
+            state2,
+            "c=1",
+            ["Sub"],
+            extra_known={"https://old.reddit.com/r/TouchDesigner/comments/a1/slug/"},
+        )
+        assert added2 == 0
+        assert state2.reddit_seen == ["t3_a1"]
 
 
 def _cookie_db(path, rows):

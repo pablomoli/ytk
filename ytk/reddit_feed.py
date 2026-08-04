@@ -208,11 +208,7 @@ def sync_subreddits(
             seen.add(post["fullname"])
             state.reddit_seen.append(post["fullname"])
             item = post_to_reelitem(post)
-            # Check both the item URL and any external URL in attachments
-            urls_to_check = [item.url]
-            if item.attachments:
-                urls_to_check.extend(att["url"] for att in item.attachments if att.get("url"))
-            if any(url in known_urls for url in urls_to_check):
+            if item.url in known_urls:
                 continue
             known_urls.add(item.url)
             state.pending.append(item)
