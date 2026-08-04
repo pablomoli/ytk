@@ -165,11 +165,13 @@ def load_points() -> tuple[np.ndarray, list[dict], list[str]]:
         url_m = re.search(r"^url: *(\S+)", (doc or "")[:600], re.MULTILINE)
         vecs.append(np.asarray(emb))
         docs.append(doc or "")
+        # metadata first (#169): the indexer stores frontmatter title/url now;
+        # the body-derived fallbacks yield embed markup for image-first notes
         meta.append(
             {
                 "cat": _category(sp),
-                "title": _title(doc, m.get("doc_id", "")),
-                "url": url_m.group(1) if url_m else "",
+                "title": m.get("title") or _title(doc, m.get("doc_id", "")),
+                "url": m.get("url") or (url_m.group(1) if url_m else ""),
                 "date": dm.group(0) if dm else "",
                 "video_id": "",
                 "path": sp,

@@ -495,3 +495,48 @@ def _fmt_ts(seconds: int | float) -> str:
     if h:
         return f"{h}:{m:02d}:{s:02d}"
     return f"{m}:{s:02d}"
+
+
+# --- short titles (#169) ----------------------------------------------------
+
+TITLE_MAX_CHARS = 90
+
+_TITLE_SCHEMA = {
+    "type": "object",
+    "properties": {"titles": {"type": "array", "items": {"type": "string"}}},
+    "required": ["titles"],
+}
+
+
+def distill_titles(theses: list[str]) -> list[str]:
+    """Compress thesis sentences into note titles, order-preserving.
+
+    The instagram/tiktok writers put the full enrichment thesis in the
+    frontmatter title, which reads as a 250-char summary everywhere a title
+    is displayed. One batched call keeps backfill affordable.
+    """
+    from .sdk import run_structured  # deferred: claude_agent_sdk costs ~120ms (#146)
+
+    system = (
+        "You compress thesis sentences into note titles. For each input, return "
+        "a title of at most 8 words naming the concrete subject: the tool, "
+        "technique, artwork, or claim. Keep proper nouns. No trailing period, "
+        "no quotes, no numbering. Return titles in the same order as inputs."
+    )
+    user = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(theses))
+    data = run_structured(system, user, _TITLE_SCHEMA)
+    titles = [str(t).strip() for t in data["titles"]]
+    if len(titles) != len(theses):
+        raise ValueError(f"distill_titles: {len(theses)} inputs, {len(titles)} outputs")
+    return titles
+
+
+def short_title(thesis: str) -> str:
+    """Frontmatter-ready title: the thesis itself when short, else distilled."""
+    text = " ".join(thesis.split())
+    if len(text) <= TITLE_MAX_CHARS:
+        return text
+    try:
+        return distill_titles([text])[0]
+    except Exception:
+        return text[: TITLE_MAX_CHARS - 3].rsplit(" ", 1)[0] + "..."

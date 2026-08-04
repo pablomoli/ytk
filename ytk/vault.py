@@ -758,10 +758,12 @@ def _render_instagram_note(
         capture_yaml += f"frames: {frame_count}\n"
         capture_yaml += f"transcript: {transcript_status or 'none'}\n"
 
+    from .enrich import short_title
+
     content = (
         f"---\nurl: {post.url}\nusername: {post.username}\ndate: {post.timestamp}\n"
         f"captured: {datetime.now():%Y-%m-%d}\n"
-        f"title: {enrichment.thesis}\n"
+        f"title: {short_title(enrichment.thesis)}\n"
         f"tags:\n{tags_yaml}\ntype: instagram\n"
         f"{capture_yaml}"
         f"image_paths:{image_paths_yaml}\n---\n\n"
@@ -1190,10 +1192,12 @@ def write_tiktok_note(
         else " []"
     )
 
+    from .enrich import short_title
+
     content = (
         f"---\nurl: {post.url}\nusername: {post.username}\ndate: {post.timestamp}\n"
         f"captured: {datetime.now():%Y-%m-%d}\n"
-        f"title: {enrichment.thesis}\nduration: {post.duration}\n"
+        f"title: {short_title(enrichment.thesis)}\nduration: {post.duration}\n"
         f"tags:\n{tags_yaml}\ntype: tiktok\n"
         f"image_paths:{media_yaml}\n---\n\n"
     )
@@ -1447,15 +1451,16 @@ def reindex_vault_report(force: bool = False) -> ReindexReport:
             continue
 
         doc_id = vault_note_doc_id(md_file, brain, content)
-        upsert_doc(
-            doc_id,
-            body,
-            {
-                "doc_id": doc_id,
-                "tags": ", ".join(str(rel).split("/")[:-1]),
-                "source_path": str_path,
-            },
-        )
+        meta = {
+            "doc_id": doc_id,
+            "tags": ", ".join(str(rel).split("/")[:-1]),
+            "source_path": str_path,
+        }
+        # Frontmatter identity travels with the vector (#169): consumers like
+        # build_map and /api/path otherwise re-derive titles from body text
+        # and get embed markup for image-first notes.
+        meta.update(note_identity_fields(content))
+        upsert_doc(doc_id, body, meta)
         update_cache_entry(md_file, cache)
         report.indexed += 1
 
@@ -1471,6 +1476,17 @@ def reindex_vault_report(force: bool = False) -> ReindexReport:
 def reindex_vault(force: bool = False) -> int:
     """Count-only wrapper over :func:`reindex_vault_report`."""
     return reindex_vault_report(force=force).indexed
+
+
+def note_identity_fields(content: str) -> dict[str, str]:
+    """title/url from a note's frontmatter block, empty-safe, for metadata."""
+    head = content[:2000]
+    out: dict[str, str] = {}
+    for key in ("title", "url"):
+        match = re.search(rf"^{key}: *(.+)$", head, re.MULTILINE)
+        if match and match.group(1).strip():
+            out[key] = match.group(1).strip()[:300]
+    return out
 
 
 def vault_note_doc_id(note_path: Path, brain: Path, content: str | None = None) -> str:
