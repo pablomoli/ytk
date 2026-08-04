@@ -57,6 +57,22 @@ def hub(tmp_path, monkeypatch, stub_pullers):
     return hub_mod
 
 
+@pytest.fixture(autouse=True)
+def _stub_hydrate(hub, monkeypatch):
+    """Default no-op hydrate: no test in this file may reach real network.
+
+    queue_add and refresh_sources both call hydrate.hydrate_item; tests that
+    care about hydration behavior monkeypatch it themselves inside the test
+    body, which wins over this default since it runs later.
+    """
+
+    def _noop(item, **kwargs):
+        item.hydrated_at = "2026-08-04"
+        return False
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", _noop)
+
+
 def _simulate_restart(hub_mod):
     """Drop every scrap of in-memory job state, as a killed hub process would.
 
@@ -619,7 +635,8 @@ def test_refresh_sources_pulls_instagram_and_youtube(hub, monkeypatch):
     urls = [i.url for i in hub.queue_items()]
     assert "https://www.youtube.com/watch?v=new1" in urls
     yt = [i for i in hub.queue_items() if i.source == "youtube"][0]
-    assert yt.author == "A new video"
+    assert yt.title == "A new video"
+    assert yt.author is None
     assert yt.preview_url == "https://i.ytimg.com/vi/new1/hqdefault.jpg"
     assert yt.shared_at == "2026-07-04"
 
@@ -1018,7 +1035,8 @@ def test_refresh_sources_pulls_pinterest_feeds(hub, monkeypatch):
     result = hub.refresh_sources(force=True)
     assert result["pinterest"] == 1
     pin = [i for i in hub.queue_items() if i.source == "pinterest"][0]
-    assert pin.author == "A cool pin"
+    assert pin.title == "A cool pin"
+    assert pin.author is None
     assert pin.preview_url == "https://i.pinimg.com/x.jpg"
 
 
