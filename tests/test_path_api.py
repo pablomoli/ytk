@@ -67,3 +67,24 @@ def test_path_exact_id_beats_substring():
     out = hub.compute_path("vidA", "u/b", stops=3, fetch=_fetch)
     assert out["a"]["title"] == "Alpha lecture"
     assert out["b"]["video_id"] == "vidB"
+
+
+def _fetch_with_instagram():
+    # memories-sourced content notes carry no video_id (#169): exclusion must
+    # work by index, not by the shared None
+    metas, X = _fake_corpus()
+    metas = [*metas]
+    metas[0] = {"title": "Fibonacci fruits sequencer", "url": "ig/a", "video_id": None}
+    metas[3] = {"title": "Alien HUD reference", "url": "ig/o", "video_id": None}
+    return metas, X
+
+
+def test_path_instagram_endpoints_without_video_id():
+    out = hub.compute_path("ig/a", "beta", stops=5, fetch=_fetch_with_instagram)
+    assert out["a"]["title"] == "Fibonacci fruits sequencer"
+    assert out["a"]["video_id"] is None
+    urls = {n["url"] for s in out["stops"] for n in s["notes"]}
+    # endpoint A itself never appears as a stop, and the other url-less
+    # instagram note is still retrievable
+    assert "ig/a" not in urls and "u/b" not in urls
+    assert out["stops"][2]["notes"][0]["url"] == "u/m"

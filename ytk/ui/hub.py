@@ -1664,23 +1664,52 @@ _PATH_CACHE: dict = {}
 
 
 def path_vectors() -> tuple[list[dict], object]:
-    """Video metadata + unit vectors from the live store, cached by count."""
+    """Content-note metadata + unit vectors from the live store, cached by count.
+
+    Roads run over consumed content: the videos collection plus memories-
+    collection notes under sources/ (instagram, tiktok, web — #169). Session
+    and memory atoms stay out so itineraries surface content, not scaffolding.
+    Non-video rows rely on the title/url metadata the indexer stores since
+    #169 (backfilled by scripts/backfill_note_metadata.py).
+    """
     import numpy as np
 
     import ytk.vault  # noqa: F401  — sets CHROMA_URL; bare store import reads a stale DB (#164)
     from ytk import store
 
     col = store._videos_collection()
-    count = col.count()
+    mem = store._get_client().get_collection(store.epoch_collection_name("ytk_memories"))
+    count = (col.count(), mem.count())
     if _PATH_CACHE.get("count") != count:
         got = col.get(include=["embeddings", "metadatas"])
         embeddings = got["embeddings"]
         metadatas = got["metadatas"]
         if embeddings is None or metadatas is None:
             raise RuntimeError("videos collection returned no embeddings/metadatas")
-        X = np.asarray(embeddings, dtype=np.float32)
+        metas = list(metadatas)
+        rows = list(embeddings)
+        mgot = mem.get(include=["embeddings", "metadatas"])
+        if mgot["embeddings"] is not None and mgot["metadatas"] is not None:
+            # youtube stays out: the videos collection owns those notes, and a
+            # second vector would let a road stop on the same note twice
+            content = tuple(
+                f"/sources/{s}/" for s in ("instagram", "tiktok", "web", "pinterest", "reddit")
+            )
+            for i, e, m in zip(mgot["ids"], mgot["embeddings"], mgot["metadatas"]):
+                sp = str(m.get("source_path", ""))
+                if "#" in i or not any(c in sp for c in content):
+                    continue
+                metas.append(
+                    {
+                        "title": m.get("title", ""),
+                        "url": m.get("url"),
+                        "video_id": None,
+                    }
+                )
+                rows.append(e)
+        X = np.asarray(rows, dtype=np.float32)
         X /= np.linalg.norm(X, axis=1, keepdims=True) + 1e-12
-        _PATH_CACHE.update(count=count, metas=list(metadatas), X=X)
+        _PATH_CACHE.update(count=count, metas=metas, X=X)
     return _PATH_CACHE["metas"], _PATH_CACHE["X"]
 
 
@@ -1715,7 +1744,9 @@ def compute_path(a: str, b: str, stops: int = 9, k: int = 3, fetch=path_vectors)
     if ia == ib:
         raise ValueError("both endpoints resolve to the same note")
     dup_ids = {metas[ia].get("video_id"), metas[ib].get("video_id")} - {None}
-    excluded = [i for i, m in enumerate(metas) if m.get("video_id") in dup_ids]
+    # endpoints by index, duplicates by video_id — memories-sourced notes
+    # carry no video_id (#169), so index membership must exclude on its own
+    excluded = [i for i, m in enumerate(metas) if i in (ia, ib) or m.get("video_id") in dup_ids]
 
     va, vb = X[ia], X[ib]
     om = float(np.arccos(np.clip(float(va @ vb), -1.0, 1.0)))
