@@ -27,3 +27,16 @@ def test_cross_link_notes_no_match_is_a_noop(tmp_path):
 
     vault._cross_link_notes(reddit_note, "https://youtu.be/nomatch12345", search_dir=tmp_path)
     assert "## Related" not in reddit_note.read_text()
+
+
+def test_cross_link_notes_matches_by_video_id_across_url_forms(tmp_path):
+    """The note's frontmatter carries whatever url form it was ingested with;
+    a Reddit link in a different form (youtu.be vs watch?v=) must still match."""
+    reddit_note = tmp_path / "reddit-post.md"
+    video_note = tmp_path / "video.md"
+    reddit_note.write_text("---\nurl: https://old.reddit.com/r/x/1\n---\nbody\n")
+    video_note.write_text("---\nurl: https://www.youtube.com/watch?v=abc123DEF45\n---\nbody\n")
+
+    vault._cross_link_notes(reddit_note, "https://youtu.be/abc123DEF45", search_dir=tmp_path)
+    assert "[[video]]" in reddit_note.read_text()
+    assert "[[reddit-post]]" in video_note.read_text()

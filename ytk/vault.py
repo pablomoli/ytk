@@ -594,9 +594,17 @@ def _cross_link_notes(reddit_note: Path, video_url: str, search_dir: Path | None
     `url:` matches video_url, then appends a `## Related` wikilink to each
     note pointing at the other. No-op if no matching note exists; idempotent
     on repeat calls (skips the append when the link is already present).
+
+    Matches on video id, not the raw url string: frontmatter carries whatever
+    form was originally ingested (watch?v=, youtu.be/, shorts/), which need
+    not match the form the Reddit link happens to use. Falls back to exact
+    string equality only when either side has no extractable id.
     """
+    from ytk.hydrate import youtube_video_id
+
     if search_dir is None:
         search_dir = _get_brain_path() / "sources" / "youtube"
+    target_id = youtube_video_id(video_url)
     video_note = None
     for candidate in search_dir.glob("*.md"):
         if candidate == reddit_note:
@@ -606,7 +614,14 @@ def _cross_link_notes(reddit_note: Path, video_url: str, search_dir: Path | None
         except OSError:
             continue
         m = _FM_URL_RE.search(text)
-        if m and m.group(1) == video_url:
+        if not m:
+            continue
+        candidate_url = m.group(1)
+        candidate_id = youtube_video_id(candidate_url)
+        matched = (
+            target_id == candidate_id if target_id and candidate_id else candidate_url == video_url
+        )
+        if matched:
             video_note = candidate
             break
     if video_note is None:

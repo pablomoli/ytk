@@ -1815,7 +1815,12 @@ def add_reddit(url: str, note: str = ""):
             vid = hydrate.youtube_video_id(video_url)
             if vid and not db.is_processed(vid):
                 ctx = click.get_current_context()
-                ctx.invoke(add, url=video_url, note=note)
+                try:
+                    ctx.invoke(add, url=video_url, note=note)
+                except (Exception, SystemExit) as exc:
+                    console.print(f"\n[yellow]Linked video ingest failed:[/] {exc}")
+            # Cross-link regardless of ingest outcome: the video note may
+            # already exist, or ingest may have failed after writing one.
             _cross_link_notes(note_path, video_url)
     except NoteAlreadyExists as exc:
         console.print(f"\n[yellow]Note already exists:[/] {exc}")
