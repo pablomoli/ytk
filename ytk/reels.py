@@ -349,11 +349,18 @@ def refresh(client, state: ReelsState, peer: str | None = None) -> ReelsState:
 
     Advancing the cursor here is safe because the items are persisted in
     `pending` until each one is ingested. Existing pending entries win over
-    rediscovered duplicates so metadata is never clobbered.
+    rediscovered duplicates, except preview_url: Instagram's CDN links expire,
+    so a non-empty rediscovered preview_url replaces the (possibly dead) one
+    already held. Cached cover files are untouched here; the hub invalidates
+    them where it observes the change.
     """
     items, new_state = fetch_new_items(client, state, peer=peer)
     existing = [_as_item(e) for e in state.pending]
-    known = {i.url for i in existing}
+    known = {i.url: i for i in existing}
+    for incoming in items:
+        held = known.get(incoming.url)
+        if held is not None and incoming.preview_url:
+            held.preview_url = incoming.preview_url
     new_state.pending = [*existing, *[i for i in items if i.url not in known]]
     return new_state
 

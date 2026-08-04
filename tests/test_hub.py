@@ -130,6 +130,26 @@ def test_queue_add_hydrates_new_items(hub, monkeypatch):
     assert reels.load_state(hub.STATE_PATH).pending[0].title == "Hydrated"
 
 
+def test_queue_add_invalidates_cover_when_hydration_changes_preview(hub, monkeypatch, tmp_path):
+    import hashlib
+
+    covers = tmp_path / "covers"
+    covers.mkdir()
+    monkeypatch.setattr(hub, "COVERS_DIR", covers)
+    url = "https://www.youtube.com/watch?v=abc123DEF45"
+    key = hashlib.sha1(url.encode(), usedforsecurity=False).hexdigest()[:20] + ".jpg"
+    (covers / key).write_bytes(b"stale")
+
+    def fake_hydrate(item, **kwargs):
+        item.preview_url = "https://i.ytimg.com/vi/abc123DEF45/hqdefault.jpg"
+        item.hydrated_at = "2026-08-04"
+        return True
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", fake_hydrate)
+    hub.queue_add([url])
+    assert not (covers / key).exists()
+
+
 def test_ingest_annotates_digests_and_dequeues(hub):
     url = "https://www.instagram.com/reel/abc/"
     hub.queue_add([url])
@@ -1086,6 +1106,38 @@ def test_refresh_sources_hydrate_backfill_throttled(hub, monkeypatch):
     assert calls == ["https://example.com/old"]  # not called again
 
 
+def test_refresh_sources_hydrate_backfill_invalidates_cover_on_preview_change(
+    hub, monkeypatch, tmp_path
+):
+    import hashlib
+
+    covers = tmp_path / "covers"
+    covers.mkdir()
+    monkeypatch.setattr(hub, "COVERS_DIR", covers)
+    _quiet_other_sources(hub, monkeypatch)
+    monkeypatch.setattr(hub, "IM_FETCH", list)
+
+    url = "https://example.com/old"
+    key = hashlib.sha1(url.encode(), usedforsecurity=False).hexdigest()[:20] + ".jpg"
+    (covers / key).write_bytes(b"stale")
+
+    state = reels.ReelsState()
+    state.pending.append(reels.ReelItem(url=url, source="web"))
+    reels.save_state(state, hub.STATE_PATH)
+
+    def fake_hydrate(item, **kwargs):
+        item.preview_url = "https://cdn.example/new.jpg"
+        item.hydrated_at = "2026-08-04"
+        return True
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", fake_hydrate)
+    hub.refresh_sources()
+
+    assert not (covers / key).exists()
+    st = reels.load_state(hub.STATE_PATH)
+    assert st.pending[0].preview_url == "https://cdn.example/new.jpg"
+
+
 def test_refresh_sources_scoped_refresh_never_hydrates(hub, monkeypatch):
     # The imessage chat.db watcher calls refresh_sources(force=True,
     # only={"imessage"}) on an ~8s poll; force must not leak into hydration
@@ -1206,6 +1258,38 @@ def test_cover_for_downloads_once_then_serves_cache(hub, monkeypatch, tmp_path):
 def test_cover_for_unknown_url_returns_none(hub, monkeypatch, tmp_path):
     monkeypatch.setattr(hub, "COVERS_DIR", tmp_path / "covers")
     assert hub.cover_for("https://www.instagram.com/reel/nope/") is None
+
+
+def test_cover_for_logs_failures(hub, monkeypatch, tmp_path, caplog):
+    covers = tmp_path / "covers"
+    monkeypatch.setattr(hub, "COVERS_DIR", covers)
+    hub.queue_add(["https://www.instagram.com/reel/abc/"])
+    state = reels.load_state(hub.STATE_PATH)
+    state.pending[0].preview_url = "https://dead.host/i.jpg"
+    reels.save_state(state, hub.STATE_PATH)
+
+    def boom(url, dest):
+        raise OSError("dns failure")
+
+    monkeypatch.setattr(hub, "DOWNLOAD_COVER", boom)
+    with caplog.at_level("WARNING", logger="ytk.hub"):
+        assert hub.cover_for("https://www.instagram.com/reel/abc/") is None
+    record = caplog.records[0].getMessage()
+    assert "https://www.instagram.com/reel/abc/" in record
+    assert "dead.host" in record
+    assert "OSError" in record
+
+
+def test_cover_invalidate_unlinks(hub, monkeypatch, tmp_path):
+    import hashlib
+
+    covers = tmp_path / "covers"
+    covers.mkdir()
+    monkeypatch.setattr(hub, "COVERS_DIR", covers)
+    key = hashlib.sha1(b"https://x/1", usedforsecurity=False).hexdigest()[:20] + ".jpg"
+    (covers / key).write_bytes(b"old")
+    hub.cover_invalidate("https://x/1")
+    assert not (covers / key).exists()
 
 
 def test_api_cover_serves_and_404s(client, hub, monkeypatch, tmp_path):

@@ -158,7 +158,8 @@ def queue_add(urls: list[str]) -> int:
         state = reels.load_state(STATE_PATH)
         added = reels.add_urls(state, urls)
     for item in added:
-        hydrate.hydrate_item(item)
+        if hydrate.hydrate_item(item):
+            cover_invalidate(item.url)
     if added:
         with _LOCK:
             state = reels.load_state(STATE_PATH)
@@ -886,12 +887,15 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
                 src = hydrated.get(item.url)
                 if src is None or item.hydrated_at is not None:
                     continue
+                old_preview = item.preview_url
                 item.title = src.title
                 item.author = src.author
                 item.text = src.text
                 item.preview_url = src.preview_url
                 item.hydrated_at = src.hydrated_at
                 item.hydrate_error = src.hydrate_error
+                if item.preview_url != old_preview:
+                    cover_invalidate(item.url)
             state.last_pulls["hydrate"] = now
             reels.save_state(state, STATE_PATH)
 
@@ -945,10 +949,36 @@ def cover_for(item_url: str) -> Path | None:
     COVERS_DIR.mkdir(parents=True, exist_ok=True)
     try:
         DOWNLOAD_COVER(preview, dest)
-    except Exception:
+    except Exception as exc:
+        import logging
+        import urllib.parse
+
         dest.unlink(missing_ok=True)
+        host = urllib.parse.urlsplit(preview).netloc
+        logging.getLogger("ytk.hub").warning(
+            "cover download failed item=%s host=%s error=%s: %s",
+            item_url,
+            host,
+            type(exc).__name__,
+            exc,
+        )
         return None
     return dest if dest.exists() else None
+
+
+def cover_invalidate(item_url: str) -> None:
+    """Drop a cached cover so the next request re-downloads it.
+
+    Called wherever hydration changes preview_url out from under an
+    already-cached cover file (queue_add's hydrate step, refresh_sources'
+    hydrate-backfill merge). Rediscovery via reels.refresh does not call
+    this: a present cover survives a preview_url swap, repairing itself
+    only if the cache entry is ever independently missing.
+    """
+    import hashlib
+
+    key = hashlib.sha1(item_url.encode(), usedforsecurity=False).hexdigest()[:20] + ".jpg"
+    (COVERS_DIR / key).unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------

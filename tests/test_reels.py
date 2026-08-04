@@ -568,6 +568,26 @@ def test_refresh_merges_items_by_url_keeping_metadata():
     assert new_state.pending[0].author == "known"  # existing entry wins
 
 
+def test_refresh_updates_preview_url_on_rediscovery():
+    from ytk.reels import ReelItem, refresh
+
+    msg = _clip("9", "aaa")
+    msg.clip.thumbnail_url = "https://cdn.example/new.jpg"
+    old = ReelItem(
+        url="https://www.instagram.com/reel/aaa/",
+        author="someone",
+        title="Kept title",
+        preview_url="https://instagram.ftpa1-1.fna.fbcdn.net/old.jpg",
+    )
+    state = ReelsState(thread_id="ts", last_seen_message_id="1", pending=[old])
+    new_state = refresh(_client_with_thread([msg]), state)
+    assert len(new_state.pending) == 1
+    row = new_state.pending[0]
+    assert row.preview_url == "https://cdn.example/new.jpg"
+    assert row.author == "someone"
+    assert row.title == "Kept title"
+
+
 def test_gallery_html_shows_numbered_covers():
     from ytk.reels import ReelItem, gallery_html
 
