@@ -1,0 +1,5 @@
+# Project hooks — https://worktrunk.dev/hook/
+
+# Every merge to master redeploys: the installed CLI/MCP and the running hub
+# otherwise keep serving pre-merge code indefinitely.
+post-merge = "./scripts/post-merge-reinstall.sh"
