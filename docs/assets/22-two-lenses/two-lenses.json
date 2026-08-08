@@ -1,0 +1,993 @@
+{
+ "stats": {
+  "ari_null": 2.7231063093132072e-05,
+  "ari_cross": 0.23876614895326986,
+  "ari_ceiling": 0.3347701297577722,
+  "triplet": 0.6440669447655425,
+  "purity_gemma": 0.9492481203007519,
+  "purity_qwen": 0.7180451127819549,
+  "purity_base": 0.6052631578947368
+ },
+ "k": 16,
+ "clusters": [
+  {
+   "cluster": 0,
+   "n": 21,
+   "top_features": [
+    {
+     "index": 1278,
+     "z": 2.35,
+     "name": "terms related to cellular behavior, specifically in the context of immune responses",
+     "auto": true
+    },
+    {
+     "index": 14636,
+     "z": 2.11,
+     "name": "terms related to antibacterial activity and cell viability in the context of cancer research",
+     "auto": true
+    },
+    {
+     "index": 7875,
+     "z": 2.05,
+     "name": "terms related to ecological and evolutionary dynamics among species",
+     "auto": true
+    },
+    {
+     "index": 451,
+     "z": 2.04,
+     "name": "terms related to physics measurements and theoretical frameworks",
+     "auto": true
+    },
+    {
+     "index": 6590,
+     "z": 2.01,
+     "name": "technical terms and parameters related to physics and engineering",
+     "auto": true
+    },
+    {
+     "index": 6145,
+     "z": 1.98,
+     "name": "terms related to gene regulation and associated regulatory factors",
+     "auto": true
+    },
+    {
+     "index": 8649,
+     "z": 1.98,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 10630,
+     "z": 1.95,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 0
+  },
+  {
+   "cluster": 1,
+   "n": 36,
+   "top_features": [
+    {
+     "index": 15003,
+     "z": 1.96,
+     "name": "details about artistic products and their attributes",
+     "auto": true
+    },
+    {
+     "index": 1508,
+     "z": 1.9,
+     "name": "features related to product quality and durability",
+     "auto": true
+    },
+    {
+     "index": 13854,
+     "z": 1.85,
+     "name": "the start of a new section or paragraph in the text",
+     "auto": true
+    },
+    {
+     "index": 14024,
+     "z": 1.83,
+     "name": "attributes related to product features and material specifications",
+     "auto": true
+    },
+    {
+     "index": 2951,
+     "z": 1.78,
+     "name": "descriptions of fashion items and their characteristics",
+     "auto": true
+    },
+    {
+     "index": 12419,
+     "z": 1.76,
+     "name": "attributes and descriptions related to clothing items",
+     "auto": true
+    },
+    {
+     "index": 9014,
+     "z": 1.76,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 6641,
+     "z": 1.74,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 30
+  },
+  {
+   "cluster": 2,
+   "n": 24,
+   "top_features": [
+    {
+     "index": 15468,
+     "z": 2.55,
+     "name": "JSON object key-value pairs",
+     "auto": true
+    },
+    {
+     "index": 12251,
+     "z": 2.45,
+     "name": "programming-related terms and syntax structures",
+     "auto": true
+    },
+    {
+     "index": 8500,
+     "z": 2.45,
+     "name": "code related to table view operations in iOS development",
+     "auto": true
+    },
+    {
+     "index": 13934,
+     "z": 2.23,
+     "name": "technical terms and constructs related to coding and data processing",
+     "auto": true
+    },
+    {
+     "index": 11691,
+     "z": 2.2,
+     "name": "terms associated with programming concepts and syntax nodes",
+     "auto": true
+    },
+    {
+     "index": 595,
+     "z": 2.2,
+     "name": "functions and methods related to data retrieval and manipulation within a programming context",
+     "auto": true
+    },
+    {
+     "index": 419,
+     "z": 2.19,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 1093,
+     "z": 2.18,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 0
+  },
+  {
+   "cluster": 3,
+   "n": 22,
+   "top_features": [
+    {
+     "index": 10785,
+     "z": 2.05,
+     "name": "frequent references to specific articles or nouns",
+     "auto": true
+    },
+    {
+     "index": 1998,
+     "z": 2.04,
+     "name": "references to ethnic identities and demographic groups in the context of sociopolitical issues",
+     "auto": true
+    },
+    {
+     "index": 8922,
+     "z": 2.04,
+     "name": "words and phrases related to legal terms and processes",
+     "auto": true
+    },
+    {
+     "index": 15915,
+     "z": 2.03,
+     "name": "characters or events involving power struggles and threats",
+     "auto": true
+    },
+    {
+     "index": 6604,
+     "z": 2.03,
+     "name": "references to sacrificial practices and their significance in culture",
+     "auto": true
+    },
+    {
+     "index": 16226,
+     "z": 2.01,
+     "name": "historical references and significant figures within narratives",
+     "auto": true
+    },
+    {
+     "index": 6280,
+     "z": 1.99,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 6130,
+     "z": 1.99,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 0
+  },
+  {
+   "cluster": 4,
+   "n": 38,
+   "top_features": [
+    {
+     "index": 13632,
+     "z": 1.93,
+     "name": "content related to political or legal controversies involving specific individuals",
+     "auto": true
+    },
+    {
+     "index": 6073,
+     "z": 1.88,
+     "name": "incidents related to legal enforcement or conflict situations",
+     "auto": true
+    },
+    {
+     "index": 14259,
+     "z": 1.74,
+     "name": "phrases related to sports victories and achievements",
+     "auto": true
+    },
+    {
+     "index": 12289,
+     "z": 1.71,
+     "name": "details related to criminal activities and evidence in legal contexts",
+     "auto": true
+    },
+    {
+     "index": 11583,
+     "z": 1.69,
+     "name": "information related to injuries and illnesses affecting individuals in various contexts",
+     "auto": true
+    },
+    {
+     "index": 14592,
+     "z": 1.69,
+     "name": "references to players and their performance statistics in sports contexts",
+     "auto": true
+    },
+    {
+     "index": 12798,
+     "z": 1.66,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 4930,
+     "z": 1.62,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 0
+  },
+  {
+   "cluster": 5,
+   "n": 26,
+   "top_features": [
+    {
+     "index": 5461,
+     "z": 2.37,
+     "name": "pieces of C# code related to Unity's graphical user interface",
+     "auto": true
+    },
+    {
+     "index": 5646,
+     "z": 2.13,
+     "name": "technical terms related to shadow mapping in graphics programming",
+     "auto": true
+    },
+    {
+     "index": 1571,
+     "z": 2.09,
+     "name": "elements related to data structures in programming",
+     "auto": true
+    },
+    {
+     "index": 8686,
+     "z": 2.05,
+     "name": "terms and parameters related to shading and lighting in graphics programming",
+     "auto": false
+    },
+    {
+     "index": 5649,
+     "z": 2.02,
+     "name": "technical terms related to animation and game development",
+     "auto": false
+    },
+    {
+     "index": 16125,
+     "z": 2.0,
+     "name": "specific variable assignments and function definitions in programming code",
+     "auto": true
+    },
+    {
+     "index": 9596,
+     "z": 1.97,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 2575,
+     "z": 1.97,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 0
+  },
+  {
+   "cluster": 6,
+   "n": 32,
+   "top_features": [
+    {
+     "index": 13106,
+     "z": 1.84,
+     "name": "medical conditions and their effects on health",
+     "auto": true
+    },
+    {
+     "index": 15584,
+     "z": 1.75,
+     "name": "mathematical and geometric terms related to dimensions and vectors",
+     "auto": true
+    },
+    {
+     "index": 4986,
+     "z": 1.62,
+     "name": "mathematical equations and expressions",
+     "auto": true
+    },
+    {
+     "index": 11243,
+     "z": 1.55,
+     "name": "conditional statements and mathematical expressions related to assumptions and satisfiability",
+     "auto": true
+    },
+    {
+     "index": 7560,
+     "z": 1.55,
+     "name": "structured mathematical definitions and notations",
+     "auto": true
+    },
+    {
+     "index": 762,
+     "z": 1.49,
+     "name": "references to articles, particularly in the context of academic citations and classifications",
+     "auto": true
+    },
+    {
+     "index": 7905,
+     "z": 1.48,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 5844,
+     "z": 1.44,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 32
+  },
+  {
+   "cluster": 7,
+   "n": 34,
+   "top_features": [
+    {
+     "index": 15353,
+     "z": 1.53,
+     "name": "phrases related to writing skills and educational development",
+     "auto": true
+    },
+    {
+     "index": 14067,
+     "z": 1.53,
+     "name": "statements regarding demographics and representations in society.",
+     "auto": true
+    },
+    {
+     "index": 11612,
+     "z": 1.42,
+     "name": "references to legal actions or cases involving accountability and misconduct",
+     "auto": true
+    },
+    {
+     "index": 10679,
+     "z": 1.41,
+     "name": "references to government, political actions, and accountability related to elections and democracy",
+     "auto": true
+    },
+    {
+     "index": 14870,
+     "z": 1.38,
+     "name": "instances of numerical data and variables",
+     "auto": true
+    },
+    {
+     "index": 1205,
+     "z": 1.38,
+     "name": "technical terms and phrases related to programming errors and debugging",
+     "auto": true
+    },
+    {
+     "index": 3743,
+     "z": 1.38,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 4560,
+     "z": 1.36,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 25
+  },
+  {
+   "cluster": 8,
+   "n": 23,
+   "top_features": [
+    {
+     "index": 1916,
+     "z": 2.36,
+     "name": "the beginning of a document or section",
+     "auto": true
+    },
+    {
+     "index": 6583,
+     "z": 2.12,
+     "name": "references to loss functions in machine learning contexts",
+     "auto": false
+    },
+    {
+     "index": 4109,
+     "z": 2.09,
+     "name": "technical terms related to neural networks and deep learning",
+     "auto": false
+    },
+    {
+     "index": 12106,
+     "z": 2.07,
+     "name": "phrases related to algorithm performance and evaluations in computational methods",
+     "auto": true
+    },
+    {
+     "index": 2877,
+     "z": 2.0,
+     "name": "references to warfare and conflict-related themes",
+     "auto": true
+    },
+    {
+     "index": 1191,
+     "z": 1.99,
+     "name": "patterns and structures related to data formatting or coding syntax",
+     "auto": true
+    },
+    {
+     "index": 12217,
+     "z": 1.98,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 1224,
+     "z": 1.97,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 1
+  },
+  {
+   "cluster": 9,
+   "n": 55,
+   "top_features": [
+    {
+     "index": 4166,
+     "z": 2.12,
+     "name": "SSH-related commands and configurations",
+     "auto": true
+    },
+    {
+     "index": 5951,
+     "z": 2.0,
+     "name": "error messages related to command-line execution in Python, especially in the context of Django management commands",
+     "auto": true
+    },
+    {
+     "index": 4517,
+     "z": 1.98,
+     "name": "terms related to SSH key management and files",
+     "auto": true
+    },
+    {
+     "index": 1675,
+     "z": 1.91,
+     "name": "programming context related to file handling and management operations",
+     "auto": true
+    },
+    {
+     "index": 16217,
+     "z": 1.89,
+     "name": "references to file paths and file operations in programming contexts",
+     "auto": true
+    },
+    {
+     "index": 15849,
+     "z": 1.88,
+     "name": "technical terms and commands related to coding and programming environments",
+     "auto": true
+    },
+    {
+     "index": 4409,
+     "z": 1.83,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 700,
+     "z": 1.83,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 0
+  },
+  {
+   "cluster": 10,
+   "n": 34,
+   "top_features": [
+    {
+     "index": 16068,
+     "z": 2.82,
+     "name": "mathematical symbols and notations used in equations",
+     "auto": true
+    },
+    {
+     "index": 7010,
+     "z": 2.78,
+     "name": "technical terms and notations related to mathematical functions and structures",
+     "auto": true
+    },
+    {
+     "index": 10651,
+     "z": 2.66,
+     "name": "mathematical symbols and variables, particularly in the context of equations and expressions",
+     "auto": true
+    },
+    {
+     "index": 8910,
+     "z": 2.65,
+     "name": "mathematical symbols and expressions related to physics or quantum mechanics",
+     "auto": true
+    },
+    {
+     "index": 7978,
+     "z": 2.6,
+     "name": "mathematical expressions and symbols used in equations",
+     "auto": true
+    },
+    {
+     "index": 3906,
+     "z": 2.6,
+     "name": "mathematical notation and symbols",
+     "auto": true
+    },
+    {
+     "index": 13550,
+     "z": 2.59,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 6716,
+     "z": 2.57,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 2
+  },
+  {
+   "cluster": 11,
+   "n": 32,
+   "top_features": [
+    {
+     "index": 11951,
+     "z": 2.01,
+     "name": "legal terminology and phrases related to court rulings and proceedings",
+     "auto": true
+    },
+    {
+     "index": 4888,
+     "z": 1.96,
+     "name": "phrases related to pricing and financial policies",
+     "auto": true
+    },
+    {
+     "index": 2128,
+     "z": 1.95,
+     "name": "key phrases related to corporate communications and public statements",
+     "auto": true
+    },
+    {
+     "index": 14067,
+     "z": 1.9,
+     "name": "statements regarding demographics and representations in society.",
+     "auto": true
+    },
+    {
+     "index": 15350,
+     "z": 1.88,
+     "name": "the presence of coding syntax or notation indicative of computer programming structures",
+     "auto": true
+    },
+    {
+     "index": 6507,
+     "z": 1.85,
+     "name": "sections containing code or technical formatting",
+     "auto": true
+    },
+    {
+     "index": 8918,
+     "z": 1.8,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 5227,
+     "z": 1.77,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 27
+  },
+  {
+   "cluster": 12,
+   "n": 52,
+   "top_features": [
+    {
+     "index": 4042,
+     "z": 1.86,
+     "name": "fields associated with numerical values or data structures",
+     "auto": true
+    },
+    {
+     "index": 6102,
+     "z": 1.82,
+     "name": "HTML elements and their attributes within the document",
+     "auto": true
+    },
+    {
+     "index": 7917,
+     "z": 1.75,
+     "name": "content that lacks significant activity or engagement metrics",
+     "auto": true
+    },
+    {
+     "index": 13105,
+     "z": 1.71,
+     "name": "mathematical symbols and notation",
+     "auto": true
+    },
+    {
+     "index": 12826,
+     "z": 1.69,
+     "name": "LaTeX formatting elements and figures within the document",
+     "auto": true
+    },
+    {
+     "index": 15841,
+     "z": 1.68,
+     "name": "structures and syntactical elements in code snippets",
+     "auto": true
+    },
+    {
+     "index": 5605,
+     "z": 1.67,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 13892,
+     "z": 1.67,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 51
+  },
+  {
+   "cluster": 13,
+   "n": 43,
+   "top_features": [
+    {
+     "index": 5101,
+     "z": 2.0,
+     "name": "boilerplate text indicating sections or labels within documents",
+     "auto": true
+    },
+    {
+     "index": 8602,
+     "z": 1.92,
+     "name": "elements related to database operations and error handling",
+     "auto": true
+    },
+    {
+     "index": 15620,
+     "z": 1.9,
+     "name": "numerical values and their formatting within code snippets",
+     "auto": true
+    },
+    {
+     "index": 12415,
+     "z": 1.9,
+     "name": "specific command or function actions in programming contexts",
+     "auto": true
+    },
+    {
+     "index": 8061,
+     "z": 1.87,
+     "name": "LaTeX commands and symbols",
+     "auto": true
+    },
+    {
+     "index": 1339,
+     "z": 1.86,
+     "name": "numerical values and parameters related to processes in a technical context",
+     "auto": true
+    },
+    {
+     "index": 6785,
+     "z": 1.85,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 11006,
+     "z": 1.84,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 41
+  },
+  {
+   "cluster": 14,
+   "n": 17,
+   "top_features": [
+    {
+     "index": 7327,
+     "z": 3.2,
+     "name": "technical terms related to semiconductor devices and their packaging methods",
+     "auto": true
+    },
+    {
+     "index": 11404,
+     "z": 3.1,
+     "name": "technical terminology related to bicycle parts",
+     "auto": true
+    },
+    {
+     "index": 4355,
+     "z": 2.98,
+     "name": "phrases related to product descriptions and specifications",
+     "auto": true
+    },
+    {
+     "index": 8618,
+     "z": 2.97,
+     "name": "the beginning of a document or a major section",
+     "auto": true
+    },
+    {
+     "index": 14660,
+     "z": 2.95,
+     "name": "components and specifications related to quadcopter flight controllers and their compatibility",
+     "auto": true
+    },
+    {
+     "index": 8122,
+     "z": 2.94,
+     "name": "references to electrical components and their attributes",
+     "auto": true
+    },
+    {
+     "index": 61,
+     "z": 2.79,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 14663,
+     "z": 2.75,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 0
+  },
+  {
+   "cluster": 15,
+   "n": 43,
+   "top_features": [
+    {
+     "index": 5778,
+     "z": 1.85,
+     "name": "terms related to economic conditions and labor market dynamics",
+     "auto": true
+    },
+    {
+     "index": 11614,
+     "z": 1.7,
+     "name": "financial metrics and projections related to corporate performance.",
+     "auto": true
+    },
+    {
+     "index": 1774,
+     "z": 1.63,
+     "name": "concepts related to economic policies and resource management",
+     "auto": true
+    },
+    {
+     "index": 8058,
+     "z": 1.63,
+     "name": "references to legal roles and responsibilities within organizations",
+     "auto": true
+    },
+    {
+     "index": 15671,
+     "z": 1.62,
+     "name": "technical terms and mathematical concepts related to statistical models and estimations",
+     "auto": true
+    },
+    {
+     "index": 2165,
+     "z": 1.61,
+     "name": "phrases related to employment and job creation",
+     "auto": true
+    },
+    {
+     "index": 12512,
+     "z": 1.59,
+     "name": null,
+     "auto": false
+    },
+    {
+     "index": 7705,
+     "z": 1.57,
+     "name": null,
+     "auto": false
+    }
+   ],
+   "instagram": 1
+  }
+ ],
+ "cluster_labels": {
+  "9": "CLI & SSH vocabulary",
+  "12": "web markup & data fields",
+  "13": "boilerplate & tables",
+  "15": "economics & labor terms",
+  "4": "politics, law & contest",
+  "1": "product & craft attributes",
+  "7": "writing & demographics",
+  "10": "math notation",
+  "6": "medicine & geometry terms",
+  "11": "legal & corporate phrasing",
+  "5": "graphics code (Unity, shaders)",
+  "2": "code & JSON structures",
+  "8": "ML training terms",
+  "3": "citations & identity",
+  "0": "cell biology & ecology",
+  "14": "hardware & product specs"
+ },
+ "scores": [
+  {
+   "ts": "20260718T193100",
+   "n": 134,
+   "score": 0.640842,
+   "delta": null
+  },
+  {
+   "ts": "20260718T193432",
+   "n": 134,
+   "score": 0.699856,
+   "delta": 0.059014
+  },
+  {
+   "ts": "20260718T203700",
+   "n": 280,
+   "score": 0.707785,
+   "delta": 0.007929
+  },
+  {
+   "ts": "20260718T205133",
+   "n": 280,
+   "score": 0.526051,
+   "delta": -0.181734
+  },
+  {
+   "ts": "20260718T214253",
+   "n": 280,
+   "score": 0.549583,
+   "delta": 0.023532
+  },
+  {
+   "ts": "20260718T221544",
+   "n": 280,
+   "score": 0.516758,
+   "delta": -0.032825
+  },
+  {
+   "ts": "20260729T030726",
+   "n": 485,
+   "score": 0.606277,
+   "delta": 0.089519
+  },
+  {
+   "ts": "20260729T034621",
+   "n": 495,
+   "score": 0.673516,
+   "delta": 0.067239
+  },
+  {
+   "ts": "20260730T100018",
+   "n": 509,
+   "score": 0.736732,
+   "delta": 0.063216
+  },
+  {
+   "ts": "20260801T100807",
+   "n": 527,
+   "score": 0.520813,
+   "delta": -0.215919
+  },
+  {
+   "ts": "20260803T103106",
+   "n": 582,
+   "score": 0.706907,
+   "delta": 0.186094
+  },
+  {
+   "ts": "20260804T100204",
+   "n": 596,
+   "score": 0.546378,
+   "delta": -0.160529
+  },
+  {
+   "ts": "20260808T025340",
+   "n": 604,
+   "score": 0.574906,
+   "delta": 0.028528
+  }
+ ],
+ "n_notes": 532
+}
