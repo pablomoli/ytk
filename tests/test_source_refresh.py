@@ -8,7 +8,6 @@ from ytk.ui.source_refresh import (
     pull_imessage,
     pull_instagram,
     pull_pinterest,
-    pull_reddit,
     pull_tiktok,
     pull_youtube,
 )
@@ -122,7 +121,7 @@ def test_pull_pinterest_stores_title_as_title() -> None:
     assert row.author is None
 
 
-@pytest.mark.parametrize("adapter", [pull_instagram, pull_tiktok, pull_reddit])
+@pytest.mark.parametrize("adapter", [pull_instagram, pull_tiktok])
 def test_state_pull_adapters_return_provider_counts(adapter) -> None:
     state = reels.ReelsState()
 

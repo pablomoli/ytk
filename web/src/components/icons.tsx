@@ -67,8 +67,10 @@ export const SOURCES = [
 ];
 
 /* The sources the hub can actively pull from (mirrors hub.PULL_SOURCES). A
-   subset of SOURCES: `web` and `memo` are ingest types, not discovery pulls. */
-export const PULL_SOURCES = ["instagram", "youtube", "pinterest", "imessage", "tiktok", "reddit"];
+   subset of SOURCES: `web` and `memo` are ingest types, not discovery pulls,
+   and `reddit` is called on demand rather than pulled. It stays in SOURCES
+   because notes already in the vault still render their badge. */
+export const PULL_SOURCES = ["instagram", "youtube", "pinterest", "imessage", "tiktok"];
 
 export function canonicalSource(source: string): string {
   return ICON_ALIASES[source] ?? source;

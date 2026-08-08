@@ -90,7 +90,6 @@ def _no_browser(monkeypatch):
 _SEAM_STUBS = {
     "IG_PULL": lambda: lambda state: 0,
     "TT_PULL": lambda: lambda state: 0,
-    "REDDIT_PULL": lambda: lambda state: 0,
     "YT_FETCH": lambda: list,
     "YT_IS_PROCESSED": lambda: lambda vid: False,
     "PIN_FETCH": lambda: list,

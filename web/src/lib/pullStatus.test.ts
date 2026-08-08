@@ -10,7 +10,7 @@ test("names what is being pulled rather than saying 'loading'", () => {
 });
 
 test("reports what each source actually returned", () => {
-  expect(pullSummary({ instagram: 3, reddit: 1, youtube: 0 })).toBe("instagram +3 · reddit +1");
+  expect(pullSummary({ instagram: 3, tiktok: 1, youtube: 0 })).toBe("instagram +3 · tiktok +1");
 });
 
 /* Found-nothing and did-not-run look identical from outside and mean opposite
@@ -38,7 +38,7 @@ test("returns nothing before a pull has run", () => {
 });
 
 test("totals the per-source counts", () => {
-  expect(pullTotal({ instagram: 3, reddit: 1, errors: ["x"] })).toBe(4);
+  expect(pullTotal({ instagram: 3, tiktok: 1, errors: ["x"] })).toBe(4);
   expect(pullTotal({})).toBe(0);
   expect(pullTotal(undefined)).toBe(0);
 });

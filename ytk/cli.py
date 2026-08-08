@@ -1687,17 +1687,20 @@ def tiktok_sync(pages: int | None, headed: bool):
     )
 
 
-@cli.command(name="reddit-sync")
-def reddit_sync():
-    """Browse the allowlisted subreddits into the pending queue.
+@cli.command(name="reddit-browse")
+@click.option("-s", "--sort", default=None, help="Override config reddit_sort.")
+@click.option("-w", "--window", default=None, help="Override config reddit_window.")
+@click.option("-n", "--limit", type=int, default=None, help="Override config reddit_limit.")
+def reddit_browse(sort: str | None, window: str | None, limit: int | None):
+    """Print what the allowlisted subreddits are showing right now.
 
-    Reads public subreddit listings as your logged-in session (cookie from
-    Zen). Configure the allowlist in ~/.ytk/config.yaml under
-    reddit_subreddits. Your saved posts are never read.
+    Reddit is an API here, not a feed: this reads and prints, and writes
+    nothing to the queue or the vault. Ingest anything worth keeping by
+    passing its url to `ytk add`. Configure the allowlist in
+    ~/.ytk/config.yaml under reddit_subreddits. Your saved posts are never read.
     """
-    from . import reddit_feed, reels
+    from . import reddit_feed
     from .config import load_config
-    from .ui import hub
 
     cfg = load_config()
     if not cfg.reddit_subreddits:
@@ -1710,26 +1713,21 @@ def reddit_sync():
     except reddit_feed.RedditAuthError as exc:
         raise click.ClickException(str(exc))
 
-    state = reels.load_state()
     console.print(
         f"Browsing {len(cfg.reddit_subreddits)} subreddits "
-        f"({cfg.reddit_sort}/{cfg.reddit_window})..."
+        f"({sort or cfg.reddit_sort}/{window or cfg.reddit_window})..."
     )
-    added = reddit_feed.sync_subreddits(
-        state,
+    items = reddit_feed.browse_subreddits(
         cookie,
         cfg.reddit_subreddits,
-        sort=cfg.reddit_sort,
-        window=cfg.reddit_window,
-        limit=cfg.reddit_limit,
-        extra_known=hub.ingested_urls(),
+        sort=sort or cfg.reddit_sort,
+        window=window or cfg.reddit_window,
+        limit=limit or cfg.reddit_limit,
     )
-    state.last_pulls["reddit"] = time.time()
-    reels.save_state(state)
-    console.print(
-        f"[green]{added} new posts queued[/] "
-        f"({len(state.pending)} pending total). Pick them at the hub /inbox."
-    )
+    for item in items:
+        console.print(f"[dim]{item.author}[/] {item.title or '(no title)'}")
+        console.print(f"  [blue]{item.url}[/]")
+    console.print(f"\n[green]{len(items)} posts[/] — nothing queued, nothing written.")
 
 
 @cli.command(name="reddit-discover")

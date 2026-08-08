@@ -177,17 +177,13 @@ test("highlighted count follows the active source filter", () => {
   expect(screen.getByText(/1 highlighted · 1800 text items scored/)).toBeInTheDocument();
 });
 
-/* #126: reddit is excluded until asked for, and asking is a URL away. */
-test("hides reddit until it is explicitly selected", () => {
+/* #126 hid reddit at the view; the demotion removed it as a pull source, so
+   nothing is hidden any more. A pre-demotion row left in the queue shows up
+   like any other rather than needing to be asked for. */
+test("shows a leftover reddit item without being asked", () => {
   const { container } = renderPage();
-  const text = () => [...container.querySelectorAll(".masonry .card")].map((c) => c.textContent);
-  expect(text().join(" ")).not.toContain("Reddit item");
-
-  routeSearch = { sources: "reddit" };
-  const second = renderPage();
-  expect(
-    [...second.container.querySelectorAll(".masonry .card")].map((c) => c.textContent).join(" "),
-  ).toContain("Reddit item");
+  const text = [...container.querySelectorAll(".masonry .card")].map((c) => c.textContent);
+  expect(text.join(" ")).toContain("Reddit item");
 });
 
 test("several sources can be filtered at once", () => {

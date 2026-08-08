@@ -16,9 +16,10 @@ import { canonicalSource } from "../components/icons";
 
 export type SourceSelection = Set<string> | null;
 
-/* Reddit is high-volume and low-signal for this queue, so it stays out until
-   asked for. Excluded by policy, not by a bug — see #126. */
-export const DEFAULT_HIDDEN = ["reddit"];
+/* Empty since Reddit stopped being a pull source: it is now excluded at the
+   source rather than hidden at the view, so there is nothing left to hide.
+   The mechanism stays for the next source that turns out to be noisy (#126). */
+export const DEFAULT_HIDDEN: string[] = [];
 
 const EMPTY = "none";
 

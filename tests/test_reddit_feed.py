@@ -1,11 +1,13 @@
 """Tests for ytk.reddit_feed — subreddit browsing (never saved posts)."""
 
+import json
 import sqlite3
 
 import pytest
 
 from ytk.reddit_feed import (
     RedditAuthError,
+    browse_subreddits,
     build_content_block,
     external_video_url,
     fetch_comments,
@@ -14,7 +16,6 @@ from ytk.reddit_feed import (
     parse_posts,
     post_to_reelitem,
     reddit_cookie_header,
-    sync_subreddits,
     top_comments,
 )
 from ytk.reels import ReelsState, load_state, save_state
@@ -270,8 +271,8 @@ class TestBuildContentBlock:
         assert "Links to: https://example.com/x" in block
 
 
-class TestSyncSubreddits:
-    def test_dedupes_and_records_seen(self, monkeypatch):
+class TestBrowseSubreddits:
+    def test_returns_every_post_across_subreddits(self, monkeypatch):
         listings = {
             "TouchDesigner": _listing(
                 _post("a1", url="https://ex.com/1", domain="ex.com"), _post("a2", is_self=True)
@@ -282,12 +283,21 @@ class TestSyncSubreddits:
             "ytk.reddit_feed.fetch_listing",
             lambda sub, cookie, **kw: listings[sub],
         )
+        items = browse_subreddits("c=1", ["TouchDesigner", "LocalLLaMA"])
+        assert len(items) == 3
+        # An API repeats itself: a second call returns the same three rather
+        # than going quiet the way the deduping loop did.
+        assert len(browse_subreddits("c=1", ["TouchDesigner", "LocalLLaMA"])) == 3
+
+    def test_writes_nothing_to_the_queue(self, monkeypatch):
+        """The whole point of the demotion: Reddit cannot reach the inbox."""
+        monkeypatch.setattr(
+            "ytk.reddit_feed.fetch_listing",
+            lambda sub, cookie, **kw: _listing(_post("a1", is_self=True)),
+        )
         state = ReelsState()
-        added = sync_subreddits(state, "c=1", ["TouchDesigner", "LocalLLaMA"])
-        assert added == 3
-        assert set(state.reddit_seen) == {"t3_a1", "t3_a2", "t3_b1"}
-        # second run: everything already seen
-        assert sync_subreddits(state, "c=1", ["TouchDesigner", "LocalLLaMA"]) == 0
+        items = browse_subreddits("c=1", ["Sub"])
+        assert items and state.pending == []
 
     def test_one_failing_subreddit_does_not_sink_others(self, monkeypatch):
         def fake(sub, cookie, **kw):
@@ -296,36 +306,15 @@ class TestSyncSubreddits:
             return _listing(_post("ok1", is_self=True))
 
         monkeypatch.setattr("ytk.reddit_feed.fetch_listing", fake)
-        state = ReelsState()
-        assert sync_subreddits(state, "c=1", ["Broken", "Fine"]) == 1
+        assert len(browse_subreddits("c=1", ["Broken", "Fine"])) == 1
 
-    def test_dedupes_against_extra_known_urls(self, monkeypatch):
+    def test_dedupes_within_a_single_call(self, monkeypatch):
+        """The same post crossposted to two allowlisted subs returns once."""
         monkeypatch.setattr(
             "ytk.reddit_feed.fetch_listing",
-            lambda sub, cookie, **kw: _listing(
-                _post("a1", url="https://ex.com/1", domain="ex.com")
-            ),
+            lambda sub, cookie, **kw: _listing(_post("a1", is_self=True)),
         )
-        state = ReelsState()
-        # External URL in extra_known does NOT suppress: Reddit posts dedup by
-        # permalink (first-class identity), not by linked content URL. Linked
-        # content dedup is handled in the ingest path via cross-linking.
-        added = sync_subreddits(state, "c=1", ["Sub"], extra_known={"https://ex.com/1"})
-        assert added == 1
-        assert state.reddit_seen == ["t3_a1"]
-        assert state.pending[0].url.endswith("/comments/a1/slug/")
-
-        # But permalink in extra_known DOES suppress: don't queue the same
-        # Reddit post twice.
-        state2 = ReelsState()
-        added2 = sync_subreddits(
-            state2,
-            "c=1",
-            ["Sub"],
-            extra_known={"https://old.reddit.com/r/TouchDesigner/comments/a1/slug/"},
-        )
-        assert added2 == 0
-        assert state2.reddit_seen == ["t3_a1"]
+        assert len(browse_subreddits("c=1", ["Sub", "OtherSub"])) == 1
 
 
 def _cookie_db(path, rows):
@@ -356,24 +345,36 @@ class TestCookieHeader:
 
 
 class TestStateRoundTrip:
-    def test_reddit_seen_persists(self, tmp_path):
-        state = ReelsState(reddit_seen=["t3_a", "t3_b"])
+    def test_reddit_seen_is_gone(self, tmp_path):
+        """Loop bookkeeping. A stale key on disk must not resurrect the field."""
         path = tmp_path / "state.json"
-        save_state(state, path)
-        assert load_state(path).reddit_seen == ["t3_a", "t3_b"]
+        save_state(ReelsState(), path)
+        path.write_text(
+            json.dumps({**json.loads(path.read_text()), "reddit_seen": ["t3_a"]}),
+            encoding="utf-8",
+        )
+        assert not hasattr(load_state(path), "reddit_seen")
 
 
 class TestHubRegistration:
-    def test_reddit_pull_registered(self):
+    """Reddit is an API, not a loop — no code path may enqueue it."""
+
+    def test_not_a_pull_source(self):
         from ytk.ui import hub
 
-        assert hub.REDDIT_PULL is hub._reddit_pull
+        assert "reddit" not in hub.PULL_SOURCES
+        assert "reddit" not in hub.PULL_SEAMS
+        assert not hasattr(hub, "REDDIT_PULL")
+        assert not hasattr(hub, "_reddit_pull")
 
-    def test_disabled_without_allowlist(self, monkeypatch):
+    def test_source_refresh_has_no_reddit_adapter(self):
+        from ytk.ui import source_refresh
+
+        assert not hasattr(source_refresh, "pull_reddit")
+
+    def test_refresh_never_reports_reddit(self, monkeypatch):
         from ytk.ui import hub
 
-        class Cfg:
-            reddit_subreddits = []
-
-        monkeypatch.setattr("ytk.config.load_config", lambda: Cfg())
-        assert hub._reddit_pull(ReelsState()) == 0
+        monkeypatch.setattr(hub, "PULL_SOURCES", frozenset())
+        result = hub.refresh_sources(only=set())
+        assert "reddit" not in result

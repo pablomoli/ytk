@@ -105,8 +105,9 @@ def store_reflection_answer(url: str, answer: str) -> None:
 
 # The discovery sources refresh_sources knows how to pull from. `web` and `memo`
 # in the frontend source filter are ingest *types*, not pull sources, so they
-# are deliberately absent here.
-PULL_SOURCES = frozenset({"instagram", "youtube", "pinterest", "imessage", "tiktok", "reddit"})
+# are deliberately absent here. Reddit is absent because it is called on demand
+# (ytk reddit-browse), never pulled — nothing may enqueue it.
+PULL_SOURCES = frozenset({"instagram", "youtube", "pinterest", "imessage", "tiktok"})
 PROFILE_RANK_TIMEOUT_SECONDS = 10 * 60
 PACING_SECONDS = 3.0
 MAX_ATTEMPTS = 3
@@ -299,31 +300,6 @@ def _tt_pull(state: reels.ReelsState) -> int:
     return tiktok_fav.queue_new(state, fetched, extra_known=INGESTED_URLS())
 
 
-def _reddit_pull(state: reels.ReelsState) -> int:
-    """Drain allowlisted subreddits into the pending queue.
-
-    Sign-free Zen-session read: authenticated JSON via the reddit_session
-    cookie, public subreddit listings only. Never reads saved posts. Disabled
-    until config.reddit_subreddits is non-empty.
-    """
-    from ytk import reddit_feed
-    from ytk.config import load_config
-
-    cfg = load_config()
-    if not cfg.reddit_subreddits:
-        return 0
-    cookie = reddit_feed.reddit_cookie_header()
-    return reddit_feed.sync_subreddits(
-        state,
-        cookie,
-        cfg.reddit_subreddits,
-        sort=cfg.reddit_sort,
-        window=cfg.reddit_window,
-        limit=cfg.reddit_limit,
-        extra_known=INGESTED_URLS(),
-    )
-
-
 def _yt_fetch() -> list[source_refresh.YoutubeVideo]:
     from ytk.scheduler import authenticate, fetch_playlist_videos
 
@@ -431,7 +407,6 @@ def ingest_imessage_item(item: reels.ReelItem, note: str = "") -> Path | None:
 # test seams
 IG_PULL = _ig_pull
 TT_PULL = _tt_pull
-REDDIT_PULL = _reddit_pull
 YT_FETCH = _yt_fetch
 YT_IS_PROCESSED = _yt_is_processed
 PIN_FETCH = _pin_fetch
@@ -448,7 +423,6 @@ PULL_SEAMS: dict[str, tuple[str, ...]] = {
     "pinterest": ("PIN_FETCH",),
     "imessage": ("IM_FETCH",),
     "tiktok": ("TT_PULL",),
-    "reddit": ("REDDIT_PULL",),
 }
 
 
@@ -741,7 +715,7 @@ def _pull_due(state: reels.ReelsState, source: str, cadence_minutes: dict, force
     # A user-yaml cadence_minutes override replaces the default dict wholesale,
     # so tiktok needs its own fallback: 15-minute favorites scraping on the
     # user's real session would be bot-shaped traffic.
-    fallback = 1440 if source in ("tiktok", "reddit") else 15
+    fallback = 1440 if source == "tiktok" else 15
     return time.time() - last >= cadence_minutes.get(source, fallback) * 60
 
 
@@ -776,7 +750,6 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
         "pinterest": 0,
         "imessage": 0,
         "tiktok": 0,
-        "reddit": 0,
         "errors": [],
         "skipped": False,
         "skipped_sources": [],
@@ -829,13 +802,6 @@ def refresh_sources(force: bool = False, only: set | None = None) -> dict:
                 state.last_pulls["tiktok"] = now
             except Exception as exc:
                 result["errors"].append(f"tiktok: {exc}")
-
-        if due["reddit"]:
-            try:
-                result["reddit"] = source_refresh.pull_reddit(state, REDDIT_PULL)
-                state.last_pulls["reddit"] = now
-            except Exception as exc:
-                result["errors"].append(f"reddit: {exc}")
 
         if due["imessage"]:
             try:

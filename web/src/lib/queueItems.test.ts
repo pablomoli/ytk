@@ -22,25 +22,26 @@ test("filters source aliases through their canonical source", () => {
   expect(items.map((item) => item.url)).toEqual(["reel"]);
 });
 
-/* The default selection, not an empty one: an unfiltered queue still hides the
-   sources excluded by policy (#126). */
-test("hides reddit by default and keeps everything else", () => {
+/* Reddit is no longer filtered out here — it can no longer enter the queue at
+   all, so a leftover row from before the demotion is shown rather than hidden.
+   The default selection keeps everything (DEFAULT_HIDDEN is empty). */
+test("keeps every source by default", () => {
   const items = filterAndSortQueue([
     { url: "post", source: "reddit", shared_at: "2026-07-10" },
     { url: "video", source: "youtube", shared_at: "2026-07-09" },
   ]);
 
-  expect(items.map((item) => item.url)).toEqual(["video"]);
+  expect(items.map((item) => item.url)).toEqual(["post", "video"]);
 });
 
-test("shows reddit once it is explicitly selected", () => {
+test("an explicit selection still narrows the queue", () => {
   const items = filterAndSortQueue(
     [
       { url: "post", source: "reddit", shared_at: "2026-07-10" },
       { url: "video", source: "youtube", shared_at: "2026-07-09" },
     ],
-    new Set(["reddit", "youtube"]),
+    new Set(["youtube"]),
   );
 
-  expect(items.map((item) => item.url)).toEqual(["post", "video"]);
+  expect(items.map((item) => item.url)).toEqual(["video"]);
 });

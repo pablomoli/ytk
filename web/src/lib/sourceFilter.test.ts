@@ -9,7 +9,7 @@ import {
   toggleSource,
 } from "./sourceFilter";
 
-const AVAILABLE = ["instagram", "youtube", "reddit", "web"];
+const AVAILABLE = ["instagram", "youtube", "tiktok", "web"];
 
 test("an absent parameter means 'not chosen yet', not 'nothing selected'", () => {
   expect(parseSources(undefined)).toBeNull();
@@ -17,11 +17,26 @@ test("an absent parameter means 'not chosen yet', not 'nothing selected'", () =>
   expect(parseSources("")).toBeNull();
 });
 
-test("reddit is hidden by default and everything else is shown", () => {
-  expect(DEFAULT_HIDDEN).toContain("reddit");
-  expect(isSourceVisible(null, "reddit")).toBe(false);
+/* Reddit used to live here. It is now excluded at the source rather than
+   hidden at the view, so nothing is hidden and the default shows everything —
+   but the mechanism stays for the next source that turns out to be noisy. */
+test("nothing is hidden by default", () => {
+  expect(DEFAULT_HIDDEN).toEqual([]);
   expect(isSourceVisible(null, "youtube")).toBe(true);
   expect(isSourceVisible(null, "instagram")).toBe(true);
+  expect(isSourceVisible(null, "tiktok")).toBe(true);
+});
+
+test("a source added to DEFAULT_HIDDEN is dropped from the default", () => {
+  DEFAULT_HIDDEN.push("tiktok");
+  try {
+    expect(isSourceVisible(null, "tiktok")).toBe(false);
+    expect(materializeSources(null, AVAILABLE)).toEqual(
+      new Set(["instagram", "youtube", "web"]),
+    );
+  } finally {
+    DEFAULT_HIDDEN.length = 0;
+  }
 });
 
 test("several sources can be selected together", () => {
@@ -62,12 +77,12 @@ test("round-trips a selection through the url", () => {
   expect(parseSources(serializeSources(selection))).toEqual(selection);
 });
 
-test("materializing the default drops the hidden sources", () => {
-  expect(materializeSources(null, AVAILABLE)).toEqual(new Set(["instagram", "youtube", "web"]));
+test("materializing the default yields every available source", () => {
+  expect(materializeSources(null, AVAILABLE)).toEqual(new Set(AVAILABLE));
 });
 
 test("materializing an explicit selection leaves it alone", () => {
-  const selection = new Set(["reddit"]);
+  const selection = new Set(["tiktok"]);
   expect(materializeSources(selection, AVAILABLE)).toEqual(selection);
 });
 
@@ -75,13 +90,7 @@ test("materializing an explicit selection leaves it alone", () => {
    the first click would drop every other source. */
 test("toggling from the default keeps the other visible sources", () => {
   const next = toggleSource(null, "youtube", AVAILABLE);
-  expect(next).toEqual(new Set(["instagram", "web"]));
-});
-
-test("reddit can be opted back in explicitly", () => {
-  const next = toggleSource(null, "reddit", AVAILABLE);
-  expect(next.has("reddit")).toBe(true);
-  expect(isSourceVisible(next, "reddit")).toBe(true);
+  expect(next).toEqual(new Set(["instagram", "tiktok", "web"]));
 });
 
 test("toggling a selected source removes it", () => {

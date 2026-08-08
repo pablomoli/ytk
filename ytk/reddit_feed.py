@@ -221,42 +221,33 @@ def post_to_reelitem(post: dict):
     )
 
 
-def sync_subreddits(
-    state,
+def browse_subreddits(
     cookie_header: str,
     subreddits: list[str],
     sort: str = "top",
     window: str = "week",
     limit: int = 25,
-    extra_known: set | frozenset = frozenset(),
-) -> int:
-    """Drain the allowlisted subreddits into the pending queue.
+) -> list:
+    """Read the allowlisted subreddits and return what they hold, newest first.
 
-    Dedup is by post fullname against state.reddit_seen (so re-syncs skip posts
-    already seen), the current queue, and extra_known (already-ingested urls).
-    Every seen fullname is recorded even when its url is a dup, so the set
-    converges. One failed subreddit does not sink the rest.
+    Deliberately takes no queue state and writes nowhere: Reddit is called on
+    demand, it does not feed the inbox. Deduping against a queue was the loop's
+    job — a caller that wants it dedupes the returned items itself. One failed
+    subreddit does not sink the rest.
     """
-    seen = set(state.reddit_seen)
-    known_urls = {i.url for i in state.pending} | set(extra_known)
-    added = 0
+    items = []
+    seen_fullnames: set[str] = set()
     for sub in subreddits:
         try:
             listing = fetch_listing(sub, cookie_header, sort=sort, window=window, limit=limit)
         except Exception:
             continue
         for post in parse_posts(listing):
-            if post["fullname"] in seen:
+            if post["fullname"] in seen_fullnames:
                 continue
-            seen.add(post["fullname"])
-            state.reddit_seen.append(post["fullname"])
-            item = post_to_reelitem(post)
-            if item.url in known_urls:
-                continue
-            known_urls.add(item.url)
-            state.pending.append(item)
-            added += 1
-    return added
+            seen_fullnames.add(post["fullname"])
+            items.append(post_to_reelitem(post))
+    return items
 
 
 def search_subreddits(query: str, cookie_header: str, limit: int = 10) -> list[dict]:

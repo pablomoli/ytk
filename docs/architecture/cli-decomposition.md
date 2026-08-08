@@ -9,7 +9,7 @@ while moving command-specific orchestration behind typed functions.
 
 | Group | Commands | Current service dependencies |
 |---|---|---|
-| Ingestion | `add`, `feed`, `reels`, `auth`, `sync`, `ingest`, `add-instagram`, `backfill-instagram-reels`, `add-pinterest`, `add-tiktok`, `tiktok-sync`, `reddit-sync`, `reddit-discover`, `add-reddit`, `add-imessage`, `memo`, `autoingest` | `filter`, `metadata`, `transcript`, `enrich`, `vault`, `reels`, `memo`, provider modules |
+| Ingestion | `add`, `feed`, `reels`, `auth`, `sync`, `ingest`, `add-instagram`, `backfill-instagram-reels`, `add-pinterest`, `add-tiktok`, `tiktok-sync`, `reddit-browse`, `reddit-discover`, `add-reddit`, `add-imessage`, `memo`, `autoingest` | `filter`, `metadata`, `transcript`, `enrich`, `vault`, `reels`, `memo`, provider modules |
 | Retrieval | `dive`, `search`, `eval`, `similar`, `visual index`, `visual rebuild` | `store`, `relevance`, `visual`, retrieval baseline files |
 | Profile | `tags`, `profile`, `recap`, `remember`, `recs-backfill`, `enrich-eval` | `interest`, `synthesis`, `recs`, `enrich_eval`, vault tools |
 | Maintenance | `reindex`, `gc`, `index`, `schedule`, `autoingest-schedule` | `store`, `ops`, launchd plist generation, filesystem cleanup |

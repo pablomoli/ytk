@@ -50,10 +50,6 @@ def pull_tiktok(state: reels.ReelsState, puller: StatePuller) -> int:
     return puller(state)
 
 
-def pull_reddit(state: reels.ReelsState, puller: StatePuller) -> int:
-    return puller(state)
-
-
 def pull_youtube(
     state: reels.ReelsState,
     fetch: YoutubeFetcher,

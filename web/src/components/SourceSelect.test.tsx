@@ -11,12 +11,10 @@ test("exposes the sources as a named group of checkboxes", () => {
   expect(screen.getAllByRole("checkbox")).toHaveLength(SOURCES.length);
 });
 
-test("reddit starts unchecked and everything else starts checked", () => {
+test("every source starts checked now that none are hidden by default", () => {
   render(<SourceSelect selection={null} onChange={() => {}} />);
 
-  expect(screen.getByRole("checkbox", { name: /reddit/i })).not.toBeChecked();
-  expect(screen.getByRole("checkbox", { name: /youtube/i })).toBeChecked();
-  expect(screen.getByRole("checkbox", { name: /instagram/i })).toBeChecked();
+  for (const box of screen.getAllByRole("checkbox")) expect(box).toBeChecked();
 });
 
 test("youtube and instagram can be checked together", () => {
@@ -38,32 +36,33 @@ test("unchecking one source from the default keeps the others", () => {
   const next = onChange.mock.calls[0][0] as Set<string>;
   expect(next.has("youtube")).toBe(false);
   expect(next.has("instagram")).toBe(true);
-  expect(next.has("reddit")).toBe(false);
+  expect(next.has("tiktok")).toBe(true);
 });
 
-test("reddit can be opted into explicitly", () => {
+/* Starts from a partial selection on purpose: with DEFAULT_HIDDEN empty the
+   default already is every source, so the button is disabled there (covered
+   below) and there would be nothing to widen. */
+test("'all sources' selects every source", () => {
   const onChange = vi.fn();
-  render(<SourceSelect selection={null} onChange={onChange} />);
-
-  fireEvent.click(screen.getByRole("checkbox", { name: /reddit/i }));
-
-  expect((onChange.mock.calls[0][0] as Set<string>).has("reddit")).toBe(true);
-});
-
-test("'all sources' selects every source, including the hidden ones", () => {
-  const onChange = vi.fn();
-  render(<SourceSelect selection={null} onChange={onChange} />);
+  render(<SourceSelect selection={new Set(["youtube"])} onChange={onChange} />);
 
   fireEvent.click(screen.getByRole("button", { name: /all sources/i }));
 
   expect(onChange.mock.calls[0][0]).toEqual(new Set(SOURCES));
 });
 
-/* Reset is not "select everything" — it returns to the default, which re-hides
-   the excluded sources. The two buttons must not collapse into one behaviour. */
+test("'all sources' is disabled on the default, which now covers everything", () => {
+  render(<SourceSelect selection={null} onChange={() => {}} />);
+  expect(screen.getByRole("button", { name: /all sources/i })).toBeDisabled();
+});
+
+/* Reset is not "select everything" — it returns to the unchosen state, which
+   re-applies DEFAULT_HIDDEN. That list is empty today, so the two buttons
+   currently agree on the resulting set, but they must stay distinct calls:
+   `null` means "not chosen" and tracks the default as it changes. */
 test("'defaults' returns to the default rather than selecting everything", () => {
   const onChange = vi.fn();
-  render(<SourceSelect selection={new Set(["reddit"])} onChange={onChange} />);
+  render(<SourceSelect selection={new Set(["tiktok"])} onChange={onChange} />);
 
   fireEvent.click(screen.getByRole("button", { name: /defaults/i }));
 

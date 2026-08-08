@@ -11,13 +11,12 @@ export type PullResult = {
   pinterest?: number;
   imessage?: number;
   tiktok?: number;
-  reddit?: number;
   errors?: string[];
   skipped?: boolean;
   skipped_sources?: string[];
 };
 
-const COUNTED = ["instagram", "youtube", "pinterest", "imessage", "tiktok", "reddit"] as const;
+const COUNTED = ["instagram", "youtube", "pinterest", "imessage", "tiktok"] as const;
 
 /* Named while in flight, because "loading..." for up to a minute of network
    work tells you nothing about whether it is doing what you asked. */
