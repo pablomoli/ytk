@@ -65,3 +65,11 @@ chroma-status:
 # Reinstall the ytk tool from this checkout.
 install-tool:
     cd "{{ repo }}" && uv tool install --reinstall .
+
+# Copy a silent render to a <name>-audio.mp4 beside it. Manim emits no audio
+# stream at all, which social uploaders reject; -c:v copy keeps the video bits.
+audio-track file:
+    ffmpeg -y -v error -i "{{ file }}" \
+        -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 \
+        -c:v copy -c:a aac -shortest \
+        "{{ without_extension(file) }}-audio.mp4"
