@@ -104,39 +104,92 @@ def batch(device: str) -> None:
 
     S = np.zeros((len(names), WIDTH), dtype=np.float16)
     M = np.zeros((len(names), WIDTH), dtype=np.float16)
-    manifest = []
+    manifest = [None] * len(names)
+    start_idx = 0
+
+    partial_npz = OUTDIR / "fingerprints.partial.npz"
+    partial_json = OUTDIR / "manifest.partial.json"
+
+    if partial_npz.exists() and partial_json.exists():
+        try:
+            partial_data = np.load(partial_npz)
+            partial_manifest = json.loads(partial_json.read_text())
+            partial_entries = [m for m in partial_manifest["notes"] if m is not None]
+            partial_n = len(partial_manifest["notes"])
+            if (
+                partial_entries
+                and partial_n == len(names)
+                and all(names[m["i"]] == m["name"] for m in partial_entries)
+            ):
+                S = partial_data["sum"].astype(np.float16)
+                M = partial_data["max"].astype(np.float16)
+                manifest = partial_manifest["notes"]
+                start_idx = len(partial_entries)
+                print(f"resuming from checkpoint: {start_idx}/{len(names)} notes completed")
+            else:
+                print("names list mismatch: starting fresh")
+                start_idx = 0
+        except Exception as e:
+            print(f"failed to load partial checkpoint ({e}): starting fresh")
+            start_idx = 0
+
     t0 = time.time()
-    for k, name in enumerate(names):
+    for k in range(start_idx, len(names)):
+        name = names[k]
         text = texts.get(name, "")
         if not text.strip():
-            manifest.append({"i": k, "name": name, "tokens": 0, "skipped": True})
+            manifest[k] = {"i": k, "name": name, "tokens": 0, "skipped": True}
             continue
         sums, maxes, ntok = encode_sums(model, sae_module, text)
         S[k] = sums.astype(np.float16)
         M[k] = maxes.astype(np.float16)
-        manifest.append(
-            {
-                "i": k,
-                "name": name,
-                "tokens": ntok,
-                "skipped": False,
-                "sha256": hashlib.sha256(text[:MAX_CHARS].encode()).hexdigest()[:12],
-            }
-        )
+        manifest[k] = {
+            "i": k,
+            "name": name,
+            "tokens": ntok,
+            "skipped": False,
+            "sha256": hashlib.sha256(text[:MAX_CHARS].encode()).hexdigest()[:12],
+        }
         if (k + 1) % 25 == 0:
-            rate = (k + 1) / (time.time() - t0)
+            rate = (k + 1 - start_idx) / (time.time() - t0)
             print(
                 f"{k + 1}/{len(names)}  {rate:.2f} notes/s  eta {(len(names) - k - 1) / rate / 60:.0f} min",
                 flush=True,
             )
+            _checkpoint_partial(S, M, manifest, partial_npz, partial_json)
 
     np.savez_compressed(OUTDIR / "fingerprints.npz", sum=S, max=M)
     (OUTDIR / "manifest.json").write_text(json.dumps({"device": device, "notes": manifest}))
+    if partial_npz.exists():
+        partial_npz.unlink()
+    if partial_json.exists():
+        partial_json.unlink()
     skipped = sum(1 for m in manifest if m["skipped"])
     zero = int((S.sum(axis=1) == 0).sum()) - skipped
     print(
         f"done in {(time.time() - t0) / 60:.0f} min  ·  {skipped} skipped (no text)  ·  {zero} zero-fingerprint"
     )
+
+
+def _checkpoint_partial(S, M, manifest, partial_npz, partial_json) -> None:
+    import os
+
+    import numpy as np
+
+    tmp_npz_stem = str(partial_npz).replace(".npz", ".tmp")
+    tmp_json = partial_json.with_suffix(".tmp")
+    try:
+        np.savez_compressed(tmp_npz_stem, sum=S, max=M)
+        tmp_json.write_text(json.dumps({"notes": manifest}))
+        os.replace(str(tmp_npz_stem) + ".npz", str(partial_npz))
+        os.replace(str(tmp_json), str(partial_json))
+    except Exception as e:
+        tmp_npz_full = Path(str(tmp_npz_stem) + ".npz")
+        if tmp_npz_full.exists():
+            tmp_npz_full.unlink()
+        if tmp_json.exists():
+            tmp_json.unlink()
+        print(f"checkpoint failed ({e}); continuing without checkpoint")
 
 
 def fallback_texts() -> dict[str, str]:
