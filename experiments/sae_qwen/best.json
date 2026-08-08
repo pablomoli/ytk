@@ -1,0 +1,24 @@
+{
+ "d_sae": 2048,
+ "k": 32,
+ "recon_cos_mean": 0.8249514500300089,
+ "recon_cos_sd": 0.008190818209142844,
+ "recon_cos_seeds": [
+  0.8135,
+  0.8291,
+  0.8322
+ ],
+ "dead_pct_mean": 0.0,
+ "dead_pct_seeds": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "l0_mean": 32.0,
+ "fvu_mean": 0.41197843819471824,
+ "train_val_gap": 0.09391953547795613,
+ "best_step_mean": 4000.0,
+ "val_in_dist": 0.7927142182985941,
+ "val_out_dist": 0.9043886661529541,
+ "checkpoint": "checkpoints/sae_d2048_k32_s0.pt"
+}

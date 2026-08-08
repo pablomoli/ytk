@@ -49,4 +49,8 @@ ytk/CLAUDE.md
 .DS_Store
 docs/session-*-brief.md
 experiments/encoder_harness/data/
+# E2 SAE run outputs: ~500MB of checkpoints and cached vectors, all
+# regenerable from experiments/sae_qwen/*.py at fixed seeds
+experiments/sae_qwen/checkpoints/
+experiments/sae_qwen/data/
 media/

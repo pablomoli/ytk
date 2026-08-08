@@ -1,0 +1,65 @@
+{
+ "seed_and_split": {
+  "label": "3 seeds, each with its own note-level split",
+  "pairs": [
+   {
+    "seeds": "0v1",
+    "mean_max_cos": 0.41507551074028015,
+    "median_max_cos": 0.33480146527290344,
+    "frac_above_0.8": 0.09521484375,
+    "frac_above_0.5": 0.25
+   },
+   {
+    "seeds": "0v2",
+    "mean_max_cos": 0.4171750545501709,
+    "median_max_cos": 0.3368642330169678,
+    "frac_above_0.8": 0.0927734375,
+    "frac_above_0.5": 0.25927734375
+   },
+   {
+    "seeds": "1v2",
+    "mean_max_cos": 0.4129824936389923,
+    "median_max_cos": 0.33110588788986206,
+    "frac_above_0.8": 0.09326171875,
+    "frac_above_0.5": 0.2421875
+   }
+  ],
+  "random_null_mean_max_cos": 0.1074807271361351
+ },
+ "init_only": {
+  "label": "3 inits on one fixed split (split seed 0)",
+  "pairs": [
+   {
+    "seeds": "0v1",
+    "mean_max_cos": 0.41365760564804077,
+    "median_max_cos": 0.3370828628540039,
+    "frac_above_0.8": 0.09130859375,
+    "frac_above_0.5": 0.248046875
+   },
+   {
+    "seeds": "0v2",
+    "mean_max_cos": 0.4173125624656677,
+    "median_max_cos": 0.33972805738449097,
+    "frac_above_0.8": 0.0849609375,
+    "frac_above_0.5": 0.25927734375
+   },
+   {
+    "seeds": "1v2",
+    "mean_max_cos": 0.4084855914115906,
+    "median_max_cos": 0.3348730802536011,
+    "frac_above_0.8": 0.0791015625,
+    "frac_above_0.5": 0.23388671875
+   }
+  ],
+  "random_null_mean_max_cos": 0.1074807271361351
+ },
+ "named_subset": {
+  "label": "top-100 by firing frequency vs the whole dictionary, init_only pair set",
+  "n_named": 100,
+  "named_mean_max_cos": 0.7624254822731018,
+  "named_frac_above_0.8": 0.5,
+  "all_mean_max_cos": 0.3827419877052307,
+  "all_frac_above_0.8": 0.06494140625,
+  "note": "match must hold against BOTH other inits"
+ }
+}
