@@ -1,0 +1,201 @@
+{
+ "stats": {
+  "n_notes": 532,
+  "k": 16,
+  "model": "StyleDistance/styledistance",
+  "revision": "b7df5f0b0480773c097ba3121d83ca32b71015ca",
+  "chunk_chars": 1000,
+  "n_chunks": 1711,
+  "embed_secs": 150.4,
+  "purity_style": 0.9586466165413534,
+  "purity_sae": 0.9492481203007519,
+  "purity_qwen": 0.7180451127819549,
+  "purity_base": 0.6052631578947368,
+  "purity_style_fine": 0.9511278195488722,
+  "purity_sae_fine": 0.9266917293233082,
+  "purity_qwen_fine": 0.6729323308270677,
+  "purity_base_fine": 0.5394736842105263,
+  "ari_style_vs_qwen": 0.03476679674092032,
+  "ari_style_vs_sae": 0.11370453494082389,
+  "ari_sae_vs_qwen": 0.23876614895326986,
+  "ari_ceiling": 0.3347701297577722,
+  "ari_null_style_qwen": -0.00023677217748393987,
+  "ari_null_style_sae": 1.9323081014938496e-05,
+  "triplet_style_vs_qwen": 0.5476932355010554,
+  "triplet_style_vs_sae": 0.6816765504070761,
+  "triplet_sae_vs_qwen": 0.6440669447655425,
+  "ari_mean_vs_unitpool": 0.48735523690843735,
+  "ari_mean_vs_head": 0.24951723662541334,
+  "ari_unit_vs_head": 0.17938622468827792,
+  "within": {
+   "youtube_web": {
+    "n": 322,
+    "k": 13,
+    "sil_style": 0.13701508939266205,
+    "sil_style_null": -0.006157444510608912,
+    "sil_sae": 0.0476200170814991,
+    "sil_sae_null": -0.0013469552621245384,
+    "sil_qwen": 0.03871288150548935,
+    "sil_qwen_null": -0.00552979027852416,
+    "ari_style_vs_sae_restriction": 0.057364857806585116,
+    "ari_style_vs_sae_recluster": 0.061188523119057384,
+    "ari_style_vs_qwen_themes": 0.03080409470501063,
+    "ari_null": 0.0001441904361947132,
+    "triplet_style_vs_sae": 0.5804238143289606,
+    "triplet_style_vs_qwen": 0.5472250252270434,
+    "eta2_loglen_style": 0.610625360391369,
+    "eta2_loglen_sae": 0.2851964133210626,
+    "eta2_loglen_qwen": 0.1344300812732983
+   },
+   "youtube_only": {
+    "n": 287,
+    "k": 12,
+    "sil_style": 0.10797660052776337,
+    "sil_style_null": -0.005450231931172311,
+    "sil_sae": 0.04298001527786255,
+    "sil_sae_null": -0.0013013280229642987,
+    "sil_qwen": 0.021610815078020096,
+    "sil_qwen_null": -0.005675363633781671,
+    "ari_style_vs_sae_restriction": 0.04098723249853115,
+    "ari_style_vs_sae_recluster": 0.04654901237696439,
+    "ari_style_vs_qwen_themes": 0.023053194358162853,
+    "ari_null": -0.0006076218149155196,
+    "triplet_style_vs_sae": 0.5615213657945247,
+    "triplet_style_vs_qwen": 0.5426305687443176,
+    "eta2_loglen_style": 0.24207392449707293,
+    "eta2_loglen_sae": 0.2940949227328874,
+    "eta2_loglen_qwen": 0.14832380245126223
+   }
+  },
+  "sil_full_style": 0.1292445957660675,
+  "sil_full_style_null": -0.0053652748465538025,
+  "sil_full_sae": 0.04401037096977234,
+  "sil_full_sae_null": -0.0013541485881432892,
+  "sil_full_qwen": 0.03084264136850834,
+  "sil_full_qwen_null": -0.0052843338809907435
+ },
+ "composition": [
+  {
+   "cluster": 0,
+   "n": 52,
+   "media": {
+    "instagram": 50,
+    "tiktok": 2
+   }
+  },
+  {
+   "cluster": 1,
+   "n": 32,
+   "media": {
+    "youtube": 32
+   }
+  },
+  {
+   "cluster": 2,
+   "n": 13,
+   "media": {
+    "youtube": 13
+   }
+  },
+  {
+   "cluster": 3,
+   "n": 24,
+   "media": {
+    "youtube": 24
+   }
+  },
+  {
+   "cluster": 4,
+   "n": 29,
+   "media": {
+    "youtube": 29
+   }
+  },
+  {
+   "cluster": 5,
+   "n": 46,
+   "media": {
+    "youtube": 46
+   }
+  },
+  {
+   "cluster": 6,
+   "n": 18,
+   "media": {
+    "youtube": 18
+   }
+  },
+  {
+   "cluster": 7,
+   "n": 14,
+   "media": {
+    "youtube": 14
+   }
+  },
+  {
+   "cluster": 8,
+   "n": 37,
+   "media": {
+    "youtube": 37
+   }
+  },
+  {
+   "cluster": 9,
+   "n": 64,
+   "media": {
+    "instagram": 53,
+    "web": 3,
+    "pinterest": 1,
+    "tiktok": 7
+   }
+  },
+  {
+   "cluster": 10,
+   "n": 40,
+   "media": {
+    "youtube": 40
+   }
+  },
+  {
+   "cluster": 11,
+   "n": 71,
+   "media": {
+    "instagram": 66,
+    "tiktok": 5
+   }
+  },
+  {
+   "cluster": 12,
+   "n": 23,
+   "media": {
+    "youtube": 23
+   }
+  },
+  {
+   "cluster": 13,
+   "n": 11,
+   "media": {
+    "youtube": 11
+   }
+  },
+  {
+   "cluster": 14,
+   "n": 15,
+   "media": {
+    "instagram": 1,
+    "pinterest": 3,
+    "tiktok": 1,
+    "web": 10
+   }
+  },
+  {
+   "cluster": 15,
+   "n": 43,
+   "media": {
+    "instagram": 40,
+    "pinterest": 1,
+    "tiktok": 2
+   }
+  }
+ ]
+}
