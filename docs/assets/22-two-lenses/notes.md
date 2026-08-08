@@ -51,9 +51,11 @@ Cleanest theme→register concentrations (fig 02): agentic coding → CLI & SSH
 vocabulary (72%), AI research careers → economics & labor terms (68%),
 browser creative tools → web markup & data fields (57%), visual linear
 algebra → math notation (56%), shaders → graphics code (53%). Most
-fractured: culture, science & media essays (max cell 25%).
+fractured: culture, science & media essays (max cell 25%). Fig 03 carries
+the agreement evidence alone: the ARI ladder against its measured ceiling,
+and triplet agreement against chance.
 
-## The noise floor (fig 03)
+## The noise floor (fig 04)
 
 Side finding with teeth: all 13 scored profile runs share one frozen eval
 cohort (fingerprint `b2574824…`, 8 positives / 24 negatives), and the

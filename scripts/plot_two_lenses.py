@@ -313,6 +313,21 @@ def hdr_fix(fig):
     fig.texts[1].set_x(MARGIN + 0.092)
 
 
+def dark_legend(ax, handles, loc="lower right"):
+    leg = ax.legend(
+        handles=handles,
+        loc=loc,
+        fontsize=9,
+        facecolor=PANEL,
+        edgecolor=FRAME,
+        labelcolor=TEXT,
+        framealpha=1.0,
+        borderpad=0.7,
+    )
+    leg.set_zorder(6)
+    return leg
+
+
 # --- figures ----------------------------------------------------------------
 def fig01(d):
     fig, top = figure(
@@ -354,15 +369,23 @@ def fig01(d):
     axR.set_yticks(y, [short(CLUSTER_LABELS[c["cluster"]], 27) for c in cls])
     panel_title(axR, "Gemma SAE — how the notes speak")
 
-    for ax in (axL, axR):
+    from matplotlib.patches import Patch
+
+    for ax, hue in ((axL, GOLD), (axR, BLUE)):
         style_axes(ax)
         ax.set_xlabel("notes", fontsize=TICK_SIZE)
         ax.set_xlim(0, 72)
+        dark_legend(
+            ax,
+            [
+                Patch(facecolor=hue, label="YouTube / web"),
+                Patch(facecolor=DIM, edgecolor=hue, linewidth=0.6, label="Instagram"),
+            ],
+        )
     fig.text(
         MARGIN,
         0.032,
-        "dim bar segment = instagram share of the group · gemma labels condense top differential "
-        "SAE features; auto-names are unprobed hypotheses (18.x)",
+        "gemma labels condense top differential SAE features; auto-names are unprobed hypotheses (18.x)",
         color=MUTED,
         fontsize=8.5,
     )
@@ -370,15 +393,14 @@ def fig01(d):
 
 
 def fig02(d):
-    stats = d["stats"]
     fig, top = figure(
         12.6,
-        7.8,
+        8.2,
         2,
         "where the lenses disagree",
         "Each topic theme, redistributed across the voice clusters",
-        meta=f"cells row-normalized · triplet agreement {stats['triplet']:.3f} (chance 0.500) · "
-        f"ARI cross {stats['ari_cross']:.2f} vs within-space ceiling {stats['ari_ceiling']:.2f}, null {stats['ari_null']:.2f}",
+        meta="cells row-normalized within each theme · % marks the theme's largest destination · "
+        "532 notes, k=17 themes x k=16 clusters",
     )
     qc = Counter(d["qwen_theme"])
     rows = [t for t, _ in qc.most_common()]
@@ -391,7 +413,7 @@ def fig02(d):
     R = M / M.sum(1, keepdims=True)
 
     hdr_fix(fig)
-    ax = fig.add_axes([MARGIN + 0.155, 0.245, 0.60, top - 0.31])
+    ax = fig.add_axes([MARGIN + 0.165, 0.235, 0.70, top - 0.30])
     im = ax.imshow(R, cmap=saturated_magma(), vmin=0, vmax=1, aspect="auto")
     ax.set_yticks(range(len(rows)), [short(t, 34) for t in rows])
     ax.set_xticks(
@@ -414,31 +436,18 @@ def fig02(d):
             fontsize=8,
             color=PANEL if v > 0.55 else TEXT,
         )
-    cax = fig.add_axes([MARGIN + 0.775, 0.245, 0.013, top - 0.31])
+    cax = fig.add_axes([MARGIN + 0.905, 0.235, 0.014, top - 0.30])
     cb = fig.colorbar(im, cax=cax)
+    cb.set_label("share of the theme's notes", color=MUTED, fontsize=9)
     cb.ax.tick_params(colors=MUTED, labelsize=8)
     cb.outline.set_edgecolor(FRAME)
     cax._is_colorbar = True
-
-    axb = fig.add_axes([MARGIN + 0.86, 0.245, 0.09, top - 0.31])
-    ladder = [
-        ("null", stats["ari_null"], DIM),
-        ("cross-space", stats["ari_cross"], BLUE),
-        ("ceiling", stats["ari_ceiling"], GOLD),
-    ]
-    yb = np.arange(len(ladder))
-    axb.barh(yb, [v for _, v, _ in ladder], color=[c for *_, c in ladder], height=0.5)
-    axb.set_yticks(yb, [n for n, *_ in ladder])
-    axb.set_xlim(0, 0.4)
-    style_axes(axb)
-    axb.set_xlabel("ARI", fontsize=TICK_SIZE)
-    panel_title(axb, "partition\nagreement", width=12)
 
     fig.text(
         MARGIN,
         0.032,
         "a bright off-diagonal row = a topic fractured by register; a column collecting many rows = a "
-        "voice shared across topics · ceiling = qwen re-clustered on the same subset",
+        "voice shared across topics",
         color=MUTED,
         fontsize=8.5,
     )
@@ -446,11 +455,80 @@ def fig02(d):
 
 
 def fig03(d):
+    stats = d["stats"]
+    fig, top = figure(
+        12.6,
+        5.6,
+        3,
+        "how far apart are the views",
+        "Partition agreement against its measured ceiling, and raw geometry agreement",
+        meta="ceiling = Qwen re-clustered on the same 532 notes at k=16 vs its own production themes · "
+        "same seeded KMeans everywhere",
+    )
+    hdr_fix(fig)
+    from matplotlib.lines import Line2D
+
+    axa = fig.add_axes([MARGIN + 0.13, 0.16, 0.36, top - 0.24])
+    ladder = [
+        ("shuffled null", stats["ari_null"], DIM),
+        ("Gemma vs themes", stats["ari_cross"], BLUE),
+        ("Qwen recluster\nvs themes (ceiling)", stats["ari_ceiling"], GOLD),
+    ]
+    yb = np.arange(len(ladder))
+    axa.barh(yb, [v for _, v, _ in ladder], color=[c for *_, c in ladder], height=0.52)
+    for yi, (_, v, _) in zip(yb, ladder):
+        axa.text(v + 0.008, yi, f"{v:.2f}", color=TEXT, fontsize=9.5, va="center")
+    axa.set_yticks(yb, [n for n, *_ in ladder])
+    axa.set_xlim(0, 0.42)
+    style_axes(axa)
+    axa.set_xlabel("adjusted Rand index", fontsize=TICK_SIZE)
+    panel_title(axa, "partition agreement — who groups with whom")
+
+    axt = fig.add_axes([MARGIN + 0.60, 0.16, 0.335, top - 0.24])
+    axt.barh([0], [stats["triplet"]], color=CYAN, height=0.42)
+    axt.text(
+        stats["triplet"] + 0.012,
+        0,
+        f"{stats['triplet']:.3f}",
+        color=TEXT,
+        fontsize=9.5,
+        va="center",
+    )
+    axt.axvline(0.5, color=RED, linewidth=1.2, linestyle="--")
+    axt.axvline(1.0, color=MUTED, linewidth=1.0, linestyle=":")
+    axt.set_yticks([0], ["Qwen vs Gemma"])
+    axt.set_xlim(0.4, 1.05)
+    axt.set_ylim(-0.9, 0.9)
+    style_axes(axt)
+    axt.set_xlabel("triplet agreement", fontsize=TICK_SIZE)
+    panel_title(axt, "geometry agreement — who is nearer to whom")
+    dark_legend(
+        axt,
+        [
+            Line2D([], [], color=RED, linewidth=1.2, linestyle="--", label="chance (0.5)"),
+            Line2D(
+                [], [], color=MUTED, linewidth=1.0, linestyle=":", label="identical spaces (1.0)"
+            ),
+        ],
+        loc="upper right",
+    )
+    fig.text(
+        MARGIN,
+        0.045,
+        "the views share well-above-chance structure, yet the voice partition explains barely 71% of what "
+        "even a within-space rerun recovers — and that ceiling itself is low: this corpus is gradients, not clusters",
+        color=MUTED,
+        fontsize=8.5,
+    )
+    return fig, "03-agreement.png"
+
+
+def fig04(d):
     runs = d["scores"]
     fig, top = figure(
         12.6,
         6.8,
-        3,
+        4,
         "the referee's noise floor",
         "One frozen eval cohort, thirteen profile runs — the score that moves without the corpus",
         meta="all runs share fingerprint b2574824… (8 positives / 24 negatives) · "
@@ -501,7 +579,31 @@ def fig03(d):
     ax.set_ylabel("multi-positive nDCG (SigLIP referee)", fontsize=TICK_SIZE)
     ax.set_ylim(lo - 0.06, hi + 0.075)
     style_axes(ax)
-    return fig, "03-noise-floor.png"
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
+    mk = lambda c, label: Line2D(
+        [],
+        [],
+        marker="o",
+        linestyle="none",
+        markersize=8,
+        markerfacecolor=c,
+        markeredgecolor=TEXT,
+        markeredgewidth=0.6,
+        label=label,
+    )
+    dark_legend(
+        ax,
+        [
+            mk(GOLD, "profile run"),
+            mk(RED, "same-corpus quartet (n=280)"),
+            mk(CYAN, "today's snapshot"),
+            Patch(facecolor=DIM, alpha=0.35, label="observed range (0.517–0.737)"),
+        ],
+        loc="upper left",
+    )
+    return fig, "04-noise-floor.png"
 
 
 def main():
@@ -520,7 +622,7 @@ def main():
             indent=1,
         )
     )
-    for f in (fig01, fig02, fig03):
+    for f in (fig01, fig02, fig03, fig04):
         fig, name = f(d)
         frame_panels(fig)
         out = OUTDIR / name
