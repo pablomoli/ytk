@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { HubControls } from "../components/HubControls";
+import { useChromeVisible } from "../lib/chrome";
 import { fetchGardenPayload } from "../lib/garden/datatree";
 import type { GardenPayload, TopoNode } from "../lib/garden/datatree";
 import { DEFAULT_PARAMS } from "../lib/garden/tree";
@@ -16,13 +17,17 @@ const LOOK = "garden-look-v1";
 
 const loadParams = (): GardenParams => {
   try {
-    return { ...DEFAULT_PARAMS, ...JSON.parse(localStorage.getItem(STORAGE) ?? "{}") };
+    return {
+      ...DEFAULT_PARAMS,
+      ...JSON.parse(localStorage.getItem(STORAGE) ?? "{}"),
+    };
   } catch {
     return DEFAULT_PARAMS;
   }
 };
 
-const loadLook = (): GardenLook => (localStorage.getItem(LOOK) === "x-ray" ? "x-ray" : "foliage");
+const loadLook = (): GardenLook =>
+  localStorage.getItem(LOOK) === "x-ray" ? "x-ray" : "foliage";
 
 type GardenSearch = { readback?: boolean };
 
@@ -53,14 +58,32 @@ const KNOBS: Array<{
   { key: "upBias", label: "up bias", min: 0, max: 1, step: 0.05 },
   { key: "girth", label: "girth", min: 0.02, max: 0.2, step: 0.01 },
   { key: "girthDecay", label: "taper", min: 0.6, max: 0.97, step: 0.01 },
-  { key: "pipeExponent", label: "pipe exponent", min: 1.5, max: 3.5, step: 0.1 },
+  {
+    key: "pipeExponent",
+    label: "pipe exponent",
+    min: 1.5,
+    max: 3.5,
+    step: 0.1,
+  },
   { key: "tipRadius", label: "tip radius", min: 0.004, max: 0.05, step: 0.002 },
   { key: "twigStep", label: "twig step", min: 0.03, max: 0.2, step: 0.01 },
-  { key: "attractorsPerNote", label: "attractors/note", min: 1, max: 24, step: 1 },
+  {
+    key: "attractorsPerNote",
+    label: "attractors/note",
+    min: 1,
+    max: 24,
+    step: 1,
+  },
   { key: "orderDecay", label: "order decay", min: 0, max: 1, step: 0.05 },
   { key: "sag", label: "sag", min: 0, max: 1, step: 0.05 },
   { key: "sagFloor", label: "sag floor", min: 0, max: 1, step: 0.05 },
-  { key: "lengthGradient", label: "length gradient", min: 0, max: 1, step: 0.05 },
+  {
+    key: "lengthGradient",
+    label: "length gradient",
+    min: 0,
+    max: 1,
+    step: 0.05,
+  },
   { key: "stiffness", label: "stiffness", min: 0, max: 0.95, step: 0.05 },
   { key: "wind", label: "wind", min: 0, max: 1, step: 0.05 },
   { key: "ringSegments", label: "ring verts", min: 4, max: 12, step: 1 },
@@ -69,7 +92,13 @@ const KNOBS: Array<{
   { key: "leafSpread", label: "leaf spread", min: 0.1, max: 0.9, step: 0.02 },
   { key: "leafSize", label: "leaf size", min: 0.5, max: 4, step: 0.1 },
   { key: "paletteTravel", label: "palette travel", min: 0, max: 2, step: 0.05 },
-  { key: "paletteMotion", label: "palette motion", min: 0, max: 0.25, step: 0.01 },
+  {
+    key: "paletteMotion",
+    label: "palette motion",
+    min: 0,
+    max: 0.25,
+    step: 0.01,
+  },
   { key: "paletteStrength", label: "palette mix", min: 0, max: 1, step: 0.02 },
   { key: "wireGlow", label: "wire glow", min: 0, max: 2, step: 0.05 },
   { key: "wirePulse", label: "wire pulse", min: 0, max: 1, step: 0.02 },
@@ -86,13 +115,16 @@ const EFFECT_KEYS = new Set<keyof GardenParams>([
 ]);
 
 function GardenPage() {
+  const chrome = useChromeVisible();
   const canvas = useRef<HTMLCanvasElement>(null);
   const handle = useRef<GardenHandle>(undefined);
   const [params, setParams] = useState<GardenParams>(loadParams);
   const [panelOpen, setPanelOpen] = useState(true);
   const [ready, setReady] = useState(false);
   const [payload, setPayload] = useState<GardenPayload | null>(null);
-  const [dataMode, setDataMode] = useState(() => localStorage.getItem(DATA_MODE) === "on");
+  const [dataMode, setDataMode] = useState(
+    () => localStorage.getItem(DATA_MODE) === "on",
+  );
   const [look, setLook] = useState<GardenLook>(loadLook);
   const latestParams = useRef(params);
 
@@ -101,7 +133,11 @@ function GardenPage() {
     // dynamic import keeps three out of every other route's bundle
     void import("../lib/garden/scene").then((mod) => {
       if (!alive || !canvas.current) return;
-      handle.current = mod.mountGarden(canvas.current, loadParams(), loadLook());
+      handle.current = mod.mountGarden(
+        canvas.current,
+        loadParams(),
+        loadLook(),
+      );
       setReady(true);
     });
     void fetchGardenPayload().then((p) => {
@@ -131,9 +167,13 @@ function GardenPage() {
     }
     // debounce: slider drags fire per pixel; regenerate once the hand settles
     clearTimeout(regenTimer.current);
-    regenTimer.current = setTimeout(() => handle.current?.regenerate(latestParams.current), 160);
+    regenTimer.current = setTimeout(
+      () => handle.current?.regenerate(latestParams.current),
+      160,
+    );
   };
-  const reseed = () => apply({ ...params, seed: Math.floor(Math.random() * 1e6) });
+  const reseed = () =>
+    apply({ ...params, seed: Math.floor(Math.random() * 1e6) });
   const chooseLook = (next: GardenLook) => {
     setLook(next);
     localStorage.setItem(LOOK, next);
@@ -181,11 +221,13 @@ function GardenPage() {
           knobs
         </button>
         <span className="count">
-          {dataMode && payload ? `${payload.buckets.length} topics` : `seed ${params.seed}`}
+          {dataMode && payload
+            ? `${payload.buckets.length} topics`
+            : `seed ${params.seed}`}
         </span>
       </HubControls>
       <canvas ref={canvas} className="garden-canvas" />
-      {panelOpen ? (
+      {panelOpen && chrome ? (
         <aside className="garden-panel">
           {KNOBS.map(({ key, label, min, max, step }) => (
             <label key={key}>
@@ -197,7 +239,10 @@ function GardenPage() {
                 step={step}
                 value={params[key]}
                 onChange={(event) =>
-                  apply({ ...params, [key]: Number(event.target.value) }, EFFECT_KEYS.has(key))
+                  apply(
+                    { ...params, [key]: Number(event.target.value) },
+                    EFFECT_KEYS.has(key),
+                  )
                 }
               />
               <em>{params[key]}</em>
@@ -233,7 +278,12 @@ type E7Trial = {
   single?: string;
   options?: string[];
 };
-type E7Manifest = { sha256: string; stimuli: E7Stimulus[]; trials: E7Trial[]; completed: string[] };
+type E7Manifest = {
+  sha256: string;
+  stimuli: E7Stimulus[];
+  trials: E7Trial[];
+  completed: string[];
+};
 
 const GROW_MS = 900; // growSeconds 0.8 + margin; choices stay hidden until grown
 
@@ -257,12 +307,19 @@ function StimulusCanvas({
       // bucket payloads render scale-normalized + identically tinted.
       handle = mod.mountGarden(
         ref.current,
-        { ...DEFAULT_PARAMS, seed: stim.geometry_seed, growSeconds: 0.8, wind: 0.2 },
+        {
+          ...DEFAULT_PARAMS,
+          seed: stim.geometry_seed,
+          growSeconds: 0.8,
+          wind: 0.2,
+        },
         "foliage",
       );
       handle.setData({
         version: 1,
-        buckets: [{ bucket: stim.id, n_notes: stim.n_notes, nodes: stim.nodes }],
+        buckets: [
+          { bucket: stim.id, n_notes: stim.n_notes, nodes: stim.nodes },
+        ],
         azimuth: stim.camera_azimuth,
       });
       onReady(); // scene created + data planted; parent waits GROW_MS on top
@@ -277,7 +334,13 @@ function StimulusCanvas({
   return (
     <canvas
       ref={ref}
-      style={{ width: "100%", height, display: "block", borderRadius: 8, background: "#0a0a0c" }}
+      style={{
+        width: "100%",
+        height,
+        display: "block",
+        borderRadius: 8,
+        background: "#0a0a0c",
+      }}
     />
   );
 }
@@ -314,7 +377,9 @@ function ReadbackPage() {
         const next = m.trials.findIndex((t) => !done.has(t.trial));
         setIndex(next === -1 ? m.trials.length : next);
       })
-      .catch(() => setError("no manifest - run scripts.garden_lab.e7_manifest first"));
+      .catch(() =>
+        setError("no manifest - run scripts.garden_lab.e7_manifest first"),
+      );
   }, []);
   // per-trial reset: nothing is clickable and RT does not run until every
   // canvas reports ready AND the growth animation has finished (H4)
@@ -326,7 +391,9 @@ function ReadbackPage() {
   }, [index]);
 
   const trial =
-    manifest && index >= 0 && index < manifest.trials.length ? manifest.trials[index] : null;
+    manifest && index >= 0 && index < manifest.trials.length
+      ? manifest.trials[index]
+      : null;
   const canvasCount = trial ? (trial.single ? 1 : trial.top ? 3 : 2) : 0;
   useEffect(() => {
     if (!trial || readyCount < canvasCount) return;
@@ -337,9 +404,12 @@ function ReadbackPage() {
     return () => clearTimeout(t);
   }, [readyCount, canvasCount, trial]);
 
-  if (error) return <div style={{ padding: 40, color: "#c3c2b7" }}>{error}</div>;
+  if (error)
+    return <div style={{ padding: 40, color: "#c3c2b7" }}>{error}</div>;
   if (!manifest || index < 0)
-    return <div style={{ padding: 40, color: "#c3c2b7" }}>loading manifest...</div>;
+    return (
+      <div style={{ padding: 40, color: "#c3c2b7" }}>loading manifest...</div>
+    );
   if (!trial) {
     return (
       <div style={{ padding: 40, color: "#c3c2b7", fontSize: 18 }}>
@@ -362,7 +432,12 @@ function ReadbackPage() {
     fetch("/api/garden/e7/response", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ trial: trial.trial, choice, confidence, rt_ms: rt.current }),
+      body: JSON.stringify({
+        trial: trial.trial,
+        choice,
+        confidence,
+        rt_ms: rt.current,
+      }),
     })
       .then((r) => {
         // ok or already-answered (duplicate/conflict): the trial is recorded
@@ -392,18 +467,32 @@ function ReadbackPage() {
         trial {index + 1} / {manifest.trials.length}
         {trial.task === "practice" ? " - practice (not scored)" : ""}
       </div>
-      <div style={{ color: "#e2b04a", fontSize: 24, marginBottom: 14 }}>{trial.prompt}</div>
+      <div style={{ color: "#e2b04a", fontSize: 24, marginBottom: 14 }}>
+        {trial.prompt}
+      </div>
       {trial.top ? (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ color: "#52514e", fontSize: 12, marginBottom: 4 }}>anchor</div>
-          <StimulusCanvas stim={stim(trial.top)} height="30vh" onReady={onReady} />
+          <div style={{ color: "#52514e", fontSize: 12, marginBottom: 4 }}>
+            anchor
+          </div>
+          <StimulusCanvas
+            stim={stim(trial.top)}
+            height="30vh"
+            onReady={onReady}
+          />
         </div>
       ) : null}
       {isPair ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
+        >
           {(["left", "right"] as const).map((side) => (
             <div key={`${trial.trial}-${side}`}>
-              <StimulusCanvas stim={stim(trial[side])} height={twoHigh} onReady={onReady} />
+              <StimulusCanvas
+                stim={stim(trial[side])}
+                height={twoHigh}
+                onReady={onReady}
+              />
               {revealed && choice === null ? (
                 <button
                   style={{ ...chip, marginTop: 10, width: "100%" }}
@@ -417,7 +506,11 @@ function ReadbackPage() {
         </div>
       ) : (
         <div>
-          <StimulusCanvas stim={stim(trial.single)} height="52vh" onReady={onReady} />
+          <StimulusCanvas
+            stim={stim(trial.single)}
+            height="52vh"
+            onReady={onReady}
+          />
           {revealed && choice === null ? (
             <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
               {trial.options?.map((o) => (
@@ -429,7 +522,9 @@ function ReadbackPage() {
           ) : null}
         </div>
       )}
-      {!revealed ? <div style={{ marginTop: 16, color: "#52514e" }}>growing...</div> : null}
+      {!revealed ? (
+        <div style={{ marginTop: 16, color: "#52514e" }}>growing...</div>
+      ) : null}
       {choice !== null && !failed ? (
         <div style={{ marginTop: 16 }}>
           <span style={{ color: "#c3c2b7", marginRight: 12 }}>confidence:</span>

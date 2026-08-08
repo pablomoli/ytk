@@ -9,6 +9,7 @@ import { ErrorState } from "../components/StateViews";
 import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import { mountOrb } from "../lib/orb/scene";
 import { orbPointToFreshNote } from "../lib/orb/note";
+import { useChromeVisible } from "../lib/chrome";
 import "../styles.css";
 
 // same queryKey/queryFn shape as useNote/useSimilarNotes (api/fresh.ts) so the
@@ -16,11 +17,17 @@ import "../styles.css";
 function prefetchNote(path: string): void {
   void queryClient.prefetchQuery({
     queryKey: ["note", path],
-    queryFn: () => apiGet<{ path: string; content: string }>(`/api/note?path=${encodeURIComponent(path)}`),
+    queryFn: () =>
+      apiGet<{ path: string; content: string }>(
+        `/api/note?path=${encodeURIComponent(path)}`,
+      ),
   });
   void queryClient.prefetchQuery({
     queryKey: ["similar", path],
-    queryFn: () => apiGet<SimilarItem[]>(`/api/similar?note=${encodeURIComponent(path)}&n=8`),
+    queryFn: () =>
+      apiGet<SimilarItem[]>(
+        `/api/similar?note=${encodeURIComponent(path)}&n=8`,
+      ),
   });
 }
 
@@ -29,9 +36,11 @@ export const Route = createFileRoute("/orb")({ component: OrbPage });
 const LAYOUTS: LayoutName[] = ["radial", "haversine", "lattice"];
 
 // build_map sometimes emits raw Obsidian embed syntax in titles; strip for display only
-const captionTitle = (t: string) => t.replace(/!\[\[([^\]]+)\]\]/g, "$1").trim();
+const captionTitle = (t: string) =>
+  t.replace(/!\[\[([^\]]+)\]\]/g, "$1").trim();
 
 function OrbPage() {
+  const chrome = useChromeVisible();
   const orb = useOrb();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<OrbHandle | null>(null);
@@ -61,20 +70,23 @@ function OrbPage() {
     };
   }, [data]);
 
-  if (orb.isError) return <ErrorState error={orb.error} onRetry={() => void orb.refetch()} />;
+  if (orb.isError)
+    return <ErrorState error={orb.error} onRetry={() => void orb.refetch()} />;
 
   const scores = data?.sphere.scores;
   return (
     <div className="relative flex-1 min-h-0 overflow-hidden">
       {!data ? (
-        <div className="flex-1 grid place-items-center text-sm opacity-60">loading the sphere</div>
+        <div className="flex-1 grid place-items-center text-sm opacity-60">
+          loading the sphere
+        </div>
       ) : (
         <canvas
           ref={canvasRef}
           className={`h-full w-full ${hovered !== null && !open ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
         />
       )}
-      {data ? (
+      {data && chrome ? (
         <div className="absolute left-4 top-4 flex flex-col gap-2 text-xs">
           <div className="flex gap-1">
             {LAYOUTS.map((name) => {
@@ -85,7 +97,11 @@ function OrbPage() {
                   key={name}
                   type="button"
                   disabled={missing}
-                  title={s ? `trust ${s.trustworthiness.toFixed(3)} overlap ${(100 * s.overlap_frac).toFixed(1)}%` : "unavailable"}
+                  title={
+                    s
+                      ? `trust ${s.trustworthiness.toFixed(3)} overlap ${(100 * s.overlap_frac).toFixed(1)}%`
+                      : "unavailable"
+                  }
                   className={`rounded px-2 py-1 ${layout === name ? "bg-white/20" : "bg-white/5 hover:bg-white/10"} disabled:opacity-30`}
                   onClick={() => {
                     setLayout(name);
@@ -100,7 +116,8 @@ function OrbPage() {
               type="button"
               className="ml-2 rounded px-2 py-1 bg-white/5 hover:bg-white/10"
               onClick={() => {
-                const next: OrbViewMode = viewMode === "inside" ? "globe" : "inside";
+                const next: OrbViewMode =
+                  viewMode === "inside" ? "globe" : "inside";
                 setViewMode(next);
                 handleRef.current?.setView(next);
               }}
@@ -119,7 +136,9 @@ function OrbPage() {
           >
             <option value="">all themes</option>
             {data.themes.map((label, i) => (
-              <option key={label} value={i}>{label}</option>
+              <option key={label} value={i}>
+                {label}
+              </option>
             ))}
           </select>
         </div>
@@ -127,7 +146,9 @@ function OrbPage() {
       {data && hovered !== null && !open ? (
         <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm">
           {captionTitle(data.points[hovered].t)}
-          {data.points[hovered].d ? <span className="ml-2 opacity-60">{data.points[hovered].d}</span> : null}
+          {data.points[hovered].d ? (
+            <span className="ml-2 opacity-60">{data.points[hovered].d}</span>
+          ) : null}
         </div>
       ) : null}
       {data && open ? (
