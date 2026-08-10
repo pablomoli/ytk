@@ -6,10 +6,15 @@
 Every consumed item carries a capture signal r, read from what the pipeline
 left on disk (E1 audit, 2026-07-05):
 
-  r=0  passive     synced from the playlist, never touched
-  r=1  saved       deliberate capture (social saves, snaps)
+  r=0  passive     auto-arrived (feed batch, bulk backfill), never touched
+  r=1  saved       deliberate capture (social saves, snaps, playlist adds)
   r=2  + thought   the user wrote something at ingest (## My take)
   r=3  + directive the thought contained an instruction that linked notes
+
+Playlist adds are deliberate by the owner's own rule ("I only add to that
+playlist to surface it to my notes", section 28), so playlist membership —
+cached at ~/.ytk/playlist_ids.json by `ytk sync` — lifts a YouTube note to
+r >= 1 exactly as saved-source membership does elsewhere.
 
 Following Hu/Koren/Volinsky, r raises CONFIDENCE, not preference: sample
 weight w = 1 + alpha * r pulls cluster centroids toward high-signal items.
@@ -22,15 +27,20 @@ excluded from profile gathering (interest.content_sources).
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from collections import Counter
 from datetime import UTC, datetime
+from pathlib import Path
 
 from . import vault
 
 # folders whose presence alone proves a deliberate capture
 _SAVED_SOURCES = {"instagram", "tiktok", "pinterest", "web", "screenshots"}
+
+# written by scheduler.sync on every run; absent file = no playlist knowledge
+_PLAYLIST_CACHE = Path.home() / ".ytk" / "playlist_ids.json"
 
 _DIRECTIVE_RE = re.compile(r"^Related: \[\[", re.MULTILINE)
 _YT_ID_RE = re.compile(r"^url:.*(?:v=|youtu\.be/)([A-Za-z0-9_-]{11})", re.MULTILINE)
@@ -47,6 +57,19 @@ def classify(source_folder: str, text: str) -> int:
     return 0
 
 
+def playlist_ids() -> frozenset[str]:
+    """Video ids the owner deliberately added to the ytk playlist.
+
+    Read from the cache scheduler.sync maintains; missing or unreadable cache
+    degrades to the pre-playlist ladder rather than failing the profile.
+    """
+    try:
+        data = json.loads(_PLAYLIST_CACHE.read_text(encoding="utf-8"))
+        return frozenset(v for v in data.get("video_ids", []) if isinstance(v, str))
+    except (OSError, ValueError):
+        return frozenset()
+
+
 def signal_map() -> dict[str, int]:
     """Map every profile join key -> r by scanning the vault's source notes.
 
@@ -58,6 +81,7 @@ def signal_map() -> dict[str, int]:
     sources = vault._get_brain_path() / "sources"
     if not sources.exists():
         return out
+    pids = playlist_ids()
     for md in sources.glob("**/*.md"):
         parent = md.parent.name
         if parent in ("thumbnails", "channels") or "frames" in md.parts:
@@ -66,9 +90,11 @@ def signal_map() -> dict[str, int]:
         if not text.startswith("---"):
             continue
         r = classify(parent, text)
+        m = _YT_ID_RE.search(text)
+        if m and m.group(1) in pids:
+            r = max(r, 1)
         out[str(md)] = r
         out[f"{parent}_{md.stem}"] = r
-        m = _YT_ID_RE.search(text)
         if m:
             out[m.group(1)] = r
     return out
@@ -90,12 +116,25 @@ def intake_adjusted_levels(levels: list[int], sources: list[str]) -> list[int]:
     (E2 measured r>=1 as a disguised medium label), so subtract that mechanical
     baseline and let deliberate acts compete within their medium (E4).
 
-    Feeds run_profile's weight computation when interest.medium_controlled
-    (default on); raw levels remain everywhere the record is descriptive.
+    Retired from production by section 28: with playlist intent recorded,
+    raw levels are honest and the subtraction would mirror the confound it
+    fixed. Kept for the experiment record (e4/e5/e6 scripts consume it).
     """
     if len(levels) != len(sources):
         raise ValueError("levels and sources must have matching lengths")
     return [max(0, r - 1) if s in _SAVED_SOURCES else r for r, s in zip(levels, sources)]
+
+
+def assert_signal_coverage(levels: list[int], sources: list[str]) -> None:
+    """A saved-source note can never carry r=0 — classify() awards r>=1 from
+    the folder alone — so one proves the vault scan lost notes. An iCloud
+    stall returns an empty signal_map and would otherwise ship an unweighted
+    portrait silently (measured 2026-08-10, E6's first run)."""
+    bad = sum(1 for r, s in zip(levels, sources) if r == 0 and s in _SAVED_SOURCES)
+    if bad:
+        raise RuntimeError(
+            f"{bad} saved-source notes read r=0 — vault scan incomplete (iCloud stall?)"
+        )
 
 
 def _parse_utc(value: str) -> datetime | None:

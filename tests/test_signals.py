@@ -28,6 +28,53 @@ def test_classify_ladder():
     assert signals.classify("instagram", "---\n---\n## My take\nx\n\nRelated: [[note]]\n") == 3
 
 
+def _vault_note(root, folder, name, text):
+    d = root / "sources" / folder
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{name}.md").write_text(text, encoding="utf-8")
+
+
+def test_signal_map_lifts_playlist_members(tmp_path, monkeypatch):
+    """A playlist add is a deliberate capture: cached membership lifts a
+    YouTube note to r>=1, takes keep their higher tier, absent cache degrades
+    to the text-only ladder instead of failing."""
+    monkeypatch.setattr(signals.vault, "_get_brain_path", lambda: tmp_path)
+    cache = tmp_path / "playlist_ids.json"
+    monkeypatch.setattr(signals, "_PLAYLIST_CACHE", cache)
+    _vault_note(tmp_path, "youtube", "listed", "---\nurl: https://youtu.be/AAAAAAAAAAA\n---\nbody")
+    _vault_note(
+        tmp_path,
+        "youtube",
+        "listed-take",
+        "---\nurl: https://youtu.be/BBBBBBBBBBB\n---\n## My take\n\nx",
+    )
+    _vault_note(
+        tmp_path, "youtube", "unlisted", "---\nurl: https://youtu.be/CCCCCCCCCCC\n---\nbody"
+    )
+
+    smap = signals.signal_map()  # no cache yet
+    assert smap["AAAAAAAAAAA"] == 0
+
+    cache.write_text('{"video_ids": ["AAAAAAAAAAA", "BBBBBBBBBBB"]}', encoding="utf-8")
+    smap = signals.signal_map()
+    assert smap["AAAAAAAAAAA"] == 1
+    assert smap["BBBBBBBBBBB"] == 2  # take outranks the membership lift
+    assert smap["CCCCCCCCCCC"] == 0
+    assert smap["youtube_listed"] == 1  # every join key carries the lift
+
+    cache.write_text("not json", encoding="utf-8")
+    assert signals.playlist_ids() == frozenset()
+
+
+def test_assert_signal_coverage_catches_lost_vault_scan():
+    """r=0 on a saved-source note is impossible by construction, so it proves
+    the scan lost notes (an iCloud stall returns an empty map) — the profile
+    must refuse to ship an unweighted portrait silently."""
+    signals.assert_signal_coverage([0, 1, 2], ["youtube", "instagram", "web"])
+    with pytest.raises(RuntimeError, match="vault scan incomplete"):
+        signals.assert_signal_coverage([0, 0], ["youtube", "instagram"])
+
+
 def test_weights_shape():
     assert signals.weights([0, 1, 2, 3], alpha=1.0) == [1.0, 2.0, 3.0, 4.0]
     assert signals.weights([0, 3], alpha=0.0) == [1.0, 1.0]  # alpha=0 disables

@@ -14,7 +14,7 @@ from google.auth.external_account_authorized_user import Credentials as External
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-from . import db
+from . import capture_log, db
 from .config import Config
 from .filter import check_post_enrichment, check_pre_transcript
 
@@ -149,6 +149,22 @@ def _find_playlist_id(service: googleapiclient.discovery.Resource, name: str) ->
     raise RuntimeError(f"No YouTube playlist named '{name}' found in your account.")
 
 
+def _write_playlist_cache(videos: list[dict]) -> None:
+    """Persist playlist membership for signals.signal_map: a playlist add is a
+    deliberate capture (section 28), and the profile reads intent from here."""
+    import json
+    from datetime import UTC, datetime
+
+    payload = {
+        "updated_at": datetime.now(UTC).isoformat(),
+        "video_ids": sorted({v["video_id"] for v in videos}),
+    }
+    target = _YTK_DIR / "playlist_ids.json"
+    tmp = target.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload, indent=1), encoding="utf-8")
+    tmp.replace(target)
+
+
 def sync(
     service: googleapiclient.discovery.Resource,
     cfg: Config,
@@ -177,6 +193,7 @@ def sync(
     result = SyncResult()
     _log("fetching playlist...")
     videos = fetch_playlist_videos(service)
+    _write_playlist_cache(videos)
     result.seen = len(videos)
     new_videos = [v for v in videos if not db.is_processed(v["video_id"])]
     result.already_processed = len(videos) - len(new_videos)
@@ -268,6 +285,9 @@ def sync(
             if NoteAlreadyExists is not None and isinstance(exc, NoteAlreadyExists):
                 print(f"[ytk] already in vault: {title!r}", file=sys.stderr)
                 db.mark_processed(video_id, title)
+                capture_log.log_capture(
+                    "sync", url, source="youtube", outcome="ok", note_found=True
+                )
                 result.ingested += 1
                 continue
             reason = f"vault write error: {exc}"
@@ -286,6 +306,9 @@ def sync(
 
         db.mark_processed(video_id, title)
         print(f"[ytk] ingested: {title!r}", file=sys.stderr)
+        # provenance only; db carries failures/skips (the log's surface field
+        # is what separates playlist arrivals from hub picks and feed batches)
+        capture_log.log_capture("sync", url, source="youtube", outcome="ok", note_found=True)
         result.ingested += 1
 
     return result
