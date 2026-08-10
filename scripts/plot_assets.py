@@ -146,6 +146,23 @@ def panel_title(ax, text: str, width: int = 46) -> None:
     ax.set_title(textwrap.fill(text, width), color=TEXT, fontsize=PANEL_SIZE, pad=13)
 
 
+def verdict(fig, text: str) -> None:
+    """Red one-liner on the kicker baseline, right-aligned — the figure keeps
+    its conclusion even when it circulates without its notes. One line only;
+    detail belongs in the section notes."""
+    ht = fig.get_figheight()
+    fig.text(
+        1 - MARGIN,
+        1 - 0.40 / ht,
+        text,
+        color=RED,
+        fontsize=9.5,
+        fontweight="bold",
+        ha="right",
+        va="baseline",
+    )
+
+
 def fit3d(ax, pts: np.ndarray, pad: float = 0.03, zoom: float = 1.72) -> None:
     """Frame a 3D panel on its actual data extent.
 

@@ -47,6 +47,7 @@ from plot_assets import (
     frame_panels,
     panel_title,
     style_axes,
+    verdict,
 )
 
 CFG_ORDER = [(2048, 16), (2048, 32), (4096, 16), (4096, 32)]
@@ -255,6 +256,10 @@ def fig01(sweep, faith, faith_final):
         color=MUTED,
         fontsize=8.5,
     )
+    verdict(
+        fig,
+        "VERDICT: fails the retrieval gate everywhere — annotate with the SAE, never index by it",
+    )
     return fig, "01-native-sae-cost.png"
 
 
@@ -420,6 +425,10 @@ def fig02(feats, taste, stab):
         "nothing sign-stable at 27 and 19 positives",
         color=MUTED,
         fontsize=8.5,
+    )
+    verdict(
+        fig,
+        "VERDICT: the dictionary head is real topic structure; the save label is a disguised medium label",
     )
     return fig, "02-latents-and-taste.png"
 

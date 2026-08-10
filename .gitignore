@@ -54,3 +54,6 @@ experiments/encoder_harness/data/
 experiments/sae_qwen/checkpoints/
 experiments/sae_qwen/data/
 media/
+
+# E1 embedding cache, regenerable by scripts/e1_style_lens.py
+docs/assets/23-style-lens/style-chunks.npz

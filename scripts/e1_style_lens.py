@@ -52,6 +52,7 @@ from plot_assets import (
     frame_panels,
     panel_title,
     style_axes,
+    verdict,
 )
 
 MODEL_ID = "StyleDistance/styledistance"
@@ -402,6 +403,10 @@ def fig01(d):
         color=MUTED,
         fontsize=8.5,
     )
+    verdict(
+        fig,
+        "VERDICT: SAE-grade register purity at 20x fewer params in 150 s — adopt for measuring voice",
+    )
     return fig, "01-style-lens.png"
 
 
@@ -514,6 +519,10 @@ def fig02(d):
         f"Qwen {w['eta2_loglen_qwen']:.2f}) — comparable, not worse",
         color=MUTED,
         fontsize=8.5,
+    )
+    verdict(
+        fig,
+        "VERDICT: voice survives within one medium, but the voice lenses disagree there (ARI 0.047)",
     )
     return fig, "02-voice-axis.png"
 

@@ -52,6 +52,7 @@ from plot_assets import (
     panel_title,
     saturated_magma,
     style_axes,
+    verdict,
 )
 
 MAX_CHARS = 2000  # sae_batch.py:32 — sha window of the manifest
@@ -389,6 +390,9 @@ def fig01(d):
         color=MUTED,
         fontsize=8.5,
     )
+    verdict(
+        fig, "VERDICT: Qwen groups by topic, the SAE lens by voice — source purity 0.72 vs 0.95"
+    )
     return fig, "01-two-profiles.png"
 
 
@@ -450,6 +454,10 @@ def fig02(d):
         "voice shared across topics",
         color=MUTED,
         fontsize=8.5,
+    )
+    verdict(
+        fig,
+        "VERDICT: themes fracture by register — neither partition is recoverable from the other",
     )
     return fig, "02-mapping-matrix.png"
 
@@ -515,10 +523,15 @@ def fig03(d):
     fig.text(
         MARGIN,
         0.045,
-        "the views share well-above-chance structure, yet the voice partition explains barely 71% of what "
-        "even a within-space rerun recovers — and that ceiling itself is low: this corpus is gradients, not clusters",
+        "the views share well-above-chance structure, and the ceiling itself is low — this corpus is gradients, not "
+        "clusters. Asset 25 later showed removing 25 RANDOM directions lands ARI in 0.31-0.48, so 0.335 is one draw "
+        "from a wide band: read the gap as a direction, never as a percentage of ceiling",
         color=MUTED,
         fontsize=8.5,
+    )
+    verdict(
+        fig,
+        "VERDICT: real shared structure (triplet 0.644); the 0.335 ARI ceiling is soft — see asset 25",
     )
     return fig, "03-agreement.png"
 
@@ -603,6 +616,7 @@ def fig04(d):
         ],
         loc="upper left",
     )
+    verdict(fig, "VERDICT: ~0.19 labeling noise — single-run profile-score deltas are never signal")
     return fig, "04-noise-floor.png"
 
 

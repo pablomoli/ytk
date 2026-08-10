@@ -54,6 +54,7 @@ from plot_assets import (
     frame_panels,
     panel_title,
     style_axes,
+    verdict,
 )
 
 PCA_SWEEP = (30, 50, 100)
@@ -767,6 +768,10 @@ def fig01(d):
         color=MUTED,
         fontsize=8.5,
     )
+    verdict(
+        fig,
+        "VERDICT: 25/25 dims beat the null — the shared subspace is nearly each view's principal subspace",
+    )
     return fig, "01-shared-spectrum.png"
 
 
@@ -903,6 +908,9 @@ def fig02(d):
         f"length are not independent regressors here",
         color=MUTED,
         fontsize=8.5,
+    )
+    verdict(
+        fig, "VERDICT: shared is topic, not medium — E2's prediction refuted (eta2 0.25 vs 0.05)"
     )
     return fig, "02-medium-or-topic.png"
 
@@ -1045,6 +1053,10 @@ def fig03(d):
         f"{lo_all:.2f}-{hi_all:.2f} band, so 0.335 is one draw, not a fixed bar",
         color=MUTED,
         fontsize=8.5,
+    )
+    verdict(
+        fig,
+        "VERDICT: stripping shared destroys topic with no de-bias — the derivation door is closed",
     )
     return fig, "03-payoff.png"
 
