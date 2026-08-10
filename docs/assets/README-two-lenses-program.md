@@ -138,6 +138,17 @@ tails a flat partition cannot reach. SPLICE is not worth building here.
 > default on, feeding only the weight path. Still open: alpha=7 itself was
 > fitted against the confounded held-out-save target.
 
+> **Later:** section 27 (E5) measured that last open thread. The refit proper
+> is data-blocked — the vault still has only 7 YouTube saves against 350
+> passives and zero saved-source passives, so no r-derived target can be
+> de-confounded — but the sweep it allows is decisive: the *corrected* ranking
+> is still alpha-sensitive (tau(0,31) 0.235; alpha<=1 vs 7 beats 995+/1000
+> medium-preserving shuffles), no longer via the medium (YouTube's share of
+> top-5 weight stays 0.70-0.79 across the corrected sweep vs 0.76 -> 0.02
+> raw). The inherited slope does real, unjustified work; the refit is a
+> blocking prerequisite for trusting the head order, and unblocking it is a
+> product decision (a deliberate-save action on YouTube items in the hub).
+
 ## Doors now closed
 
 - Replacing the production encoder or index with any sparse/derived code.

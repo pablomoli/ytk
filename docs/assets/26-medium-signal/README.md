@@ -134,6 +134,11 @@ One more place the confound lives: alpha=7 itself was fitted (2026-07-05) by
 5-fold held-out-**save** retrieval — the fitting target is the same confounded
 label. The knob's value, not just its application, inherits the intake path.
 
+> **Later:** section 27 (E5) swept alpha over {0,1,3,7,15,31} in both arms.
+> The corrected ranking is still alpha-sensitive beyond the medium-preserving
+> null (p 0.003 at alpha=0), so the inherited slope does real work the fit
+> never justified; the honest refit stays blocked on cross-source save data.
+
 ### Shipped
 
 The outcome branch in the brief: ranking moves materially -> ship the

@@ -18,7 +18,7 @@ numbers into findings — is the same measurement run on deliberately meaningles
 data, so a score has something to be compared against.
 
 `docs/assets/` is the chronological visual-experiment record of this project:
-twenty-six numbered sections, each one folder with one `README.md`, holding the
+twenty-seven numbered sections, each one folder with one `README.md`, holding the
 figures, animations, sidecar data and working notes for a question that was
 actually measured. The order is the order the work happened in, which is the
 point — early sections do not know what later ones found, wrong predictions
@@ -71,6 +71,7 @@ Two files in `docs/assets/` are not sections:
 | 24 | [native-sae](assets/24-native-sae/README.md) | can a SAE trained on the production space make it natively interpretable? | annotation layer yes, replacement no: the head of the dictionary reproduces across runs and names subject matter, but a reconstructed index fails the retrieval gate at every config |
 | 25 | [shared-private](assets/25-shared-private/README.md) | can the two lenses be decomposed into shared, topic-net-of-voice and voice-net-of-topic? | a large real shared subspace (25/25 held-out correlations beat a 200-permutation null) that is *topical*, so stripping it destroys the topic axis instead of de-biasing it |
 | 26 | [medium-signal](assets/26-medium-signal/README.md) | does the profile's ranking change when the medium confound is removed from the save signal? | materially — production's #1 theme falls to 11th, 0/1000 medium-preserving shuffles move the ranking as far; the corrected signal shipped as `interest.medium_controlled` |
+| 27 | [alpha-sensitivity](assets/27-alpha-sensitivity/README.md) | does the inherited alpha=7 still matter once the signal is medium-corrected? | yes — corrected tau(0,31) = 0.235, alpha<=1 beats 995+/1000 medium-preserving shuffles, 4 of 5 top slots are alpha's to give; the honest refit stays data-blocked (7 cross-source saves) |
 | — | [memory-field](assets/memory-field/README.md) | what is the free baseline on memory-capture data quality? | rung 0 of #150: duplicate density, timestamp integrity, memo bursts with launch-day test traffic named in the caption, plus the E- and R-series follow-ups |
 
 ## Reading paths
@@ -91,7 +92,8 @@ the out-of-sample test; and 21 for the geometry at the far end.
 26 in order. The ledger carries the reconciled numbers and the two corrections
 the sections themselves could not make; the sections carry the method and the
 caveats; 26 is the close-out that turned the program's confound into a
-production fix.
+production fix, and 27 is the aftermath — the one thread 26 left open,
+measured and recorded as blocked.
 
 **How this project decides things** — 08, 09, 18's pre-registration section, 19,
 20, 21. The gate that stops growth being mistaken for quality, the null model
@@ -162,6 +164,14 @@ alongside the original claim — which was never edited.
 - **ledger** (doors now open: the r-label confound, E4 redesign) ← 26. Both
   closed: the confound measurably owned the profile ranking, and the corrected
   signal shipped; what stays open is alpha's own fit target.
+- **ledger** (still open: alpha's own fit target) ← 27. Measured rather than
+  refit: the corrected ranking is still alpha-sensitive beyond its
+  medium-preserving null, so the inherited slope does real unjustified work —
+  and the refit itself is data-blocked until deliberate saves exist that are
+  not collinear with source.
+- **26** (alpha fitted against the confounded target) ← 27. The sweep answers
+  it: sensitivity survives the correction; see section 27 for the verdict and
+  the unblock conditions.
 
 One program-level correction has no earlier section to annotate, and is
 recorded here instead. Section 24 found the deliberate-save label is a
