@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Section 19 Phase A + 18.4b — rank metrics offline, and the continuous
-cross-space measure (both pre-registered in 18-sae-fingerprints/preregistration.md).
+cross-space measure (both pre-registered in 18-sae-fingerprints/README.md).
 
 Six similarity metrics over the fresh Qwen snapshot, judged on three tasks
 with built-in ground truth. Strictly read-only; production search is

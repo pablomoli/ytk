@@ -4,7 +4,7 @@
 Per tag: mean fingerprint (per-note mass shares) minus corpus mean, scored
 as z against a tag-shuffle null (labels permuted across notes, per tag
 size). Registered: top features topically coherent for >= 7 of the 10
-largest tags (judged per tag, set-wise, in notes.md); quantitative
+largest tags (judged per tag, set-wise, in 18-sae-fingerprints/README.md); quantitative
 companion: pairwise tag feature-set Jaccard correlates with Qwen centroid
 cosine at r >= 0.4. Control: shuffled labels kill the differential.
 Kill: fewer than 4 of 10 tags coherent.
@@ -52,7 +52,7 @@ LAYER = "20-gemmascope-res-16k"
 SEED = 20260805
 N_TAGS = 10
 TOP_F = 8  # differential features shown per tag
-SET_F = 15  # set size for the registered Jaccard companion (preregistration.md)
+SET_F = 15  # set size for the registered Jaccard companion (18-sae-fingerprints/README.md)
 NULL_DRAWS = 200
 
 
@@ -227,7 +227,7 @@ def plot() -> None:
         0.035,
         "Every tag's differential features tower over the shuffle null (red dashes). Reading the"
         " sets, not single names: each panel should smell like its tag — that judgment, per tag,"
-        " is recorded in notes.md.",
+        " is recorded in 18-sae-fingerprints/README.md.",
         color=MUTED,
         fontsize=9.5,
     )

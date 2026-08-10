@@ -279,7 +279,7 @@ the feature is judged.
 
 C1 and C2 run before section 0 is considered done; C3 and C4 gate the
 binding; C5 gates the scrub; C6 gates seasons. Figures and their
-notes.md stay in the assets folder, stamped with the commit they
+README.md stay in the assets folder, stamped with the commit they
 measured — numbers are never copied forward across engine changes.
 
 ## 7. Tests

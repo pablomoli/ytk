@@ -45,7 +45,7 @@ here depends on the process that ran the backfill.
   regression** by design. Read it before trusting it, but it encodes the
   right policy.
 - `map_stats.py` — recomputes the numbers quoted in
-  `docs/assets/01-fog/linkedin-notes.md` (median strand distance, % within 2h,
+  `docs/assets/01-fog/README.md` (median strand distance, % within 2h,
   strand/junction counts) from a map payload. Validated to reproduce the
   pre-change numbers.
 - `validate_reenrich.py`, `verify_phase1.py` — invariant checks.
@@ -107,7 +107,7 @@ cd /Users/melocoton/Developer/ytk
 uv run python scripts/build_map.py --sweep                 # refit UMAP, rebuild ~/.ytk/map.json
 uv run --with matplotlib python scripts/plot_assets.py --refresh   # all 9 figures
 ```
-Then re-read the prose numbers in `docs/assets/01-fog/linkedin-notes.md`
+Then re-read the prose numbers in `docs/assets/01-fog/README.md`
 against `map_stats.py` output and update any that changed (median 0.55h,
 98.8% within 2h, 10 strands, 5 junctions were the PRE-change values — do
 not copy them forward, re-read them). Keep the pre-change PNGs.

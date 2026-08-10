@@ -10,7 +10,7 @@ Reads fingerprints.npz (18.2). Two presence notions, both reported:
 - mass presence (top-K per note by summed activation, K=256): a feature is
   present only where it carries real weight. The cone is defined here.
 
-Registered prediction (preregistration.md): >= 5 features active in >90% of
+Registered prediction (18-sae-fingerprints/README.md): >= 5 features active in >90% of
 notes, names describing register/domain. Kill: none above 70%.
 Auto-explanations are hypotheses, not ground truth — feature 4932
 ("drug usage") fires on ' session', ' repo', ' skill' in a coding note —

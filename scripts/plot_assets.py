@@ -1,6 +1,6 @@
 """Regenerate every figure in docs/assets/01-fog/ under one house style.
 
-The figures are post/blog material (see docs/assets/01-fog/linkedin-notes.md),
+The figures are post/blog material (see docs/assets/01-fog/README.md),
 so they are reproducible from the live map payload rather than from ad-hoc
 snippets. One style lives here: palette, framing, saturation, resolution.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""18.0 — Neuronpedia API smoke test (pre-registered in preregistration.md).
+"""18.0 — Neuronpedia API smoke test (pre-registered in 18-sae-fingerprints/README.md).
 
 One known coding-topic note through POST /api/search-all on the named SAE
 (gemma-2-2b, layer 20 res 16k), then names for its top-10 features via

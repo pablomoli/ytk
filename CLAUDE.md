@@ -64,6 +64,9 @@ ytk/
   .env.example         — template
   CLAUDE.md            — this file
   docs/                — local session briefs (mirror of vault/projects/ytk/)
+  docs/experiments.md  — index to the visual-experiment record; reading paths + corrections
+  docs/assets/         — the record itself: 26 numbered sections, one README each
+  docs/assets/README.md — visualization house style: palette, composition, design intent
   ytk/
     cli.py             — click CLI entry point
     config.py          — Pydantic config model, loads ~/.ytk/config.yaml
@@ -162,6 +165,28 @@ deliberately bespoke — identity surfaces and not-yet-touched chrome — never 
 rules there. `theme.css` is the identity layer and is exempt from the ratchet.
 Page controls render inside their page, never in the nav bar.
 
+## Figures, charts and the experiment record
+
+`docs/assets/` is the chronological visual-experiment record: 26 numbered
+sections, one `README.md` each, holding the figures, animations, sidecar data
+and working notes for every question that was actually measured. Sections are
+never rewritten to agree with later results — later sections annotate earlier
+ones in place with a `> **Later:**` blockquote, and the original claim stands.
+Start at `docs/experiments.md`, the index: what each section asked and found,
+reading paths, and every correction in one list. For assets 22-25 the arbiter
+is `docs/assets/README-two-lenses-program.md`, the reconciled ledger.
+
+**Before drawing any figure or chart, read `docs/assets/README.md`.** It is the
+house-style contract and it is binding, not advisory. The style lives in
+`scripts/plot_assets.py` — import it, never restate it. Three commitments
+decide the arguments the palette cannot: maximize visibility and expression
+(spend the pixels, fill the panel, lift dim ranges into the visible ramp);
+**geometry over labels** (the claim is visible in the shape before any text is
+read — draw the null as a distribution the observation sits inside, not as a
+number in the caption); and self-reporting (the meta line carries the measured
+quantities, `verdict()` carries the conclusion). `DIM` is reserved for nulls,
+shuffles and baselines across the whole series.
+
 ## Filter Config
 
 Default location: `~/.ytk/config.yaml` (auto-created with defaults if missing)
@@ -197,7 +222,7 @@ Returns a structured `Enrichment` object:
 - `key_moments` — timestamped moments specific enough to find from memory. **No cap**: the
   prompt says "include as many as the content warrants; scale to length", and notes in the
   corpus carry up to 40. Whether a cap would help is untested — see
-  `docs/assets/09-heatmap-key-moments/notes.md`
+  `docs/assets/09-heatmap-key-moments/README.md`
 
 ## arXiv ingestion convention (verified 2026-07-27)
 

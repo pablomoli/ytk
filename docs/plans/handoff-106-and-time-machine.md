@@ -36,7 +36,7 @@ already read by `ytk/ui/server.py` and `scripts/grove_lab/buckets.py` — it
 drives the grove. Nothing in `build_map.py` or `mapdomains.py` reads it.
 
 So the work is: make `mapdomains` use the buckets instead of the path slug,
-then re-run `build_map.py`. Per `docs/assets/01-fog/linkedin-notes.md`, this
+then re-run `build_map.py`. Per `docs/assets/01-fog/README.md`, this
 **recolours and does not reshape** — positions come from UMAP over the
 embeddings and will not move, so fog/strand/junction geometry stays
 pixel-identical. Only labels, panel colours, the figure-06 per-domain
