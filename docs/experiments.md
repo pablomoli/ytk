@@ -70,6 +70,7 @@ Two files in `docs/assets/` are not sections:
 | 23 | [style-lens](assets/23-style-lens/README.md) | can a purpose-built style embedder be the voice axis, and does voice survive inside one medium? | StyleDistance is a better and 20x cheaper voice meter with no topic bleed; structure survives inside YouTube, but the two voice lenses then stop agreeing (ARI 0.047) |
 | 24 | [native-sae](assets/24-native-sae/README.md) | can a SAE trained on the production space make it natively interpretable? | annotation layer yes, replacement no: the head of the dictionary reproduces across runs and names subject matter, but a reconstructed index fails the retrieval gate at every config |
 | 25 | [shared-private](assets/25-shared-private/README.md) | can the two lenses be decomposed into shared, topic-net-of-voice and voice-net-of-topic? | a large real shared subspace (25/25 held-out correlations beat a 200-permutation null) that is *topical*, so stripping it destroys the topic axis instead of de-biasing it |
+| 26 | [medium-signal](assets/26-medium-signal/README.md) | does the profile's ranking change when the medium confound is removed from the save signal? | materially — production's #1 theme falls to 11th, 0/1000 medium-preserving shuffles move the ranking as far; the corrected signal shipped as `interest.medium_controlled` |
 | — | [memory-field](assets/memory-field/README.md) | what is the free baseline on memory-capture data quality? | rung 0 of #150: duplicate density, timestamp integrity, memo bursts with launch-day test traffic named in the caption, plus the E- and R-series follow-ups |
 
 ## Reading paths
@@ -86,10 +87,11 @@ statistics need unpacking; the plane as the consequence for drawing; growth as
 the out-of-sample test; and 21 for the geometry at the far end.
 
 **The two-lenses program** — read
-[the ledger](assets/README-two-lenses-program.md) first, then 22, 23, 24, 25 in
-order. The ledger carries the reconciled numbers and the two corrections the
-sections themselves could not make; the sections carry the method and the
-caveats.
+[the ledger](assets/README-two-lenses-program.md) first, then 22, 23, 24, 25,
+26 in order. The ledger carries the reconciled numbers and the two corrections
+the sections themselves could not make; the sections carry the method and the
+caveats; 26 is the close-out that turned the program's confound into a
+production fix.
 
 **How this project decides things** — 08, 09, 18's pre-registration section, 19,
 20, 21. The gate that stops growth being mistaken for quality, the null model
@@ -157,6 +159,9 @@ alongside the original claim — which was never edited.
 - **24** (the deliberate-save confound) ← 25. The prediction it generated — that
   shared structure would be medium — is refuted; medium is one dimension of 25,
   and it reads as document furniture.
+- **ledger** (doors now open: the r-label confound, E4 redesign) ← 26. Both
+  closed: the confound measurably owned the profile ranking, and the corrected
+  signal shipped; what stays open is alpha's own fit target.
 
 One program-level correction has no earlier section to annotate, and is
 recorded here instead. Section 24 found the deliberate-save label is a
@@ -167,4 +172,7 @@ YouTube. Any pipeline weighting by r-levels is partly weighting by medium,
 `docs/assets/` leans on r-level weighting, so nothing here needed annotating;
 the implicated consumer is the profile pipeline, and the open question is
 carried in
-[the two-lenses ledger](assets/README-two-lenses-program.md).
+[the two-lenses ledger](assets/README-two-lenses-program.md). Section 26 then
+closed it: the ranking the profile renders was substantially the medium's
+(0/1000 medium-preserving shuffles reproduce the movement), and the corrected
+signal now feeds the weight path in production.

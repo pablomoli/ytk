@@ -129,6 +129,15 @@ tails a flat partition cannot reach. SPLICE is not worth building here.
   the voice lenses disagree once medium is removed. The honest version is
   themes annotated with named SAE *topic* features, not a topic x voice grid.
 
+> **Later:** section 26 ran the redesigned E4 and closed both bullets. The
+> alpha=7 weighting on raw r was re-ranking themes by capture medium —
+> tau 0.441 against production while 0/1000 medium-preserving shuffles move
+> the ranking that far; production's #1 theme (72% Instagram-paid) falls to
+> 11th. The corrected signal (intake-baseline subtraction,
+> `signals.intake_adjusted_levels`) shipped as `interest.medium_controlled`,
+> default on, feeding only the weight path. Still open: alpha=7 itself was
+> fitted against the confounded held-out-save target.
+
 ## Doors now closed
 
 - Replacing the production encoder or index with any sparse/derived code.
