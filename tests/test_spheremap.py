@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from ytk.spheremap import choose, fibonacci, lattice, radial, score, sphere_block
+from ytk.spheremap import OCCL_DEG, choose, fibonacci, lattice, radial, score, sphere_block, spread
 
 
 def _unit(a: np.ndarray) -> None:
@@ -26,6 +26,30 @@ def test_radial_zero_vector_survives():
     c3[2] = [-1.0, 0, 0]
     pos = radial(c3)  # centroid-coincident row must not become NaN
     _unit(pos)
+
+
+def test_spread_deoverlaps_and_is_deterministic():
+    rng = np.random.default_rng(3)
+    # three stacked clusters: raw bearings overlap by construction
+    centers = radial(rng.normal(size=(3, 3)))
+    pos = np.repeat(centers, 20, axis=0) + rng.normal(0, 0.01, (60, 3))
+    pos /= np.linalg.norm(pos, axis=1, keepdims=True)
+    out = spread(pos)
+    _unit(out)
+    dots = np.clip(out @ out.T, -1, 1)
+    np.fill_diagonal(dots, -1)
+    nn_deg = np.degrees(np.arccos(dots.max(axis=1)))
+    assert (nn_deg >= OCCL_DEG).all()  # every tile visible at the render threshold
+    assert np.array_equal(out, spread(pos))  # fixed seed, fixed iterations
+    # cluster identity survives: each point stays nearest its own center
+    assert (np.argmax(out @ centers.T, axis=1) == np.repeat(np.arange(3), 20)).all()
+
+
+def test_spread_leaves_sparse_layouts_alone():
+    pos = fibonacci(100)  # ~20 deg spacing, no pair inside the target
+    out = spread(pos)
+    # jitter is 1e-4; positions must be unchanged beyond it
+    assert np.degrees(np.arccos(np.clip((out * pos).sum(axis=1), -1, 1))).max() < 0.05
 
 
 def test_fibonacci_even_coverage():

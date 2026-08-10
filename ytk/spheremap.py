@@ -1,7 +1,8 @@
 """Sphere layouts for the /orb gallery: three candidate projections of the
 content embedding onto the unit sphere, scored on fidelity (trustworthiness,
 same metric as map.json's trustworthiness_3d) and legibility (angular
-overlap). All layouts index the content points in map.json order."""
+overlap at the render threshold). All layouts index the content points in
+map.json order."""
 
 from __future__ import annotations
 
@@ -12,6 +13,13 @@ from numpy.typing import NDArray
 
 GOLDEN = np.pi * (3.0 - np.sqrt(5.0))
 
+# Must match TILE_HALF in web/src/lib/orb/scene.ts — the rendered tile's
+# half-extent at radius 1. Nearer than one half-width, a neighbour hides more
+# than half the tile (E29, docs/assets/29-planet-continents/).
+TILE_HALF = 0.055
+OCCL = float(np.arctan(TILE_HALF))
+OCCL_DEG = float(np.degrees(OCCL))
+
 
 def radial(c3: NDArray[Any]) -> NDArray[Any]:
     """Unit directions from the layout centroid; radius discarded."""
@@ -20,6 +28,34 @@ def radial(c3: NDArray[Any]) -> NDArray[Any]:
     # centroid-coincident rows get an arbitrary fixed direction, not NaN
     v = np.where(n < 1e-12, np.array([1.0, 0.0, 0.0]), v / np.maximum(n, 1e-12))
     return v / np.linalg.norm(v, axis=1, keepdims=True)
+
+
+def spread(
+    pos: NDArray[Any],
+    iters: int = 40,
+    target: float = 1.15 * OCCL,
+    step: float = 0.35,
+    seed: int = 29,
+) -> NDArray[Any]:
+    """E29's winning de-overlap: fixed-iteration tangent repulsion. Converges
+    by ~40 iterations (the force is zero once no pair is nearer than target);
+    the seeded jitter only breaks exactly-coincident bearings, where the
+    tangent is undefined."""
+    rng = np.random.default_rng(seed)
+    p = np.asarray(pos, dtype=float) + rng.normal(0.0, 1e-4, pos.shape)
+    p /= np.linalg.norm(p, axis=1, keepdims=True)
+    for _ in range(iters):
+        dots = np.clip(p @ p.T, -1.0, 1.0)
+        ang = np.arccos(dots)
+        w = np.where(ang < target, (target - ang) / target, 0.0)
+        np.fill_diagonal(w, 0.0)
+        if not w.any():
+            break
+        t = p[:, None, :] * dots[:, :, None] - p[None, :, :]
+        t /= np.maximum(np.sqrt(1.0 - dots * dots), 1e-9)[:, :, None]
+        p = p + step * OCCL * (w[:, :, None] * t).sum(axis=1)
+        p /= np.linalg.norm(p, axis=1, keepdims=True)
+    return p
 
 
 def fibonacci(n: int) -> NDArray[Any]:
@@ -104,8 +140,10 @@ def score(vecs: NDArray[Any], pos: NDArray[Any]) -> dict[str, Any]:
     dots = np.clip(pos @ pos.T, -1.0, 1.0)
     np.fill_diagonal(dots, -1.0)
     nn_deg = np.degrees(np.arccos(dots.max(axis=1)))
-    # one tile's angular radius: half the side of an equal-area cell
-    theta_deg = np.degrees(0.5 * np.sqrt(4.0 * np.pi / n))
+    # the render threshold, not an equal-area cell: E29 measured the old
+    # n-derived theta (4.19 deg at n=587) judging separations the renderer
+    # never draws — TILE_HALF is what the screen actually shows
+    theta_deg = OCCL_DEG
     overlap = int((nn_deg < theta_deg).sum())
     # sklearn requires n_neighbors < n_samples / 2
     nn = min(15, max(1, n // 2 - 1))
@@ -136,8 +174,10 @@ def sphere_block(
     run_haversine: bool = True,
 ) -> dict[str, Any]:
     rad = radial(c3)
+    # lattice orders members by the true bearings; the shipped radial layout
+    # is those bearings spread to visibility (E29: anchor 1.000, trust -0.002)
     lat = lattice(themes, rad)
-    layouts: dict[str, NDArray[Any] | None] = {"radial": rad, "lattice": lat}
+    layouts: dict[str, NDArray[Any] | None] = {"radial": spread(rad), "lattice": lat}
     layouts["haversine"] = haversine(vecs, n_neighbors, min_dist) if run_haversine else None
     scores = {k: score(vecs, v) for k, v in layouts.items() if v is not None}
     return {
