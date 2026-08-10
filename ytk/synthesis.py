@@ -666,8 +666,15 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     now = datetime.now(UTC)
     embeddings = np.array([n["embedding"] for n in notes], dtype=float)
     levels = signals.signal_levels(notes)
+    # Weights use the intake-adjusted levels (E4: raw r re-ranks themes by
+    # capture medium); prompt, signal_counts and explicit channel keep raw r.
+    weight_levels = (
+        signals.intake_adjusted_levels(levels, [n["source"] for n in notes])
+        if cfg.interest.medium_controlled
+        else levels
+    )
     weights = signals.decayed_weights(
-        levels,
+        weight_levels,
         [n.get("captured_at", "") for n in notes],
         cfg.interest.alpha,
         cfg.interest.decay_half_life_days,

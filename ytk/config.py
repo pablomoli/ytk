@@ -37,6 +37,10 @@ class InterestConfig(BaseModel):
         default=7.0,
         description="Confidence weighting slope: sample weight = 1 + alpha * signal level r. 0 disables weighting. Fitted 2026-07-05 via 5-fold held-out-save retrieval (plateau alpha 7-31; 7 keeps passive items meaningful).",
     )
+    medium_controlled: bool = Field(
+        default=True,
+        description="Feed intake-adjusted signal levels to the theme weights (r net of the r=1 that saved-source capture writes mechanically). E4 (docs/assets/26): raw r re-ranks themes by capture medium, not interest. Off restores the pre-E4 confounded weighting.",
+    )
     explicit_min: int = Field(
         default=5,
         description="Minimum thought-carrying items (r >= 2) before the explicit interest channel activates.",
