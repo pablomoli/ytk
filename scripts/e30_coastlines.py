@@ -295,7 +295,7 @@ def fig_continents(
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["field", "continents", "assets"])
+    ap.add_argument("stage", choices=["field", "continents", "assets", "export"])
     ap.add_argument("--out", default=os.environ.get("CLAUDE_JOB_DIR", "/tmp") + "/tmp")
     args = ap.parse_args()
     outdir = Path(args.out)
@@ -324,6 +324,41 @@ def main() -> None:
         fig_continents(
             d, ll, tt, dist, theme_grid, comp, stats, r_deg, outdir / "e30-cp2-continents.png"
         )
+        return
+
+    if args.stage == "export":
+        # payload for the manim planet scene (scripts/manim/planet.py):
+        # tiles with their continent tint, coast paths in lon/lat radians
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        cs = plt.contour(ll, tt, dist, levels=[r_deg])
+        paths = [seg.tolist() for seg in cs.allsegs[0] if len(seg) >= 8]
+        plt.close("all")
+        tint_of = {c["id"]: CONTINENT_TINTS[k % len(CONTINENT_TINTS)] for k, c in enumerate(stats)}
+        lon_idx = np.clip(
+            ((_tiles_lonlat(d["pos"])[0] + np.pi) / (2 * np.pi) * (NLON - 1)).astype(int),
+            0,
+            NLON - 1,
+        )
+        lat_idx = np.clip(
+            ((_tiles_lonlat(d["pos"])[1] + np.pi / 2) / np.pi * (NLAT - 1)).astype(int), 0, NLAT - 1
+        )
+        tile_comp = comp[lat_idx, lon_idx]
+        payload = {
+            "n": len(d["pos"]),
+            "coast_deg": r_deg,
+            "continents": len(stats),
+            "largest": stats[0]["names"],
+            "tiles": d["pos"].round(4).tolist(),
+            "tints": [tint_of.get(int(c), CONTINENT_TINTS[0]) for c in tile_comp],
+            "coasts": paths,
+        }
+        out = REPO / "scripts" / "manim" / "planet.json"
+        out.write_text(json.dumps(payload))
+        print(f"wrote {out} ({len(paths)} coast paths)")
         return
 
     if args.stage == "assets":
