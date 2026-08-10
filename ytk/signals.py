@@ -90,7 +90,8 @@ def intake_adjusted_levels(levels: list[int], sources: list[str]) -> list[int]:
     (E2 measured r>=1 as a disguised medium label), so subtract that mechanical
     baseline and let deliberate acts compete within their medium (E4).
 
-    Not wired into production; run_profile still consumes raw levels.
+    Feeds run_profile's weight computation when interest.medium_controlled
+    (default on); raw levels remain everywhere the record is descriptive.
     """
     if len(levels) != len(sources):
         raise ValueError("levels and sources must have matching lengths")

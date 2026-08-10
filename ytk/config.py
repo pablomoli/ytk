@@ -35,7 +35,7 @@ class InterestConfig(BaseModel):
     )
     alpha: float = Field(
         default=7.0,
-        description="Confidence weighting slope: sample weight = 1 + alpha * signal level r. 0 disables weighting. Fitted 2026-07-05 via 5-fold held-out-save retrieval (plateau alpha 7-31; 7 keeps passive items meaningful).",
+        description="Confidence weighting slope: sample weight = 1 + alpha * signal level r. 0 disables weighting. Fitted 2026-07-05 via 5-fold held-out-save retrieval (plateau alpha 7-31; 7 keeps passive items meaningful) — a target E2 later measured as a disguised medium label. E5 (docs/assets/27): the medium-corrected ranking is still alpha-sensitive (tau(0,31) 0.235), so this value is inherited, not justified; refit blocked until cross-source saves exist.",
     )
     medium_controlled: bool = Field(
         default=True,
