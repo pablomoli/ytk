@@ -85,6 +85,18 @@ def weights(levels: list[int], alpha: float) -> list[float]:
     return [1.0 + alpha * r for r in levels]
 
 
+def intake_adjusted_levels(levels: list[int], sources: list[str]) -> list[int]:
+    """Signal net of the intake path: saved-source membership alone writes r=1
+    (E2 measured r>=1 as a disguised medium label), so subtract that mechanical
+    baseline and let deliberate acts compete within their medium (E4).
+
+    Not wired into production; run_profile still consumes raw levels.
+    """
+    if len(levels) != len(sources):
+        raise ValueError("levels and sources must have matching lengths")
+    return [max(0, r - 1) if s in _SAVED_SOURCES else r for r, s in zip(levels, sources)]
+
+
 def _parse_utc(value: str) -> datetime | None:
     if not value:
         return None

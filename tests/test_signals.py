@@ -33,6 +33,16 @@ def test_weights_shape():
     assert signals.weights([0, 3], alpha=0.0) == [1.0, 1.0]  # alpha=0 disables
 
 
+def test_intake_adjusted_levels_subtracts_route_baseline():
+    """Saved-source membership alone confers r=1 (E2's medium confound), so
+    the adjusted level removes exactly that; YouTube levels pass through."""
+    levels = [0, 2, 1, 2, 3]
+    sources = ["youtube", "youtube", "instagram", "tiktok", "web"]
+    assert signals.intake_adjusted_levels(levels, sources) == [0, 2, 0, 1, 2]
+    with pytest.raises(ValueError):
+        signals.intake_adjusted_levels([1], ["instagram", "web"])
+
+
 def test_weighted_centroid_pulls_toward_heavy():
     emb = np.array([[1.0, 0.0], [0.0, 1.0]])
     c = np.array(weighted_centroid(emb, [1.0, 3.0]))
