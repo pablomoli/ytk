@@ -149,6 +149,22 @@ tails a flat partition cannot reach. SPLICE is not worth building here.
 > blocking prerequisite for trusting the head order, and unblocking it is a
 > product decision (a deliberate-save action on YouTube items in the hub).
 
+> **Later:** section 28 (E6) closed the program's whole signal thread the day
+> after 27, on owner testimony 27 lacked: the ytk playlist is curated — "I
+> only add to that playlist to surface it to my notes" — so 322 of 358
+> "passive" YouTube notes were deliberate captures the ladder never recorded.
+> Recording them (playlist cache, `signals.signal_map` lift) makes r
+> near-uniform: alpha cancels out of the theme shares (honest tau(0,31)
+> 0.882, inside its own within-source shuffle band; max share move 0.006),
+> so the refit is dissolved, not merely unblocked — there is no
+> ranking-relevant slope left to fit, and the knob stays at 7 because it no
+> longer matters where it points. `interest.medium_controlled` is retired
+> with its job done: subtracting the saved-source r=1 while YouTube's
+> playlist r=1 stands would mirror the confound E4 fixed. The program's
+> arc, restated by its ending: E2 caught a label meaning "which app", E4
+> repaired the damage arithmetically, and E6 fixed the bookkeeping that
+> made both necessary.
+
 ## Doors now closed
 
 - Replacing the production encoder or index with any sparse/derived code.

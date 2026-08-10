@@ -156,6 +156,16 @@ corrected signal with the evidence attached. Done in this change, minimally:
   labelling call, whose eval sits under the measured ~0.19 noise floor —
   deliberately not spent.
 
+> **Later:** `medium_controlled` served for one day and is retired by section
+> 28, its job done. The confound it corrected arithmetically turned out to be
+> a bookkeeping omission — the owner's curated playlist meant 322 "passive"
+> YouTube notes were deliberate captures with no place to be recorded. With
+> that intent recorded, the subtraction would re-create the confound mirrored
+> (remove Instagram's r=1, keep YouTube's), so raw levels are honest again
+> and the medium repair this section bought survives by construction:
+> YouTube pays 0.73 of the top-5 weight under both the corrected and honest
+> ladders, against 0.26 raw.
+
 ### Caveats
 
 - Membership is fixed by design: E4 measures the accounting the profile page

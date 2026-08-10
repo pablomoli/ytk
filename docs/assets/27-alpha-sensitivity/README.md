@@ -202,6 +202,18 @@ hub can record a deliberate save on a YouTube item, every rendered ranking
 should be read knowing its head order below rank 1 is substantially a knob
 nobody has justified.
 
+> **Later:** dissolved the next day by section 28, on a fact this section's
+> data could not contain: the owner's ytk playlist is curated, so 322 of the
+> "350 passives" were deliberate saves the ladder never recorded. The
+> collinearity was real but manufactured — YouTube's intent had no column.
+> With playlist membership recorded (r >= 1 via the sync cache), r is
+> near-uniform, alpha cancels out of the shares (honest tau(0,31) 0.882,
+> inside its own shuffle band, max share move 0.006), and the refit this
+> section declared blocking has nothing left to fit. The unblock
+> recommendation above was the right ask aimed at the wrong mechanism: the
+> save action existed all along — it was the playlist — and what was missing
+> was reading it.
+
 ## Files
 
 - `01-tau-vs-alpha-two-arms.png` — tau vs the shipped ranking across the sweep, both arms, against shuffle bands
