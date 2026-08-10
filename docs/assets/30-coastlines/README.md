@@ -45,6 +45,17 @@ Rendered by `scripts/manim/planet.py` from `scripts/manim/planet.json`
 (the harness's `export` stage); motion verified by pixel-diffing frames
 inside the window, never by exit code.
 
+### 04-three-coast-rules.png
+![Hard-min circles vs softmin metaballs vs seeded warp, same land area](04-three-coast-rules.png)
+The owner's circle critique made concrete (`scripts/e30b_organic_coast.py`):
+the shipped hard-min coast can only draw circles around lone notes, because
+it is a union of fixed-radius caps. A softmin (metaball) field pools nearby
+notes into organic landmasses; a seeded value-noise warp erodes the edges.
+All three re-level to the same 48% land, so the E29 calibration and the
+atlas numbers survive a rule change. Not wired into the pipeline — the
+temperament choice is the owner's, and a lone note stays round-ish under
+any rule (an isolated note is an atoll).
+
 ## Notes
 
 ### Method
