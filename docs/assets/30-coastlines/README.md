@@ -37,6 +37,14 @@ Wrap-aware connected land components, tinted, shaded by nearness, labeled at
 their interior poles by the dominant themes of the tiles they carry.
 VERDICT: 32 continents; the largest carries agentic coding workflows.
 
+### 03-the-planet-turns.mp4
+One full 18-second orbit of the planet in 3D (ManimCE, 720p30) — tiles in
+their continent tints, coasts drawn on the surface. What the orbit adds to
+the stills is parallax: a still sphere cannot prove the far side exists.
+Rendered by `scripts/manim/planet.py` from `scripts/manim/planet.json`
+(the harness's `export` stage); motion verified by pixel-diffing frames
+inside the window, never by exit code.
+
 ## Notes
 
 ### Method
