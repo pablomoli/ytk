@@ -1,0 +1,220 @@
+{
+ "coast_deg": 5.091206677161195,
+ "continents": [
+  {
+   "id": 1,
+   "area": 0.2987897881955673,
+   "names": [
+    "agentic coding workflows",
+    "systems & performance engineering"
+   ]
+  },
+  {
+   "id": 5,
+   "area": 0.048465116108404,
+   "names": [
+    "discipline & habit systems",
+    "self-taught learning paths"
+   ]
+  },
+  {
+   "id": 20,
+   "area": 0.044796963867865976,
+   "names": [
+    "math & physics derivations",
+    "TouchDesigner live visuals"
+   ]
+  },
+  {
+   "id": 27,
+   "area": 0.010347671262510363,
+   "names": [
+    "sci-fi & media criticism"
+   ]
+  },
+  {
+   "id": 28,
+   "area": 0.009209251979328571,
+   "names": [
+    "science phenomena & demos"
+   ]
+  },
+  {
+   "id": 8,
+   "area": 0.0066290400456411975,
+   "names": [
+    "personal software & web curation",
+    "DIY electronics & fabrication"
+   ]
+  },
+  {
+   "id": 16,
+   "area": 0.006007516885113942,
+   "names": [
+    "personal software & web curation"
+   ]
+  },
+  {
+   "id": 10,
+   "area": 0.0050102086171303975,
+   "names": [
+    "self-taught learning paths",
+    "personal software & web curation"
+   ]
+  },
+  {
+   "id": 12,
+   "area": 0.0036542484151483407,
+   "names": [
+    "science phenomena & demos"
+   ]
+  },
+  {
+   "id": 9,
+   "area": 0.003207035892866277,
+   "names": [
+    "personal software & web curation"
+   ]
+  },
+  {
+   "id": 29,
+   "area": 0.003027298117111551,
+   "names": [
+    "science phenomena & demos"
+   ]
+  },
+  {
+   "id": 3,
+   "area": 0.0030186574183635653,
+   "names": [
+    "agentic coding workflows"
+   ]
+  },
+  {
+   "id": 24,
+   "area": 0.002976980961379935,
+   "names": [
+    "science phenomena & demos"
+   ]
+  },
+  {
+   "id": 26,
+   "area": 0.0028277915272398326,
+   "names": [
+    "science phenomena & demos"
+   ]
+  },
+  {
+   "id": 4,
+   "area": 0.0021617752588088007,
+   "names": [
+    "personal software & web curation"
+   ]
+  },
+  {
+   "id": 6,
+   "area": 0.0020570652577194676,
+   "names": []
+  },
+  {
+   "id": 13,
+   "area": 0.001982254737322168,
+   "names": [
+    "personal software & web curation"
+   ]
+  },
+  {
+   "id": 11,
+   "area": 0.0019802961997348687,
+   "names": [
+    "science phenomena & demos"
+   ]
+  },
+  {
+   "id": 7,
+   "area": 0.001974167622227729,
+   "names": [
+    "math & physics derivations"
+   ]
+  },
+  {
+   "id": 15,
+   "area": 0.001973947615234195,
+   "names": [
+    "LLM internals & interpretability"
+   ]
+  },
+  {
+   "id": 25,
+   "area": 0.00197376067239701,
+   "names": []
+  },
+  {
+   "id": 31,
+   "area": 0.0019720395740219533,
+   "names": []
+  },
+  {
+   "id": 21,
+   "area": 0.001971565404132271,
+   "names": []
+  },
+  {
+   "id": 14,
+   "area": 0.0019704367933188697,
+   "names": [
+    "science phenomena & demos"
+   ]
+  },
+  {
+   "id": 18,
+   "area": 0.0019697354962633132,
+   "names": [
+    "science phenomena & demos"
+   ]
+  },
+  {
+   "id": 2,
+   "area": 0.0019669174603085984,
+   "names": [
+    "personal software & web curation"
+   ]
+  },
+  {
+   "id": 30,
+   "area": 0.001965408517993349,
+   "names": [
+    "science phenomena & demos"
+   ]
+  },
+  {
+   "id": 23,
+   "area": 0.001963649467645117,
+   "names": []
+  },
+  {
+   "id": 17,
+   "area": 0.0019607512486223963,
+   "names": []
+  },
+  {
+   "id": 32,
+   "area": 0.001960572829690702,
+   "names": []
+  },
+  {
+   "id": 22,
+   "area": 0.0019587702878323,
+   "names": [
+    "science phenomena & demos"
+   ]
+  },
+  {
+   "id": 19,
+   "area": 0.0019523518516711394,
+   "names": [
+    "sci-fi & media criticism"
+   ]
+  }
+ ]
+}
