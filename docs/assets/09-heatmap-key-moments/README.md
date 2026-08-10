@@ -136,8 +136,8 @@ videos is untested and unknowable by this method.
 ### What it argues for, in ytk
 
 1. **Persist the heatmap** (issue #144 in this repository's tracker). It is
-   already fetched, already free, and it
-   is demonstrably a better attention signal than what ytk generates.
+   already fetched, already free, and it is demonstrably a better attention
+   signal than what ytk generates.
 2. **Persist chapters** (#144). Currently fetched, fed to the enrichment prompt,
    rendered in the terminal, and never written to the note — they only survive
    when an uploader happens to duplicate their timestamps into the description.

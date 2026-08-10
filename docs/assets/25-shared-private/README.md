@@ -1,5 +1,9 @@
 # E3 — Shared / Private Decomposition of the Two Lenses
 
+Two earlier sections read the same note collection through two different models and found they see different things: one sorts notes by subject matter, the other by voice. The obvious next move is to separate the two — subtract whatever the pair agree on, and keep what is left over on each side as pure topic and pure voice. This section attempts exactly that, and the attempt fails in a way that explains the whole program: the thing the two views agree on turns out to be topic itself, so there is no clean topic axis hiding underneath the voice.
+
+The notes come from `ytk`, my personal knowledge system, which ingests YouTube videos, Instagram posts and web articles into an Obsidian vault and indexes them for semantic search. Qwen is the production text encoder; the SAE (sparse autoencoder) fingerprint re-describes each note as a short list of named features, built in [section 18](../18-sae-fingerprints/README.md). CCA is canonical correlation analysis, which finds the directions in each of two paired views that correlate most strongly with each other — the formal version of "what do these two descriptions agree about". Three measures recur: **ARI** (adjusted Rand index — agreement between two groupings of the same items, 0 being chance), **eta²** (the share of a variable's spread explained by group membership), and source purity (what fraction of a group comes from a single medium).
+
 Decompose the paired Qwen and SAE-fingerprint views into shared structure, Qwen-private (topic net of voice) and SAE-private (voice net of topic) using regularized linear CCA. Reference: SPLICE (arXiv 2408.12091), linear first.
 
 Part of the two-lenses program — see [the program ledger](../README-two-lenses-program.md) for the reconciled cross-section picture.
@@ -27,7 +31,7 @@ Qwen-private and SAE-private source purity and ARI after removing shared directi
 
 ## Notes
 
-Question (2026-08-08): sections 22–24 established that the Qwen production
+Question (2026-08-08): sections [22](../22-two-lenses/README.md)–[24](../24-native-sae/README.md) established that the Qwen production
 space groups this corpus by topic and the gemma-2-2b + gemma-scope SAE
 fingerprint space groups it by voice/register. E3 asks the formal version of
 "derive something from BOTH": decompose the paired views into SHARED
@@ -43,7 +47,8 @@ topic). Reference: SPLICE (arXiv 2408.12091) — linear CCA first, by design.
   0.72 / 0.95 / 0.61) are recomputed by that call, not copied, and land on
   22's values.
 - **Preprocessing.** Qwen L2-normalized (1024-d). SAE side through
-  `gemma_space()` — log1p, corpus-mean centered (the 18.3 cone removed), L2
+  `gemma_space()` — log1p, corpus-mean centered (removing the cone found in
+  experiment 18.3 — the always-on shared vocabulary every note carries), L2
   (16384-d). Both views reduced by PCA to 30 / 50 / 100 components; 50 is the
   primary and the other two are the sensitivity sweep. PCA at 50 keeps 52.1%
   of the Qwen variance and 43.4% of the SAE variance.
@@ -143,7 +148,10 @@ signal, stripping it would have de-registered the SAE view. It does not touch it
 
 Top features by correlation between their log-activation and the shared score.
 238 of the 250 names rendered are Neuronpedia auto-names — **unprobed
-hypotheses**, the 18.x drug-usage lesson applies unchanged, and they are marked
+hypotheses**, the drug-usage lesson from
+[section 18](../18-sae-fingerprints/README.md) applies unchanged (a feature
+auto-named "drug usage and its effects" fired on "session", "repo" and "mode"
+in a coding note), and they are marked
 `*` wherever rendered.
 
 Shared 1, the purest topic axis (theme eta² 0.73, medium 0.03):
@@ -219,7 +227,8 @@ order of magnitude, never as a bar to clear by 0.01.
   the paired universe is 532 of today's 604 themed notes (88%). A corpus-wide
   rebatch was attempted twice overnight and failed twice — a wedged MPS process
   after machine sleep, with no intermediate checkpointing — so the instrument is
-  aging exactly as 18.x warned. Nothing here was re-run on the missing 72 notes.
+  aging exactly as [section 18](../18-sae-fingerprints/README.md) warned.
+  Nothing here was re-run on the missing 72 notes.
 - **n=532 with PCA 50 + 50 is a thin regime for CCA.** The permutation null is
   what makes the result safe, and the margin (0.60–0.96 observed vs 0.22 null
   maximum) is large enough that thinness is not the binding constraint on the

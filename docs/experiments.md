@@ -1,5 +1,22 @@
 # The experiment record — index to `docs/assets/`
 
+The project is `ytk`, my personal knowledge system: it ingests YouTube videos,
+Instagram posts and web articles into an Obsidian vault — a folder of markdown
+notes — enriches them with a language model, and indexes everything for
+semantic search. Roughly half the sections below are about rendering that
+collection as a 3D map; the other half are about measuring whether the
+collection's structure is real. Each section stands on its own and defines its
+own terms; a few recur often enough to name here. The **corpus** is the set of
+notes being measured. An **embedding** is the vector a text encoder produces
+for a note, and **cosine similarity** between two of them is the usual stand-in
+for "how related are these". **The cone** is this corpus's most consequential
+geometric fact, found in section 12: every note leans in one shared direction,
+so a large part of any two notes' apparent similarity is something the entire
+collection has in common. **The gate** is the automated retrieval check that
+nothing ships past. And a **null model** — the thing that turns most of these
+numbers into findings — is the same measurement run on deliberately meaningless
+data, so a score has something to be compared against.
+
 `docs/assets/` is the chronological visual-experiment record of this project:
 twenty-six numbered sections, each one folder with one `README.md`, holding the
 figures, animations, sidecar data and working notes for a question that was
