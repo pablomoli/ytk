@@ -1,14 +1,19 @@
 """E30 — coastlines: draw the land/sea boundary of the /orb planet.
 
-E29's ocean definition induces the coastline for free: land is everything
-within the calibrated ocean radius of a tile, sea is everything beyond it,
-and the coast is the iso-distance contour between them — no bandwidth knob,
-no density estimate. Continents are wrap-aware connected land components,
-named by the themes of the tiles they contain.
+E29's ocean definition induces the coastline: land is everything within the
+calibrated ocean radius, and that calibration pins land area under every
+coast rule. The original hard-min contour (parameter-free, but every lone
+note a circle) survives as --coast hard; the default is the 04-07 study's
+organic rule — softmin metaballs over a warped domain, roughened by Perlin
+fBm — and --shuffle-seed rerolls the shoreline without moving a tile.
+Continents are wrap-aware connected land components, named by the themes of
+the tiles they contain.
 
     uv run --with matplotlib,scipy python scripts/e30_coastlines.py field
     ...                                                             continents
     ...                                                             assets
+    ...                                                             export
+    ... any stage --coast hard | --shuffle-seed 42
 """
 
 from __future__ import annotations
@@ -108,6 +113,35 @@ def fields(xyz: np.ndarray, pos: np.ndarray, themes: np.ndarray) -> tuple[np.nda
     return dist.reshape(xyz.shape[:2]), theme.reshape(xyz.shape[:2])
 
 
+def organic_field(
+    pos: np.ndarray,
+    xyz: np.ndarray,
+    r_deg: float,
+    beta_factor: float = 3.0,
+    warp_amp: float = 0.10,
+    fbm_amp: float = 0.8,
+    shuffle_sigma: float = 0.6,
+    shuffle_seed: int | None = None,
+) -> np.ndarray:
+    """Rule E from the 04-07 study: softmin metaballs over a domain warped by
+    3-octave vector fBm, roughened by 6-octave fBm. shuffle_seed rerolls the
+    shoreline by jittering the notes inside this field only (sigma in coast
+    units) — rendered tile positions never move, so E29's visibility
+    guarantees are untouched. Deferred imports: the figure scripts stay the
+    committed record and this stays their single consumer."""
+    from e30b_fbm import fbm
+    from e30b_organic_coast import softmin_field
+    from e30b_shuffle import jitter
+
+    p = pos
+    if shuffle_seed is not None:
+        p = jitter(pos, np.radians(shuffle_sigma * r_deg), shuffle_seed)
+    wv = np.stack([fbm(xyz, seed=31 + k, octaves=3) for k in range(3)], axis=-1)
+    warped = xyz + warp_amp * wv
+    warped /= np.linalg.norm(warped, axis=-1, keepdims=True)
+    return softmin_field(warped, p, beta_factor / r_deg) + fbm(xyz, seed=30) * (fbm_amp * r_deg)
+
+
 def continents(land: np.ndarray) -> np.ndarray:
     """Wrap-aware connected components of the land mask. The lon seam is a
     grid artifact, not a coast: labels touching across it are merged."""
@@ -162,13 +196,17 @@ def _tiles_lonlat(pos: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return np.arctan2(pos[:, 1], pos[:, 0]), np.arcsin(np.clip(pos[:, 2], -1, 1))
 
 
-def fig_field(d: dict, ll, tt, dist, r_deg: float, out: Path, number: int = 1) -> None:
+def fig_field(
+    d: dict, ll, tt, sd, r_deg: float, coast_desc: str, out: Path, number: int = 1
+) -> None:
+    """sd is the signed coast field: zero at the shoreline, negative inland.
+    The hard rule is the special case sd = dist - r_deg."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    land_frac = float((np.cos(tt) * (dist < r_deg)).sum() / np.cos(tt).sum())
+    land_frac = float((np.cos(tt) * (sd < 0)).sum() / np.cos(tt).sum())
     fig, top = figure(
         16.0,
         8.6,
@@ -177,18 +215,18 @@ def fig_field(d: dict, ll, tt, dist, r_deg: float, out: Path, number: int = 1) -
         "The planet unrolled: the ocean-radius contour is the coast",
         meta=(
             f"n={len(d['pos'])} tiles (spread radial, chosen={d['chosen']}) · "
-            f"coast at {r_deg:.1f}° (E29 ocean calibration) · land {land_frac:.0%} of the sphere · "
-            f"grid 0.5° · commit {sha()}"
+            f"coast {coast_desc}, land pinned by the {r_deg:.1f}° E29 calibration · "
+            f"land {land_frac:.0%} of the sphere · grid 0.5° · commit {sha()}"
         ),
     )
     gs = fig.add_gridspec(1, 1, left=0.05, right=0.95, top=top, bottom=0.06)
     ax = _moll(fig, gs[0, 0])
-    # nearness ramp: bright = close to content, the sea falls into the dark end
-    near = punch(np.clip(1.0 - dist / (2.5 * r_deg), 0, 1))
+    # nearness ramp anchored at the shoreline: bright = deep inland
+    near = punch(np.clip(1.0 - (sd + r_deg) / (2.5 * r_deg), 0, 1))
     ax.pcolormesh(
         ll, tt, near, cmap=saturated_magma(), vmin=0, vmax=1, shading="auto", rasterized=True
     )
-    ax.contour(ll, tt, dist, levels=[r_deg], colors=[CYAN], linewidths=1.6)
+    ax.contour(ll, tt, sd, levels=[0.0], colors=[CYAN], linewidths=1.6, linestyles="solid")
     lon, lat = _tiles_lonlat(d["pos"])
     ax.scatter(lon, lat, s=2.5, c=TEXT, alpha=0.5, linewidths=0)
     panel_title(
@@ -207,7 +245,7 @@ CONTINENT_TINTS = [GOLD, BLUE, CYAN, PURPLE, "#d98a5f", "#7fbf7f", "#c66fd1", "#
 
 
 def fig_continents(
-    d: dict, ll, tt, dist, theme_grid, comp, stats, r_deg, out: Path, number: int = 2
+    d: dict, ll, tt, sd, theme_grid, comp, stats, r_deg, out: Path, number: int = 2
 ) -> None:
     import matplotlib
 
@@ -241,7 +279,7 @@ def fig_continents(
     paint = np.zeros(comp.shape)
     for k, c in enumerate(stats):
         mask = comp == c["id"]
-        shade = punch(np.clip(1.0 - dist[mask] / r_deg, 0, 1))
+        shade = punch(np.clip(-sd[mask] / r_deg, 0, 1))
         paint[mask] = 1 + k * levels + np.clip((shade * levels).astype(int), 0, levels - 1)
     ax.pcolormesh(
         ll,
@@ -253,7 +291,9 @@ def fig_continents(
         shading="auto",
         rasterized=True,
     )
-    ax.contour(ll, tt, dist, levels=[r_deg], colors=[TEXT], linewidths=1.0, alpha=0.8)
+    ax.contour(
+        ll, tt, sd, levels=[0.0], colors=[TEXT], linewidths=1.0, alpha=0.8, linestyles="solid"
+    )
     # labels sit at each continent's interior pole (deepest inland cell),
     # never its centroid — a sprawling landmass centres over someone else
     from matplotlib import patheffects as pe
@@ -261,7 +301,7 @@ def fig_continents(
 
     # cos(lat) deflates the polar rows, which the grid-space transform
     # inflates (a Mollweide pole row is one real point stretched wide)
-    inland = ndimage.distance_transform_edt(dist < r_deg) * np.cos(tt)
+    inland = ndimage.distance_transform_edt(sd < 0) * np.cos(tt)
     for k, c in enumerate(stats[:6]):
         masked = np.where(comp == c["id"], inland, -1.0)
         r, cc = np.unravel_index(int(masked.argmax()), masked.shape)
@@ -297,6 +337,18 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("stage", choices=["field", "continents", "assets", "export"])
     ap.add_argument("--out", default=os.environ.get("CLAUDE_JOB_DIR", "/tmp") + "/tmp")
+    ap.add_argument(
+        "--coast",
+        choices=["organic", "hard"],
+        default="organic",
+        help="coast rule: organic (rule E, the 04-07 study's winner) or the hard-min circles",
+    )
+    ap.add_argument(
+        "--shuffle-seed",
+        type=int,
+        default=None,
+        help="reroll the shoreline: seeded field-only jitter, clusters unchanged",
+    )
     args = ap.parse_args()
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -305,14 +357,28 @@ def main() -> None:
     r_deg = ocean_radius(d["lattice"])
     ll, tt, xyz = grid()
     dist, theme_grid = fields(xyz, d["pos"], d["themes"])
-    land = dist < r_deg
+    # the E29 calibration pins land area whatever the coast rule draws
+    target = float((np.cos(tt) * (dist < r_deg)).sum() / np.cos(tt).sum())
+    if args.coast == "organic":
+        from e30b_organic_coast import level_for_area
+
+        field = organic_field(d["pos"], xyz, r_deg, shuffle_seed=args.shuffle_seed)
+        sd = field - level_for_area(field, tt, target)
+        coast_desc = "organic (warp + fBm)" + (
+            f", shuffle seed {args.shuffle_seed}" if args.shuffle_seed is not None else ""
+        )
+    else:
+        sd = dist - r_deg
+        coast_desc = "hard min"
+    land = sd < 0
     print(
-        f"{len(d['pos'])} tiles · coast {r_deg:.2f}° · render occl bound {OCCL_DEG:.2f}° · "
+        f"{len(d['pos'])} tiles · coast {r_deg:.2f}° ({coast_desc}) · "
+        f"render occl bound {OCCL_DEG:.2f}° · "
         f"land {(np.cos(tt) * land).sum() / np.cos(tt).sum():.1%}"
     )
 
     if args.stage == "field":
-        fig_field(d, ll, tt, dist, r_deg, outdir / "e30-cp1-field.png")
+        fig_field(d, ll, tt, sd, r_deg, coast_desc, outdir / "e30-cp1-field.png")
         return
 
     comp = continents(land)
@@ -322,7 +388,7 @@ def main() -> None:
 
     if args.stage == "continents":
         fig_continents(
-            d, ll, tt, dist, theme_grid, comp, stats, r_deg, outdir / "e30-cp2-continents.png"
+            d, ll, tt, sd, theme_grid, comp, stats, r_deg, outdir / "e30-cp2-continents.png"
         )
         return
 
@@ -334,7 +400,7 @@ def main() -> None:
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        cs = plt.contour(ll, tt, dist, levels=[r_deg])
+        cs = plt.contour(ll, tt, sd, levels=[0.0])
         paths = [seg.tolist() for seg in cs.allsegs[0] if len(seg) >= 8]
         plt.close("all")
         tint_of = {c["id"]: CONTINENT_TINTS[k % len(CONTINENT_TINTS)] for k, c in enumerate(stats)}
@@ -363,12 +429,12 @@ def main() -> None:
 
     if args.stage == "assets":
         ASSETS.mkdir(parents=True, exist_ok=True)
-        fig_field(d, ll, tt, dist, r_deg, ASSETS / "01-the-planet-unrolled.png", number=1)
+        fig_field(d, ll, tt, sd, r_deg, coast_desc, ASSETS / "01-the-planet-unrolled.png", number=1)
         fig_continents(
             d,
             ll,
             tt,
-            dist,
+            sd,
             theme_grid,
             comp,
             stats,
@@ -377,7 +443,9 @@ def main() -> None:
             number=2,
         )
         (ASSETS / "continents.json").write_text(
-            json.dumps({"coast_deg": r_deg, "continents": stats}, indent=1)
+            json.dumps(
+                {"coast_deg": r_deg, "coast_rule": coast_desc, "continents": stats}, indent=1
+            )
         )
         print(f"wrote {ASSETS / 'continents.json'}")
 

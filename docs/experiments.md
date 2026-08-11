@@ -187,6 +187,15 @@ alongside the original claim — which was never edited.
   playlist adds the ladder never recorded. With r near-uniform, alpha cancels
   out of the shares (tau(0,31) 0.882, inside its shuffle band) and there is
   no ranking-relevant slope left to fit.
+- **30** (the coast is parameter-free) ← 30, figures 04-07. The deferred
+  cosmetic option was exercised same-day on the owner's circle verdict: the
+  default rule is now the organic composite (metaball softmin, warped
+  domain, Perlin fBm), land area still pinned by the E29 calibration, the
+  hard contour kept as `--coast hard`, and a `--shuffle-seed` that rerolls
+  the shoreline without moving a tile. One instrument correction inside:
+  box-counting fractal dimension is invalid on an archipelago (disconnected
+  islands collapse to lone boxes; D came out below 1) — the committed
+  numbers use the Richardson divider on the longest single coast.
 
 One program-level correction has no earlier section to annotate, and is
 recorded here instead. Section 24 found the deliberate-save label is a

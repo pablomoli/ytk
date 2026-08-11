@@ -135,4 +135,5 @@ def main():
     print(f"wrote {out}")
 
 
-main()
+if __name__ == "__main__":
+    main()
