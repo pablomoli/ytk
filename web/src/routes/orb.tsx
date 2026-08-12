@@ -10,6 +10,7 @@ import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import { mountOrb } from "../lib/orb/scene";
 import { orbPointToFreshNote } from "../lib/orb/note";
 import { useChromeVisible } from "../lib/chrome";
+import { validateOrbSearch } from "./orbSearch";
 import "../styles.css";
 
 // same queryKey/queryFn shape as useNote/useSimilarNotes (api/fresh.ts) so the
@@ -31,7 +32,10 @@ function prefetchNote(path: string): void {
   });
 }
 
-export const Route = createFileRoute("/orb")({ component: OrbPage });
+export const Route = createFileRoute("/orb")({
+  component: OrbPage,
+  validateSearch: validateOrbSearch,
+});
 
 const LAYOUTS: LayoutName[] = ["radial", "haversine", "lattice"];
 
@@ -42,6 +46,7 @@ const captionTitle = (t: string) =>
 function OrbPage() {
   const chrome = useChromeVisible();
   const orb = useOrb();
+  const searchTheme = Route.useSearch().theme;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<OrbHandle | null>(null);
   const [layout, setLayout] = useState<LayoutName | null>(null);
@@ -64,10 +69,17 @@ function OrbPage() {
     handleRef.current = handle;
     setLayout(data.sphere.chosen);
     setViewMode("inside"); // matches the freshly mounted handle's initial mode
+    // ?theme= deep-link from /galaxy's "land" button: apply to the freshly
+    // mounted handle, not just state, so a fresh navigation lands filtered
+    if (searchTheme !== undefined) {
+      setTheme(searchTheme);
+      handle.setThemeFilter(searchTheme);
+    }
     return () => {
       handleRef.current = null;
       handle.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   if (orb.isError)
