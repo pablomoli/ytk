@@ -69,25 +69,20 @@ function DocsCard({ s }: { s: DocsSectionSummary }) {
         ) : null}
       </div>
       {s.images.length > 1 ? (
-        <div className="relative h-[3px] bg-white/10">
-          <span
-            aria-hidden
-            className="absolute inset-y-0 rounded-full bg-[var(--accent)] transition-[left] duration-200 ease-out"
-            style={{ left: `${(i / s.images.length) * 100}%`, width: `${100 / s.images.length}%` }}
-          />
-          {/* invisible 1/N-wide hit targets over the track, taller than its 3px */}
-          <div className="absolute inset-x-0 -bottom-1 -top-1 flex">
-            {s.images.map((im, k) => (
-              <button
-                key={im}
-                type="button"
-                aria-label={`show figure ${k + 1}`}
-                aria-current={k === i}
-                onClick={(e) => show(e, k)}
-                className="flex-1"
-              />
-            ))}
-          </div>
+        // one solid bar, segments flush within it: black off, gray hover, brass on
+        <div className="flex h-[5px]">
+          {s.images.map((im, k) => (
+            <button
+              key={im}
+              type="button"
+              aria-label={`show figure ${k + 1}`}
+              aria-current={k === i}
+              onClick={(e) => show(e, k)}
+              className={`flex-1 transition-colors duration-150 ${
+                k === i ? "bg-[var(--accent)]" : "bg-black hover:bg-[var(--ink2)]"
+              }`}
+            />
+          ))}
         </div>
       ) : null}
       <div className="p-4">
