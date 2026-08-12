@@ -24,6 +24,10 @@ describe("galaxy math", () => {
     expect(n[0]).toBeCloseTo(Math.cos(Math.PI / 6));
     expect(n[1]).toBeCloseTo(Math.sin(Math.PI / 6));
   });
+  it("ringNormal stays unit-length when partner is parallel or antiparallel to center", () => {
+    expect(len(ringNormal([1, 0, 0], [1, 0, 0]))).toBeCloseTo(1);
+    expect(len(ringNormal([1, 0, 0], [-1, 0, 0]))).toBeCloseTo(1);
+  });
   it("standoff sits outside the planet along its radial", () => {
     const s = standoff([0, 0, 1], 12);
     expect(s[2]).toBeCloseTo(1 + 3.2 * worldRadius(12));

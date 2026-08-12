@@ -13,6 +13,12 @@ const normalize = (v: V3): V3 => {
 
 const dot3 = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
+const cross3 = (a: V3, b: V3): V3 => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
+
 export const worldRadius = (radiusDeg: number) => Math.sin((radiusDeg * Math.PI) / 180);
 
 // seconds-per-rotation = clamp(medianAgeDays, 20, 600): a 24-day world turns
@@ -39,7 +45,11 @@ export const ringNormal = (center: V3, partner: V3, tiltRad: number = Math.PI / 
   const radial = normalize(center);
   const d = dot3(partner, radial);
   const tangentRaw: V3 = [partner[0] - d * radial[0], partner[1] - d * radial[1], partner[2] - d * radial[2]];
-  const tangent = normalize(tangentRaw);
+  // partner parallel/antiparallel to radial: tangent is undefined, so pick a
+  // deterministic axis not aligned with radial (same pattern as
+  // ytk/spheremap.py lattice()'s degenerate-centroid fallback).
+  const tangent =
+    len3(tangentRaw) > 1e-9 ? normalize(tangentRaw) : normalize(cross3(radial, Math.abs(radial[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1]));
   const c = Math.cos(tiltRad);
   const s = Math.sin(tiltRad);
   return [radial[0] * c + tangent[0] * s, radial[1] * c + tangent[1] * s, radial[2] * c + tangent[2] * s];
