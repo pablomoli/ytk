@@ -1,0 +1,505 @@
+import numpy as np
+
+from ytk import galaxy
+
+
+def test_attach_payload_shape(tmp_path):
+    rng = np.random.default_rng(4)
+    n = 24
+    vecs = rng.normal(0, 1, (n, 8))
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    c3 = np.concatenate([rng.normal([2, 0, 0], 0.3, (12, 3)), rng.normal([-2, 0, 0], 0.3, (12, 3))])
+    themes = np.array([0] * 12 + [1] * 12)
+    dates = ["2026-08-01"] * n
+    paths = [f"notes/n{i}.md" for i in range(n)]
+    thumbs = [f"thumbs/t{i}.jpg" for i in range(n)]
+    titles = [f"note {i}" for i in range(n)]
+    out = galaxy.attach_payload(
+        vecs,
+        c3,
+        themes,
+        dates,
+        ["alpha", "beta"],
+        paths,
+        thumbs,
+        titles,
+        radial_pos=galaxy_radial(c3),
+        lattice_pos=None,
+        tex_dir=tmp_path / "tex",
+        cache_path=tmp_path / "cache.json",
+        epoch="v2",
+        moon_boot=6,
+        moon_null=8,
+        n_perm=100,
+    )
+    assert out["k_deg"] == 3.0 and out["epoch"] == "v2"
+    assert len(out["planets"]) == 2
+    p = out["planets"][0]
+    assert (tmp_path / "tex" / p["tex"]).exists()
+    # the renderer samples terrain colour from this; a build without it paints
+    # every planet from the 1x1 fallback
+    assert (tmp_path / "tex" / "ramp.png").exists()
+    assert set(p) >= {
+        "theme",
+        "label",
+        "n",
+        "pos",
+        "radius_deg",
+        "cls",
+        "hue",
+        "cohesion",
+        "activity",
+        "tex",
+        "rings",
+        "spin",
+        "moons",
+    }
+    assert "member_paths" not in p and "hash" not in p
+
+
+def galaxy_radial(c3):
+    v = np.asarray(c3, float) - np.asarray(c3, float).mean(axis=0)
+    return v / np.linalg.norm(v, axis=1, keepdims=True)
+
+
+def test_attach_payload_normalizes_vecs_before_ring_gate(tmp_path, monkeypatch):
+    """ring_gate's v @ v.T assumes unit vectors; a caller handing attach_payload
+    raw (non-unit) embeddings must get the same rings a normalized caller
+    would, not a magnitude-biased nearest-neighbor set. Spies on ring_gate to
+    (a) prove the array it actually receives is unit-norm regardless of what
+    attach_payload was handed, and (b) prove the full rings statistics --
+    not just the coarse earned/partners view a small fixture may leave
+    unchanged -- are identical whether the caller normalized first or not."""
+    rng = np.random.default_rng(11)
+    n = 24
+    vecs = rng.normal(0, 1, (n, 8))
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    c3 = np.concatenate([rng.normal([2, 0, 0], 0.3, (12, 3)), rng.normal([-2, 0, 0], 0.3, (12, 3))])
+    themes = np.array([0] * 12 + [1] * 12)
+    dates = ["2026-08-01"] * n
+    paths = [f"notes/n{i}.md" for i in range(n)]
+    thumbs = [f"thumbs/t{i}.jpg" for i in range(n)]
+    titles = [f"note {i}" for i in range(n)]
+    # mixed per-row magnitudes, direction unchanged -- a caller passing raw
+    # (non-unit) store embeddings, which is the real production shape
+    scale = rng.uniform(0.2, 5.0, size=(n, 1))
+    scaled_vecs = vecs * scale
+
+    real_ring_gate = galaxy.ring_gate
+    seen: list[tuple[np.ndarray, dict]] = []
+
+    def spy_ring_gate(vecs_arg, *a, **k):
+        result = real_ring_gate(vecs_arg, *a, **k)
+        seen.append((np.linalg.norm(vecs_arg, axis=1).copy(), result))
+        return result
+
+    monkeypatch.setattr(galaxy, "ring_gate", spy_ring_gate)
+
+    def run(v, tag):
+        return galaxy.attach_payload(
+            v,
+            c3,
+            themes,
+            dates,
+            ["alpha", "beta"],
+            paths,
+            thumbs,
+            titles,
+            radial_pos=galaxy_radial(c3),
+            lattice_pos=None,
+            tex_dir=tmp_path / f"tex_{tag}",
+            cache_path=tmp_path / f"cache_{tag}.json",
+            epoch="v2",
+            moon_boot=6,
+            moon_null=8,
+            n_perm=100,
+        )
+
+    out_unit = run(vecs, "unit")
+    out_scaled = run(scaled_vecs, "scaled")
+
+    assert len(seen) == 2
+    norms_unit, ring_result_unit = seen[0]
+    norms_scaled, ring_result_scaled = seen[1]
+    assert np.allclose(norms_unit, 1.0)
+    assert np.allclose(norms_scaled, 1.0), "attach_payload must normalize vecs before ring_gate"
+    for t in ring_result_unit:
+        assert ring_result_unit[t]["max_z"] == ring_result_scaled[t]["max_z"]
+        assert ring_result_unit[t]["earned"] == ring_result_scaled[t]["earned"]
+
+    rings_unit = [p["rings"] for p in out_unit["planets"]]
+    rings_scaled = [p["rings"] for p in out_scaled["planets"]]
+    assert rings_unit == rings_scaled
+
+
+def test_bake_cached_rebakes_on_filename_mismatch_or_missing_file(tmp_path):
+    """Theme ids are rebuild-scoped: a reshuffle can leave a member-set hash
+    that already has a cache entry, but pointing at a filename from a prior
+    build's theme id. A cache hit must require the entry's stored filename to
+    match the caller's current expected name AND the file to still exist."""
+    cache_path = tmp_path / "cache.json"
+    tex_dir = tmp_path / "tex"
+    tex_dir.mkdir()
+    calls = {"n": 0}
+
+    def bake_0():
+        calls["n"] += 1
+        (tex_dir / "0.png").write_bytes(b"first")
+        return {"coast_deg": 1.0, "land_frac": 0.5}
+
+    galaxy._bake_cached(cache_path, "abc123", "0.png", tex_dir / "0.png", bake_0)
+    assert calls["n"] == 1
+    assert (tex_dir / "0.png").read_bytes() == b"first"
+
+    # same hash, same expected name, file untouched -> real cache hit
+    galaxy._bake_cached(cache_path, "abc123", "0.png", tex_dir / "0.png", bake_0)
+    assert calls["n"] == 1
+
+    # same hash, but a theme-id reshuffle now expects "5.png" -- the cached
+    # entry still says "0.png", so this must be treated as a miss
+    def bake_5():
+        calls["n"] += 1
+        (tex_dir / "5.png").write_bytes(b"second")
+        return {"coast_deg": 1.0, "land_frac": 0.5}
+
+    galaxy._bake_cached(cache_path, "abc123", "5.png", tex_dir / "5.png", bake_5)
+    assert calls["n"] == 2
+    assert (tex_dir / "5.png").read_bytes() == b"second"
+
+    # deleting the file for an otherwise-current hash+name entry also forces
+    # a rebake -- the cache entry alone is not proof the file is on disk
+    (tex_dir / "5.png").unlink()
+    galaxy._bake_cached(cache_path, "abc123", "5.png", tex_dir / "5.png", bake_5)
+    assert calls["n"] == 3
+    assert (tex_dir / "5.png").exists()
+
+
+def test_bake_cached_rebakes_when_meta_predates_land_frac(tmp_path):
+    """Entries written before the payload carried land_frac are otherwise
+    valid hits. Trusting one would caption the planet 0% land forever, so a
+    meta without land_frac is a miss -- one re-bake beats a wrong number."""
+    import json
+
+    cache_path = tmp_path / "cache.json"
+    tex_dir = tmp_path / "tex"
+    tex_dir.mkdir()
+    calls = {"n": 0}
+
+    def bake():
+        calls["n"] += 1
+        (tex_dir / "0.png").write_bytes(b"x")
+        return {"coast_deg": 1.0, "land_frac": 0.42}
+
+    # an old-format entry: right hash, right name, file on disk, no land_frac
+    cache_path.write_text(
+        json.dumps({"tex:h1": {"hash": "h1", "name": "0.png", "meta": {"coast_deg": 1.0}}})
+    )
+    (tex_dir / "0.png").write_bytes(b"stale")
+
+    meta = galaxy._bake_cached(cache_path, "h1", "0.png", tex_dir / "0.png", bake)
+    assert calls["n"] == 1, "a meta without land_frac must not validate as a hit"
+    assert meta["land_frac"] == 0.42
+    # and the repaired entry is a real hit from here on
+    assert (
+        galaxy._bake_cached(cache_path, "h1", "0.png", tex_dir / "0.png", bake)["land_frac"] == 0.42
+    )
+    assert calls["n"] == 1
+
+
+def test_bake_cached_reshuffle_revert_rebakes_not_stale(tmp_path):
+    """A->B->A member-set revert onto the same theme id/filename: build A
+    bakes hash h1 under "0.png"; build B reassigns "0.png" to a DIFFERENT
+    member set (hash h2), overwriting the file; build C reverts to h1's
+    member set. Without dropping h1's now-stale entry when h2 claims "0.png",
+    h1's entry would still validate (name matches, file exists) and return
+    build B's geography forever -- a cache hit would resolve to the wrong
+    planet's coastline."""
+    cache_path = tmp_path / "cache.json"
+    tex_dir = tmp_path / "tex"
+    tex_dir.mkdir()
+    calls = {"h1": 0, "h2": 0}
+
+    def bake_h1():
+        calls["h1"] += 1
+        (tex_dir / "0.png").write_bytes(b"M1")
+        return {"coast_deg": 1.0, "land_frac": 0.5}
+
+    def bake_h2():
+        calls["h2"] += 1
+        (tex_dir / "0.png").write_bytes(b"M2")
+        return {"coast_deg": 2.0, "land_frac": 0.6}
+
+    # build A: h1 -> 0.png
+    galaxy._bake_cached(cache_path, "h1", "0.png", tex_dir / "0.png", bake_h1)
+    assert calls["h1"] == 1
+    assert (tex_dir / "0.png").read_bytes() == b"M1"
+
+    # build B: a different member set (h2) is now assigned the same theme id
+    # -- overwrites 0.png, and must drop h1's now-stale cache entry
+    galaxy._bake_cached(cache_path, "h2", "0.png", tex_dir / "0.png", bake_h2)
+    assert calls["h2"] == 1
+    assert (tex_dir / "0.png").read_bytes() == b"M2"
+
+    # build C: reverts to h1's member set under the same name -- must rebake,
+    # not trust the stale (h2/M2) file that "0.png" now happens to point at
+    galaxy._bake_cached(cache_path, "h1", "0.png", tex_dir / "0.png", bake_h1)
+    assert calls["h1"] == 2, "h1 must re-bake after h2 took over its filename"
+    assert (tex_dir / "0.png").read_bytes() == b"M1"
+
+
+def test_moons_cached_survives_member_reorder(tmp_path):
+    """member_hash sorts paths, so it's order-insensitive -- but moon_gate's
+    member_idx indexes into THIS call's vn/member_paths row order. If
+    map.json's point order changes while the member SET (and so the hash)
+    stays the same, blindly reusing cached member_idx would resolve to the
+    wrong notes. moons_cached must resolve to stable member paths before
+    caching so a hit is safe under any order."""
+    rng = np.random.default_rng(9)
+    # same fixture as test_galaxy_moons.py's gated case: n_big=18, n_small=10,
+    # sep=3, std=1.0 -- known to earn at gate seed=18, n_boot=10, n_null=15
+    vn = np.concatenate(
+        [rng.normal([3, 0, 0, 0], 1.0, (18, 4)), rng.normal([0, 3, 0, 0], 1.0, (10, 4))]
+    )
+    vn = vn / np.linalg.norm(vn, axis=1, keepdims=True)
+    paths = [f"p{i}.md" for i in range(len(vn))]
+    cache_path = tmp_path / "cache.json"
+
+    first = galaxy.moons_cached(vn, paths, "v2", cache_path, seed=18, n_boot=10, n_null=15)
+    assert first["earned"] and first["moons"], "fixture must gate for this test to mean anything"
+    exemplar_before = first["moons"][0]["exemplar"]
+    paths_before = set(first["moons"][0]["paths"])
+
+    perm = rng.permutation(len(vn))
+    vn_perm = vn[perm]
+    paths_perm = [paths[i] for i in perm]
+    # same member set (member_hash sorts -> identical key), different order
+    second = galaxy.moons_cached(
+        vn_perm, paths_perm, "v2", cache_path, seed=18, n_boot=10, n_null=15
+    )
+
+    assert second["moons"][0]["exemplar"] == exemplar_before
+    assert set(second["moons"][0]["paths"]) == paths_before
+
+
+def test_attach_payload_carries_hue_shift_and_land_frac(tmp_path):
+    """Arm 0 (#179): every planet ships a hue rotation off the ramp anchor and
+    the land fraction the bake already measured."""
+    from PIL import Image
+
+    rng = np.random.default_rng(4)
+    n = 24
+    vecs = rng.normal(0, 1, (n, 8))
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    c3 = np.concatenate([rng.normal([2, 0, 0], 0.3, (12, 3)), rng.normal([-2, 0, 0], 0.3, (12, 3))])
+    themes = np.array([0] * 12 + [1] * 12)
+    dates = ["2026-08-01"] * n
+    paths = [f"notes/n{i}.md" for i in range(n)]
+    titles = [f"note {i}" for i in range(n)]
+
+    vault = tmp_path / "vault"
+    (vault / "second-brain" / "thumbs").mkdir(parents=True)
+    thumbs: list[str] = []
+    for i in range(n):
+        rel = f"thumbs/t{i}.jpg"
+        # theme 0 green covers, theme 1 blue: two different hue families
+        colour = (0, 200, 0) if i < 12 else (30, 30, 210)
+        Image.new("RGB", (96, 96), colour).save(vault / "second-brain" / rel)
+        thumbs.append(rel)
+
+    out = galaxy.attach_payload(
+        vecs,
+        c3,
+        themes,
+        dates,
+        ["alpha", "beta"],
+        paths,
+        thumbs,
+        titles,
+        radial_pos=galaxy_radial(c3),
+        lattice_pos=None,
+        tex_dir=tmp_path / "tex",
+        cache_path=tmp_path / "cache.json",
+        epoch="v2",
+        vault_root=vault,
+        moon_boot=6,
+        moon_null=8,
+        n_perm=100,
+    )
+    import json
+
+    for p in out["planets"]:
+        assert isinstance(p["hue_shift_deg"], float)
+        assert 0.0 <= p["hue_shift_deg"] < 360.0
+        assert isinstance(p["land_frac"], float)
+        assert 0.0 <= p["land_frac"] <= 1.0
+
+    # the cache holds the honest measurement, the payload holds the amplified
+    # presentation: pin both halves rather than one loose tolerance on the
+    # product, which the gain would multiply into meaninglessness
+    cache = json.loads((tmp_path / "cache.json").read_text())
+    raws = sorted(v["hue"] for k, v in cache.items() if k.startswith("hue:"))
+    assert len(raws) == 2
+    assert abs((raws[0] - 120.0 + 180) % 360 - 180) <= 12.0, "green covers must measure green"
+    assert abs((raws[1] - 240.0 + 180) % 360 - 180) <= 12.0, "blue covers must measure blue"
+    shipped = sorted(p["hue_shift_deg"] for p in out["planets"])
+    assert shipped == sorted(galaxy.spread_shift(r) for r in raws)
+    # the two cover families must not collapse onto one rotation
+    assert abs((shipped[0] - shipped[1] + 180) % 360 - 180) > 30.0
+
+
+def test_attach_payload_hue_falls_back_to_member_hash(tmp_path):
+    """No resolvable thumbs: the shift still has to be a stable per-theme
+    value, not a constant that paints every planet the same."""
+    rng = np.random.default_rng(4)
+    n = 24
+    vecs = rng.normal(0, 1, (n, 8))
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    c3 = np.concatenate([rng.normal([2, 0, 0], 0.3, (12, 3)), rng.normal([-2, 0, 0], 0.3, (12, 3))])
+    themes = np.array([0] * 12 + [1] * 12)
+    dates = ["2026-08-01"] * n
+    paths = [f"notes/n{i}.md" for i in range(n)]
+    thumbs = [None] * n
+    titles = [f"note {i}" for i in range(n)]
+
+    def run(tag):
+        return galaxy.attach_payload(
+            vecs,
+            c3,
+            themes,
+            dates,
+            ["alpha", "beta"],
+            paths,
+            thumbs,
+            titles,
+            radial_pos=galaxy_radial(c3),
+            lattice_pos=None,
+            tex_dir=tmp_path / f"tex_{tag}",
+            cache_path=tmp_path / f"cache_{tag}.json",
+            epoch="v2",
+            vault_root=tmp_path / "nowhere",
+            moon_boot=6,
+            moon_null=8,
+            n_perm=100,
+        )
+
+    a = run("a")
+    b = run("b")
+    shifts_a = [p["hue_shift_deg"] for p in a["planets"]]
+    shifts_b = [p["hue_shift_deg"] for p in b["planets"]]
+    assert shifts_a == shifts_b, "the hash fallback must be deterministic across builds"
+    assert shifts_a[0] != shifts_a[1], "distinct member sets must not land on one hue"
+    for p in a["planets"]:
+        assert 0.0 <= p["hue_shift_deg"] < 360.0
+        assert 0.0 <= p["land_frac"] <= 1.0
+
+
+def spread_fixture():
+    """Six themes whose arm-A directions leave one pair overlapping: three
+    centroids sit on the same side of the cloud mean (so their directions are
+    close), three counterweight it. Without the spread pass one pair is nearer
+    than margin*(r_i+r_j)."""
+    rng = np.random.default_rng(7)
+    members = 8
+    cents = np.array(
+        [[2, 0, 0], [2, 0.35, 0], [2, -0.32, 0.1], [-1, 1, 0], [-1, -1, 0], [-1, 0, 1.0]],
+        dtype=float,
+    )
+    n_themes = len(cents)
+    c3 = np.concatenate([c + rng.normal(0, 0.03, (members, 3)) for c in cents])
+    n = n_themes * members
+    vecs = rng.normal(0, 1, (n, 8))
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    themes = np.repeat(np.arange(n_themes), members)
+    return vecs, c3, themes, [f"theme {t}" for t in range(n_themes)]
+
+
+def _pair_angles(pos):
+    p = np.asarray(pos, dtype=float)
+    ang = np.arccos(np.clip(p @ p.T, -1.0, 1.0))
+    return ang[np.triu_indices(len(p), 1)]
+
+
+def _spearman(a, b):
+    ra = np.argsort(np.argsort(a)).astype(float)
+    rb = np.argsort(np.argsort(b)).astype(float)
+    ra -= ra.mean()
+    rb -= rb.mean()
+    return float((ra @ rb) / np.sqrt((ra @ ra) * (rb @ rb)))
+
+
+def test_attach_payload_spreads_planets_off_each_other(tmp_path):
+    """E32 arm B ships: no two planets sit nearer than margin*(r_i+r_j) after
+    attach. Arm A alone leaves this fixture with an overlapping pair, so the
+    assertion is a real gate on the de-overlap pass. The shipped margin is 2.05,
+    not the 1.05 that only bought non-overlap: the bar is visible air."""
+    vecs, c3, themes, labels = spread_fixture()
+    n = len(themes)
+    out = galaxy.attach_payload(
+        vecs,
+        c3,
+        themes,
+        ["2026-08-01"] * n,
+        labels,
+        [f"notes/n{i}.md" for i in range(n)],
+        [None] * n,
+        [f"note {i}" for i in range(n)],
+        radial_pos=galaxy_radial(c3),
+        lattice_pos=None,
+        tex_dir=tmp_path / "tex",
+        cache_path=tmp_path / "cache.json",
+        epoch="v2",
+        moon_boot=6,
+        moon_null=8,
+        n_perm=50,
+    )
+    planets = out["planets"]
+    pos = np.array([p["pos"] for p in planets], dtype=float)
+    radii = np.radians([p["radius_deg"] for p in planets])
+    target = galaxy.SPREAD_MARGIN * (radii[:, None] + radii[None, :])
+    iu = np.triu_indices(len(planets), 1)
+    ang = np.arccos(np.clip(pos @ pos.T, -1.0, 1.0))
+    closest = float((ang[iu] - target[iu]).min())
+    assert closest >= -1e-9, f"a pair sits {np.degrees(-closest):.2f} deg inside its clearance"
+
+
+def test_attach_payload_spread_stays_anchored_to_arm_a(tmp_path):
+    """The spread is only worth shipping if it keeps the map's geometry, so
+    pairwise-distance rank order against un-spread arm A must survive. 0.95 is
+    the shipped floor on the margin (the live 18-planet layout measures 0.956 at
+    the shipped 2.05 and lands exactly on 0.950 at 2.10); this fixture, with
+    fewer and smaller discs, measures 0.989."""
+    vecs, c3, themes, labels = spread_fixture()
+    n = len(themes)
+    paths = [f"notes/n{i}.md" for i in range(n)]
+    arm_a_blocks = galaxy.galaxy_block(
+        vecs / np.linalg.norm(vecs, axis=1, keepdims=True),
+        c3,
+        themes,
+        ["2026-08-01"] * n,
+        labels,
+        paths,
+        "v2",
+    )
+    out = galaxy.attach_payload(
+        vecs,
+        c3,
+        themes,
+        ["2026-08-01"] * n,
+        labels,
+        paths,
+        [None] * n,
+        [f"note {i}" for i in range(n)],
+        radial_pos=galaxy_radial(c3),
+        lattice_pos=None,
+        tex_dir=tmp_path / "tex",
+        cache_path=tmp_path / "cache.json",
+        epoch="v2",
+        moon_boot=6,
+        moon_null=8,
+        n_perm=50,
+    )
+    a = _pair_angles([b["pos"] for b in arm_a_blocks])
+    b = _pair_angles([p["pos"] for p in out["planets"]])
+    assert a.shape == b.shape
+    assert _spearman(a, b) > 0.95
+    assert not np.allclose(a, b), "the fixture must actually move, or the anchor claim is vacuous"

@@ -16,7 +16,7 @@ function RootShell() {
 /* The shell is a plain top-to-bottom flex column: the nav is a static row that
    takes its own space, and .hub-outlet gets whatever is left and owns the
    scroll. Nothing below the nav has to know how tall the nav is, which is the
-   point — the nav's eleven links re-wrap at widths that line up with no
+   point — the nav's thirteen links re-wrap at widths that line up with no
    breakpoint, so its height is not a constant any stylesheet could name (#134). */
 function RootLayout() {
   const chrome = useChromeVisible();
@@ -48,6 +48,9 @@ function RootLayout() {
             </Link>
             <Link to="/orb" activeProps={{ className: "active" }}>
               orb
+            </Link>
+            <Link to="/galaxy" activeProps={{ className: "active" }}>
+              galaxy
             </Link>
             <Link to="/garden" activeProps={{ className: "active" }}>
               garden

@@ -10,6 +10,7 @@ import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import { mountOrb } from "../lib/orb/scene";
 import { orbPointToFreshNote } from "../lib/orb/note";
 import { useChromeVisible } from "../lib/chrome";
+import { validateOrbSearch } from "./orbSearch";
 import "../styles.css";
 
 // same queryKey/queryFn shape as useNote/useSimilarNotes (api/fresh.ts) so the
@@ -31,7 +32,10 @@ function prefetchNote(path: string): void {
   });
 }
 
-export const Route = createFileRoute("/orb")({ component: OrbPage });
+export const Route = createFileRoute("/orb")({
+  component: OrbPage,
+  validateSearch: validateOrbSearch,
+});
 
 const LAYOUTS: LayoutName[] = ["radial", "haversine", "lattice"];
 
@@ -39,14 +43,39 @@ const LAYOUTS: LayoutName[] = ["radial", "haversine", "lattice"];
 const captionTitle = (t: string) =>
   t.replace(/!\[\[([^\]]+)\]\]/g, "$1").trim();
 
+// mean direction of a theme's tiles under the chosen sphere layout; null when
+// the theme has no tiles or they cancel out
+function themeCentroid(
+  data: NonNullable<ReturnType<typeof useOrb>["data"]>,
+  th: number,
+): [number, number, number] | null {
+  const pos = data.sphere[data.sphere.chosen] ?? data.sphere.radial;
+  if (!pos) return null;
+  const acc: [number, number, number] = [0, 0, 0];
+  let n = 0;
+  const len = Math.min(pos.length, data.points.length);
+  for (let i = 0; i < len; i++) {
+    if (data.points[i].th !== th) continue;
+    acc[0] += pos[i][0];
+    acc[1] += pos[i][1];
+    acc[2] += pos[i][2];
+    n++;
+  }
+  if (n === 0) return null;
+  const l = Math.hypot(acc[0], acc[1], acc[2]);
+  return l < 1e-9 ? null : [acc[0] / l, acc[1] / l, acc[2] / l];
+}
+
 function OrbPage() {
   const chrome = useChromeVisible();
   const orb = useOrb();
+  const searchTheme = Route.useSearch().theme;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<OrbHandle | null>(null);
   const [layout, setLayout] = useState<LayoutName | null>(null);
   const [viewMode, setViewMode] = useState<OrbViewMode>("inside");
   const [theme, setTheme] = useState<number | null>(null);
+  const [terrain, setTerrain] = useState(true);
   const [hovered, setHovered] = useState<number | null>(null);
   const [open, setOpen] = useState<{ i: number; rect: DOMRect } | null>(null);
   const data = orb.data;
@@ -64,10 +93,22 @@ function OrbPage() {
     handleRef.current = handle;
     setLayout(data.sphere.chosen);
     setViewMode("inside"); // matches the freshly mounted handle's initial mode
+    setTerrain(true); // ... and its initial terrain flag
+    // ?theme= deep-link from /galaxy's "land" button: apply to the freshly
+    // mounted handle, not just state, so a fresh navigation lands filtered
+    if (searchTheme !== undefined) {
+      setTheme(searchTheme);
+      handle.setThemeFilter(searchTheme);
+      // the theme's tiles can sit behind the default camera, which lands the
+      // user facing nothing but dimmed ones; open pointed at their centroid
+      const dir = themeCentroid(data, searchTheme);
+      if (dir) handle.aimAt(dir);
+    }
     return () => {
       handleRef.current = null;
       handle.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   if (orb.isError)
@@ -123,6 +164,19 @@ function OrbPage() {
               }}
             >
               {viewMode === "inside" ? "globe" : "inside"}
+            </button>
+            <button
+              type="button"
+              disabled={viewMode !== "globe"}
+              title="show the superplanet coastline under the tiles"
+              className={`rounded px-2 py-1 ${terrain ? "bg-white/20" : "bg-white/5 hover:bg-white/10"} disabled:opacity-30`}
+              onClick={() => {
+                const next = !terrain;
+                setTerrain(next);
+                handleRef.current?.setTerrain(next);
+              }}
+            >
+              terrain
             </button>
           </div>
           <select

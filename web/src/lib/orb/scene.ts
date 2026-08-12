@@ -1,18 +1,29 @@
 import {
+  ClampToEdgeWrapping,
+  DataTexture,
   DoubleSide,
   GLSL3,
   InstancedBufferAttribute,
   InstancedBufferGeometry,
+  LinearFilter,
+  Matrix3,
   Mesh,
+  NoColorSpace,
   PerspectiveCamera,
   PlaneGeometry,
   RawShaderMaterial,
+  RedFormat,
+  RepeatWrapping,
   Scene,
+  SphereGeometry,
+  Texture,
+  TextureLoader,
   Vector3,
   WebGLRenderer,
 } from "three";
 import { DUR, gsap, reducedMotion } from "../motion";
 import type { LayoutName, OrbData } from "../../api/orb";
+import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
 import { buildAtlas, COLS, uvRect } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
@@ -98,10 +109,19 @@ void main() {
 
 export type OrbViewMode = "inside" | "globe";
 
+// pure so it's unit-testable: the coast sphere shows only once the bake has
+// loaded (404 or in-flight leaves it hidden), only while orbiting the globe,
+// and only while the terrain toggle is on.
+export function coastVisible(mode: OrbViewMode, loaded: boolean, terrain: boolean): boolean {
+  return mode === "globe" && loaded && terrain;
+}
+
 export type OrbHandle = {
   setLayout(name: LayoutName): void;
   setThemeFilter(th: number | null): void;
   setView(mode: OrbViewMode): void;
+  setTerrain(on: boolean): void;
+  aimAt(dir: [number, number, number]): void;
   focus(i: number): void;
   blur(): void;
   dispose(): void;
@@ -176,6 +196,59 @@ export function mountOrb(
   mesh.frustumCulled = false;
   scene.add(mesh);
 
+  // superplanet coastline, under the tiles: hidden until globe mode AND the
+  // bake has loaded (Task 12). Same shader as galaxy's planets, uSpin pinned.
+  let disposed = false;
+  let coastLoaded = false;
+  let terrain = true; // the coast sphere ships on; the /orb toggle turns it off
+  const coastFallback = new DataTexture(new Uint8Array([128]), 1, 1, RedFormat);
+  coastFallback.needsUpdate = true;
+  const coastRamp = loadRamp();
+  const coastGeo = new SphereGeometry(0.985, 64, 32);
+  const coastMat = new RawShaderMaterial({
+    glslVersion: GLSL3,
+    vertexShader: PLANET_VERT,
+    fragmentShader: PLANET_FRAG,
+    uniforms: {
+      uField: { value: coastFallback },
+      uRamp: { value: null },
+      uSpin: { value: 0 },
+      uSeed: { value: 0 },
+      uCoastAmp: { value: PLANET_COAST_AMP },
+      // 0 = the bake's own z-lat frame: this sphere's geography must land under
+      // tile directions from the same frame, so it cannot take the y-up swizzle
+      uYUp: { value: 0 },
+      // identity: the superplanet keeps the record's canonical magma, arm 0's
+      // per-planet rotation is a galaxy-only identity signal
+      uHueRot: { value: new Matrix3() },
+    },
+  });
+  coastRamp.bind(coastMat.uniforms.uRamp);
+  const coast = new Mesh(coastGeo, coastMat);
+  coast.visible = false;
+  scene.add(coast);
+  let coastTex: Texture | null = null;
+  new TextureLoader().load(
+    "/galaxy-tex/superplanet.png",
+    (tex) => {
+      if (disposed) { tex.dispose(); return; }
+      tex.flipY = false;
+      tex.colorSpace = NoColorSpace; // distance field, not color
+      tex.wrapS = RepeatWrapping; // uSpin scrolls u past the seam (unused here, spin pinned)
+      tex.wrapT = ClampToEdgeWrapping;
+      tex.minFilter = LinearFilter;
+      tex.magFilter = LinearFilter;
+      tex.generateMipmaps = false;
+      tex.needsUpdate = true;
+      coastTex = tex;
+      coastMat.uniforms.uField.value = tex;
+      coastLoaded = true;
+      coast.visible = coastVisible(mode, coastLoaded, terrain);
+    },
+    undefined,
+    () => {}, // 404 leaves the coast hidden; not fatal
+  );
+
   const controls = createControls();
   const focusDolly = { dolly: 0 }; // inside mode: 0 at rest, 1 at apex
   const orbitR = { r: restGlobeR(0.5) }; // globe mode: current camera radius, rest -> apex
@@ -189,16 +262,18 @@ export function mountOrb(
   const dir = new Vector3();
   const facing = (): 1 | -1 => (mode === "globe" ? -1 : 1);
 
-  // yaw/pitch that place the camera on tile i's radial line, per the current
-  // mode's orbit mapping (inside: forward = D; globe: camera position = R*D).
-  const anglesFor = (i: number): { yaw: number; pitch: number } => {
-    const x = centers[i * 3], y = centers[i * 3 + 1], z = centers[i * 3 + 2];
+  // yaw/pitch that place the camera on a unit direction's radial line, per the
+  // current mode's orbit mapping (inside: forward = D; globe: camera = R*D).
+  const anglesForDir = (x: number, y: number, z: number): { yaw: number; pitch: number } => {
     // globe branch negated to match the flipped orbit-position signs below
     // (user-felt trackball semantics, set empirically 2026-08-01)
     return mode === "globe"
       ? { yaw: -Math.atan2(x, z), pitch: -Math.asin(-y) }
       : { yaw: Math.atan2(x, -z), pitch: Math.asin(y) };
   };
+
+  const anglesFor = (i: number): { yaw: number; pitch: number } =>
+    anglesForDir(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
 
   const ndcOf = (e: PointerEvent): [number, number] => {
     const r = canvas.getBoundingClientRect();
@@ -356,10 +431,22 @@ export function mountOrb(
       if (focused >= 0) doBlur(); // mode switches mid-focus must not strand uFocused
       mode = next;
       material.uniforms.uFacing.value = mode === "globe" ? -1 : 1;
+      coast.visible = coastVisible(mode, coastLoaded, terrain);
+    },
+    setTerrain(on) {
+      terrain = on;
+      coast.visible = coastVisible(mode, coastLoaded, terrain);
+    },
+    aimAt(dir) {
+      const l = Math.hypot(dir[0], dir[1], dir[2]);
+      if (l < 1e-9) return; // a degenerate centroid keeps the default pose
+      const { yaw, pitch } = anglesForDir(dir[0] / l, dir[1] / l, dir[2] / l);
+      controls.setTarget(yaw, pitch);
     },
     focus: focusTile,
     blur: doBlur,
     dispose() {
+      disposed = true;
       cancelAnimationFrame(raf);
       cancelAnimationFrame(focusRaf1);
       cancelAnimationFrame(focusRaf2);
@@ -376,6 +463,11 @@ export function mountOrb(
       geo.dispose();
       material.dispose();
       atlas.dispose();
+      coastGeo.dispose();
+      coastMat.dispose();
+      coastRamp.dispose();
+      coastFallback.dispose();
+      if (coastTex) coastTex.dispose();
       renderer.dispose();
     },
   };
