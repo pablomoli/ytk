@@ -44,3 +44,16 @@ def test_bake_planet_writes_texture(tmp_path: Path):
     assert (img > 140).any() and (img < 110).any()
     np.testing.assert_array_equal(img[:, 0], img[:, -1])
     assert 0 < meta["land_frac"] < 1 and meta["coast_deg"] > 0
+
+
+def test_bake_superplanet_writes_texture(tmp_path: Path):
+    out = tmp_path / "super.png"
+    # small synthetic layout: exercises the path, not real scale
+    meta = coast.bake_superplanet(fibonacci(40), fibonacci(40), out)
+    from PIL import Image
+
+    img = np.asarray(Image.open(out))
+    assert img.shape == (512, 1024)
+    assert img.dtype == np.uint8
+    np.testing.assert_array_equal(img[:, 0], img[:, -1])
+    assert 0 < meta["land_frac"] < 1 and meta["coast_deg"] > 0

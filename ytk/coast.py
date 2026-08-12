@@ -125,7 +125,15 @@ def organic_sd(
     warped = xyz + 0.10 * warp_vec
     warped /= np.linalg.norm(warped, axis=-1, keepdims=True)
     field = softmin_field(warped, pos, beta) + fbm(xyz, seed=30) * (0.8 * coast_deg)
-    dist = np.degrees(np.arccos(np.clip(xyz @ pos.T, -1.0, 1.0))).min(axis=-1)
+    # chunked like fields() in scripts/e30_coastlines.py and softmin_field
+    # above: an unchunked (cells x tiles) matmul at superplanet scale
+    # (1024x512 grid x ~650 tiles) allocates multi-GiB transients.
+    flat = xyz.reshape(-1, 3)
+    dist_flat = np.empty(len(flat))
+    for i in range(0, len(flat), 20000):
+        dots = np.clip(flat[i : i + 20000] @ pos.T, -1.0, 1.0)
+        dist_flat[i : i + 20000] = np.degrees(np.arccos(dots)).min(axis=1)
+    dist = dist_flat.reshape(xyz.shape[:2])
     target = float((np.cos(tt) * (dist < coast_deg)).sum() / np.cos(tt).sum())
     return field - level_for_area(field, tt, target)
 
