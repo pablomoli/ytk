@@ -1,4 +1,5 @@
 import {
+  CircleGeometry,
   ClampToEdgeWrapping,
   Color,
   DataTexture,
@@ -9,7 +10,6 @@ import {
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
-  PlaneGeometry,
   Points,
   PointsMaterial,
   RawShaderMaterial,
@@ -42,8 +42,8 @@ const STARS = 600;
 const MOON_ORBIT_R = 1.6; // in planet radii
 const MOON_PERIOD = 45; // seconds
 const COAST_AMP = 0.04; // shader-side micro-detail on top of the bake
-const RING_INNER = 1.25; // in planet radii
-const RING_OUTER = 1.32;
+const RING_INNER = 1.26; // in planet radii; thin outline, not a band
+const RING_OUTER = 1.295;
 // no planet carries a median age: neutral default matching the 90-day
 // activity window rather than a still galaxy
 const NEUTRAL_AGE_DAYS = 90;
@@ -104,7 +104,9 @@ void main() {
   float land = smoothstep(0.5, 0.505, d);
   float depth = pow(clamp((d - 0.5) * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
   vec3 landCol = uHue * (0.35 + 0.65 * depth);
-  vec3 seaCol = uHue * 0.08 * clamp(d * 2.0, 0.0, 1.0);
+  // sea ramp anchored at the shoreline like the record's fig_field: shallows
+  // must read against the sky, only deep ocean approaches PANEL-dark
+  vec3 seaCol = uHue * (0.06 + 0.18 * pow(clamp(d * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)}));
   float shore = smoothstep(0.012, 0.0, abs(d - 0.5)) * 0.35;
   outColor = vec4(mix(seaCol, landCol, land) + vec3(${shoreAccent}) * shore, 1.0);
 }`;
@@ -234,7 +236,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
   });
 
   const ringGeos: RingGeometry[] = [];
-  const ringMat = new MeshBasicMaterial({ color: TEXT, transparent: true, opacity: 0.35, side: DoubleSide });
+  const ringMat = new MeshBasicMaterial({ color: TEXT, transparent: true, opacity: 0.22, side: DoubleSide });
   planets.forEach((p, i) => {
     if (!p.rings.earned) return;
     const R = worldRadius(p.radius_deg);
@@ -255,7 +257,9 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
   type MoonSlot = { mesh: Mesh; moon: GalaxyMoon; center: Vector3; e1: Vector3; e2: Vector3; r: number; phase: number };
   const moonSlots: MoonSlot[] = [];
   const moonMats: MeshBasicMaterial[] = [];
-  const moonGeo = new PlaneGeometry(1, 1);
+  // circle, not quad: a moon must read as a round body, and the circle's uvs
+  // crop the thumbnail to a disc for free. Radius 0.5 keeps the scale below.
+  const moonGeo = new CircleGeometry(0.5, 24);
   planets.forEach((p, i) => {
     if (p.moons.length === 0) return;
     const R = worldRadius(p.radius_deg);
