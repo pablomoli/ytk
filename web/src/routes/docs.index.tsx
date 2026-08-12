@@ -63,31 +63,33 @@ function DocsCard({ s }: { s: DocsSectionSummary }) {
           </button>
         ) : null}
         {s.images.length > 1 ? (
-          <>
-            <span className="sub pointer-events-none absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-              {i + 1}/{s.images.length}
-            </span>
-            <div className="absolute bottom-0.5 left-1/2 flex -translate-x-1/2 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-              {s.images.map((im, k) => (
-                <button
-                  key={im}
-                  type="button"
-                  aria-label={`show figure ${k + 1}`}
-                  aria-current={k === i}
-                  onClick={(e) => show(e, k)}
-                  className="p-1"
-                >
-                  <span
-                    className={`block h-1.5 w-1.5 rounded-full transition-colors duration-150 ${
-                      k === i ? "bg-[var(--accent)]" : "bg-white/30 hover:bg-white/60"
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-          </>
+          <span className="sub pointer-events-none absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            {i + 1}/{s.images.length}
+          </span>
         ) : null}
       </div>
+      {s.images.length > 1 ? (
+        <div className="relative h-[3px] bg-white/10">
+          <span
+            aria-hidden
+            className="absolute inset-y-0 rounded-full bg-[var(--accent)] transition-[left] duration-200 ease-out"
+            style={{ left: `${(i / s.images.length) * 100}%`, width: `${100 / s.images.length}%` }}
+          />
+          {/* invisible 1/N-wide hit targets over the track, taller than its 3px */}
+          <div className="absolute inset-x-0 -bottom-1 -top-1 flex">
+            {s.images.map((im, k) => (
+              <button
+                key={im}
+                type="button"
+                aria-label={`show figure ${k + 1}`}
+                aria-current={k === i}
+                onClick={(e) => show(e, k)}
+                className="flex-1"
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="p-4">
         <p className="sub text-[var(--mute)]">
           e{s.num.toString().padStart(2, "0")} · {s.images.length}{" "}
