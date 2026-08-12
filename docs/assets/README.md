@@ -132,6 +132,13 @@ import; `axes.unicode_minus` is off so minus signs render in the serif face.
 - **The meta line is part of the design.** It carries the measured quantities
   (counts, bandwidths, scores). A figure whose title claims something its meta
   line does not quantify is incomplete.
+- **3D surfaces are figures, not screenshots.** A scalar field drawn as
+  terrain gets the full anatomy: interpolate between grid nodes (bilinear,
+  disclosed in the meta line — raw quads read as shards), hillshade for
+  relief, labeled axes with muted furniture, a legend for every overlay line,
+  and a box aspect/zoom that fills the frame cell so `frame_panels` frames
+  content, not air. Orient the data's loud edge toward the camera. The first
+  cut of 34's figure 04 violated all five; the rebuild is the reference.
 - **Backend**: `matplotlib.use("Agg")` before pyplot; figures are files, never
   windows. Matplotlib is not a project dependency — run with
   `uv run --with matplotlib python scripts/<script>.py`.
