@@ -114,3 +114,100 @@ def galaxy_block(
             }
         )
     return out
+
+
+def ring_gate(
+    vecs: NDArray[Any],
+    themes: NDArray[Any],
+    ids: list[int],
+    seed: int = 433,
+    knn: int = 10,
+    n_perm: int = 1000,
+) -> dict[int, dict[str, Any]]:
+    # E33 gate: docs/assets/33-channels/
+    rng = np.random.default_rng(seed)
+    vecs = np.asarray(vecs)
+    themes = np.asarray(themes)
+    mask = themes >= 0
+    v = vecs[mask]
+    th = themes[mask]
+    sims: NDArray[Any] = v @ v.T
+    np.fill_diagonal(sims, -np.inf)
+    nn = np.argsort(-sims, axis=1)[:, :knn]
+    nn_th = th[nn]
+
+    pair = {t: {int(u): int((nn_th[th == t] == u).sum()) for u in ids if u != t} for t in ids}
+    perm_pair: dict[int, dict[int, list[int]]] = {
+        t: {int(u): [] for u in ids if u != t} for t in ids
+    }
+    for _ in range(n_perm):
+        p = th[rng.permutation(len(th))]
+        p_nn = p[nn]
+        for t in ids:
+            row = p_nn[p == t]
+            for u in ids:
+                if u != t:
+                    perm_pair[t][u].append(int((row == u).sum()))
+    out: dict[int, dict[str, Any]] = {}
+    for t in ids:
+        others = [u for u in ids if u != t]
+        counts = np.asarray([perm_pair[t][u] for u in others], dtype=float)
+        mean = counts.mean(axis=1)
+        sd = np.maximum(counts.std(axis=1), 1.0)
+        z_obs: NDArray[Any] = (np.asarray([pair[t][u] for u in others]) - mean) / sd
+        z_perm_max: NDArray[Any] = ((counts - mean[:, None]) / sd[:, None]).max(axis=0)
+        bar = float(np.quantile(z_perm_max, 0.99))
+        partners = sorted(
+            (
+                {"theme": int(u), "count": pair[t][u], "z": float(z)}
+                for u, z in zip(others, z_obs)
+                if z > bar
+            ),
+            key=lambda d: -d["z"],
+        )
+        out[t] = {
+            "max_z": float(z_obs.max()),
+            "z_bar": bar,
+            "z_null_lo": float(np.quantile(z_perm_max, 0.05)),
+            "earned": bool(z_obs.max() > bar),
+            "partners": partners[:3],
+        }
+    return out
+
+
+def spin_gate(
+    themes: NDArray[Any],
+    dates: list[str | None],
+    ids: list[int],
+    seed: int = 533,
+    n_perm: int = 1000,
+) -> dict[int, dict[str, Any]]:
+    # E33 gate: docs/assets/33-channels/
+    rng = np.random.default_rng(seed)
+    themes = np.asarray(themes)
+    today = datetime.date.today()
+    ages = np.array(
+        [(today - datetime.date.fromisoformat(d)).days if d else -1 for d in dates],
+        dtype=float,
+    )
+    dated = ages >= 0
+    pool = ages[dated & (themes >= 0)]
+    pool_themes = themes[dated & (themes >= 0)]
+    out: dict[int, dict[str, Any]] = {}
+    for t in ids:
+        m = pool_themes == t
+        k = int(m.sum())
+        obs = float(np.median(pool[m])) if k else float("nan")
+        meds = [
+            float(np.median(pool[rng.choice(len(pool), k, replace=False)])) for _ in range(n_perm)
+        ]
+        lo, hi = float(np.quantile(meds, 0.025)), float(np.quantile(meds, 0.975))
+        out[t] = {
+            "median_age_days": obs,
+            "n_dated": k,
+            "null_lo": lo,
+            "null_hi": hi,
+            "earned": bool(k and (obs < lo or obs > hi)),
+            "side": "fast" if k and obs < lo else ("dormant" if k and obs > hi else None),
+        }
+    return out
