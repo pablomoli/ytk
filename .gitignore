@@ -16,7 +16,7 @@ build/
 .eggs/
 
 #Lavish
-.laveish/
+.lavish/*
 
 # uv
 .python-version
