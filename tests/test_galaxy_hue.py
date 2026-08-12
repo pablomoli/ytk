@@ -81,6 +81,27 @@ def test_ramp_anchor_is_the_land_midtone(tmp_path):
     assert hue_err(anchor, float(hsv[0, 0]) * 360.0) < 0.5
 
 
+def test_spread_shift_opens_the_wedge_without_moving_the_anchor(tmp_path):
+    anchor = galaxy.ramp_anchor_deg()
+    # covers that already match the ramp leave the canonical magma alone
+    assert galaxy.spread_shift(anchor) == 0.0
+    # a 10 deg cover difference becomes a GAIN x 10 deg rotation difference
+    a = galaxy.spread_shift(anchor + 5.0)
+    b = galaxy.spread_shift(anchor - 5.0)
+    sep = abs((a - b + 180) % 360 - 180)
+    assert abs(sep - 10.0 * galaxy.HUE_SPREAD_GAIN) < 0.5
+    # signed first: just below the anchor goes just below 360, not the long way
+    assert galaxy.spread_shift(anchor - 1.0) > 350.0
+
+
+def test_spread_shift_depends_only_on_this_planet(tmp_path):
+    """No corpus statistic and no ranking against siblings: the same measured
+    hue must give the same rotation whatever else the galaxy contains, which
+    is what keeps an unchanged member set an unchanged colour."""
+    assert galaxy.spread_shift(37.0) == galaxy.spread_shift(37.0)
+    assert galaxy.spread_shift(37.0, gain=1.0) != galaxy.spread_shift(37.0, gain=5.0)
+
+
 def test_hue_cached_skips_recompute(tmp_path, monkeypatch):
     paths = [write_solid(tmp_path / f"g{i}.png", (0, 200, 0)) for i in range(4)]
     cache_path = tmp_path / "cache.json"

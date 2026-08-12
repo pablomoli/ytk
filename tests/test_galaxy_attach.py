@@ -145,7 +145,7 @@ def test_bake_cached_rebakes_on_filename_mismatch_or_missing_file(tmp_path):
     def bake_0():
         calls["n"] += 1
         (tex_dir / "0.png").write_bytes(b"first")
-        return {"coast_deg": 1.0}
+        return {"coast_deg": 1.0, "land_frac": 0.5}
 
     galaxy._bake_cached(cache_path, "abc123", "0.png", tex_dir / "0.png", bake_0)
     assert calls["n"] == 1
@@ -160,7 +160,7 @@ def test_bake_cached_rebakes_on_filename_mismatch_or_missing_file(tmp_path):
     def bake_5():
         calls["n"] += 1
         (tex_dir / "5.png").write_bytes(b"second")
-        return {"coast_deg": 1.0}
+        return {"coast_deg": 1.0, "land_frac": 0.5}
 
     galaxy._bake_cached(cache_path, "abc123", "5.png", tex_dir / "5.png", bake_5)
     assert calls["n"] == 2
@@ -172,6 +172,38 @@ def test_bake_cached_rebakes_on_filename_mismatch_or_missing_file(tmp_path):
     galaxy._bake_cached(cache_path, "abc123", "5.png", tex_dir / "5.png", bake_5)
     assert calls["n"] == 3
     assert (tex_dir / "5.png").exists()
+
+
+def test_bake_cached_rebakes_when_meta_predates_land_frac(tmp_path):
+    """Entries written before the payload carried land_frac are otherwise
+    valid hits. Trusting one would caption the planet 0% land forever, so a
+    meta without land_frac is a miss -- one re-bake beats a wrong number."""
+    import json
+
+    cache_path = tmp_path / "cache.json"
+    tex_dir = tmp_path / "tex"
+    tex_dir.mkdir()
+    calls = {"n": 0}
+
+    def bake():
+        calls["n"] += 1
+        (tex_dir / "0.png").write_bytes(b"x")
+        return {"coast_deg": 1.0, "land_frac": 0.42}
+
+    # an old-format entry: right hash, right name, file on disk, no land_frac
+    cache_path.write_text(
+        json.dumps({"tex:h1": {"hash": "h1", "name": "0.png", "meta": {"coast_deg": 1.0}}})
+    )
+    (tex_dir / "0.png").write_bytes(b"stale")
+
+    meta = galaxy._bake_cached(cache_path, "h1", "0.png", tex_dir / "0.png", bake)
+    assert calls["n"] == 1, "a meta without land_frac must not validate as a hit"
+    assert meta["land_frac"] == 0.42
+    # and the repaired entry is a real hit from here on
+    assert (
+        galaxy._bake_cached(cache_path, "h1", "0.png", tex_dir / "0.png", bake)["land_frac"] == 0.42
+    )
+    assert calls["n"] == 1
 
 
 def test_bake_cached_reshuffle_revert_rebakes_not_stale(tmp_path):
@@ -190,12 +222,12 @@ def test_bake_cached_reshuffle_revert_rebakes_not_stale(tmp_path):
     def bake_h1():
         calls["h1"] += 1
         (tex_dir / "0.png").write_bytes(b"M1")
-        return {"coast_deg": 1.0}
+        return {"coast_deg": 1.0, "land_frac": 0.5}
 
     def bake_h2():
         calls["h2"] += 1
         (tex_dir / "0.png").write_bytes(b"M2")
-        return {"coast_deg": 2.0}
+        return {"coast_deg": 2.0, "land_frac": 0.6}
 
     # build A: h1 -> 0.png
     galaxy._bake_cached(cache_path, "h1", "0.png", tex_dir / "0.png", bake_h1)
@@ -293,15 +325,26 @@ def test_attach_payload_carries_hue_shift_and_land_frac(tmp_path):
         moon_null=8,
         n_perm=100,
     )
-    anchor = galaxy.ramp_anchor_deg()
+    import json
+
     for p in out["planets"]:
         assert isinstance(p["hue_shift_deg"], float)
         assert 0.0 <= p["hue_shift_deg"] < 360.0
         assert isinstance(p["land_frac"], float)
         assert 0.0 <= p["land_frac"] <= 1.0
-    shifts = {p["theme"]: p["hue_shift_deg"] for p in out["planets"]}
-    assert abs(((shifts[0] + anchor) - 120.0 + 180) % 360 - 180) <= 12.0
-    assert abs(((shifts[1] + anchor) - 240.0 + 180) % 360 - 180) <= 12.0
+
+    # the cache holds the honest measurement, the payload holds the amplified
+    # presentation: pin both halves rather than one loose tolerance on the
+    # product, which the gain would multiply into meaninglessness
+    cache = json.loads((tmp_path / "cache.json").read_text())
+    raws = sorted(v["hue"] for k, v in cache.items() if k.startswith("hue:"))
+    assert len(raws) == 2
+    assert abs((raws[0] - 120.0 + 180) % 360 - 180) <= 12.0, "green covers must measure green"
+    assert abs((raws[1] - 240.0 + 180) % 360 - 180) <= 12.0, "blue covers must measure blue"
+    shipped = sorted(p["hue_shift_deg"] for p in out["planets"])
+    assert shipped == sorted(galaxy.spread_shift(r) for r in raws)
+    # the two cover families must not collapse onto one rotation
+    assert abs((shipped[0] - shipped[1] + 180) % 360 - 180) > 30.0
 
 
 def test_attach_payload_hue_falls_back_to_member_hash(tmp_path):

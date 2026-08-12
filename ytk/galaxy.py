@@ -64,6 +64,13 @@ HUE_TILE = 64  # per-image downsample; 4096 px each is plenty for a hue vote
 HUE_K = 5
 HUE_ITERS = 24
 
+# Presentation gain on the signed distance from the ramp anchor. The measured
+# covers only span ~29 deg (16 of 18 live themes), which renders as one colour;
+# this opens that wedge without coupling any planet to any other -- the input
+# is this planet's own covers and nothing else, so a member set that does not
+# change cannot change hue. Fixed gain, tune by eye.
+HUE_SPREAD_GAIN = 5.0
+
 
 def _rgb_to_hsv(rgb: NDArray[Any]) -> NDArray[Any]:
     """Vectorized RGB->HSV on an (n, 3) array in 0..1; h in 0..1."""
@@ -169,6 +176,17 @@ def hue_cached(image_paths: list[Path], h: str, cache_path: Path, seed: int = 0)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(cache))
     return value
+
+
+def spread_shift(target_deg: float, gain: float = HUE_SPREAD_GAIN) -> float:
+    """The rotation the shader ships: the signed distance from the ramp anchor,
+    amplified. Signed (wrapped to -180..180) first so the gain opens the wedge
+    outward in both directions instead of dragging a hue just below the anchor
+    the long way round the wheel. Per-planet only -- no corpus statistic, no
+    ranking against siblings, so an unchanged member set is an unchanged hue
+    across rebuilds."""
+    signed = ((target_deg - ramp_anchor_deg() + 180.0) % 360.0) - 180.0
+    return round((signed * gain) % 360.0, 1)
 
 
 def arm_a(theme_cent_c3: NDArray[Any], c3_all: NDArray[Any]) -> NDArray[Any]:
@@ -531,8 +549,12 @@ def _bake_cached(
     except (FileNotFoundError, json.JSONDecodeError):
         cache = {}
     entry = cache.get(key)
-    if entry and entry.get("name") == name and out_path.exists():
-        return dict(entry.get("meta") or {})
+    # land_frac must be present for a hit to be usable: an entry written before
+    # the payload carried it would otherwise caption the planet 0% land forever,
+    # and a wrong number is worse than one re-bake.
+    entry_meta: dict[str, float] = dict(entry.get("meta") or {}) if entry else {}
+    if entry and entry.get("name") == name and out_path.exists() and "land_frac" in entry_meta:
+        return entry_meta
     meta = bake()
     if entry and entry.get("name") and entry["name"] != name:
         (out_path.parent / entry["name"]).unlink(missing_ok=True)
@@ -635,10 +657,12 @@ def attach_payload(
         # arm 0 (#179): the covers pick the direction, the ramp keeps the rest.
         # No usable covers -> the member hash, so the planet still has an
         # identity that is stable across builds instead of the ramp's own hue.
+        # The cache holds the raw measured hue; the spread gain is presentation
+        # and is applied here, so re-tuning it costs no extraction.
         target = hue_cached(_thumb_files(thumbs, m, vault_root), h, cache_path)
         if target is None:
             target = float(int(h, 16) % 360)
-        block["hue_shift_deg"] = round((target - ramp_anchor_deg()) % 360, 1)
+        block["hue_shift_deg"] = spread_shift(target)
 
         r = rings[t]
         block["rings"] = {
