@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -829,6 +830,45 @@ async def vault_media(rel_path: str):
 
 
 # ---------------------------------------------------------------------------
+# The experiment record (docs/assets), served for the /docs route
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/docs")
+def docs_manifest_api():
+    from ytk.ui.docs_record import assets_root, build_manifest
+
+    root = assets_root()
+    if root is None:
+        return {"available": False, "sections": []}
+    return {"available": True, "sections": build_manifest(root)}
+
+
+@app.get("/api/docs/{section_id}")
+def docs_section_api(section_id: str):
+    from ytk.ui.docs_record import assets_root, read_section
+
+    root = assets_root()
+    section = read_section(root, section_id) if root else None
+    if section is None:
+        raise HTTPException(status_code=404, detail="Unknown section")
+    return section
+
+
+@app.get("/docs-media/{rel_path:path}")
+async def docs_media(rel_path: str):
+    from fastapi.responses import FileResponse
+
+    from ytk.ui.docs_record import assets_root, resolve_media
+
+    root = assets_root()
+    target = resolve_media(root, rel_path) if root else None
+    if target is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(target, headers={"Cache-Control": "public, max-age=86400"})
+
+
+# ---------------------------------------------------------------------------
 # Pages
 # ---------------------------------------------------------------------------
 
@@ -1116,7 +1156,12 @@ _SPA_ROUTES = {
     "channels",
     "orb",
     "recs",
+    "docs",
 }
+
+# /docs/<NN-slug> section pages; /docs/settings never reaches the catch-all
+# (registered earlier), and junk under /docs stays a real 404.
+_DOCS_SECTION_RE = re.compile(r"^docs/\d{2}-[a-z0-9-]+$")
 
 
 # Registered last on purpose: FastAPI matches routes in registration order,
@@ -1124,7 +1169,8 @@ _SPA_ROUTES = {
 @app.get("/", response_class=HTMLResponse)
 @app.get("/{path:path}", response_class=HTMLResponse)
 def _spa(path: str = "") -> HTMLResponse:
-    if path.rstrip("/") not in _SPA_ROUTES:
+    clean = path.rstrip("/")
+    if clean not in _SPA_ROUTES and not _DOCS_SECTION_RE.match(clean):
         raise HTTPException(status_code=404)
     index = _WEB_DIST / "index.html"
     if not index.exists():
