@@ -420,8 +420,68 @@ def fig03(X, tags, names, cmap):
     save(fig, "03-road-watched.png")
 
 
+# ---------------------------------------------------------------- figure 04
+
+
+def fig04(X, note, cmap):
+    """The same field as terrain: a 32x32 vector image is a scalar field, so
+    height can carry the value instead of brightness. The cone becomes a
+    landform; the gold ridge on the side wall is the row profile (fig 01's
+    readout, now a silhouette); DIM wall lines are the random-order null."""
+    mean = X.mean(0)
+    _, _, view = seriate(mean)
+    q = unit(note["qwen"].astype(np.float32))
+    qc = q - mean
+    nulls = null_profiles(q, mean)
+    lo, hi = np.percentile(nulls, [5, 95], axis=0)
+
+    meta = (
+        "same seriation as figure 01 (dims sorted by corpus |mean|, sign-aligned)  ·  height = value, shared z-limits ±0.10  ·  "
+        "gold ridge on the wall: per-row mean  ·  DIM wall lines: 5-95% of 300 random orders"
+    )
+    fig, top = figure(16.5, 6.6, 4, "individual lens", "The cone as terrain", meta)
+
+    r = np.arange(SIDE)
+    xx, yy = np.meshgrid(r, r)
+    zlim = 0.10
+    norm = plt.Normalize(-zlim, zlim)
+    panels = [
+        ("the corpus mean — the landform", view(mean)),
+        ("one note — weather on the landform", view(q)),
+        ("the note centered — the weather alone", view(qc)),
+    ]
+    for k, (title, Z) in enumerate(panels):
+        ax = fig.add_axes([MARGIN + k * 0.31, 0.02, 0.30, top - 0.06], projection="3d")
+        ax.set_facecolor(BG)
+        ax.plot_surface(
+            xx,
+            yy,
+            Z,
+            facecolors=cmap(norm(Z)),
+            rstride=1,
+            cstride=1,
+            linewidth=0,
+            antialiased=False,
+            shade=False,
+        )
+        wall = np.zeros(SIDE) - 1.5
+        ax.plot(wall, r, Z.mean(axis=1), color=GOLD, lw=2.4, zorder=10)
+        ax.plot(wall, r, lo, color=DIM, lw=1.2, zorder=9)
+        ax.plot(wall, r, hi, color=DIM, lw=1.2, zorder=9)
+        ax.set_zlim(-zlim, zlim)
+        ax.view_init(elev=28, azim=-55)
+        ax.set_axis_off()
+        fig.text(MARGIN + k * 0.31 + 0.15, top - 0.045, title, color=TEXT, fontsize=10, ha="center")
+
+    verdict(
+        fig,
+        "the mean is a ramp; the note carries the ramp under its noise; centering removes the ramp, not the weather",
+    )
+    save(fig, "04-cone-terrain.png")
+
+
 def main() -> None:
-    which = set(sys.argv[1:]) or {"1", "2", "3"}
+    which = set(sys.argv[1:]) or {"1", "2", "3", "4"}
     X, tags, names, fp, cone, note, feat_names = load()
     cmap = saturated_magma()
     if "1" in which:
@@ -430,6 +490,8 @@ def main() -> None:
         fig02(X, names, fp, cone, note, feat_names, cmap)
     if "3" in which:
         fig03(X, tags, names, cmap)
+    if "4" in which:
+        fig04(X, note, cmap)
 
 
 if __name__ == "__main__":

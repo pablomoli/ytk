@@ -70,6 +70,20 @@ monotonically 0.793 → 0.737 with no mid-road spike — exactly what section
 20's missing-bridges verdict predicts. **The walk is a handover, not a
 fade.**
 
+**04 — The cone as terrain** (the same field, one more lens). A vector image
+is a scalar field on a 32×32 grid, and a scalar field doesn't have to spend
+brightness on the value — it can spend height. So let's stand the seriated
+views of figure 01 up as surfaces. The corpus mean becomes a landform: a
+smooth ramp falling away from its 32 loudest dims. One note is weather on
+that landform — noise spikes riding a tilted floor — and the gold ridge on
+the side wall (figure 01's row profile, now a literal silhouette) starts
+above the DIM null rails and decays into them. Center the note and the ramp
+is gone: the silhouette never leaves the rails, but the weather is untouched.
+Same claim as figure 01, now visible as geography rather than read off a
+chart.
+
+![the cone as terrain](04-cone-terrain.png)
+
 ## Honest edges
 
 - The seriation order is fitted on the same 568 notes it displays. That is
