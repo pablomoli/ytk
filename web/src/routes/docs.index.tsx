@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { DocsSectionSummary } from "../api/docs";
 import { useDocsManifest, mediaUrl } from "../api/docs";
 import { ErrorState } from "../components/StateViews";
-import { mountBackdrop } from "../lib/docsBackdrop";
 import "../styles.css";
 
 export const Route = createFileRoute("/docs/")({ component: DocsPage });
@@ -107,14 +106,6 @@ function DocsCard({ s }: { s: DocsSectionSummary }) {
 
 export function DocsPage() {
   const manifest = useDocsManifest();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const handle = mountBackdrop(canvas);
-    return () => handle.dispose();
-  }, []);
 
   if (manifest.isError)
     return (
@@ -123,16 +114,8 @@ export function DocsPage() {
 
   const data = manifest.data;
   return (
-    // stage/scroller split, garden-canvas pattern (styles.css): the canvas is
-    // bounded by the route, never the viewport — fixed would paint over the nav
-    <div className="relative flex-1 min-h-0 overflow-hidden bg-black">
-      <canvas
-        ref={canvasRef}
-        aria-hidden
-        className="pointer-events-none absolute inset-0 h-full w-full"
-      />
-      <div className="relative h-full overflow-y-auto">
-        <div className="mx-auto max-w-[1400px] px-6 pb-24 pt-14">
+    <div className="relative flex-1 min-h-0 overflow-y-auto bg-black">
+      <div className="mx-auto max-w-[1400px] px-6 pb-24 pt-14">
         {/* a div, not <header>: theme.css gives header the nav's panel background */}
         <div className="mb-12">
           <p className="sub text-[var(--mute)]">the experiment record</p>
@@ -166,7 +149,6 @@ export function DocsPage() {
             ))}
           </div>
         )}
-        </div>
       </div>
     </div>
   );

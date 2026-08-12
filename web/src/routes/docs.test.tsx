@@ -14,11 +14,6 @@ vi.mock("@tanstack/react-router", () => ({
   ),
 }));
 
-// the backdrop needs a real WebGL context; the grid must not depend on it
-vi.mock("../lib/docsBackdrop", () => ({
-  mountBackdrop: vi.fn(() => ({ dispose: vi.fn() })),
-}));
-
 const manifest: DocsManifest = {
   available: true,
   sections: [
