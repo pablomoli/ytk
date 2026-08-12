@@ -71,7 +71,14 @@ PANEL_PAD = 0.014  # gap between a panel's frame and its content cell
 
 
 def saturated_magma():
-    """magma with chroma pushed up ~35% — same palette, more punch."""
+    """magma with chroma pushed up ~35% — same palette, more punch.
+
+    Mirrored as a 256x3 byte LUT in ytk/coast.py (_SATURATED_MAGMA_B64), which
+    the /galaxy renderer samples as ramp.png. Five stops are pinned in every
+    gate; full equality needs matplotlib, so after changing this palette
+    re-embed the LUT and run by hand:
+        uv run --extra lab pytest tests/test_coast_bake.py -k lut
+    """
     import matplotlib.colors as mcolors
     import matplotlib.pyplot as plt
 

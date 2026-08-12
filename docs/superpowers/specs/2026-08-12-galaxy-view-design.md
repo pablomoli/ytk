@@ -100,7 +100,10 @@ Tailwind utilities per the CSS policy; no new rules in styles.css.
   itself never drifts from the bake), then paint the result through the
   saturated-magma ramp baked from Python (`ytk/coast.py::bake_ramp` writes
   `ramp.png` beside the field textures; the LUT is `plot_assets.py`'s
-  `saturated_magma()`, embedded and sync-tested). One continuous nearness
+  `saturated_magma()`, embedded; the sync contract is split — five golden
+  stops are pinned in every gate, full 256-stop equality needs matplotlib
+  and is run by hand via the `lab` extra, since CI never pulls it).
+  One continuous nearness
   value covers land and sea alike, exactly as E30's `fig_field` does —
   `near = punch(clip(2d - 0.4))` is that figure's ramp rewritten in the
   bake's texel space — lifted off the ramp's black floor so a sphere keeps

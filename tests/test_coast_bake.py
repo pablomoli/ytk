@@ -68,9 +68,31 @@ def test_saturated_magma_lut_shape_and_ends():
     assert r > 240 and g > 240 and b > 140  # high end is the cream-yellow tip
 
 
+def test_saturated_magma_lut_golden_anchors():
+    """Automated half of the sync contract. Five stops pinned to the bytes
+    verified byte-exact against plot_assets.saturated_magma(); dependency-free,
+    so it runs in every gate and catches any accidental edit to the LUT."""
+    lut = coast.saturated_magma_lut()
+    anchors = {
+        0: (0, 0, 4),
+        64: (78, 0, 131),
+        128: (194, 11, 106),
+        192: (255, 98, 44),
+        255: (253, 255, 171),
+    }
+    for i, want in anchors.items():
+        assert tuple(int(v) for v in lut[i]) == want, f"LUT drifted at stop {i}"
+
+
 def test_saturated_magma_lut_matches_plot_assets():
-    """Sync contract: the embedded ramp is plot_assets.saturated_magma(), not a
-    lookalike. Skipped where matplotlib is absent (it is a dev-only dep)."""
+    """MANUAL half of the sync contract: full 256-stop equality against
+    plot_assets.saturated_magma(). matplotlib lives in the `lab` extra by
+    design (CI never pulls it), so this SKIPS in every automated gate --
+    the anchors above are what runs there. Re-run this by hand after any
+    plot_assets palette change:
+
+        uv run --extra lab pytest tests/test_coast_bake.py -k lut
+    """
     pytest.importorskip("matplotlib")
     import sys
 
