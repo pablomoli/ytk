@@ -14,6 +14,9 @@ from __future__ import annotations
 
 import datetime
 import hashlib
+import itertools
+import json
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -211,3 +214,154 @@ def spin_gate(
             "side": "fast" if k and obs < lo else ("dormant" if k and obs > hi else None),
         }
     return out
+
+
+# ported from scripts/e33_channels.py — moon channel: gate on triplet
+# agreement between dendrograms across subsamples vs a spectrum-matched
+# unimodal cloud (anisotropy preserved, sub-structure destroyed)
+N_TRIP = 4000  # triplets scored per subsample
+GATE_Q = 0.95
+
+
+def _coph(vn: NDArray[Any]) -> NDArray[Any]:
+    from scipy.cluster.hierarchy import cophenet, linkage  # type: ignore[reportMissingTypeStubs]
+    from scipy.spatial.distance import (  # type: ignore[reportMissingTypeStubs]
+        pdist,
+        squareform,
+    )
+
+    d: NDArray[Any] = pdist(vn, metric="cosine")
+    z: NDArray[Any] = linkage(d, method="average")  # type: ignore[reportUnknownVariableType]
+    coph: NDArray[Any] = cophenet(z, d)[1]  # type: ignore[reportUnknownVariableType]
+    return squareform(coph)  # type: ignore[reportUnknownArgumentType]
+
+
+def _triplets(m: int, rng: np.random.Generator, n_trip: int = N_TRIP) -> NDArray[Any]:
+    trips = np.array(list(itertools.combinations(range(m), 3)))
+    if len(trips) > n_trip:
+        trips = trips[rng.choice(len(trips), n_trip, replace=False)]
+    return trips
+
+
+def _outliers(c: NDArray[Any], trips: NDArray[Any]) -> NDArray[Any]:
+    """Odd-one-out per triplet: the point outside the pair that merges first
+    (smallest cophenetic distance)."""
+    d_jk = c[trips[:, 1], trips[:, 2]]
+    d_ik = c[trips[:, 0], trips[:, 2]]
+    d_ij = c[trips[:, 0], trips[:, 1]]
+    return np.argmin(np.stack([d_jk, d_ik, d_ij]), axis=0)
+
+
+def moon_stability(vn: NDArray[Any], seed: int, n_boot: int = 25) -> float:
+    """Mean triplet agreement between the full dendrogram and 80% subsample
+    dendrograms — hierarchy geometry, never a flat cut (E-series lesson)."""
+    rng = np.random.default_rng(seed)
+    n = len(vn)
+    cfull = _coph(vn)
+    scores: list[float] = []
+    for _ in range(n_boot):
+        idx = rng.choice(n, size=max(6, int(0.8 * n)), replace=False)
+        trips = _triplets(len(idx), rng)
+        o_full = _outliers(cfull[np.ix_(idx, idx)], trips)
+        o_sub = _outliers(_coph(vn[idx]), trips)
+        scores.append(float((o_full == o_sub).mean()))
+    return float(np.mean(scores))
+
+
+def null_cloud(vn: NDArray[Any], rng: np.random.Generator) -> NDArray[Any]:
+    """Unimodal cloud matched to the member set's mean and full covariance
+    spectrum (sampled in its own eigenbasis): the cone and the anisotropy
+    survive, any sub-structure does not."""
+    mu = vn.mean(axis=0)
+    _u, s, vt = np.linalg.svd(vn - mu, full_matrices=False)  # type: ignore[reportUnknownVariableType]
+    n_rows: NDArray[Any] = rng.normal(size=(len(vn), len(s)))  # type: ignore[reportUnknownArgumentType]
+    z: NDArray[Any] = n_rows * (s / np.sqrt(max(len(vn) - 1, 1)))  # type: ignore[reportUnknownVariableType]
+    y: NDArray[Any] = mu + z @ vt  # type: ignore[reportUnknownVariableType]
+    return y / np.linalg.norm(y, axis=1, keepdims=True)  # type: ignore[reportUnknownVariableType,reportUnknownArgumentType]
+
+
+def moon_cut(vn: NDArray[Any], seed: int, n_boot: int = 25) -> tuple[int, list[dict[str, Any]]]:
+    """Descriptive flat cut for a gated planet: k in 2..4 by co-assignment
+    stability across the same subsampling; moons need >= 3 members."""
+    from scipy.cluster.hierarchy import fcluster, linkage  # type: ignore[reportMissingTypeStubs]
+    from scipy.spatial.distance import pdist  # type: ignore[reportMissingTypeStubs]
+
+    rng = np.random.default_rng(seed)
+    n = len(vn)
+    d_full: NDArray[Any] = pdist(vn, metric="cosine")
+    z_full: NDArray[Any] = linkage(d_full, method="average")  # type: ignore[reportUnknownVariableType]
+    best_k, best_s = 2, -1.0
+    for k in (2, 3, 4):
+        lab_full: NDArray[Any] = fcluster(z_full, k, criterion="maxclust")
+        agree: list[float] = []
+        for _ in range(n_boot):
+            idx = rng.choice(n, size=max(6, int(0.8 * n)), replace=False)
+            z_sub: NDArray[Any] = linkage(  # type: ignore[reportUnknownVariableType]
+                pdist(vn[idx], metric="cosine"), method="average"
+            )
+            lab_sub: NDArray[Any] = fcluster(z_sub, k, criterion="maxclust")
+            a, b = lab_full[idx], lab_sub
+            co_a = a[:, None] == a[None, :]
+            co_b = b[:, None] == b[None, :]
+            iu = np.triu_indices(len(idx), 1)
+            agree.append(float((co_a[iu] == co_b[iu]).mean()))
+        if np.mean(agree) > best_s:
+            best_k, best_s = k, float(np.mean(agree))
+    labels: NDArray[Any] = fcluster(z_full, best_k, criterion="maxclust")
+    sizes = {int(c): int((labels == c).sum()) for c in np.unique(labels)}
+    core = max(sizes, key=lambda c: sizes[c])
+    # the largest cluster is the planet's core, not a moon — a moon is a
+    # minority sub-cluster with enough members to be a real object
+    return sizes[core], [
+        {"members": np.flatnonzero(labels == c).tolist()}
+        for c in np.unique(labels)
+        if c != core and (labels == c).sum() >= 3
+    ]
+
+
+def moon_gate(vn: NDArray[Any], seed: int, n_boot: int = 25, n_null: int = 50) -> dict[str, Any]:
+    # E33 gate: docs/assets/33-channels/
+    vn = np.asarray(vn)
+    real = moon_stability(vn, seed=seed, n_boot=n_boot)
+    rng = np.random.default_rng(seed + 100)
+    null = [
+        moon_stability(null_cloud(vn, rng), seed=seed + 200 + i, n_boot=n_boot)
+        for i in range(n_null)
+    ]
+    hi = float(np.quantile(null, GATE_Q))
+    earned = bool(real > hi)
+    out: dict[str, Any] = {
+        "stability": real,
+        "null_hi": hi,
+        "earned": earned,
+        "core_size": None,
+        "moons": [],
+    }
+    if earned:
+        core_size, cut = moon_cut(vn, seed=seed + 300, n_boot=n_boot)
+        out["core_size"] = core_size
+        out["moons"] = [{"member_idx": c["members"]} for c in cut]
+    return out
+
+
+def moons_cached(
+    vn: NDArray[Any],
+    member_paths: list[str],
+    epoch: str,
+    cache_path: Path,
+    seed: int,
+    n_boot: int = 25,
+    n_null: int = 50,
+) -> dict[str, Any]:
+    key = member_hash(member_paths, epoch)
+    try:
+        cache: dict[str, Any] = json.loads(cache_path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        cache = {}
+    if key in cache:
+        return cache[key]
+    result = moon_gate(vn, seed, n_boot=n_boot, n_null=n_null)
+    cache[key] = result
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(cache))
+    return result
