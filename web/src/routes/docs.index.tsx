@@ -63,24 +63,29 @@ function DocsCard({ s }: { s: DocsSectionSummary }) {
           </button>
         ) : null}
         {s.images.length > 1 ? (
-          <div className="absolute inset-x-2 bottom-1 flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            {s.images.map((im, k) => (
-              <button
-                key={im}
-                type="button"
-                aria-label={`show figure ${k + 1}`}
-                aria-current={k === i}
-                onClick={(e) => show(e, k)}
-                className="flex-1 py-1.5"
-              >
-                <span
-                  className={`block h-[3px] rounded-full transition-colors duration-150 ${
-                    k === i ? "bg-[var(--accent)]" : "bg-white/25 hover:bg-white/50"
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
+          <>
+            <span className="sub pointer-events-none absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              {i + 1}/{s.images.length}
+            </span>
+            <div className="absolute bottom-0.5 left-1/2 flex -translate-x-1/2 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              {s.images.map((im, k) => (
+                <button
+                  key={im}
+                  type="button"
+                  aria-label={`show figure ${k + 1}`}
+                  aria-current={k === i}
+                  onClick={(e) => show(e, k)}
+                  className="p-1"
+                >
+                  <span
+                    className={`block h-1.5 w-1.5 rounded-full transition-colors duration-150 ${
+                      k === i ? "bg-[var(--accent)]" : "bg-white/30 hover:bg-white/60"
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+          </>
         ) : null}
       </div>
       <div className="p-4">

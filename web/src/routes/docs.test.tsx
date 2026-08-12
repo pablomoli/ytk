@@ -92,6 +92,7 @@ test("card arrows page through figures without leaving the card", () => {
   expect(container.querySelector("img")?.getAttribute("src")).toBe(
     "/docs-media/30-coastlines/02-the-named-continents.png",
   );
+  expect(screen.getByText("2/2")).toBeInTheDocument();
   // at the last figure the forward arrow is gone; the way back exists
   expect(screen.queryByLabelText("next figure")).toBeNull();
   fireEvent.click(screen.getByLabelText("previous figure"));
