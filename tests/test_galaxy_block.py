@@ -20,7 +20,7 @@ def _fixture():
 def test_block_positions_and_radii():
     vecs, c3, themes, dates, labels, paths = _fixture()
     today = datetime.date(2026, 8, 12)
-    block = galaxy.galaxy_block(vecs, c3, themes, dates, labels, paths, today=today)
+    block = galaxy.galaxy_block(vecs, c3, themes, dates, labels, paths, "v2", today=today)
     assert [p["theme"] for p in block] == [0, 1]
     a = block[0]
     np.testing.assert_allclose(np.linalg.norm(a["pos"]), 1.0, atol=1e-6)
@@ -29,6 +29,7 @@ def test_block_positions_and_radii():
     assert a["cls"] == "V" and block[1]["cls"] == "I"
     assert block[1]["date_coverage"] == pytest.approx(4 / 5)
     assert a["median_age_days"] == pytest.approx(11)
+    assert a["hash"] == galaxy.member_hash(paths[:8], "v2")
 
 
 def test_member_hash_stable_and_sensitive():

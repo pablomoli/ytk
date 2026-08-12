@@ -5,7 +5,9 @@ Ported from `scripts/e31_theme_planets.py` (`CLASSES`, `classify`) and
 `scripts/e32_galaxy.py` (`arm_a`, `all_planets`) — same precedent as
 `ytk/coast.py`. `galaxy_block` mirrors `all_planets()` but takes data as
 arguments (no map.json reads), and adds `median_age_days` and the
-`member_paths`/`hash` cache-key fields the moon and texture caches key off.
+`member_paths`/`hash` fields. `hash` is the finished cache key the moon and
+texture caches key off — `member_hash(member_paths, epoch)`, the caller's
+embedding epoch threaded straight through, no default.
 """
 
 from __future__ import annotations
@@ -22,11 +24,6 @@ from numpy.typing import NDArray
 GALAXY_K = 3.0
 
 ACTIVE_DAYS = 90
-
-# galaxy_block's own schema/version tag for member_hash — deliberately not
-# the embedding epoch (ytk.store), so this module stays numpy+stdlib only;
-# bump on a member_hash payload format change
-BLOCK_EPOCH = "v1"
 
 # Sudarsky albedo classes, translated: activity share of dated notes in the
 # last ACTIVE_DAYS decides the class. Thresholds are stated, not fitted.
@@ -66,6 +63,7 @@ def galaxy_block(
     dates: list[str | None],
     labels: list[str],
     paths: list[str],
+    epoch: str,
     today: datetime.date | None = None,
 ) -> list[dict[str, Any]]:
     vecs = np.asarray(vecs)
@@ -112,7 +110,7 @@ def galaxy_block(
                 "radius_deg": GALAXY_K * n ** (1 / 3),
                 "pos": pos.tolist(),
                 "member_paths": member_paths,
-                "hash": member_hash(member_paths, BLOCK_EPOCH),
+                "hash": member_hash(member_paths, epoch),
             }
         )
     return out
