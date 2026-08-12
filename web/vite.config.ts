@@ -5,7 +5,10 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 // The SPA is served by FastAPI at the root; built asset URLs live under
 // /assets to match the backend mount. The dev server proxies backend
-// routes to the hub on :6969.
+// routes to the hub on :6969, or to YTK_DEV_API when a worktree backend
+// carries endpoints the installed hub doesn't have yet.
+const API = process.env.YTK_DEV_API ?? "http://127.0.0.1:6969";
+
 export default defineConfig({
   base: "/",
   resolve: {
@@ -14,9 +17,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://127.0.0.1:6969",
-      "/vault-media": "http://127.0.0.1:6969",
-      "/favicon.svg": "http://127.0.0.1:6969",
+      "/api": API,
+      "/vault-media": API,
+      "/docs-media": API,
+      "/favicon.svg": API,
     },
   },
   // dist/ is committed build output shipped inside the Python wheel, and
