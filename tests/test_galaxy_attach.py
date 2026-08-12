@@ -430,7 +430,8 @@ def _spearman(a, b):
 def test_attach_payload_spreads_planets_off_each_other(tmp_path):
     """E32 arm B ships: no two planets sit nearer than margin*(r_i+r_j) after
     attach. Arm A alone leaves this fixture with an overlapping pair, so the
-    assertion is a real gate on the de-overlap pass."""
+    assertion is a real gate on the de-overlap pass. The shipped margin is 2.05,
+    not the 1.05 that only bought non-overlap: the bar is visible air."""
     vecs, c3, themes, labels = spread_fixture()
     n = len(themes)
     out = galaxy.attach_payload(
@@ -462,9 +463,11 @@ def test_attach_payload_spreads_planets_off_each_other(tmp_path):
 
 
 def test_attach_payload_spread_stays_anchored_to_arm_a(tmp_path):
-    """The spread is only worth shipping if it keeps the map's geometry: E32
-    measured anchor rho 0.998 at K=3.0, so pairwise-distance rank order against
-    un-spread arm A must survive nearly intact."""
+    """The spread is only worth shipping if it keeps the map's geometry, so
+    pairwise-distance rank order against un-spread arm A must survive. 0.95 is
+    the shipped floor on the margin (the live 18-planet layout measures 0.956 at
+    the shipped 2.05 and lands exactly on 0.950 at 2.10); this fixture, with
+    fewer and smaller discs, measures 0.989."""
     vecs, c3, themes, labels = spread_fixture()
     n = len(themes)
     paths = [f"notes/n{i}.md" for i in range(n)]
@@ -498,5 +501,5 @@ def test_attach_payload_spread_stays_anchored_to_arm_a(tmp_path):
     a = _pair_angles([b["pos"] for b in arm_a_blocks])
     b = _pair_angles([p["pos"] for p in out["planets"]])
     assert a.shape == b.shape
-    assert _spearman(a, b) > 0.98
+    assert _spearman(a, b) > 0.95
     assert not np.allclose(a, b), "the fixture must actually move, or the anchor claim is vacuous"

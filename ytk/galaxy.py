@@ -27,8 +27,10 @@ from numpy.typing import NDArray
 GALAXY_K = 3.0
 
 # arm B's clearance factor: discs of radius r_i, r_j must sit margin*(r_i+r_j)
-# apart. Moving it changes the shipped layout, not just a tolerance.
-SPREAD_MARGIN = 1.05
+# apart. Moving it changes the shipped layout, not just a tolerance. 1.05 only
+# bought non-overlap; air costs anchor rho, and on the live 18-planet layout rho
+# lands exactly on the 0.95 floor at 2.10 -- 2.05 keeps a margin under it.
+SPREAD_MARGIN = 2.05
 
 ACTIVE_DAYS = 90
 
