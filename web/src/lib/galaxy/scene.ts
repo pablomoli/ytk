@@ -17,6 +17,7 @@ import {
   RepeatWrapping,
   RingGeometry,
   Raycaster,
+  SRGBColorSpace,
   Scene,
   SphereGeometry,
   Texture,
@@ -264,6 +265,10 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
               tex.dispose();
               return;
             }
+            // thumbnails are color, unlike the planet distance fields:
+            // MeshBasicMaterial's colorspace_fragment would otherwise apply an
+            // uncancelled linear-to-sRGB pass and wash them out
+            tex.colorSpace = SRGBColorSpace;
             loaded.push(tex);
             mat.map = tex;
             mat.color = new Color(0xffffff);
