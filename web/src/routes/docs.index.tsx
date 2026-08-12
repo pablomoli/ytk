@@ -8,7 +8,10 @@ import "../styles.css";
 
 export const Route = createFileRoute("/docs/")({ component: DocsPage });
 
+// appearance-none border-0 p-0: no preflight in this app (#136), so buttons
+// otherwise keep the platform's beveled chrome
 const ARROW =
+  "appearance-none border-0 p-0 " +
   "absolute top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center " +
   "rounded-full bg-black/60 text-lg leading-none text-[var(--ink)] " +
   "opacity-0 transition-opacity duration-150 group-hover:opacity-100 " +
@@ -78,7 +81,7 @@ function DocsCard({ s }: { s: DocsSectionSummary }) {
               aria-label={`show figure ${k + 1}`}
               aria-current={k === i}
               onClick={(e) => show(e, k)}
-              className={`flex-1 transition-colors duration-150 ${
+              className={`appearance-none border-0 p-0 flex-1 transition-colors duration-150 ${
                 k === i ? "bg-[var(--accent)]" : "bg-black hover:bg-[var(--ink2)]"
               }`}
             />
