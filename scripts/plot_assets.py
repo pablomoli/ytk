@@ -58,6 +58,7 @@ RED = "#ff4d6d"
 PURPLE = "#9159ff"
 CYAN = "#7fd4ff"
 DIM = "#3a3a42"
+# mirrored in web/src/lib/palette.ts — change both or change neither
 
 KICKER_SIZE = 9.5
 TITLE_SIZE = 16
