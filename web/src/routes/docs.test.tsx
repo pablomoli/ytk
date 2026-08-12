@@ -92,15 +92,26 @@ test("card arrows page through figures without leaving the card", () => {
   expect(container.querySelector("img")?.getAttribute("src")).toBe(
     "/docs-media/30-coastlines/02-the-named-continents.png",
   );
-  expect(screen.getByText("2/2")).toBeInTheDocument();
   // at the last figure the forward arrow is gone; the way back exists
   expect(screen.queryByLabelText("next figure")).toBeNull();
   fireEvent.click(screen.getByLabelText("previous figure"));
   expect(container.querySelector("img")?.getAttribute("src")).toBe(
     "/docs-media/30-coastlines/01-the-planet-unrolled.png",
   );
-  // the figure-less card never grows arrows
-  expect(screen.getAllByLabelText(/figure/)).toHaveLength(1);
+});
+
+test("markers split proportionally and the ith one selects its figure", () => {
+  const { container } = renderRoute(IndexRoute);
+  // one marker per figure, current one flagged
+  expect(screen.getByLabelText("show figure 1")).toHaveAttribute("aria-current", "true");
+  expect(screen.getByLabelText("show figure 2")).toHaveAttribute("aria-current", "false");
+  fireEvent.click(screen.getByLabelText("show figure 2"));
+  expect(container.querySelector("img")?.getAttribute("src")).toBe(
+    "/docs-media/30-coastlines/02-the-named-continents.png",
+  );
+  expect(screen.getByLabelText("show figure 2")).toHaveAttribute("aria-current", "true");
+  // the figure-less card never grows markers or arrows
+  expect(screen.getAllByLabelText(/figure/)).toHaveLength(3);
 });
 
 test("index explains an unmounted record instead of an empty grid", () => {

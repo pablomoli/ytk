@@ -17,11 +17,11 @@ const ARROW =
 function DocsCard({ s }: { s: DocsSectionSummary }) {
   const [i, setI] = useState(0);
   const last = s.images.length - 1;
-  const step = (e: React.MouseEvent<HTMLButtonElement>, d: number) => {
+  const show = (e: React.MouseEvent<HTMLButtonElement>, k: number) => {
     // the whole card is a Link; paging must not navigate
     e.preventDefault();
     e.stopPropagation();
-    setI((v) => Math.min(Math.max(v + d, 0), last));
+    setI(Math.min(Math.max(k, 0), last));
   };
   return (
     <Link
@@ -47,7 +47,7 @@ function DocsCard({ s }: { s: DocsSectionSummary }) {
             type="button"
             aria-label="previous figure"
             className={`${ARROW} left-2`}
-            onClick={(e) => step(e, -1)}
+            onClick={(e) => show(e, i - 1)}
           >
             ‹
           </button>
@@ -57,15 +57,30 @@ function DocsCard({ s }: { s: DocsSectionSummary }) {
             type="button"
             aria-label="next figure"
             className={`${ARROW} right-2`}
-            onClick={(e) => step(e, 1)}
+            onClick={(e) => show(e, i + 1)}
           >
             ›
           </button>
         ) : null}
         {s.images.length > 1 ? (
-          <span className="sub pointer-events-none absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            {i + 1}/{s.images.length}
-          </span>
+          <div className="absolute inset-x-2 bottom-1 flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            {s.images.map((im, k) => (
+              <button
+                key={im}
+                type="button"
+                aria-label={`show figure ${k + 1}`}
+                aria-current={k === i}
+                onClick={(e) => show(e, k)}
+                className="flex-1 py-1.5"
+              >
+                <span
+                  className={`block h-[3px] rounded-full transition-colors duration-150 ${
+                    k === i ? "bg-[var(--accent)]" : "bg-white/25 hover:bg-white/50"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
         ) : null}
       </div>
       <div className="p-4">
