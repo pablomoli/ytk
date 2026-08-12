@@ -367,18 +367,22 @@ def moons_cached(
     return result
 
 
-def _bake_cached(cache_path: Path, h: str, bake: Any) -> None:
-    """Read-check-write like moons_cached, keyed by the same member-set hash
-    so a texture rebakes only when its planet's member set actually changed."""
+def _bake_cached(cache_path: Path, h: str, name: str, out_path: Path, bake: Any) -> None:
+    """Read-check-write like moons_cached, keyed by the same member-set hash.
+    A hit is trusted only when the cached entry's filename still matches the
+    caller's current expected name AND the file is still on disk -- theme ids
+    are rebuild-scoped, so a reshuffle can leave an unchanged member-set hash
+    pointing at a stale name/file from a prior build."""
     key = f"tex:{h}"
     try:
         cache: dict[str, Any] = json.loads(cache_path.read_text())
     except (FileNotFoundError, json.JSONDecodeError):
         cache = {}
-    if key in cache:
+    entry = cache.get(key)
+    if entry and entry.get("name") == name and out_path.exists():
         return
     meta = bake()
-    cache[key] = {"hash": h, "meta": meta}
+    cache[key] = {"hash": h, "name": name, "meta": meta}
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(cache))
 
@@ -405,10 +409,15 @@ def attach_payload(
     fields decorated with a baked coast texture and the E33 gates (rings,
     spin, moons), member_paths/hash stripped since callers never see the raw
     member set. Moon seed offset (33 + theme) matches scripts/e33_channels.py
-    so a rebuild reproduces the same cut for an unchanged member set."""
+    so a rebuild reproduces the same cut for an unchanged member set.
+    Normalizes vecs once here (not just per-theme inside galaxy_block/moons):
+    ring_gate's v @ v.T assumes unit vectors and does not normalize on its
+    own, so this is the one place a raw (non-unit) caller input is made safe
+    for every consumer below."""
     from ytk import coast
 
     vecs = np.asarray(vecs, dtype=float)
+    vecs = vecs / np.linalg.norm(vecs, axis=1, keepdims=True)
     c3 = np.asarray(c3, dtype=float)
     themes = np.asarray(themes)
 
@@ -425,10 +434,13 @@ def attach_payload(
         block.pop("member_paths")
         m = np.flatnonzero(themes == t)
         tex_name = f"{t}.png"
+        tex_path = tex_dir / tex_name
         _bake_cached(
             cache_path,
             h,
-            lambda m=m, tex_name=tex_name: coast.bake_planet(c3[m], tex_dir / tex_name),
+            tex_name,
+            tex_path,
+            lambda m=m, tex_path=tex_path: coast.bake_planet(c3[m], tex_path),
         )
         block["tex"] = tex_name
 
@@ -469,10 +481,13 @@ def attach_payload(
 
     if lattice_pos is not None:
         h_all = member_hash(paths, epoch)
+        sp_path = tex_dir / "superplanet.png"
         _bake_cached(
             cache_path,
             h_all,
-            lambda: coast.bake_superplanet(radial_pos, lattice_pos, tex_dir / "superplanet.png"),
+            "superplanet.png",
+            sp_path,
+            lambda: coast.bake_superplanet(radial_pos, lattice_pos, sp_path),
         )
 
     return {
