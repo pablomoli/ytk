@@ -168,6 +168,19 @@ git -C /Users/melocoton/Developer/ytk.feature-galaxy-view commit -m "feat(galaxy
   `{"theme": int, "label": str, "n": int, "activity": float, "date_coverage": float, "median_age_days": float | None, "cohesion": float, "cls": str, "cls_label": str, "hue": str, "radius_deg": float, "pos": [x, y, z], "member_paths": [str], "hash": str}`
   with `pos` = unit direction of the theme's mean c3 from the mean of ALL content c3 (E32 arm A), `radius_deg = GALAXY_K * n ** (1/3)`, `today` injectable for tests.
 
+  **Shipped: arm B.** `galaxy_block` still returns the un-spread arm A (so the
+  anchor stays measurable), but `attach_payload` runs `spread_discs(pos,
+  radians(radius_deg))` — E29's tangent repulsion ported verbatim from
+  `scripts/e32_galaxy.py`, priced in `docs/assets/32-galaxy/` — over those
+  directions before shipping them. At the shipped K=3.0 the reserve is nearly
+  free (displacement 0.18 disc radii, anchor rho 0.998); arm A alone left
+  planets visibly touching. No pair ships nearer than
+  `SPREAD_MARGIN * (r_i + r_j)` radians.
+
+  `attach_payload` also returns `superplanet: {"n", "land_frac"} | None` — the
+  meta the superplanet bake already measured, threaded so the galaxy's sun can
+  caption itself without a second bake.
+
 - [ ] **Step 1: Write the failing tests**
 
 ```python
@@ -794,7 +807,12 @@ git -C /Users/melocoton/Developer/ytk.feature-galaxy-view commit -m "feat(galaxy
   - **Fragment shader** (GLSL3, mirrors the record's paint):
     ```glsl
     // equirect sample of the baked field; 0.5 = shoreline (ytk/coast.py contract)
-    float lon = atan(vN.y, vN.x); float lat = asin(clamp(vN.z, -1.0, 1.0));
+    // SHIPPED with a y-up swizzle (below): sampling latitude from the bake's own
+    // z rolled planets about the screen-depth axis. Reading lat from n.y and lon
+    // from atan2(n.z, n.x) makes uSpin a rotation about world +Y, so planets spin
+    // upright like tops. The bake is unchanged — which meridian faces the camera
+    // is arbitrary, so per-planet geography orientation costs nothing.
+    float lon = atan(vN.z, vN.x); float lat = asin(clamp(vN.y, -1.0, 1.0));
     vec2 uv = vec2(lon / 6.28318530718 + 0.5 + uSpin, 0.5 + lat / 3.14159265359);
     float d = texture(uField, uv).r + uCoastAmp * (fbm3(vN * 9.0 + uSeed) - 0.5);
     float land = smoothstep(0.5, 0.505, d);
@@ -806,7 +824,8 @@ git -C /Users/melocoton/Developer/ytk.feature-galaxy-view commit -m "feat(galaxy
     ```
     with `fbm3` = 3-octave hash-based value noise (implement in the shader; ~15 lines, standard `fract(sin(dot))` hash). Vertex shader passes the object-space normal as `vN`.
   - **Spin:** per frame `uSpin += spinRadPerSec(median_age_days, populationMedian) / (2 * PI) * dt` (uv offset is in turns). `reducedMotion()` freezes it.
-  - **Rings:** for earned planets, `Mesh(RingGeometry(1.25 * R, 1.32 * R, 64))`, `MeshBasicMaterial({color: TEXT, transparent: true, opacity: 0.35, side: DoubleSide})`, oriented so its plane normal = `ringNormal(pos, partnerPos)` (three: `mesh.lookAt(normal added to position)`).
+  - **Rings:** for earned planets, `Mesh(RingGeometry(1.05 * R, 1.6 * R, 96))`, oriented so its plane normal = `ringNormal(pos, partnerPos)` (three: `mesh.lookAt(normal added to position)`). SHIPPED as a disc, not the thin outline first specified: a `RawShaderMaterial` (same GLSL3 pattern) drives alpha from the ring uv's radial coordinate — 0.30 at the inner edge falling linearly to 0 at the outer, Saturn-like — with TEXT color, `transparent`, `DoubleSide`, `depthWrite: false`. `MeshBasicMaterial` cannot express the gradient.
+  - **The sun:** a `SphereGeometry(0.35)` at the origin carrying the same planet shader and the superplanet bake, `uHueRot` left identity (the record's canonical magma), spinning at the population-median rate. It rides the `pickPlanet` list as a trailing sentinel so nearest-t still resolves a planet drawn in front of it; hover captions "the superplanet · all notes · n · land %" (theme id `SUN_THEME = -1`) and a tap navigates to `/orb` with no theme.
   - **Moons:** for planets with moons, one `Mesh(PlaneGeometry)` billboard per moon, `MeshBasicMaterial` with a `TextureLoader` texture from `/vault-media/<thumb>` (skip texture when `thumb` null — PANEL-colored quad), half-size `R * (0.18 + 0.02 * min(size, 10))`, orbiting in the planet's tangent plane at `1.6 * R`, period 45s, always facing the camera (`mesh.quaternion.copy(camera.quaternion)` each frame). Click (via `pickPlanet`-style ray against moon quads' bounding spheres — reuse `Raycaster.intersectObjects`) -> `cb.onMoonOpen`.
   - **Starfield:** `Points` of 600 fibonacci directions at radius 8, `PointsMaterial({color: DIM, size: 0.02})`, `frustumCulled = false`.
   - **Hover:** when not visiting, per-frame `pickPlanet` under the pointer -> `cb.onHover`; tap -> `visit(theme)`.
@@ -895,6 +914,23 @@ describe("orb search param", () => {
 ```
 
 - [ ] **Step 2: Run to verify FAIL**, then implement `orbSearch.ts`, wire into `orb.tsx` (`validateSearch: validateOrbSearch`; in the mount effect, after `setLayout(...)`: `const th = Route.useSearch().theme` read at component level, and if defined `setTheme(th); handle.setThemeFilter(th)`), build `galaxy.tsx`, add the nav link.
+
+  **Shipped: aim on land.** Filtering alone landed the user facing a screen of
+  dimmed tiles — the theme's own tiles were bright but behind the default
+  camera. `OrbHandle` gained `aimAt(dir)`, which runs the direction through the
+  same yaw/pitch mapping `anglesFor` already used for focus (extracted as
+  `anglesForDir`) and calls `controls.setTarget`. `orb.tsx` computes the mean
+  direction of the theme's tiles under the chosen sphere layout and aims there
+  on mount. Verified on a tightly-clustered theme (2.9 deg median spread), whose
+  tiles land dead centre; a theme spread over ~26 deg still fans past the fov,
+  because inside-mode's forward dolly magnifies it — a property of the theme,
+  not of the aim.
+
+  **Shipped: terrain toggle.** `coastVisible(mode, loaded, terrain)` takes a
+  third veto and `OrbHandle` gained `setTerrain(on)`; `orb.tsx` owns the flag in
+  React state and renders a `terrain` button in the existing top-left cluster,
+  active by default and disabled outside globe mode (terrain is invisible in
+  inside mode anyway).
 
 - [ ] **Step 3: Run validator test + full web suite** — `cd web && vp exec vitest run` — all green (routeTree regenerates on dev/build; run `vp build` once so `routeTree.gen.ts` includes `/galaxy` and typecheck sees it).
 

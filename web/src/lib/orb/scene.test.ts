@@ -158,11 +158,34 @@ test("globe orbit radius clamps at [1.30, 4.0]", () => {
   expect(GLOBE_R_FAR).toBeCloseTo(4.0, 6);
 });
 
-test("coast sphere is visible only in globe mode once the bake has loaded", () => {
-  expect(coastVisible("inside", false)).toBe(false);
-  expect(coastVisible("inside", true)).toBe(false); // wrong mode: still hidden even if the texture arrived
-  expect(coastVisible("globe", false)).toBe(false); // 404 or in-flight: globe mode alone isn't enough
-  expect(coastVisible("globe", true)).toBe(true);
+test("coast sphere is visible only in globe mode once the bake has loaded and terrain is on", () => {
+  expect(coastVisible("inside", false, true)).toBe(false);
+  expect(coastVisible("inside", true, true)).toBe(false); // wrong mode: still hidden even if the texture arrived
+  expect(coastVisible("globe", false, true)).toBe(false); // 404 or in-flight: globe mode alone isn't enough
+  expect(coastVisible("globe", true, true)).toBe(true);
+  // the toggle is a third veto, not a mode: every other condition can be met
+  expect(coastVisible("globe", true, false)).toBe(false);
+  expect(coastVisible("inside", true, false)).toBe(false);
+});
+
+test("setTerrain and aimAt drive the live handle without shader errors", async () => {
+  const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  const canvas = document.createElement("canvas");
+  canvas.width = 400;
+  canvas.height = 300;
+  document.body.appendChild(canvas);
+  const handle = mountOrb(canvas, data(), { onHover: vi.fn(), onOpen: vi.fn() });
+  handle.setView("globe");
+  handle.setTerrain(false);
+  handle.setTerrain(true);
+  handle.aimAt([1, 0, 0]);
+  handle.aimAt([0, 0, 0]); // degenerate centroid: must not produce NaN angles
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  expect(errSpy).not.toHaveBeenCalled();
+  expect(Number.isFinite(canvas.width)).toBe(true);
+  handle.dispose();
+  canvas.remove();
+  errSpy.mockRestore();
 });
 
 test("globe mode toggles the coast sphere without leaking", async () => {

@@ -5,7 +5,7 @@ import type { FreshNote } from "../api/fresh";
 import { NoteViewer } from "../components/NoteViewer";
 import { ErrorState } from "../components/StateViews";
 import type { GalaxyHandle } from "../lib/galaxy/scene";
-import { mountGalaxy } from "../lib/galaxy/scene";
+import { SUN_THEME, mountGalaxy } from "../lib/galaxy/scene";
 import { useChromeVisible } from "../lib/chrome";
 import "../styles.css";
 
@@ -50,12 +50,14 @@ function GalaxyPage() {
       onHover: setHovered,
       onVisit: setVisiting,
       onMoonOpen: setOpenMoon,
+      onSunOpen: () => void navigate({ to: "/orb", search: {} }),
     });
     handleRef.current = handle;
     return () => {
       handleRef.current = null;
       handle.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   if (galaxy.isError)
@@ -63,6 +65,8 @@ function GalaxyPage() {
 
   const planetByTheme = new Map(data?.planets.map((p) => [p.theme, p]) ?? []);
   const hoveredPlanet = hovered !== null ? planetByTheme.get(hovered) : undefined;
+  const sun = data?.superplanet;
+  const hoveredSun = hovered === SUN_THEME;
   const visitedPlanet = visiting !== null ? planetByTheme.get(visiting) : undefined;
 
   return (
@@ -93,11 +97,15 @@ function GalaxyPage() {
               >
                 overview
               </button>
+              {visitedPlanet.rings.partners.length ? (
+                <span className="self-center text-xs opacity-50">linked:</span>
+              ) : null}
               {visitedPlanet.rings.partners.map((partner) => (
                 <button
                   key={partner.theme}
                   type="button"
                   className={BTN}
+                  title="travel to ring partner"
                   onClick={() => handleRef.current?.visit(partner.theme)}
                 >
                   {planetByTheme.get(partner.theme)?.label ?? String(partner.theme)}
@@ -116,11 +124,13 @@ function GalaxyPage() {
           ) : null}
         </div>
       ) : null}
-      {data && hoveredPlanet && !openMoon ? (
+      {data && (hoveredPlanet || hoveredSun) && !openMoon ? (
         <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm">
-          {hoveredPlanet.label}
+          {hoveredSun ? "the superplanet" : hoveredPlanet?.label}
           <span className="ml-2 opacity-60">
-            {hoveredPlanet.cls} · {hoveredPlanet.n}
+            {hoveredSun
+              ? `all notes${sun ? ` · ${sun.n} · ${Math.round(sun.land_frac * 100)}% land` : ""}`
+              : `${hoveredPlanet?.cls} · ${hoveredPlanet?.n}`}
           </span>
         </div>
       ) : null}
