@@ -425,9 +425,15 @@ def fig03(X, tags, names, cmap):
 
 def fig04(X, note, cmap):
     """The same field as terrain: a 32x32 vector image is a scalar field, so
-    height can carry the value instead of brightness. The cone becomes a
-    landform; the gold ridge on the side wall is the row profile (fig 01's
-    readout, now a silhouette); DIM wall lines are the random-order null."""
+    height can carry the value instead of brightness. The field is bilinearly
+    interpolated between grid points for rendering (values at the 32x32 nodes
+    are exact; the surface lerps between them), lit with a soft hillshade.
+    The gold ridge on the back wall is the row profile (fig 01's readout, now
+    a silhouette); the DIM rails are the random-order null."""
+    from matplotlib.colors import LightSource
+    from matplotlib.lines import Line2D
+    from scipy.ndimage import zoom
+
     mean = X.mean(0)
     _, _, view = seriate(mean)
     q = unit(note["qwen"].astype(np.float32))
@@ -437,41 +443,79 @@ def fig04(X, note, cmap):
 
     meta = (
         "same seriation as figure 01 (dims sorted by corpus |mean|, sign-aligned)  ·  height = value, shared z-limits ±0.10  ·  "
-        "gold ridge on the wall: per-row mean  ·  DIM wall lines: 5-95% of 300 random orders"
+        "surface: bilinear lerp between the 32x32 grid values, 8x  ·  null: 5-95% of 300 random orders"
     )
-    fig, top = figure(16.5, 6.6, 4, "individual lens", "The cone as terrain", meta)
+    fig, top = figure(16.5, 7.0, 4, "individual lens", "The cone as terrain", meta)
 
-    r = np.arange(SIDE)
-    xx, yy = np.meshgrid(r, r)
+    UP = 8
     zlim = 0.10
     norm = plt.Normalize(-zlim, zlim)
+    ls = LightSource(azdeg=315, altdeg=45)
+    r = np.arange(SIDE)
+    rf = np.linspace(0, SIDE - 1, SIDE * UP)
+    xxf, yyf = np.meshgrid(rf, rf)
     panels = [
         ("the corpus mean — the landform", view(mean)),
         ("one note — weather on the landform", view(q)),
         ("the note centered — the weather alone", view(qc)),
     ]
     for k, (title, Z) in enumerate(panels):
-        ax = fig.add_axes([MARGIN + k * 0.31, 0.02, 0.30, top - 0.06], projection="3d")
+        Zf = zoom(Z, UP, order=1)  # lerp between grid points; node values exact
+        rgb = ls.shade(Zf, cmap=cmap, norm=norm, vert_exag=40, blend_mode="soft")
+        ax = fig.add_axes([MARGIN + k * 0.315, 0.065, 0.295, top - 0.15], projection="3d")
         ax.set_facecolor(BG)
         ax.plot_surface(
-            xx,
-            yy,
-            Z,
-            facecolors=cmap(norm(Z)),
-            rstride=1,
-            cstride=1,
+            xxf,
+            yyf,
+            Zf,
+            facecolors=rgb,
+            rcount=SIDE * UP // 2,
+            ccount=SIDE * UP // 2,
             linewidth=0,
-            antialiased=False,
+            antialiased=True,
             shade=False,
         )
-        wall = np.zeros(SIDE) - 1.5
+        # row profile + null rails on the back wall (x = 0 plane)
+        wall = np.zeros(SIDE)
         ax.plot(wall, r, Z.mean(axis=1), color=GOLD, lw=2.4, zorder=10)
-        ax.plot(wall, r, lo, color=DIM, lw=1.2, zorder=9)
-        ax.plot(wall, r, hi, color=DIM, lw=1.2, zorder=9)
+        ax.plot(wall, r, lo, color=DIM, lw=1.3, zorder=9)
+        ax.plot(wall, r, hi, color=DIM, lw=1.3, zorder=9)
+
         ax.set_zlim(-zlim, zlim)
+        ax.set_xlim(0, SIDE - 1)
+        ax.set_ylim(SIDE - 1, 0)  # row 0 toward the camera — the ridge faces the viewer
         ax.view_init(elev=28, azim=-55)
-        ax.set_axis_off()
-        fig.text(MARGIN + k * 0.31 + 0.15, top - 0.045, title, color=TEXT, fontsize=10, ha="center")
+        ax.set_box_aspect((1, 1, 0.42), zoom=1.22)
+        for pane in (ax.xaxis, ax.yaxis, ax.zaxis):
+            pane.set_pane_color((0, 0, 0, 0))
+            pane.line.set_color(FRAME)
+        ax.grid(False)
+        ax.tick_params(colors=MUTED, labelsize=6, pad=-1)
+        ax.set_xticks([0, 16, 31])
+        ax.set_yticks([0, 16, 31])
+        ax.set_zticks([-0.1, 0, 0.1])
+        ax.set_xlabel("image col", color=MUTED, fontsize=7, labelpad=-4)
+        ax.set_ylabel("image row", color=MUTED, fontsize=7, labelpad=-4)
+        if k == 0:
+            ax.set_zlabel("value", color=MUTED, fontsize=7, labelpad=-2)
+        else:
+            ax.set_zticklabels([])
+        fig.text(
+            MARGIN + k * 0.315 + 0.1475, top - 0.045, title, color=TEXT, fontsize=10, ha="center"
+        )
+
+    fig.legend(
+        handles=[
+            Line2D([], [], color=GOLD, lw=2.4, label="row profile (back wall)"),
+            Line2D([], [], color=DIM, lw=1.3, label="random-order null, 5-95%"),
+        ],
+        loc="lower center",
+        bbox_to_anchor=(0.5, 0.012),
+        ncol=2,
+        frameon=False,
+        labelcolor=TEXT,
+        fontsize=8,
+    )
 
     verdict(
         fig,
