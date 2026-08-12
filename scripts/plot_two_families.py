@@ -100,11 +100,11 @@ def main() -> None:
         f'the note: "{short(names[note], 48)}"  ·  theme: {short(labels[note], 24)}  ·  '
         f"aligned corpus n={n}  ·  top-10 overlap between its two neighbourhoods: 0 (corpus median {int(np.median(overlaps))})"
     )
-    fig, top = figure(16.5, 8.8, 1, "two families", "One note, two families", meta)
+    fig, top = figure(16.5, 7.8, 1, "two families", "One note, two families", meta)
 
     y_top = top - 0.10
     cmap = saturated_magma()
-    W, H = 16.5, 8.8
+    W, H = fig.get_figwidth(), fig.get_figheight()
 
     # the note's two portraits, centre column
     xq, xg = 0.415, 0.545
@@ -163,28 +163,13 @@ def main() -> None:
         )
 
     # population panel: overlap distribution
-    axh = fig.add_axes([MARGIN, 0.09, 0.38, 0.20])
+    axh = fig.add_axes([MARGIN, 0.10, 0.55, 0.20])
     style_axes(axh)
     axh.hist(overlaps, bins=np.arange(-0.5, overlaps.max() + 1.5), color=DIM, lw=0)
     axh.axvline(0, color=RED, lw=1.6)
     axh.set_xlabel("shared notes between the two top-10 neighbourhoods", color=MUTED, fontsize=8)
     axh.set_yticks([])
     panel_title(axh, "every note's two families, compared (red: this note)", 60)
-
-    fig.text(
-        MARGIN + 0.46,
-        0.27,
-        "the same note, embedded twice. the Qwen space files it with notes\n"
-        "about its topic; the fingerprint space files it with notes that share\n"
-        "its named vocabulary features — its register. the two top-10 lists\n"
-        "share zero notes, and that is not an outlier: the corpus median\n"
-        f"overlap is {int(np.median(overlaps))} of 10. section 22 measured this as ARI and triplets;\n"
-        "this is what it looks like when it happens to one note you can read.",
-        color=MUTED,
-        fontsize=9.5,
-        linespacing=1.7,
-        va="top",
-    )
 
     verdict(
         fig,

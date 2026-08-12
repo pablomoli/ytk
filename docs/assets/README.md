@@ -132,6 +132,12 @@ import; `axes.unicode_minus` is off so minus signs render in the serif face.
 - **The meta line is part of the design.** It carries the measured quantities
   (counts, bandwidths, scores). A figure whose title claims something its meta
   line does not quantify is incomplete.
+- **Prose lives in the markdown, never in the figure.** A figure carries
+  objects, readouts, labels and one red verdict; multi-sentence explainer
+  blocks set as `fig.text` belong in the section README. If a paragraph
+  feels necessary inside the panel area, the geometry is not carrying the
+  claim yet. Verify text placement by cropping the rendered PNG at native
+  resolution — full-figure thumbnails hide clipped labels.
 - **3D surfaces are figures, not screenshots.** A scalar field drawn as
   terrain gets the full anatomy: interpolate between grid nodes (bilinear,
   disclosed in the meta line — raw quads read as shards), hillshade for

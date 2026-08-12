@@ -148,7 +148,7 @@ def fig02(X, names, mats):
         "each panel: the full 568x568 similarity matrix under one ruler, rows and columns in ONE shared order "
         "(cosine dendrogram leaves), 2x mean-pooled for print  ·  brightness = similarity, per-panel 1-99% limits"
     )
-    fig, top = figure(16.5, 8.4, 2, "six rulers", "Six textures of the same corpus", meta)
+    fig, top = figure(16.5, 5.6, 2, "six rulers", "Six textures of the same corpus", meta)
 
     y_top = top - 0.06
     w = 0.145
@@ -160,30 +160,13 @@ def fig02(X, names, mats):
         lo, hi = np.percentile(M, [1, 99])
         W, H = fig.get_figwidth(), fig.get_figheight()
         h = w * W / H
-        row, col = divmod(j, 3)
-        ax = fig.add_axes([MARGIN + col * 0.17, y_top - row * (h + 0.115) - h, w, h])
+        ax = fig.add_axes([MARGIN + j * (w + 0.0122), y_top - h, w, h])
         ax.imshow(M, cmap=cmap, vmin=lo, vmax=hi, interpolation="nearest")
         ax.set_xticks([])
         ax.set_yticks([])
         for s in ax.spines.values():
             s.set_color(FRAME)
         panel_title(ax, m, 24)
-
-    fig.text(
-        MARGIN + 0.55,
-        y_top - 0.05,
-        "the same blocks appear in every panel — the map is the map,\n"
-        "whichever ruler draws it. what changes is the background:\n"
-        "centring and rank-transforms kill the cone's uniform glow\n"
-        "(the top-left-to-everywhere brightness cosine carries), and\n"
-        "CSLS dims the rows of notes that were close to everything.\n"
-        "section 19 said the null models won; the textures say why —\n"
-        "the six rulers were always measuring the same geometry.",
-        color=MUTED,
-        fontsize=9.5,
-        linespacing=1.7,
-        va="top",
-    )
 
     verdict(fig, "same blocks in all six — the rulers disagree about the background, not the map")
     save(fig, "02-six-textures.png")
