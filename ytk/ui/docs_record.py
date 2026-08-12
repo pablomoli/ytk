@@ -24,8 +24,7 @@ class SectionSummary(TypedDict):
     num: int
     title: str
     deck: str
-    cover: str | None
-    figures: int
+    images: list[str]
     hasVideo: bool
 
 
@@ -119,15 +118,14 @@ def build_manifest(root: Path) -> list[SectionSummary]:
         if not title:
             continue
         files = _section_files(d)
-        images = [f["name"] for f in files if f["kind"] == "image"]
         sections.append(
             {
                 "id": d.name,
                 "num": int(m.group(1)),
                 "title": title,
                 "deck": deck,
-                "cover": f"{d.name}/{images[0]}" if images else None,
-                "figures": len(images),
+                # name-sorted = figure order; the cards page through these
+                "images": [f"{d.name}/{f['name']}" for f in files if f["kind"] == "image"],
                 "hasVideo": any(f["kind"] == "video" for f in files),
             }
         )

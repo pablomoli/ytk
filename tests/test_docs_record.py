@@ -38,6 +38,7 @@ def record(tmp_path):
     s30 = root / "30-coastlines"
     (s30 / "README.md").write_text(README_30, encoding="utf-8")
     (s30 / "01-the-planet-unrolled.png").write_bytes(b"png")
+    (s30 / "02-the-named-continents.png").write_bytes(b"png")
     (s30 / "03-the-planet-turns.mp4").write_bytes(b"mp4")
     (s30 / "continents.json").write_text("{}", encoding="utf-8")
     s02 = root / "02-picking"
@@ -60,9 +61,13 @@ def test_manifest_newest_first_with_parsed_heads(record):
     # deck is the first paragraph, joined and stripped of inline markdown
     assert s30["deck"].startswith("E29 quietly proved")
     assert "embedding manifold" in s30["deck"] and "**" not in s30["deck"]
-    assert s30["cover"] == "30-coastlines/01-the-planet-unrolled.png"
-    assert s30["figures"] == 1 and s30["hasVideo"] is True
-    assert sections[1]["cover"] is None and sections[1]["hasVideo"] is False
+    # figure order = name order, videos excluded
+    assert s30["images"] == [
+        "30-coastlines/01-the-planet-unrolled.png",
+        "30-coastlines/02-the-named-continents.png",
+    ]
+    assert s30["hasVideo"] is True
+    assert sections[1]["images"] == [] and sections[1]["hasVideo"] is False
 
 
 def test_deck_skips_blockquotes_and_images():
@@ -79,6 +84,7 @@ def test_read_section_returns_readme_and_typed_files(record):
     kinds = {f["name"]: f["kind"] for f in section["files"]}
     assert kinds == {
         "01-the-planet-unrolled.png": "image",
+        "02-the-named-continents.png": "image",
         "03-the-planet-turns.mp4": "video",
         "continents.json": "data",
     }

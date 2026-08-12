@@ -1,11 +1,89 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import type { DocsSectionSummary } from "../api/docs";
 import { useDocsManifest, mediaUrl } from "../api/docs";
 import { ErrorState } from "../components/StateViews";
 import { mountBackdrop } from "../lib/docsBackdrop";
 import "../styles.css";
 
 export const Route = createFileRoute("/docs/")({ component: DocsPage });
+
+const ARROW =
+  "absolute top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center " +
+  "rounded-full bg-black/60 text-lg leading-none text-[var(--ink)] " +
+  "opacity-0 transition-opacity duration-150 group-hover:opacity-100 " +
+  "focus-visible:opacity-100 hover:bg-black/85";
+
+function DocsCard({ s }: { s: DocsSectionSummary }) {
+  const [i, setI] = useState(0);
+  const last = s.images.length - 1;
+  const step = (e: React.MouseEvent<HTMLButtonElement>, d: number) => {
+    // the whole card is a Link; paging must not navigate
+    e.preventDefault();
+    e.stopPropagation();
+    setI((v) => Math.min(Math.max(v + d, 0), last));
+  };
+  return (
+    <Link
+      to="/docs/$section"
+      params={{ section: s.id }}
+      className="card group block overflow-hidden no-underline !bg-[#101012]"
+    >
+      <div className="relative">
+        {s.images.length ? (
+          <img
+            src={mediaUrl(s.images[i])}
+            alt=""
+            loading="lazy"
+            className="aspect-[16/10] w-full object-cover object-top opacity-90 transition-opacity duration-200 group-hover:opacity-100"
+          />
+        ) : (
+          <div className="sub grid aspect-[16/10] w-full place-items-center border-b border-white/5">
+            no figures
+          </div>
+        )}
+        {i > 0 ? (
+          <button
+            type="button"
+            aria-label="previous figure"
+            className={`${ARROW} left-2`}
+            onClick={(e) => step(e, -1)}
+          >
+            ‹
+          </button>
+        ) : null}
+        {i < last ? (
+          <button
+            type="button"
+            aria-label="next figure"
+            className={`${ARROW} right-2`}
+            onClick={(e) => step(e, 1)}
+          >
+            ›
+          </button>
+        ) : null}
+        {s.images.length > 1 ? (
+          <span className="sub pointer-events-none absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            {i + 1}/{s.images.length}
+          </span>
+        ) : null}
+      </div>
+      <div className="p-4">
+        <p className="sub text-[var(--mute)]">
+          e{s.num.toString().padStart(2, "0")} · {s.images.length}{" "}
+          {s.images.length === 1 ? "figure" : "figures"}
+          {s.hasVideo ? " · film" : ""}
+        </p>
+        <h2 className="mt-1 text-lg leading-snug !text-[var(--ink)]">
+          {s.title}
+        </h2>
+        {s.deck ? (
+          <p className="mt-1 line-clamp-2 text-sm text-[var(--ink2)]">{s.deck}</p>
+        ) : null}
+      </div>
+    </Link>
+  );
+}
 
 export function DocsPage() {
   const manifest = useDocsManifest();
@@ -61,40 +139,7 @@ export function DocsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 xl:grid-cols-3">
             {data.sections.map((s) => (
-              <Link
-                key={s.id}
-                to="/docs/$section"
-                params={{ section: s.id }}
-                className="card group block overflow-hidden no-underline !bg-[#101012]"
-              >
-                {s.cover ? (
-                  <img
-                    src={mediaUrl(s.cover)}
-                    alt=""
-                    loading="lazy"
-                    className="aspect-[16/10] w-full object-cover object-top opacity-90 transition-opacity duration-200 group-hover:opacity-100"
-                  />
-                ) : (
-                  <div className="sub grid aspect-[16/10] w-full place-items-center border-b border-white/5">
-                    no figures
-                  </div>
-                )}
-                <div className="p-4">
-                  <p className="sub text-[var(--mute)]">
-                    e{s.num.toString().padStart(2, "0")} · {s.figures}{" "}
-                    {s.figures === 1 ? "figure" : "figures"}
-                    {s.hasVideo ? " · film" : ""}
-                  </p>
-                  <h2 className="mt-1 text-lg leading-snug !text-[var(--ink)]">
-                    {s.title}
-                  </h2>
-                  {s.deck ? (
-                    <p className="mt-1 line-clamp-2 text-sm text-[var(--ink2)]">
-                      {s.deck}
-                    </p>
-                  ) : null}
-                </div>
-              </Link>
+              <DocsCard key={s.id} s={s} />
             ))}
           </div>
         )}

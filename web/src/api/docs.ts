@@ -6,8 +6,7 @@ export type DocsSectionSummary = {
   num: number;
   title: string;
   deck: string;
-  cover: string | null; // docs-media-relative, e.g. "30-coastlines/01-x.png"
-  figures: number;
+  images: string[]; // docs-media-relative, figure order; the cards page these
   hasVideo: boolean;
 };
 

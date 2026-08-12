@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import type { DocsManifest, DocsSection } from "../api/docs";
 
@@ -27,8 +27,10 @@ const manifest: DocsManifest = {
       num: 30,
       title: "E30 — Coastlines",
       deck: "The land/sea boundary of the /orb planet.",
-      cover: "30-coastlines/01-the-planet-unrolled.png",
-      figures: 7,
+      images: [
+        "30-coastlines/01-the-planet-unrolled.png",
+        "30-coastlines/02-the-named-continents.png",
+      ],
       hasVideo: true,
     },
     {
@@ -36,8 +38,7 @@ const manifest: DocsManifest = {
       num: 2,
       title: "E02 — Picking",
       deck: "Raycasts against instanced spheres.",
-      cover: null,
-      figures: 0,
+      images: [],
       hasVideo: false,
     },
   ],
@@ -79,8 +80,27 @@ test("index lists sections newest-first with covers from /docs-media", () => {
   expect(img?.getAttribute("src")).toBe(
     "/docs-media/30-coastlines/01-the-planet-unrolled.png",
   );
-  expect(screen.getByText(/e30 · 7 figures · film/)).toBeInTheDocument();
+  expect(screen.getByText(/e30 · 2 figures · film/)).toBeInTheDocument();
   expect(screen.getByText("no figures")).toBeInTheDocument();
+});
+
+test("card arrows page through figures without leaving the card", () => {
+  const { container } = renderRoute(IndexRoute);
+  // at the first figure only the forward arrow exists
+  expect(screen.queryByLabelText("previous figure")).toBeNull();
+  fireEvent.click(screen.getByLabelText("next figure"));
+  expect(container.querySelector("img")?.getAttribute("src")).toBe(
+    "/docs-media/30-coastlines/02-the-named-continents.png",
+  );
+  expect(screen.getByText("2/2")).toBeInTheDocument();
+  // at the last figure the forward arrow is gone; the way back exists
+  expect(screen.queryByLabelText("next figure")).toBeNull();
+  fireEvent.click(screen.getByLabelText("previous figure"));
+  expect(container.querySelector("img")?.getAttribute("src")).toBe(
+    "/docs-media/30-coastlines/01-the-planet-unrolled.png",
+  );
+  // the figure-less card never grows arrows
+  expect(screen.getAllByLabelText(/figure/)).toHaveLength(1);
 });
 
 test("index explains an unmounted record instead of an empty grid", () => {
