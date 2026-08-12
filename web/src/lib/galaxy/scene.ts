@@ -61,10 +61,13 @@ void main() {
 }`;
 
 const coastLine = planetColor(CYAN, 1).map((c) => c.toFixed(3)).join(", ");
-// deepest ocean samples the ramp here rather than at 0, which is near-black:
-// a framed matplotlib panel can afford a black sea, a sphere against the
-// starfield cannot without losing its silhouette
+// Two non-overlapping bands of the one ramp, so the shoreline is a step in
+// ramp space rather than a smooth crossing. SEA_FLOOR is above 0 because a
+// sphere against the starfield loses its silhouette to a black sea; the
+// SEA_CEIL..LAND_FLOOR gap is the boundary itself.
 const SEA_FLOOR = 0.12;
+const SEA_CEIL = 0.30;
+const LAND_FLOOR = 0.62;
 
 const FRAG = /* glsl */ `
 precision highp float;
@@ -106,11 +109,12 @@ void main() {
   float lat = asin(clamp(vN.z, -1.0, 1.0));
   vec2 uv = vec2(lon / 6.28318530718 + 0.5 + uSpin, 0.5 + lat / 3.14159265359);
   float d = texture(uField, uv).r + uCoastAmp * (fbm3(vN * 9.0 + uSeed) - 0.5);
-  // E30 fig_field's nearness ramp in texel space. coast.py bakes
-  // d = 0.5 - sd/(5r), so near = punch(clip(1 - (sd + r) / (2.5r))) reduces to
-  // punch(clip(2d - 0.4)): one continuous value, land and sea alike.
-  float near = pow(clamp(2.0 * d - 0.4, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
-  vec3 col = texture(uRamp, vec2(${SEA_FLOOR.toFixed(2)} + ${(1 - SEA_FLOOR).toFixed(2)} * near, 0.5)).rgb;
+  // E30 fig_field's palette, but split at the shoreline: sea rides the ramp's
+  // low band, land the high one, and the gap between them is the coast.
+  float tSea = ${SEA_FLOOR.toFixed(2)} + ${(SEA_CEIL - SEA_FLOOR).toFixed(2)} * pow(clamp(d * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
+  float tLand = ${LAND_FLOOR.toFixed(2)} + ${(1 - LAND_FLOOR).toFixed(2)} * pow(clamp((d - 0.5) * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
+  float t = mix(tSea, tLand, smoothstep(0.498, 0.502, d));
+  vec3 col = texture(uRamp, vec2(t, 0.5)).rgb;
   float shore = smoothstep(0.012, 0.0, abs(d - 0.5)) * 0.9;
   outColor = vec4(mix(col, vec3(${coastLine}), shore), 1.0);
 }`;
