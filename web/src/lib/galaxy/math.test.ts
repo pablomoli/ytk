@@ -38,6 +38,10 @@ describe("galaxy math", () => {
     const s = standoff([0, 0, 1], 12);
     expect(s[2]).toBeCloseTo(1 + 3.2 * worldRadius(12));
   });
+  it("standoff scales with an explicit shell radius", () => {
+    const s = standoff([0, 0, 1], 12, 10);
+    expect(s[2]).toBeCloseTo(10 + 3.2 * worldRadius(12));
+  });
   it("slerp stays on the unit sphere", () => {
     const m = slerp([1, 0, 0], [0, 1, 0], 0.5);
     expect(len(m)).toBeCloseTo(1);

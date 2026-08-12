@@ -57,10 +57,12 @@ export const ringNormal = (center: V3, partner: V3, tiltRad: number = Math.PI / 
   return [radial[0] * c + tangent[0] * s, radial[1] * c + tangent[1] * s, radial[2] * c + tangent[2] * s];
 };
 
-// Visit camera position: pushed outward along the planet's radial by 3.2x its
-// angular (world) radius beyond the sphere surface.
-export const standoff = (center: V3, radiusDeg: number): V3 => {
-  const k = 1 + 3.2 * worldRadius(radiusDeg);
+// Visit camera position: pushed outward along the planet's radial, standing
+// off from the shell surface (shellR) by 3.2x the planet's angular (world)
+// radius. `center` is a unit direction; shellR defaults to 1 for callers on
+// the unit shell.
+export const standoff = (center: V3, radiusDeg: number, shellR: number = 1): V3 => {
+  const k = shellR + 3.2 * worldRadius(radiusDeg);
   return [center[0] * k, center[1] * k, center[2] * k];
 };
 

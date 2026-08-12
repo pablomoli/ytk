@@ -37,9 +37,12 @@ import { normalizeWheelDelta } from "../orb/scene";
 import { hueRotationMatrix, ringNormal, slerp, spinRadPerSec, standoff, worldRadius, type V3 } from "./math";
 import { pickPlanet } from "./pick";
 
-const R_CLOSE = 1.6; // overview orbit radius at wheel zoom 0
-const R_FAR = 4.0; // ... and at zoom 1
-const STAR_R = 8.0;
+// world units per unit shell radius; the API payload's pos is a unit
+// direction (data contract), this is the only place that scales it up
+const SHELL_R = 10;
+const R_CLOSE = 16; // overview orbit radius at wheel zoom 0 (1.6 * SHELL_R)
+const R_FAR = 40; // ... and at zoom 1 (4.0 * SHELL_R)
+const STAR_R = 80; // outside R_FAR so the shell never sits inside the stars
 const STARS = 600;
 const MOON_ORBIT_R = 1.6; // in planet radii
 const MOON_PERIOD = 45; // seconds
@@ -247,8 +250,8 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
   const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(BG);
-  // far plane clears the starfield shell at STAR_R plus the widest orbit radius
-  const camera = new PerspectiveCamera(60, canvas.clientWidth / Math.max(1, canvas.clientHeight), 0.01, 20);
+  // far plane clears the starfield shell at STAR_R (80) with headroom
+  const camera = new PerspectiveCamera(60, canvas.clientWidth / Math.max(1, canvas.clientHeight), 0.01, 200);
   const scene = new Scene();
 
   let disposed = false;
@@ -302,7 +305,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
       ]),
     );
     const mesh = new Mesh(geo, mat);
-    mesh.position.set(p.pos[0], p.pos[1], p.pos[2]);
+    mesh.position.set(p.pos[0] * SHELL_R, p.pos[1] * SHELL_R, p.pos[2] * SHELL_R);
     scene.add(mesh);
     sphereGeos.push(geo);
     materials.push(mat);
@@ -311,7 +314,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
     // gate turns at the population-median rate, not its own age
     const rate = spinRadPerSec(p.spin.earned ? p.spin.median_age_days : null, populationMedian);
     turnsPerSec.push(rate / (2 * Math.PI));
-    const so = standoff(p.pos, p.radius_deg);
+    const so = standoff(p.pos, p.radius_deg, SHELL_R);
     const soV = new Vector3(so[0], so[1], so[2]);
     standoffR.push(soV.length());
     standoffDir.push(soV.clone().normalize());
@@ -451,8 +454,9 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
     () => {}, // 404 stays on the fallback texture; not fatal
   );
   // one pick list, so a planet drawn in front of the sun still wins on nearest-t
+  // positions scaled to SHELL_R to match the mesh the renderer actually draws
   const pickList: { pos: V3; radius_deg: number }[] = [
-    ...planets.map((p) => ({ pos: p.pos, radius_deg: p.radius_deg })),
+    ...planets.map((p) => ({ pos: [p.pos[0] * SHELL_R, p.pos[1] * SHELL_R, p.pos[2] * SHELL_R] as V3, radius_deg: p.radius_deg })),
     // round-trips exactly through worldRadius()'s sin(), so the analytic picker
     // sees the sphere the renderer actually draws
     { pos: [0, 0, 0] as V3, radius_deg: (Math.asin(SUN_R) * 180) / Math.PI },
