@@ -79,7 +79,7 @@ function GalaxyPage() {
       )}
       {data && chrome ? (
         <div className="absolute left-4 top-4 flex flex-col gap-2 text-xs">
-          <div>
+          <div className="rounded bg-black/60 px-3 py-1">
             {visitedPlanet
               ? `${visitedPlanet.label} · ${visitedPlanet.cls} · ${visitedPlanet.n} · ${visitedPlanet.activity.toFixed(2)}`
               : "overview"}
