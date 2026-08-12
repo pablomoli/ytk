@@ -61,13 +61,15 @@ void main() {
 }`;
 
 const coastLine = planetColor(CYAN, 1).map((c) => c.toFixed(3)).join(", ");
-// Two non-overlapping bands of the one ramp, so the shoreline is a step in
-// ramp space rather than a smooth crossing. SEA_FLOOR is above 0 because a
-// sphere against the starfield loses its silhouette to a black sea; the
-// SEA_CEIL..LAND_FLOOR gap is the boundary itself.
-const SEA_FLOOR = 0.12;
-const SEA_CEIL = 0.30;
-const LAND_FLOOR = 0.62;
+// Two non-overlapping bands of the one ramp, so the shoreline is still a step
+// in ramp space, but each band is now wide enough to read as a gradient
+// rather than a flat zone. SEA_FLOOR is above 0 because a sphere against the
+// starfield loses its silhouette to a black sea; the SEA_CEIL..LAND_FLOOR gap
+// is the boundary itself, narrowed from round 5 to bring the magenta/orange
+// richness back on each side of the coast.
+const SEA_FLOOR = 0.05;
+const SEA_CEIL = 0.38;
+const LAND_FLOOR = 0.52;
 
 const FRAG = /* glsl */ `
 precision highp float;
@@ -113,7 +115,7 @@ void main() {
   // low band, land the high one, and the gap between them is the coast.
   float tSea = ${SEA_FLOOR.toFixed(2)} + ${(SEA_CEIL - SEA_FLOOR).toFixed(2)} * pow(clamp(d * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
   float tLand = ${LAND_FLOOR.toFixed(2)} + ${(1 - LAND_FLOOR).toFixed(2)} * pow(clamp((d - 0.5) * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
-  float t = mix(tSea, tLand, smoothstep(0.498, 0.502, d));
+  float t = mix(tSea, tLand, smoothstep(0.490, 0.510, d));
   vec3 col = texture(uRamp, vec2(t, 0.5)).rgb;
   float shore = smoothstep(0.012, 0.0, abs(d - 0.5)) * 0.9;
   outColor = vec4(mix(col, vec3(${coastLine}), shore), 1.0);

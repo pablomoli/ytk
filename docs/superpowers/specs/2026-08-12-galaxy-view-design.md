@@ -106,12 +106,15 @@ Tailwind utilities per the CSS policy; no new rules in styles.css.
   E30's `fig_field` runs one continuous nearness value across land and sea
   alike, which makes the shoreline a smooth crossing rather than a
   boundary; owner-directed, the renderer instead splits that ramp into two
-  non-overlapping bands of the same palette — sea rides `0.12..0.30`, land
-  `0.62..1.0`, mixed with a hard `smoothstep(0.498, 0.502, d)` at the
+  non-overlapping bands of the same palette — sea rides `0.05..0.38`, land
+  `0.52..1.0`, mixed with a softened `smoothstep(0.490, 0.510, d)` at the
   shoreline. The gap between the bands is the coast: inside and outside
-  are unmistakable at overview distance. The sea floor sits above 0
-  because a sphere against the starfield loses its silhouette to a black
-  ocean. Shoreline contour in CYAN on the seam. Class hue is **not** used for terrain: 16 of 18 planets are
+  are unmistakable at overview distance, and each band is wide enough to
+  read as its own gradient rather than a flat zone — sea deepens from
+  magenta-red near shore to purple offshore, land climbs from orange at
+  the coast to cream inland. The sea floor sits above 0 because a sphere
+  against the starfield loses its silhouette to a black ocean. Shoreline
+  contour in CYAN on the seam. Class hue is **not** used for terrain: 16 of 18 planets are
   class V, so hue-painted worlds made the sky monochrome. Class stays
   encoded in the caption, where it is legible as a letter.
 - **Spin**: texture longitude offset advances at a rate mapped from
