@@ -391,3 +391,112 @@ def test_attach_payload_hue_falls_back_to_member_hash(tmp_path):
     for p in a["planets"]:
         assert 0.0 <= p["hue_shift_deg"] < 360.0
         assert 0.0 <= p["land_frac"] <= 1.0
+
+
+def spread_fixture():
+    """Six themes whose arm-A directions leave one pair overlapping: three
+    centroids sit on the same side of the cloud mean (so their directions are
+    close), three counterweight it. Without the spread pass one pair is nearer
+    than margin*(r_i+r_j)."""
+    rng = np.random.default_rng(7)
+    members = 8
+    cents = np.array(
+        [[2, 0, 0], [2, 0.35, 0], [2, -0.32, 0.1], [-1, 1, 0], [-1, -1, 0], [-1, 0, 1.0]],
+        dtype=float,
+    )
+    n_themes = len(cents)
+    c3 = np.concatenate([c + rng.normal(0, 0.03, (members, 3)) for c in cents])
+    n = n_themes * members
+    vecs = rng.normal(0, 1, (n, 8))
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    themes = np.repeat(np.arange(n_themes), members)
+    return vecs, c3, themes, [f"theme {t}" for t in range(n_themes)]
+
+
+def _pair_angles(pos):
+    p = np.asarray(pos, dtype=float)
+    ang = np.arccos(np.clip(p @ p.T, -1.0, 1.0))
+    return ang[np.triu_indices(len(p), 1)]
+
+
+def _spearman(a, b):
+    ra = np.argsort(np.argsort(a)).astype(float)
+    rb = np.argsort(np.argsort(b)).astype(float)
+    ra -= ra.mean()
+    rb -= rb.mean()
+    return float((ra @ rb) / np.sqrt((ra @ ra) * (rb @ rb)))
+
+
+def test_attach_payload_spreads_planets_off_each_other(tmp_path):
+    """E32 arm B ships: no two planets sit nearer than margin*(r_i+r_j) after
+    attach. Arm A alone leaves this fixture with an overlapping pair, so the
+    assertion is a real gate on the de-overlap pass."""
+    vecs, c3, themes, labels = spread_fixture()
+    n = len(themes)
+    out = galaxy.attach_payload(
+        vecs,
+        c3,
+        themes,
+        ["2026-08-01"] * n,
+        labels,
+        [f"notes/n{i}.md" for i in range(n)],
+        [None] * n,
+        [f"note {i}" for i in range(n)],
+        radial_pos=galaxy_radial(c3),
+        lattice_pos=None,
+        tex_dir=tmp_path / "tex",
+        cache_path=tmp_path / "cache.json",
+        epoch="v2",
+        moon_boot=6,
+        moon_null=8,
+        n_perm=50,
+    )
+    planets = out["planets"]
+    pos = np.array([p["pos"] for p in planets], dtype=float)
+    radii = np.radians([p["radius_deg"] for p in planets])
+    target = galaxy.SPREAD_MARGIN * (radii[:, None] + radii[None, :])
+    iu = np.triu_indices(len(planets), 1)
+    ang = np.arccos(np.clip(pos @ pos.T, -1.0, 1.0))
+    closest = float((ang[iu] - target[iu]).min())
+    assert closest >= -1e-9, f"a pair sits {np.degrees(-closest):.2f} deg inside its clearance"
+
+
+def test_attach_payload_spread_stays_anchored_to_arm_a(tmp_path):
+    """The spread is only worth shipping if it keeps the map's geometry: E32
+    measured anchor rho 0.998 at K=3.0, so pairwise-distance rank order against
+    un-spread arm A must survive nearly intact."""
+    vecs, c3, themes, labels = spread_fixture()
+    n = len(themes)
+    paths = [f"notes/n{i}.md" for i in range(n)]
+    arm_a_blocks = galaxy.galaxy_block(
+        vecs / np.linalg.norm(vecs, axis=1, keepdims=True),
+        c3,
+        themes,
+        ["2026-08-01"] * n,
+        labels,
+        paths,
+        "v2",
+    )
+    out = galaxy.attach_payload(
+        vecs,
+        c3,
+        themes,
+        ["2026-08-01"] * n,
+        labels,
+        paths,
+        [None] * n,
+        [f"note {i}" for i in range(n)],
+        radial_pos=galaxy_radial(c3),
+        lattice_pos=None,
+        tex_dir=tmp_path / "tex",
+        cache_path=tmp_path / "cache.json",
+        epoch="v2",
+        moon_boot=6,
+        moon_null=8,
+        n_perm=50,
+    )
+    a = _pair_angles([b["pos"] for b in arm_a_blocks])
+    b = _pair_angles([p["pos"] for p in out["planets"]])
+    assert a.shape == b.shape
+    assert _spearman(a, b) > 0.98
+    assert not np.allclose(a, b), "the fixture must actually move, or the anchor claim is vacuous"

@@ -26,6 +26,10 @@ from numpy.typing import NDArray
 # under the 5% bar out to K*=3.00 deg per n^(1/3), clear of map agreement
 GALAXY_K = 3.0
 
+# arm B's clearance factor: discs of radius r_i, r_j must sit margin*(r_i+r_j)
+# apart. Moving it changes the shipped layout, not just a tolerance.
+SPREAD_MARGIN = 1.05
+
 ACTIVE_DAYS = 90
 
 # Sudarsky albedo classes, translated: activity share of dated notes in the
@@ -194,6 +198,39 @@ def arm_a(theme_cent_c3: NDArray[Any], c3_all: NDArray[Any]) -> NDArray[Any]:
     the same origin the tile layer's radial() uses (E32 arm A)."""
     v = np.asarray(theme_cent_c3) - np.asarray(c3_all).mean(axis=0)
     return v / np.linalg.norm(v, axis=1, keepdims=True)
+
+
+def spread_discs(
+    pos: NDArray[Any],
+    radii: NDArray[Any],
+    iters: int = 300,
+    step: float = 0.35,
+    margin: float = SPREAD_MARGIN,
+    seed: int = 32,
+) -> NDArray[Any]:
+    """E29's tangent repulsion with a per-pair target: discs of angular radius
+    r_i, r_j (radians) clear each other at r_i + r_j. Every planet moves with
+    equal weight; the anchor axis prices what that costs.
+
+    Ported verbatim from scripts/e32_galaxy.py — arm B, priced in
+    docs/assets/32-galaxy/ (at the shipped K=3.0: disp 0.18 radii, rho 0.998).
+    """
+    rng = np.random.default_rng(seed)
+    p = np.asarray(pos, dtype=float) + rng.normal(0.0, 1e-4, pos.shape)
+    p /= np.linalg.norm(p, axis=1, keepdims=True)
+    target = margin * (radii[:, None] + radii[None, :])
+    for _ in range(iters):
+        dots = np.clip(p @ p.T, -1.0, 1.0)
+        ang = np.arccos(dots)
+        w = np.where(ang < target, (target - ang) / target, 0.0)
+        np.fill_diagonal(w, 0.0)
+        if not w.any():
+            break
+        t = p[:, None, :] * dots[:, :, None] - p[None, :, :]
+        t /= np.maximum(np.sqrt(1.0 - dots * dots), 1e-9)[:, :, None]
+        p = p + step * ((w * target)[:, :, None] * t).sum(axis=1)
+        p /= np.linalg.norm(p, axis=1, keepdims=True)
+    return p
 
 
 def galaxy_block(
@@ -624,6 +661,15 @@ def attach_payload(
     themes = np.asarray(themes)
 
     blocks = galaxy_block(vecs, c3, themes, dates, labels, paths, epoch)
+    # E32 arm B: arm A's centroid directions de-overlapped. galaxy_block keeps
+    # the un-spread arm A so the anchor stays measurable against what ships.
+    if blocks:
+        arm_b = spread_discs(
+            np.asarray([b["pos"] for b in blocks], dtype=float),
+            np.radians([b["radius_deg"] for b in blocks]),
+        )
+        for block, p in zip(blocks, arm_b):
+            block["pos"] = p.tolist()
     ids = [p["theme"] for p in blocks]
     rings = ring_gate(vecs, themes, ids, n_perm=n_perm)
     spins = spin_gate(themes, dates, ids, n_perm=n_perm)
@@ -696,20 +742,28 @@ def attach_payload(
         block["moons"] = moons_out
         planets.append(block)
 
+    superplanet: dict[str, Any] | None = None
     if lattice_pos is not None:
         h_all = member_hash(paths, epoch)
         sp_path = tex_dir / "superplanet.png"
-        _bake_cached(
+        sp_meta = _bake_cached(
             cache_path,
             h_all,
             "superplanet.png",
             sp_path,
             lambda: coast.bake_superplanet(radial_pos, lattice_pos, sp_path),
         )
+        # the sun at the galaxy's origin reads the same land share the /orb
+        # coast sphere does; no second bake, just the meta already cached
+        superplanet = {
+            "n": len(paths),
+            "land_frac": round(float(sp_meta.get("land_frac", 0.0)), 3),
+        }
 
     return {
         "epoch": epoch,
         "k_deg": GALAXY_K,
         "generated": datetime.date.today().isoformat(),
         "planets": planets,
+        "superplanet": superplanet,
     }
