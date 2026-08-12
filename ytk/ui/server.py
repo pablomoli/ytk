@@ -1147,7 +1147,9 @@ _SPA_ROUTES = {
     "settings",
     "channels",
     "orb",
+    "galaxy",
     "recs",
+    "transit",
 }
 
 
