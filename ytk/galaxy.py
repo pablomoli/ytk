@@ -365,3 +365,119 @@ def moons_cached(
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(cache))
     return result
+
+
+def _bake_cached(cache_path: Path, h: str, bake: Any) -> None:
+    """Read-check-write like moons_cached, keyed by the same member-set hash
+    so a texture rebakes only when its planet's member set actually changed."""
+    key = f"tex:{h}"
+    try:
+        cache: dict[str, Any] = json.loads(cache_path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        cache = {}
+    if key in cache:
+        return
+    meta = bake()
+    cache[key] = {"hash": h, "meta": meta}
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(cache))
+
+
+def attach_payload(
+    vecs: NDArray[Any],
+    c3: NDArray[Any],
+    themes: NDArray[Any],
+    dates: list[str | None],
+    labels: list[str],
+    paths: list[str],
+    thumbs: list[str | None],
+    titles: list[str],
+    radial_pos: NDArray[Any],
+    lattice_pos: NDArray[Any] | None,
+    tex_dir: Path,
+    cache_path: Path,
+    epoch: str,
+    moon_boot: int = 25,
+    moon_null: int = 50,
+    n_perm: int = 1000,
+) -> dict[str, Any]:
+    """Assembles the full content.galaxy payload: galaxy_block's per-planet
+    fields decorated with a baked coast texture and the E33 gates (rings,
+    spin, moons), member_paths/hash stripped since callers never see the raw
+    member set. Moon seed offset (33 + theme) matches scripts/e33_channels.py
+    so a rebuild reproduces the same cut for an unchanged member set."""
+    from ytk import coast
+
+    vecs = np.asarray(vecs, dtype=float)
+    c3 = np.asarray(c3, dtype=float)
+    themes = np.asarray(themes)
+
+    blocks = galaxy_block(vecs, c3, themes, dates, labels, paths, epoch)
+    ids = [p["theme"] for p in blocks]
+    rings = ring_gate(vecs, themes, ids, n_perm=n_perm)
+    spins = spin_gate(themes, dates, ids, n_perm=n_perm)
+
+    tex_dir.mkdir(parents=True, exist_ok=True)
+    planets: list[dict[str, Any]] = []
+    for block in blocks:
+        t = block["theme"]
+        h = block.pop("hash")
+        block.pop("member_paths")
+        m = np.flatnonzero(themes == t)
+        tex_name = f"{t}.png"
+        _bake_cached(
+            cache_path,
+            h,
+            lambda m=m, tex_name=tex_name: coast.bake_planet(c3[m], tex_dir / tex_name),
+        )
+        block["tex"] = tex_name
+
+        r = rings[t]
+        block["rings"] = {
+            "earned": r["earned"],
+            "partners": [{"theme": pt["theme"], "z": pt["z"]} for pt in r["partners"]],
+        }
+        s = spins[t]
+        block["spin"] = {
+            "earned": s["earned"],
+            "side": s["side"],
+            "median_age_days": s["median_age_days"] if s["n_dated"] else None,
+        }
+
+        vn = vecs[m]
+        vn = vn / np.linalg.norm(vn, axis=1, keepdims=True)
+        member_paths = [paths[int(i)] for i in m]
+        moon_result = moons_cached(
+            vn, member_paths, epoch, cache_path, seed=33 + t, n_boot=moon_boot, n_null=moon_null
+        )
+        moons_out: list[dict[str, Any]] = []
+        for moon in moon_result["moons"]:
+            idx_local = moon["member_idx"]
+            sub = vn[idx_local]
+            medoid_local = idx_local[int(np.argmax(sub @ sub.mean(axis=0)))]
+            gi = int(m[medoid_local])
+            moons_out.append(
+                {
+                    "size": len(idx_local),
+                    "path": paths[gi],
+                    "title": titles[gi],
+                    "thumb": thumbs[gi] or None,
+                }
+            )
+        block["moons"] = moons_out
+        planets.append(block)
+
+    if lattice_pos is not None:
+        h_all = member_hash(paths, epoch)
+        _bake_cached(
+            cache_path,
+            h_all,
+            lambda: coast.bake_superplanet(radial_pos, lattice_pos, tex_dir / "superplanet.png"),
+        )
+
+    return {
+        "epoch": epoch,
+        "k_deg": GALAXY_K,
+        "generated": datetime.date.today().isoformat(),
+        "planets": planets,
+    }

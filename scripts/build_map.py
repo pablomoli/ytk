@@ -599,6 +599,69 @@ def attach_sphere() -> None:
     OUT.write_text(json.dumps(data))
 
 
+def attach_galaxy(no_galaxy: bool = False) -> None:
+    """Compute the /galaxy content.galaxy block (ytk/galaxy.py) from the
+    stored c3 coordinates, live store vectors, and the sphere block's
+    radial/lattice layouts. Same alignment contract as attach_sphere, with
+    the url-match fallback from scripts/e33_channels.py's load_members()
+    for when store rows have drifted out of index-lockstep with map.json."""
+    if no_galaxy:
+        print("galaxy: skipped (--no-galaxy)")
+        return
+    from ytk import galaxy
+    from ytk.store import EMBEDDING_EPOCH
+
+    data = json.loads(OUT.read_text())
+    cpts = [p for p in data["points"] if "c3" in p]
+    vecs, meta, _docs = load_points()
+    try:
+        cidx = _content_alignment(data["points"], meta, CONTENT_CATS)
+        sub = vecs[cidx]
+    except SystemExit as exc:
+        print(f"index alignment failed ({exc}); url-matching instead")
+        by_url = {m["url"]: v for m, v in zip(meta, vecs) if m.get("url")}
+        rows = [by_url.get(p.get("u")) for p in cpts]
+        keep = np.array([r is not None for r in rows])
+        if keep.mean() < 0.95:
+            raise SystemExit("url match rate under 95% -- rebuild the map first") from exc
+        print(f"url-matched {int(keep.sum())}/{len(cpts)}")
+        sub = np.asarray([r for r in rows if r is not None])
+        cpts = [p for p, k in zip(cpts, keep) if k]
+    sub = np.asarray(sub, dtype=float)
+
+    c3 = np.array([p["c3"] for p in cpts])
+    themes = np.array([p.get("th", -1) for p in cpts])
+    dates = [p.get("d") or None for p in cpts]
+    paths = [p.get("p", "") for p in cpts]
+    thumbs = [p.get("thumb") for p in cpts]
+    titles = [p.get("t", "") for p in cpts]
+    labels = [g["label"] for g in data["content"]["groups"]]
+    sphere = data["content"]["sphere"]
+    radial_pos = np.array(sphere["radial"])
+    lattice_pos = np.array(sphere["lattice"]) if sphere.get("lattice") is not None else None
+    tex_dir = Path.home() / ".ytk" / "galaxy_tex"
+    cache_path = Path.home() / ".ytk" / "galaxy-cache.json"
+    print(f"galaxy: {len(cpts)} content points, epoch={EMBEDDING_EPOCH}")
+    block = galaxy.attach_payload(
+        sub,
+        c3,
+        themes,
+        dates,
+        labels,
+        paths,
+        thumbs,
+        titles,
+        radial_pos=radial_pos,
+        lattice_pos=lattice_pos,
+        tex_dir=tex_dir,
+        cache_path=cache_path,
+        epoch=EMBEDDING_EPOCH,
+    )
+    data["content"]["galaxy"] = block
+    OUT.write_text(json.dumps(data))
+    print(f"  {len(block['planets'])} planets")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sweep", action="store_true", help="fit UMAP params per view")
@@ -612,6 +675,11 @@ def main() -> None:
         "--attach-sphere",
         action="store_true",
         help="only (re)compute the /orb sphere layouts over the existing map.json",
+    )
+    ap.add_argument(
+        "--no-galaxy",
+        action="store_true",
+        help="skip attaching the /galaxy view (content.galaxy) at map build",
     )
     args = ap.parse_args()
     if args.attach_terrain:
@@ -756,6 +824,7 @@ def main() -> None:
     print(f"wrote {OUT}: {len(points)} points, {len(cidx)} content members")
     attach_terrain()
     attach_sphere()
+    attach_galaxy(no_galaxy=args.no_galaxy)
 
 
 if __name__ == "__main__":
