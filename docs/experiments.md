@@ -18,7 +18,7 @@ numbers into findings — is the same measurement run on deliberately meaningles
 data, so a score has something to be compared against.
 
 `docs/assets/` is the chronological visual-experiment record of this project:
-twenty-eight numbered sections, each one folder with one `README.md`, holding the
+thirty-two numbered sections, each one folder with one `README.md`, holding the
 figures, animations, sidecar data and working notes for a question that was
 actually measured. The order is the order the work happened in, which is the
 point — early sections do not know what later ones found, wrong predictions
@@ -76,6 +76,7 @@ Two files in `docs/assets/` are not sections:
 | 29 | [planet-continents](assets/29-planet-continents/README.md) | can `/orb`'s radial layout be de-overlapped without destroying its continents? | yes, nearly for free — tangent repulsion converges by 40 iterations to 0% buried at the render threshold, keeping 49.7 of 52.2 points of ocean, silhouette 0.108 of 0.117, anchor 1.000, trust 0.8626 of 0.8646; slot-assignment k4 is second, every haversine arm dominated; the legacy `score()` gate measures a threshold the renderer doesn't draw (its theta 4.19° vs `TILE_HALF` 3.15°), and satisfying both costs a measured 4.6 points of ocean |
 | 30 | [coastlines](assets/30-coastlines/README.md) | can the planet's land/sea boundary be drawn without a density knob? | yes — E29's ocean calibration is a contour level, not just a scalar: the coast is the iso-distance line at 5.09°, land covers 48% of the sphere, and the 32 wrap-aware continents name themselves from tile themes (the largest, 30% of the sphere, is agentic coding + systems engineering; discipline/self-taught learning is its own continent) — `continents.json` ships for a future /orb layer |
 | 31 | [theme-planets](assets/31-theme-planets/README.md) | does each theme deserve its own survey, and how do sibling planets stay visually distinct? | refit beats slice on all five top themes (mean trust +0.039) so the #78 recursion justifies per-planet refits; refit worlds are Pangeas (71-85% land) while slices keep more ocean; the Sudarsky-translated taxonomy (activity→class, cohesion→saturation, n^(1/3)→size) degenerates on the top five — all hot, Batalha's caution realized — so size and saturation carry the separation |
+| 32 | [galaxy](assets/32-galaxy/README.md) | does the sky over the theme planets need its own de-overlap pass, or is the centroid layout already legible? | the galaxy is free — planet centroids under the map's own projection hold hidden disc area under 5% up to K* = 3.00° per n^(1/3) (the tile-size floor is 1.34°), with map agreement rho 0.710 clear of the shuffled null (0.139) and the self-fitted control's floor (0.482); spreading (B) buys a near-triple sky (K* 8.50°) at measured anchor cost; the mid-tail delivers classes III and IV but 16 of 18 planets are still class V — `galaxy.json` ships arm A |
 | — | [memory-field](assets/memory-field/README.md) | what is the free baseline on memory-capture data quality? | rung 0 of #150: duplicate density, timestamp integrity, memo bursts with launch-day test traffic named in the caption, plus the E- and R-series follow-ups |
 
 ## Reading paths
