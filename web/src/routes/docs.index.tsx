@@ -123,13 +123,16 @@ export function DocsPage() {
 
   const data = manifest.data;
   return (
-    <div className="relative flex-1 min-h-0 overflow-y-auto bg-black">
+    // stage/scroller split, garden-canvas pattern (styles.css): the canvas is
+    // bounded by the route, never the viewport — fixed would paint over the nav
+    <div className="relative flex-1 min-h-0 overflow-hidden bg-black">
       <canvas
         ref={canvasRef}
         aria-hidden
-        className="pointer-events-none fixed inset-0 h-full w-full"
+        className="pointer-events-none absolute inset-0 h-full w-full"
       />
-      <div className="relative mx-auto max-w-[1400px] px-6 pb-24 pt-14">
+      <div className="relative h-full overflow-y-auto">
+        <div className="mx-auto max-w-[1400px] px-6 pb-24 pt-14">
         {/* a div, not <header>: theme.css gives header the nav's panel background */}
         <div className="mb-12">
           <p className="sub text-[var(--mute)]">the experiment record</p>
@@ -163,6 +166,7 @@ export function DocsPage() {
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
