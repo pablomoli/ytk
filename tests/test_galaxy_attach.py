@@ -247,3 +247,104 @@ def test_moons_cached_survives_member_reorder(tmp_path):
 
     assert second["moons"][0]["exemplar"] == exemplar_before
     assert set(second["moons"][0]["paths"]) == paths_before
+
+
+def test_attach_payload_carries_hue_shift_and_land_frac(tmp_path):
+    """Arm 0 (#179): every planet ships a hue rotation off the ramp anchor and
+    the land fraction the bake already measured."""
+    from PIL import Image
+
+    rng = np.random.default_rng(4)
+    n = 24
+    vecs = rng.normal(0, 1, (n, 8))
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    c3 = np.concatenate([rng.normal([2, 0, 0], 0.3, (12, 3)), rng.normal([-2, 0, 0], 0.3, (12, 3))])
+    themes = np.array([0] * 12 + [1] * 12)
+    dates = ["2026-08-01"] * n
+    paths = [f"notes/n{i}.md" for i in range(n)]
+    titles = [f"note {i}" for i in range(n)]
+
+    vault = tmp_path / "vault"
+    (vault / "second-brain" / "thumbs").mkdir(parents=True)
+    thumbs: list[str] = []
+    for i in range(n):
+        rel = f"thumbs/t{i}.jpg"
+        # theme 0 green covers, theme 1 blue: two different hue families
+        colour = (0, 200, 0) if i < 12 else (30, 30, 210)
+        Image.new("RGB", (96, 96), colour).save(vault / "second-brain" / rel)
+        thumbs.append(rel)
+
+    out = galaxy.attach_payload(
+        vecs,
+        c3,
+        themes,
+        dates,
+        ["alpha", "beta"],
+        paths,
+        thumbs,
+        titles,
+        radial_pos=galaxy_radial(c3),
+        lattice_pos=None,
+        tex_dir=tmp_path / "tex",
+        cache_path=tmp_path / "cache.json",
+        epoch="v2",
+        vault_root=vault,
+        moon_boot=6,
+        moon_null=8,
+        n_perm=100,
+    )
+    anchor = galaxy.ramp_anchor_deg()
+    for p in out["planets"]:
+        assert isinstance(p["hue_shift_deg"], float)
+        assert 0.0 <= p["hue_shift_deg"] < 360.0
+        assert isinstance(p["land_frac"], float)
+        assert 0.0 <= p["land_frac"] <= 1.0
+    shifts = {p["theme"]: p["hue_shift_deg"] for p in out["planets"]}
+    assert abs(((shifts[0] + anchor) - 120.0 + 180) % 360 - 180) <= 12.0
+    assert abs(((shifts[1] + anchor) - 240.0 + 180) % 360 - 180) <= 12.0
+
+
+def test_attach_payload_hue_falls_back_to_member_hash(tmp_path):
+    """No resolvable thumbs: the shift still has to be a stable per-theme
+    value, not a constant that paints every planet the same."""
+    rng = np.random.default_rng(4)
+    n = 24
+    vecs = rng.normal(0, 1, (n, 8))
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+    c3 = np.concatenate([rng.normal([2, 0, 0], 0.3, (12, 3)), rng.normal([-2, 0, 0], 0.3, (12, 3))])
+    themes = np.array([0] * 12 + [1] * 12)
+    dates = ["2026-08-01"] * n
+    paths = [f"notes/n{i}.md" for i in range(n)]
+    thumbs = [None] * n
+    titles = [f"note {i}" for i in range(n)]
+
+    def run(tag):
+        return galaxy.attach_payload(
+            vecs,
+            c3,
+            themes,
+            dates,
+            ["alpha", "beta"],
+            paths,
+            thumbs,
+            titles,
+            radial_pos=galaxy_radial(c3),
+            lattice_pos=None,
+            tex_dir=tmp_path / f"tex_{tag}",
+            cache_path=tmp_path / f"cache_{tag}.json",
+            epoch="v2",
+            vault_root=tmp_path / "nowhere",
+            moon_boot=6,
+            moon_null=8,
+            n_perm=100,
+        )
+
+    a = run("a")
+    b = run("b")
+    shifts_a = [p["hue_shift_deg"] for p in a["planets"]]
+    shifts_b = [p["hue_shift_deg"] for p in b["planets"]]
+    assert shifts_a == shifts_b, "the hash fallback must be deterministic across builds"
+    assert shifts_a[0] != shifts_a[1], "distinct member sets must not land on one hue"
+    for p in a["planets"]:
+        assert 0.0 <= p["hue_shift_deg"] < 360.0
+        assert 0.0 <= p["land_frac"] <= 1.0

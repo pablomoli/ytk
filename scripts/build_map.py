@@ -656,6 +656,7 @@ def attach_galaxy(no_galaxy: bool = False) -> None:
         tex_dir=tex_dir,
         cache_path=cache_path,
         epoch=EMBEDDING_EPOCH,
+        vault_root=_vault_root(),
     )
     data["content"]["galaxy"] = block
     OUT.write_text(json.dumps(data))

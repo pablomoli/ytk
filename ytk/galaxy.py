@@ -52,6 +52,125 @@ def member_hash(paths: list[str], epoch: str) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+# Arm 0 (#179) cover-hue extraction. Hue only: value and saturation always
+# come from the ramp, so a theme of dark covers picks a direction and nothing
+# more. A pixel under either floor carries no direction at all -- near-black,
+# near-white and near-gray are all dropped by these two.
+HUE_SAT_MIN = 0.20
+HUE_VAL_MIN = 0.18
+HUE_MIN_IMAGES = 3
+HUE_MIN_PIXELS = 500  # survivors below this: too little colour to point anywhere
+HUE_TILE = 64  # per-image downsample; 4096 px each is plenty for a hue vote
+HUE_K = 5
+HUE_ITERS = 24
+
+
+def _rgb_to_hsv(rgb: NDArray[Any]) -> NDArray[Any]:
+    """Vectorized RGB->HSV on an (n, 3) array in 0..1; h in 0..1."""
+    rgb = np.asarray(rgb, dtype=float)
+    v = rgb.max(axis=1)
+    lo = rgb.min(axis=1)
+    c = v - lo
+    s = np.divide(c, v, out=np.zeros_like(v), where=v > 0)
+    r, g, b = rgb[:, 0], rgb[:, 1], rgb[:, 2]
+    h = np.zeros_like(v)
+    nz = c > 0
+    im = np.argmax(rgb, axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        hr = ((g - b) / c) % 6.0
+        hg = (b - r) / c + 2.0
+        hb = (r - g) / c + 4.0
+    h[nz & (im == 0)] = hr[nz & (im == 0)]
+    h[nz & (im == 1)] = hg[nz & (im == 1)]
+    h[nz & (im == 2)] = hb[nz & (im == 2)]
+    return np.stack([(h / 6.0) % 1.0, s, v], axis=1)
+
+
+def _kmeans(x: NDArray[Any], k: int, seed: int, iters: int = HUE_ITERS) -> NDArray[Any]:
+    """Deterministic fixed-iteration Lloyd's on (n, d); returns labels."""
+    rng = np.random.default_rng(seed)
+    n = len(x)
+    k = min(k, n)
+    cent = x[rng.choice(n, k, replace=False)]
+    labels = np.zeros(n, dtype=int)
+    for _ in range(iters):
+        d = ((x[:, None, :] - cent[None, :, :]) ** 2).sum(axis=2)
+        labels = np.argmin(d, axis=1)
+        for j in range(k):
+            m = labels == j
+            if m.any():
+                cent[j] = x[m].mean(axis=0)
+    return labels
+
+
+def dominant_hue(image_paths: list[Path], seed: int = 0) -> float | None:
+    """Hue angle (deg) of a theme's covers: pool their pixels, drop the ones
+    carrying no colour, cluster the rest on the chroma plane (s*cos h,
+    s*sin h -- a plane, not an angle, so the 360/0 wrap costs nothing), and
+    return the hue of the cluster maximizing count * mean saturation. None
+    when fewer than HUE_MIN_IMAGES opened or fewer than HUE_MIN_PIXELS
+    survived."""
+    from PIL import Image
+
+    pools: list[NDArray[Any]] = []
+    for p in image_paths:
+        try:
+            with Image.open(p) as im:
+                small = im.convert("RGB").resize((HUE_TILE, HUE_TILE), Image.Resampling.BILINEAR)
+                pools.append(np.asarray(small, dtype=np.uint8).reshape(-1, 3))
+        except (OSError, ValueError):
+            continue
+    if len(pools) < HUE_MIN_IMAGES:
+        return None
+
+    hsv = _rgb_to_hsv(np.concatenate(pools).astype(float) / 255.0)
+    keep = (hsv[:, 1] >= HUE_SAT_MIN) & (hsv[:, 2] >= HUE_VAL_MIN)
+    if int(keep.sum()) < HUE_MIN_PIXELS:
+        return None
+    h = hsv[keep, 0] * 2.0 * np.pi
+    s = hsv[keep, 1]
+    chroma = np.stack([s * np.cos(h), s * np.sin(h)], axis=1)
+
+    labels = _kmeans(chroma, HUE_K, seed)
+    best_score, best_vec = -1.0, None
+    for j in np.unique(labels):
+        m = labels == j
+        score = float(m.sum()) * float(s[m].mean())
+        if score > best_score:
+            best_score, best_vec = score, chroma[m].mean(axis=0)
+    if best_vec is None or float(np.hypot(*best_vec)) < 1e-9:
+        return None
+    return float(np.degrees(np.arctan2(best_vec[1], best_vec[0])) % 360.0)
+
+
+def ramp_anchor_deg() -> float:
+    """The hue the shader rotates FROM: the land midtone of the embedded
+    saturated-magma ramp (index 192). Every planet's hue_shift_deg is measured
+    off this, so a rotation of 0 leaves the record's magma untouched."""
+    from ytk.coast import saturated_magma_lut
+
+    rgb = saturated_magma_lut()[192].astype(float).reshape(1, 3) / 255.0
+    return float(_rgb_to_hsv(rgb)[0, 0] * 360.0)
+
+
+def hue_cached(image_paths: list[Path], h: str, cache_path: Path, seed: int = 0) -> float | None:
+    """dominant_hue behind the same member-set key the moons and textures use.
+    A None is cached too: a thumb-poor theme must not rescan every build."""
+    key = f"hue:{h}"
+    try:
+        cache: dict[str, Any] = json.loads(cache_path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        cache = {}
+    if key in cache:
+        hit = cache[key].get("hue")
+        return float(hit) if hit is not None else None
+    value = dominant_hue(image_paths, seed=seed)
+    cache[key] = {"hue": value}
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(cache))
+    return value
+
+
 def arm_a(theme_cent_c3: NDArray[Any], c3_all: NDArray[Any]) -> NDArray[Any]:
     """Members' centroid as a direction from the content cloud's own center —
     the same origin the tile layer's radial() uses (E32 arm A)."""
@@ -384,7 +503,9 @@ def moons_cached(
     return result
 
 
-def _bake_cached(cache_path: Path, h: str, name: str, out_path: Path, bake: Any) -> None:
+def _bake_cached(
+    cache_path: Path, h: str, name: str, out_path: Path, bake: Any
+) -> dict[str, float]:
     """Read-check-write like moons_cached, keyed by the same member-set hash.
     A hit is trusted only when the cached entry's filename still matches the
     caller's current expected name AND the file is still on disk -- theme ids
@@ -400,7 +521,10 @@ def _bake_cached(cache_path: Path, h: str, name: str, out_path: Path, bake: Any)
     write here therefore drops any OTHER hash's entry claiming this name (so
     the revert's h1 lookup correctly misses and re-bakes), and — when this
     same hash's own prior bake lived under a different name (a reshuffle, not
-    a revert) — deletes that now-orphaned file."""
+    a revert) — deletes that now-orphaned file.
+
+    Returns the bake meta (coast_deg, land_frac) on both paths: a hit reads it
+    back off the entry, so land_frac reaches the payload without re-baking."""
     key = f"tex:{h}"
     try:
         cache: dict[str, Any] = json.loads(cache_path.read_text())
@@ -408,7 +532,7 @@ def _bake_cached(cache_path: Path, h: str, name: str, out_path: Path, bake: Any)
         cache = {}
     entry = cache.get(key)
     if entry and entry.get("name") == name and out_path.exists():
-        return
+        return dict(entry.get("meta") or {})
     meta = bake()
     if entry and entry.get("name") and entry["name"] != name:
         (out_path.parent / entry["name"]).unlink(missing_ok=True)
@@ -417,6 +541,27 @@ def _bake_cached(cache_path: Path, h: str, name: str, out_path: Path, bake: Any)
     cache[key] = {"hash": h, "name": name, "meta": meta}
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(cache))
+    return dict(meta)
+
+
+def _thumb_files(
+    thumbs: list[str | None], idx: NDArray[Any], vault_root: Path | None
+) -> list[Path]:
+    """map.json thumb paths are relative to the vault's second-brain root
+    (scripts/build_map.py::_vault_rel strips exactly that prefix). Only paths
+    that exist are returned -- a missing file is a thumb that cannot vote."""
+    if vault_root is None:
+        return []
+    out: list[Path] = []
+    for i in idx:
+        rel = thumbs[int(i)]
+        if not rel:
+            continue
+        for cand in (vault_root / "second-brain" / rel, vault_root / rel):
+            if cand.exists():
+                out.append(cand)
+                break
+    return out
 
 
 def attach_payload(
@@ -433,6 +578,7 @@ def attach_payload(
     tex_dir: Path,
     cache_path: Path,
     epoch: str,
+    vault_root: Path | None = None,
     moon_boot: int = 25,
     moon_null: int = 50,
     n_perm: int = 1000,
@@ -442,6 +588,8 @@ def attach_payload(
     spin, moons), member_paths/hash stripped since callers never see the raw
     member set. Moon seed offset (33 + theme) matches scripts/e33_channels.py
     so a rebuild reproduces the same cut for an unchanged member set.
+    vault_root is where member thumbs resolve for the arm 0 hue extraction;
+    None (or unresolvable thumbs) drops every planet to the hash fallback.
     Normalizes vecs once here (not just per-theme inside galaxy_block/moons):
     ring_gate's v @ v.T assumes unit vectors and does not normalize on its
     own, so this is the one place a raw (non-unit) caller input is made safe
@@ -474,7 +622,7 @@ def attach_payload(
         m = np.flatnonzero(themes == t)
         tex_name = f"{t}.png"
         tex_path = tex_dir / tex_name
-        _bake_cached(
+        meta = _bake_cached(
             cache_path,
             h,
             tex_name,
@@ -482,6 +630,15 @@ def attach_payload(
             lambda m=m, tex_path=tex_path: coast.bake_planet(c3[m], tex_path),
         )
         block["tex"] = tex_name
+        block["land_frac"] = round(float(meta.get("land_frac", 0.0)), 3)
+
+        # arm 0 (#179): the covers pick the direction, the ramp keeps the rest.
+        # No usable covers -> the member hash, so the planet still has an
+        # identity that is stable across builds instead of the ramp's own hue.
+        target = hue_cached(_thumb_files(thumbs, m, vault_root), h, cache_path)
+        if target is None:
+            target = float(int(h, 16) % 360)
+        block["hue_shift_deg"] = round((target - ramp_anchor_deg()) % 360, 1)
 
         r = rings[t]
         block["rings"] = {
