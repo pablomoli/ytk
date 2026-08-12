@@ -45,6 +45,34 @@ test("plain text passes through unchanged", () => {
   expect(container.querySelector("a")).toBeNull();
 });
 
+test("a bare URL autolinks with the URL itself as the text", () => {
+  const { container } = render(
+    <>{renderInline("patrons at https://www.patreon.com/welchlabs today")}</>,
+  );
+  const anchor = container.querySelector("a");
+  expect(anchor?.getAttribute("href")).toBe("https://www.patreon.com/welchlabs");
+  expect(anchor?.textContent).toBe("https://www.patreon.com/welchlabs");
+  expect(anchor?.getAttribute("target")).toBe("_blank");
+  expect(container.textContent).toBe("patrons at https://www.patreon.com/welchlabs today");
+});
+
+test("trailing punctuation stays out of a bare URL", () => {
+  const { container } = render(
+    <>{renderInline("see https://neuralblog.github.io/logit-prisms/, then this")}</>,
+  );
+  expect(container.querySelector("a")?.getAttribute("href")).toBe(
+    "https://neuralblog.github.io/logit-prisms/",
+  );
+  expect(container.textContent).toBe("see https://neuralblog.github.io/logit-prisms/, then this");
+});
+
+test("a markdown link's URL is not linked twice by the bare-URL branch", () => {
+  const { container } = render(<>{renderInline("[label](https://x.com) and more")}</>);
+  const anchors = container.querySelectorAll("a");
+  expect(anchors).toHaveLength(1);
+  expect(anchors[0].textContent).toBe("label");
+});
+
 test("a line mixing bold and a link renders both", () => {
   const { container } = render(<>{renderInline("see **this** and [link](https://x.com)")}</>);
   const strong = container.querySelector("strong");

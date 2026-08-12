@@ -14,6 +14,7 @@ export type NoteSectionKind =
   | "insights"
   | "concepts"
   | "moments"
+  | "description"
   | "transcript"
   | "generic";
 
@@ -37,6 +38,7 @@ const KIND_BY_HEADING: Record<string, NoteSectionKind> = {
   concepts: "concepts",
   "key moments": "moments",
   moments: "moments",
+  description: "description",
   transcript: "transcript",
 };
 

@@ -154,3 +154,9 @@ test("unrecognized heading maps to generic", () => {
   const parsed = parseNote(raw);
   expect(parsed.sections[0].kind).toBe("generic");
 });
+
+test("a Description heading maps to the description kind", () => {
+  const raw = `---\ntags: []\n---\n\n## Description\n<details>\n<summary>Video description</summary>\n\nsome text\n</details>\n`;
+  const parsed = parseNote(raw);
+  expect(parsed.sections[0].kind).toBe("description");
+});

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { FreshNote } from "../api/fresh";
 import { useNote, useSimilarNotes } from "../api/fresh";
 import { ApiError, apiGet, apiSend } from "../api/client";
@@ -26,7 +26,17 @@ function splitParagraphs(body: string): string[] {
     .filter(Boolean);
 }
 
-function stripTranscriptWrapper(body: string): string {
+/* Single newlines are hard breaks here — YouTube descriptions rely on them. */
+function renderTextLines(paragraph: string) {
+  return paragraph.split("\n").map((line, i) => (
+    <Fragment key={i}>
+      {i > 0 ? <br /> : null}
+      {renderInline(line)}
+    </Fragment>
+  ));
+}
+
+function stripDetailsWrapper(body: string): string {
   return body
     .trim()
     .replace(/^<details>\s*/i, "")
@@ -117,11 +127,20 @@ function renderSection(section: NoteSection, frontmatter: NoteFrontmatter, key: 
           </ul>
         </section>
       );
+    case "description":
+      return (
+        <section className="note-section" key={key}>
+          <h3>{section.heading}</h3>
+          {splitParagraphs(stripDetailsWrapper(section.body)).map((p, i) => (
+            <p key={i}>{renderTextLines(p)}</p>
+          ))}
+        </section>
+      );
     case "transcript":
       return (
         <details className="note-transcript" key={key}>
           <summary>transcript</summary>
-          {splitParagraphs(stripTranscriptWrapper(section.body)).map((p, i) => (
+          {splitParagraphs(stripDetailsWrapper(section.body)).map((p, i) => (
             <p className="note-transcript-line" key={i}>
               {renderInline(p)}
             </p>

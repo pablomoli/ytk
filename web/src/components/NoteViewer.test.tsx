@@ -98,6 +98,52 @@ test("survives StrictMode double-mount without self-closing (async close event)"
   expect(screen.getByRole("dialog", { hidden: true })).toBeInTheDocument();
 });
 
+test("description section renders parsed: wrapper stripped, bare URLs linked, line breaks kept", async () => {
+  const content = [
+    "## Description",
+    "<details>",
+    "<summary>Video description</summary>",
+    "",
+    "Take your data back with Incogni: http://incogni.com/welchlabs",
+    "Welch Labs Book! https://www.welchlabs.com/resources/imaginary-numbers-book",
+    "</details>",
+    "",
+  ].join("\n");
+  const previous = vi.mocked(fetch).getMockImplementation();
+  vi.mocked(fetch).mockImplementation((input) => {
+    /* apiGet always passes string URLs; anything else is not the note fetch */
+    const url = typeof input === "string" ? input : "";
+    return Promise.resolve(
+      new Response(
+        JSON.stringify(
+          url.startsWith("/api/note") ? { path: "sources/youtube/x.md", content } : [],
+        ),
+      ),
+    );
+  });
+  try {
+    wrap(<NoteViewer note={note} onClose={() => {}} />);
+    /* the note fetch settles across several turns: fetch -> Response.json ->
+       query-cache notify; flush macrotasks inside act until all are done */
+    await act(async () => {
+      for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+    });
+    const heading = screen.getByRole("heading", { name: "Description", hidden: true });
+    const section = heading.closest("section")!;
+    // the vault's <details><summary> wrapper never leaks as literal text
+    expect(section.textContent).not.toContain("<details>");
+    expect(section.textContent).not.toContain("Video description");
+    // bare URLs become anchors with the URL as text
+    const anchors = [...section.querySelectorAll("a")].map((a) => a.getAttribute("href"));
+    expect(anchors).toContain("http://incogni.com/welchlabs");
+    expect(anchors).toContain("https://www.welchlabs.com/resources/imaginary-numbers-book");
+    // adjacent description lines keep their line break
+    expect(section.querySelector("p br")).not.toBeNull();
+  } finally {
+    vi.mocked(fetch).mockImplementation(previous!);
+  }
+});
+
 test("reflect reveals an input and submits the answer as the reflect POST body", async () => {
   vi.mocked(fetch).mockClear();
   wrap(<NoteViewer note={note} onClose={() => {}} />);
