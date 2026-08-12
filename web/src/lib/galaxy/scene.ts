@@ -44,8 +44,13 @@ const STARS = 600;
 const MOON_ORBIT_R = 1.6; // in planet radii
 const MOON_PERIOD = 45; // seconds
 const COAST_AMP = 0.04; // shader-side micro-detail on top of the bake
-const RING_INNER = 1.26; // in planet radii; thin outline, not a band
-const RING_OUTER = 1.295;
+const RING_INNER = 1.05; // in planet radii; a disc that fades out, not an outline
+const RING_OUTER = 1.6;
+const RING_ALPHA = 0.30; // at the inner edge, falling linearly to 0 at the outer
+const SUN_R = 0.35; // world units; the superplanet at the origin, inside the shell
+// pick sentinel: the sun rides the planet pick list so nearest-t still wins
+// against a planet in front of it, and reports as this theme id
+export const SUN_THEME = -1;
 // no planet carries a median age: neutral default matching the 90-day
 // activity window rather than a still galaxy
 const NEUTRAL_AGE_DAYS = 90;
@@ -108,9 +113,12 @@ float fbm3(vec3 p) {
 }
 
 void main() {
-  // equirect sample of the baked field; 0.5 = shoreline (ytk/coast.py contract)
-  float lon = atan(vN.y, vN.x);
-  float lat = asin(clamp(vN.z, -1.0, 1.0));
+  // equirect sample of the baked field; 0.5 = shoreline (ytk/coast.py contract).
+  // y-up swizzle: the bake's poles are its own z, but a planet must spin about
+  // the screen's vertical like a top, so latitude is read from world y here.
+  // Which meridian faces the camera is arbitrary, so the bake is unchanged.
+  float lon = atan(vN.z, vN.x);
+  float lat = asin(clamp(vN.y, -1.0, 1.0));
   vec2 uv = vec2(lon / 6.28318530718 + 0.5 + uSpin, 0.5 + lat / 3.14159265359);
   float d = texture(uField, uv).r + uCoastAmp * (fbm3(vN * 9.0 + uSeed) - 0.5);
   // E30 fig_field's palette, but split at the shoreline: sea rides the ramp's
@@ -123,6 +131,31 @@ void main() {
   vec3 col = clamp(uHueRot * texture(uRamp, vec2(t, 0.5)).rgb, 0.0, 1.0);
   float shore = smoothstep(0.012, 0.0, abs(d - 0.5)) * 0.9;
   outColor = vec4(mix(col, vec3(${coastLine}), shore), 1.0);
+}`;
+
+const ringTint = planetColor(TEXT, 1).map((c) => c.toFixed(3)).join(", ");
+
+// RingGeometry's uv is disc-space: (xy/outerRadius + 1)/2, so length(uv*2-1)
+// is the radial coordinate, 1.0 exactly at the outer edge.
+const RING_VERT = /* glsl */ `
+precision highp float;
+in vec3 position;
+in vec2 uv;
+uniform mat4 modelViewMatrix, projectionMatrix;
+out vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const RING_FRAG = /* glsl */ `
+precision highp float;
+in vec2 vUv;
+out vec4 outColor;
+void main() {
+  float r = length(vUv * 2.0 - 1.0);
+  float t = clamp((1.0 - r) / ${(1 - RING_INNER / RING_OUTER).toFixed(4)}, 0.0, 1.0);
+  outColor = vec4(vec3(${ringTint}), ${RING_ALPHA.toFixed(2)} * t);
 }`;
 
 // shared with orb's globe-mode coast sphere (Task 12): one shader source, two mounts
@@ -191,6 +224,7 @@ export type GalaxyCallbacks = {
   onHover(theme: number | null): void;
   onVisit(theme: number | null): void;
   onMoonOpen(moon: { path: string; title: string }): void;
+  onSunOpen(): void;
 };
 
 const median = (xs: number[]): number | null => {
@@ -306,11 +340,21 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
   });
 
   const ringGeos: RingGeometry[] = [];
-  const ringMat = new MeshBasicMaterial({ color: TEXT, transparent: true, opacity: 0.22, side: DoubleSide });
+  // depthWrite off so a disc never punches a hole in the planet or the ring
+  // behind it; the falloff lives in the shader, which a MeshBasicMaterial
+  // opacity cannot express.
+  const ringMat = new RawShaderMaterial({
+    glslVersion: GLSL3,
+    vertexShader: RING_VERT,
+    fragmentShader: RING_FRAG,
+    transparent: true,
+    side: DoubleSide,
+    depthWrite: false,
+  });
   planets.forEach((p, i) => {
     if (!p.rings.earned) return;
     const R = worldRadius(p.radius_deg);
-    const geo = new RingGeometry(RING_INNER * R, RING_OUTER * R, 64);
+    const geo = new RingGeometry(RING_INNER * R, RING_OUTER * R, 96);
     const mesh = new Mesh(geo, ringMat);
     mesh.position.copy(centers[i]);
     const partner = p.rings.partners[0];
@@ -375,6 +419,43 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
       });
     });
   });
+
+  // The sun: the superplanet at the origin, the whole corpus as one body. Same
+  // shader and bake as /orb's globe-mode coast sphere, uHueRot left identity so
+  // it keeps the record's canonical magma while the planets turn off it.
+  const sunGeo = new SphereGeometry(SUN_R, 64, 32);
+  const sunMat = base.clone();
+  ramp.bind(sunMat.uniforms.uRamp);
+  const sunTurnsPerSec = spinRadPerSec(null, populationMedian) / (2 * Math.PI);
+  scene.add(new Mesh(sunGeo, sunMat));
+  loader.load(
+    "/galaxy-tex/superplanet.png",
+    (tex) => {
+      if (disposed) {
+        tex.dispose();
+        return;
+      }
+      tex.flipY = false;
+      tex.wrapS = RepeatWrapping;
+      tex.wrapT = ClampToEdgeWrapping;
+      tex.minFilter = LinearFilter;
+      tex.magFilter = LinearFilter;
+      tex.generateMipmaps = false;
+      tex.needsUpdate = true;
+      loaded.push(tex);
+      sunMat.uniforms.uField.value = tex;
+    },
+    undefined,
+    () => {}, // 404 stays on the fallback texture; not fatal
+  );
+  // one pick list, so a planet drawn in front of the sun still wins on nearest-t
+  const pickList: { pos: V3; radius_deg: number }[] = [
+    ...planets.map((p) => ({ pos: p.pos, radius_deg: p.radius_deg })),
+    // round-trips exactly through worldRadius()'s sin(), so the analytic picker
+    // sees the sphere the renderer actually draws
+    { pos: [0, 0, 0] as V3, radius_deg: (Math.asin(SUN_R) * 180) / Math.PI },
+  ];
+  const SUN_PICK = planets.length;
 
   const starGeo = new BufferGeometry();
   const stars = new Float32Array(STARS * 3);
@@ -482,8 +563,9 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
       const slot = hit && moonSlots.find((m) => m.mesh === hit.object);
       if (slot) cb.onMoonOpen({ path: slot.moon.path, title: slot.moon.title });
       else {
-        const p = pickPlanet(pointerNdc[0], pointerNdc[1], camera, planets);
-        if (p !== null) doVisit(planets[p].theme);
+        const p = pickPlanet(pointerNdc[0], pointerNdc[1], camera, pickList);
+        if (p === SUN_PICK) cb.onSunOpen();
+        else if (p !== null) doVisit(planets[p].theme);
       }
     }
     canvas.releasePointerCapture(e.pointerId);
@@ -504,6 +586,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
 
     if (!frozen) {
       for (let i = 0; i < materials.length; i++) materials[i].uniforms.uSpin.value += turnsPerSec[i] * dt;
+      sunMat.uniforms.uSpin.value += sunTurnsPerSec * dt;
       orbitT += dt;
     }
 
@@ -540,8 +623,8 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
     }
 
     if (visiting === null && !controls.dragging && pointerNdc) {
-      const hit = pickPlanet(pointerNdc[0], pointerNdc[1], camera, planets);
-      const theme = hit === null ? null : planets[hit].theme;
+      const hit = pickPlanet(pointerNdc[0], pointerNdc[1], camera, pickList);
+      const theme = hit === null ? null : hit === SUN_PICK ? SUN_THEME : planets[hit].theme;
       if (theme !== hovered) {
         hovered = theme;
         cb.onHover(theme);
@@ -574,6 +657,8 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
       for (const g of sphereGeos) g.dispose();
       for (const g of ringGeos) g.dispose();
       for (const m of materials) m.dispose();
+      sunGeo.dispose();
+      sunMat.dispose();
       for (const m of moonMats) m.dispose();
       moonGeo.dispose();
       ringMat.dispose();

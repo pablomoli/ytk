@@ -20,7 +20,7 @@ describe("mountGalaxy", () => {
     const canvas = document.createElement("canvas");
     Object.defineProperty(canvas, "clientWidth", { value: 640 });
     Object.defineProperty(canvas, "clientHeight", { value: 480 });
-    const cb = { onHover: vi.fn(), onVisit: vi.fn(), onMoonOpen: vi.fn() };
+    const cb = { onHover: vi.fn(), onVisit: vi.fn(), onMoonOpen: vi.fn(), onSunOpen: vi.fn() };
     const handle = mountGalaxy(canvas, data, cb);
     handle.visit(1);
     expect(cb.onVisit).toHaveBeenCalledWith(1);
@@ -43,7 +43,7 @@ describe("mountGalaxy", () => {
     canvas.width = 400;
     canvas.height = 300;
     document.body.appendChild(canvas);
-    const cb = { onHover: vi.fn(), onVisit: vi.fn(), onMoonOpen: vi.fn() };
+    const cb = { onHover: vi.fn(), onVisit: vi.fn(), onMoonOpen: vi.fn(), onSunOpen: vi.fn() };
     const handle = mountGalaxy(canvas, withMoons, cb);
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     expect(errSpy).not.toHaveBeenCalled();
