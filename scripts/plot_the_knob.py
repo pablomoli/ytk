@@ -169,8 +169,8 @@ def draw_list(fig, x, y, items, rig, width=34, gold_epic=True):
         row = rig.rows[i]
         col = GOLD if (gold_epic and rig.epic[i]) else TEXT
         title = short(pretty(row), width)
-        fig.text(x, y - r * 0.042, f"{s:.3f}", color=MUTED, fontsize=6.5, family="monospace")
-        fig.text(x + 0.033, y - r * 0.042, title, color=col, fontsize=7.3)
+        fig.text(x, y - r * 0.046, f"{s:.3f}", color=MUTED, fontsize=7, family="monospace")
+        fig.text(x + 0.035, y - r * 0.046, title, color=col, fontsize=8)
 
 
 # ---------------------------------------------------------------- figure 01
@@ -241,7 +241,7 @@ def fig01(rig):
         vmax=np.abs(Wrow).max(),
         interpolation="nearest",
     )
-    panel_title(a3, f"what the knob adds: decoder row {LAT}", 30)
+    panel_title(a3, f"what the knob adds: decoder row {LAT}", 44)
 
     axc = fig.add_axes([MARGIN + 0.53, y_top - h1 - 0.06, 0.40, h1 + 0.06])
     style_axes(axc)
@@ -281,7 +281,7 @@ def fig01(rig):
     )
     for j, c in enumerate([0.0, 0.5, 1.0, 2.0]):
         x = MARGIN + j * 0.24
-        fig.text(x, y_l, f"clamp {c:g}x", color=GOLD if c else TEXT, fontsize=8.5)
+        fig.text(x, y_l, f"clamp {c:g}x", color=GOLD if c else TEXT, fontsize=9.5)
         draw_list(fig, x, y_l - 0.045, rig.top_notes(clamp(c), 5), rig, width=30)
 
     verdict(
@@ -358,7 +358,7 @@ def fig02(rig):
     axb.barh(ys, shares, height=0.55, color=[DIM, GOLD, GOLD, GOLD])
     axb.axvline(shares[0], color=RED, lw=1.2, ls="--")
     for y, (label, _), s in zip(ys, ladder, shares):
-        axb.text(0.02, y, label, color=TEXT, fontsize=8, va="center")
+        axb.text(0.02, y, label, color=TEXT, fontsize=8.8, va="center")
         axb.text(s + 0.02, y, f"{s:.1f}", color=MUTED, fontsize=8, va="center")
     axb.set_yticks([])
     axb.set_xlim(0, 1.12)
@@ -383,8 +383,8 @@ def fig02(rig):
         "changes nothing. the query's remaining code still points at the same territory: the concept is a\n"
         "direction the code redundantly encodes, not a single address you can remove. steering is asymmetric.",
         color=MUTED,
-        fontsize=9,
-        linespacing=1.6,
+        fontsize=9.5,
+        linespacing=1.7,
     )
 
     verdict(fig, "adding the concept takes one knob; removing it survives losing all eight loudest")
@@ -411,48 +411,80 @@ def fig03(rig):
         key=lambda ab: C[ab[0], ab[1]],
     )[:2]
 
+    import textwrap
+
     meta = (
         "decoder rows of the 31 always-on Gemma-Scope cone features (21-geometry/cone-decoder.npz), 2304-dim as 48x48  ·  "
-        "pixel order per pair: dims sorted by the first row's values  ·  scatter: one dot per dimension"
+        "pixel order per pair: dims sorted by the first row's values  ·  scatter: one dot per dimension  ·  shared colour scale"
     )
-    fig, top = figure(16.5, 9.2, 3, "the knob", "Opposite knobs, finally visible", meta)
+    fig, top = figure(16.5, 10.4, 3, "the knob", "Opposite knobs, finally visible", meta)
 
-    y_top = top - 0.09
+    def name_of(j) -> str:
+        return cone_names.get(int(idx[j]), "?").rstrip(". \n")
+
+    lim = float(np.percentile(np.abs(W[[j for p in pairs for j in p]]), 99.5))
+    y_top = top - 0.05
+    cmap = saturated_magma()
+    im = None
     for row, (a, b) in enumerate(pairs):
         cval = float(C[a, b])
         order = np.argsort(-W[a])
-        y = y_top - row * 0.40
-        lim = float(np.percentile(np.abs(W[[a, b]]), 99.5))
+        y = y_top - row * 0.45
+        header = f'{idx[a]} "{name_of(a)}"   vs   {idx[b]} "{name_of(b)}"   ·   cos = {cval:.3f}'
+        fig.text(MARGIN, y + 0.012, header, color=TEXT, fontsize=10.5)
         for col, j in ((0, a), (1, b)):
-            ax, h = sq_axes(fig, MARGIN + col * 0.155, y, 0.13)
-            ax.imshow(
+            ax, h = sq_axes(fig, MARGIN + col * 0.165, y - 0.03, 0.145)
+            im = ax.imshow(
                 W[j][order].reshape(48, 48),
-                cmap=saturated_magma(),
+                cmap=cmap,
                 vmin=-lim,
                 vmax=lim,
                 interpolation="nearest",
             )
-            nm = cone_names.get(int(idx[j]), "?")
-            panel_title(ax, f"{idx[j]}: {short(nm, 34)}", 36)
-        axs = fig.add_axes([MARGIN + 0.345, y - h, h * fig.get_figheight() / fig.get_figwidth(), h])
+            ax.set_title(f"decoder row {idx[j]}", color=MUTED, fontsize=8.5, pad=5)
+        side = h * fig.get_figheight() / fig.get_figwidth()
+        axs = fig.add_axes([MARGIN + 0.375, y - 0.03 - h, side, h])
         style_axes(axs)
-        axs.scatter(W[a], W[b], s=2, color=GOLD, alpha=0.5, lw=0)
+        rng = float(np.abs(W[[a, b]]).max()) * 1.05
+        axs.plot([-rng, rng], [rng, -rng], color=MUTED, lw=0.9, ls="--", zorder=1)
+        axs.scatter(W[a], W[b], s=3, color=GOLD, alpha=0.55, lw=0, zorder=2)
         axs.axhline(0, color=FRAME, lw=0.7)
         axs.axvline(0, color=FRAME, lw=0.7)
-        axs.set_xlabel(f"coord in {idx[a]}", color=MUTED, fontsize=7.5)
-        axs.set_ylabel(f"coord in {idx[b]}", color=MUTED, fontsize=7.5)
-        panel_title(axs, f"cos = {cval:.3f}", 20)
-        fig.text(
-            MARGIN + 0.60,
-            y - 0.02,
-            f'every dimension that pushes toward "{short(cone_names.get(int(idx[a]), "?"), 34)}"\n'
-            f'pulls away from "{short(cone_names.get(int(idx[b]), "?"), 34)}" — one axis, two names,\n'
-            "the digon geometry from Toy Models of Superposition, in a production dictionary.",
+        axs.set_xlim(-rng, rng)
+        axs.set_ylim(-rng, rng)
+        axs.tick_params(labelsize=7)
+        axs.set_xlabel(f"the dimension's weight in {idx[a]}", color=MUTED, fontsize=8.5)
+        axs.set_ylabel(f"its weight in {idx[b]}", color=MUTED, fontsize=8.5)
+        axs.set_title(
+            "one dot per dimension  ·  dashed: exact opposition (y = -x)",
             color=MUTED,
             fontsize=8.5,
-            linespacing=1.6,
+            pad=5,
+        )
+        story = (
+            f'every dimension that pushes toward "{name_of(a)}" pulls away from '
+            f'"{name_of(b)}" by the same amount — one direction in the space, two names '
+            "at its two ends. this is the digon geometry from Toy Models of Superposition, "
+            "sitting in a production dictionary."
+        )
+        fig.text(
+            MARGIN + 0.60,
+            y - 0.045,
+            "\n".join(textwrap.wrap(story, 52)),
+            color=MUTED,
+            fontsize=9.5,
+            linespacing=1.7,
             va="top",
         )
+
+    cax = fig.add_axes([MARGIN, y_top - 0.03 - h - 0.045, 0.31, 0.011])
+    cax._is_colorbar = True
+    cb = fig.colorbar(im, cax=cax, orientation="horizontal")
+    cb.outline.set_edgecolor(FRAME)
+    cax.tick_params(colors=MUTED, labelsize=6.5)
+    cax.set_xlabel(
+        "decoder weight (shared scale, all four images)", color=MUTED, fontsize=7.5, labelpad=2
+    )
 
     verdict(fig, "cos -0.99: the dictionary spends one direction on two opposite concepts")
     save(fig, "03-opposite-knobs.png")
