@@ -169,3 +169,78 @@ def test_bake_cached_rebakes_on_filename_mismatch_or_missing_file(tmp_path):
     galaxy._bake_cached(cache_path, "abc123", "5.png", tex_dir / "5.png", bake_5)
     assert calls["n"] == 3
     assert (tex_dir / "5.png").exists()
+
+
+def test_bake_cached_reshuffle_revert_rebakes_not_stale(tmp_path):
+    """A->B->A member-set revert onto the same theme id/filename: build A
+    bakes hash h1 under "0.png"; build B reassigns "0.png" to a DIFFERENT
+    member set (hash h2), overwriting the file; build C reverts to h1's
+    member set. Without dropping h1's now-stale entry when h2 claims "0.png",
+    h1's entry would still validate (name matches, file exists) and return
+    build B's geography forever -- a cache hit would resolve to the wrong
+    planet's coastline."""
+    cache_path = tmp_path / "cache.json"
+    tex_dir = tmp_path / "tex"
+    tex_dir.mkdir()
+    calls = {"h1": 0, "h2": 0}
+
+    def bake_h1():
+        calls["h1"] += 1
+        (tex_dir / "0.png").write_bytes(b"M1")
+        return {"coast_deg": 1.0}
+
+    def bake_h2():
+        calls["h2"] += 1
+        (tex_dir / "0.png").write_bytes(b"M2")
+        return {"coast_deg": 2.0}
+
+    # build A: h1 -> 0.png
+    galaxy._bake_cached(cache_path, "h1", "0.png", tex_dir / "0.png", bake_h1)
+    assert calls["h1"] == 1
+    assert (tex_dir / "0.png").read_bytes() == b"M1"
+
+    # build B: a different member set (h2) is now assigned the same theme id
+    # -- overwrites 0.png, and must drop h1's now-stale cache entry
+    galaxy._bake_cached(cache_path, "h2", "0.png", tex_dir / "0.png", bake_h2)
+    assert calls["h2"] == 1
+    assert (tex_dir / "0.png").read_bytes() == b"M2"
+
+    # build C: reverts to h1's member set under the same name -- must rebake,
+    # not trust the stale (h2/M2) file that "0.png" now happens to point at
+    galaxy._bake_cached(cache_path, "h1", "0.png", tex_dir / "0.png", bake_h1)
+    assert calls["h1"] == 2, "h1 must re-bake after h2 took over its filename"
+    assert (tex_dir / "0.png").read_bytes() == b"M1"
+
+
+def test_moons_cached_survives_member_reorder(tmp_path):
+    """member_hash sorts paths, so it's order-insensitive -- but moon_gate's
+    member_idx indexes into THIS call's vn/member_paths row order. If
+    map.json's point order changes while the member SET (and so the hash)
+    stays the same, blindly reusing cached member_idx would resolve to the
+    wrong notes. moons_cached must resolve to stable member paths before
+    caching so a hit is safe under any order."""
+    rng = np.random.default_rng(9)
+    # same fixture as test_galaxy_moons.py's gated case: n_big=18, n_small=10,
+    # sep=3, std=1.0 -- known to earn at gate seed=18, n_boot=10, n_null=15
+    vn = np.concatenate(
+        [rng.normal([3, 0, 0, 0], 1.0, (18, 4)), rng.normal([0, 3, 0, 0], 1.0, (10, 4))]
+    )
+    vn = vn / np.linalg.norm(vn, axis=1, keepdims=True)
+    paths = [f"p{i}.md" for i in range(len(vn))]
+    cache_path = tmp_path / "cache.json"
+
+    first = galaxy.moons_cached(vn, paths, "v2", cache_path, seed=18, n_boot=10, n_null=15)
+    assert first["earned"] and first["moons"], "fixture must gate for this test to mean anything"
+    exemplar_before = first["moons"][0]["exemplar"]
+    paths_before = set(first["moons"][0]["paths"])
+
+    perm = rng.permutation(len(vn))
+    vn_perm = vn[perm]
+    paths_perm = [paths[i] for i in perm]
+    # same member set (member_hash sorts -> identical key), different order
+    second = galaxy.moons_cached(
+        vn_perm, paths_perm, "v2", cache_path, seed=18, n_boot=10, n_null=15
+    )
+
+    assert second["moons"][0]["exemplar"] == exemplar_before
+    assert set(second["moons"][0]["paths"]) == paths_before

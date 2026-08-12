@@ -353,14 +353,31 @@ def moons_cached(
     n_boot: int = 25,
     n_null: int = 50,
 ) -> dict[str, Any]:
+    """Wraps moon_gate with a JSON cache keyed by member_hash, which sorts
+    paths and is therefore order-insensitive. moon_gate's own "member_idx" is
+    NOT order-insensitive -- it indexes into this call's vn/member_paths row
+    order, which can change across builds (map.json point order shifting)
+    even when the member SET, and so the hash, does not. A cache hit that
+    returned raw member_idx would then resolve to the wrong notes. Every
+    moon is therefore resolved to stable member paths (and a path exemplar,
+    computed here since this is the last point that has both vn and
+    member_paths in the same row order) before caching. An entry from before
+    this fix has no "paths" on its moons and is treated as a miss."""
     key = member_hash(member_paths, epoch)
     try:
         cache: dict[str, Any] = json.loads(cache_path.read_text())
     except (FileNotFoundError, json.JSONDecodeError):
         cache = {}
-    if key in cache:
-        return cache[key]
+    cached = cache.get(key)
+    if cached is not None and all("paths" in mo for mo in cached.get("moons", [])):
+        return cached
     result = moon_gate(vn, seed, n_boot=n_boot, n_null=n_null)
+    for mo in result["moons"]:
+        idx = mo.pop("member_idx")
+        sub = vn[idx]
+        medoid_local = idx[int(np.argmax(sub @ sub.mean(axis=0)))]
+        mo["paths"] = [member_paths[i] for i in idx]
+        mo["exemplar"] = member_paths[medoid_local]
     cache[key] = result
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(cache))
@@ -372,7 +389,18 @@ def _bake_cached(cache_path: Path, h: str, name: str, out_path: Path, bake: Any)
     A hit is trusted only when the cached entry's filename still matches the
     caller's current expected name AND the file is still on disk -- theme ids
     are rebuild-scoped, so a reshuffle can leave an unchanged member-set hash
-    pointing at a stale name/file from a prior build."""
+    pointing at a stale name/file from a prior build.
+
+    A filename can have only one live cache owner. Without that invariant, an
+    A->B->A member-set revert on the same theme id aliases: build A bakes
+    hash h1 under "0.png"; build B reassigns "0.png" to a different member
+    set (hash h2), overwriting the file; build C reverts to h1's member set
+    -- h1's entry still says name="0.png" and the file still exists, so it
+    would validate as a hit and return build B's geography forever. Every
+    write here therefore drops any OTHER hash's entry claiming this name (so
+    the revert's h1 lookup correctly misses and re-bakes), and — when this
+    same hash's own prior bake lived under a different name (a reshuffle, not
+    a revert) — deletes that now-orphaned file."""
     key = f"tex:{h}"
     try:
         cache: dict[str, Any] = json.loads(cache_path.read_text())
@@ -382,6 +410,10 @@ def _bake_cached(cache_path: Path, h: str, name: str, out_path: Path, bake: Any)
     if entry and entry.get("name") == name and out_path.exists():
         return
     meta = bake()
+    if entry and entry.get("name") and entry["name"] != name:
+        (out_path.parent / entry["name"]).unlink(missing_ok=True)
+    for other_key in [k for k, v in cache.items() if k != key and v.get("name") == name]:
+        del cache[other_key]
     cache[key] = {"hash": h, "name": name, "meta": meta}
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(cache))
@@ -425,6 +457,10 @@ def attach_payload(
     ids = [p["theme"] for p in blocks]
     rings = ring_gate(vecs, themes, ids, n_perm=n_perm)
     spins = spin_gate(themes, dates, ids, n_perm=n_perm)
+    # moons_cached returns member/exemplar paths, not indices (a cache hit's
+    # indices would otherwise be stale against this call's point order) --
+    # resolved back to a global row via this lookup, built once
+    path_to_gi = {p: i for i, p in enumerate(paths)}
 
     tex_dir.mkdir(parents=True, exist_ok=True)
     planets: list[dict[str, Any]] = []
@@ -464,13 +500,10 @@ def attach_payload(
         )
         moons_out: list[dict[str, Any]] = []
         for moon in moon_result["moons"]:
-            idx_local = moon["member_idx"]
-            sub = vn[idx_local]
-            medoid_local = idx_local[int(np.argmax(sub @ sub.mean(axis=0)))]
-            gi = int(m[medoid_local])
+            gi = path_to_gi[moon["exemplar"]]
             moons_out.append(
                 {
-                    "size": len(idx_local),
+                    "size": len(moon["paths"]),
                     "path": paths[gi],
                     "title": titles[gi],
                     "thumb": thumbs[gi] or None,
