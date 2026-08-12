@@ -81,7 +81,7 @@ function GalaxyPage() {
         <div className="absolute left-4 top-4 flex flex-col gap-2 text-xs">
           <div className="rounded bg-black/60 px-3 py-1">
             {visitedPlanet
-              ? `${visitedPlanet.label} · ${visitedPlanet.cls} · ${visitedPlanet.n} · ${visitedPlanet.activity.toFixed(2)}`
+              ? `${visitedPlanet.label} · ${visitedPlanet.cls} · ${visitedPlanet.n} · ${visitedPlanet.activity.toFixed(2)} · ${Math.round(visitedPlanet.land_frac * 100)}% land`
               : "overview"}
           </div>
           {visitedPlanet ? (

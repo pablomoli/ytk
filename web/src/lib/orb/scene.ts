@@ -6,6 +6,7 @@ import {
   InstancedBufferAttribute,
   InstancedBufferGeometry,
   LinearFilter,
+  Matrix3,
   Mesh,
   NoColorSpace,
   PerspectiveCamera,
@@ -210,6 +211,9 @@ export function mountOrb(
       uSpin: { value: 0 },
       uSeed: { value: 0 },
       uCoastAmp: { value: PLANET_COAST_AMP },
+      // identity: the superplanet keeps the record's canonical magma, arm 0's
+      // per-planet rotation is a galaxy-only identity signal
+      uHueRot: { value: new Matrix3() },
     },
   });
   coastRamp.bind(coastMat.uniforms.uRamp);

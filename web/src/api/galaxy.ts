@@ -14,6 +14,8 @@ export type GalaxyPlanet = {
   pos: [number, number, number];
   radius_deg: number;
   tex: string;
+  hue_shift_deg: number;
+  land_frac: number;
   median_age_days: number | null;
   rings: { earned: boolean; partners: { theme: number; z: number }[] };
   spin: { earned: boolean; side: string | null; median_age_days: number | null };

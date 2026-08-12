@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { equirectUv, ringNormal, slerp, spinRadPerSec, standoff, worldRadius } from "./math";
+import { equirectUv, hueRotationMatrix, ringNormal, slerp, spinRadPerSec, standoff, worldRadius } from "./math";
+
+const applyM3 = (m: number[], v: number[]) => [
+  m[0] * v[0] + m[1] * v[1] + m[2] * v[2],
+  m[3] * v[0] + m[4] * v[1] + m[5] * v[2],
+  m[6] * v[0] + m[7] * v[1] + m[8] * v[2],
+];
 
 const len = (v: number[]) => Math.hypot(...v);
 
@@ -36,5 +42,18 @@ describe("galaxy math", () => {
     const m = slerp([1, 0, 0], [0, 1, 0], 0.5);
     expect(len(m)).toBeCloseTo(1);
     expect(m[0]).toBeCloseTo(m[1]);
+  });
+  it("hueRotationMatrix at 0deg is the identity", () => {
+    const m = hueRotationMatrix(0);
+    expect(m).toHaveLength(9);
+    [1, 0, 0, 0, 1, 0, 0, 0, 1].forEach((want, i) => expect(m[i]).toBeCloseTo(want));
+  });
+  it("hueRotationMatrix turns red into green at 120deg", () => {
+    const out = applyM3(hueRotationMatrix(120), [1, 0, 0]);
+    [0, 1, 0].forEach((want, i) => expect(Math.abs(out[i] - want)).toBeLessThan(0.15));
+  });
+  it("hueRotationMatrix leaves gray on the gray axis", () => {
+    const out = applyM3(hueRotationMatrix(75), [0.4, 0.4, 0.4]);
+    out.forEach((c) => expect(c).toBeCloseTo(0.4));
   });
 });

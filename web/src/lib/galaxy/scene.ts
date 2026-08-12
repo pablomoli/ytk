@@ -7,6 +7,7 @@ import {
   Float32BufferAttribute,
   GLSL3,
   LinearFilter,
+  Matrix3,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -33,7 +34,7 @@ import { BG, CYAN, DIM, PUNCH_GAMMA, TEXT, planetColor } from "../palette";
 import type { GalaxyData, GalaxyMoon } from "../../api/galaxy";
 import { createControls } from "../orb/controls";
 import { normalizeWheelDelta } from "../orb/scene";
-import { ringNormal, slerp, spinRadPerSec, standoff, worldRadius, type V3 } from "./math";
+import { hueRotationMatrix, ringNormal, slerp, spinRadPerSec, standoff, worldRadius, type V3 } from "./math";
 import { pickPlanet } from "./pick";
 
 const R_CLOSE = 1.6; // overview orbit radius at wheel zoom 0
@@ -76,6 +77,7 @@ precision highp float;
 uniform sampler2D uField;
 uniform sampler2D uRamp;
 uniform float uSpin, uSeed, uCoastAmp;
+uniform mat3 uHueRot;
 in vec3 vN;
 out vec4 outColor;
 
@@ -116,7 +118,9 @@ void main() {
   float tSea = ${SEA_FLOOR.toFixed(2)} + ${(SEA_CEIL - SEA_FLOOR).toFixed(2)} * pow(clamp(d * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
   float tLand = ${LAND_FLOOR.toFixed(2)} + ${(1 - LAND_FLOOR).toFixed(2)} * pow(clamp((d - 0.5) * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
   float t = mix(tSea, tLand, smoothstep(0.490, 0.510, d));
-  vec3 col = texture(uRamp, vec2(t, 0.5)).rgb;
+  // arm 0 (#179): the ramp sample turns per planet, the coast accent does not
+  // -- the cyan is the cross-planet boundary language, shared by every world.
+  vec3 col = clamp(uHueRot * texture(uRamp, vec2(t, 0.5)).rgb, 0.0, 1.0);
   float shore = smoothstep(0.012, 0.0, abs(d - 0.5)) * 0.9;
   outColor = vec4(mix(col, vec3(${coastLine}), shore), 1.0);
 }`;
@@ -235,6 +239,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
       uSpin: { value: 0 },
       uSeed: { value: 0 },
       uCoastAmp: { value: COAST_AMP },
+      uHueRot: { value: new Matrix3() },
     },
   });
 
@@ -253,6 +258,13 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
     const mat = base.clone();
     ramp.bind(mat.uniforms.uRamp); // one texture object across all 18 materials
     mat.uniforms.uSeed.value = p.theme;
+    // Matrix3.set takes row-major; three uploads elements column-major, which
+    // is the order GLSL's mat3 * vec3 reads back.
+    mat.uniforms.uHueRot.value = new Matrix3().set(
+      ...(hueRotationMatrix(p.hue_shift_deg ?? 0) as [
+        number, number, number, number, number, number, number, number, number,
+      ]),
+    );
     const mesh = new Mesh(geo, mat);
     mesh.position.set(p.pos[0], p.pos[1], p.pos[2]);
     scene.add(mesh);

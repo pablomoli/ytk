@@ -62,6 +62,19 @@ export const standoff = (center: V3, radiusDeg: number): V3 => {
   return [center[0] * k, center[1] * k, center[2] * k];
 };
 
+// Rotation about the gray axis in RGB, row-major 3x3 (arm 0, #179). The
+// (1-cos)/3 and sqrt(1/3)*sin terms are the closed form of conjugating a
+// rotation into the plane normal to (1,1,1): the gray axis is fixed, so a
+// sample's distance from gray survives and only its direction turns.
+export const hueRotationMatrix = (deg: number): number[] => {
+  const a = (deg * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  const d = (1 - c) / 3;
+  const k = Math.sqrt(1 / 3) * s;
+  return [c + d, d - k, d + k, d + k, c + d, d - k, d - k, d + k, c + d];
+};
+
 // Unit-vector slerp for travel arcs. Falls back to lerp+normalize when a and
 // b are near-parallel, where the slerp basis is degenerate.
 export const slerp = (a: V3, b: V3, t: number): V3 => {

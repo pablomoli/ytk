@@ -8,7 +8,7 @@ const data: GalaxyData = {
   planets: [0, 1].map((i) => ({
     theme: i, label: `p${i}`, n: 20, activity: 0.5, cohesion: 0.6,
     cls: "V", hue: "#ffb08a", pos: i ? [0, 1, 0] : [1, 0, 0], radius_deg: 8,
-    tex: `${i}.png`, median_age_days: 40,
+    tex: `${i}.png`, hue_shift_deg: i ? 210 : 0, land_frac: 0.64, median_age_days: 40,
     rings: { earned: i === 0, partners: i === 0 ? [{ theme: 1, z: 5 }] : [] },
     spin: { earned: false, side: null, median_age_days: 40 },
     moons: [],
