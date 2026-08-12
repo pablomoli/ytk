@@ -1,18 +1,29 @@
 import {
+  ClampToEdgeWrapping,
+  DataTexture,
   DoubleSide,
   GLSL3,
   InstancedBufferAttribute,
   InstancedBufferGeometry,
+  LinearFilter,
   Mesh,
+  NoColorSpace,
   PerspectiveCamera,
   PlaneGeometry,
   RawShaderMaterial,
+  RedFormat,
+  RepeatWrapping,
   Scene,
+  SphereGeometry,
+  Texture,
+  TextureLoader,
   Vector3,
   WebGLRenderer,
 } from "three";
 import { DUR, gsap, reducedMotion } from "../motion";
+import { GOLD, planetColor } from "../palette";
 import type { LayoutName, OrbData } from "../../api/orb";
+import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT } from "../galaxy/scene";
 import { buildAtlas, COLS, uvRect } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
@@ -98,6 +109,12 @@ void main() {
 
 export type OrbViewMode = "inside" | "globe";
 
+// pure so it's unit-testable: the coast sphere shows only once the bake has
+// loaded (404 or in-flight leaves it hidden) and only while orbiting the globe.
+export function coastVisible(mode: OrbViewMode, loaded: boolean): boolean {
+  return mode === "globe" && loaded;
+}
+
 export type OrbHandle = {
   setLayout(name: LayoutName): void;
   setThemeFilter(th: number | null): void;
@@ -175,6 +192,51 @@ export function mountOrb(
   // roll a correct bound for a single always-small draw call.
   mesh.frustumCulled = false;
   scene.add(mesh);
+
+  // superplanet coastline, under the tiles: hidden until globe mode AND the
+  // bake has loaded (Task 12). Same shader as galaxy's planets, uSpin pinned.
+  let disposed = false;
+  let coastLoaded = false;
+  const coastFallback = new DataTexture(new Uint8Array([128]), 1, 1, RedFormat);
+  coastFallback.needsUpdate = true;
+  const [chR, chG, chB] = planetColor(GOLD, 0.55);
+  const coastGeo = new SphereGeometry(0.985, 64, 32);
+  const coastMat = new RawShaderMaterial({
+    glslVersion: GLSL3,
+    vertexShader: PLANET_VERT,
+    fragmentShader: PLANET_FRAG,
+    uniforms: {
+      uField: { value: coastFallback },
+      uHue: { value: new Vector3(chR, chG, chB) },
+      uSpin: { value: 0 },
+      uSeed: { value: 0 },
+      uCoastAmp: { value: PLANET_COAST_AMP },
+    },
+  });
+  const coast = new Mesh(coastGeo, coastMat);
+  coast.visible = false;
+  scene.add(coast);
+  let coastTex: Texture | null = null;
+  new TextureLoader().load(
+    "/galaxy-tex/superplanet.png",
+    (tex) => {
+      if (disposed) { tex.dispose(); return; }
+      tex.flipY = false;
+      tex.colorSpace = NoColorSpace; // distance field, not color
+      tex.wrapS = RepeatWrapping; // uSpin scrolls u past the seam (unused here, spin pinned)
+      tex.wrapT = ClampToEdgeWrapping;
+      tex.minFilter = LinearFilter;
+      tex.magFilter = LinearFilter;
+      tex.generateMipmaps = false;
+      tex.needsUpdate = true;
+      coastTex = tex;
+      coastMat.uniforms.uField.value = tex;
+      coastLoaded = true;
+      coast.visible = coastVisible(mode, coastLoaded);
+    },
+    undefined,
+    () => {}, // 404 leaves the coast hidden; not fatal
+  );
 
   const controls = createControls();
   const focusDolly = { dolly: 0 }; // inside mode: 0 at rest, 1 at apex
@@ -356,10 +418,12 @@ export function mountOrb(
       if (focused >= 0) doBlur(); // mode switches mid-focus must not strand uFocused
       mode = next;
       material.uniforms.uFacing.value = mode === "globe" ? -1 : 1;
+      coast.visible = coastVisible(mode, coastLoaded);
     },
     focus: focusTile,
     blur: doBlur,
     dispose() {
+      disposed = true;
       cancelAnimationFrame(raf);
       cancelAnimationFrame(focusRaf1);
       cancelAnimationFrame(focusRaf2);
@@ -376,6 +440,10 @@ export function mountOrb(
       geo.dispose();
       material.dispose();
       atlas.dispose();
+      coastGeo.dispose();
+      coastMat.dispose();
+      coastFallback.dispose();
+      if (coastTex) coastTex.dispose();
       renderer.dispose();
     },
   };

@@ -2,6 +2,7 @@ import { expect, test, vi } from "vitest";
 import type { OrbData } from "../../api/orb";
 import { COLS } from "./atlas";
 import {
+  coastVisible,
   GLOBE_R_CLOSE,
   GLOBE_R_FAR,
   MAX_FWD,
@@ -155,6 +156,29 @@ test("globe orbit radius clamps at [1.30, 4.0]", () => {
   expect(restGlobeR(1)).toBeCloseTo(GLOBE_R_FAR, 6);
   expect(GLOBE_R_CLOSE).toBeCloseTo(1.30, 6);
   expect(GLOBE_R_FAR).toBeCloseTo(4.0, 6);
+});
+
+test("coast sphere is visible only in globe mode once the bake has loaded", () => {
+  expect(coastVisible("inside", false)).toBe(false);
+  expect(coastVisible("inside", true)).toBe(false); // wrong mode: still hidden even if the texture arrived
+  expect(coastVisible("globe", false)).toBe(false); // 404 or in-flight: globe mode alone isn't enough
+  expect(coastVisible("globe", true)).toBe(true);
+});
+
+test("globe mode toggles the coast sphere without leaking", async () => {
+  const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  const canvas = document.createElement("canvas");
+  canvas.width = 400;
+  canvas.height = 300;
+  document.body.appendChild(canvas);
+  const handle = mountOrb(canvas, data(), { onHover: vi.fn(), onOpen: vi.fn() });
+  handle.setView("globe");
+  handle.setView("inside");
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  expect(errSpy).not.toHaveBeenCalled();
+  expect(() => handle.dispose()).not.toThrow();
+  canvas.remove();
+  errSpy.mockRestore();
 });
 
 test("focus fires onOpen with a positive-width rect in globe view (reduced motion path)", async () => {

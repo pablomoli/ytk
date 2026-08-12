@@ -109,6 +109,11 @@ void main() {
   outColor = vec4(mix(seaCol, landCol, land) + vec3(${shoreAccent}) * shore, 1.0);
 }`;
 
+// shared with orb's globe-mode coast sphere (Task 12): one shader source, two mounts
+export const PLANET_VERT = VERT;
+export const PLANET_FRAG = FRAG;
+export const PLANET_COAST_AMP = COAST_AMP;
+
 export type GalaxyHandle = {
   visit(theme: number): void;
   overview(): void;
