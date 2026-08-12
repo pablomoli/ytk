@@ -201,7 +201,7 @@ def fig01(rig):
         f'query: "{short(qtext, 66)}"  ·  latent {LAT} "EpicMap field service SaaS platform", '
         f"natural act on this query 0.000, corpus max {MAXA}  ·  retrieval: cosine over 16,483 vectors, top-10 notes"
     )
-    fig, top = figure(16.5, 8.4, 1, "the knob", "Steering a philosophy query into EpicMap", meta)
+    fig, top = figure(16.5, 7.8, 1, "the knob", "Steering a philosophy query into EpicMap", meta)
 
     y_top = top - 0.10
     a1, h1 = sq_axes(fig, MARGIN, y_top, 0.11)
@@ -271,7 +271,7 @@ def fig01(rig):
         arrowprops={"arrowstyle": "->", "color": MUTED, "lw": 0.8},
     )
 
-    y_l = y_top - h1 - 0.16
+    y_l = y_top - h1 - 0.115
     fig.text(
         MARGIN,
         y_l + 0.045,
@@ -327,10 +327,10 @@ def fig02(rig):
         f'query: "{short(qtext, 62)}"  ·  latent {LAT} fires at {act:.3f} — '
         f"the loudest of its 32  ·  same retrieval as figure 01"
     )
-    fig, top = figure(16.5, 7.2, 2, "the knob", "The knob is not the concept", meta)
+    fig, top = figure(16.5, 5.8, 2, "the knob", "The knob is not the concept", meta)
 
-    y_top = top - 0.10
-    a1, h1 = sq_axes(fig, MARGIN, y_top, 0.22, aspect=16 / 128)
+    y_top = top - 0.09
+    a1, h1 = sq_axes(fig, MARGIN, y_top, 0.36, aspect=16 / 128)
     a1.imshow(
         code_strip(z0),
         cmap=saturated_magma(),
@@ -338,56 +338,43 @@ def fig02(rig):
         vmax=float(z0.max()),
         interpolation="nearest",
     )
-    panel_title(a1, "the EpicMap query's code — its loudest latent IS the knob", 52)
+    panel_title(a1, "the query's code — its loudest latent IS the knob", 70)
     r, c = divmod(LAT, 128)
     a1.annotate(
         f"latent {LAT} at {act:.3f}",
         xy=(c, r),
         xycoords="data",
-        xytext=(0.03, -0.75),
+        xytext=(0.75, -0.55),
         textcoords="axes fraction",
         color=GOLD,
-        fontsize=7.5,
+        fontsize=8,
         annotation_clip=False,
         arrowprops={"arrowstyle": "->", "color": GOLD, "lw": 0.9},
     )
 
-    axb = fig.add_axes([MARGIN + 0.30, y_top - 0.30, 0.28, 0.30])
+    axb = fig.add_axes([MARGIN + 0.155, 0.13, 0.245, y_top - h1 - 0.28])
     style_axes(axb)
     ys = np.arange(len(ladder))[::-1]
-    axb.barh(ys, shares, height=0.55, color=[DIM, GOLD, GOLD, GOLD])
+    axb.barh(ys, shares, height=0.58, color=[DIM, GOLD, GOLD, GOLD])
     axb.axvline(shares[0], color=RED, lw=1.2, ls="--")
-    for y, (label, _), s in zip(ys, ladder, shares):
-        axb.text(0.02, y, label, color=TEXT, fontsize=8.8, va="center")
-        axb.text(s + 0.02, y, f"{s:.1f}", color=MUTED, fontsize=8, va="center")
-    axb.set_yticks([])
+    for y, v in zip(ys, shares):
+        axb.text(v + 0.03, y, f"{v:.1f}", color=TEXT, fontsize=8.5, va="center")
+    axb.set_yticks(ys)
+    axb.set_yticklabels([label for label, _ in ladder], color=TEXT, fontsize=8.5)
     axb.set_xlim(0, 1.12)
     axb.set_xlabel("EpicMap share of top-10 after the cut", color=MUTED, fontsize=8)
     panel_title(axb, "the ablation ladder", 40)
 
-    x0 = MARGIN + 0.655
+    x0 = MARGIN + 0.62
     fig.text(
         x0,
-        y_top,
-        "top-5 after killing all 8 loudest latents — still EpicMap:",
+        y_top + 0.015,
+        "top-5 after killing all 8 loudest — still EpicMap",
         color=TEXT,
-        fontsize=9,
-    )
-    draw_list(fig, x0, y_top - 0.05, rig.top_notes(killed(ladder[3][1]), 5), rig, width=38)
-
-    fig.text(
-        MARGIN,
-        0.30,
-        "figure 01 showed this latent dragging an unrelated query into EpicMap. here the same latent is the\n"
-        "loudest thing in a genuine EpicMap query — and deleting it changes nothing. deleting its whole family\n"
-        "changes nothing. the query's remaining code still points at the same territory: the concept is a\n"
-        "direction the code redundantly encodes, not a single address you can remove. steering is asymmetric.",
-        color=MUTED,
         fontsize=9.5,
-        linespacing=1.7,
     )
+    draw_list(fig, x0, y_top - 0.05, rig.top_notes(killed(ladder[3][1]), 5), rig, width=40)
 
-    verdict(fig, "adding the concept takes one knob; removing it survives losing all eight loudest")
     save(fig, "02-not-the-concept.png")
 
 
@@ -417,7 +404,7 @@ def fig03(rig):
         "decoder rows of the 31 always-on Gemma-Scope cone features (21-geometry/cone-decoder.npz), 2304-dim as 48x48  ·  "
         "pixel order per pair: dims sorted by the first row's values  ·  scatter: one dot per dimension  ·  shared colour scale"
     )
-    fig, top = figure(16.5, 10.4, 3, "the knob", "Opposite knobs, finally visible", meta)
+    fig, top = figure(16.5, 9.0, 3, "the knob", "Opposite knobs, finally visible", meta)
 
     def name_of(j) -> str:
         return cone_names.get(int(idx[j]), "?").rstrip(". \n")
@@ -429,11 +416,9 @@ def fig03(rig):
     for row, (a, b) in enumerate(pairs):
         cval = float(C[a, b])
         order = np.argsort(-W[a])
-        y = y_top - row * 0.45
-        header = f'{idx[a]} "{name_of(a)}"   vs   {idx[b]} "{name_of(b)}"   ·   cos = {cval:.3f}'
-        fig.text(MARGIN, y + 0.012, header, color=TEXT, fontsize=10.5)
+        y = y_top - row * 0.40
         for col, j in ((0, a), (1, b)):
-            ax, h = sq_axes(fig, MARGIN + col * 0.165, y - 0.03, 0.145)
+            ax, h = sq_axes(fig, MARGIN + col * 0.15, y - 0.03, 0.13)
             im = ax.imshow(
                 W[j][order].reshape(48, 48),
                 cmap=cmap,
@@ -443,7 +428,7 @@ def fig03(rig):
             )
             ax.set_title(f"decoder row {idx[j]}", color=MUTED, fontsize=8.5, pad=5)
         side = h * fig.get_figheight() / fig.get_figwidth()
-        axs = fig.add_axes([MARGIN + 0.375, y - 0.03 - h, side, h])
+        axs = fig.add_axes([MARGIN + 0.345, y - 0.03 - h, side, h])
         style_axes(axs)
         rng = float(np.abs(W[[a, b]]).max()) * 1.05
         axs.plot([-rng, rng], [rng, -rng], color=MUTED, lw=0.9, ls="--", zorder=1)
@@ -461,23 +446,24 @@ def fig03(rig):
             fontsize=8.5,
             pad=5,
         )
-        story = (
-            f'every dimension that pushes toward "{name_of(a)}" pulls away from '
-            f'"{name_of(b)}" by the same amount — one direction in the space, two names '
-            "at its two ends. this is the digon geometry from Toy Models of Superposition, "
-            "sitting in a production dictionary."
-        )
-        fig.text(
-            MARGIN + 0.60,
-            y - 0.045,
-            "\n".join(textwrap.wrap(story, 52)),
-            color=MUTED,
-            fontsize=9.5,
-            linespacing=1.7,
-            va="top",
-        )
+        xr = MARGIN + 0.345 + side + 0.055
+        yy = y - 0.045
+        for j in (a, b):
+            fig.text(xr, yy, f"{idx[j]}", color=GOLD, fontsize=11)
+            lines = textwrap.wrap(f'"{name_of(j)}"', 42)
+            fig.text(
+                xr,
+                yy - 0.028,
+                "\n".join(lines),
+                color=TEXT,
+                fontsize=9.5,
+                va="top",
+                linespacing=1.45,
+            )
+            yy -= 0.028 + 0.026 * len(lines) + 0.030
+        fig.text(xr, yy, f"cos = {cval:.3f}", color=MUTED, fontsize=10)
 
-    cax = fig.add_axes([MARGIN, y_top - 0.03 - h - 0.045, 0.31, 0.011])
+    cax = fig.add_axes([MARGIN, y_top - 0.03 - h - 0.05, 0.28, 0.012])
     cax._is_colorbar = True
     cb = fig.colorbar(im, cax=cax, orientation="horizontal")
     cb.outline.set_edgecolor(FRAME)
