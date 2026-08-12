@@ -1044,6 +1044,38 @@ async def orb_api():
     return {"points": points, "themes": themes, "sphere": sphere}
 
 
+@app.get("/api/galaxy")
+async def galaxy_api():
+    """The /galaxy view: precomputed orbits + theme planets from build_map.py."""
+    if not _ORB_MAP.exists():
+        raise HTTPException(status_code=404, detail="No map built yet")
+    data = json.loads(_ORB_MAP.read_text())
+    galaxy = (data.get("content") or {}).get("galaxy")
+    if not galaxy:
+        raise HTTPException(
+            status_code=404,
+            detail="No galaxy block — run: uv run python scripts/build_map.py",
+        )
+    return galaxy
+
+
+# module-level so tests monkeypatch the path; same seam as _ORB_MAP
+_GALAXY_TEX_DIR = Path.home() / ".ytk" / "galaxy_tex"
+
+
+@app.get("/galaxy-tex/{name}")
+async def galaxy_tex(name: str):
+    """Serve a planet texture PNG by basename from the galaxy texture dir only."""
+    from fastapi.responses import FileResponse
+
+    if "/" in name or ".." in name:
+        raise HTTPException(status_code=404, detail="Not found")
+    target = _GALAXY_TEX_DIR / name
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(target)
+
+
 @app.get("/api/map")
 async def map_data_api():
     map_path = Path.home() / ".ytk" / "map.json"
