@@ -81,7 +81,7 @@ const FRAG = /* glsl */ `
 precision highp float;
 uniform sampler2D uField;
 uniform sampler2D uRamp;
-uniform float uSpin, uSeed, uCoastAmp;
+uniform float uSpin, uSeed, uCoastAmp, uYUp;
 uniform mat3 uHueRot;
 in vec3 vN;
 out vec4 outColor;
@@ -114,11 +114,12 @@ float fbm3(vec3 p) {
 
 void main() {
   // equirect sample of the baked field; 0.5 = shoreline (ytk/coast.py contract).
-  // y-up swizzle: the bake's poles are its own z, but a planet must spin about
-  // the screen's vertical like a top, so latitude is read from world y here.
-  // Which meridian faces the camera is arbitrary, so the bake is unchanged.
-  float lon = atan(vN.z, vN.x);
-  float lat = asin(clamp(vN.y, -1.0, 1.0));
+  // uYUp=1 (galaxy planets, sun): latitude from world y, so uSpin turns the
+  // planet about screen-up; the meridian facing the camera is arbitrary there.
+  // uYUp=0 (orb coast sphere): the bake's own z-lat frame, the frame the orb
+  // tile directions were placed in — swizzling it moves the land off the tiles.
+  float lon = atan(mix(vN.y, vN.z, uYUp), vN.x);
+  float lat = asin(clamp(mix(vN.z, vN.y, uYUp), -1.0, 1.0));
   vec2 uv = vec2(lon / 6.28318530718 + 0.5 + uSpin, 0.5 + lat / 3.14159265359);
   float d = texture(uField, uv).r + uCoastAmp * (fbm3(vN * 9.0 + uSeed) - 0.5);
   // E30 fig_field's palette, but split at the shoreline: sea rides the ramp's
@@ -273,6 +274,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
       uSpin: { value: 0 },
       uSeed: { value: 0 },
       uCoastAmp: { value: COAST_AMP },
+      uYUp: { value: 1 }, // planets and the sun spin upright; see FRAG
       uHueRot: { value: new Matrix3() },
     },
   });

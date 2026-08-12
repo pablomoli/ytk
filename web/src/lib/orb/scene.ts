@@ -215,6 +215,9 @@ export function mountOrb(
       uSpin: { value: 0 },
       uSeed: { value: 0 },
       uCoastAmp: { value: PLANET_COAST_AMP },
+      // 0 = the bake's own z-lat frame: this sphere's geography must land under
+      // tile directions from the same frame, so it cannot take the y-up swizzle
+      uYUp: { value: 0 },
       // identity: the superplanet keeps the record's canonical magma, arm 0's
       // per-planet rotation is a galaxy-only identity signal
       uHueRot: { value: new Matrix3() },

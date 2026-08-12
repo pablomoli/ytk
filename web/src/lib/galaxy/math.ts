@@ -33,8 +33,8 @@ export const spinRadPerSec = (medianAgeDays: number | null, populationMedian: nu
 // Must match ytk/coast.py's grid(): xyz = (cos(lat)cos(lon), cos(lat)sin(lon), sin(lat)).
 // flipY interplay with the three.js texture upload is resolved where the
 // texture is bound (Task 10), not here.
-// This is the BAKE contract; the scene's fragment shader samples the same field
-// through a y-up swizzle so planets spin upright, which the bake does not encode.
+// This is the BAKE contract, and what the shader samples under uYUp=0 (orb's
+// coast sphere); galaxy planets take uYUp=1, a y-up swizzle off this frame.
 export const equirectUv = (n: V3): [number, number] => {
   const u = Math.atan2(n[1], n[0]) / (2 * Math.PI) + 0.5;
   const v = 0.5 + Math.asin(clamp(n[2], -1, 1)) / Math.PI;
