@@ -1,0 +1,710 @@
+{
+ "epoch": "v2",
+ "commit": "468b873",
+ "galaxy_commit": "bb95048",
+ "planets": [
+  {
+   "theme": 0,
+   "label": "agentic coding workflows",
+   "n": 64,
+   "moons": {
+    "stability": 0.8156000000000002,
+    "null_hi": 0.753811,
+    "null_mean": 0.6668722000000001,
+    "earned": true,
+    "core_size": 63,
+    "moons": []
+   },
+   "rings": {
+    "max_z": -0.4239071018573268,
+    "z_bar": 3.6250524575161736,
+    "z_null_lo": 1.1719724670830014,
+    "earned": false,
+    "partners": [],
+    "share": 0.184375,
+    "share_gate": {
+     "share": 0.184375,
+     "null_hi": 0.915625,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 38.0,
+    "n_dated": 63,
+    "null_lo": 37.0,
+    "null_hi": 78.0,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 1,
+   "label": "frontier AI research",
+   "n": 51,
+   "moons": {
+    "stability": 0.8357499999999999,
+    "null_hi": 0.7471205,
+    "null_mean": 0.6533342000000001,
+    "earned": true,
+    "core_size": 50,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 6.175621634892545,
+    "z_bar": 3.6985319333532836,
+    "z_null_lo": 1.1311120583825571,
+    "earned": true,
+    "partners": [
+     {
+      "theme": 12,
+      "count": 53,
+      "z": 6.175621634892545
+     }
+    ],
+    "share": 0.4,
+    "share_gate": {
+     "share": 0.4,
+     "null_hi": 0.9392156862745098,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 34.0,
+    "n_dated": 44,
+    "null_lo": 34.9875,
+    "null_hi": 84.52499999999998,
+    "earned": true,
+    "side": "fast"
+   }
+  },
+  {
+   "theme": 2,
+   "label": "engineering careers & fundamentals",
+   "n": 33,
+   "moons": {
+    "stability": 0.8377999999999999,
+    "null_hi": 0.7877138461538461,
+    "null_mean": 0.6950061538461538,
+    "earned": true,
+    "core_size": 32,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 4.7747004217863385,
+    "z_bar": 3.8413599945515697,
+    "z_null_lo": 1.186892550537246,
+    "earned": true,
+    "partners": [
+     {
+      "theme": 0,
+      "count": 68,
+      "z": 4.7747004217863385
+     }
+    ],
+    "share": 0.5151515151515151,
+    "share_gate": {
+     "share": 0.5151515151515151,
+     "null_hi": 0.9696969696969697,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 47.0,
+    "n_dated": 33,
+    "null_lo": 33.0,
+    "null_hi": 93.0,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 3,
+   "label": "speculative biology & worldbuilding",
+   "n": 33,
+   "moons": {
+    "stability": 0.6415692307692308,
+    "null_hi": 0.767943846153846,
+    "null_mean": 0.6777123076923077,
+    "earned": false,
+    "core_size": null,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 2.3658369495773615,
+    "z_bar": 3.926058772408222,
+    "z_null_lo": 1.1332022068312542,
+    "earned": false,
+    "partners": [],
+    "share": 0.6181818181818182,
+    "share_gate": {
+     "share": 0.6181818181818182,
+     "null_hi": 0.9696969696969697,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 34.0,
+    "n_dated": 33,
+    "null_lo": 33.0,
+    "null_hi": 93.0,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 4,
+   "label": "visual math & aesthetics",
+   "n": 36,
+   "moons": {
+    "stability": 0.7501709401709402,
+    "null_hi": 0.7694932844932844,
+    "null_mean": 0.6728515262515262,
+    "earned": false,
+    "core_size": null,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 5.062075597222524,
+    "z_bar": 3.779638587292519,
+    "z_null_lo": 1.17074441871366,
+    "earned": true,
+    "partners": [
+     {
+      "theme": 17,
+      "count": 28,
+      "z": 5.062075597222524
+     }
+    ],
+    "share": 0.6694444444444444,
+    "share_gate": {
+     "share": 0.6694444444444444,
+     "null_hi": 0.9638888888888889,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 57.5,
+    "n_dated": 34,
+    "null_lo": 33.5,
+    "null_hi": 89.0,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 5,
+   "label": "simulation & shader craft",
+   "n": 43,
+   "moons": {
+    "stability": 0.8326300000000001,
+    "null_hi": 0.7558949999999999,
+    "null_mean": 0.6758624000000001,
+    "earned": true,
+    "core_size": 41,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 2.874776568235568,
+    "z_bar": 3.745531882714113,
+    "z_null_lo": 1.1830940100904712,
+    "earned": false,
+    "partners": [],
+    "share": 0.413953488372093,
+    "share_gate": {
+     "share": 0.413953488372093,
+     "null_hi": 0.9534883720930233,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 75.0,
+    "n_dated": 43,
+    "null_lo": 35.0,
+    "null_hi": 85.0,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 6,
+   "label": "film & media criticism",
+   "n": 30,
+   "moons": {
+    "stability": 0.7738932806324109,
+    "null_hi": 0.781941699604743,
+    "null_mean": 0.6907766798418975,
+    "earned": false,
+    "core_size": null,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 3.2596899753607524,
+    "z_bar": 3.6027740058026176,
+    "z_null_lo": 1.1632790758633185,
+    "earned": false,
+    "partners": [],
+    "share": 0.4866666666666667,
+    "share_gate": {
+     "share": 0.4866666666666667,
+     "null_hi": 0.9733333333333334,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 53.5,
+    "n_dated": 30,
+    "null_lo": 33.5,
+    "null_hi": 99.01249999999999,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 7,
+   "label": "maker hardware builds",
+   "n": 37,
+   "moons": {
+    "stability": 0.853880678708265,
+    "null_hi": 0.8078461959496441,
+    "null_mean": 0.6987303776683086,
+    "earned": true,
+    "core_size": 29,
+    "moons": [
+     {
+      "size": 8,
+      "exemplar": {
+       "url": "https://www.youtube.com/watch?v=EQHdi5rX5fs",
+       "title": "Create a 3D Low Poly Character (even if you've never opened Blender)",
+       "thumb": "sources/youtube/thumbnails/EQHdi5rX5fs-thumb.jpg"
+      }
+     }
+    ]
+   },
+   "rings": {
+    "max_z": 0.7781750437669108,
+    "z_bar": 3.936747857988183,
+    "z_null_lo": 1.103703194265514,
+    "earned": false,
+    "partners": [],
+    "share": 0.31351351351351353,
+    "share_gate": {
+     "share": 0.31351351351351353,
+     "null_hi": 0.9594594594594594,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 69.5,
+    "n_dated": 34,
+    "null_lo": 33.5,
+    "null_hi": 89.51249999999999,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 8,
+   "label": "browser creative tooling",
+   "n": 54,
+   "moons": {
+    "stability": 0.7514400000000002,
+    "null_hi": 0.7227495,
+    "null_mean": 0.6541226,
+    "earned": true,
+    "core_size": 49,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 11.389033823324763,
+    "z_bar": 3.725759318454367,
+    "z_null_lo": 1.1553568347327094,
+    "earned": true,
+    "partners": [
+     {
+      "theme": 0,
+      "count": 157,
+      "z": 11.389033823324763
+     }
+    ],
+    "share": 0.5215686274509804,
+    "share_gate": {
+     "share": 0.5215686274509804,
+     "null_hi": 0.9411764705882353,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 47.5,
+    "n_dated": 50,
+    "null_lo": 37.0,
+    "null_hi": 83.01249999999999,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 9,
+   "label": "neurotech & DIY science",
+   "n": 26,
+   "moons": {
+    "stability": 0.7881754385964913,
+    "null_hi": 0.8344736842105264,
+    "null_mean": 0.7286364912280701,
+    "earned": false,
+    "core_size": null,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 3.8543379993601223,
+    "z_bar": 3.664268000837281,
+    "z_null_lo": 1.2284394011802804,
+    "earned": true,
+    "partners": [
+     {
+      "theme": 11,
+      "count": 31,
+      "z": 3.8543379993601223
+     }
+    ],
+    "share": 0.76,
+    "share_gate": {
+     "share": 0.76,
+     "null_hi": 0.98,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 63.0,
+    "n_dated": 25,
+    "null_lo": 32.0,
+    "null_hi": 105.0,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 10,
+   "label": "neural network geometry",
+   "n": 29,
+   "moons": {
+    "stability": 0.8132580463015247,
+    "null_hi": 0.7983828345567475,
+    "null_mean": 0.7081784302653868,
+    "earned": true,
+    "core_size": 27,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 13.350407287018067,
+    "z_bar": 3.5613859278182964,
+    "z_null_lo": 1.125001256695534,
+    "earned": true,
+    "partners": [
+     {
+      "theme": 12,
+      "count": 62,
+      "z": 13.350407287018067
+     },
+     {
+      "theme": 1,
+      "count": 53,
+      "z": 5.017623109955656
+     }
+    ],
+    "share": 0.5206896551724138,
+    "share_gate": {
+     "share": 0.5206896551724138,
+     "null_hi": 0.9758620689655172,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 332.0,
+    "n_dated": 24,
+    "null_lo": 31.0,
+    "null_hi": 101.0,
+    "earned": true,
+    "side": "dormant"
+   }
+  },
+  {
+   "theme": 11,
+   "label": "learning systems & discipline",
+   "n": 33,
+   "moons": {
+    "stability": 0.7885538461538463,
+    "null_hi": 0.7875015384615385,
+    "null_mean": 0.6815784615384615,
+    "earned": true,
+    "core_size": 30,
+    "moons": [
+     {
+      "size": 3,
+      "exemplar": {
+       "url": "https://www.instagram.com/reel/DZC70n5ObFb/",
+       "title": "Morning somatic movement routine releases nervous system tension",
+       "thumb": "sources/instagram/thumbnails/DZC70n5ObFb-thumb.jpg"
+      }
+     }
+    ]
+   },
+   "rings": {
+    "max_z": 2.6765860809315476,
+    "z_bar": 3.716604144958575,
+    "z_null_lo": 1.1480796303984406,
+    "earned": false,
+    "partners": [],
+    "share": 0.3575757575757576,
+    "share_gate": {
+     "share": 0.3575757575757576,
+     "null_hi": 0.9696969696969697,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 49.0,
+    "n_dated": 33,
+    "null_lo": 33.0,
+    "null_hi": 93.0,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 12,
+   "label": "transformer architecture internals",
+   "n": 22,
+   "moons": {
+    "stability": 0.8573529411764705,
+    "null_hi": 0.8573705882352942,
+    "null_mean": 0.751435294117647,
+    "earned": false,
+    "core_size": null,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 1.1328440212020894,
+    "z_bar": 4.002056343204689,
+    "z_null_lo": 1.1666332821118808,
+    "earned": false,
+    "partners": [],
+    "share": 0.22272727272727272,
+    "share_gate": {
+     "share": 0.22272727272727272,
+     "null_hi": 0.9863636363636363,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 380.0,
+    "n_dated": 17,
+    "null_lo": 29.0,
+    "null_hi": 123.07499999999993,
+    "earned": true,
+    "side": "dormant"
+   }
+  },
+  {
+   "theme": 13,
+   "label": "compute & systems internals",
+   "n": 18,
+   "moons": {
+    "stability": 0.9096703296703298,
+    "null_hi": 0.878,
+    "null_mean": 0.7722989010989011,
+    "earned": true,
+    "core_size": 15,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 5.6977585810873626,
+    "z_bar": 3.7655929527021796,
+    "z_null_lo": 1.2197464590052916,
+    "earned": true,
+    "partners": [
+     {
+      "theme": 1,
+      "count": 39,
+      "z": 5.6977585810873626
+     }
+    ],
+    "share": 0.4666666666666667,
+    "share_gate": {
+     "share": 0.4666666666666667,
+     "null_hi": 0.9944444444444445,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 24.0,
+    "n_dated": 17,
+    "null_lo": 28.0,
+    "null_hi": 109.04999999999995,
+    "earned": true,
+    "side": "fast"
+   }
+  },
+  {
+   "theme": 14,
+   "label": "combat sports craft",
+   "n": 18,
+   "moons": {
+    "stability": 0.8435164835164837,
+    "null_hi": 0.8491923076923077,
+    "null_mean": 0.7374373626373628,
+    "earned": false,
+    "core_size": null,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 5.143607363665285,
+    "z_bar": 3.9015691272225674,
+    "z_null_lo": 1.1949732163537008,
+    "earned": true,
+    "partners": [
+     {
+      "theme": 11,
+      "count": 28,
+      "z": 5.143607363665285
+     }
+    ],
+    "share": 0.3111111111111111,
+    "share_gate": {
+     "share": 0.3111111111111111,
+     "null_hi": 0.9944444444444445,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 78.0,
+    "n_dated": 18,
+    "null_lo": 30.9875,
+    "null_hi": 114.02499999999998,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 15,
+   "label": "randomness & applied probability",
+   "n": 18,
+   "moons": {
+    "stability": 0.8028571428571429,
+    "null_hi": 0.8904395604395604,
+    "null_mean": 0.7572527472527475,
+    "earned": false,
+    "core_size": null,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 2.147976653774321,
+    "z_bar": 3.9787726161512484,
+    "z_null_lo": 1.1923647513054871,
+    "earned": false,
+    "partners": [],
+    "share": 0.5666666666666667,
+    "share_gate": {
+     "share": 0.5666666666666667,
+     "null_hi": 0.9944444444444445,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 69.5,
+    "n_dated": 18,
+    "null_lo": 30.9875,
+    "null_hi": 118.03749999999997,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 16,
+   "label": "physics & vector calculus",
+   "n": 13,
+   "moons": {
+    "stability": 0.8603333333333332,
+    "null_hi": 0.9146,
+    "null_mean": 0.8075800000000001,
+    "earned": false,
+    "core_size": null,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 3.658428173347904,
+    "z_bar": 3.7942291266126897,
+    "z_null_lo": 1.2051884157795294,
+    "earned": false,
+    "partners": [],
+    "share": 0.5384615384615384,
+    "share_gate": {
+     "share": 0.5384615384615384,
+     "null_hi": 1.0,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 39.0,
+    "n_dated": 13,
+    "null_lo": 26.0,
+    "null_hi": 130.02499999999998,
+    "earned": false,
+    "side": null
+   }
+  },
+  {
+   "theme": 17,
+   "label": "TouchDesigner live visuals",
+   "n": 15,
+   "moons": {
+    "stability": 0.7505454545454545,
+    "null_hi": 0.9347727272727273,
+    "null_mean": 0.8156399999999999,
+    "earned": false,
+    "core_size": null,
+    "moons": []
+   },
+   "rings": {
+    "max_z": 0.1566530453301544,
+    "z_bar": 4.0556211050453195,
+    "z_null_lo": 1.241041671739912,
+    "earned": false,
+    "partners": [],
+    "share": 0.21333333333333335,
+    "share_gate": {
+     "share": 0.21333333333333335,
+     "null_hi": 1.0,
+     "earned": false,
+     "note": "registered gate, inverted by construction \u2014 reported, not used"
+    }
+   },
+   "spin": {
+    "median_age_days": 64.0,
+    "n_dated": 15,
+    "null_lo": 27.975,
+    "null_hi": 127.0,
+    "earned": false,
+    "side": null
+   }
+  }
+ ],
+ "spin_redundancy_rho": -0.4493278179937952,
+ "spin_redundant": false
+}
