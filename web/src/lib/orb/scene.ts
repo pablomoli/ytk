@@ -21,9 +21,8 @@ import {
   WebGLRenderer,
 } from "three";
 import { DUR, gsap, reducedMotion } from "../motion";
-import { GOLD, planetColor } from "../palette";
 import type { LayoutName, OrbData } from "../../api/orb";
-import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT } from "../galaxy/scene";
+import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
 import { buildAtlas, COLS, uvRect } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
@@ -199,7 +198,7 @@ export function mountOrb(
   let coastLoaded = false;
   const coastFallback = new DataTexture(new Uint8Array([128]), 1, 1, RedFormat);
   coastFallback.needsUpdate = true;
-  const [chR, chG, chB] = planetColor(GOLD, 0.55);
+  const coastRamp = loadRamp();
   const coastGeo = new SphereGeometry(0.985, 64, 32);
   const coastMat = new RawShaderMaterial({
     glslVersion: GLSL3,
@@ -207,12 +206,13 @@ export function mountOrb(
     fragmentShader: PLANET_FRAG,
     uniforms: {
       uField: { value: coastFallback },
-      uHue: { value: new Vector3(chR, chG, chB) },
+      uRamp: { value: null },
       uSpin: { value: 0 },
       uSeed: { value: 0 },
       uCoastAmp: { value: PLANET_COAST_AMP },
     },
   });
+  coastRamp.bind(coastMat.uniforms.uRamp);
   const coast = new Mesh(coastGeo, coastMat);
   coast.visible = false;
   scene.add(coast);
@@ -442,6 +442,7 @@ export function mountOrb(
       atlas.dispose();
       coastGeo.dispose();
       coastMat.dispose();
+      coastRamp.dispose();
       coastFallback.dispose();
       if (coastTex) coastTex.dispose();
       renderer.dispose();

@@ -57,3 +57,35 @@ def test_bake_superplanet_writes_texture(tmp_path: Path):
     assert img.dtype == np.uint8
     np.testing.assert_array_equal(img[:, 0], img[:, -1])
     assert 0 < meta["land_frac"] < 1 and meta["coast_deg"] > 0
+
+
+def test_saturated_magma_lut_shape_and_ends():
+    lut = coast.saturated_magma_lut()
+    assert lut.shape == (256, 3)
+    assert lut.dtype == np.uint8
+    assert lut[0].max() < 16  # low end is near-black
+    r, g, b = lut[-1]
+    assert r > 240 and g > 240 and b > 140  # high end is the cream-yellow tip
+
+
+def test_saturated_magma_lut_matches_plot_assets():
+    """Sync contract: the embedded ramp is plot_assets.saturated_magma(), not a
+    lookalike. Skipped where matplotlib is absent (it is a dev-only dep)."""
+    pytest.importorskip("matplotlib")
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from plot_assets import saturated_magma
+
+    want = (np.asarray(saturated_magma()(np.linspace(0, 1, 256)))[:, :3] * 255).round()
+    assert np.abs(coast.saturated_magma_lut().astype(float) - want).max() <= 1
+
+
+def test_bake_ramp_writes_256x1_rgb(tmp_path: Path):
+    from PIL import Image
+
+    out = tmp_path / "ramp.png"
+    coast.bake_ramp(out)
+    img = np.asarray(Image.open(out))
+    assert img.shape == (1, 256, 3)
+    np.testing.assert_array_equal(img[0], coast.saturated_magma_lut())

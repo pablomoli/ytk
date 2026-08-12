@@ -97,9 +97,17 @@ Tailwind utilities per the CSS policy; no new rules in styles.css.
   Fragment shader: sample the baked distance field (equirect uv from the
   planet-local normal), add 2-3 octaves of GLSL fBm to the sampled
   distance (seeded per theme id — micro-detail at close range; geography
-  itself never drifts from the bake), paint land with the class-hue ramp
-  lifted by punch(), ocean near-PANEL, shoreline accent line at the zero
-  contour. Saturation carries cohesion, per the palette rule.
+  itself never drifts from the bake), then paint the result through the
+  saturated-magma ramp baked from Python (`ytk/coast.py::bake_ramp` writes
+  `ramp.png` beside the field textures; the LUT is `plot_assets.py`'s
+  `saturated_magma()`, embedded and sync-tested). One continuous nearness
+  value covers land and sea alike, exactly as E30's `fig_field` does —
+  `near = punch(clip(2d - 0.4))` is that figure's ramp rewritten in the
+  bake's texel space — lifted off the ramp's black floor so a sphere keeps
+  its silhouette against the sky. Shoreline contour in CYAN at the zero
+  crossing. Class hue is **not** used for terrain: 16 of 18 planets are
+  class V, so hue-painted worlds made the sky monochrome. Class stays
+  encoded in the caption, where it is legible as a letter.
 - **Spin**: texture longitude offset advances at a rate mapped from
   median age (fast worlds visibly turn; dormant worlds near-still; planets
   that failed the spin gate get the population median as a neutral slow

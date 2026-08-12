@@ -10,6 +10,7 @@ Texel contract (the shader reads this): 0.5 is the shoreline, > 0.5 is land
 
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,38 @@ from numpy.typing import NDArray
 from ytk.spheremap import fibonacci, radial, spread
 
 N_PROBES = 8192
+
+# Terrain ramp: scripts/plot_assets.py::saturated_magma() sampled at 256 stops
+# (matplotlib magma, HSV chroma x1.35, value x1.06) as base64 RGB bytes.
+# Embedded rather than recomputed so the bake needs no matplotlib; the
+# sync-contract test in tests/test_coast_bake.py re-derives and compares.
+_SATURATED_MAGMA_B64 = (
+    "AAAEAAAFAAAGAAAIAAAKAAAMAAAOAQAQAQATAQAVAQAXAQAZAQAbAgAdAgAgAgAiAwAkBAAmBAApBQArBQAtBgAwBwAyBwA0"
+    "CAA3CQA5CgA8CwA+DABBDQBDDgBGEABIEQBLEgBNFABQFQBTFwBVGQBYGwBaHABdHgBfIABiIgBkJQBnJwBpKQBrKwBtLQBv"
+    "MABxMgBzNAB1NgB2OAB4OgB5PAB7PgB8QAB9QgB+QwB/RQCARwCBSQCBSgCCTACDTgCDTwCEUQCEUwCFVACFVgCGWACGWQCG"
+    "WwCHXQCHXgCHYACHYgCIZACIZgCIZwCIaQCIawCJbQCJbwCJcQCJcwCJdQCJdwCJeQCJewCJfgGJgAKJggOJhASJhwSJiQWJ"
+    "iwaJjAaIjgaHkAaHkQaGkweFlQeElgeEmAeDmgeCnAeBnQiAnwiAoQh/ogh+pAh9pgh8qAh7qQl6qwl5rQl4rwl3sAl2sgl1"
+    "tAlztQpytwpxuQpwuwpvvApuvgpswAprwgtqwwtoxQtnxwtmyQxkygxjzAxhzgxgzw1e0Q1d0w1b1Q5a1g5Y2A9X2g9V2xBU"
+    "3RBS3hFQ4BFP4hJN4xNL5RNK5hRI6BVG6RZF6xdD7BhC7hlA7xo+8Bs98hw78x469B849iE39yI1+CQ0+SUy+icx+ykw/Csv"
+    "/Swu/i4t/zAs/zIr/zQq/zYp/zgp/zoo/z0o/z8n/0En/0Mn/0Un/0gn/0on/0wn/08n/1Eo/1Mo/1Yo/1gp/1oq/10q/18r"
+    "/2Is/2Qt/2Yu/2kv/2sw/24x/3Ay/3M0/3U1/3c2/3o4/3w5/387/4E8/4Q+/4Y//4lB/4tD/45E/5BG/5NI/5VK/5dL/5pN"
+    "/5xP/59R/6FT/6RV/6ZX/6lZ/6tb/65d/7Ff/7Ni/7Zk/7hm/7to/71q/8Bt/8Jv/8Vx/8d0/8p2/814/897/9J9/9SA/9eC"
+    "/9mF/9yH/9+K/+GM/+SP/+aS/+mU/+yX/+6Z//Gc//Sf//ah//mk//un//6p/f+r"
+)
+
+
+def saturated_magma_lut() -> NDArray[Any]:
+    """The embedded 256x3 uint8 ramp, low end first (near-black to cream)."""
+    raw = base64.b64decode(_SATURATED_MAGMA_B64)
+    return np.frombuffer(raw, dtype=np.uint8).reshape(256, 3)
+
+
+def bake_ramp(out_path: Path) -> None:
+    """Write the terrain ramp as a 256x1 RGB PNG for the renderer to sample.
+    One row: the shader reads it as a 1D lookup at v=0.5."""
+    from PIL import Image
+
+    Image.fromarray(saturated_magma_lut().reshape(1, 256, 3), mode="RGB").save(out_path)
 
 
 def _perlin3(p: NDArray[Any], n: int, rng: np.random.Generator) -> NDArray[Any]:

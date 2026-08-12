@@ -36,6 +36,9 @@ def test_attach_payload_shape(tmp_path):
     assert len(out["planets"]) == 2
     p = out["planets"][0]
     assert (tmp_path / "tex" / p["tex"]).exists()
+    # the renderer samples terrain colour from this; a build without it paints
+    # every planet from the 1x1 fallback
+    assert (tmp_path / "tex" / "ramp.png").exists()
     assert set(p) >= {
         "theme",
         "label",

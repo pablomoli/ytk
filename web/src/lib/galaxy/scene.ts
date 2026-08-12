@@ -14,6 +14,7 @@ import {
   PointsMaterial,
   RawShaderMaterial,
   RedFormat,
+  NoColorSpace,
   RepeatWrapping,
   RingGeometry,
   Raycaster,
@@ -28,7 +29,7 @@ import {
   BufferGeometry,
 } from "three";
 import { DUR, gsap, reducedMotion } from "../motion";
-import { BG, DIM, PUNCH_GAMMA, TEXT, planetColor, saturation } from "../palette";
+import { BG, CYAN, DIM, PUNCH_GAMMA, TEXT, planetColor } from "../palette";
 import type { GalaxyData, GalaxyMoon } from "../../api/galaxy";
 import { createControls } from "../orb/controls";
 import { normalizeWheelDelta } from "../orb/scene";
@@ -59,12 +60,16 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
 
-const shoreAccent = planetColor(TEXT, 1).map((c) => c.toFixed(3)).join(", ");
+const coastLine = planetColor(CYAN, 1).map((c) => c.toFixed(3)).join(", ");
+// deepest ocean samples the ramp here rather than at 0, which is near-black:
+// a framed matplotlib panel can afford a black sea, a sphere against the
+// starfield cannot without losing its silhouette
+const SEA_FLOOR = 0.12;
 
 const FRAG = /* glsl */ `
 precision highp float;
 uniform sampler2D uField;
-uniform vec3 uHue;
+uniform sampler2D uRamp;
 uniform float uSpin, uSeed, uCoastAmp;
 in vec3 vN;
 out vec4 outColor;
@@ -101,20 +106,70 @@ void main() {
   float lat = asin(clamp(vN.z, -1.0, 1.0));
   vec2 uv = vec2(lon / 6.28318530718 + 0.5 + uSpin, 0.5 + lat / 3.14159265359);
   float d = texture(uField, uv).r + uCoastAmp * (fbm3(vN * 9.0 + uSeed) - 0.5);
-  float land = smoothstep(0.5, 0.505, d);
-  float depth = pow(clamp((d - 0.5) * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
-  vec3 landCol = uHue * (0.35 + 0.65 * depth);
-  // sea ramp anchored at the shoreline like the record's fig_field: shallows
-  // must read against the sky, only deep ocean approaches PANEL-dark
-  vec3 seaCol = uHue * (0.06 + 0.18 * pow(clamp(d * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)}));
-  float shore = smoothstep(0.012, 0.0, abs(d - 0.5)) * 0.35;
-  outColor = vec4(mix(seaCol, landCol, land) + vec3(${shoreAccent}) * shore, 1.0);
+  // E30 fig_field's nearness ramp in texel space. coast.py bakes
+  // d = 0.5 - sd/(5r), so near = punch(clip(1 - (sd + r) / (2.5r))) reduces to
+  // punch(clip(2d - 0.4)): one continuous value, land and sea alike.
+  float near = pow(clamp(2.0 * d - 0.4, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
+  vec3 col = texture(uRamp, vec2(${SEA_FLOOR.toFixed(2)} + ${(1 - SEA_FLOOR).toFixed(2)} * near, 0.5)).rgb;
+  float shore = smoothstep(0.012, 0.0, abs(d - 0.5)) * 0.9;
+  outColor = vec4(mix(col, vec3(${coastLine}), shore), 1.0);
 }`;
 
 // shared with orb's globe-mode coast sphere (Task 12): one shader source, two mounts
 export const PLANET_VERT = VERT;
 export const PLANET_FRAG = FRAG;
 export const PLANET_COAST_AMP = COAST_AMP;
+
+export type Ramp = {
+  bind(u: { value: Texture | null }): void;
+  dispose(): void;
+};
+
+// One ramp texture per mount, bound into every planet material rather than
+// cloned. NoColorSpace is deliberate: RawShaderMaterial writes its output with
+// no encode pass, so an sRGB-tagged texture would be decoded on sample and
+// never re-encoded, darkening terrain against the matplotlib reference.
+export function loadRamp(): Ramp {
+  const fallback = new DataTexture(new Uint8Array([120, 60, 90, 255]), 1, 1);
+  fallback.needsUpdate = true;
+  let tex: Texture | null = null;
+  let disposed = false;
+  const pending: { value: Texture | null }[] = [];
+  new TextureLoader().load(
+    "/galaxy-tex/ramp.png",
+    (t) => {
+      if (disposed) {
+        t.dispose();
+        return;
+      }
+      t.flipY = false;
+      t.colorSpace = NoColorSpace;
+      t.wrapS = ClampToEdgeWrapping;
+      t.wrapT = ClampToEdgeWrapping;
+      t.minFilter = LinearFilter;
+      t.magFilter = LinearFilter;
+      t.generateMipmaps = false;
+      t.needsUpdate = true;
+      tex = t;
+      for (const u of pending) u.value = t;
+      pending.length = 0;
+    },
+    undefined,
+    () => {}, // 404 leaves the warm-gray fallback; not fatal
+  );
+  return {
+    bind(u) {
+      u.value = tex ?? fallback;
+      if (!tex) pending.push(u);
+    },
+    dispose() {
+      disposed = true;
+      pending.length = 0;
+      fallback.dispose();
+      tex?.dispose();
+    },
+  };
+}
 
 export type GalaxyHandle = {
   visit(theme: number): void;
@@ -160,9 +215,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
   const fallback = new DataTexture(new Uint8Array([128]), 1, 1, RedFormat);
   fallback.needsUpdate = true;
 
-  const cohesions = planets.map((p) => p.cohesion);
-  const coLo = Math.min(...cohesions);
-  const coHi = Math.max(...cohesions);
+  const ramp = loadRamp();
   const ages = planets.map((p) => p.median_age_days).filter((a): a is number => a !== null);
   const populationMedian = median(ages) ?? NEUTRAL_AGE_DAYS;
 
@@ -172,7 +225,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
     fragmentShader: FRAG,
     uniforms: {
       uField: { value: fallback },
-      uHue: { value: new Vector3(1, 1, 1) },
+      uRamp: { value: null },
       uSpin: { value: 0 },
       uSeed: { value: 0 },
       uCoastAmp: { value: COAST_AMP },
@@ -192,8 +245,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
     const R = worldRadius(p.radius_deg);
     const geo = new SphereGeometry(R, 48, 24);
     const mat = base.clone();
-    const [r, g, b] = planetColor(p.hue, saturation(p.cohesion, coLo, coHi));
-    mat.uniforms.uHue.value = new Vector3(r, g, b);
+    ramp.bind(mat.uniforms.uRamp); // one texture object across all 18 materials
     mat.uniforms.uSeed.value = p.theme;
     const mesh = new Mesh(geo, mat);
     mesh.position.set(p.pos[0], p.pos[1], p.pos[2]);
@@ -510,6 +562,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
       starGeo.dispose();
       starMat.dispose();
       base.dispose();
+      ramp.dispose();
       fallback.dispose();
       for (const t of loaded) t.dispose();
       renderer.dispose();

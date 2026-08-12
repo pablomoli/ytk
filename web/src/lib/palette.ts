@@ -6,6 +6,7 @@ export const FRAME = "#2e2e36";
 export const TEXT = "#eceae7";
 export const MUTED = "#9a968f";
 export const GOLD = "#f2b950";
+export const CYAN = "#7fd4ff"; // coast contours, per E30 fig_field
 export const DIM = "#3a3a42";
 
 export const PUNCH_GAMMA = 0.72;

@@ -463,6 +463,9 @@ def attach_payload(
     path_to_gi = {p: i for i, p in enumerate(paths)}
 
     tex_dir.mkdir(parents=True, exist_ok=True)
+    # ~1KB and content-free of member data: rewritten every build rather than
+    # cached, so a ramp change ships without a cache bust
+    coast.bake_ramp(tex_dir / "ramp.png")
     planets: list[dict[str, Any]] = []
     for block in blocks:
         t = block["theme"]
