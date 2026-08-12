@@ -22,6 +22,8 @@ import { Route as GrowthRouteImport } from './routes/growth'
 import { Route as GardenRouteImport } from './routes/garden'
 import { Route as ChannelsRouteImport } from './routes/channels'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DocsIndexRouteImport } from './routes/docs.index'
+import { Route as DocsSectionRouteImport } from './routes/docs.$section'
 
 const TransitRoute = TransitRouteImport.update({
   id: '/transit',
@@ -88,6 +90,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/docs/',
+  path: '/docs/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsSectionRoute = DocsSectionRouteImport.update({
+  id: '/docs/$section',
+  path: '/docs/$section',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -103,6 +115,8 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
   '/transit': typeof TransitRoute
+  '/docs/$section': typeof DocsSectionRoute
+  '/docs/': typeof DocsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,6 +132,8 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
   '/transit': typeof TransitRoute
+  '/docs/$section': typeof DocsSectionRoute
+  '/docs': typeof DocsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,6 +150,8 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
   '/transit': typeof TransitRoute
+  '/docs/$section': typeof DocsSectionRoute
+  '/docs/': typeof DocsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,6 +169,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tags'
     | '/transit'
+    | '/docs/$section'
+    | '/docs/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -166,6 +186,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tags'
     | '/transit'
+    | '/docs/$section'
+    | '/docs'
   id:
     | '__root__'
     | '/'
@@ -181,6 +203,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tags'
     | '/transit'
+    | '/docs/$section'
+    | '/docs/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -197,6 +221,8 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TagsRoute: typeof TagsRoute
   TransitRoute: typeof TransitRoute
+  DocsSectionRoute: typeof DocsSectionRoute
+  DocsIndexRoute: typeof DocsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -292,6 +318,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/': {
+      id: '/docs/'
+      path: '/docs'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/$section': {
+      id: '/docs/$section'
+      path: '/docs/$section'
+      fullPath: '/docs/$section'
+      preLoaderRoute: typeof DocsSectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -309,6 +349,8 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TagsRoute: TagsRoute,
   TransitRoute: TransitRoute,
+  DocsSectionRoute: DocsSectionRoute,
+  DocsIndexRoute: DocsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
