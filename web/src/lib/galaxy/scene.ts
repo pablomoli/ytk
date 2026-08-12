@@ -28,7 +28,7 @@ import {
   BufferGeometry,
 } from "three";
 import { DUR, gsap, reducedMotion } from "../motion";
-import { BG, DIM, PANEL, PUNCH_GAMMA, TEXT, planetColor, saturation } from "../palette";
+import { BG, DIM, PUNCH_GAMMA, TEXT, planetColor, saturation } from "../palette";
 import type { GalaxyData, GalaxyMoon } from "../../api/galaxy";
 import { createControls } from "../orb/controls";
 import { normalizeWheelDelta } from "../orb/scene";
@@ -261,7 +261,9 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
     const R = worldRadius(p.radius_deg);
     const [e1, e2] = tangentBasis(centers[i].clone().normalize());
     p.moons.forEach((moon, j) => {
-      const mat = new MeshBasicMaterial({ color: PANEL, transparent: false });
+      // DIM, not PANEL: PANEL is #000000 and a thumbless moon painted with it
+      // reads as a hole punched in the starfield rather than an unlit rock
+      const mat = new MeshBasicMaterial({ color: DIM, transparent: false });
       if (moon.thumb) {
         loader.load(
           `/vault-media/${moon.thumb}`,
@@ -280,7 +282,7 @@ export function mountGalaxy(canvas: HTMLCanvasElement, data: GalaxyData, cb: Gal
             mat.needsUpdate = true;
           },
           undefined,
-          () => {}, // 404 leaves the PANEL quad
+          () => {}, // 404 leaves the DIM quad
         );
       }
       const mesh = new Mesh(moonGeo, mat);
