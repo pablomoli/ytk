@@ -210,7 +210,7 @@ export function mountBackdrop(canvas: HTMLCanvasElement): BackdropHandle {
     uMouse: { value: new THREE.Vector2(0.5, 0.5) },
     uGlowIntensity: { value: TUNING.glowIntensity },
     uSaturation: { value: TUNING.saturation },
-    uMouseRepulsion: { value: false },
+    uMouseRepulsion: { value: true },
     uTwinkleIntensity: { value: TUNING.twinkleIntensity },
     uRotationSpeed: { value: TUNING.rotationSpeed },
     uRepulsionStrength: { value: TUNING.repulsionStrength },
@@ -240,8 +240,8 @@ export function mountBackdrop(canvas: HTMLCanvasElement): BackdropHandle {
   const ro = new ResizeObserver(resize);
   ro.observe(canvas);
 
-  // parallax only (no repulsion): the canvas sits behind content with
-  // pointer-events off, so the listener lives on the window
+  // the canvas sits behind content with pointer-events off, so the
+  // repulsion listener lives on the window
   const targetMouse = { x: 0.5, y: 0.5 };
   let targetActive = 0;
   const onMouseMove = (e: MouseEvent) => {
