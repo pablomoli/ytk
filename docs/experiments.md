@@ -18,7 +18,7 @@ numbers into findings — is the same measurement run on deliberately meaningles
 data, so a score has something to be compared against.
 
 `docs/assets/` is the chronological visual-experiment record of this project:
-thirty-two numbered sections, each one folder with one `README.md`, holding the
+thirty-three numbered sections, each one folder with one `README.md`, holding the
 figures, animations, sidecar data and working notes for a question that was
 actually measured. The order is the order the work happened in, which is the
 point — early sections do not know what later ones found, wrong predictions
@@ -77,6 +77,7 @@ Two files in `docs/assets/` are not sections:
 | 30 | [coastlines](assets/30-coastlines/README.md) | can the planet's land/sea boundary be drawn without a density knob? | yes — E29's ocean calibration is a contour level, not just a scalar: the coast is the iso-distance line at 5.09°, land covers 48% of the sphere, and the 32 wrap-aware continents name themselves from tile themes (the largest, 30% of the sphere, is agentic coding + systems engineering; discipline/self-taught learning is its own continent) — `continents.json` ships for a future /orb layer |
 | 31 | [theme-planets](assets/31-theme-planets/README.md) | does each theme deserve its own survey, and how do sibling planets stay visually distinct? | refit beats slice on all five top themes (mean trust +0.039) so the #78 recursion justifies per-planet refits; refit worlds are Pangeas (71-85% land) while slices keep more ocean; the Sudarsky-translated taxonomy (activity→class, cohesion→saturation, n^(1/3)→size) degenerates on the top five — all hot, Batalha's caution realized — so size and saturation carry the separation |
 | 32 | [galaxy](assets/32-galaxy/README.md) | does the sky over the theme planets need its own de-overlap pass, or is the centroid layout already legible? | the galaxy is free — planet centroids under the map's own projection hold hidden disc area under 5% up to K* = 3.00° per n^(1/3) (the tile-size floor is 1.34°), with map agreement rho 0.710 clear of the shuffled null (0.139) and the self-fitted control's floor (0.482); spreading (B) buys a near-triple sky (K* 8.50°) at measured anchor cost; the mid-tail delivers classes III and IV but 16 of 18 planets are still class V — `galaxy.json` ships arm A |
+| 33 | [channels](assets/33-channels/README.md) | which orbital channels — moons, rings, spin — carry real structure, when each must beat its own null before it renders? | moons: 9/18 planets reproduce internal hierarchy geometry but only 2 bear a discrete satellite (gradients-not-clusters, one level down); rings: 8/18 earn a partner pair against the per-planet max-z permutation null (strongest: neural network geometry → transformer internals, z 13.4) after the registered share-gate was reported as inverted by construction; spin: 4/18 outside their date-permutation band (the two dormant are exactly the class III/IV worlds) and independent of hue (rho −0.45) — `channels.json` ships exemplar-backed moons so the build can draw them as thumbnails |
 | — | [memory-field](assets/memory-field/README.md) | what is the free baseline on memory-capture data quality? | rung 0 of #150: duplicate density, timestamp integrity, memo bursts with launch-day test traffic named in the caption, plus the E- and R-series follow-ups |
 
 ## Reading paths
@@ -197,6 +198,14 @@ alongside the original claim — which was never edited.
   box-counting fractal dimension is invalid on an archipelago (disconnected
   islands collapse to lone boxes; D came out below 1) — the committed
   numbers use the Richardson divider on the longest single coast.
+
+- **33** (the registered ring share-gate) ← 33, same-day. The #178 gate
+  compared each planet's cross-theme NN share against full label
+  permutations — a null that destroys all coherence and therefore sits near
+  1, so the observed share can only fall below it. Its 0/18 is a theme-
+  coherence confirmation, structurally unable to detect a ring. Reported in
+  the section, replaced by the per-planet max-z pair-excess gate; the
+  registered result ships alongside the corrected one in `channels.json`.
 
 One program-level correction has no earlier section to annotate, and is
 recorded here instead. Section 24 found the deliberate-save label is a
