@@ -103,6 +103,23 @@ def _collect_feed_urls(file: str | None, urls: tuple[str, ...]) -> list[str]:
     return out
 
 
+def _split_overnight(urls: list[str], *, enabled: bool) -> tuple[list[str], list[str]]:
+    """Partition feed URLs into (overnight, immediate).
+
+    Gated on OVERNIGHT_SOURCES rather than on "is this bulk": the batch fetcher
+    raises FilteredOut for a source it has no adapter for, and FilteredOut is
+    terminal, so capturing one would drop it instead of ingesting it (#148).
+    """
+    from ytk.batch_adapters import OVERNIGHT_SOURCES
+    from ytk.reels import classify_url
+
+    if not enabled:
+        return [], list(urls)
+    overnight = [u for u in urls if classify_url(u) in OVERNIGHT_SOURCES]
+    immediate = [u for u in urls if classify_url(u) not in OVERNIGHT_SOURCES]
+    return overnight, immediate
+
+
 def _prompt_on_failures(result: FilterResult, force: bool) -> bool:
     """
     If the filter result has failures, print each one and ask the user whether
@@ -298,9 +315,22 @@ def add(ctx: click.Context, url: str, force: bool, note: str):
     help="Text file of URLs, one per line (# comments allowed).",
 )
 @click.option("--force", is_flag=True, default=False, help="Skip all filter prompts.")
+@click.option(
+    "--now",
+    is_flag=True,
+    default=False,
+    help="Ingest everything synchronously, including sources that would otherwise "
+    "be captured for the overnight batch.",
+)
 @click.pass_context
-def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: bool):
-    """Batch-ingest a list of URLs (reels, TikToks, videos, articles)."""
+def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: bool, now: bool):
+    """Batch-ingest a list of URLs (reels, TikToks, videos, articles).
+
+    Sources the overnight pipeline can handle are captured into its ledger
+    instead of ingested here, moving the heavy work off the contended window
+    (#148); everything else ingests immediately as before. --now forces the
+    whole list through the synchronous path.
+    """
     items = _collect_feed_urls(file, urls)
     if not items:
         console.print("[yellow]No URLs provided.[/] Pass URLs or --file <path>.")
@@ -308,6 +338,21 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
 
     from ytk import capture_log
     from ytk.reels import classify_url
+
+    overnight, items = _split_overnight(items, enabled=not now)
+    if overnight:
+        from ytk import batch
+
+        ledger = batch.load_ledger()
+        for url in overnight:
+            batch.capture(ledger, url, classify_url(url))
+        batch.save_ledger(ledger)
+        for url in overnight:
+            capture_log.log_capture("feed", url, source=classify_url(url), outcome="captured")
+        console.print(
+            f"[cyan]Captured {len(overnight)}[/] for the overnight batch "
+            f"([dim]ytk batch status[/]; --now to ingest here instead)."
+        )
 
     ok = 0
     skipped = 0
@@ -350,10 +395,13 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
 
     table = Table(box=box.SIMPLE, title="Feed Result")
     table.add_column("Total", justify="right")
+    table.add_column("Overnight", justify="right", style="cyan")
     table.add_column("OK", justify="right", style="green")
     table.add_column("Skipped", justify="right", style="yellow")
     table.add_column("Failed", justify="right", style="red")
-    table.add_row(str(len(items)), str(ok), str(skipped), str(failed))
+    table.add_row(
+        str(len(items) + len(overnight)), str(len(overnight)), str(ok), str(skipped), str(failed)
+    )
     console.print(table)
 
 
@@ -2665,6 +2713,109 @@ def schedule_uninstall():
     subprocess.run(["launchctl", "unload", str(plist_path)], check=False)
     plist_path.unlink()
     console.print(f"[bold green]Uninstalled:[/] {plist_path}")
+
+
+_BATCH_JOBS = ("com.ytk.batch-submit", "com.ytk.batch-file")
+
+
+def _write_launchd_job(label: str, hour: int, script_body: str, log_path: Path) -> Path:
+    """Wrapper script + plist + load, matching the nightly job's shape."""
+    script_path = Path.home() / ".ytk" / f"{label}.sh"
+    script_path.write_text(script_body, encoding="utf-8")
+    script_path.chmod(0o700)
+
+    plist_path = Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"
+    plist_path.parent.mkdir(parents=True, exist_ok=True)
+    plist_path.write_text(
+        f"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{label}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>{script_path}</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>{hour}</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>{log_path}</string>
+    <key>StandardErrorPath</key>
+    <string>{log_path}</string>
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
+""",
+        encoding="utf-8",
+    )
+    subprocess.run(["launchctl", "unload", str(plist_path)], check=False)
+    subprocess.run(["launchctl", "load", str(plist_path)], check=True)
+    return plist_path
+
+
+@schedule.command(name="batch-install")
+@click.option("--submit-hour", default=23, show_default=True, help="Hour (0-23) to submit.")
+@click.option("--file-hour", default=5, show_default=True, help="Hour (0-23) to file.")
+def schedule_batch_install(submit_hour: int, file_hour: int):
+    """Install the two overnight batch jobs: submit at night, file at dawn (#148)."""
+    ytk_bin = shutil.which("ytk")
+    if not ytk_bin:
+        console.print("[red]ytk binary not found in PATH.[/] Run [bold]uv tool install .[/] first.")
+        raise SystemExit(1)
+
+    log_path = Path.home() / ".ytk" / "batch.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    _write_launchd_job(
+        "com.ytk.batch-submit",
+        submit_hour,
+        f"#!/bin/sh\n{ytk_bin} batch run --stage submit\n",
+        log_path,
+    )
+    # Poll, file and report run unchained: a batch that has not ended yet, or a
+    # guard that skips the run, must still reach the digest. `&&` would make a
+    # skipped run silent, and silence is the one outcome the report exists to
+    # prevent.
+    _write_launchd_job(
+        "com.ytk.batch-file",
+        file_hour,
+        f"#!/bin/sh\n{ytk_bin} batch run --stage poll\n"
+        f"{ytk_bin} batch run --stage file\n"
+        f"{ytk_bin} batch report\n",
+        log_path,
+    )
+    console.print(f"[bold green]Installed:[/] {' and '.join(_BATCH_JOBS)}")
+    console.print(
+        f"Submits at [bold]{submit_hour:02d}:00[/], files at [bold]{file_hour:02d}:00[/]. "
+        f"Logs: {log_path}"
+    )
+
+
+@schedule.command(name="batch-uninstall")
+def schedule_batch_uninstall():
+    """Remove both overnight batch jobs."""
+    removed = []
+    for label in _BATCH_JOBS:
+        plist_path = Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"
+        if not plist_path.exists():
+            continue
+        subprocess.run(["launchctl", "unload", str(plist_path)], check=False)
+        plist_path.unlink()
+        removed.append(label)
+    if not removed:
+        console.print("[yellow]No batch jobs found.[/] Nothing to uninstall.")
+        return
+    console.print(f"[bold green]Uninstalled:[/] {', '.join(removed)}")
 
 
 @cli.command(name="autoingest")

@@ -19,6 +19,11 @@ from .batch import (
     payload_path,
 )
 
+# The sources with a fetch+file adapter below. Anything else routed overnight
+# reaches _fetch and dies as FilteredOut, which is terminal — so every caller
+# that decides what to send overnight must gate on this, never on "is bulk".
+OVERNIGHT_SOURCES = ("youtube",)
+
 
 def fetch_youtube_payload(item: BatchItem) -> dict[str, str]:
     """Fetch metadata + transcript now, persist them for the file stage, and

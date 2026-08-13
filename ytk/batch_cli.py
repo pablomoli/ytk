@@ -50,7 +50,13 @@ def batch_capture(urls: tuple[str, ...]):
     help="Which pipeline stage to advance.",
 )
 @click.option("--dry-run", is_flag=True, help="Report what would happen; touch nothing.")
-def batch_run(stage: str, dry_run: bool):
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Skip the file-stage guards. Debugging only: the idle guard fails by "
+    "definition while you are at the keyboard, so a hand-run needs this.",
+)
+def batch_run(stage: str, dry_run: bool, force: bool):
     """Advance every item as far as this stage allows."""
     ledger = batch.load_ledger()
 
@@ -76,12 +82,13 @@ def batch_run(stage: str, dry_run: bool):
             results_fetcher=batch_adapters.fetch_batch_results,
         )
     else:
-        report = batch.stage_file(ledger, guards=batch_adapters.default_guards(), filer=_file)
+        guards = [] if force else batch_adapters.default_guards()
+        report = batch.stage_file(ledger, guards=guards, filer=_file)
     click.echo(" ".join(f"{k}={v}" for k, v in report.items()))
 
 
 def _fetch(item: batch.BatchItem) -> dict[str, str]:
-    if item.source != "youtube":
+    if item.source not in batch_adapters.OVERNIGHT_SOURCES:
         raise batch.FilteredOut(f"source {item.source} not routed overnight yet")
     return batch_adapters.fetch_youtube_payload(item)
 
