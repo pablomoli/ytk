@@ -2718,6 +2718,27 @@ def schedule_uninstall():
 _BATCH_JOBS = ("com.ytk.batch-submit", "com.ytk.batch-file")
 
 
+def _stable_ytk_bin() -> str:
+    """The installed tool, never the active virtualenv.
+
+    `uv run` prepends its own .venv to PATH, so shutil.which() during an install
+    run from a worktree resolves to a binary that merging deletes — the job then
+    fails silently every night. Prefer the uv tool path; refuse a venv outright.
+    """
+    tool_bin = Path.home() / ".local" / "bin" / "ytk"
+    if tool_bin.exists():
+        return str(tool_bin)
+    found = shutil.which("ytk")
+    if not found:
+        console.print("[red]ytk binary not found in PATH.[/] Run [bold]uv tool install .[/] first.")
+        raise SystemExit(1)
+    if "/.venv/" in found or "/site-packages/" in found:
+        console.print(f"[red]Refusing to schedule a virtualenv binary:[/] {found}")
+        console.print("A launchd job must outlive this shell. Run [bold]uv tool install .[/]")
+        raise SystemExit(1)
+    return found
+
+
 def _write_launchd_job(label: str, hour: int, script_body: str, log_path: Path) -> Path:
     """Wrapper script + plist + load, matching the nightly job's shape."""
     script_path = Path.home() / ".ytk" / f"{label}.sh"
@@ -2768,10 +2789,7 @@ def _write_launchd_job(label: str, hour: int, script_body: str, log_path: Path) 
 @click.option("--file-hour", default=5, show_default=True, help="Hour (0-23) to file.")
 def schedule_batch_install(submit_hour: int, file_hour: int):
     """Install the two overnight batch jobs: submit at night, file at dawn (#148)."""
-    ytk_bin = shutil.which("ytk")
-    if not ytk_bin:
-        console.print("[red]ytk binary not found in PATH.[/] Run [bold]uv tool install .[/] first.")
-        raise SystemExit(1)
+    ytk_bin = _stable_ytk_bin()
 
     log_path = Path.home() / ".ytk" / "batch.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
