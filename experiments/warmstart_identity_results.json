@@ -1,0 +1,4485 @@
+{
+ "commit": "0e6f706",
+ "seeds": 20,
+ "days": [
+  "20260718",
+  "20260729",
+  "20260730",
+  "20260801",
+  "20260803",
+  "20260804",
+  "20260808",
+  "20260810",
+  "20260811",
+  "20260813"
+ ],
+ "n_per_day": [
+  277,
+  495,
+  509,
+  527,
+  582,
+  596,
+  604,
+  638,
+  651,
+  667
+ ],
+ "k_per_day": [
+  12,
+  16,
+  16,
+  16,
+  17,
+  17,
+  17,
+  18,
+  18,
+  18
+ ],
+ "results": {
+  "cold": [
+   {
+    "seed": 0,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "restated": 1,
+       "birth": 5
+      },
+      "churn": 0.4874,
+      "silhouette": 0.0336,
+      "inertia": 307.42,
+      "max_share": 0.1192
+     },
+     {
+      "day": "20260730",
+      "events": 9,
+      "event_kinds": {
+       "merge": 4,
+       "restated": 1,
+       "birth": 4
+      },
+      "churn": 0.5192,
+      "silhouette": 0.0497,
+      "inertia": 315.54,
+      "max_share": 0.1257
+     },
+     {
+      "day": "20260801",
+      "events": 11,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "death": 2,
+       "birth": 4
+      },
+      "churn": 0.5187,
+      "silhouette": 0.0324,
+      "inertia": 327.82,
+      "max_share": 0.1082
+     },
+     {
+      "day": "20260803",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4782,
+      "silhouette": 0.0365,
+      "inertia": 361.97,
+      "max_share": 0.1065
+     },
+     {
+      "day": "20260804",
+      "events": 10,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "restated": 2,
+       "birth": 3
+      },
+      "churn": 0.5687,
+      "silhouette": 0.0349,
+      "inertia": 370.58,
+      "max_share": 0.0906
+     },
+     {
+      "day": "20260808",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.5268,
+      "silhouette": 0.0372,
+      "inertia": 375.32,
+      "max_share": 0.096
+     },
+     {
+      "day": "20260810",
+      "events": 8,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.4785,
+      "silhouette": 0.0414,
+      "inertia": 395.24,
+      "max_share": 0.0972
+     },
+     {
+      "day": "20260811",
+      "events": 11,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "death": 2,
+       "birth": 4
+      },
+      "churn": 0.5423,
+      "silhouette": 0.0313,
+      "inertia": 405.64,
+      "max_share": 0.1275
+     },
+     {
+      "day": "20260813",
+      "events": 10,
+      "event_kinds": {
+       "split": 2,
+       "merge": 5,
+       "birth": 3
+      },
+      "churn": 0.5054,
+      "silhouette": 0.0367,
+      "inertia": 412.41,
+      "max_share": 0.1079
+     }
+    ]
+   },
+   {
+    "seed": 1,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "restated": 1,
+       "death": 2,
+       "birth": 5
+      },
+      "churn": 0.5776,
+      "silhouette": 0.0427,
+      "inertia": 306.28,
+      "max_share": 0.0909
+     },
+     {
+      "day": "20260730",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.499,
+      "silhouette": 0.0383,
+      "inertia": 316.72,
+      "max_share": 0.1198
+     },
+     {
+      "day": "20260801",
+      "events": 6,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 2,
+       "birth": 2
+      },
+      "churn": 0.4637,
+      "silhouette": 0.0386,
+      "inertia": 327.51,
+      "max_share": 0.1139
+     },
+     {
+      "day": "20260803",
+      "events": 6,
+      "event_kinds": {
+       "merge": 1,
+       "restated": 1,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4725,
+      "silhouette": 0.0317,
+      "inertia": 362.76,
+      "max_share": 0.1082
+     },
+     {
+      "day": "20260804",
+      "events": 8,
+      "event_kinds": {
+       "merge": 1,
+       "restated": 2,
+       "death": 2,
+       "birth": 3
+      },
+      "churn": 0.4553,
+      "silhouette": 0.0406,
+      "inertia": 370.48,
+      "max_share": 0.0973
+     },
+     {
+      "day": "20260808",
+      "events": 10,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "restated": 2,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.4497,
+      "silhouette": 0.0359,
+      "inertia": 376.38,
+      "max_share": 0.1242
+     },
+     {
+      "day": "20260810",
+      "events": 12,
+      "event_kinds": {
+       "split": 1,
+       "merge": 5,
+       "restated": 1,
+       "birth": 5
+      },
+      "churn": 0.5563,
+      "silhouette": 0.0412,
+      "inertia": 395.77,
+      "max_share": 0.0925
+     },
+     {
+      "day": "20260811",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "restated": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.5266,
+      "silhouette": 0.0379,
+      "inertia": 403.55,
+      "max_share": 0.0922
+     },
+     {
+      "day": "20260813",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "restated": 1,
+       "death": 2,
+       "birth": 3
+      },
+      "churn": 0.467,
+      "silhouette": 0.039,
+      "inertia": 413.26,
+      "max_share": 0.1079
+     }
+    ]
+   },
+   {
+    "seed": 2,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 1,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.4729,
+      "silhouette": 0.0326,
+      "inertia": 307.3,
+      "max_share": 0.1313
+     },
+     {
+      "day": "20260730",
+      "events": 7,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4808,
+      "silhouette": 0.0455,
+      "inertia": 316.57,
+      "max_share": 0.1493
+     },
+     {
+      "day": "20260801",
+      "events": 7,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4185,
+      "silhouette": 0.034,
+      "inertia": 327.54,
+      "max_share": 0.1499
+     },
+     {
+      "day": "20260803",
+      "events": 11,
+      "event_kinds": {
+       "split": 2,
+       "merge": 4,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.4896,
+      "silhouette": 0.0307,
+      "inertia": 363.04,
+      "max_share": 0.1065
+     },
+     {
+      "day": "20260804",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "restated": 1,
+       "birth": 3
+      },
+      "churn": 0.5378,
+      "silhouette": 0.0394,
+      "inertia": 371.26,
+      "max_share": 0.0906
+     },
+     {
+      "day": "20260808",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "restated": 2,
+       "birth": 1
+      },
+      "churn": 0.5554,
+      "silhouette": 0.0331,
+      "inertia": 375.44,
+      "max_share": 0.1043
+     },
+     {
+      "day": "20260810",
+      "events": 10,
+      "event_kinds": {
+       "merge": 4,
+       "restated": 1,
+       "birth": 5
+      },
+      "churn": 0.5414,
+      "silhouette": 0.0367,
+      "inertia": 397.47,
+      "max_share": 0.0862
+     },
+     {
+      "day": "20260811",
+      "events": 10,
+      "event_kinds": {
+       "merge": 3,
+       "restated": 4,
+       "birth": 3
+      },
+      "churn": 0.5345,
+      "silhouette": 0.0358,
+      "inertia": 403.77,
+      "max_share": 0.0937
+     },
+     {
+      "day": "20260813",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "restated": 1,
+       "birth": 3
+      },
+      "churn": 0.4823,
+      "silhouette": 0.0401,
+      "inertia": 412.48,
+      "max_share": 0.093
+     }
+    ]
+   },
+   {
+    "seed": 3,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 5,
+      "event_kinds": {
+       "split": 1,
+       "restated": 1,
+       "birth": 3
+      },
+      "churn": 0.509,
+      "silhouette": 0.0374,
+      "inertia": 307.53,
+      "max_share": 0.1293
+     },
+     {
+      "day": "20260730",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.4869,
+      "silhouette": 0.0375,
+      "inertia": 317.11,
+      "max_share": 0.11
+     },
+     {
+      "day": "20260801",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "birth": 3
+      },
+      "churn": 0.5147,
+      "silhouette": 0.0403,
+      "inertia": 327.44,
+      "max_share": 0.112
+     },
+     {
+      "day": "20260803",
+      "events": 5,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.4402,
+      "silhouette": 0.0403,
+      "inertia": 362.21,
+      "max_share": 0.1168
+     },
+     {
+      "day": "20260804",
+      "events": 7,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.488,
+      "silhouette": 0.0307,
+      "inertia": 370.91,
+      "max_share": 0.0956
+     },
+     {
+      "day": "20260808",
+      "events": 4,
+      "event_kinds": {
+       "merge": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.4245,
+      "silhouette": 0.039,
+      "inertia": 375.16,
+      "max_share": 0.1043
+     },
+     {
+      "day": "20260810",
+      "events": 7,
+      "event_kinds": {
+       "merge": 2,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.4669,
+      "silhouette": 0.0449,
+      "inertia": 395.71,
+      "max_share": 0.1066
+     },
+     {
+      "day": "20260811",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 4,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4875,
+      "silhouette": 0.037,
+      "inertia": 403.56,
+      "max_share": 0.0876
+     },
+     {
+      "day": "20260813",
+      "events": 7,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4716,
+      "silhouette": 0.0376,
+      "inertia": 413.11,
+      "max_share": 0.1049
+     }
+    ]
+   },
+   {
+    "seed": 4,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 8,
+      "event_kinds": {
+       "restated": 2,
+       "death": 1,
+       "birth": 5
+      },
+      "churn": 0.4765,
+      "silhouette": 0.0391,
+      "inertia": 307.3,
+      "max_share": 0.0889
+     },
+     {
+      "day": "20260730",
+      "events": 10,
+      "event_kinds": {
+       "merge": 3,
+       "death": 2,
+       "birth": 5
+      },
+      "churn": 0.5374,
+      "silhouette": 0.0377,
+      "inertia": 316.74,
+      "max_share": 0.1022
+     },
+     {
+      "day": "20260801",
+      "events": 6,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 2,
+       "birth": 2
+      },
+      "churn": 0.4479,
+      "silhouette": 0.04,
+      "inertia": 327.25,
+      "max_share": 0.1044
+     },
+     {
+      "day": "20260803",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.4953,
+      "silhouette": 0.0364,
+      "inertia": 362.66,
+      "max_share": 0.1186
+     },
+     {
+      "day": "20260804",
+      "events": 10,
+      "event_kinds": {
+       "split": 2,
+       "merge": 4,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.555,
+      "silhouette": 0.0406,
+      "inertia": 371.01,
+      "max_share": 0.1124
+     },
+     {
+      "day": "20260808",
+      "events": 10,
+      "event_kinds": {
+       "split": 3,
+       "merge": 4,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.552,
+      "silhouette": 0.0317,
+      "inertia": 376.4,
+      "max_share": 0.0894
+     },
+     {
+      "day": "20260810",
+      "events": 8,
+      "event_kinds": {
+       "merge": 1,
+       "restated": 1,
+       "death": 2,
+       "birth": 4
+      },
+      "churn": 0.404,
+      "silhouette": 0.0458,
+      "inertia": 394.41,
+      "max_share": 0.1144
+     },
+     {
+      "day": "20260811",
+      "events": 9,
+      "event_kinds": {
+       "merge": 3,
+       "restated": 1,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.4671,
+      "silhouette": 0.037,
+      "inertia": 404.17,
+      "max_share": 0.0952
+     },
+     {
+      "day": "20260813",
+      "events": 12,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 2,
+       "death": 2,
+       "birth": 4
+      },
+      "churn": 0.5238,
+      "silhouette": 0.046,
+      "inertia": 413.65,
+      "max_share": 0.1034
+     }
+    ]
+   },
+   {
+    "seed": 5,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 8,
+      "event_kinds": {
+       "merge": 2,
+       "birth": 6
+      },
+      "churn": 0.4765,
+      "silhouette": 0.0295,
+      "inertia": 307.26,
+      "max_share": 0.101
+     },
+     {
+      "day": "20260730",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.5131,
+      "silhouette": 0.0465,
+      "inertia": 315.82,
+      "max_share": 0.1218
+     },
+     {
+      "day": "20260801",
+      "events": 7,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 1
+      },
+      "churn": 0.5403,
+      "silhouette": 0.0307,
+      "inertia": 327.67,
+      "max_share": 0.1082
+     },
+     {
+      "day": "20260803",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 1,
+       "restated": 1,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.5237,
+      "silhouette": 0.042,
+      "inertia": 360.56,
+      "max_share": 0.0808
+     },
+     {
+      "day": "20260804",
+      "events": 10,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "death": 2,
+       "birth": 3
+      },
+      "churn": 0.5,
+      "silhouette": 0.0433,
+      "inertia": 370.9,
+      "max_share": 0.1023
+     },
+     {
+      "day": "20260808",
+      "events": 4,
+      "event_kinds": {
+       "merge": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.3909,
+      "silhouette": 0.0501,
+      "inertia": 374.14,
+      "max_share": 0.1093
+     },
+     {
+      "day": "20260810",
+      "events": 7,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "birth": 3
+      },
+      "churn": 0.404,
+      "silhouette": 0.0477,
+      "inertia": 395.88,
+      "max_share": 0.1254
+     },
+     {
+      "day": "20260811",
+      "events": 12,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "death": 3,
+       "birth": 4
+      },
+      "churn": 0.5486,
+      "silhouette": 0.0316,
+      "inertia": 404.88,
+      "max_share": 0.1198
+     },
+     {
+      "day": "20260813",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "restated": 1,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.4685,
+      "silhouette": 0.04,
+      "inertia": 411.76,
+      "max_share": 0.0915
+     }
+    ]
+   },
+   {
+    "seed": 6,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "birth": 5
+      },
+      "churn": 0.4657,
+      "silhouette": 0.0457,
+      "inertia": 307.51,
+      "max_share": 0.1434
+     },
+     {
+      "day": "20260730",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "restated": 1,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.5475,
+      "silhouette": 0.0339,
+      "inertia": 316.62,
+      "max_share": 0.0904
+     },
+     {
+      "day": "20260801",
+      "events": 9,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 3,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.5481,
+      "silhouette": 0.04,
+      "inertia": 327.04,
+      "max_share": 0.1195
+     },
+     {
+      "day": "20260803",
+      "events": 8,
+      "event_kinds": {
+       "merge": 3,
+       "restated": 1,
+       "birth": 4
+      },
+      "churn": 0.4535,
+      "silhouette": 0.0411,
+      "inertia": 361.22,
+      "max_share": 0.0893
+     },
+     {
+      "day": "20260804",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "death": 2,
+       "birth": 3
+      },
+      "churn": 0.5,
+      "silhouette": 0.0437,
+      "inertia": 370.52,
+      "max_share": 0.1544
+     },
+     {
+      "day": "20260808",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 4,
+       "birth": 2
+      },
+      "churn": 0.5268,
+      "silhouette": 0.0366,
+      "inertia": 374.93,
+      "max_share": 0.0911
+     },
+     {
+      "day": "20260810",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "birth": 3
+      },
+      "churn": 0.5315,
+      "silhouette": 0.04,
+      "inertia": 395.56,
+      "max_share": 0.1034
+     },
+     {
+      "day": "20260811",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "restated": 1,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.4859,
+      "silhouette": 0.0356,
+      "inertia": 404.35,
+      "max_share": 0.086
+     },
+     {
+      "day": "20260813",
+      "events": 9,
+      "event_kinds": {
+       "merge": 3,
+       "restated": 1,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.49,
+      "silhouette": 0.0364,
+      "inertia": 413.9,
+      "max_share": 0.09
+     }
+    ]
+   },
+   {
+    "seed": 7,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 11,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 6
+      },
+      "churn": 0.6065,
+      "silhouette": 0.035,
+      "inertia": 307.47,
+      "max_share": 0.1212
+     },
+     {
+      "day": "20260730",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "birth": 2
+      },
+      "churn": 0.503,
+      "silhouette": 0.0447,
+      "inertia": 315.87,
+      "max_share": 0.112
+     },
+     {
+      "day": "20260801",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "restated": 2,
+       "death": 1,
+       "birth": 1
+      },
+      "churn": 0.4833,
+      "silhouette": 0.0378,
+      "inertia": 327.74,
+      "max_share": 0.1233
+     },
+     {
+      "day": "20260803",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "death": 2,
+       "birth": 3
+      },
+      "churn": 0.537,
+      "silhouette": 0.0425,
+      "inertia": 361.14,
+      "max_share": 0.0876
+     },
+     {
+      "day": "20260804",
+      "events": 4,
+      "event_kinds": {
+       "merge": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.3814,
+      "silhouette": 0.0424,
+      "inertia": 371.43,
+      "max_share": 0.1057
+     },
+     {
+      "day": "20260808",
+      "events": 5,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "restated": 1,
+       "birth": 1
+      },
+      "churn": 0.4983,
+      "silhouette": 0.0393,
+      "inertia": 374.96,
+      "max_share": 0.0861
+     },
+     {
+      "day": "20260810",
+      "events": 10,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.4702,
+      "silhouette": 0.0399,
+      "inertia": 396.33,
+      "max_share": 0.1285
+     },
+     {
+      "day": "20260811",
+      "events": 10,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.5768,
+      "silhouette": 0.0426,
+      "inertia": 404.31,
+      "max_share": 0.1198
+     },
+     {
+      "day": "20260813",
+      "events": 6,
+      "event_kinds": {
+       "merge": 2,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4531,
+      "silhouette": 0.0439,
+      "inertia": 412.97,
+      "max_share": 0.1109
+     }
+    ]
+   },
+   {
+    "seed": 8,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 7,
+      "event_kinds": {
+       "split": 1,
+       "restated": 1,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.491,
+      "silhouette": 0.0412,
+      "inertia": 306.87,
+      "max_share": 0.0909
+     },
+     {
+      "day": "20260730",
+      "events": 10,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "death": 2,
+       "birth": 4
+      },
+      "churn": 0.5212,
+      "silhouette": 0.0417,
+      "inertia": 315.53,
+      "max_share": 0.1257
+     },
+     {
+      "day": "20260801",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "death": 2,
+       "birth": 3
+      },
+      "churn": 0.5187,
+      "silhouette": 0.0426,
+      "inertia": 327.78,
+      "max_share": 0.1556
+     },
+     {
+      "day": "20260803",
+      "events": 7,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "birth": 3
+      },
+      "churn": 0.5085,
+      "silhouette": 0.0378,
+      "inertia": 361.28,
+      "max_share": 0.122
+     },
+     {
+      "day": "20260804",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4725,
+      "silhouette": 0.0435,
+      "inertia": 370.42,
+      "max_share": 0.0839
+     },
+     {
+      "day": "20260808",
+      "events": 7,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 1
+      },
+      "churn": 0.4748,
+      "silhouette": 0.0394,
+      "inertia": 375.66,
+      "max_share": 0.0927
+     },
+     {
+      "day": "20260810",
+      "events": 11,
+      "event_kinds": {
+       "split": 2,
+       "merge": 4,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.5695,
+      "silhouette": 0.036,
+      "inertia": 395.67,
+      "max_share": 0.0956
+     },
+     {
+      "day": "20260811",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "restated": 2,
+       "death": 1,
+       "birth": 1
+      },
+      "churn": 0.5078,
+      "silhouette": 0.0393,
+      "inertia": 403.09,
+      "max_share": 0.0707
+     },
+     {
+      "day": "20260813",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.4332,
+      "silhouette": 0.0363,
+      "inertia": 412.32,
+      "max_share": 0.093
+     }
+    ]
+   },
+   {
+    "seed": 9,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 10,
+      "event_kinds": {
+       "split": 3,
+       "merge": 2,
+       "restated": 2,
+       "birth": 3
+      },
+      "churn": 0.5884,
+      "silhouette": 0.0433,
+      "inertia": 308.1,
+      "max_share": 0.1192
+     },
+     {
+      "day": "20260730",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4869,
+      "silhouette": 0.0354,
+      "inertia": 316.48,
+      "max_share": 0.1198
+     },
+     {
+      "day": "20260801",
+      "events": 5,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4204,
+      "silhouette": 0.0403,
+      "inertia": 326.44,
+      "max_share": 0.1044
+     },
+     {
+      "day": "20260803",
+      "events": 11,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "restated": 2,
+       "death": 3,
+       "birth": 4
+      },
+      "churn": 0.4934,
+      "silhouette": 0.042,
+      "inertia": 361.89,
+      "max_share": 0.1082
+     },
+     {
+      "day": "20260804",
+      "events": 7,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 1
+      },
+      "churn": 0.5189,
+      "silhouette": 0.0388,
+      "inertia": 371.61,
+      "max_share": 0.1074
+     },
+     {
+      "day": "20260808",
+      "events": 10,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "death": 2,
+       "birth": 4
+      },
+      "churn": 0.4832,
+      "silhouette": 0.0435,
+      "inertia": 375.93,
+      "max_share": 0.1026
+     },
+     {
+      "day": "20260810",
+      "events": 11,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 2,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.495,
+      "silhouette": 0.0414,
+      "inertia": 394.67,
+      "max_share": 0.0909
+     },
+     {
+      "day": "20260811",
+      "events": 10,
+      "event_kinds": {
+       "split": 3,
+       "merge": 2,
+       "death": 3,
+       "birth": 2
+      },
+      "churn": 0.5016,
+      "silhouette": 0.0389,
+      "inertia": 404.05,
+      "max_share": 0.0937
+     },
+     {
+      "day": "20260813",
+      "events": 8,
+      "event_kinds": {
+       "merge": 3,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.4562,
+      "silhouette": 0.0506,
+      "inertia": 412.47,
+      "max_share": 0.1169
+     }
+    ]
+   },
+   {
+    "seed": 10,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 10,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "restated": 2,
+       "death": 1,
+       "birth": 5
+      },
+      "churn": 0.491,
+      "silhouette": 0.0416,
+      "inertia": 306.46,
+      "max_share": 0.1273
+     },
+     {
+      "day": "20260730",
+      "events": 6,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "birth": 1
+      },
+      "churn": 0.5232,
+      "silhouette": 0.0298,
+      "inertia": 315.84,
+      "max_share": 0.0963
+     },
+     {
+      "day": "20260801",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "restated": 2,
+       "death": 1,
+       "birth": 1
+      },
+      "churn": 0.4833,
+      "silhouette": 0.0357,
+      "inertia": 328.09,
+      "max_share": 0.1025
+     },
+     {
+      "day": "20260803",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 4,
+       "birth": 3
+      },
+      "churn": 0.5009,
+      "silhouette": 0.041,
+      "inertia": 362.84,
+      "max_share": 0.122
+     },
+     {
+      "day": "20260804",
+      "events": 4,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "death": 1,
+       "birth": 1
+      },
+      "churn": 0.4347,
+      "silhouette": 0.0446,
+      "inertia": 369.94,
+      "max_share": 0.1007
+     },
+     {
+      "day": "20260808",
+      "events": 10,
+      "event_kinds": {
+       "split": 2,
+       "merge": 4,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.6141,
+      "silhouette": 0.0276,
+      "inertia": 375.94,
+      "max_share": 0.0944
+     },
+     {
+      "day": "20260810",
+      "events": 9,
+      "event_kinds": {
+       "split": 3,
+       "merge": 4,
+       "birth": 2
+      },
+      "churn": 0.5414,
+      "silhouette": 0.0358,
+      "inertia": 395.33,
+      "max_share": 0.1034
+     },
+     {
+      "day": "20260811",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "birth": 2
+      },
+      "churn": 0.3981,
+      "silhouette": 0.0298,
+      "inertia": 404.09,
+      "max_share": 0.0998
+     },
+     {
+      "day": "20260813",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "restated": 1,
+       "birth": 3
+      },
+      "churn": 0.533,
+      "silhouette": 0.0357,
+      "inertia": 413.0,
+      "max_share": 0.0885
+     }
+    ]
+   },
+   {
+    "seed": 11,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 7,
+      "event_kinds": {
+       "split": 3,
+       "merge": 1,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.5199,
+      "silhouette": 0.0452,
+      "inertia": 306.15,
+      "max_share": 0.0949
+     },
+     {
+      "day": "20260730",
+      "events": 4,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "restated": 2
+      },
+      "churn": 0.4081,
+      "silhouette": 0.0466,
+      "inertia": 316.14,
+      "max_share": 0.1081
+     },
+     {
+      "day": "20260801",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.4322,
+      "silhouette": 0.0389,
+      "inertia": 327.31,
+      "max_share": 0.1025
+     },
+     {
+      "day": "20260803",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4383,
+      "silhouette": 0.041,
+      "inertia": 361.36,
+      "max_share": 0.0808
+     },
+     {
+      "day": "20260804",
+      "events": 4,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "birth": 1
+      },
+      "churn": 0.4639,
+      "silhouette": 0.0339,
+      "inertia": 370.91,
+      "max_share": 0.0906
+     },
+     {
+      "day": "20260808",
+      "events": 8,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 2,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4732,
+      "silhouette": 0.0423,
+      "inertia": 375.3,
+      "max_share": 0.106
+     },
+     {
+      "day": "20260810",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.4338,
+      "silhouette": 0.0452,
+      "inertia": 396.27,
+      "max_share": 0.1082
+     },
+     {
+      "day": "20260811",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.5172,
+      "silhouette": 0.0364,
+      "inertia": 404.09,
+      "max_share": 0.0845
+     },
+     {
+      "day": "20260813",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.4455,
+      "silhouette": 0.0365,
+      "inertia": 413.04,
+      "max_share": 0.1274
+     }
+    ]
+   },
+   {
+    "seed": 12,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "birth": 4
+      },
+      "churn": 0.4621,
+      "silhouette": 0.0398,
+      "inertia": 306.59,
+      "max_share": 0.0949
+     },
+     {
+      "day": "20260730",
+      "events": 6,
+      "event_kinds": {
+       "merge": 3,
+       "birth": 3
+      },
+      "churn": 0.3919,
+      "silhouette": 0.0484,
+      "inertia": 316.62,
+      "max_share": 0.165
+     },
+     {
+      "day": "20260801",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "restated": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.4479,
+      "silhouette": 0.0406,
+      "inertia": 326.34,
+      "max_share": 0.0949
+     },
+     {
+      "day": "20260803",
+      "events": 5,
+      "event_kinds": {
+       "split": 2,
+       "merge": 1,
+       "death": 1,
+       "birth": 1
+      },
+      "churn": 0.4421,
+      "silhouette": 0.0375,
+      "inertia": 361.09,
+      "max_share": 0.0979
+     },
+     {
+      "day": "20260804",
+      "events": 4,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "birth": 1
+      },
+      "churn": 0.3471,
+      "silhouette": 0.039,
+      "inertia": 370.93,
+      "max_share": 0.1091
+     },
+     {
+      "day": "20260808",
+      "events": 3,
+      "event_kinds": {
+       "merge": 1,
+       "restated": 1,
+       "birth": 1
+      },
+      "churn": 0.3641,
+      "silhouette": 0.0415,
+      "inertia": 375.33,
+      "max_share": 0.1026
+     },
+     {
+      "day": "20260810",
+      "events": 7,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 2,
+       "birth": 3
+      },
+      "churn": 0.4238,
+      "silhouette": 0.0349,
+      "inertia": 395.14,
+      "max_share": 0.0799
+     },
+     {
+      "day": "20260811",
+      "events": 11,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "restated": 1,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.4342,
+      "silhouette": 0.0379,
+      "inertia": 404.4,
+      "max_share": 0.0952
+     },
+     {
+      "day": "20260813",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "birth": 2
+      },
+      "churn": 0.467,
+      "silhouette": 0.0401,
+      "inertia": 412.7,
+      "max_share": 0.0795
+     }
+    ]
+   },
+   {
+    "seed": 13,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "restated": 1,
+       "death": 1,
+       "birth": 5
+      },
+      "churn": 0.5343,
+      "silhouette": 0.0354,
+      "inertia": 307.9,
+      "max_share": 0.1172
+     },
+     {
+      "day": "20260730",
+      "events": 6,
+      "event_kinds": {
+       "merge": 1,
+       "death": 2,
+       "birth": 3
+      },
+      "churn": 0.5333,
+      "silhouette": 0.0343,
+      "inertia": 316.28,
+      "max_share": 0.1238
+     },
+     {
+      "day": "20260801",
+      "events": 7,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4813,
+      "silhouette": 0.0446,
+      "inertia": 326.97,
+      "max_share": 0.1461
+     },
+     {
+      "day": "20260803",
+      "events": 5,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.4915,
+      "silhouette": 0.0375,
+      "inertia": 362.19,
+      "max_share": 0.1014
+     },
+     {
+      "day": "20260804",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4845,
+      "silhouette": 0.041,
+      "inertia": 371.7,
+      "max_share": 0.0956
+     },
+     {
+      "day": "20260808",
+      "events": 7,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4849,
+      "silhouette": 0.0361,
+      "inertia": 376.24,
+      "max_share": 0.1076
+     },
+     {
+      "day": "20260810",
+      "events": 10,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 1,
+       "death": 2,
+       "birth": 5
+      },
+      "churn": 0.4851,
+      "silhouette": 0.043,
+      "inertia": 396.27,
+      "max_share": 0.1144
+     },
+     {
+      "day": "20260811",
+      "events": 11,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "death": 2,
+       "birth": 4
+      },
+      "churn": 0.5549,
+      "silhouette": 0.0376,
+      "inertia": 405.57,
+      "max_share": 0.106
+     },
+     {
+      "day": "20260813",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4916,
+      "silhouette": 0.042,
+      "inertia": 412.0,
+      "max_share": 0.081
+     }
+    ]
+   },
+   {
+    "seed": 14,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 1,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.5162,
+      "silhouette": 0.0452,
+      "inertia": 306.79,
+      "max_share": 0.1152
+     },
+     {
+      "day": "20260730",
+      "events": 4,
+      "event_kinds": {
+       "merge": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.3657,
+      "silhouette": 0.0372,
+      "inertia": 315.74,
+      "max_share": 0.1159
+     },
+     {
+      "day": "20260801",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "birth": 3
+      },
+      "churn": 0.4931,
+      "silhouette": 0.0431,
+      "inertia": 327.67,
+      "max_share": 0.0968
+     },
+     {
+      "day": "20260803",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "death": 2,
+       "birth": 4
+      },
+      "churn": 0.4858,
+      "silhouette": 0.0448,
+      "inertia": 360.84,
+      "max_share": 0.1065
+     },
+     {
+      "day": "20260804",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "death": 2,
+       "birth": 3
+      },
+      "churn": 0.4536,
+      "silhouette": 0.0453,
+      "inertia": 369.83,
+      "max_share": 0.0923
+     },
+     {
+      "day": "20260808",
+      "events": 10,
+      "event_kinds": {
+       "split": 2,
+       "merge": 5,
+       "birth": 3
+      },
+      "churn": 0.4698,
+      "silhouette": 0.0345,
+      "inertia": 376.35,
+      "max_share": 0.0894
+     },
+     {
+      "day": "20260810",
+      "events": 11,
+      "event_kinds": {
+       "merge": 3,
+       "restated": 2,
+       "death": 1,
+       "birth": 5
+      },
+      "churn": 0.4901,
+      "silhouette": 0.0415,
+      "inertia": 396.02,
+      "max_share": 0.1034
+     },
+     {
+      "day": "20260811",
+      "events": 5,
+      "event_kinds": {
+       "merge": 1,
+       "restated": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.4028,
+      "silhouette": 0.0405,
+      "inertia": 404.13,
+      "max_share": 0.1121
+     },
+     {
+      "day": "20260813",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4916,
+      "silhouette": 0.0397,
+      "inertia": 412.24,
+      "max_share": 0.1079
+     }
+    ]
+   },
+   {
+    "seed": 15,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "birth": 4
+      },
+      "churn": 0.5343,
+      "silhouette": 0.0418,
+      "inertia": 307.43,
+      "max_share": 0.103
+     },
+     {
+      "day": "20260730",
+      "events": 5,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4747,
+      "silhouette": 0.0395,
+      "inertia": 316.58,
+      "max_share": 0.1061
+     },
+     {
+      "day": "20260801",
+      "events": 10,
+      "event_kinds": {
+       "split": 1,
+       "merge": 5,
+       "birth": 4
+      },
+      "churn": 0.5972,
+      "silhouette": 0.0369,
+      "inertia": 327.53,
+      "max_share": 0.129
+     },
+     {
+      "day": "20260803",
+      "events": 8,
+      "event_kinds": {
+       "split": 3,
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 1
+      },
+      "churn": 0.5104,
+      "silhouette": 0.0374,
+      "inertia": 361.08,
+      "max_share": 0.0979
+     },
+     {
+      "day": "20260804",
+      "events": 4,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2
+      },
+      "churn": 0.4313,
+      "silhouette": 0.0452,
+      "inertia": 369.28,
+      "max_share": 0.104
+     },
+     {
+      "day": "20260808",
+      "events": 5,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4211,
+      "silhouette": 0.0451,
+      "inertia": 375.26,
+      "max_share": 0.1175
+     },
+     {
+      "day": "20260810",
+      "events": 14,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "restated": 1,
+       "death": 2,
+       "birth": 6
+      },
+      "churn": 0.5414,
+      "silhouette": 0.0415,
+      "inertia": 394.71,
+      "max_share": 0.094
+     },
+     {
+      "day": "20260811",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "restated": 1,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4702,
+      "silhouette": 0.033,
+      "inertia": 403.69,
+      "max_share": 0.0845
+     },
+     {
+      "day": "20260813",
+      "events": 5,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "restated": 1,
+       "birth": 1
+      },
+      "churn": 0.384,
+      "silhouette": 0.0391,
+      "inertia": 411.54,
+      "max_share": 0.099
+     }
+    ]
+   },
+   {
+    "seed": 16,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "restated": 1,
+       "birth": 5
+      },
+      "churn": 0.5993,
+      "silhouette": 0.0423,
+      "inertia": 308.12,
+      "max_share": 0.103
+     },
+     {
+      "day": "20260730",
+      "events": 7,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.4889,
+      "silhouette": 0.0431,
+      "inertia": 315.47,
+      "max_share": 0.0923
+     },
+     {
+      "day": "20260801",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "birth": 2
+      },
+      "churn": 0.4283,
+      "silhouette": 0.0363,
+      "inertia": 325.48,
+      "max_share": 0.0968
+     },
+     {
+      "day": "20260803",
+      "events": 3,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "birth": 1
+      },
+      "churn": 0.3947,
+      "silhouette": 0.0329,
+      "inertia": 362.69,
+      "max_share": 0.0825
+     },
+     {
+      "day": "20260804",
+      "events": 11,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 1,
+       "death": 3,
+       "birth": 5
+      },
+      "churn": 0.5344,
+      "silhouette": 0.0423,
+      "inertia": 370.34,
+      "max_share": 0.1074
+     },
+     {
+      "day": "20260808",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.5285,
+      "silhouette": 0.0319,
+      "inertia": 375.4,
+      "max_share": 0.1225
+     },
+     {
+      "day": "20260810",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.5,
+      "silhouette": 0.038,
+      "inertia": 395.37,
+      "max_share": 0.105
+     },
+     {
+      "day": "20260811",
+      "events": 8,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "birth": 3
+      },
+      "churn": 0.4232,
+      "silhouette": 0.0334,
+      "inertia": 403.98,
+      "max_share": 0.1091
+     },
+     {
+      "day": "20260813",
+      "events": 10,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "death": 1,
+       "birth": 4
+      },
+      "churn": 0.5438,
+      "silhouette": 0.0343,
+      "inertia": 413.1,
+      "max_share": 0.0885
+     }
+    ]
+   },
+   {
+    "seed": 17,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "birth": 4
+      },
+      "churn": 0.5343,
+      "silhouette": 0.0465,
+      "inertia": 307.29,
+      "max_share": 0.1212
+     },
+     {
+      "day": "20260730",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.4788,
+      "silhouette": 0.0381,
+      "inertia": 315.99,
+      "max_share": 0.11
+     },
+     {
+      "day": "20260801",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "restated": 2,
+       "birth": 1
+      },
+      "churn": 0.4401,
+      "silhouette": 0.0378,
+      "inertia": 326.37,
+      "max_share": 0.0835
+     },
+     {
+      "day": "20260803",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "restated": 1,
+       "birth": 2
+      },
+      "churn": 0.4668,
+      "silhouette": 0.0461,
+      "inertia": 360.93,
+      "max_share": 0.0979
+     },
+     {
+      "day": "20260804",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "restated": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.5326,
+      "silhouette": 0.0396,
+      "inertia": 371.75,
+      "max_share": 0.1158
+     },
+     {
+      "day": "20260808",
+      "events": 6,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 2,
+       "birth": 2
+      },
+      "churn": 0.4631,
+      "silhouette": 0.0391,
+      "inertia": 375.49,
+      "max_share": 0.0977
+     },
+     {
+      "day": "20260810",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "birth": 4
+      },
+      "churn": 0.5397,
+      "silhouette": 0.0286,
+      "inertia": 395.82,
+      "max_share": 0.1019
+     },
+     {
+      "day": "20260811",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "birth": 2
+      },
+      "churn": 0.4875,
+      "silhouette": 0.0333,
+      "inertia": 403.63,
+      "max_share": 0.0814
+     },
+     {
+      "day": "20260813",
+      "events": 11,
+      "event_kinds": {
+       "split": 2,
+       "merge": 4,
+       "restated": 1,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.5407,
+      "silhouette": 0.0422,
+      "inertia": 413.52,
+      "max_share": 0.1139
+     }
+    ]
+   },
+   {
+    "seed": 18,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 10,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "death": 1,
+       "birth": 6
+      },
+      "churn": 0.5632,
+      "silhouette": 0.0445,
+      "inertia": 308.29,
+      "max_share": 0.1374
+     },
+     {
+      "day": "20260730",
+      "events": 6,
+      "event_kinds": {
+       "merge": 3,
+       "birth": 3
+      },
+      "churn": 0.4081,
+      "silhouette": 0.0297,
+      "inertia": 316.22,
+      "max_share": 0.1061
+     },
+     {
+      "day": "20260801",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 3,
+       "restated": 1,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.5108,
+      "silhouette": 0.0523,
+      "inertia": 327.15,
+      "max_share": 0.1499
+     },
+     {
+      "day": "20260803",
+      "events": 9,
+      "event_kinds": {
+       "split": 3,
+       "merge": 3,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.5009,
+      "silhouette": 0.0376,
+      "inertia": 362.58,
+      "max_share": 0.11
+     },
+     {
+      "day": "20260804",
+      "events": 10,
+      "event_kinds": {
+       "split": 2,
+       "merge": 4,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.5928,
+      "silhouette": 0.032,
+      "inertia": 371.91,
+      "max_share": 0.1208
+     },
+     {
+      "day": "20260808",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "merge": 2,
+       "restated": 1,
+       "death": 2,
+       "birth": 2
+      },
+      "churn": 0.5604,
+      "silhouette": 0.0309,
+      "inertia": 375.59,
+      "max_share": 0.096
+     },
+     {
+      "day": "20260810",
+      "events": 9,
+      "event_kinds": {
+       "split": 2,
+       "restated": 4,
+       "death": 2,
+       "birth": 1
+      },
+      "churn": 0.4238,
+      "silhouette": 0.03,
+      "inertia": 396.37,
+      "max_share": 0.0925
+     },
+     {
+      "day": "20260811",
+      "events": 6,
+      "event_kinds": {
+       "split": 1,
+       "merge": 2,
+       "death": 1,
+       "birth": 2
+      },
+      "churn": 0.4107,
+      "silhouette": 0.0417,
+      "inertia": 404.02,
+      "max_share": 0.0876
+     },
+     {
+      "day": "20260813",
+      "events": 11,
+      "event_kinds": {
+       "merge": 3,
+       "restated": 1,
+       "death": 2,
+       "birth": 5
+      },
+      "churn": 0.4547,
+      "silhouette": 0.038,
+      "inertia": 413.22,
+      "max_share": 0.0915
+     }
+    ]
+   },
+   {
+    "seed": 19,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 8,
+      "event_kinds": {
+       "split": 3,
+       "merge": 1,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.5957,
+      "silhouette": 0.0383,
+      "inertia": 307.2,
+      "max_share": 0.1071
+     },
+     {
+      "day": "20260730",
+      "events": 8,
+      "event_kinds": {
+       "split": 2,
+       "merge": 4,
+       "birth": 2
+      },
+      "churn": 0.4929,
+      "silhouette": 0.0326,
+      "inertia": 316.51,
+      "max_share": 0.0904
+     },
+     {
+      "day": "20260801",
+      "events": 9,
+      "event_kinds": {
+       "split": 3,
+       "merge": 2,
+       "restated": 1,
+       "death": 2,
+       "birth": 1
+      },
+      "churn": 0.5717,
+      "silhouette": 0.0392,
+      "inertia": 327.01,
+      "max_share": 0.1044
+     },
+     {
+      "day": "20260803",
+      "events": 7,
+      "event_kinds": {
+       "split": 1,
+       "merge": 1,
+       "death": 2,
+       "birth": 3
+      },
+      "churn": 0.4858,
+      "silhouette": 0.0411,
+      "inertia": 361.72,
+      "max_share": 0.0997
+     },
+     {
+      "day": "20260804",
+      "events": 7,
+      "event_kinds": {
+       "merge": 2,
+       "restated": 1,
+       "death": 1,
+       "birth": 3
+      },
+      "churn": 0.445,
+      "silhouette": 0.0391,
+      "inertia": 371.02,
+      "max_share": 0.0973
+     },
+     {
+      "day": "20260808",
+      "events": 8,
+      "event_kinds": {
+       "merge": 3,
+       "restated": 2,
+       "birth": 3
+      },
+      "churn": 0.4765,
+      "silhouette": 0.0415,
+      "inertia": 375.81,
+      "max_share": 0.1043
+     },
+     {
+      "day": "20260810",
+      "events": 6,
+      "event_kinds": {
+       "split": 2,
+       "merge": 1,
+       "restated": 1,
+       "death": 1,
+       "birth": 1
+      },
+      "churn": 0.4934,
+      "silhouette": 0.0325,
+      "inertia": 396.36,
+      "max_share": 0.1003
+     },
+     {
+      "day": "20260811",
+      "events": 10,
+      "event_kinds": {
+       "split": 1,
+       "merge": 3,
+       "death": 2,
+       "birth": 4
+      },
+      "churn": 0.4843,
+      "silhouette": 0.041,
+      "inertia": 404.04,
+      "max_share": 0.0891
+     },
+     {
+      "day": "20260813",
+      "events": 9,
+      "event_kinds": {
+       "split": 1,
+       "merge": 4,
+       "restated": 1,
+       "birth": 3
+      },
+      "churn": 0.51,
+      "silhouette": 0.0296,
+      "inertia": 413.16,
+      "max_share": 0.1094
+     }
+    ]
+   }
+  ],
+  "warm": [
+   {
+    "seed": 0,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1552,
+      "silhouette": 0.0402,
+      "inertia": 309.52,
+      "max_share": 0.1212
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0121,
+      "silhouette": 0.0401,
+      "inertia": 318.4,
+      "max_share": 0.1198
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0059,
+      "silhouette": 0.0396,
+      "inertia": 329.77,
+      "max_share": 0.1214
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0095,
+      "silhouette": 0.0338,
+      "inertia": 366.75,
+      "max_share": 0.1186
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0172,
+      "silhouette": 0.0345,
+      "inertia": 375.79,
+      "max_share": 0.1124
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0347,
+      "inertia": 380.54,
+      "max_share": 0.1126
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0149,
+      "silhouette": 0.0346,
+      "inertia": 401.95,
+      "max_share": 0.1223
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0016,
+      "silhouette": 0.0338,
+      "inertia": 410.84,
+      "max_share": 0.129
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0353,
+      "inertia": 420.03,
+      "max_share": 0.1424
+     }
+    ]
+   },
+   {
+    "seed": 1,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1444,
+      "silhouette": 0.0292,
+      "inertia": 312.31,
+      "max_share": 0.1556
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0305,
+      "inertia": 321.21,
+      "max_share": 0.1532
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0118,
+      "silhouette": 0.0321,
+      "inertia": 332.21,
+      "max_share": 0.1594
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0455,
+      "silhouette": 0.0283,
+      "inertia": 368.25,
+      "max_share": 0.1529
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0309,
+      "silhouette": 0.0307,
+      "inertia": 376.65,
+      "max_share": 0.1493
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0067,
+      "silhouette": 0.031,
+      "inertia": 381.15,
+      "max_share": 0.1474
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0215,
+      "silhouette": 0.031,
+      "inertia": 402.44,
+      "max_share": 0.1458
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0016,
+      "silhouette": 0.0306,
+      "inertia": 411.12,
+      "max_share": 0.1429
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0061,
+      "silhouette": 0.032,
+      "inertia": 420.02,
+      "max_share": 0.1394
+     }
+    ]
+   },
+   {
+    "seed": 2,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1011,
+      "silhouette": 0.0402,
+      "inertia": 311.3,
+      "max_share": 0.1596
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0061,
+      "silhouette": 0.0408,
+      "inertia": 320.14,
+      "max_share": 0.1532
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0079,
+      "silhouette": 0.041,
+      "inertia": 331.63,
+      "max_share": 0.1499
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0247,
+      "silhouette": 0.0377,
+      "inertia": 367.95,
+      "max_share": 0.1409
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0086,
+      "silhouette": 0.0374,
+      "inertia": 377.13,
+      "max_share": 0.1342
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0067,
+      "silhouette": 0.0378,
+      "inertia": 381.6,
+      "max_share": 0.1291
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0215,
+      "silhouette": 0.037,
+      "inertia": 402.98,
+      "max_share": 0.1332
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0362,
+      "inertia": 411.82,
+      "max_share": 0.1382
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0108,
+      "silhouette": 0.0393,
+      "inertia": 420.67,
+      "max_share": 0.1454
+     }
+    ]
+   },
+   {
+    "seed": 3,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1625,
+      "silhouette": 0.0473,
+      "inertia": 310.7,
+      "max_share": 0.1899
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0467,
+      "inertia": 319.8,
+      "max_share": 0.1906
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0216,
+      "silhouette": 0.0472,
+      "inertia": 330.94,
+      "max_share": 0.1822
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0076,
+      "silhouette": 0.0458,
+      "inertia": 366.92,
+      "max_share": 0.1838
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0034,
+      "silhouette": 0.0449,
+      "inertia": 376.46,
+      "max_share": 0.1862
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0453,
+      "inertia": 381.21,
+      "max_share": 0.1854
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0149,
+      "silhouette": 0.0442,
+      "inertia": 402.97,
+      "max_share": 0.185
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0078,
+      "silhouette": 0.0438,
+      "inertia": 411.87,
+      "max_share": 0.1828
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0261,
+      "silhouette": 0.0451,
+      "inertia": 420.49,
+      "max_share": 0.1784
+     }
+    ]
+   },
+   {
+    "seed": 4,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1552,
+      "silhouette": 0.0392,
+      "inertia": 312.22,
+      "max_share": 0.1737
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0388,
+      "inertia": 321.26,
+      "max_share": 0.1729
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0377,
+      "inertia": 332.92,
+      "max_share": 0.1765
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0266,
+      "silhouette": 0.0336,
+      "inertia": 369.35,
+      "max_share": 0.1632
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0515,
+      "silhouette": 0.0358,
+      "inertia": 377.94,
+      "max_share": 0.1477
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0017,
+      "silhouette": 0.0362,
+      "inertia": 382.66,
+      "max_share": 0.1457
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0182,
+      "silhouette": 0.0368,
+      "inertia": 404.25,
+      "max_share": 0.1426
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0125,
+      "silhouette": 0.037,
+      "inertia": 412.96,
+      "max_share": 0.1429
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0046,
+      "silhouette": 0.0396,
+      "inertia": 422.25,
+      "max_share": 0.1514
+     }
+    ]
+   },
+   {
+    "seed": 5,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1336,
+      "silhouette": 0.0376,
+      "inertia": 311.43,
+      "max_share": 0.1273
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0061,
+      "silhouette": 0.0372,
+      "inertia": 320.39,
+      "max_share": 0.1277
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0059,
+      "silhouette": 0.0363,
+      "inertia": 331.82,
+      "max_share": 0.1309
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0057,
+      "silhouette": 0.0329,
+      "inertia": 368.91,
+      "max_share": 0.1512
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0103,
+      "silhouette": 0.032,
+      "inertia": 378.3,
+      "max_share": 0.1544
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0017,
+      "silhouette": 0.0324,
+      "inertia": 382.98,
+      "max_share": 0.154
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0033,
+      "silhouette": 0.033,
+      "inertia": 404.59,
+      "max_share": 0.1536
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0047,
+      "silhouette": 0.0329,
+      "inertia": 413.37,
+      "max_share": 0.1567
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0123,
+      "silhouette": 0.0366,
+      "inertia": 422.41,
+      "max_share": 0.1574
+     }
+    ]
+   },
+   {
+    "seed": 6,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1227,
+      "silhouette": 0.042,
+      "inertia": 310.02,
+      "max_share": 0.1434
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0081,
+      "silhouette": 0.0422,
+      "inertia": 318.88,
+      "max_share": 0.1473
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.002,
+      "silhouette": 0.0407,
+      "inertia": 330.39,
+      "max_share": 0.148
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0285,
+      "silhouette": 0.0369,
+      "inertia": 366.76,
+      "max_share": 0.1392
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0172,
+      "silhouette": 0.0355,
+      "inertia": 375.89,
+      "max_share": 0.1359
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0361,
+      "inertia": 380.58,
+      "max_share": 0.1374
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0033,
+      "silhouette": 0.0343,
+      "inertia": 402.29,
+      "max_share": 0.1364
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0047,
+      "silhouette": 0.0336,
+      "inertia": 411.03,
+      "max_share": 0.1429
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0015,
+      "silhouette": 0.036,
+      "inertia": 420.1,
+      "max_share": 0.1574
+     }
+    ]
+   },
+   {
+    "seed": 7,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1625,
+      "silhouette": 0.0441,
+      "inertia": 310.92,
+      "max_share": 0.1556
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.044,
+      "inertia": 320.01,
+      "max_share": 0.1591
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.002,
+      "silhouette": 0.0431,
+      "inertia": 331.42,
+      "max_share": 0.1613
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0304,
+      "silhouette": 0.0407,
+      "inertia": 367.69,
+      "max_share": 0.1632
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0399,
+      "inertia": 377.32,
+      "max_share": 0.1611
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0017,
+      "silhouette": 0.0404,
+      "inertia": 382.04,
+      "max_share": 0.1606
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0348,
+      "silhouette": 0.0426,
+      "inertia": 402.97,
+      "max_share": 0.1599
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0419,
+      "inertia": 411.71,
+      "max_share": 0.1628
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0015,
+      "silhouette": 0.0445,
+      "inertia": 420.93,
+      "max_share": 0.1754
+     }
+    ]
+   },
+   {
+    "seed": 8,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1516,
+      "silhouette": 0.0346,
+      "inertia": 310.42,
+      "max_share": 0.1212
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.002,
+      "silhouette": 0.0341,
+      "inertia": 319.35,
+      "max_share": 0.1179
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0157,
+      "silhouette": 0.0321,
+      "inertia": 330.57,
+      "max_share": 0.1157
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0114,
+      "silhouette": 0.0286,
+      "inertia": 366.89,
+      "max_share": 0.1168
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0069,
+      "silhouette": 0.0279,
+      "inertia": 376.36,
+      "max_share": 0.1124
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0282,
+      "inertia": 381.04,
+      "max_share": 0.1126
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0017,
+      "silhouette": 0.0272,
+      "inertia": 402.85,
+      "max_share": 0.1191
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0188,
+      "silhouette": 0.0272,
+      "inertia": 411.47,
+      "max_share": 0.1214
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0046,
+      "silhouette": 0.0301,
+      "inertia": 420.42,
+      "max_share": 0.1319
+     }
+    ]
+   },
+   {
+    "seed": 9,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1264,
+      "silhouette": 0.0378,
+      "inertia": 311.0,
+      "max_share": 0.1879
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.002,
+      "silhouette": 0.038,
+      "inertia": 319.9,
+      "max_share": 0.1866
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0368,
+      "inertia": 331.43,
+      "max_share": 0.1898
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0133,
+      "silhouette": 0.0338,
+      "inertia": 368.21,
+      "max_share": 0.1993
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0052,
+      "silhouette": 0.0326,
+      "inertia": 377.72,
+      "max_share": 0.2013
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0333,
+      "inertia": 382.36,
+      "max_share": 0.2003
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.005,
+      "silhouette": 0.0333,
+      "inertia": 404.11,
+      "max_share": 0.2038
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0031,
+      "silhouette": 0.0333,
+      "inertia": 412.95,
+      "max_share": 0.2028
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.063,
+      "silhouette": 0.0362,
+      "inertia": 421.03,
+      "max_share": 0.2054
+     }
+    ]
+   },
+   {
+    "seed": 10,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1119,
+      "silhouette": 0.0272,
+      "inertia": 313.03,
+      "max_share": 0.1333
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0121,
+      "silhouette": 0.0277,
+      "inertia": 321.71,
+      "max_share": 0.1316
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0196,
+      "silhouette": 0.0286,
+      "inertia": 332.67,
+      "max_share": 0.1309
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0304,
+      "silhouette": 0.0249,
+      "inertia": 368.78,
+      "max_share": 0.1289
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0241,
+      "silhouette": 0.026,
+      "inertia": 377.51,
+      "max_share": 0.1292
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0265,
+      "inertia": 382.12,
+      "max_share": 0.1275
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0381,
+      "silhouette": 0.027,
+      "inertia": 403.23,
+      "max_share": 0.1191
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0031,
+      "silhouette": 0.0263,
+      "inertia": 411.98,
+      "max_share": 0.1198
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0283,
+      "inertia": 421.0,
+      "max_share": 0.1184
+     }
+    ]
+   },
+   {
+    "seed": 11,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1805,
+      "silhouette": 0.0404,
+      "inertia": 313.15,
+      "max_share": 0.1455
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.004,
+      "silhouette": 0.0403,
+      "inertia": 322.22,
+      "max_share": 0.1473
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0452,
+      "silhouette": 0.041,
+      "inertia": 332.87,
+      "max_share": 0.148
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0342,
+      "silhouette": 0.0412,
+      "inertia": 367.64,
+      "max_share": 0.1512
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0619,
+      "silhouette": 0.0386,
+      "inertia": 375.2,
+      "max_share": 0.1477
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0084,
+      "silhouette": 0.0386,
+      "inertia": 379.62,
+      "max_share": 0.1457
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0033,
+      "silhouette": 0.0379,
+      "inertia": 401.22,
+      "max_share": 0.1473
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0047,
+      "silhouette": 0.037,
+      "inertia": 409.82,
+      "max_share": 0.1459
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0046,
+      "silhouette": 0.0398,
+      "inertia": 418.67,
+      "max_share": 0.1424
+     }
+    ]
+   },
+   {
+    "seed": 12,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1227,
+      "silhouette": 0.0387,
+      "inertia": 312.19,
+      "max_share": 0.2
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0081,
+      "silhouette": 0.0383,
+      "inertia": 321.24,
+      "max_share": 0.2024
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0216,
+      "silhouette": 0.0372,
+      "inertia": 332.49,
+      "max_share": 0.2144
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0645,
+      "silhouette": 0.037,
+      "inertia": 368.07,
+      "max_share": 0.1924
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0034,
+      "silhouette": 0.0368,
+      "inertia": 377.57,
+      "max_share": 0.1879
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0373,
+      "inertia": 382.27,
+      "max_share": 0.1854
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0099,
+      "silhouette": 0.0383,
+      "inertia": 403.92,
+      "max_share": 0.1771
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0016,
+      "silhouette": 0.038,
+      "inertia": 412.78,
+      "max_share": 0.1797
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0405,
+      "inertia": 421.99,
+      "max_share": 0.1784
+     }
+    ]
+   },
+   {
+    "seed": 13,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.0542,
+      "silhouette": 0.0491,
+      "inertia": 312.0,
+      "max_share": 0.1737
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0487,
+      "inertia": 321.08,
+      "max_share": 0.1729
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0079,
+      "silhouette": 0.0481,
+      "inertia": 332.42,
+      "max_share": 0.1746
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0076,
+      "silhouette": 0.0443,
+      "inertia": 369.51,
+      "max_share": 0.1684
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0069,
+      "silhouette": 0.0434,
+      "inertia": 379.01,
+      "max_share": 0.1644
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0439,
+      "inertia": 383.78,
+      "max_share": 0.1639
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0199,
+      "silhouette": 0.0447,
+      "inertia": 405.23,
+      "max_share": 0.1693
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0016,
+      "silhouette": 0.0442,
+      "inertia": 414.11,
+      "max_share": 0.1736
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0015,
+      "silhouette": 0.0468,
+      "inertia": 423.37,
+      "max_share": 0.1859
+     }
+    ]
+   },
+   {
+    "seed": 14,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.148,
+      "silhouette": 0.0404,
+      "inertia": 310.74,
+      "max_share": 0.1717
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0406,
+      "inertia": 319.6,
+      "max_share": 0.1709
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0039,
+      "silhouette": 0.0408,
+      "inertia": 330.89,
+      "max_share": 0.1727
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0361,
+      "silhouette": 0.0377,
+      "inertia": 367.3,
+      "max_share": 0.1667
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0017,
+      "silhouette": 0.0376,
+      "inertia": 376.51,
+      "max_share": 0.1661
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0383,
+      "inertia": 381.1,
+      "max_share": 0.1656
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0066,
+      "silhouette": 0.038,
+      "inertia": 402.9,
+      "max_share": 0.1693
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0016,
+      "silhouette": 0.0374,
+      "inertia": 411.77,
+      "max_share": 0.1705
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0031,
+      "silhouette": 0.0405,
+      "inertia": 420.58,
+      "max_share": 0.1679
+     }
+    ]
+   },
+   {
+    "seed": 15,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1408,
+      "silhouette": 0.0476,
+      "inertia": 310.37,
+      "max_share": 0.1455
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0101,
+      "silhouette": 0.0474,
+      "inertia": 319.27,
+      "max_share": 0.1473
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0118,
+      "silhouette": 0.0463,
+      "inertia": 330.57,
+      "max_share": 0.148
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0285,
+      "silhouette": 0.0429,
+      "inertia": 366.84,
+      "max_share": 0.1409
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.012,
+      "silhouette": 0.0433,
+      "inertia": 376.05,
+      "max_share": 0.1409
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0017,
+      "silhouette": 0.0435,
+      "inertia": 380.7,
+      "max_share": 0.1424
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0116,
+      "silhouette": 0.0425,
+      "inertia": 402.13,
+      "max_share": 0.1411
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0421,
+      "inertia": 410.96,
+      "max_share": 0.1475
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0442,
+      "inertia": 420.11,
+      "max_share": 0.1604
+     }
+    ]
+   },
+   {
+    "seed": 16,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1119,
+      "silhouette": 0.0426,
+      "inertia": 312.24,
+      "max_share": 0.1515
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.002,
+      "silhouette": 0.0422,
+      "inertia": 321.15,
+      "max_share": 0.1493
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0138,
+      "silhouette": 0.0398,
+      "inertia": 332.3,
+      "max_share": 0.1537
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0626,
+      "silhouette": 0.0357,
+      "inertia": 367.88,
+      "max_share": 0.1426
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0017,
+      "silhouette": 0.0364,
+      "inertia": 376.93,
+      "max_share": 0.1409
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0218,
+      "silhouette": 0.0374,
+      "inertia": 381.08,
+      "max_share": 0.1457
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0083,
+      "silhouette": 0.037,
+      "inertia": 402.51,
+      "max_share": 0.1505
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0063,
+      "silhouette": 0.0363,
+      "inertia": 411.18,
+      "max_share": 0.1536
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0015,
+      "silhouette": 0.0393,
+      "inertia": 420.01,
+      "max_share": 0.1514
+     }
+    ]
+   },
+   {
+    "seed": 17,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1444,
+      "silhouette": 0.0353,
+      "inertia": 313.11,
+      "max_share": 0.1535
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0101,
+      "silhouette": 0.0362,
+      "inertia": 321.92,
+      "max_share": 0.1493
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0373,
+      "silhouette": 0.0349,
+      "inertia": 332.85,
+      "max_share": 0.1442
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0152,
+      "silhouette": 0.0337,
+      "inertia": 368.23,
+      "max_share": 0.134
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0052,
+      "silhouette": 0.0343,
+      "inertia": 377.33,
+      "max_share": 0.1309
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0084,
+      "silhouette": 0.0354,
+      "inertia": 381.84,
+      "max_share": 0.1341
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0215,
+      "silhouette": 0.0336,
+      "inertia": 403.31,
+      "max_share": 0.1426
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0329,
+      "inertia": 411.98,
+      "max_share": 0.1475
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0356,
+      "inertia": 421.06,
+      "max_share": 0.1619
+     }
+    ]
+   },
+   {
+    "seed": 18,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1011,
+      "silhouette": 0.0346,
+      "inertia": 311.41,
+      "max_share": 0.1919
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0081,
+      "silhouette": 0.0347,
+      "inertia": 320.2,
+      "max_share": 0.1925
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0339,
+      "inertia": 331.74,
+      "max_share": 0.1935
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0038,
+      "silhouette": 0.031,
+      "inertia": 368.91,
+      "max_share": 0.1976
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0297,
+      "inertia": 378.54,
+      "max_share": 0.2013
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0017,
+      "silhouette": 0.0302,
+      "inertia": 383.25,
+      "max_share": 0.1987
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.096,
+      "silhouette": 0.0345,
+      "inertia": 402.95,
+      "max_share": 0.163
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.034,
+      "inertia": 411.84,
+      "max_share": 0.1613
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0031,
+      "silhouette": 0.0358,
+      "inertia": 420.96,
+      "max_share": 0.1574
+     }
+    ]
+   },
+   {
+    "seed": 19,
+    "transitions": [
+     {
+      "day": "20260729",
+      "events": 4,
+      "event_kinds": {
+       "birth": 4
+      },
+      "churn": 0.1913,
+      "silhouette": 0.0355,
+      "inertia": 312.18,
+      "max_share": 0.1475
+     },
+     {
+      "day": "20260730",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0404,
+      "silhouette": 0.0355,
+      "inertia": 320.55,
+      "max_share": 0.1356
+     },
+     {
+      "day": "20260801",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0039,
+      "silhouette": 0.0345,
+      "inertia": 332.05,
+      "max_share": 0.1347
+     },
+     {
+      "day": "20260803",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0133,
+      "silhouette": 0.0306,
+      "inertia": 368.95,
+      "max_share": 0.1323
+     },
+     {
+      "day": "20260804",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0306,
+      "inertia": 378.44,
+      "max_share": 0.1309
+     },
+     {
+      "day": "20260808",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0309,
+      "inertia": 383.17,
+      "max_share": 0.1308
+     },
+     {
+      "day": "20260810",
+      "events": 1,
+      "event_kinds": {
+       "birth": 1
+      },
+      "churn": 0.0447,
+      "silhouette": 0.0317,
+      "inertia": 403.93,
+      "max_share": 0.1364
+     },
+     {
+      "day": "20260811",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.058,
+      "silhouette": 0.0351,
+      "inertia": 410.94,
+      "max_share": 0.1413
+     },
+     {
+      "day": "20260813",
+      "events": 0,
+      "event_kinds": {},
+      "churn": 0.0,
+      "silhouette": 0.0376,
+      "inertia": 420.13,
+      "max_share": 0.1559
+     }
+    ]
+   }
+  ]
+ }
+}
