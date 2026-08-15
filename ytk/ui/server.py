@@ -67,7 +67,7 @@ async def search(q: str, n: int = 8):
         from ytk.ui.hub import log_search_query
 
         log_search_query("/api/search", q)
-        results = search_videos(q, n=n)
+        results = search_videos(q, n=n, actor="user")
         return [
             {
                 "title": r.title,

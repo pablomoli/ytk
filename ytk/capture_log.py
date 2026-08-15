@@ -26,6 +26,7 @@ def log_capture(
     attempt: int | None = None,
     duration_s: float | None = None,
     note_found: bool | None = None,
+    actor: str | None = None,
 ) -> None:
     target = os.environ.get("YTK_CAPTURE_LOG", str(_CAPTURE_LOG))
     if target.strip().lower() == "off":
@@ -36,6 +37,9 @@ def log_capture(
         "url": url,
         "source": source,
         "outcome": outcome,
+        # #96: hub captures are the user's own paste/take intent; every other
+        # surface (sync, feed, schedulers) is pipeline work.
+        "actor": actor or ("user" if surface == "hub" else "system"),
     }
     if error is not None:
         record["error"] = error[:500]

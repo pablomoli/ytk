@@ -535,7 +535,10 @@ def dive(video_id: str, query: str, n: int, rerank: bool | None):
     from .store import search_segments  # deferred: chromadb costs ~330ms (#146)
 
     with console.status("[bold cyan]Searching segments...[/]"):
-        results = search_segments(query, video_id=video_id, n=n, rerank=rerank)
+        # actor: the CLI is agent-driven in practice — the user works from the
+        # hub (#96 section 39: two typed hub searches ever, CLI traffic falls
+        # inside Claude sessions).
+        results = search_segments(query, video_id=video_id, n=n, rerank=rerank, actor="agent")
 
     if not results:
         console.print(
@@ -685,7 +688,8 @@ def search(query: str, n: int, rerank: bool | None):
     from .store import search_videos  # deferred: chromadb costs ~330ms (#146)
 
     with console.status("[bold cyan]Searching...[/]"):
-        results = search_videos(query, n=n, rerank=rerank)
+        # actor: same basis as `ytk dive` — CLI searches are agent-driven.
+        results = search_videos(query, n=n, rerank=rerank, actor="agent")
 
     if not results:
         console.print("[yellow]No results.[/] Run [bold]ytk sync[/] to ingest videos first.")

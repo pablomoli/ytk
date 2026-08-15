@@ -78,7 +78,11 @@ Start (in order):
 
 End (non-negotiable):
 1. Write the session brief (vault + repo mirror), or a planning brief for
-   planning sessions.
+   planning sessions. The brief carries a **Sources consulted** section:
+   every vault note read this session, as `[[wikilinks]]`. This is the
+   citation rung of #96's evidence ladder — before it existed, 56 briefs
+   held one source reference, and reuse was only visible through claude-mem
+   exhaust. Omit the section only if no notes were read.
 2. Update `wiki/index.md` if you added vault files; refresh `wiki/hot.md` if
    project state changed.
 3. `vault_remember` a 2–5 sentence summary of decisions/learnings, tagged

@@ -325,7 +325,7 @@ Configured in `.env` as `OBSIDIAN_VAULT_PATH`.
 
 **At session start:** read `second-brain/wiki/hot.md` first, then `second-brain/wiki/index.md`, then drill into `second-brain/projects/ytk/` as needed. Also read `second-brain/inbox/memories/index.md` and drill into the relevant project atoms.
 
-**At session end (non-negotiable):** write a session brief to `second-brain/projects/ytk/session-NNN-brief.md`. Include what was built, decisions and rationale, what's next, and exact commands to run the project. Mirror a copy to `docs/session-NNN-brief.md` in the repo.
+**At session end (non-negotiable):** write a session brief to `second-brain/projects/ytk/session-NNN-brief.md`. Include what was built, decisions and rationale, what's next, exact commands to run the project, and a **Sources consulted** section listing every vault note read during the session as `[[wikilinks]]` (omit the section only if none were read). This is the citation rung of #96's evidence ladder — 56 briefs contained one source reference because nothing asked. Mirror a copy to `docs/session-NNN-brief.md` in the repo.
 
 **At planning session end:** write a planning brief instead (goals, options considered, decision made, open questions).
 

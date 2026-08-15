@@ -39,10 +39,51 @@ def test_log_retrieval_swallows_write_failures(tmp_path, monkeypatch):
     store.log_retrieval("videos", "q", [("vid-a", 0.1)])
 
 
-def test_log_retrieval_empty_hits_writes_nothing(tmp_path, monkeypatch):
-    # zero-hit searches are not logged: A4 measures what was served, and
-    # nothing was
+def test_log_retrieval_empty_hits_writes_miss_row(tmp_path, monkeypatch):
+    # #96 inverted A4's original silence: a zero-hit search IS the
+    # recall-failure signal, and before this row misses were invisible
     log = tmp_path / "retrieval_log.jsonl"
     monkeypatch.setenv("YTK_RETRIEVAL_LOG", str(log))
     store.log_retrieval("videos", "q", [])
-    assert not log.exists()
+    (row,) = read_lines(log)
+    assert row["doc_id"] is None and row["rank"] == 0 and row["results"] == 0
+    assert row["surface"] == "videos" and row["query"] == "q"
+
+
+def test_log_retrieval_actor_defaults_to_system(tmp_path, monkeypatch):
+    # untagged callers are pipelines; an omission must never inflate
+    # user/agent use evidence (#96 outcome model)
+    log = tmp_path / "retrieval_log.jsonl"
+    monkeypatch.setenv("YTK_RETRIEVAL_LOG", str(log))
+    store.log_retrieval("all", "q", [("d", 0.1)])
+    (row,) = read_lines(log)
+    assert row["actor"] == "system" and "session" not in row
+
+
+def test_log_retrieval_records_actor_and_session(tmp_path, monkeypatch):
+    log = tmp_path / "retrieval_log.jsonl"
+    monkeypatch.setenv("YTK_RETRIEVAL_LOG", str(log))
+    store.log_retrieval("all", "q", [("d", 0.1)], actor="agent", session="abc123")
+    (row,) = read_lines(log)
+    assert row["actor"] == "agent" and row["session"] == "abc123"
+
+
+def test_vault_read_logs_event(tmp_path, monkeypatch):
+    from ytk import mcp_server
+
+    log = tmp_path / "vault_read.jsonl"
+    monkeypatch.setenv("YTK_READ_LOG", str(log))
+    mcp_server._log_read("sources/youtube/example.md")
+    (row,) = read_lines(log)
+    assert row["path"] == "sources/youtube/example.md"
+    assert row["actor"] == "agent"
+    assert row["session"] == mcp_server._SESSION_ID
+    assert row["ts"]
+
+
+def test_vault_read_log_off_switch(tmp_path, monkeypatch):
+    from ytk import mcp_server
+
+    monkeypatch.setenv("YTK_READ_LOG", "off")
+    mcp_server._log_read("wiki/hot.md")
+    assert not (tmp_path / "vault_read.jsonl").exists()

@@ -207,7 +207,7 @@ def test_api_search_logs_query(tmp_path, monkeypatch):
     from ytk.ui.server import app
 
     monkeypatch.setattr(hub, "_SEARCH_LOG", tmp_path / "search.jsonl")
-    monkeypatch.setattr(store_mod, "search_videos", lambda q, n=8: [])
+    monkeypatch.setattr(store_mod, "search_videos", lambda q, n=8, **kw: [])
 
     resp = TestClient(app).get("/api/search", params={"q": "cache lines"})
     assert resp.status_code == 200

@@ -5,7 +5,11 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,13 +20,45 @@ load_dotenv()
 
 app = FastMCP("ytk")
 
+# #96: one MCP server process serves one Claude session (stdio transport), so a
+# per-process id is the session id — it makes the agent actor split exact where
+# section 39 had to correlate timestamps against claude-mem windows.
+_SESSION_ID = uuid.uuid4().hex[:12]
+
+_READ_LOG = Path.home() / ".ytk" / "logs" / "vault_read.jsonl"
+
+
+def _log_read(path: str) -> None:
+    """Append one vault_read event. The agent's dominant access path was
+    entirely unlogged (#96 section 40: 153 notes visible only via claude-mem
+    exhaust). Instrumentation only — a failure must never break a read."""
+    target = os.environ.get("YTK_READ_LOG", str(_READ_LOG))
+    if target.strip().lower() == "off":
+        return
+    try:
+        Path(target).parent.mkdir(parents=True, exist_ok=True)
+        with open(target, "a", encoding="utf-8") as fh:
+            fh.write(
+                json.dumps(
+                    {
+                        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
+                        "path": path,
+                        "actor": "agent",
+                        "session": _SESSION_ID,
+                    }
+                )
+                + "\n"
+            )
+    except OSError:
+        pass
+
 
 @app.tool()
 def vault_search(query: str, n: int = 5) -> str:
     """Semantic search across all vault content (videos and memories)."""
     from .store import search_all
 
-    results = search_all(query, n=n)
+    results = search_all(query, n=n, actor="agent", session=_SESSION_ID)
     if not results:
         return "No results found."
 
@@ -40,6 +76,7 @@ def vault_read(path: str) -> str:
     'wiki/index.md'."""
     from .vault import read_note
 
+    _log_read(path)
     return read_note(path)
 
 
@@ -139,7 +176,7 @@ def vault_search_index(query: str, n: int = 10) -> str:
     excerpts. Fetch full text for chosen ids with vault_fetch (E2/#149)."""
     from .store import memory_captured_at, search_all
 
-    results = search_all(query, n=n)
+    results = search_all(query, n=n, actor="agent", session=_SESSION_ID)
     if not results:
         return "No results found."
     return "\n".join(

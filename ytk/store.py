@@ -1077,30 +1077,42 @@ def _collapse_by_video(metas: list[Metadata], dists: list[float]) -> list[tuple[
 # #150 A4: served-hit log for the usage-aware gc question (R6). Rank and
 # distance are recorded, not bare inclusion — served-is-not-used. Instrumentation
 # only: any failure is swallowed so logging can never break a search.
+# #96: every event carries an actor (user | agent | system). The default is
+# system — untagged callers are pipelines; interactive surfaces must claim
+# user/agent explicitly, so an omission can never inflate use evidence.
 _RETRIEVAL_LOG = Path.home() / ".ytk" / "retrieval_log.jsonl"
 
 
-def log_retrieval(surface: str, query: str, hits: Iterable[tuple[str, float]]) -> None:
+def log_retrieval(
+    surface: str,
+    query: str,
+    hits: Iterable[tuple[str, float]],
+    actor: str = "system",
+    session: str | None = None,
+) -> None:
     target = os.environ.get("YTK_RETRIEVAL_LOG", str(_RETRIEVAL_LOG))
     if target.strip().lower() == "off":
         return
     try:
         ts = datetime.now(UTC).isoformat(timespec="seconds")
+        base: dict[str, str | int | float | None] = {
+            "ts": ts,
+            "surface": surface,
+            "query": query,
+            "actor": actor,
+        }
+        if session:
+            base["session"] = session
         lines = [
             json.dumps(
-                {
-                    "ts": ts,
-                    "surface": surface,
-                    "query": query,
-                    "doc_id": doc_id,
-                    "rank": rank,
-                    "distance": round(float(distance), 4),
-                }
+                {**base, "doc_id": doc_id, "rank": rank, "distance": round(float(distance), 4)}
             )
             for rank, (doc_id, distance) in enumerate(hits, start=1)
         ]
         if not lines:
-            return
+            # A zero-result search is the recall-failure signal (#96); before
+            # this row existed, misses were structurally invisible.
+            lines = [json.dumps({**base, "doc_id": None, "rank": 0, "results": 0})]
         with open(target, "a", encoding="utf-8") as fh:
             fh.write("\n".join(lines) + "\n")
     except OSError:
@@ -1130,7 +1142,13 @@ def _apply_reflected_boost(
     )
 
 
-def search_videos(query: str, n: int = 5, rerank: bool | None = None) -> list[VideoResult]:
+def search_videos(
+    query: str,
+    n: int = 5,
+    rerank: bool | None = None,
+    actor: str = "system",
+    session: str | None = None,
+) -> list[VideoResult]:
     """Search video-level collection. Returns up to n matches ranked by cosine similarity.
 
     With rerank on, the cross-encoder reorders the top _RERANK_DEPTH
@@ -1174,12 +1192,17 @@ def search_videos(query: str, n: int = 5, rerank: bool | None = None) -> list[Vi
         # thesis+summary is the representative doc the video was embedded on
         out = _apply_rerank(query, out, [f"{r.thesis}\n\n{r.summary}" for r in out], n)
     served = out[:n]
-    log_retrieval("videos", query, [(r.video_id, r.distance) for r in served])
+    log_retrieval("videos", query, [(r.video_id, r.distance) for r in served], actor, session)
     return served
 
 
 def search_segments(
-    query: str, video_id: str | None = None, n: int = 10, rerank: bool | None = None
+    query: str,
+    video_id: str | None = None,
+    n: int = 10,
+    rerank: bool | None = None,
+    actor: str = "system",
+    session: str | None = None,
 ) -> list[SegmentResult]:
     """
     Search segment-level collection. Optionally filter to a specific video_id.
@@ -1220,7 +1243,13 @@ def search_segments(
     if rerank_on and out:
         out = _apply_rerank(query, out, [r.text for r in out], n)
     served = out[:n]
-    log_retrieval("segments", query, [(f"{r.video_id}@{r.start:g}", r.distance) for r in served])
+    log_retrieval(
+        "segments",
+        query,
+        [(f"{r.video_id}@{r.start:g}", r.distance) for r in served],
+        actor,
+        session,
+    )
     return served
 
 
@@ -1365,7 +1394,13 @@ def similar_memories(
     return out
 
 
-def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[UnifiedResult]:
+def search_all(
+    query: str,
+    n: int = 5,
+    rerank: bool | None = None,
+    actor: str = "system",
+    session: str | None = None,
+) -> list[UnifiedResult]:
     """Semantic search across video summaries and memory notes, merged by distance.
 
     With rerank on, the cross-encoder reorders the merged top _RERANK_DEPTH
@@ -1450,7 +1485,7 @@ def search_all(query: str, n: int = 5, rerank: bool | None = None) -> list[Unifi
         served = apply_memory_decay([p[0] for p in pairs], lam, half_life)[:n]
     else:
         served = [p[0] for p in pairs[:n]]
-    log_retrieval("all", query, [(r.doc_id, r.distance) for r in served])
+    log_retrieval("all", query, [(r.doc_id, r.distance) for r in served], actor, session)
     return served
 
 

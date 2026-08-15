@@ -355,7 +355,13 @@ def _live_searchers(fetch_k: int) -> dict[str, Callable[[str], list[str]]]:
     filters these lists to the frozen corpus and only then truncates to
     top_k (#111).
     """
+    import os
+
     from ytk import store
+
+    # #96: gate replays were 83% of the production retrieval log (section 39).
+    # Instrument traffic self-tags at write time — here, by not writing.
+    os.environ["YTK_RETRIEVAL_LOG"] = "off"
 
     def unified(query: str) -> list[str]:
         prefix = {"video": "vid", "memory": "mem"}

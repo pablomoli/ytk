@@ -34,6 +34,17 @@ def test_log_capture_appends_attempt_records(tmp_path, monkeypatch):
     assert lines[1]["outcome"] == "error"
     assert lines[1]["error"] == "login required"
     assert "attempt" not in lines[1]  # optional fields stay absent, not null
+    # #96: hub captures are the user's own intent; every other surface is
+    # pipeline work unless the caller says otherwise
+    assert lines[0]["actor"] == "user"
+    assert lines[1]["actor"] == "system"
+
+
+def test_log_capture_actor_override(tmp_path, monkeypatch):
+    log = tmp_path / "capture_log.jsonl"
+    monkeypatch.setenv("YTK_CAPTURE_LOG", str(log))
+    capture_log.log_capture("sync", "u", source="youtube", outcome="ok", actor="agent")
+    assert read_lines(log)[0]["actor"] == "agent"
 
 
 def test_log_capture_off_switch_and_swallowed_failures(tmp_path, monkeypatch):

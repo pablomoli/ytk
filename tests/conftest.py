@@ -46,6 +46,15 @@ def _capture_log_to_tmp(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _retrieval_and_read_logs_to_tmp(tmp_path, monkeypatch):
+    """Same lesson as the capture log, learned twice (#96 section 39: fixture
+    doc ids and smoke queries polluted the production retrieval log on six
+    days). Redirect rather than disable: tests assert on records."""
+    monkeypatch.setenv("YTK_RETRIEVAL_LOG", str(tmp_path / "retrieval_log.jsonl"))
+    monkeypatch.setenv("YTK_READ_LOG", str(tmp_path / "vault_read.jsonl"))
+
+
+@pytest.fixture(autouse=True)
 def _embedded_chroma_only(tmp_path, monkeypatch):
     """Never let unit tests inherit production Chroma runtime settings."""
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
