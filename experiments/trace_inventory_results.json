@@ -1,0 +1,395 @@
+{
+ "commit": "2491037",
+ "generated": "2026-08-15T04:00:05+00:00",
+ "retrieval": {
+  "rows": 60425,
+  "search_events": 2302,
+  "by_class": {
+   "fixture": 76,
+   "test-suite": 137,
+   "eval-replay": 1904,
+   "interactive": 33,
+   "burst": 152
+  },
+  "interactive_events": 33,
+  "span": [
+   "2026-07-29T11:58:12+00:00",
+   "2026-08-12T22:57:07+00:00"
+  ],
+  "by_surface": {
+   "all": 33
+  },
+  "by_actor": {
+   "ambiguous": 12,
+   "agent-likely": 21
+  },
+  "events_per_day": {
+   "2026-07-29": 2,
+   "2026-07-30": 3,
+   "2026-07-31": 2,
+   "2026-08-01": 1,
+   "2026-08-02": 9,
+   "2026-08-03": 8,
+   "2026-08-07": 4,
+   "2026-08-08": 3,
+   "2026-08-12": 1
+  },
+  "events_per_day_by_class": {
+   "eval-replay": {
+    "2026-07-29": 336,
+    "2026-07-30": 896,
+    "2026-08-01": 224,
+    "2026-08-02": 336,
+    "2026-08-04": 112
+   },
+   "test-suite": {
+    "2026-07-29": 42,
+    "2026-07-30": 22,
+    "2026-08-01": 2,
+    "2026-08-02": 8,
+    "2026-08-04": 28,
+    "2026-08-08": 7,
+    "2026-08-12": 28
+   },
+   "burst": {
+    "2026-07-30": 140,
+    "2026-08-10": 12
+   },
+   "fixture": {
+    "2026-07-29": 24,
+    "2026-07-30": 12,
+    "2026-08-02": 4,
+    "2026-08-04": 16,
+    "2026-08-08": 4,
+    "2026-08-12": 16
+   },
+   "interactive": {
+    "2026-07-29": 2,
+    "2026-07-30": 3,
+    "2026-07-31": 2,
+    "2026-08-01": 1,
+    "2026-08-02": 9,
+    "2026-08-03": 8,
+    "2026-08-07": 4,
+    "2026-08-08": 3,
+    "2026-08-12": 1
+   }
+  },
+  "interactive_events_list": [
+   {
+    "ts": "2026-07-29T21:43:20+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-07-29T21:43:37+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-07-30T02:38:13+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-07-30T03:54:59+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-07-30T03:55:36+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-07-31T03:40:19+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-07-31T14:00:03+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-08-01T03:55:50+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-02T01:41:35+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-02T01:41:36+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-02T01:41:37+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-02T15:00:47+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-02T15:07:46+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-02T15:07:53+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-02T15:07:58+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-02T17:18:20+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-02T19:45:05+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-08-03T01:44:37+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-03T01:45:02+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-03T01:45:03+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-03T01:45:12+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-03T01:45:13+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-03T01:46:32+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-03T01:46:33+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-03T01:46:33+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-07T23:07:53+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-08-07T23:13:48+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-08-07T23:24:49+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-08-07T23:24:50+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-08-08T02:40:33+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-08-08T02:41:23+00:00",
+    "surface": "all",
+    "actor": "ambiguous"
+   },
+   {
+    "ts": "2026-08-08T19:35:41+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   },
+   {
+    "ts": "2026-08-12T22:57:07+00:00",
+    "surface": "all",
+    "actor": "agent-likely"
+   }
+  ],
+  "distinct_queries": 32,
+  "recurring_queries": 0,
+  "reformulation_chains": 3,
+  "chain_length_max": 2,
+  "distinct_docs_served": 178,
+  "top10_doc_share": 0.133,
+  "top_docs": [
+   [
+    "note_notes_ai_people_Grant_Sanderson",
+    4
+   ],
+   [
+    "memo_2026-07-06-0020-since-we-are-embedding-the-video-covers-d120ec",
+    4
+   ],
+   [
+    "note_notes_ai_people_Welch_Labs",
+    3
+   ],
+   [
+    "note_inbox_memories_users-melocoton-claude-mem-observer-sessions_purpose",
+    3
+   ],
+   [
+    "note_notes_ai_Becoming_an_AI_Researcher",
+    3
+   ],
+   [
+    "note_notes_ai_AI_Hub",
+    3
+   ],
+   [
+    "6a1fLEToyvU",
+    2
+   ],
+   [
+    "note_second-brain_wiki_index",
+    2
+   ],
+   [
+    "note_inbox_memories_users-melocoton-developer-tts_questions",
+    2
+   ],
+   [
+    "note_second-brain_me_adhd-life-hacks",
+    2
+   ]
+  ],
+  "corpus_served_coverage": 0.083,
+  "never_served": 615,
+  "age_at_retrieval_days": {
+   "n": 61,
+   "p50": 12.0,
+   "p90": 34.8,
+   "p10": 2.2
+  }
+ },
+ "hub_search_log": {
+  "rows": 2,
+  "entries": [
+   {
+    "ts": "2026-07-17T04:31:36+00:00",
+    "endpoint": "/api/search",
+    "q": "false sharing cache line"
+   },
+   {
+    "ts": "2026-07-17T06:13:20+00:00",
+    "endpoint": "/api/search",
+    "q": "how that guy used css subgrid to line up cards"
+   }
+  ]
+ },
+ "capture": {
+  "rows": 585,
+  "span": [
+   "2026-07-29T11:57:07+00:00",
+   "2026-08-14T19:21:45+00:00"
+  ],
+  "by_surface": {
+   "hub": 554,
+   "feed": 9,
+   "sync": 22
+  },
+  "by_source": {
+   "instagram": 146,
+   "youtube": 395,
+   "imessage": 38,
+   "tiktok": 6
+  },
+  "by_outcome": {
+   "ok": 548,
+   "error": 37
+  },
+  "per_day": {
+   "2026-07-29": 105,
+   "2026-07-30": 45,
+   "2026-08-02": 38,
+   "2026-08-03": 24,
+   "2026-08-04": 345,
+   "2026-08-08": 1,
+   "2026-08-10": 5,
+   "2026-08-11": 9,
+   "2026-08-12": 5,
+   "2026-08-13": 4,
+   "2026-08-14": 4
+  }
+ },
+ "claude_mem": {
+  "sessions_total": 2356,
+  "sessions_ytk": 872,
+  "observations_total": 32519,
+  "observations_ytk": 12457,
+  "obs_reading_vault": 228,
+  "obs_span": [
+   "2026-02-04T21:06:12.131Z",
+   "2026-08-15T03:59:59.110Z"
+  ],
+  "distinct_vault_notes_read": 153,
+  "vault_notes_read_by_folder": {
+   "sources": 57,
+   "projects": 30,
+   "inbox": 29,
+   "notes": 17,
+   "vision-board": 9,
+   "me": 6,
+   "study": 2,
+   "wiki": 2,
+   "hub": 1
+  }
+ },
+ "store": {
+  "embedded_notes": 671,
+  "captured_at_coverage": 1.0
+ },
+ "snapshots": {
+  "count": 23,
+  "lifecycle_events": {
+   "birth": 47,
+   "split": 18,
+   "merge": 36,
+   "death": 11,
+   "restated": 9
+  },
+  "themes_now": 18,
+  "signal_counts": {
+   "1": 600,
+   "0": 35,
+   "2": 32
+  }
+ }
+}
