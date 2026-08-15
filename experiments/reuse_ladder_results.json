@@ -1,0 +1,248 @@
+{
+ "commit": "8cefec4",
+ "generated": "2026-08-15T14:59:33+00:00",
+ "ladder": {
+  "vault_read_sessions": 125,
+  "vault_read_sessions_with_work": 62,
+  "source_read_sessions": 45,
+  "source_read_sessions_with_work": 26,
+  "obs_read_and_modified": 55,
+  "obs_modified_vault_only": 49,
+  "distinct_source_notes_read": 57
+ },
+ "briefs": {
+  "briefs_scanned": 56,
+  "genuine_wikilinks": 2,
+  "distinct_wikilink_targets": 1,
+  "path_refs": 13,
+  "distinct_path_targets": 9,
+  "source_note_refs": 1
+ },
+ "source_read_sessions": [
+  {
+   "project": "ytk",
+   "date": "2026-04-21",
+   "produced_work": false
+  },
+  {
+   "project": "epicmap",
+   "date": "2026-05-05",
+   "produced_work": true
+  },
+  {
+   "project": "epicmap",
+   "date": "2026-05-13",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-05-25",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-06-02",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-06-08",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-06-18",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-06-18",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-06-20",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-06-28",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-12",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-12",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-18",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-18",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-19",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-19",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-19",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-19",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-19",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-20",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-20",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-20",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-20",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-20",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-20",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-22",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-23",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-24",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-24",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-27",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-27",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-28",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-29",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-29",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-07-31",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-08-01",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-08-02",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-08-03",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-08-08",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-08-08",
+   "produced_work": false
+  },
+  {
+   "project": "ytk",
+   "date": "2026-08-10",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-08-12",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-08-12",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-08-12",
+   "produced_work": true
+  },
+  {
+   "project": "ytk",
+   "date": "2026-08-15",
+   "produced_work": true
+  }
+ ]
+}
