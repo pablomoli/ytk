@@ -12,6 +12,7 @@ versioned by timestamp; `latest.json` always points at the newest run.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -50,6 +51,25 @@ class Theme(BaseModel):
     # timestamp coverage.
     fresh_note_count: int = 0
     centroid: list[float] | None = None
+    # Stable identity across snapshots (#83): assigned by membership matching
+    # against the previous snapshot, never derived from the LLM label. None
+    # only in snapshots written before the identity layer existed.
+    theme_id: str | None = None
+
+
+class LifecycleEvent(BaseModel):
+    """One identity event between a snapshot and the one it reconciled against.
+
+    Stored at synthesis time, never re-derived at render time: the #83 chart
+    replays these events, so a later matcher change cannot rewrite history.
+    """
+
+    kind: Literal["birth", "death", "merge", "split", "restated"]
+    theme_id: str
+    label: str
+    # merge: theme_ids absorbed into theme_id; split: theme_ids spun out of it.
+    others: list[str] = Field(default_factory=list)
+    detail: str = ""
 
 
 class PortraitClaim(BaseModel):
@@ -118,6 +138,10 @@ class InterestSnapshot(BaseModel):
     # time series can mark the epoch boundary instead of faking a taste event.
     embedding_model: str | None = None
     reanchored_from: str | None = None
+    # Identity layer (#83): lifecycle events vs the snapshot named by
+    # reconciled_from (its generated_at). None = first snapshot in a lineage.
+    events: list[LifecycleEvent] = Field(default_factory=list)
+    reconciled_from: str | None = None
 
 
 class ThemeMatch(BaseModel):

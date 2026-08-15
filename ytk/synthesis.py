@@ -21,6 +21,7 @@ import numpy as np
 from pydantic import BaseModel
 from sklearn.cluster import KMeans
 
+from . import identity
 from .config import InterestConfig, load_config
 from .interest import (
     ExplicitChannel,
@@ -736,6 +737,14 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     from .store import _TEXT_MODEL
 
     snapshot.embedding_model = _TEXT_MODEL
+    # Stable ids + lifecycle events must be persisted with the snapshot (#83);
+    # a failure here should fail the run, not save an id-less snapshot.
+    matched_pairs = identity.reconcile(
+        previous,
+        snapshot,
+        old_centroids=_theme_centroids(previous) if previous else None,
+        new_centroids=_theme_centroids(snapshot),
+    )
     snapshot.profile_score = evaluate_snapshot(snapshot, notes, levels, cfg.interest, previous)
     if snapshot.profile_score is None:
         raise ProfileEvaluationUnavailable(
@@ -746,7 +755,9 @@ def run_profile(min_notes: int = 5) -> tuple[InterestSnapshot, Path]:
     profile_path = _write_profile_note(snapshot)
     if previous is not None:
         try:
-            drift = render_drift(diff_snapshots(previous, snapshot))
+            # Drift prose renders from the same reconciliation that stamped the
+            # snapshot's events, so the two can never disagree.
+            drift = render_drift(identity.as_diff(previous, snapshot, matched_pairs))
             profile_path.write_text(
                 profile_path.read_text(encoding="utf-8") + drift, encoding="utf-8"
             )
