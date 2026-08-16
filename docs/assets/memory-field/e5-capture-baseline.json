@@ -4,160 +4,6 @@
   "records": 227,
   "test_pollution": 210,
   "genuine": 17,
-  "genuine_records": [
-    {
-      "ts": "2026-08-02T17:11:51+00:00",
-      "surface": "hub",
-      "url": "https://www.tiktok.com/@itsayyylexis/video/7667936160789826846",
-      "source": "tiktok",
-      "outcome": "ok",
-      "attempt": 1,
-      "duration_s": 58.5,
-      "note_found": true
-    },
-    {
-      "ts": "2026-08-02T17:12:44+00:00",
-      "surface": "hub",
-      "url": "https://www.tiktok.com/@fortnitegoat438/video/7661719586319961375",
-      "source": "tiktok",
-      "outcome": "ok",
-      "attempt": 1,
-      "duration_s": 49.6,
-      "note_found": true
-    },
-    {
-      "ts": "2026-08-02T17:13:29+00:00",
-      "surface": "hub",
-      "url": "https://www.tiktok.com/@kadenwatson11/video/7656576769092291853",
-      "source": "tiktok",
-      "outcome": "ok",
-      "attempt": 1,
-      "duration_s": 42.5,
-      "note_found": true
-    },
-    {
-      "ts": "2026-08-02T17:14:11+00:00",
-      "surface": "hub",
-      "url": "https://www.tiktok.com/@user7902145032326/video/7658600019087478046",
-      "source": "tiktok",
-      "outcome": "ok",
-      "attempt": 1,
-      "duration_s": 38.3,
-      "note_found": true
-    },
-    {
-      "ts": "2026-08-02T17:17:27+00:00",
-      "surface": "hub",
-      "url": "https://www.tiktok.com/@bamks/video/7653920864416632095",
-      "source": "tiktok",
-      "outcome": "error",
-      "error": "add exited with code 1",
-      "attempt": 1,
-      "duration_s": 192.7
-    },
-    {
-      "ts": "2026-08-02T17:19:05+00:00",
-      "surface": "hub",
-      "url": "https://www.tiktok.com/@kwrt_/video/7663338852911762702",
-      "source": "tiktok",
-      "outcome": "ok",
-      "attempt": 1,
-      "duration_s": 94.9,
-      "note_found": true
-    },
-    {
-      "ts": "2026-08-02T17:19:20+00:00",
-      "surface": "hub",
-      "url": "imessage:session:84165581bc05ef5d",
-      "source": "imessage",
-      "outcome": "ok",
-      "attempt": 1,
-      "duration_s": 11.9,
-      "note_found": true
-    },
-    {
-      "ts": "2026-08-02T17:19:49+00:00",
-      "surface": "hub",
-      "url": "imessage:session:f19d0541b1268409",
-      "source": "imessage",
-      "outcome": "ok",
-      "attempt": 1,
-      "duration_s": 26.1,
-      "note_found": true
-    },
-    {
-      "ts": "2026-08-03T04:04:03+00:00",
-      "surface": "feed",
-      "url": "https://www.youtube.com/watch?v=d6tp43wZqps",
-      "source": "youtube",
-      "outcome": "ok",
-      "duration_s": 139.4
-    },
-    {
-      "ts": "2026-08-03T04:06:47+00:00",
-      "surface": "feed",
-      "url": "https://www.youtube.com/watch?v=8SABptOYUVk",
-      "source": "youtube",
-      "outcome": "ok",
-      "duration_s": 163.7
-    },
-    {
-      "ts": "2026-08-03T04:09:05+00:00",
-      "surface": "feed",
-      "url": "https://www.youtube.com/watch?v=uFWJuZQLKJs",
-      "source": "youtube",
-      "outcome": "ok",
-      "duration_s": 138.0
-    },
-    {
-      "ts": "2026-08-03T04:11:00+00:00",
-      "surface": "feed",
-      "url": "https://www.youtube.com/watch?v=WGccIFf6MF8",
-      "source": "youtube",
-      "outcome": "ok",
-      "duration_s": 115.1
-    },
-    {
-      "ts": "2026-08-03T04:13:33+00:00",
-      "surface": "feed",
-      "url": "https://www.youtube.com/watch?v=IEsIXui-YS8",
-      "source": "youtube",
-      "outcome": "ok",
-      "duration_s": 153.6
-    },
-    {
-      "ts": "2026-08-03T04:15:44+00:00",
-      "surface": "feed",
-      "url": "https://www.youtube.com/watch?v=PjKlMXhxtTM",
-      "source": "youtube",
-      "outcome": "ok",
-      "duration_s": 131.1
-    },
-    {
-      "ts": "2026-08-03T04:17:09+00:00",
-      "surface": "feed",
-      "url": "https://www.youtube.com/watch?v=6WjnRyYLmM4",
-      "source": "youtube",
-      "outcome": "ok",
-      "duration_s": 84.1
-    },
-    {
-      "ts": "2026-08-03T04:19:18+00:00",
-      "surface": "feed",
-      "url": "https://www.youtube.com/watch?v=TkwXa7Cvfr8",
-      "source": "youtube",
-      "outcome": "ok",
-      "duration_s": 129.3
-    },
-    {
-      "ts": "2026-08-03T04:22:26+00:00",
-      "surface": "feed",
-      "url": "https://www.youtube.com/watch?v=E72DWgKP_1Y",
-      "source": "youtube",
-      "outcome": "ok",
-      "duration_s": 187.6
-    }
-  ],
   "verified_ok": 7,
   "ok_unverifiable": 9,
   "silent_partials": 0,
@@ -190,5 +36,15 @@
   "instrument_defects": [
     "test suites append to the production log: YTK_CAPTURE_LOG is never set to 'off' under pytest, so 195/212 records are fixtures",
     "the feed surface logs note_found=None: the silent-loss class is unmeasured on the bulk path #148 targets"
-  ]
+  ],
+  "genuine_by_source": {
+    "tiktok": 6,
+    "imessage": 2,
+    "youtube": 9
+  },
+  "genuine_by_outcome": {
+    "ok": 16,
+    "error": 1
+  },
+  "note": "Per-record URLs removed 2026-08-16; aggregates retained."
 }
