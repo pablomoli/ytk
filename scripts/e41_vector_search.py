@@ -219,6 +219,7 @@ def figures() -> None:
         DPI,
         GOLD,
         MARGIN,
+        RED,
         figure,
         frame_panels,
         panel_title,
@@ -321,12 +322,126 @@ def figures() -> None:
     fig.savefig(out, dpi=DPI, facecolor=BG)
     print(f"wrote {out}")
 
+    rung0_path = ASSETS / "rung0.json"
+    if not rung0_path.exists():
+        return
+    r0 = json.loads(rung0_path.read_text())
+    n18, ms18 = 18728, r0["baseline_18k_p50_ms"]
+    n10m = r0["n_vectors"]
+    single_ms = r0["single_query_s"]["p50"] * 1000
+    batched_ms = r0["batched"]["per_query_ms"]
+    gbps = r0["corpus_gb"] / r0["single_query_s"]["p50"]
+
+    fig, top = figure(
+        15.0,
+        6.6,
+        3,
+        "the wall",
+        "Exact search falls off a cliff, and the cliff is the disk",
+        f"{n10m:,} synthetic vectors · {r0['corpus_gb']}GB streamed per sweep · effective {gbps:.2f}GB/s · "
+        f"single {single_ms / 1000:.0f}s · batched x{r0['batched']['n_queries']} {batched_ms / 1000:.1f}s/query · "
+        f"18k baseline {ms18:.2f}ms · {sha}",
+    )
+    gs = fig.add_gridspec(1, 1, left=0.07, right=1 - MARGIN - 0.01, top=top, bottom=0.14)
+    ax = fig.add_subplot(gs[0])
+    style_axes(ax)
+    panel_title(ax, "exact top-10 latency vs corpus size — measured points, log-log")
+
+    ax.loglog([n18, n10m], [ms18, single_ms], color=GOLD, lw=1.4, ls=":", alpha=0.7)
+    ax.loglog([n18], [ms18], "o", color=GOLD, ms=9)
+    ax.loglog(
+        [n10m], [single_ms], "o", color=GOLD, ms=9, label="single query — one full sweep each"
+    )
+    ax.loglog(
+        [n10m], [batched_ms], "s", color=BLUE, ms=9, label="batched — 20 queries share one sweep"
+    )
+    ax.axhline(100, color=RED, lw=1.4, ls="--")
+    ax.text(n18 * 1.1, 118, "the Exa target: 1B vectors under 100ms", color=RED, fontsize=9)
+    ax.annotate(
+        "534x more vectors,\n63,000x slower",
+        xy=(n10m, single_ms),
+        xytext=(n10m / 60, single_ms / 3),
+        color="#eceae7",
+        fontsize=9,
+        ha="right",
+        arrowprops={"arrowstyle": "-", "color": "#9a968f", "lw": 0.8},
+    )
+    ax.set_xlabel("corpus size (vectors)")
+    ax.set_ylabel("latency per query (ms)")
+    ax.legend(framealpha=0.0, labelcolor="#eceae7", loc="upper left")
+
+    verdict(fig, "the sweep is the disk: compute rides free — 20 queries cost one query")
+    frame_panels(fig)
+    out = ASSETS / "03-the-wall.png"
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    print(f"wrote {out}")
+
+
+def _chunked_topk(mm: np.memmap, queries: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+    """Exact top-k of queries against the memmap, one chunked sweep."""
+    nq = len(queries)
+    best_s = np.full((nq, k), -np.inf, dtype=np.float32)
+    best_i = np.zeros((nq, k), dtype=np.int64)
+    qt = queries.T.astype(np.float32)
+    for start in range(0, mm.shape[0], CHUNK):
+        chunk = np.asarray(mm[start : start + CHUNK])
+        scores = chunk @ qt  # (chunk, nq)
+        for q in range(nq):
+            s = scores[:, q]
+            idx = np.argpartition(s, -k)[-k:]
+            cand_s = np.concatenate([best_s[q], s[idx]])
+            cand_i = np.concatenate([best_i[q], idx + start])
+            keep = np.argsort(cand_s)[-k:]
+            best_s[q], best_i[q] = cand_s[keep], cand_i[keep]
+    return best_s, best_i
+
+
+def rung0() -> None:
+    """Exact brute force at 10M: single-query sweeps vs one batched sweep."""
+    mm = np.memmap(DATA_DIR / "synthetic-10m.f32", dtype=np.float32, mode="r").reshape(N_FULL, 1024)
+    rng = np.random.default_rng(SEED + 2)
+
+    real, mu, scaled_vt = _fit_real()
+    q_real = real[rng.choice(len(real), 10, replace=False)]
+    q_syn = _gen_chunk(rng, 10, mu, scaled_vt)  # held out: fresh draws, not memmap rows
+    queries = np.vstack([q_real, q_syn]).astype(np.float32)
+
+    single_s: list[float] = []
+    for q in queries[:5]:
+        t = time.perf_counter()
+        _chunked_topk(mm, q[None, :], K)
+        single_s.append(time.perf_counter() - t)
+
+    t = time.perf_counter()
+    _chunked_topk(mm, queries, K)
+    batched_total = time.perf_counter() - t
+
+    out = {
+        "stamp": time.strftime("%Y-%m-%d"),
+        "step": "rung0-brute-10m",
+        "n_vectors": N_FULL,
+        "dim": 1024,
+        "corpus_gb": round((DATA_DIR / "synthetic-10m.f32").stat().st_size / 2**30, 1),
+        "single_query_s": {"samples": single_s, "p50": float(np.median(single_s))},
+        "batched": {
+            "n_queries": len(queries),
+            "total_s": batched_total,
+            "per_query_ms": batched_total / len(queries) * 1000,
+        },
+        "baseline_18k_p50_ms": json.loads((ASSETS / "baseline.json").read_text())["brute_force"][
+            "p50_ms"
+        ],
+    }
+    (ASSETS / "rung0.json").write_text(json.dumps(out, indent=2) + "\n")
+    print(json.dumps({k: v for k, v in out.items() if k != "stamp"}, indent=2))
+
 
 if __name__ == "__main__":
     cmds = {
         "baseline": baseline,
         "synthetic": synthetic,
         "generate-full": generate_full,
+        "rung0": rung0,
         "figures": figures,
     }
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
