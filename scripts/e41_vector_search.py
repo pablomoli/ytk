@@ -110,6 +110,102 @@ def baseline() -> None:
     print(f"wrote {path}")
 
 
+DATA_DIR = Path.home() / ".ytk" / "e41"
+N_FULL = 10_000_000
+CHUNK = 250_000  # 250k x 1024 f32 = 1GB working set; 16GB machine with neighbors
+MATCH_SAMPLE = 4000
+MATCH_PAIRS = 20000
+
+
+def _fit_real() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Mean + PCA basis scaled to reproduce the real covariance under Gaussian sampling."""
+    matrix, _, _ = _pull_vectors()
+    normed = matrix / np.linalg.norm(matrix, axis=1, keepdims=True)
+    mu = normed.mean(axis=0)
+    centered = normed - mu
+    _, s, vt = np.linalg.svd(centered, full_matrices=False)
+    sigma = s / np.sqrt(len(normed) - 1)
+    return normed, mu, (sigma[:, None] * vt)
+
+
+def _gen_chunk(
+    rng: np.random.Generator, n: int, mu: np.ndarray, scaled_vt: np.ndarray
+) -> np.ndarray:
+    z = rng.standard_normal((n, scaled_vt.shape[0]), dtype=np.float32)
+    x = z @ scaled_vt.astype(np.float32) + mu.astype(np.float32)
+    return x / np.linalg.norm(x, axis=1, keepdims=True)
+
+
+def _pair_cosines(rng: np.random.Generator, rows: np.ndarray, n_pairs: int) -> np.ndarray:
+    i = rng.integers(0, len(rows), n_pairs)
+    j = rng.integers(0, len(rows), n_pairs)
+    keep = i != j
+    return np.einsum("ij,ij->i", rows[i[keep]], rows[j[keep]])
+
+
+def _participation_ratio(rows: np.ndarray) -> float:
+    c = rows - rows.mean(axis=0)
+    lam = np.linalg.svd(c, compute_uv=False) ** 2
+    return float(lam.sum() ** 2 / (lam**2).sum())
+
+
+def synthetic() -> None:
+    """Pilot: fit the real geometry, sample synthetics, measure the match."""
+    rng = np.random.default_rng(SEED)
+    normed, mu, scaled_vt = _fit_real()
+    syn = _gen_chunk(rng, MATCH_SAMPLE, mu, scaled_vt)
+
+    real_idx = rng.choice(len(normed), MATCH_SAMPLE, replace=False)
+    real = normed[real_idx]
+
+    out = {
+        "stamp": time.strftime("%Y-%m-%d"),
+        "step": "synthetic-pilot",
+        "fit_n": len(normed),
+        "dim": int(normed.shape[1]),
+        "match_sample": MATCH_SAMPLE,
+        "cos_to_mean": {
+            "real": (real @ (mu / np.linalg.norm(mu))).tolist(),
+            "synthetic": (syn @ (mu / np.linalg.norm(mu))).tolist(),
+        },
+        "pairwise_cos": {
+            "real": _pair_cosines(rng, real, MATCH_PAIRS).tolist(),
+            "synthetic": _pair_cosines(rng, syn, MATCH_PAIRS).tolist(),
+        },
+        "participation_ratio": {
+            "real": _participation_ratio(real),
+            "synthetic": _participation_ratio(syn),
+        },
+        "spectrum_top64": {
+            "real": np.linalg.svd(real - real.mean(0), compute_uv=False)[:64].tolist(),
+            "synthetic": np.linalg.svd(syn - syn.mean(0), compute_uv=False)[:64].tolist(),
+        },
+    }
+    ASSETS.mkdir(parents=True, exist_ok=True)
+    (ASSETS / "match.json").write_text(json.dumps(out) + "\n")
+    pr = out["participation_ratio"]
+    print(f"PR real {pr['real']:.1f} vs synthetic {pr['synthetic']:.1f}")
+    print(f"wrote {ASSETS / 'match.json'}")
+
+
+def generate_full() -> None:
+    """Write the full 10M synthetic corpus as a float32 memmap (not in the repo)."""
+    rng = np.random.default_rng(SEED + 1)
+    _, mu, scaled_vt = _fit_real()
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    path = DATA_DIR / "synthetic-10m.f32"
+    mm = np.memmap(path, dtype=np.float32, mode="w+", shape=(N_FULL, scaled_vt.shape[1]))
+    t0 = time.perf_counter()
+    for start in range(0, N_FULL, CHUNK):
+        n = min(CHUNK, N_FULL - start)
+        mm[start : start + n] = _gen_chunk(rng, n, mu, scaled_vt)
+        if (start // CHUNK) % 4 == 0:
+            done = start + n
+            print(f"{done:,}/{N_FULL:,}  {time.perf_counter() - t0:.0f}s", flush=True)
+    mm.flush()
+    print(f"wrote {path} ({path.stat().st_size / 2**30:.1f}GB) in {time.perf_counter() - t0:.0f}s")
+
+
 def figures() -> None:
     import subprocess
 
@@ -172,9 +268,67 @@ def figures() -> None:
     fig.savefig(out, dpi=DPI, facecolor=BG)
     print(f"wrote {out}")
 
+    match_path = ASSETS / "match.json"
+    if not match_path.exists():
+        return
+    m = json.loads(match_path.read_text())
+    pr_r, pr_s = m["participation_ratio"]["real"], m["participation_ratio"]["synthetic"]
+    pw_r = np.asarray(m["pairwise_cos"]["real"])
+    pw_s = np.asarray(m["pairwise_cos"]["synthetic"])
+    cm_r = np.asarray(m["cos_to_mean"]["real"])
+    cm_s = np.asarray(m["cos_to_mean"]["synthetic"])
+
+    fig, top = figure(
+        15.0,
+        6.6,
+        2,
+        "the impostor corpus",
+        "Does the synthetic corpus wear the real geometry?",
+        f"fit on {m['fit_n']:,} production vectors · {m['match_sample']:,}-vector samples · "
+        f"pairwise cos mean {pw_r.mean():.3f} real / {pw_s.mean():.3f} synthetic · "
+        f"participation ratio {pr_r:.0f} / {pr_s:.0f} · {sha}",
+    )
+    gs = fig.add_gridspec(
+        1, 3, left=0.055, right=1 - MARGIN - 0.01, top=top, bottom=0.14, wspace=0.24
+    )
+    for k, (ptitle, r_arr, s_arr) in enumerate(
+        (
+            ("pairwise cosine between two vectors", pw_r, pw_s),
+            ("cosine to the real corpus mean — the cone", cm_r, cm_s),
+        )
+    ):
+        ax = fig.add_subplot(gs[k])
+        style_axes(ax)
+        panel_title(ax, ptitle)
+        bins = np.linspace(min(r_arr.min(), s_arr.min()), max(r_arr.max(), s_arr.max()), 60)
+        ax.hist(r_arr, bins=bins, color=GOLD, alpha=0.9, density=True, label="real")
+        ax.hist(s_arr, bins=bins, color=BLUE, alpha=0.62, density=True, label="synthetic")
+        ax.set_xlabel("cosine")
+        ax.legend(framealpha=0.0, labelcolor="#eceae7")
+    ax = fig.add_subplot(gs[2])
+    style_axes(ax)
+    panel_title(ax, "covariance spectrum, top 64 components")
+    ax.plot(m["spectrum_top64"]["real"], color=GOLD, lw=2.0, label="real")
+    ax.plot(m["spectrum_top64"]["synthetic"], color=BLUE, lw=2.0, label="synthetic")
+    ax.set_xlabel("component")
+    ax.set_ylabel("singular value")
+    ax.legend(framealpha=0.0, labelcolor="#eceae7")
+
+    dm = abs(pw_r.mean() - pw_s.mean())
+    verdict(fig, f"pairwise-cos means within {dm:.4f} — the impostor passes; rung 0 may run")
+    frame_panels(fig)
+    out = ASSETS / "02-the-impostor-corpus.png"
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    print(f"wrote {out}")
+
 
 if __name__ == "__main__":
-    cmds = {"baseline": baseline, "figures": figures}
+    cmds = {
+        "baseline": baseline,
+        "synthetic": synthetic,
+        "generate-full": generate_full,
+        "figures": figures,
+    }
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
         sys.exit(__doc__)
     cmds[sys.argv[1]]()
