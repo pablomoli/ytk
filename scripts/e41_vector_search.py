@@ -436,12 +436,217 @@ def rung0() -> None:
     print(json.dumps({k: v for k, v in out.items() if k != "stamp"}, indent=2))
 
 
+N_GT_QUERIES = 1000
+GT_K = 100
+Q_BLOCK = 250  # 250k-row chunk x 250 query cols = 250MB of scores
+
+
+def ground_truth() -> None:
+    """Exact top-100 for 1000 queries (500 real, 500 held-out synthetic) — the referee file."""
+    mm = np.memmap(DATA_DIR / "synthetic-10m.f32", dtype=np.float32, mode="r").reshape(N_FULL, 1024)
+    rng = np.random.default_rng(SEED + 3)
+    real, mu, scaled_vt = _fit_real()
+    q_real = real[rng.choice(len(real), N_GT_QUERIES // 2, replace=False)]
+    q_syn = _gen_chunk(rng, N_GT_QUERIES // 2, mu, scaled_vt)
+    queries = np.vstack([q_real, q_syn]).astype(np.float32)
+
+    t0 = time.perf_counter()
+    all_i = np.zeros((N_GT_QUERIES, GT_K), dtype=np.int64)
+    for b in range(0, N_GT_QUERIES, Q_BLOCK):
+        _, idx = _chunked_topk(mm, queries[b : b + Q_BLOCK], GT_K)
+        all_i[b : b + Q_BLOCK] = idx
+        print(f"queries {b + Q_BLOCK}/{N_GT_QUERIES}  {time.perf_counter() - t0:.0f}s", flush=True)
+
+    np.save(DATA_DIR / "gt-queries.npy", queries)
+    np.save(DATA_DIR / "gt-top100.npy", all_i)
+    print(f"ground truth done in {time.perf_counter() - t0:.0f}s -> {DATA_DIR}")
+
+
+def _recall_at_10(found: np.ndarray, gt_top100: np.ndarray) -> float:
+    """Fraction of the true top-10 recovered, averaged over queries."""
+    hits = 0
+    for f, g in zip(found, gt_top100):
+        hits += len(set(f[:10].tolist()) & set(g[:10].tolist()))
+    return hits / (len(found) * 10)
+
+
+def rung1_quantize() -> None:
+    """int8 with per-vector scale: 4x less to stream, recall priced later."""
+    mm = np.memmap(DATA_DIR / "synthetic-10m.f32", dtype=np.float32, mode="r").reshape(N_FULL, 1024)
+    out = np.memmap(DATA_DIR / "synthetic-10m.i8", dtype=np.int8, mode="w+", shape=(N_FULL, 1024))
+    scales = np.zeros(N_FULL, dtype=np.float32)
+    t0 = time.perf_counter()
+    for start in range(0, N_FULL, CHUNK):
+        chunk = np.asarray(mm[start : start + CHUNK])
+        vmax = np.abs(chunk).max(axis=1)
+        scales[start : start + CHUNK] = vmax / 127.0
+        out[start : start + CHUNK] = np.round(chunk / (vmax[:, None] / 127.0)).astype(np.int8)
+    out.flush()
+    np.save(DATA_DIR / "scales.npy", scales)
+    print(f"quantized in {time.perf_counter() - t0:.0f}s")
+
+
+def _int8_topk(queries: np.ndarray, k: int) -> tuple[np.ndarray, list[float]]:
+    """Chunked sweep over the int8 memmap; returns indices and per-call seconds."""
+    mm = np.memmap(DATA_DIR / "synthetic-10m.i8", dtype=np.int8, mode="r").reshape(N_FULL, 1024)
+    scales = np.load(DATA_DIR / "scales.npy")
+    nq = len(queries)
+    best_s = np.full((nq, k), -np.inf, dtype=np.float32)
+    best_i = np.zeros((nq, k), dtype=np.int64)
+    qt = queries.T.astype(np.float32)
+    t0 = time.perf_counter()
+    for start in range(0, N_FULL, CHUNK):
+        chunk = np.asarray(mm[start : start + CHUNK]).astype(np.float32)
+        scores = (chunk @ qt) * scales[start : start + CHUNK, None]
+        for q in range(nq):
+            s = scores[:, q]
+            idx = np.argpartition(s, -k)[-k:]
+            cand_s = np.concatenate([best_s[q], s[idx]])
+            cand_i = np.concatenate([best_i[q], idx + start])
+            keep = np.argsort(cand_s)[-k:]
+            best_s[q], best_i[q] = cand_s[keep], cand_i[keep]
+    return best_i, [time.perf_counter() - t0]
+
+
+def rung1() -> None:
+    queries = np.load(DATA_DIR / "gt-queries.npy")
+    gt = np.load(DATA_DIR / "gt-top100.npy")
+
+    single_s = []
+    for q in queries[:3]:
+        _, t = _int8_topk(q[None, :], K)
+        single_s.append(t[0])
+
+    found = np.zeros((N_GT_QUERIES, K), dtype=np.int64)
+    t0 = time.perf_counter()
+    for b in range(0, N_GT_QUERIES, Q_BLOCK):
+        idx, _ = _int8_topk(queries[b : b + Q_BLOCK], K)
+        found[b : b + Q_BLOCK] = idx
+    recall_sweep_s = time.perf_counter() - t0
+
+    out = {
+        "stamp": time.strftime("%Y-%m-%d"),
+        "step": "rung1-int8",
+        "bytes_per_vector": 1024 + 4,
+        "corpus_gb": round((DATA_DIR / "synthetic-10m.i8").stat().st_size / 2**30, 1),
+        "single_query_s": {"samples": single_s, "p50": float(np.median(single_s))},
+        "recall_at_10": {
+            "all": _recall_at_10(found, gt),
+            "real_queries": _recall_at_10(found[:500], gt[:500]),
+            "synthetic_queries": _recall_at_10(found[500:], gt[500:]),
+        },
+        "recall_sweep_s": recall_sweep_s,
+    }
+    (ASSETS / "rung1.json").write_text(json.dumps(out, indent=2) + "\n")
+    print(json.dumps(out, indent=2))
+
+
+PQ_M = 64  # subspaces of 16 dims
+PQ_KS = 256
+PQ_TRAIN = 500_000
+PQ_ITERS = 15
+
+
+def rung2_train() -> None:
+    """Train PQ codebooks on a sample, encode all 10M to 64-byte codes."""
+    mm = np.memmap(DATA_DIR / "synthetic-10m.f32", dtype=np.float32, mode="r").reshape(N_FULL, 1024)
+    rng = np.random.default_rng(SEED + 4)
+    sample = np.asarray(mm[rng.choice(N_FULL, PQ_TRAIN, replace=False)])
+
+    d_sub = 1024 // PQ_M
+    books = np.zeros((PQ_M, PQ_KS, d_sub), dtype=np.float32)
+    t0 = time.perf_counter()
+    for m in range(PQ_M):
+        x = sample[:, m * d_sub : (m + 1) * d_sub]
+        cb = x[rng.choice(len(x), PQ_KS, replace=False)].copy()
+        for _ in range(PQ_ITERS):
+            d2 = (
+                ((x[:, None, :] - cb[None]) ** 2).sum(-1)
+                if False
+                else ((x**2).sum(1)[:, None] - 2 * x @ cb.T + (cb**2).sum(1)[None])
+            )
+            assign = d2.argmin(1)
+            for j in range(PQ_KS):
+                mask = assign == j
+                if mask.any():
+                    cb[j] = x[mask].mean(0)
+        books[m] = cb
+        if m % 16 == 0:
+            print(f"codebook {m}/{PQ_M}  {time.perf_counter() - t0:.0f}s", flush=True)
+    np.save(DATA_DIR / "pq-books.npy", books)
+
+    codes = np.zeros((N_FULL, PQ_M), dtype=np.uint8)
+    for start in range(0, N_FULL, CHUNK):
+        chunk = np.asarray(mm[start : start + CHUNK])
+        for m in range(PQ_M):
+            x = chunk[:, m * d_sub : (m + 1) * d_sub]
+            cb = books[m]
+            d2 = (x**2).sum(1)[:, None] - 2 * x @ cb.T + (cb**2).sum(1)[None]
+            codes[start : start + CHUNK, m] = d2.argmin(1).astype(np.uint8)
+        if (start // CHUNK) % 8 == 0:
+            print(
+                f"encode {start + CHUNK:,}/{N_FULL:,}  {time.perf_counter() - t0:.0f}s", flush=True
+            )
+    np.save(DATA_DIR / "pq-codes.npy", codes)
+    print(f"PQ train+encode in {time.perf_counter() - t0:.0f}s")
+
+
+def rung2() -> None:
+    """ADC search over the in-RAM 64-byte codes."""
+    books = np.load(DATA_DIR / "pq-books.npy")
+    codes = np.load(DATA_DIR / "pq-codes.npy")  # 640MB, lives in RAM — that is the point
+    queries = np.load(DATA_DIR / "gt-queries.npy")
+    gt = np.load(DATA_DIR / "gt-top100.npy")
+    d_sub = 1024 // PQ_M
+
+    def search_one(q: np.ndarray) -> np.ndarray:
+        lut = np.einsum("mkd,md->mk", books, q.reshape(PQ_M, d_sub))  # dot-product ADC
+        scores = np.zeros(N_FULL, dtype=np.float32)
+        for start in range(0, N_FULL, 2_000_000):
+            block = codes[start : start + 2_000_000]
+            scores[start : start + 2_000_000] = lut[np.arange(PQ_M)[None, :], block].sum(1)
+        return np.argpartition(scores, -K)[-K:]
+
+    single_s = []
+    for q in queries[:5]:
+        t = time.perf_counter()
+        search_one(q)
+        single_s.append(time.perf_counter() - t)
+
+    found = np.zeros((N_GT_QUERIES, K), dtype=np.int64)
+    t0 = time.perf_counter()
+    for i, q in enumerate(queries):
+        found[i] = search_one(q)
+    all_s = time.perf_counter() - t0
+
+    out = {
+        "stamp": time.strftime("%Y-%m-%d"),
+        "step": "rung2-pq",
+        "bytes_per_vector": PQ_M,
+        "corpus_gb": round(codes.nbytes / 2**30, 2),
+        "single_query_s": {"samples": single_s, "p50": float(np.median(single_s))},
+        "recall_at_10": {
+            "all": _recall_at_10(found, gt),
+            "real_queries": _recall_at_10(found[:500], gt[:500]),
+            "synthetic_queries": _recall_at_10(found[500:], gt[500:]),
+        },
+        "all_queries_s": all_s,
+    }
+    (ASSETS / "rung2.json").write_text(json.dumps(out, indent=2) + "\n")
+    print(json.dumps(out, indent=2))
+
+
 if __name__ == "__main__":
     cmds = {
         "baseline": baseline,
         "synthetic": synthetic,
         "generate-full": generate_full,
         "rung0": rung0,
+        "ground-truth": ground_truth,
+        "rung1-quantize": rung1_quantize,
+        "rung1": rung1,
+        "rung2-train": rung2_train,
+        "rung2": rung2,
         "figures": figures,
     }
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
