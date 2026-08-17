@@ -66,6 +66,7 @@ def baseline() -> None:
     q_idx = rng.choice(n, size=N_QUERIES, replace=False)
 
     brute_ms: list[float] = []
+    _ = normed @ normed[int(q_idx[0])]  # untimed warmup: first matmul pays BLAS setup
     for qi in q_idx:
         q = normed[qi]
         t = time.perf_counter()
@@ -77,6 +78,10 @@ def baseline() -> None:
 
     chroma_ms: list[float] = []
     colls = {name: getter() for name, getter in BASES.items()}
+    for (
+        coll
+    ) in colls.values():  # untimed warmup: first query per collection pays connection + cache costs
+        coll.query(query_embeddings=[matrix[0].tolist()], n_results=1)
     for qi in q_idx:
         q = matrix[qi].tolist()
         t = time.perf_counter()
@@ -96,6 +101,7 @@ def baseline() -> None:
         "k": K,
         "brute_force": _pctl(brute_ms),
         "chroma_three_collections": _pctl(chroma_ms),
+        "samples_ms": {"brute": brute_ms, "chroma": chroma_ms},
     }
     ASSETS.mkdir(parents=True, exist_ok=True)
     path = ASSETS / "baseline.json"
@@ -104,7 +110,71 @@ def baseline() -> None:
     print(f"wrote {path}")
 
 
+def figures() -> None:
+    import subprocess
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+
+    from plot_assets import (
+        BG,
+        BLUE,
+        DPI,
+        GOLD,
+        MARGIN,
+        figure,
+        frame_panels,
+        panel_title,
+        style_axes,
+        verdict,
+    )
+
+    d = json.loads((ASSETS / "baseline.json").read_text())
+    brute = np.asarray(d["samples_ms"]["brute"])
+    chroma = np.asarray(d["samples_ms"]["chroma"])
+    sha = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True
+    ).stdout.strip()
+    ratio = d["chroma_three_collections"]["p50_ms"] / d["brute_force"]["p50_ms"]
+
+    fig, top = figure(
+        15.0,
+        6.6,
+        1,
+        "the baseline",
+        "At this scale, doing nothing clever wins",
+        f"{d['n_vectors']:,} vectors · {d['dim']}d · {d['n_queries']} production queries · k={d['k']} · "
+        f"exact p50 {d['brute_force']['p50_ms']:.2f}ms / p99 {d['brute_force']['p99_ms']:.2f}ms · "
+        f"chroma p50 {d['chroma_three_collections']['p50_ms']:.1f}ms / p99 "
+        f"{d['chroma_three_collections']['p99_ms']:.1f}ms · {sha}",
+    )
+    gs = fig.add_gridspec(1, 1, left=0.085, right=1 - MARGIN - 0.02, top=top, bottom=0.13)
+    ax = fig.add_subplot(gs[0])
+    style_axes(ax)
+    panel_title(ax, "per-query latency — exact brute force vs the production index path")
+
+    bins = np.linspace(0, max(chroma.max(), brute.max()) * 1.04, 70)
+    ax.hist(brute, bins=bins, color=GOLD, alpha=0.92, label="exact — one normalized matmul")
+    ax.hist(chroma, bins=bins, color=BLUE, alpha=0.85, label="Chroma — 3 collections, HNSW + HTTP")
+    for arr, color in ((brute, GOLD), (chroma, BLUE)):
+        ax.axvline(float(np.percentile(arr, 50)), color=color, lw=1.2, ls="--", alpha=0.8)
+    ax.set_xlabel("latency per query (ms)")
+    ax.set_ylabel("queries")
+    ax.legend(framealpha=0.0, labelcolor="#eceae7")
+    ax.margins(x=0.01)
+
+    verdict(
+        fig, f"exact search beats the production index {ratio:.1f}x — the index pays no rent at 18k"
+    )
+    frame_panels(fig)
+    out = ASSETS / "01-the-baseline.png"
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    print(f"wrote {out}")
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2 or sys.argv[1] != "baseline":
+    cmds = {"baseline": baseline, "figures": figures}
+    if len(sys.argv) < 2 or sys.argv[1] not in cmds:
         sys.exit(__doc__)
-    baseline()
+    cmds[sys.argv[1]]()
