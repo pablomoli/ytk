@@ -1075,6 +1075,28 @@ def test_hydrate_pending_skips_already_stamped(hub, monkeypatch):
     assert hub.hydrate_pending(state, limit=10) == 0
 
 
+def test_hydrate_pending_refused_sources_do_not_eat_budget(hub, monkeypatch):
+    state = reels.ReelsState()
+    state.pending.append(reels.ReelItem(url="https://example.com/old", source="web"))
+    state.pending.append(reels.ReelItem(url="https://www.tiktok.com/@u/video/1", source="tiktok"))
+    for i in range(3):
+        state.pending.append(
+            reels.ReelItem(url=f"https://www.instagram.com/reel/{i}/", source="instagram")
+        )
+    seen = []
+
+    def fake_hydrate(item, **kwargs):
+        seen.append(item.url)
+        item.hydrated_at = "2026-08-17"
+        return False
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", fake_hydrate)
+    assert hub.hydrate_pending(state, limit=2) == 1
+    assert seen == ["https://example.com/old"]
+    # refused rows stay unstamped so a future authenticated fetcher still finds them
+    assert all(i.hydrated_at is None for i in state.pending[1:])
+
+
 def test_refresh_sources_hydrates_pending_backfill(hub, monkeypatch):
     _quiet_other_sources(hub, monkeypatch)
     monkeypatch.setattr(hub, "IM_FETCH", list)

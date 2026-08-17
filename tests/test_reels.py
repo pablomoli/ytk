@@ -527,6 +527,68 @@ def test_extract_items_bare_text_has_url_only():
     assert items[0].preview_url is None
 
 
+def _clip_with_media(msg_id: str, code: str, caption: str, title: str = ""):
+    return SimpleNamespace(
+        id=msg_id,
+        item_type="clip",
+        clip=SimpleNamespace(
+            code=code,
+            caption_text=caption,
+            title=title,
+            user=SimpleNamespace(username="someone"),
+            thumbnail_url="https://cdn.example/t.jpg",
+        ),
+    )
+
+
+def test_extract_items_captures_clip_caption_as_text():
+    from ytk.reels import extract_items
+
+    msg = _clip_with_media("1", "AbC", "The top ML papers from Summer 2026")
+    items = extract_items([msg])
+    assert items[0].text == "The top ML papers from Summer 2026"
+    assert items[0].title is None
+
+
+def test_extract_items_captures_media_share_caption_as_text():
+    from ytk.reels import extract_items
+
+    msg = SimpleNamespace(
+        id="1",
+        item_type="media_share",
+        media_share=SimpleNamespace(
+            code="XyZ99",
+            caption_text="A banger nature paper about electronics",
+            user=SimpleNamespace(username="ffppod"),
+            thumbnail_url=None,
+        ),
+    )
+    items = extract_items([msg])
+    assert items[0].text == "A banger nature paper about electronics"
+
+
+def test_extract_items_empty_caption_stays_none():
+    from ytk.reels import extract_items
+
+    items = extract_items([_clip_with_media("1", "AbC", "")])
+    assert items[0].text is None
+
+
+def test_extract_items_captures_igtv_title():
+    from ytk.reels import extract_items
+
+    items = extract_items([_clip_with_media("1", "AbC", "cap", title="How memristors work")])
+    assert items[0].title == "How memristors work"
+
+
+def test_extract_items_tolerates_media_without_caption_field():
+    from ytk.reels import extract_items
+
+    items = extract_items([_clip("1", "AbC")])
+    assert items[0].text is None
+    assert items[0].title is None
+
+
 def test_state_round_trip_with_items(tmp_path):
     from ytk.reels import ReelItem
 

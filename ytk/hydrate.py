@@ -103,8 +103,8 @@ def hydrate_item(
     item.hydrate_error = None
     kind = reels.classify_url(item.url)
     # No authenticated fetcher exists for these: an unauthenticated GET returns
-    # login-page junk and would clobber a signed CDN preview_url. Still stamp
-    # hydrated_at so these rows don't eat the backfill budget every cycle.
+    # login-page junk and would clobber a signed CDN preview_url. The backfill
+    # budget guard lives in hydrate_pending, which skips these unstamped.
     if kind in ("instagram", "tiktok"):
         return item.preview_url != old_preview
     fields: dict[str, str | None] = {}

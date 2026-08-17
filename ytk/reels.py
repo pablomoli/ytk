@@ -194,7 +194,7 @@ def extract_items(messages) -> list[ReelItem]:
     items: list[ReelItem] = []
     seen: set[str] = set()
 
-    def add(url: str, message, author=None, preview=None) -> None:
+    def add(url: str, message, author=None, preview=None, text=None, title=None) -> None:
         if url in seen:
             return
         seen.add(url)
@@ -205,6 +205,8 @@ def extract_items(messages) -> list[ReelItem]:
                 author=author,
                 shared_at=ts.strftime("%Y-%m-%d") if ts else None,
                 preview_url=str(preview) if preview else None,
+                text=text or None,
+                title=title or None,
             )
         )
 
@@ -216,6 +218,8 @@ def extract_items(messages) -> list[ReelItem]:
                 m,
                 author=getattr(getattr(clip, "user", None), "username", None),
                 preview=getattr(clip, "thumbnail_url", None),
+                text=getattr(clip, "caption_text", None),
+                title=getattr(clip, "title", None),
             )
         elif m.item_type == "media_share" and getattr(m, "media_share", None):
             share = m.media_share
@@ -224,6 +228,8 @@ def extract_items(messages) -> list[ReelItem]:
                 m,
                 author=getattr(getattr(share, "user", None), "username", None),
                 preview=getattr(share, "thumbnail_url", None),
+                text=getattr(share, "caption_text", None),
+                title=getattr(share, "title", None),
             )
         elif m.item_type.startswith("xma") and getattr(m, "xma_share", None):
             xma = m.xma_share

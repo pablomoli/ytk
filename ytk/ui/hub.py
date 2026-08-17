@@ -720,12 +720,19 @@ def _pull_due(state: reels.ReelsState, source: str, cadence_minutes: dict, force
 
 
 def hydrate_pending(state: reels.ReelsState, limit: int = 25) -> int:
-    """Backfill metadata newest-first; every attempt stamps the item."""
+    """Backfill metadata newest-first; every attempt stamps the item.
+
+    Sources hydrate_item refuses (no authenticated fetcher) are skipped
+    without a budget slot and left unstamped, so the limit reaches rows a
+    fetch can actually repair and a future fetcher still finds the rest.
+    """
     attempted = 0
     for item in reversed(state.pending):
         if attempted >= limit:
             break
         if item.hydrated_at is not None:
+            continue
+        if reels.classify_url(item.url) in ("instagram", "tiktok"):
             continue
         hydrate.hydrate_item(item)
         attempted += 1
