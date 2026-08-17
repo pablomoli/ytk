@@ -1,5 +1,7 @@
 # The 3D Figures, with the Camera Moving
 
+![The 3D claims, one orbit frame each](01-orbit-stills.png)
+
 A static 3D scatter plot can lie. Depth reads as size, points that are far apart line up by accident, and a cluster can be an artifact of where the camera happened to sit. Several claims in this record are about the shape of a point cloud, so they are re-rendered here as orbits: same numbers, camera moving. If a claim survives every angle, the angle was not what produced it.
 
 The cloud is the note collection of `ytk`, my personal knowledge system, which ingests YouTube, Instagram and web content into an Obsidian vault and indexes it for semantic search; each point is one note, positioned by its text embedding.
@@ -44,6 +46,7 @@ Coordinates come from `scripts/manim/space3d.json`, exported from the frozen `ve
 
 ## Files
 
+- `01-orbit-stills.png` — lead still: one orbit frame per scene, composed through `scripts/plot_video_stills.py` (#190)
 - `TheCone.mp4` — video: the corpus, an isotropic control, and the centred corpus
 - `TagInSpace.mp4` — video: `ai-coding` as a region, then `reference` as confetti
 - `CorpusSolid.mp4` — video: 493 notes coloured by source, orbiting

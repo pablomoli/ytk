@@ -126,8 +126,15 @@ def figure(w: float, ht: float, number: int, kicker: str, title: str, meta: str 
         fontweight="bold",
         va="baseline",
     )
+    # offset in inches, not width-fraction: a fraction collapses under the
+    # "FIGURE NN" label on figures narrower than ~13.7in
     fig.text(
-        MARGIN + 0.062, inch(0.40), kicker.upper(), color=MUTED, fontsize=KICKER_SIZE, va="baseline"
+        MARGIN + 0.95 / w,
+        inch(0.40),
+        kicker.upper(),
+        color=MUTED,
+        fontsize=KICKER_SIZE,
+        va="baseline",
     )
     y = 0.78
     for line in lines:

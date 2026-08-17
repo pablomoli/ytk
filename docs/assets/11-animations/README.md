@@ -1,5 +1,7 @@
 # Animated explainers
 
+![The two null-model explainers, one frame each](01-null-and-replay-stills.png)
+
 Two of the experiments in this record turn on an idea that is hard to convey in a table: a null model. These are the animated versions. Both scenes are built from the experiments' own saved data rather than from illustrative stand-ins, so what moves on screen is what was measured — the size-matched null behind the tag-coherence result in [section 10](../10-tag-coherence/README.md), and the replay-curve comparison behind the key-moments result in [section 9](../09-heatmap-key-moments/README.md).
 
 Manim scenes for the two overnight experiments. Every number and every point position is real, loaded from the sidecars in `../09-heatmap-key-moments/` and `../10-tag-coherence/`.
@@ -41,5 +43,6 @@ Only the finished mp4s are committed. Manim's media dir also holds font caches a
 
 ## Files
 
+- `01-null-and-replay-stills.png` — lead still: one fully-drawn frame per scene, composed through `scripts/plot_video_stills.py` (#190)
 - `NullModel.mp4` — video: why a size-matched null is the whole experiment
 - `ReplayCurve.mp4` — video: do generated key moments land where people rewatch
