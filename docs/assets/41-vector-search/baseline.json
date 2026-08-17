@@ -1,0 +1,25 @@
+{
+  "stamp": "2026-08-16",
+  "step": "baseline",
+  "n_vectors": 18728,
+  "dim": 1024,
+  "per_collection": {
+    "videos": 407,
+    "segments": 13551,
+    "memories": 4770
+  },
+  "matrix_mb": 73.2,
+  "pull_seconds": 2.8,
+  "n_queries": 200,
+  "k": 10,
+  "brute_force": {
+    "p50_ms": 1.8303124961676076,
+    "p99_ms": 3.415555419633163,
+    "mean_ms": 1.8885535358276684
+  },
+  "chroma_three_collections": {
+    "p50_ms": 13.158270507119596,
+    "p99_ms": 25.289991018071287,
+    "mean_ms": 14.126523761806311
+  }
+}
