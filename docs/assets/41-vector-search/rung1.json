@@ -1,0 +1,20 @@
+{
+  "stamp": "2026-08-16",
+  "step": "rung1-int8",
+  "bytes_per_vector": 1028,
+  "corpus_gb": 9.5,
+  "single_query_s": {
+    "samples": [
+      32.204785500012804,
+      31.721242041996447,
+      30.658036832988728
+    ],
+    "p50": 31.721242041996447
+  },
+  "recall_at_10": {
+    "all": 0.9836,
+    "real_queries": 0.9822,
+    "synthetic_queries": 0.985
+  },
+  "recall_sweep_s": 263.37085174999083
+}

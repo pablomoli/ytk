@@ -216,6 +216,7 @@ def figures() -> None:
     from plot_assets import (
         BG,
         BLUE,
+        CYAN,
         DPI,
         GOLD,
         MARGIN,
@@ -376,6 +377,66 @@ def figures() -> None:
     fig.savefig(out, dpi=DPI, facecolor=BG)
     print(f"wrote {out}")
 
+    r1p, r2p = ASSETS / "rung1.json", ASSETS / "rung2.json"
+    if not (r1p.exists() and r2p.exists()):
+        return
+    r1, r2 = json.loads(r1p.read_text()), json.loads(r2p.read_text())
+    pts = [
+        ("exact f32", 1.0, r0["single_query_s"]["p50"] * 1000, "38.1GB", GOLD),
+        ("exact f32, batched x20", 1.0, r0["batched"]["per_query_ms"], "38.1GB", GOLD),
+        ("int8", r1["recall_at_10"]["all"], r1["single_query_s"]["p50"] * 1000, "9.5GB", BLUE),
+        (
+            "PQ 64-byte",
+            r2["recall_at_10"]["all"],
+            r2["single_query_s"]["p50"] * 1000,
+            "0.6GB",
+            CYAN,
+        ),
+    ]
+
+    fig, top = figure(
+        15.0,
+        6.6,
+        4,
+        "what speed costs in truth",
+        "The Pareto plane at 10M vectors — every point is a measured trade",
+        f"recall@10 vs exact ground truth (1000 queries) · single-query p50 · "
+        f"int8 {r1['recall_at_10']['all']:.3f} recall at {r1['single_query_s']['p50']:.0f}s · "
+        f"PQ64 {r2['recall_at_10']['all']:.3f} at {r2['single_query_s']['p50']:.1f}s (numpy gather, not SIMD) · {sha}",
+    )
+    gs = fig.add_gridspec(1, 1, left=0.07, right=1 - MARGIN - 0.01, top=top, bottom=0.14)
+    ax = fig.add_subplot(gs[0])
+    style_axes(ax)
+    panel_title(
+        ax, "recall@10 (right is truer) vs latency (down is faster) — labels carry the footprint"
+    )
+
+    ax.set_yscale("log")
+    for name, rec, ms, size, color in pts:
+        ax.plot([rec], [ms], "o", color=color, ms=11)
+        ax.annotate(
+            f"{name}\n{size}",
+            xy=(rec, ms),
+            xytext=(-12, 10),
+            textcoords="offset points",
+            color=color,
+            fontsize=9,
+            ha="right",
+        )
+    ax.axhline(100, color=RED, lw=1.4, ls="--")
+    ax.text(0.06, 130, "the Exa target: under 100ms", color=RED, fontsize=9)
+    ax.set_xlabel("recall@10 against exact ground truth")
+    ax.set_ylabel("latency per query (ms, log)")
+    ax.set_xlim(0, 1.06)
+
+    verdict(
+        fig, "int8 keeps 98% of the truth for 3x the speed; 64 bytes keep 16% — the gap is the work"
+    )
+    frame_panels(fig)
+    out = ASSETS / "04-what-speed-costs.png"
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    print(f"wrote {out}")
+
 
 def _chunked_topk(mm: np.memmap, queries: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
     """Exact top-k of queries against the memmap, one chunked sweep."""
@@ -463,10 +524,14 @@ def ground_truth() -> None:
 
 
 def _recall_at_10(found: np.ndarray, gt_top100: np.ndarray) -> float:
-    """Fraction of the true top-10 recovered, averaged over queries."""
+    """Fraction of the true top-10 recovered, averaged over queries.
+
+    _chunked_topk rows are ascending by score, so the true top-10 sit at
+    the END of each ground-truth row — g[-10:], never g[:10].
+    """
     hits = 0
     for f, g in zip(found, gt_top100):
-        hits += len(set(f[:10].tolist()) & set(g[:10].tolist()))
+        hits += len(set(f.tolist()[-10:]) & set(g.tolist()[-10:]))
     return hits / (len(found) * 10)
 
 
