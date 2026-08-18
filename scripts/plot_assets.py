@@ -302,6 +302,163 @@ def strand_plot(ax, filaments, color: str = GOLD, taper: bool = True) -> None:
             )
 
 
+# --- atlas primitives (#183 rung 1, grammar A2/T1) -------------------------
+def vector_grid(n: int) -> tuple[int, int, int]:
+    """Most-square exact factorization of n, else pad to the next square.
+
+    Returns (rows, cols, pad). 1024 -> (32, 32, 0); 2048 -> (64, 32, 0).
+    """
+    best = None
+    for r in range(int(n**0.5), 0, -1):
+        if n % r == 0:
+            best = (n // r, r)
+            break
+    if best and best[0] / best[1] <= 2.5:
+        return best[0], best[1], 0
+    side = int(np.ceil(n**0.5))
+    return side, side, side * side - n
+
+
+def vector_image(ax, v: np.ndarray, annotate=(), cmap=None, ink: str = CYAN) -> dict:
+    """Render a 1D vector as a pixel image — T1: the vector IS the picture.
+
+    Magnitude only (sign disclosed in the returned meta), punch-lifted onto
+    saturated_magma so sparsity reads as darkness. `annotate` is (index, text)
+    pairs drawn as ink marks on single pixels — the addressable-pixel move.
+    Returns {"shape", "pad", "meta", "xy": index -> (x, y)}.
+    """
+    v = np.asarray(v, float).ravel()
+    n = len(v)
+    rows, cols, pad = vector_grid(n)
+    mag = np.abs(v)
+    vmax = float(mag.max()) or 1.0
+    img = np.zeros(rows * cols)
+    img[:n] = punch(mag / vmax)
+    ax.imshow(
+        img.reshape(rows, cols),
+        cmap=cmap or saturated_magma(),
+        vmin=0,
+        vmax=1,
+        interpolation="nearest",
+        aspect="equal",
+    )
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_facecolor(PANEL)
+    for spine in ax.spines.values():
+        spine.set_color(FRAME)
+
+    def xy(i: int) -> tuple[int, int]:
+        return i % cols, i // cols
+
+    from matplotlib.patches import Rectangle
+
+    for i, text in annotate:
+        x, y = xy(int(i))
+        ax.add_patch(
+            Rectangle((x - 0.5, y - 0.5), 1, 1, facecolor="none", edgecolor=ink, linewidth=1.1)
+        )
+        ha = "left" if x < cols * 0.7 else "right"
+        dx = 1.2 if ha == "left" else -1.2
+        ax.annotate(
+            text,
+            (x + dx, y),
+            color=ink,
+            fontsize=7.5,
+            va="center",
+            ha=ha,
+            annotation_clip=False,
+        )
+    signed = bool((v < 0).any())
+    meta = (
+        f"{n}d -> {rows}x{cols}"
+        + (f" (+{pad} pad)" if pad else "")
+        + (", |v| shown" if signed else "")
+        + f", max {vmax:.3g}"
+    )
+    return {"shape": (rows, cols), "pad": pad, "meta": meta, "xy": xy}
+
+
+def term_projection(
+    row: np.ndarray, term_vecs: np.ndarray, terms: list, n: int = 10, ax=None, color: str = GOLD
+) -> list:
+    """Rank a corpus vocabulary by cosine with one decoder row (TEXT mode).
+
+    Pure lookup: unit-normalizes both sides, returns [(term, cos)] best-first.
+    With `ax`, draws the ranking as horizontal bars, longest at the top.
+    """
+    r = np.asarray(row, float).ravel()
+    r = r / (np.linalg.norm(r) or 1.0)
+    T = np.asarray(term_vecs, float)
+    T = T / np.maximum(np.linalg.norm(T, axis=1, keepdims=True), 1e-9)
+    cos = T @ r
+    order = np.argsort(-cos)[:n]
+    ranked = [(terms[i], float(cos[i])) for i in order]
+    if ax is not None:
+        ys = np.arange(len(ranked))[::-1]
+        cmax = max(c for _, c in ranked) or 1.0
+        ax.barh(ys, [c for _, c in ranked], color=color, height=0.62)
+        # long bars carry their label inside — outside labels overflow the panel
+        for y, (term, c) in zip(ys, ranked):
+            if c > 0.7 * cmax:
+                ax.text(0.012 * cmax, y, str(term)[:36], color=BG, fontsize=8, va="center")
+            else:
+                ax.text(c + 0.01 * cmax, y, str(term)[:30], color=MUTED, fontsize=8, va="center")
+        ax.set_yticks([])
+        style_axes(ax)
+    return ranked
+
+
+def excess_profile(
+    idx: np.ndarray,
+    val: np.ndarray,
+    member: np.ndarray,
+    d_sae: int,
+    n_null: int = 200,
+    seed: int = 0,
+) -> dict:
+    """Per-latent activation mass of a subset, in excess of the corpus base rate.
+
+    The null is built in, not optional: `n_null` random subsets of the same
+    size give the per-latent band random membership produces, so a cell's
+    profile is only ever read against what chance would paint there.
+    Returns {"excess", "cell", "base", "null_lo", "null_hi", "n_member"}
+    (all length d_sae; mean activation mass per document).
+    """
+    member = np.asarray(member, bool)
+    n = len(idx)
+    m = int(member.sum())
+    if not 0 < m < n:
+        raise ValueError(f"member selects {m} of {n} rows")
+    flat_idx = idx.ravel()
+    flat_val = np.where(val > 0, val, 0.0).ravel()
+    row_of = np.repeat(np.arange(n), idx.shape[1])
+
+    def mass(rows_mask: np.ndarray) -> np.ndarray:
+        keep = rows_mask[row_of]
+        return np.bincount(flat_idx[keep], weights=flat_val[keep], minlength=d_sae) / max(
+            int(rows_mask.sum()), 1
+        )
+
+    base = mass(np.ones(n, bool))
+    cell = mass(member)
+    rng = np.random.default_rng(seed)
+    draws = np.empty((n_null, d_sae))
+    pool = np.arange(n)
+    for j in range(n_null):
+        pick = np.zeros(n, bool)
+        pick[rng.choice(pool, size=m, replace=False)] = True
+        draws[j] = mass(pick) - base
+    return {
+        "excess": cell - base,
+        "cell": cell,
+        "base": base,
+        "null_lo": np.percentile(draws, 2.5, axis=0),
+        "null_hi": np.percentile(draws, 97.5, axis=0),
+        "n_member": m,
+    }
+
+
 # --- data ------------------------------------------------------------------
 def load():
     return json.loads(MAP.read_text())
