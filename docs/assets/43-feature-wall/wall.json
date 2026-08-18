@@ -1,5 +1,5 @@
 {
- "commit": "d3e4a2b",
+ "commit": "affb287",
  "mosaic": {
   "cells": 800,
   "with_image": 447,
@@ -8,6 +8,13 @@
  "badges": {
   "ge_08": 59,
   "ge_05": 89
+ },
+ "coherence": {
+  "real_median": 0.4991,
+  "null_median": 0.233,
+  "null_max": 0.3464,
+  "overlap_null_reach": 5,
+  "protagonist_cohesion": 0.4641
  },
  "protagonist_badge": 0.5724,
  "tiles": [

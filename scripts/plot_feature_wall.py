@@ -39,7 +39,9 @@ from plot_assets import (
     TEXT,
     figure,
     frame_panels,
+    panel_title,
     saturated_magma,
+    style_axes,
     vector_image,
     verdict,
 )
@@ -205,59 +207,106 @@ def text_tile(ax, name: str, exemplars: list[dict], color: str) -> None:
     )
 
 
-def fig02(head: list[dict], rng: np.random.Generator) -> None:
+def cohesion(V: np.ndarray) -> float:
+    """Mean pairwise cosine of a set of unit vectors — how much one topic it is."""
+    S = V @ V.T
+    n = len(V)
+    return float((S.sum() - np.trace(S)) / (n * (n - 1)))
+
+
+def fig02(head: list[dict], rng: np.random.Generator) -> dict:
+    X = np.load(SAE / "data" / "vectors.npz")["X"]
+    rows = [json.loads(x) for x in (SAE / "data" / "rows.jsonl").read_text().splitlines()]
+    id2row = {}
+    for i, r in enumerate(rows):
+        id2row.setdefault(r["id"], i)
+
     named = {t["feature"]: t for t in head}
-    picks = [PROT] + [t["feature"] for t in head[:5]]
-    pool = [e for t in head for e in t["exemplars"]]
+    sets = {}
+    for t in head:
+        idxs = [id2row[e["id"]] for e in t["exemplars"][:8] if e["id"] in id2row]
+        if len(idxs) >= 4:
+            sets[t["feature"]] = idxs
+    real = {f: cohesion(X[idxs]) for f, idxs in sets.items()}
+    pool = sorted({i for idxs in sets.values() for i in idxs})
+    null = np.array([cohesion(X[rng.choice(pool, 8, replace=False)]) for _ in range(500)])
+
+    head_vals = np.array([v for f, v in real.items() if f != PROT])
+    overlap = int((head_vals <= null.max()).sum())
     fig, top = figure(
         16.5,
-        7.0,
+        7.2,
         2,
         "atlas rung 2 — coherence null",
-        "Real exemplars against shuffled assignment: coherence is visible, not asserted",
-        "top row: each latent's own top-4 exemplars (TEXT mode) | bottom row: 4 exemplars drawn "
-        f"at random from the head's pooled exemplar set, same layout | protagonist #{PROT} "
-        f"outlined | {SHA}",
+        "Do a latent's exemplars actually belong together? Measured, against chance",
+        f"cohesion = mean pairwise cosine of a latent's top-8 exemplar vectors (Qwen space) | "
+        f"null (grey) = 500 sets of 8 drawn at random from the same exemplar pool | "
+        f"real median {np.median(head_vals):.3f} vs null median {np.median(null):.3f} | {SHA}",
     )
     gs = fig.add_gridspec(
-        2, 6, left=0.03, right=0.98, top=top, bottom=0.10, wspace=0.10, hspace=0.30
+        1, 2, width_ratios=[1.45, 1], left=0.055, right=0.975, top=top, bottom=0.11, wspace=0.16
     )
-    for c, f in enumerate(picks):
-        t = named[f]
-        color = CYAN if f == PROT else TEXT
-        ax = fig.add_subplot(gs[0, c])
-        text_tile(ax, f"#{f} {t.get('name') or ''}", t["exemplars"], color)
-        if f == PROT:
-            from matplotlib.patches import Rectangle
 
-            ax.add_patch(
-                Rectangle(
-                    (0.004, 0.004),
-                    0.992,
-                    0.992,
-                    transform=ax.transAxes,
-                    facecolor="none",
-                    edgecolor=CYAN,
-                    linewidth=1.6,
-                    clip_on=False,
-                )
-            )
-        sh = [pool[i] for i in rng.choice(len(pool), 4, replace=False)]
-        ax = fig.add_subplot(gs[1, c])
-        text_tile(ax, f"#{f} shuffled", sh, DIM)
-    fig.text(
-        0.03,
-        0.055,
-        "bottom row = the null: what the wall would look like if names were decoration",
-        color=MUTED,
-        fontsize=9,
+    # Panel A: the geometry — two distributions on one axis
+    ax = fig.add_subplot(gs[0, 0])
+    lo = min(float(null.min()), float(head_vals.min())) - 0.02
+    hi = max(float(null.max()), float(head_vals.max())) + 0.02
+    bins = np.linspace(lo, hi, 40)
+    ax.hist(null, bins=bins, density=True, color=DIM, label="shuffled sets (null)")
+    ax.hist(
+        head_vals,
+        bins=bins,
+        density=True,
+        histtype="step",
+        linewidth=2.0,
+        color=GOLD,
+        label="each head latent's own exemplars",
     )
-    verdict(fig, "every real tile reads as one topic; every shuffled tile reads as the corpus")
+    pv = real.get(PROT)
+    if pv is not None:
+        ax.axvline(pv, color=CYAN, linewidth=1.6)
+        ax.text(
+            pv + 0.004,
+            ax.get_ylim()[1] * 0.92,
+            f"#{PROT}  {pv:.3f}",
+            color=CYAN,
+            fontsize=8.5,
+        )
+    leg = ax.legend(frameon=False, fontsize=8.5, loc="upper left")
+    for t_ in leg.get_texts():
+        t_.set_color(MUTED)
+    style_axes(ax)
+    ax.set_xlabel("exemplar-set cohesion (mean pairwise cosine)")
+    ax.set_ylabel("density")
+    panel_title(ax, f"{overlap}/{len(head_vals)} head latents overlap the null's reach")
+
+    # Panel B: one worked example — what a cohesion number reads like as text
+    gsr = gs[0, 1].subgridspec(2, 1, hspace=0.24)
+    t = named[PROT]
+    ax = fig.add_subplot(gsr[0])
+    text_tile(ax, f"#{PROT} {t.get('name') or ''}  ·  {pv:.3f}", t["exemplars"], CYAN)
+    pool_ex = [e for tt in head for e in tt["exemplars"]]
+    sh = [pool_ex[i] for i in rng.choice(len(pool_ex), 4, replace=False)]
+    sh_idxs = [id2row[e["id"]] for e in sh if e["id"] in id2row]
+    ax = fig.add_subplot(gsr[1])
+    text_tile(ax, f"a null draw  ·  {cohesion(X[sh_idxs]):.3f}", sh, MUTED)
+    verdict(
+        fig,
+        f"median cohesion {np.median(head_vals):.2f} vs chance {np.median(null):.2f} — "
+        "the names have something to name",
+    )
     frame_panels(fig)
     out = OUTDIR / "02-coherence-null.png"
     fig.savefig(out, dpi=DPI, facecolor=BG)
     print(f"wrote {out.relative_to(REPO)}  ({out.stat().st_size // 1024}KB)")
     plt.close(fig)
+    return {
+        "real_median": round(float(np.median(head_vals)), 4),
+        "null_median": round(float(np.median(null)), 4),
+        "null_max": round(float(null.max()), 4),
+        "overlap_null_reach": overlap,
+        "protagonist_cohesion": round(pv, 4) if pv is not None else None,
+    }
 
 
 def main() -> None:
@@ -275,7 +324,7 @@ def main() -> None:
 
     stats = fig01(head, W, agree)
     rng = np.random.default_rng(43)
-    fig02(head + prot, rng)
+    coh = fig02(head + prot, rng)
 
     sidecar = {
         "commit": SHA,
@@ -285,6 +334,7 @@ def main() -> None:
             "img_frac": round(stats["img"] / stats["cells"], 4),
         },
         "badges": {"ge_08": stats["badge_ge_08"], "ge_05": stats["badge_ge_05"]},
+        "coherence": coh,
         "protagonist_badge": agree[PROT],
         "tiles": [
             {
