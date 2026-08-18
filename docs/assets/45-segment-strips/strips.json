@@ -1,0 +1,57 @@
+{
+ "n_videos": 314,
+ "gate_aggregation": {
+  "matched_median": 0.67,
+  "matched_p10": 0.4357,
+  "mismatched_median": 0.0214,
+  "mismatched_max": 0.3795,
+  "matched_below_mismatched_max": 18
+ },
+ "gate_temporal": {
+  "obs_median": 0.2774,
+  "null_median": -0.0446,
+  "videos_above_own_null": 307,
+  "n": 314
+ },
+ "protagonist": {
+  "video_id": "UZDiGooFs54",
+  "n_segments": 18,
+  "encoded": "live from Chroma (video postdates the acts cache)",
+  "top_latents": [
+   {
+    "latent": 1206,
+    "name": "Neural network mechanics and mathematics"
+   },
+   {
+    "latent": 258,
+    "name": "Images beat text for language models"
+   },
+   {
+    "latent": 1983,
+    "name": "Designing systems around model strengths"
+   },
+   {
+    "latent": 114,
+    "name": "Neuron activation interpretability"
+   },
+   {
+    "latent": 229,
+    "name": "Learning algorithms from expert mentors"
+   },
+   {
+    "latent": 411,
+    "name": "Visualization engineering for cognition"
+   },
+   {
+    "latent": 729,
+    "name": "Residual connections in transformer architecture"
+   },
+   {
+    "latent": 618,
+    "name": "Hierarchical layer abstraction pattern"
+   }
+  ],
+  "autocorr": 0.1266,
+  "autocorr_shuffle_null": -0.05
+ }
+}

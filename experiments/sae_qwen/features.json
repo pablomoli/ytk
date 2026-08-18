@@ -21167,6 +21167,80 @@
    "name": "Animated disk reveals nearby jobs",
    "name_confidence": "high",
    "name_rationale": "All 8 excerpts consistently describe issue #159 from the epicmap project (2026-03-14), detailing implementation of an animated expanding disk visualization that reveals nearby jobs on a map when triggered. Core technical elements across all excerpts: PostGIS spatial queries (ST_DWithin radius), Leaflet map rendering, animated disk overlay with expansion animation, single-click find-and-reveal UX, and routing API integration to show travel paths to discovered jobs. No variation in topic\u2014all describe the same feature from the same session.</anionale>\n</invoke>"
+  },
+  {
+   "feature": 114,
+   "freq": 0.02220469574713341,
+   "n_fire": 366,
+   "exemplars": [
+    {
+     "act": 0.4458,
+     "id": "Tgq7E4YcPKQ_3",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "What Happened With Sparse Autoencoders?",
+     "text": "be that would be vaguely consistent with this story. Feel free to just unmute and call out takes. >> Could you repeat the exact thing that we're like what is the assumption here that we're operating under? Um maybe the the claim is um okay maybe I'll make a stronger slightly strongman claim which is going to be easier to argue against. Um I claim that um the only thing happening in model activations is that there are"
+    },
+    {
+     "act": 0.35,
+     "id": "R3nbXgMnVqQ_8",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "A Walkthrough of Toy Models of Superposition w/ Jess Smith",
+     "text": "doesn't and there are multiple things that we can activate here's a different thing I was training this small model using a technique called solu that's from a different Transformer circuits paper and here is just like a list of the 10 bits of text that makes the model activate the most and if we scroll through we see that sometimes places where the model activates a lot a ship like this like it sees the word refuges"
+    },
+    {
+     "act": 0.3297,
+     "id": "Tgq7E4YcPKQ_1",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "What Happened With Sparse Autoencoders?",
+     "text": "it came a pretty popular hypothesis that they were in superp position after the coin models a superp position paper. And so if we think that model activations uh contain a bunch of concepts which are represented as directions, there's loads of them. But on any um but and the crucial hypothesis is on any given input there is um not that many of them active. Then it seems like we should maybe probably be able to do som"
+    },
+    {
+     "act": 0.3092,
+     "id": "xmkSf5IS-zw_93",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "How GPT, Claude, and Gemini are actually trained and served \u2013 Reiner Pope",
+     "text": "And then we're going to\nsolve for bytes per token. Batch size was missing here. It shows up here, and then it cancels\nout by the time we get to here. And I dropped the length of context. So we can plug in numbers. This is the reciprocal of the\nnumber that we saw before. This is 1/300, which is reasonably stable\nacross many different hardware platforms. We conjecturally said that\nmaybe the number of activated paramete"
+    },
+    {
+     "act": 0.302,
+     "id": "xmkSf5IS-zw_87",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "How GPT, Claude, and Gemini are actually trained and served \u2013 Reiner Pope",
+     "text": "This comes out to around\ntwo hundred trillion tokens. And then we want to compare that to\nactive parameters on a frontier model. I don't actually know the latest rumors. Do you know? Somebody told me a hundred\nand fifty trillion. Active parameters? Sorry, I meant tokens. Trained on a hundred and\nfifty trillion tokens. Interesting. Which is similar. That's actually similar. So data on pre-training. This is not well-ci"
+    },
+    {
+     "act": 0.2994,
+     "id": "6MmGNZsA5nI",
+     "kind": "video",
+     "source": "youtube",
+     "title": "Relu Activation Function - Deep Learning Dictionary",
+     "text": "Defines the ReLU activation function as max(0, x) and walks a single worked example \u2014 a weighted sum of 67 passed through ReLU \u2014 to show how a node's activated output is produced in a neural network.\n\nMandy from deeplizard covers ReLU (rectified linear unit) as part of the Deep Learning Dictionary series: it maps any negative input to zero and passes positive inputs through unchanged, i.e. max(0, x). The graph of the"
+    },
+    {
+     "act": 0.2961,
+     "id": "Tgq7E4YcPKQ_55",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "What Happened With Sparse Autoencoders?",
+     "text": "completely different things on odd and even moves. But if you represent this cell has the current player's color or the opposing player's color, now that's perfectly consistent and you can reuse all of your circuitry. Um, so basically, yeah, like I kind of origin I was kind of staring at things like neuron max activating data set examples and stuff like that and found that there were some neurons that kind of seems t"
+    },
+    {
+     "act": 0.2866,
+     "id": "note_inbox_memories_claude-mem_summaries_summary-2026-03-01-epicmap-1006",
+     "kind": "memory",
+     "source": "vault",
+     "title": "",
+     "text": "# Session \u2014 epicmap \u2014 2026-03-01\n\n## Request\nComplete issue 131: Make active filters more obvious in admin Jobs tab\n\n## Investigated\nCurrent filter UI in templates/partials/admin/jobs-tab.html and static/js/admin/jobs.js explored. Found modular JavaScript architecture with filter logic split across jobs.js, tags.js, and bulk-ops.js. Discovered hasActiveFilters() method in bulk-ops.js checks four filter dimensions (se"
+    }
+   ],
+   "name": "Neuron activation interpretability",
+   "name_confidence": "high",
+   "name_rationale": "Seven of eight excerpts converge on mechanistic interpretability: sparse autoencoders, analyzing neuron activations, superposition (concepts as directions in activation space), activation maximization, and ReLU functions. The latent fires on content studying what causes neural network units to activate and how to decode meaning from activation patterns. The eighth excerpt (epicmap admin filters) is unrelated web-UI noise.</anionale>\n</invoke>"
   }
  ],
  "survivor_features_appended": [
@@ -21357,6 +21431,7 @@
   2022,
   2028,
   2030,
-  2044
+  2044,
+  114
  ]
 }
