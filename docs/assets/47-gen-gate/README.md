@@ -35,3 +35,32 @@ side is its *translated Qwen* vector. Agreement = |overlap| / 10.
 Numbers land in `gen_translator.json`; the runner is
 `experiments/sae_qwen/gen_translator.py`. Results follow below this line
 only after the gate has run.
+
+---
+
+## Result: FAIL — GEN mode stays closed
+
+Measured on 1,015 held-out notes (`01-the-gate.png`):
+
+- **Mean agreement 0.22** (median 0.20, p10 0.00) against the registered
+  bar of 0.40.
+- **Control 0.0096** — the real translator scores 23x the shuffled-pairs
+  fit, so the linear map genuinely carries Qwen structure into CLIP space;
+  the control condition is comfortably met. The signal is real. It is not
+  enough.
+- The distribution's honest detail: a long tail of notes translates well
+  (some exceed 0.7 agreement), but the mass sits left of the bar, and a
+  renderer that is right about a minority of notes cannot stamp its images
+  trustworthy.
+
+This is the record's fourth registered loss, and it closes rung 7 the way
+the epic specified: no unCLIP model was downloaded, no image was generated,
+and every number the decision rests on was registered before the translator
+existed. Plausible upgrades (a larger CLIP text tower, nonlinear maps,
+training on full-note CLIP embeddings via chunk pooling rather than the
+77-token head) are future experiments with their own pre-registrations —
+none of them may inherit this section's bar retroactively.
+
+The atlas keeps its two honest modes: TEXT is measurement, IMG is evidence.
+There is no paraphrase mode, and the display contract says so.
+

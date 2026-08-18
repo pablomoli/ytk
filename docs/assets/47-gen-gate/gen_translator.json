@@ -1,0 +1,13 @@
+{
+ "registered": "mean agreement@10 >= 0.40; control must sit > 0.10 below",
+ "n_pairs": 5071,
+ "n_heldout": 1015,
+ "mean_agreement": 0.2204,
+ "median_agreement": 0.2,
+ "p10_agreement": 0.0,
+ "control_mean": 0.0096,
+ "gate": "FAIL",
+ "clip_model": "open_clip ViT-L-14 openai; text tower, 77-token truncation",
+ "ridge_lambda": 1.0,
+ "seed": 47
+}
