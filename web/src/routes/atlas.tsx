@@ -52,6 +52,14 @@ function Lattice({
         const strength = Math.abs(c.label_excess) / emax;
         return (
           <g key={key} onClick={() => onSelect(key)} className="cursor-pointer">
+            <clipPath id={`cell-${key}`}>
+              <rect
+                x={sx(c.x0)}
+                y={sy(c.y1)}
+                width={sx(c.x1) - sx(c.x0)}
+                height={sy(c.y0) - sy(c.y1)}
+              />
+            </clipPath>
             <rect
               x={sx(c.x0)}
               y={sy(c.y1)}
@@ -80,6 +88,7 @@ function Lattice({
               fill="var(--mute)"
               opacity={c.stable_05 ? 0.9 : 0.45}
               style={{ fontSize: "1.25px" }}
+              clipPath={`url(#cell-${key})`}
             >
               {(c.label ?? "").slice(0, 22)}
             </text>
