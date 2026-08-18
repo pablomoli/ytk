@@ -1,0 +1,366 @@
+{
+ "checkpoint": "final_d2048_k32_s0.pt",
+ "ood": {
+  "video": {
+   "live": 407,
+   "trained_on": 345,
+   "new_since_training": 62,
+   "removed_since_training": 0,
+   "ood_frac_of_live": 0.1523
+  },
+  "segment": {
+   "live": 13551,
+   "trained_on": 11412,
+   "new_since_training": 2139,
+   "removed_since_training": 0,
+   "ood_frac_of_live": 0.1578
+  },
+  "memory": {
+   "live": 4797,
+   "trained_on": 4726,
+   "new_since_training": 72,
+   "removed_since_training": 1,
+   "ood_frac_of_live": 0.015
+  },
+  "overall": {
+   "live": 18755,
+   "new_since_training": 2273,
+   "ood_frac_of_live": 0.1212
+  }
+ },
+ "train_kinds": {
+  "video": 345,
+  "segment": 11412,
+  "memory": 4726
+ },
+ "native_cone": {
+  "threshold": 0.5,
+  "n_vectors": 16483,
+  "latents": [],
+  "freq_top10": [
+   0.1582,
+   0.1081,
+   0.1056,
+   0.0965,
+   0.0832,
+   0.08,
+   0.0749,
+   0.0744,
+   0.0716,
+   0.0689
+  ]
+ },
+ "protagonist": {
+  "video_id": "UZDiGooFs54",
+  "rows": [
+   {
+    "chroma_id": "UZDiGooFs54",
+    "top": [
+     {
+      "latent": 1597,
+      "act": 0.2194,
+      "name": "Educational breakdown of language model mechanics",
+      "freq": 0.01862525025784141
+     },
+     {
+      "latent": 1211,
+      "act": 0.1803,
+      "name": "Sparse autoencoders and mechanistic interpretability",
+      "freq": 0.026148152642116118
+     },
+     {
+      "latent": 1310,
+      "act": 0.1553,
+      "name": "Transformer architecture and tokenization",
+      "freq": 0.030758963780865133
+     },
+     {
+      "latent": 411,
+      "act": 0.1474,
+      "name": "Visualization engineering for cognition",
+      "freq": 0.04574409998179943
+     },
+     {
+      "latent": 258,
+      "act": 0.1396,
+      "name": "Images beat text for language models",
+      "freq": 0.03239701510647334
+     },
+     {
+      "latent": 382,
+      "act": 0.1235,
+      "name": "Superposed sparse feature representation",
+      "freq": 0.0436813686828854
+     },
+     {
+      "latent": 817,
+      "act": 0.1036,
+      "name": null,
+      "freq": null
+     },
+     {
+      "latent": 1481,
+      "act": 0.0964,
+      "name": "Compute allocation and optimization strategies",
+      "freq": 0.032761026512164046
+     },
+     {
+      "latent": 495,
+      "act": 0.0909,
+      "name": null,
+      "freq": null
+     },
+     {
+      "latent": 618,
+      "act": 0.0843,
+      "name": "Hierarchical layer abstraction pattern",
+      "freq": 0.04592610568464479
+     },
+     {
+      "latent": 1214,
+      "act": 0.0785,
+      "name": null,
+      "freq": null
+     },
+     {
+      "latent": 655,
+      "act": 0.0744,
+      "name": null,
+      "freq": null
+     }
+    ]
+   }
+  ]
+ },
+ "map_thumbnails": {
+  "n_points": 5080,
+  "img_total": 594,
+  "groups": {
+   "-1": {
+    "n": 673,
+    "img": 106,
+    "img_frac": 0.158
+   },
+   "0": {
+    "n": 79,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "1": {
+    "n": 116,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "2": {
+    "n": 63,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "3": {
+    "n": 318,
+    "img": 2,
+    "img_frac": 0.006
+   },
+   "4": {
+    "n": 287,
+    "img": 2,
+    "img_frac": 0.007
+   },
+   "5": {
+    "n": 61,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "6": {
+    "n": 90,
+    "img": 2,
+    "img_frac": 0.022
+   },
+   "7": {
+    "n": 82,
+    "img": 3,
+    "img_frac": 0.037
+   },
+   "8": {
+    "n": 190,
+    "img": 1,
+    "img_frac": 0.005
+   },
+   "9": {
+    "n": 42,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "10": {
+    "n": 74,
+    "img": 1,
+    "img_frac": 0.014
+   },
+   "11": {
+    "n": 76,
+    "img": 1,
+    "img_frac": 0.013
+   },
+   "12": {
+    "n": 68,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "13": {
+    "n": 43,
+    "img": 2,
+    "img_frac": 0.047
+   },
+   "14": {
+    "n": 76,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "15": {
+    "n": 235,
+    "img": 2,
+    "img_frac": 0.009
+   },
+   "16": {
+    "n": 86,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "17": {
+    "n": 44,
+    "img": 1,
+    "img_frac": 0.023
+   },
+   "18": {
+    "n": 90,
+    "img": 1,
+    "img_frac": 0.011
+   },
+   "19": {
+    "n": 73,
+    "img": 4,
+    "img_frac": 0.055
+   },
+   "20": {
+    "n": 45,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "21": {
+    "n": 84,
+    "img": 4,
+    "img_frac": 0.048
+   },
+   "22": {
+    "n": 84,
+    "img": 51,
+    "img_frac": 0.607
+   },
+   "23": {
+    "n": 142,
+    "img": 2,
+    "img_frac": 0.014
+   },
+   "24": {
+    "n": 250,
+    "img": 9,
+    "img_frac": 0.036
+   },
+   "25": {
+    "n": 79,
+    "img": 2,
+    "img_frac": 0.025
+   },
+   "26": {
+    "n": 186,
+    "img": 126,
+    "img_frac": 0.677
+   },
+   "27": {
+    "n": 71,
+    "img": 57,
+    "img_frac": 0.803
+   },
+   "28": {
+    "n": 29,
+    "img": 2,
+    "img_frac": 0.069
+   },
+   "29": {
+    "n": 53,
+    "img": 1,
+    "img_frac": 0.019
+   },
+   "30": {
+    "n": 42,
+    "img": 2,
+    "img_frac": 0.048
+   },
+   "31": {
+    "n": 81,
+    "img": 2,
+    "img_frac": 0.025
+   },
+   "32": {
+    "n": 26,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "33": {
+    "n": 51,
+    "img": 1,
+    "img_frac": 0.02
+   },
+   "34": {
+    "n": 48,
+    "img": 1,
+    "img_frac": 0.021
+   },
+   "35": {
+    "n": 21,
+    "img": 1,
+    "img_frac": 0.048
+   },
+   "36": {
+    "n": 60,
+    "img": 2,
+    "img_frac": 0.033
+   },
+   "37": {
+    "n": 37,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "38": {
+    "n": 660,
+    "img": 196,
+    "img_frac": 0.297
+   },
+   "39": {
+    "n": 33,
+    "img": 4,
+    "img_frac": 0.121
+   },
+   "40": {
+    "n": 67,
+    "img": 3,
+    "img_frac": 0.045
+   },
+   "41": {
+    "n": 43,
+    "img": 0,
+    "img_frac": 0.0
+   },
+   "42": {
+    "n": 22,
+    "img": 0,
+    "img_frac": 0.0
+   }
+  }
+ },
+ "segment_coverage": {
+  "video_notes": 407,
+  "with_segments": 405,
+  "coverage": 0.9951
+ }
+}

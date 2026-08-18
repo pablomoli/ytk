@@ -8143,6 +8143,228 @@
    "name": "Adding dimensions solves geometric problems",
    "name_confidence": "high",
    "name_rationale": "Seven of eight excerpts form a tightly coherent cluster from \"Solving problems by adding a dimension.\" They demonstrate a consistent technique: reformulating 2D circle tangency problems (external tangents, intersection points) by elevating to 3D using spheres or cones. The concept of \"center of similarity\" spans dimensions and unifies the approach. Scaling/self-similarity relationships preserve structure across dimension boundaries. The 8th excerpt (military logistics/cots) activates via a different semantic pattern (sequential problem decomposition) but does not disrupt the dominant signal\u2014six of seven confirm the dimensional elevation theme."
+  },
+  {
+   "feature": 1310,
+   "freq": 0.030758963780865133,
+   "n_fire": 507,
+   "exemplars": [
+    {
+     "act": 0.3558,
+     "id": "wjZofJX0v4M",
+     "kind": "video",
+     "source": "youtube",
+     "title": "Transformers, the tech behind LLMs | Deep Learning Chapter 5",
+     "text": "Grant Sanderson walks through the data flow of a GPT-style transformer end to end \u2014 tokenization, the embedding matrix, attention/MLP alternation, the unembedding matrix, and softmax with temperature \u2014 tallying GPT-3's 175 billion weights across its ~28,000 matrices as he goes.\n\nChapter 5 of 3Blue1Brown's deep learning series opens by unpacking \"Generative Pretrained Transformer\" and demonstrating the predict-sample-"
+    },
+    {
+     "act": 0.3451,
+     "id": "Q1HOKrNeh2M_66",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Lec 08. Architectures: Transformers",
+     "text": "We'll talk more\nabout those later. And you don't have\nto do autoregression in time's arrow order. You can do it in\nany order you want. But that's just a detail. So as I said, you\nhave a training set, which is sequences and\ncompletions to the sequence. This is just text online\nfor language models. And you are then going\nto use supervised learning to try to\nclassify what is the next word in a\nvocabulary of possible wor"
+    },
+    {
+     "act": 0.3423,
+     "id": "zduSFxRajkE_130",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Let's build the GPT Tokenizer",
+     "text": "that was helpful bye and uh they increase this contact size from gpt1 of 512 uh to 1024 and GPT 4 two the next okay next I would like us to briefly walk through the code from open AI on the gpt2 encoded ATP I'm sorry I'm gonna sneeze and then what's Happening Here is this is a spous layer that I will explain in a bit What's Happening Here is"
+    },
+    {
+     "act": 0.3221,
+     "id": "zduSFxRajkE_71",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Let's build the GPT Tokenizer",
+     "text": "that if you come to your the Tik token uh library and then you go to this file Tik token X openi public this is where sort of like the definition of all these different tokenizers that openi maintains is and so uh necessarily to do the inference they had to publish some of the details about the strings so this is the string that we already saw for gpt2 it is slightly different but it is actually equivalent uh to what"
+    },
+    {
+     "act": 0.3203,
+     "id": "UTuuTTnjxMQ_59",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Sholto Douglas & Trenton Bricken \u2014 How LLMs actually think",
+     "text": "at things. So it unlocks things like\u00a0\nagents. But at least at the moment,\u00a0\u00a0 it doesn't feel like reasoning improves\u00a0\nlinearly, but rather somewhat sublinearly.\u00a0 That's actually a very bearish sign. We were\u00a0\nchatting with one of our friends and he made the\u00a0\u00a0 point that if you look at what new applications\u00a0\nare unlocked by GPT-4 relative to GPT-3.5,\u00a0\u00a0 it's not clear that it\u2019s that much more. A GPT-3.5\u00a0\ncan do perplexit"
+    },
+    {
+     "act": 0.3125,
+     "id": "04Ig5-gYmm8",
+     "kind": "video",
+     "source": "youtube",
+     "title": "Can $200 ChatGPT Solve My Math PhD Thesis?",
+     "text": "OpenAI's new GPT Work harness (multi-agent adversarial ChatGPT with GPT-5.6 Sol Ultra), driven by a prompt borrowed from a Quebec academic's conjecture-proving paper, solved the n=3 case of the creator's PhD math problem \u2014 reducing it to a known elliptic integral via a sequence of coordinate transformations that GPT-5.2 Pro had failed at six months earlier.\n\nSix months after GPT-5.2 Pro (and Grok, Gemini, Deep Think)"
+    },
+    {
+     "act": 0.3077,
+     "id": "kCc8FmEb1nY_6",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Let's build GPT: from scratch, in code, spelled out.",
+     "text": "many ways to train Transformers but this is a very simple implementation so it's just two files of 300 lines of code each one file defines the GPT model the Transformer and one file trains it on some given Text data set and here I'm showing that if you train it on a open web Text data set which is a fairly large data set of web pages then I reproduce the the performance of gpt2 so gpt2 is an early version of open AI "
+    },
+    {
+     "act": 0.3046,
+     "id": "zduSFxRajkE_73",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Let's build the GPT Tokenizer",
+     "text": "long number sequences uh but again we don't really know why they do any of this stuff uh because none of this is documented and uh it's just we just get the pattern so um yeah it is what it is but those are some of the changes that gp4 has made and of course the vocabulary size went from roughly 50k to roughly 100K the next thing I would like to do very briefly is to take you through the gpt2 encoder dopy that openi "
+    }
+   ],
+   "name": "Transformer architecture and tokenization",
+   "name_confidence": "high",
+   "name_rationale": "All 8 excerpts activate on educational-technical content explaining how transformer models work from first principles\u2014specifically tokenization strategies, attention mechanisms, embedding matrices, and building/training transformers in code. The latent fires on tutorial and lecture formats walking through transformer internals (3Blue1Brown's visual explanations, Karpathy's GPT-from-scratch series, tokenizer implementation details, architectural lectures). Narrowly specific to the mechanics of transformer/GPT systems, not general LLM reasoning or capabilities."
+  },
+  {
+   "feature": 1211,
+   "freq": 0.026148152642116118,
+   "n_fire": 431,
+   "exemplars": [
+    {
+     "act": 0.2158,
+     "id": "Tgq7E4YcPKQ_69",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "What Happened With Sparse Autoencoders?",
+     "text": "unclear but we largely kind of found that it was causally relevant and then didn't really explore this further. Uh I think they actually spent like a really long time trying to do that and didn't make that much headway and then we decided to just yolo their sprint project and a bit more into an IC paper and then it got an oral. It was really weird. Um but it's a good paper. I like it. Um so yeah um a SQL paper they d"
+    },
+    {
+     "act": 0.2128,
+     "id": "note_notes_ai_papers_The_Bitter_Lesson",
+     "kind": "memory",
+     "source": "vault",
+     "title": "\"The Bitter Lesson\"",
+     "text": "# The Bitter Lesson\n\n![[paper-cover-bitter-lesson.png]]\n\n**Rich Sutton, 2019** \u00b7 rung 1 of the [[AI Reading List]] ladder\n\n> [!abstract] Why this rung\n> The belief system underneath every other paper on the ladder. Two pages.\n\n**What to look for:** The property test: does this get better with 10x compute and no human in the loop?\n\n[Read it](http://www.incompleteideas.net/IncIdeas/BitterLesson.html)\n\n## My notes\n\nWork"
+    },
+    {
+     "act": 0.2104,
+     "id": "wE1ZgJdt4uM_63",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Inference, Diffusion, World Models, and More | YC Paper Club",
+     "text": "paper directly work on downstream benchmarks. And this is like a fully held out sort of test set where we only looked at the benchmarks at the very end of the paper because the advisers told us to. Um, and you can see that everything tracks the standard recipe overfits. Still model scaling gives you improvements. Ensembling is even better. and you can still retain a lot of the benefits through distillation. And final"
+    },
+    {
+     "act": 0.1997,
+     "id": "note_sources_web_the-platonic-representation-hypothesis",
+     "kind": "memory",
+     "source": "web",
+     "title": "",
+     "text": "## Thesis\nArgues that neural network representations across architectures, training objectives, and even modalities (vision vs. language) are converging toward a single shared statistical model of underlying reality \u2014 the \"platonic representation\" \u2014 and demonstrates it by showing kernel alignment between vision and language models increases with model scale and competence.\n\n## Summary\nIsola's group (Huh, Cheung, Wang"
+    },
+    {
+     "act": 0.1973,
+     "id": "wE1ZgJdt4uM",
+     "kind": "video",
+     "source": "youtube",
+     "title": "Inference, Diffusion, World Models, and More | YC Paper Club",
+     "text": "Five researchers present recent AI papers at the inaugural YC Paper Club \u2014 speculative speculative decoding (parallelizing drafting and verification), Diffusion-MPC, LeCun-lab's LeWorldModel with its SIG anti-collapse regularizer, Andrew Gordon Wilson's PAC-Bayes deflation of deep-learning \"mysteries,\" and Stanford's Pretraining Under Infinite Compute, which shows regularization + ensembling + distillation buys ~5x d"
+    },
+    {
+     "act": 0.185,
+     "id": "UTuuTTnjxMQ_156",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Sholto Douglas & Trenton Bricken \u2014 How LLMs actually think",
+     "text": "their paper, but let's say they had arXiv papers\u00a0\nas one of the things. You could imagine biology\u00a0\u00a0 papers going here, math papers going here,\u00a0\nand all of a sudden your breakdown is ruined.\u00a0 But that vision transformer one, where the\u00a0\nclass separation is really clear and obvious,\u00a0\u00a0 gives I think some evidence towards\u00a0\nthe specialization hypothesis.\u00a0 I think images are also in some ways just easier\u00a0\nto interpret than "
+    },
+    {
+     "act": 0.1814,
+     "id": "note_sources_web_sparse-autoencoders-for-hypothesis-generation",
+     "kind": "memory",
+     "source": "web",
+     "title": "",
+     "text": "## Thesis\nHypotheSAEs generates testable natural-language hypotheses about what predicts a target variable from text by training a sparse autoencoder on text embeddings, Lasso-selecting predictive SAE neurons, and having an LLM label each selected neuron \u2014 beating LLM-prompting baselines while costing 10-100x less compute.\n\n## Summary\nMovva, Peng, Garg, Kleinberg, and Pierson formalize hypothesis generation as a thre"
+    },
+    {
+     "act": 0.1807,
+     "id": "note_sources_web_the-scaling-hypothesis",
+     "kind": "memory",
+     "source": "web",
+     "title": "The Scaling Hypothesis",
+     "text": "## Thesis\nGwern argues that GPT-3's unpredicted emergence of few-shot meta-learning from nothing but scaled-up next-token prediction vindicates the scaling hypothesis: intelligence is simple neural units plus learning algorithms applied to diverse data at sufficient scale, and further scaling to trillions of parameters is both feasible and likely to keep working.\n\n## Summary\nWritten days after GPT-3's May 2020 releas"
+    }
+   ],
+   "name": "Sparse autoencoders and mechanistic interpretability",
+   "name_confidence": "high",
+   "name_rationale": "The latent fires consistently on documents discussing SAEs as interpretability tools (explicitly mentioned in excerpts 1 and 7), understanding what neural network representations encode (platonic representations, neuron specialization, predictive structure), and empirical investigation of learned internal structure. The thread unifies: how to measure and decompose what happens inside networks, what makes them work at scale, and evidence-based study of their capabilities. All eight excerpts discuss either the mechanisms/internals of neural networks or the empirical foundations of scaling and emergence\u2014core mechanistic interpretability themes."
+  },
+  {
+   "feature": 1597,
+   "freq": 0.01862525025784141,
+   "n_fire": 307,
+   "exemplars": [
+    {
+     "act": 0.3638,
+     "id": "lXUZvyajciY_26",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Andrej Karpathy \u2014 \u201cWe\u2019re summoning ghosts, not building animals\u201d",
+     "text": "Of building nanochat? So nanochat\u00a0\nis a repository I released.\u00a0 Was it yesterday or the day\u00a0\nbefore? I can't remember.\u00a0 We can see the sleep\u00a0\ndeprivation that went into the\u2026\u00a0 It's trying to be the simplest complete\u00a0\nrepository that covers the whole pipeline\u00a0\u00a0 end-to-end of building a ChatGPT clone.\nSo you have all of the steps, not just\u00a0\u00a0 any individual step, which is a bunch.\nI worked on all the individual steps\u00a0\u00a0 i"
+    },
+    {
+     "act": 0.3511,
+     "id": "YmLp8qe87A0_6",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "I Built an LLM From Scratch",
+     "text": "subject and then respond with, \"Tell me more about your subject.\" In this case, my the subject is boss. So as you can see, the code is super straightforward, but if you didn't know what was going on behind the scenes, you might think that there was something smart on the other side. And beyond these matchers, we also have catchall responses. So these are just random continuations like please go on tell me more about "
+    },
+    {
+     "act": 0.3466,
+     "id": "YmLp8qe87A0_3",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "I Built an LLM From Scratch",
+     "text": "this today, right? Like people are making comments about how dependent they are are on talking to chat GBT as if it's their friend or their therapist even though there's not a real human on the other side. Now later in 1972, Kenneth Colby at Stanford built a computer program called Perry which simulated a paranoid schizophrenia patient. It had internal states for anger, fear, mistrust, and it shifted its responses ac"
+    },
+    {
+     "act": 0.3081,
+     "id": "YmLp8qe87A0_45",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "I Built an LLM From Scratch",
+     "text": "archives, and a lot of copyrighted material that AI companies won't necessarily admit that they actually trained on. But all of this is what transformers like ChatgPTC cloud and Gemini are trained on. Now, the result of this training is essentially just a really fancy autocomplete, which is basically what we built in this video. Now what really takes this model to the next stage of being more useful as a proficient c"
+    },
+    {
+     "act": 0.2875,
+     "id": "MW8-kqd2SD8_37",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Hugging Face Journal Club: Kimi K3",
+     "text": "um >> yeah we mentioned the chat template earlier I was checking the repository so they don't use it seems that they don't use Ginger for the chat template I don't know if it is like inherently not possible or if they just use um something different. Um yeah, I would be curious to know if if this is the future of CH template or not and if it is is it compatible with Ginga or not? >> Is it the same coding? >> Yeah, I "
+    },
+    {
+     "act": 0.2825,
+     "id": "YmLp8qe87A0_4",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "I Built an LLM From Scratch",
+     "text": "templates or decision trees. Essentially, a human had to sit down at a computer and program every single response in advance. So the jump from Eliza to chatgbt isn't just a better chatbot. It's a completely different mechanism. And before we dive into how LLMs work, let's take a look at how a simple program like Eliza could be written. All right, so this is the simple chatbot I have set up here. And if I say hello, i"
+    },
+    {
+     "act": 0.2678,
+     "id": "wjZofJX0v4M_5",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Transformers, the tech behind LLMs | Deep Learning Chapter 5",
+     "text": "I'm glossing over some details about some normalization steps that happen in between, but this is after all a high-level preview. After that, the process essentially repeats, you go back and forth between attention blocks and multi-layer perceptron blocks, until at the very end the hope is that all of the essential meaning of the passage has somehow been baked into the very last vector in the sequence. We then perfor"
+    },
+    {
+     "act": 0.262,
+     "id": "lXUZvyajciY_25",
+     "kind": "segment",
+     "source": "youtube",
+     "title": "Andrej Karpathy \u2014 \u201cWe\u2019re summoning ghosts, not building animals\u201d",
+     "text": "algorithmically to what's happening today.\nBut I do also expect that some of the\u00a0\u00a0 things that have stuck around for a very\u00a0\nlong time will probably still be there.\u00a0 It's probably still a giant neural network trained\u00a0\nwith gradient descent. That would be my guess.\u00a0 It's surprising that all of those things\u00a0\ntogether only halved the error, 30 years\u00a0\u00a0 of progress\u2026. Maybe half is a lot. Because if\u00a0\nyou halve the error, t"
+    }
+   ],
+   "name": "Educational breakdown of language model mechanics",
+   "name_confidence": "high",
+   "name_rationale": "These excerpts form a tight pedagogical cluster around demystifying how transformers and language models work. Every source is teaching-focused: Karpathy's nanochat as the \"simplest complete repository\" covering the whole pipeline; \"I Built an LLM From Scratch\" as step-by-step tutorial showing code is \"super straightforward\"; the Transformers chapter providing a \"high-level preview\"; the contrast between ELIZA and ChatGPT to show mechanism, not magic. The register is consistent: simplification (transformers as \"fancy autocomplete\"), historical grounding (ELIZA \u2192 ChatGPT \u2192 neural networks + gradient descent over 30 years), accessibility through implementation (you can build this yourself). The latent captures educational content that makes language model internals legible and reproducible\u2014explanatory depth paired with building-from-scratch."
   }
  ],
  "survivor_features_appended": [
@@ -8156,5 +8378,10 @@
   1433,
   1760,
   1955
+ ],
+ "named_by_request": [
+  1211,
+  1310,
+  1597
  ]
 }
