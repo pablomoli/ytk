@@ -322,7 +322,14 @@ def main() -> None:
     ax.set_ylabel("cumulative share of answers")
     panel_title(ax, f"top-10 share {share_cos:.0%} -> {share_csls:.0%}", width=44)
     ax = fig.add_subplot(gs[1])
-    bins = np.linspace(0.25, 0.8, 45)
+    # limits from the data, not a round guess: on 0.25-0.8 the measured
+    # -0.0119 median shift was invisible, so the 48% cut read as free
+    lo = float(min(np.min(mins_cos), np.min(mins_csls)))
+    hi = float(max(np.max(mins_cos), np.max(mins_csls)))
+    bins = np.linspace(lo, hi, 45)
+    for arr, color in ((mins_cos, GOLD), (mins_csls, BLUE)):
+        ax.axvline(float(np.median(arr)), color=color, linewidth=1.2, linestyle="--")
+    ax.set_xlim(lo, hi)
     ax.hist(
         mins_cos,
         bins=bins,

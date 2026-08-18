@@ -20,6 +20,10 @@ uv run --with matplotlib python scripts/rank_metrics.py
 ### 02-hub-flattening.png
 ![hub flattening](02-hub-flattening.png)
 
+> **Later (#183 rung 1):** re-rendered with the support axis pinned to the data
+> and both medians drawn — on the original 0.25–0.8 axis the measured −0.0119
+> shift was invisible, so the 48% hub cut read as free. Same data, same numbers.
+
 ### 03-continuous-overlap.png
 ![continuous overlap](03-continuous-overlap.png)
 

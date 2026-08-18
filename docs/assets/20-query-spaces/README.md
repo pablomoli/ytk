@@ -23,6 +23,12 @@ Vocabulary handover and feature lanes for the registered highway.
 ![Missing bridges — 45 tag pairs in narrow support band](02-missing-bridges.png)
 45 bridges in a 0.07-wide band; the one starred crossing barely under the median.
 
+> **Later (#183 rung 1):** re-rendered with the y-axis anchored on the corpus
+> background pair cosine (0.259) — auto-scale had zoomed into the 0.556–0.631
+> band, so a 0.075-wide spread filled the panel and read as large. Every
+> "weak" crossing sits far above background; weakness here is relative to
+> other pairs, not absolute. Same data, same numbers.
+
 ### 03-blends-extrapolation.png
 ![Barycentric blends and extrapolation decay](03-blends-extrapolation.png)
 Barycentric novelty vs control; support decay past the end of the road.

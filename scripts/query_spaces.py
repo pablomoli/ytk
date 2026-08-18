@@ -36,6 +36,7 @@ from growth_experiments import slerp
 from plot_assets import (
     BLUE,
     CYAN,
+    DIM,
     DPI,
     GOLD,
     MARGIN,
@@ -364,6 +365,18 @@ def main() -> None:
     ax.scatter(cx, cy, s=30, c=cc, alpha=0.85, linewidths=0)
     ax.axhline(all_median, color=RED, linewidth=1.0, linestyle="--")
     ax.text(min(cx), all_median + 0.003, "all-pairs median", color=RED, fontsize=TICK_SIZE)
+    # anchor the axis on the corpus background: auto-scale zoomed into the
+    # 0.556-0.631 band and made a 0.075-wide spread fill the panel
+    ax.axhline(background, color=DIM, linewidth=1.2)
+    ax.text(
+        max(cx),
+        background + 0.003,
+        f"background pair cosine {background:.3f}",
+        color=MUTED,
+        fontsize=TICK_SIZE,
+        ha="right",
+    )
+    ax.set_ylim(background - 0.015, max(cy) + 0.015)
     for r in weak[:5]:
         ax.annotate(
             f"{r['a']} + {r['b']}",
