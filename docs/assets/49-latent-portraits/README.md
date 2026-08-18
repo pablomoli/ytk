@@ -32,3 +32,28 @@ on one page, for one note.
 Numbers land in `portraits.json`; runner
 `experiments/sae_qwen/latent_portraits.py`. Results follow below this line
 only after the gate has run.
+
+---
+
+## Result: PASS — portraits are identities
+
+**AUC 0.969 against the registered 0.80** (`02-the-gate.png`): same-latent
+disjoint-half portraits correlate at median **0.75**, cross-latent pairs at
+**0.07**. 1,655 latents qualify. A latent's face survives being built from
+the other half of its own evidence — these are identities, not mush.
+
+**The unplanned finding (`01-the-wall.png`): the corpus paints words.**
+Because channels repeat their thumbnail typography, activation-weighted
+averaging makes ghost text *emerge* — #272 (byte-pair encoding) spells
+"LLM Tokenization" and "SolidGoldMagikarp" out of its own exemplars, #1498
+spells "Tool-Use", #891 spells "DESIGN BEGINNERS". No model wrote those
+labels; twenty-four thumbnails agreed about them. The disclosed limitation
+cuts the other way too: portraits inherit YouTube's design language —
+they are evidence composited, never meaning rendered, and the caveat sits
+in the meta line.
+
+**The passport (`03-the-passport.png`).** Licensed by the pass: the
+protagonist's complete papers — portrait, compass (48's surviving axes),
+inked code, named latents, atlas address, neighbor family — one page, one
+note, every stamp earned by a gate somewhere in sections 42-49.
+

@@ -1,0 +1,62 @@
+{
+ "registered": "G1 per-axis AUC >= 0.80 (null p95 < 0.60); G2 mean signature cos >= 0.90",
+ "gate1": {
+  "spoken-written": {
+   "n_pole_a": 345,
+   "n_pole_b": 21,
+   "auc": 0.9469,
+   "null_auc_mean": 0.4802,
+   "null_auc_p95": 0.6118,
+   "pass": false
+  },
+  "scroll-sit": {
+   "n_pole_a": 251,
+   "n_pole_b": 366,
+   "auc": 0.8995,
+   "null_auc_mean": 0.4999,
+   "null_auc_p95": 0.5482,
+   "pass": true
+  },
+  "mine-world": {
+   "n_pole_a": 4449,
+   "n_pole_b": 617,
+   "auc": 0.9736,
+   "null_auc_mean": 0.4973,
+   "null_auc_p95": 0.5217,
+   "pass": true
+  },
+  "fresh-settled": {
+   "n_pole_a": 1316,
+   "n_pole_b": 955,
+   "auc": 0.9228,
+   "null_auc_mean": 0.4993,
+   "null_auc_p95": 0.5234,
+   "pass": true
+  },
+  "code-prose": {
+   "n_pole_a": 10,
+   "n_pole_b": 5061,
+   "auc": 0.7543,
+   "null_auc_mean": 0.505,
+   "null_auc_p95": 0.7488,
+   "pass": false
+  }
+ },
+ "axes_kept": [
+  "scroll-sit",
+  "mine-world",
+  "fresh-settled"
+ ],
+ "gate2": {
+  "mean_cos": 0.9185,
+  "p10_cos": 0.8345,
+  "pass": true
+ },
+ "axis_abs_cos": {
+  "scroll-sit|mine-world": 0.011,
+  "scroll-sit|fresh-settled": 0.007,
+  "mine-world|fresh-settled": 0.316
+ },
+ "verdict": "FAIL",
+ "seed": 48
+}

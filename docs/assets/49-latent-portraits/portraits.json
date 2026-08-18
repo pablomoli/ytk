@@ -1,0 +1,9 @@
+{
+ "registered": "P1: same-latent split-half vs cross-pair pixel r, AUC >= 0.80",
+ "n_qualifying": 1655,
+ "same_median_r": 0.7497,
+ "cross_median_r": 0.0729,
+ "auc": 0.9686,
+ "gate": "PASS",
+ "seed": 49
+}

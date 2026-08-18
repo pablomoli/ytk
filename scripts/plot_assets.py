@@ -459,6 +459,51 @@ def excess_profile(
     }
 
 
+def semantic_rose(
+    ax,
+    signature: np.ndarray,
+    pole_names: list[str],
+    color: str = GOLD,
+    rmax: float | None = None,
+) -> None:
+    """A signed k-axis signature as a 2k-pole rose (#183 rung 7', section 48).
+
+    Each axis contributes two opposite spokes; a positive projection fills
+    toward pole A, negative toward pole B. The unit ring is the reference.
+    `pole_names` is the 2k pole labels, A poles first, then B poles in the
+    same axis order.
+    """
+    sig = np.asarray(signature, float).ravel()
+    k = len(sig)
+    r = np.concatenate([np.clip(sig, 0, None), np.clip(-sig, 0, None)])
+    if rmax is None:
+        rmax = max(float(r.max()), 1e-6) * 1.15
+    theta = np.array([i * np.pi / k for i in range(k)] + [i * np.pi / k + np.pi for i in range(k)])
+    order = np.argsort(theta)
+    tt, rr = theta[order], r[order]
+    xs = np.append(rr * np.cos(tt), rr[0] * np.cos(tt[0]))
+    ys = np.append(rr * np.sin(tt), rr[0] * np.sin(tt[0]))
+    ring = np.linspace(0, 2 * np.pi, 120)
+    ax.plot(np.cos(ring) * rmax, np.sin(ring) * rmax, color=FRAME, lw=0.8)
+    for t, name in zip(theta, pole_names):
+        ax.plot([0, rmax * np.cos(t)], [0, rmax * np.sin(t)], color=FRAME, lw=0.5)
+        ax.text(
+            rmax * 1.22 * np.cos(t),
+            rmax * 1.22 * np.sin(t),
+            name,
+            color=MUTED,
+            fontsize=6.6,
+            ha="center",
+            va="center",
+        )
+    ax.fill(xs, ys, color=color, alpha=0.4)
+    ax.plot(xs, ys, color=color, lw=1.6)
+    ax.set_xlim(-rmax * 1.45, rmax * 1.45)
+    ax.set_ylim(-rmax * 1.45, rmax * 1.45)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+
 # --- data ------------------------------------------------------------------
 def load():
     return json.loads(MAP.read_text())

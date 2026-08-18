@@ -40,3 +40,33 @@ unit vector onto the axes, drawn as a rose.
 
 Numbers land in `axes.json`; runner `experiments/sae_qwen/semantic_axes.py`.
 Results follow below this line only after the gates have run.
+
+---
+
+## Result: a registered loss, with a surviving instrument
+
+**As registered, the compass fails: 3 of 5 axes survive and the bar said 4**
+(`01-the-gates.png`).
+
+- scroll-sit **0.90**, mine-world **0.97**, fresh-settled **0.92** — all
+  pass with shuffle nulls at ~0.50.
+- spoken-written scored AUC **0.95** — real signal — but failed the
+  registered null clause: its written pole has only 21 web notes in the
+  cache, and a 21-note pool makes the shuffle null's p95 reach 0.61. The
+  axis died of my recipe's thin pole, not of absent structure.
+- code-prose was degenerate: the lexical rule found 10 positive notes in
+  the 900-character text heads. Ten notes cannot anchor a direction.
+- G2 passed: signature stability mean cosine **0.92** across disjoint
+  defining halves.
+
+The loss stands — no bar moves after the data. What survives is a
+**three-axis compass** whose axes are near-orthogonal (pairwise |cos| 0.01,
+0.01, 0.32) and whose glyph is legible on real objects
+(`02-the-surviving-compass.png`): the AlexNet note reads SIT+WORLD
+(ingested longform — correct), latent #977's decoder direction reads MINE
+(work — correct), and the corpus mean collapses to a dot, as an honest
+reference should. Whether to adopt the three-axis instrument, and whether
+to re-register spoken-written with an adequately pooled written pole once
+more web notes are cached, are owner decisions; neither inherits this
+section's bar.
+
