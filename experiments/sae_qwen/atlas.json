@@ -1,0 +1,4333 @@
+{
+ "grid": 12,
+ "min_cell_scored": 15,
+ "stable_cos": 0.5,
+ "x_edges": [
+  -0.9569,
+  -0.7938,
+  -0.6307,
+  -0.4677,
+  -0.3046,
+  -0.1415,
+  0.0216,
+  0.1846,
+  0.3477,
+  0.5108,
+  0.6739,
+  0.8369,
+  1.0
+ ],
+ "y_edges": [
+  -0.6457,
+  -0.5188,
+  -0.392,
+  -0.2651,
+  -0.1383,
+  -0.0114,
+  0.1154,
+  0.2423,
+  0.3691,
+  0.496,
+  0.6228,
+  0.7497,
+  0.8765
+ ],
+ "n_map_points": 5080,
+ "n_joined": 5016,
+ "gate": {
+  "stable_05": 36,
+  "stable_08": 20,
+  "strict_05": 21,
+  "n": 62
+ },
+ "protagonist": {
+  "latent": 1597,
+  "cell": [
+   8,
+   9
+  ],
+  "on_frozen_layout": false,
+  "cell_method": "10-NN vote estimate (note postdates the frozen layout)"
+ },
+ "excess_null": "200 size-matched random doc subsets per cell (excess_profile)",
+ "cells": [
+  {
+   "cell": [
+    0,
+    2
+   ],
+   "x0": -0.9569,
+   "y0": -0.392,
+   "x1": -0.7938,
+   "y1": -0.2651,
+   "n_points": 217,
+   "n_scored": 217,
+   "ood_frac": 0.0,
+   "head_mass": 0.3897,
+   "label_latent": 396,
+   "label": "Plat data system GIS integration",
+   "label_excess": 0.33182,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 396,
+     "name": "Plat data system GIS integration",
+     "excess": 0.33182,
+     "outside_null": true
+    },
+    {
+     "latent": 1653,
+     "name": "NAS file browser implementation",
+     "excess": 0.11091,
+     "outside_null": true
+    },
+    {
+     "latent": 1386,
+     "name": "Synology FileStation bulk PDF scanning",
+     "excess": 0.10788,
+     "outside_null": true
+    },
+    {
+     "latent": 462,
+     "name": "Multi-county feature parity implementation",
+     "excess": 0.10671,
+     "outside_null": true
+    },
+    {
+     "latent": 1469,
+     "name": "Plat library deduplication and normalization",
+     "excess": 0.08698,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1404,
+    489
+   ],
+   "seed_cos_top1": [
+    0.8163,
+    0.9095
+   ],
+   "seed_cos_top5": [
+    0.8163,
+    0.9095
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": -1,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    0,
+    3
+   ],
+   "x0": -0.9569,
+   "y0": -0.2651,
+   "x1": -0.7938,
+   "y1": -0.1383,
+   "n_points": 22,
+   "n_scored": 22,
+   "ood_frac": 0.0,
+   "head_mass": 0.4154,
+   "label_latent": 531,
+   "label": "Subdivision plat GIS layer integration",
+   "label_excess": 0.28149,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 531,
+     "name": "Subdivision plat GIS layer integration",
+     "excess": 0.28149,
+     "outside_null": true
+    },
+    {
+     "latent": 396,
+     "name": "Plat data system GIS integration",
+     "excess": 0.27641,
+     "outside_null": true
+    },
+    {
+     "latent": 462,
+     "name": "Multi-county feature parity implementation",
+     "excess": 0.18691,
+     "outside_null": true
+    },
+    {
+     "latent": 618,
+     "name": "Hierarchical layer abstraction pattern",
+     "excess": 0.12199,
+     "outside_null": true
+    },
+    {
+     "latent": 625,
+     "name": "ArcGIS spatial query infrastructure",
+     "excess": 0.09281,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1404,
+    489
+   ],
+   "seed_cos_top1": [
+    0.2493,
+    0.1172
+   ],
+   "seed_cos_top5": [
+    0.6118,
+    0.565
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    1,
+    0
+   ],
+   "x0": -0.7938,
+   "y0": -0.6457,
+   "x1": -0.6307,
+   "y1": -0.5188,
+   "n_points": 23,
+   "n_scored": 23,
+   "ood_frac": 0.0,
+   "head_mass": 0.2589,
+   "label_latent": 1386,
+   "label": "Synology FileStation bulk PDF scanning",
+   "label_excess": 0.29408,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1386,
+     "name": "Synology FileStation bulk PDF scanning",
+     "excess": 0.29408,
+     "outside_null": true
+    },
+    {
+     "latent": 223,
+     "name": "Network storage file location and matching",
+     "excess": 0.25273,
+     "outside_null": true
+    },
+    {
+     "latent": 976,
+     "name": "Synology FileStation Search API integration",
+     "excess": 0.20974,
+     "outside_null": true
+    },
+    {
+     "latent": 612,
+     "name": "Synology FileStation API testing",
+     "excess": 0.1958,
+     "outside_null": true
+    },
+    {
+     "latent": 547,
+     "name": "Semantic search system implementation",
+     "excess": 0.176,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    797,
+    525
+   ],
+   "seed_cos_top1": [
+    0.726,
+    0.2745
+   ],
+   "seed_cos_top5": [
+    0.726,
+    0.2745
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    1,
+    3
+   ],
+   "x0": -0.7938,
+   "y0": -0.2651,
+   "x1": -0.6307,
+   "y1": -0.1383,
+   "n_points": 51,
+   "n_scored": 51,
+   "ood_frac": 0.0,
+   "head_mass": 0.3002,
+   "label_latent": 462,
+   "label": "Multi-county feature parity implementation",
+   "label_excess": 0.11153,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 462,
+     "name": "Multi-county feature parity implementation",
+     "excess": 0.11153,
+     "outside_null": true
+    },
+    {
+     "latent": 396,
+     "name": "Plat data system GIS integration",
+     "excess": 0.0942,
+     "outside_null": true
+    },
+    {
+     "latent": 39,
+     "name": "Lazy-loading subdivision plat download",
+     "excess": 0.08711,
+     "outside_null": true
+    },
+    {
+     "latent": 1681,
+     "name": "Obsidian properties and YAML metadata",
+     "excess": 0.08627,
+     "outside_null": true
+    },
+    {
+     "latent": 157,
+     "name": "Parcel datum transformation and coordinate offset fixes",
+     "excess": 0.08469,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1310,
+    1505
+   ],
+   "seed_cos_top1": [
+    0.4208,
+    0.1828
+   ],
+   "seed_cos_top5": [
+    0.8554,
+    0.9314
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    1,
+    4
+   ],
+   "x0": -0.7938,
+   "y0": -0.1383,
+   "x1": -0.6307,
+   "y1": -0.0114,
+   "n_points": 91,
+   "n_scored": 91,
+   "ood_frac": 0.0,
+   "head_mass": 0.3607,
+   "label_latent": 462,
+   "label": "Multi-county feature parity implementation",
+   "label_excess": 0.16876,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 462,
+     "name": "Multi-county feature parity implementation",
+     "excess": 0.16876,
+     "outside_null": true
+    },
+    {
+     "latent": 157,
+     "name": "Parcel datum transformation and coordinate offset fixes",
+     "excess": 0.16728,
+     "outside_null": true
+    },
+    {
+     "latent": 618,
+     "name": "Hierarchical layer abstraction pattern",
+     "excess": 0.13722,
+     "outside_null": true
+    },
+    {
+     "latent": 1401,
+     "name": "Brevard County geospatial data integration",
+     "excess": 0.10178,
+     "outside_null": true
+    },
+    {
+     "latent": 1393,
+     "name": "Geographic scale-out via templates",
+     "excess": 0.08331,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    343,
+    1312
+   ],
+   "seed_cos_top1": [
+    0.2173,
+    0.9314
+   ],
+   "seed_cos_top5": [
+    0.8554,
+    0.9314
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    1,
+    8
+   ],
+   "x0": -0.7938,
+   "y0": 0.3691,
+   "x1": -0.6307,
+   "y1": 0.496,
+   "n_points": 29,
+   "n_scored": 29,
+   "ood_frac": 0.0,
+   "head_mass": 0.4522,
+   "label_latent": 756,
+   "label": "Consolidating duplicate calendar rendering logic",
+   "label_excess": 0.32776,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 756,
+     "name": "Consolidating duplicate calendar rendering logic",
+     "excess": 0.32776,
+     "outside_null": true
+    },
+    {
+     "latent": 91,
+     "name": "Calendar overlap detection and unification",
+     "excess": 0.29258,
+     "outside_null": true
+    },
+    {
+     "latent": 800,
+     "name": "render.js refactoring for code duplication",
+     "excess": 0.21291,
+     "outside_null": true
+    },
+    {
+     "latent": 1933,
+     "name": "Hover elements clipped by CSS overflow",
+     "excess": 0.19202,
+     "outside_null": true
+    },
+    {
+     "latent": 1642,
+     "name": "EpicMap geospatial mapping platform",
+     "excess": 0.17987,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    2025,
+    506
+   ],
+   "seed_cos_top1": [
+    0.2732,
+    0.3475
+   ],
+   "seed_cos_top5": [
+    0.387,
+    0.3475
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    2,
+    0
+   ],
+   "x0": -0.6307,
+   "y0": -0.6457,
+   "x1": -0.4677,
+   "y1": -0.5188,
+   "n_points": 143,
+   "n_scored": 143,
+   "ood_frac": 0.0,
+   "head_mass": 0.328,
+   "label_latent": 1653,
+   "label": "NAS file browser implementation",
+   "label_excess": 0.3254,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1653,
+     "name": "NAS file browser implementation",
+     "excess": 0.3254,
+     "outside_null": true
+    },
+    {
+     "latent": 612,
+     "name": "Synology FileStation API testing",
+     "excess": 0.13109,
+     "outside_null": true
+    },
+    {
+     "latent": 2001,
+     "name": "NAS storage access and upload control",
+     "excess": 0.11042,
+     "outside_null": true
+    },
+    {
+     "latent": 1964,
+     "name": "NAS file upload system work",
+     "excess": 0.08494,
+     "outside_null": true
+    },
+    {
+     "latent": 1616,
+     "name": "File organization and storage systems",
+     "excess": 0.07876,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1440,
+    14
+   ],
+   "seed_cos_top1": [
+    0.9444,
+    0.9203
+   ],
+   "seed_cos_top5": [
+    0.9444,
+    0.9203
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    2,
+    1
+   ],
+   "x0": -0.6307,
+   "y0": -0.5188,
+   "x1": -0.4677,
+   "y1": -0.392,
+   "n_points": 33,
+   "n_scored": 33,
+   "ood_frac": 0.0,
+   "head_mass": 0.3226,
+   "label_latent": 1653,
+   "label": "NAS file browser implementation",
+   "label_excess": 0.27394,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1653,
+     "name": "NAS file browser implementation",
+     "excess": 0.27394,
+     "outside_null": true
+    },
+    {
+     "latent": 1372,
+     "name": "NAS folder auto-creation UI",
+     "excess": 0.1808,
+     "outside_null": true
+    },
+    {
+     "latent": 223,
+     "name": "Network storage file location and matching",
+     "excess": 0.12897,
+     "outside_null": true
+    },
+    {
+     "latent": 1808,
+     "name": "Automatic constraint enforcement and auto-display",
+     "excess": 0.09694,
+     "outside_null": true
+    },
+    {
+     "latent": 598,
+     "name": "Creating and maintaining linked references",
+     "excess": 0.09115,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1440,
+    298
+   ],
+   "seed_cos_top1": [
+    0.9444,
+    0.1558
+   ],
+   "seed_cos_top5": [
+    0.9444,
+    0.9203
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    2,
+    3
+   ],
+   "x0": -0.6307,
+   "y0": -0.2651,
+   "x1": -0.4677,
+   "y1": -0.1383,
+   "n_points": 151,
+   "n_scored": 151,
+   "ood_frac": 0.0,
+   "head_mass": 0.3629,
+   "label_latent": 314,
+   "label": "Multi-parcel geometry and property aggregation",
+   "label_excess": 0.14575,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 314,
+     "name": "Multi-parcel geometry and property aggregation",
+     "excess": 0.14575,
+     "outside_null": true
+    },
+    {
+     "latent": 157,
+     "name": "Parcel datum transformation and coordinate offset fixes",
+     "excess": 0.13827,
+     "outside_null": true
+    },
+    {
+     "latent": 6,
+     "name": "Multiple parcels per job support",
+     "excess": 0.10132,
+     "outside_null": true
+    },
+    {
+     "latent": 333,
+     "name": "FEMA metadata backfill and repair",
+     "excess": 0.09571,
+     "outside_null": true
+    },
+    {
+     "latent": 1430,
+     "name": "Job creation modal NAS folder design",
+     "excess": 0.08624,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    260,
+    1505
+   ],
+   "seed_cos_top1": [
+    0.5512,
+    0.6471
+   ],
+   "seed_cos_top5": [
+    0.5512,
+    0.6471
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00158,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    2,
+    4
+   ],
+   "x0": -0.6307,
+   "y0": -0.1383,
+   "x1": -0.4677,
+   "y1": -0.0114,
+   "n_points": 68,
+   "n_scored": 68,
+   "ood_frac": 0.0,
+   "head_mass": 0.3198,
+   "label_latent": 550,
+   "label": "Admin service health monitoring",
+   "label_excess": 0.20958,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 550,
+     "name": "Admin service health monitoring",
+     "excess": 0.20958,
+     "outside_null": true
+    },
+    {
+     "latent": 2003,
+     "name": "Microservices and service health monitoring",
+     "excess": 0.12985,
+     "outside_null": true
+    },
+    {
+     "latent": 462,
+     "name": "Multi-county feature parity implementation",
+     "excess": 0.11385,
+     "outside_null": true
+    },
+    {
+     "latent": 569,
+     "name": "Batching external API calls asynchronously",
+     "excess": 0.07252,
+     "outside_null": true
+    },
+    {
+     "latent": 157,
+     "name": "Parcel datum transformation and coordinate offset fixes",
+     "excess": 0.06826,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1650,
+    878
+   ],
+   "seed_cos_top1": [
+    0.8391,
+    0.8657
+   ],
+   "seed_cos_top5": [
+    0.8391,
+    0.8657
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00136,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    2,
+    6
+   ],
+   "x0": -0.6307,
+   "y0": 0.1154,
+   "x1": -0.4677,
+   "y1": 0.2423,
+   "n_points": 75,
+   "n_scored": 75,
+   "ood_frac": 0.0,
+   "head_mass": 0.3859,
+   "label_latent": 1258,
+   "label": "Control point type marker rendering",
+   "label_excess": 0.21246,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1258,
+     "name": "Control point type marker rendering",
+     "excess": 0.21246,
+     "outside_null": true
+    },
+    {
+     "latent": 1309,
+     "name": "Control points from surveying",
+     "excess": 0.20481,
+     "outside_null": true
+    },
+    {
+     "latent": 580,
+     "name": "PNEZD survey data parser",
+     "excess": 0.20444,
+     "outside_null": true
+    },
+    {
+     "latent": 408,
+     "name": "Multi-zone parcel attributes",
+     "excess": 0.18682,
+     "outside_null": true
+    },
+    {
+     "latent": 1102,
+     "name": "PNEZD surveying data parser",
+     "excess": 0.10886,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1434,
+    1784
+   ],
+   "seed_cos_top1": [
+    0.8315,
+    0.3423
+   ],
+   "seed_cos_top5": [
+    0.8315,
+    0.4209
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    2,
+    8
+   ],
+   "x0": -0.6307,
+   "y0": 0.3691,
+   "x1": -0.4677,
+   "y1": 0.496,
+   "n_points": 100,
+   "n_scored": 100,
+   "ood_frac": 0.0,
+   "head_mass": 0.4541,
+   "label_latent": 1066,
+   "label": "CSS overflow clipping tooltip layers",
+   "label_excess": 0.21812,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1066,
+     "name": "CSS overflow clipping tooltip layers",
+     "excess": 0.21812,
+     "outside_null": true
+    },
+    {
+     "latent": 91,
+     "name": "Calendar overlap detection and unification",
+     "excess": 0.2111,
+     "outside_null": true
+    },
+    {
+     "latent": 977,
+     "name": "EpicMap field service SaaS platform",
+     "excess": 0.1968,
+     "outside_null": true
+    },
+    {
+     "latent": 1933,
+     "name": "Hover elements clipped by CSS overflow",
+     "excess": 0.19161,
+     "outside_null": true
+    },
+    {
+     "latent": 1642,
+     "name": "EpicMap geospatial mapping platform",
+     "excess": 0.18599,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1002,
+    349
+   ],
+   "seed_cos_top1": [
+    0.0237,
+    0.0623
+   ],
+   "seed_cos_top5": [
+    0.3845,
+    0.576
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    2,
+    9
+   ],
+   "x0": -0.6307,
+   "y0": 0.496,
+   "x1": -0.4677,
+   "y1": 0.6228,
+   "n_points": 17,
+   "n_scored": 17,
+   "ood_frac": 0.0,
+   "head_mass": 0.3975,
+   "label_latent": 977,
+   "label": "EpicMap field service SaaS platform",
+   "label_excess": 0.24795,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 977,
+     "name": "EpicMap field service SaaS platform",
+     "excess": 0.24795,
+     "outside_null": true
+    },
+    {
+     "latent": 91,
+     "name": "Calendar overlap detection and unification",
+     "excess": 0.1934,
+     "outside_null": true
+    },
+    {
+     "latent": 1642,
+     "name": "EpicMap geospatial mapping platform",
+     "excess": 0.17282,
+     "outside_null": true
+    },
+    {
+     "latent": 1031,
+     "name": "Search indexing and data retrieval systems",
+     "excess": 0.17037,
+     "outside_null": true
+    },
+    {
+     "latent": 1933,
+     "name": "Hover elements clipped by CSS overflow",
+     "excess": 0.16413,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1002,
+    696
+   ],
+   "seed_cos_top1": [
+    0.96,
+    0.0103
+   ],
+   "seed_cos_top5": [
+    0.96,
+    0.9577
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    3,
+    1
+   ],
+   "x0": -0.4677,
+   "y0": -0.5188,
+   "x1": -0.3046,
+   "y1": -0.392,
+   "n_points": 102,
+   "n_scored": 102,
+   "ood_frac": 0.0,
+   "head_mass": 0.2988,
+   "label_latent": 594,
+   "label": "Street-based job naming with fallbacks",
+   "label_excess": 0.09984,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 594,
+     "name": "Street-based job naming with fallbacks",
+     "excess": 0.09984,
+     "outside_null": true
+    },
+    {
+     "latent": 1653,
+     "name": "NAS file browser implementation",
+     "excess": 0.09798,
+     "outside_null": true
+    },
+    {
+     "latent": 91,
+     "name": "Calendar overlap detection and unification",
+     "excess": 0.09681,
+     "outside_null": true
+    },
+    {
+     "latent": 242,
+     "name": "iCalendar (RFC 5545) format implementation",
+     "excess": 0.09288,
+     "outside_null": true
+    },
+    {
+     "latent": 1898,
+     "name": "Semantic identifier refactoring",
+     "excess": 0.08222,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1863,
+    1297
+   ],
+   "seed_cos_top1": [
+    0.4522,
+    0.447
+   ],
+   "seed_cos_top5": [
+    0.4522,
+    0.4625
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    3,
+    2
+   ],
+   "x0": -0.4677,
+   "y0": -0.392,
+   "x1": -0.3046,
+   "y1": -0.2651,
+   "n_points": 54,
+   "n_scored": 54,
+   "ood_frac": 0.0,
+   "head_mass": 0.2974,
+   "label_latent": 1399,
+   "label": "Unified modal search consolidation",
+   "label_excess": 0.16647,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1399,
+     "name": "Unified modal search consolidation",
+     "excess": 0.16647,
+     "outside_null": true
+    },
+    {
+     "latent": 547,
+     "name": "Semantic search system implementation",
+     "excess": 0.10494,
+     "outside_null": true
+    },
+    {
+     "latent": 116,
+     "name": "epicmap job display and filtering",
+     "excess": 0.09573,
+     "outside_null": true
+    },
+    {
+     "latent": 1128,
+     "name": "Address field implementation and geocoding",
+     "excess": 0.08744,
+     "outside_null": true
+    },
+    {
+     "latent": 283,
+     "name": "Map tooltip location data display",
+     "excess": 0.0872,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    726,
+    119
+   ],
+   "seed_cos_top1": [
+    0.7696,
+    0.0023
+   ],
+   "seed_cos_top5": [
+    0.7696,
+    0.6265
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    3,
+    3
+   ],
+   "x0": -0.4677,
+   "y0": -0.2651,
+   "x1": -0.3046,
+   "y1": -0.1383,
+   "n_points": 40,
+   "n_scored": 40,
+   "ood_frac": 0.0,
+   "head_mass": 0.3466,
+   "label_latent": 1430,
+   "label": "Job creation modal NAS folder design",
+   "label_excess": 0.09444,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1430,
+     "name": "Job creation modal NAS folder design",
+     "excess": 0.09444,
+     "outside_null": true
+    },
+    {
+     "latent": 34,
+     "name": "Animated disk reveals nearby jobs",
+     "excess": 0.09287,
+     "outside_null": true
+    },
+    {
+     "latent": 1300,
+     "name": "Extract fixes from Claude PRs",
+     "excess": 0.07443,
+     "outside_null": true
+    },
+    {
+     "latent": 97,
+     "name": "PDF export for job metadata",
+     "excess": 0.07227,
+     "outside_null": true
+    },
+    {
+     "latent": 1102,
+     "name": "PNEZD surveying data parser",
+     "excess": 0.06886,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1863,
+    119
+   ],
+   "seed_cos_top1": [
+    0.6993,
+    0.6849
+   ],
+   "seed_cos_top5": [
+    0.6993,
+    0.6849
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    3,
+    4
+   ],
+   "x0": -0.4677,
+   "y0": -0.1383,
+   "x1": -0.3046,
+   "y1": -0.0114,
+   "n_points": 109,
+   "n_scored": 109,
+   "ood_frac": 0.0,
+   "head_mass": 0.3019,
+   "label_latent": 116,
+   "label": "epicmap job display and filtering",
+   "label_excess": 0.0878,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 116,
+     "name": "epicmap job display and filtering",
+     "excess": 0.0878,
+     "outside_null": true
+    },
+    {
+     "latent": 447,
+     "name": "N+1 query detection and optimization work",
+     "excess": 0.08771,
+     "outside_null": true
+    },
+    {
+     "latent": 34,
+     "name": "Animated disk reveals nearby jobs",
+     "excess": 0.08073,
+     "outside_null": true
+    },
+    {
+     "latent": 724,
+     "name": "Admin application settings configuration system",
+     "excess": 0.07894,
+     "outside_null": true
+    },
+    {
+     "latent": 1610,
+     "name": "Caching strategies across multiple layers",
+     "excess": 0.07102,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1863,
+    119
+   ],
+   "seed_cos_top1": [
+    0.8943,
+    0.8858
+   ],
+   "seed_cos_top5": [
+    0.8943,
+    0.8858
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    3,
+    5
+   ],
+   "x0": -0.4677,
+   "y0": -0.0114,
+   "x1": -0.3046,
+   "y1": 0.1154,
+   "n_points": 35,
+   "n_scored": 35,
+   "ood_frac": 0.0,
+   "head_mass": 0.3717,
+   "label_latent": 328,
+   "label": "UI animation design and implementation",
+   "label_excess": 0.2658,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 328,
+     "name": "UI animation design and implementation",
+     "excess": 0.2658,
+     "outside_null": true
+    },
+    {
+     "latent": 1924,
+     "name": "Typewriter easter egg job marker animation",
+     "excess": 0.18314,
+     "outside_null": true
+    },
+    {
+     "latent": 829,
+     "name": "Leaflet flyTo smooth map transitions",
+     "excess": 0.17742,
+     "outside_null": true
+    },
+    {
+     "latent": 81,
+     "name": "Map marker animation and styling",
+     "excess": 0.12428,
+     "outside_null": true
+    },
+    {
+     "latent": 1407,
+     "name": "Animated map marker and navigation effects",
+     "excess": 0.1124,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    312,
+    603
+   ],
+   "seed_cos_top1": [
+    0.8834,
+    0.8857
+   ],
+   "seed_cos_top5": [
+    0.8834,
+    0.8857
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    3,
+    6
+   ],
+   "x0": -0.4677,
+   "y0": 0.1154,
+   "x1": -0.3046,
+   "y1": 0.2423,
+   "n_points": 86,
+   "n_scored": 86,
+   "ood_frac": 0.0,
+   "head_mass": 0.4959,
+   "label_latent": 977,
+   "label": "EpicMap field service SaaS platform",
+   "label_excess": 0.26856,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 977,
+     "name": "EpicMap field service SaaS platform",
+     "excess": 0.26856,
+     "outside_null": true
+    },
+    {
+     "latent": 1933,
+     "name": "Hover elements clipped by CSS overflow",
+     "excess": 0.14948,
+     "outside_null": true
+    },
+    {
+     "latent": 1642,
+     "name": "EpicMap geospatial mapping platform",
+     "excess": 0.14574,
+     "outside_null": true
+    },
+    {
+     "latent": 1460,
+     "name": "EpicMap coordinate caching data bug",
+     "excess": 0.09808,
+     "outside_null": true
+    },
+    {
+     "latent": 1031,
+     "name": "Search indexing and data retrieval systems",
+     "excess": 0.09605,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1002,
+    349
+   ],
+   "seed_cos_top1": [
+    0.96,
+    0.9577
+   ],
+   "seed_cos_top5": [
+    0.96,
+    0.9577
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    3,
+    7
+   ],
+   "x0": -0.4677,
+   "y0": 0.2423,
+   "x1": -0.3046,
+   "y1": 0.3691,
+   "n_points": 76,
+   "n_scored": 76,
+   "ood_frac": 0.0,
+   "head_mass": 0.4803,
+   "label_latent": 977,
+   "label": "EpicMap field service SaaS platform",
+   "label_excess": 0.22709,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 977,
+     "name": "EpicMap field service SaaS platform",
+     "excess": 0.22709,
+     "outside_null": true
+    },
+    {
+     "latent": 1031,
+     "name": "Search indexing and data retrieval systems",
+     "excess": 0.14723,
+     "outside_null": true
+    },
+    {
+     "latent": 290,
+     "name": "Icon library migration to Lucide",
+     "excess": 0.13174,
+     "outside_null": true
+    },
+    {
+     "latent": 1282,
+     "name": "Development project session summaries",
+     "excess": 0.12514,
+     "outside_null": true
+    },
+    {
+     "latent": 1933,
+     "name": "Hover elements clipped by CSS overflow",
+     "excess": 0.12367,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1002,
+    349
+   ],
+   "seed_cos_top1": [
+    0.96,
+    0.9577
+   ],
+   "seed_cos_top5": [
+    0.96,
+    0.9577
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    3,
+    8
+   ],
+   "x0": -0.4677,
+   "y0": 0.3691,
+   "x1": -0.3046,
+   "y1": 0.496,
+   "n_points": 25,
+   "n_scored": 25,
+   "ood_frac": 0.0,
+   "head_mass": 0.4203,
+   "label_latent": 560,
+   "label": "String-keyed state identification failures",
+   "label_excess": 0.17912,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 560,
+     "name": "String-keyed state identification failures",
+     "excess": 0.17912,
+     "outside_null": true
+    },
+    {
+     "latent": 20,
+     "name": "Status field features for events",
+     "excess": 0.1703,
+     "outside_null": true
+    },
+    {
+     "latent": 116,
+     "name": "epicmap job display and filtering",
+     "excess": 0.16767,
+     "outside_null": true
+    },
+    {
+     "latent": 1642,
+     "name": "EpicMap geospatial mapping platform",
+     "excess": 0.16562,
+     "outside_null": true
+    },
+    {
+     "latent": 977,
+     "name": "EpicMap field service SaaS platform",
+     "excess": 0.14471,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1748,
+    748
+   ],
+   "seed_cos_top1": [
+    0.4321,
+    0.1157
+   ],
+   "seed_cos_top5": [
+    0.4321,
+    0.2372
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    4,
+    0
+   ],
+   "x0": -0.3046,
+   "y0": -0.6457,
+   "x1": -0.1415,
+   "y1": -0.5188,
+   "n_points": 43,
+   "n_scored": 43,
+   "ood_frac": 0.0,
+   "head_mass": 0.2302,
+   "label_latent": 91,
+   "label": "Calendar overlap detection and unification",
+   "label_excess": 0.27691,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 91,
+     "name": "Calendar overlap detection and unification",
+     "excess": 0.27691,
+     "outside_null": true
+    },
+    {
+     "latent": 1664,
+     "name": "Pointer capture in drag interactions",
+     "excess": 0.23387,
+     "outside_null": true
+    },
+    {
+     "latent": 1130,
+     "name": "Admin dashboard tabbed SPA architecture",
+     "excess": 0.11256,
+     "outside_null": true
+    },
+    {
+     "latent": 1994,
+     "name": "Alpine.js framework and patterns",
+     "excess": 0.07946,
+     "outside_null": true
+    },
+    {
+     "latent": 276,
+     "name": "Calendar event overlap detection and rendering",
+     "excess": 0.07194,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1595,
+    1427
+   ],
+   "seed_cos_top1": [
+    0.1998,
+    0.0545
+   ],
+   "seed_cos_top5": [
+    0.5863,
+    0.7601
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    4,
+    1
+   ],
+   "x0": -0.3046,
+   "y0": -0.5188,
+   "x1": -0.1415,
+   "y1": -0.392,
+   "n_points": 126,
+   "n_scored": 126,
+   "ood_frac": 0.0,
+   "head_mass": 0.2922,
+   "label_latent": 91,
+   "label": "Calendar overlap detection and unification",
+   "label_excess": 0.13878,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 91,
+     "name": "Calendar overlap detection and unification",
+     "excess": 0.13878,
+     "outside_null": true
+    },
+    {
+     "latent": 20,
+     "name": "Status field features for events",
+     "excess": 0.10127,
+     "outside_null": true
+    },
+    {
+     "latent": 428,
+     "name": "Filter system configuration and UX",
+     "excess": 0.0643,
+     "outside_null": true
+    },
+    {
+     "latent": 1696,
+     "name": "Overlapping calendar events side-by-side rendering",
+     "excess": 0.06415,
+     "outside_null": true
+    },
+    {
+     "latent": 1937,
+     "name": "Frontend UI layout and CSS debugging",
+     "excess": 0.05277,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    412,
+    727
+   ],
+   "seed_cos_top1": [
+    0.0029,
+    0.5817
+   ],
+   "seed_cos_top5": [
+    0.5863,
+    0.7601
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00023,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    4,
+    2
+   ],
+   "x0": -0.3046,
+   "y0": -0.392,
+   "x1": -0.1415,
+   "y1": -0.2651,
+   "n_points": 125,
+   "n_scored": 125,
+   "ood_frac": 0.0,
+   "head_mass": 0.2493,
+   "label_latent": 206,
+   "label": "Crew teams grouping and filtering",
+   "label_excess": 0.16365,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 206,
+     "name": "Crew teams grouping and filtering",
+     "excess": 0.16365,
+     "outside_null": true
+    },
+    {
+     "latent": 1427,
+     "name": "Crew teams and member management features",
+     "excess": 0.12735,
+     "outside_null": true
+    },
+    {
+     "latent": 369,
+     "name": "CSS layout cascade debugging and flexbox",
+     "excess": 0.08723,
+     "outside_null": true
+    },
+    {
+     "latent": 152,
+     "name": "Schedule modal form refinement",
+     "excess": 0.06282,
+     "outside_null": true
+    },
+    {
+     "latent": 1130,
+     "name": "Admin dashboard tabbed SPA architecture",
+     "excess": 0.06144,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    73,
+    1733
+   ],
+   "seed_cos_top1": [
+    0.5993,
+    0.629
+   ],
+   "seed_cos_top5": [
+    0.5993,
+    0.629
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    4,
+    3
+   ],
+   "x0": -0.3046,
+   "y0": -0.2651,
+   "x1": -0.1415,
+   "y1": -0.1383,
+   "n_points": 150,
+   "n_scored": 150,
+   "ood_frac": 0.0,
+   "head_mass": 0.316,
+   "label_latent": 1479,
+   "label": "Modal performance debugging and optimization",
+   "label_excess": 0.10383,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1479,
+     "name": "Modal performance debugging and optimization",
+     "excess": 0.10383,
+     "outside_null": true
+    },
+    {
+     "latent": 1407,
+     "name": "Animated map marker and navigation effects",
+     "excess": 0.0697,
+     "outside_null": true
+    },
+    {
+     "latent": 1977,
+     "name": "Planning monolithic file decomposition",
+     "excess": 0.05935,
+     "outside_null": true
+    },
+    {
+     "latent": 1130,
+     "name": "Admin dashboard tabbed SPA architecture",
+     "excess": 0.05422,
+     "outside_null": true
+    },
+    {
+     "latent": 1744,
+     "name": "Creating and deduplicating GitHub issues",
+     "excess": 0.05256,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1422,
+    1131
+   ],
+   "seed_cos_top1": [
+    0.8291,
+    0.8544
+   ],
+   "seed_cos_top5": [
+    0.8291,
+    0.8544
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    4,
+    4
+   ],
+   "x0": -0.3046,
+   "y0": -0.1383,
+   "x1": -0.1415,
+   "y1": -0.0114,
+   "n_points": 130,
+   "n_scored": 130,
+   "ood_frac": 0.0,
+   "head_mass": 0.2908,
+   "label_latent": 330,
+   "label": "Supabase JWT authentication system",
+   "label_excess": 0.10337,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 330,
+     "name": "Supabase JWT authentication system",
+     "excess": 0.10337,
+     "outside_null": true
+    },
+    {
+     "latent": 1899,
+     "name": "Supabase Auth integration and debugging",
+     "excess": 0.09715,
+     "outside_null": true
+    },
+    {
+     "latent": 977,
+     "name": "EpicMap field service SaaS platform",
+     "excess": 0.07934,
+     "outside_null": true
+    },
+    {
+     "latent": 1416,
+     "name": "Flask development server configuration and management",
+     "excess": 0.06254,
+     "outside_null": true
+    },
+    {
+     "latent": 1220,
+     "name": "Progressive Web App implementation",
+     "excess": 0.05467,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1002,
+    1194
+   ],
+   "seed_cos_top1": [
+    -0.0333,
+    0.2562
+   ],
+   "seed_cos_top5": [
+    0.7212,
+    0.8131
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": -1,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    4,
+    5
+   ],
+   "x0": -0.3046,
+   "y0": -0.0114,
+   "x1": -0.1415,
+   "y1": 0.1154,
+   "n_points": 91,
+   "n_scored": 91,
+   "ood_frac": 0.0,
+   "head_mass": 0.3166,
+   "label_latent": 977,
+   "label": "EpicMap field service SaaS platform",
+   "label_excess": 0.11395,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 977,
+     "name": "EpicMap field service SaaS platform",
+     "excess": 0.11395,
+     "outside_null": true
+    },
+    {
+     "latent": 1416,
+     "name": "Flask development server configuration and management",
+     "excess": 0.10412,
+     "outside_null": true
+    },
+    {
+     "latent": 1509,
+     "name": "Type annotations via JSDoc or TypeScript",
+     "excess": 0.10304,
+     "outside_null": true
+    },
+    {
+     "latent": 1480,
+     "name": "SQLite and database systems",
+     "excess": 0.05896,
+     "outside_null": true
+    },
+    {
+     "latent": 1072,
+     "name": "JSDoc type annotations for JavaScript",
+     "excess": 0.05068,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    38,
+    349
+   ],
+   "seed_cos_top1": [
+    0.1165,
+    0.9577
+   ],
+   "seed_cos_top5": [
+    0.96,
+    0.9577
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": false,
+   "theme": -1,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    4,
+    6
+   ],
+   "x0": -0.3046,
+   "y0": 0.1154,
+   "x1": -0.1415,
+   "y1": 0.2423,
+   "n_points": 23,
+   "n_scored": 23,
+   "ood_frac": 0.0,
+   "head_mass": 0.1307,
+   "label_latent": 910,
+   "label": "justfile development workflow orchestration",
+   "label_excess": 0.2405,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 910,
+     "name": "justfile development workflow orchestration",
+     "excess": 0.2405,
+     "outside_null": true
+    },
+    {
+     "latent": 922,
+     "name": "Development watchers and background process lifecycle",
+     "excess": 0.20394,
+     "outside_null": true
+    },
+    {
+     "latent": 1276,
+     "name": "Build tool watcher process debugging",
+     "excess": 0.20219,
+     "outside_null": true
+    },
+    {
+     "latent": 683,
+     "name": "Tailwind CSS watcher stopping issues",
+     "excess": 0.13483,
+     "outside_null": true
+    },
+    {
+     "latent": 1416,
+     "name": "Flask development server configuration and management",
+     "excess": 0.1065,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1306,
+    1449
+   ],
+   "seed_cos_top1": [
+    0.219,
+    0.4011
+   ],
+   "seed_cos_top5": [
+    0.3587,
+    0.4011
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    4,
+    11
+   ],
+   "x0": -0.3046,
+   "y0": 0.7497,
+   "x1": -0.1415,
+   "y1": 0.8765,
+   "n_points": 76,
+   "n_scored": 76,
+   "ood_frac": 0.0,
+   "head_mass": 0.248,
+   "label_latent": 824,
+   "label": "Software maintenance contracts and pricing",
+   "label_excess": 0.30535,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 824,
+     "name": "Software maintenance contracts and pricing",
+     "excess": 0.30535,
+     "outside_null": true
+    },
+    {
+     "latent": 1014,
+     "name": "Financial figures and formal arrangements",
+     "excess": 0.30362,
+     "outside_null": true
+    },
+    {
+     "latent": 977,
+     "name": "EpicMap field service SaaS platform",
+     "excess": 0.29744,
+     "outside_null": true
+    },
+    {
+     "latent": 1631,
+     "name": "EpicMap service contract formalization",
+     "excess": 0.26001,
+     "outside_null": true
+    },
+    {
+     "latent": 649,
+     "name": "Software commercialization and service contracts",
+     "excess": 0.19737,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    907,
+    79
+   ],
+   "seed_cos_top1": [
+    0.271,
+    0.3669
+   ],
+   "seed_cos_top5": [
+    0.3553,
+    0.3669
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    5,
+    1
+   ],
+   "x0": -0.1415,
+   "y0": -0.5188,
+   "x1": 0.0216,
+   "y1": -0.392,
+   "n_points": 91,
+   "n_scored": 91,
+   "ood_frac": 0.0,
+   "head_mass": 0.2791,
+   "label_latent": 20,
+   "label": "Status field features for events",
+   "label_excess": 0.18427,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 20,
+     "name": "Status field features for events",
+     "excess": 0.18427,
+     "outside_null": true
+    },
+    {
+     "latent": 1308,
+     "name": "Job activity logging and audit trails",
+     "excess": 0.12862,
+     "outside_null": true
+    },
+    {
+     "latent": 459,
+     "name": "Admin dashboard weekly status flow deltas",
+     "excess": 0.10105,
+     "outside_null": true
+    },
+    {
+     "latent": 549,
+     "name": "Timeline KPI redesign and implementation",
+     "excess": 0.09562,
+     "outside_null": true
+    },
+    {
+     "latent": 116,
+     "name": "epicmap job display and filtering",
+     "excess": 0.08143,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    412,
+    351
+   ],
+   "seed_cos_top1": [
+    0.9432,
+    0.9456
+   ],
+   "seed_cos_top5": [
+    0.9432,
+    0.9456
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    5,
+    2
+   ],
+   "x0": -0.1415,
+   "y0": -0.392,
+   "x1": 0.0216,
+   "y1": -0.2651,
+   "n_points": 76,
+   "n_scored": 76,
+   "ood_frac": 0.0,
+   "head_mass": 0.2324,
+   "label_latent": 369,
+   "label": "CSS layout cascade debugging and flexbox",
+   "label_excess": 0.15631,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 369,
+     "name": "CSS layout cascade debugging and flexbox",
+     "excess": 0.15631,
+     "outside_null": true
+    },
+    {
+     "latent": 139,
+     "name": "CSS Grid layout design systems",
+     "excess": 0.12331,
+     "outside_null": true
+    },
+    {
+     "latent": 885,
+     "name": "Mobile hamburger menu layout work",
+     "excess": 0.08241,
+     "outside_null": true
+    },
+    {
+     "latent": 2016,
+     "name": "Job panel push layout implementation",
+     "excess": 0.08079,
+     "outside_null": true
+    },
+    {
+     "latent": 1235,
+     "name": "Mapping between abstract representations",
+     "excess": 0.06633,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    443,
+    550
+   ],
+   "seed_cos_top1": [
+    0.5492,
+    0.2509
+   ],
+   "seed_cos_top5": [
+    0.5492,
+    0.3426
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": -1,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    5,
+    3
+   ],
+   "x0": -0.1415,
+   "y0": -0.2651,
+   "x1": 0.0216,
+   "y1": -0.1383,
+   "n_points": 71,
+   "n_scored": 71,
+   "ood_frac": 0.0,
+   "head_mass": 0.2566,
+   "label_latent": 369,
+   "label": "CSS layout cascade debugging and flexbox",
+   "label_excess": 0.10288,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 369,
+     "name": "CSS layout cascade debugging and flexbox",
+     "excess": 0.10288,
+     "outside_null": true
+    },
+    {
+     "latent": 55,
+     "name": "DaisyUI component adoption and CSS refactor",
+     "excess": 0.09209,
+     "outside_null": true
+    },
+    {
+     "latent": 288,
+     "name": "Web typography and font decisions",
+     "excess": 0.08335,
+     "outside_null": true
+    },
+    {
+     "latent": 358,
+     "name": "CSS badge styling\u2014borders, width, padding",
+     "excess": 0.04876,
+     "outside_null": true
+    },
+    {
+     "latent": 160,
+     "name": "CSS refactoring to design tokens",
+     "excess": 0.04166,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1986,
+    1453
+   ],
+   "seed_cos_top1": [
+    0.2885,
+    0.1905
+   ],
+   "seed_cos_top5": [
+    0.3456,
+    0.625
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 8,
+   "theme_label": "browser creative tooling",
+   "protagonist_excess": -0.00093,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    5,
+    4
+   ],
+   "x0": -0.1415,
+   "y0": -0.1383,
+   "x1": 0.0216,
+   "y1": -0.0114,
+   "n_points": 92,
+   "n_scored": 92,
+   "ood_frac": 0.0,
+   "head_mass": 0.375,
+   "label_latent": 1744,
+   "label": "Creating and deduplicating GitHub issues",
+   "label_excess": 0.17242,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1744,
+     "name": "Creating and deduplicating GitHub issues",
+     "excess": 0.17242,
+     "outside_null": true
+    },
+    {
+     "latent": 977,
+     "name": "EpicMap field service SaaS platform",
+     "excess": 0.09867,
+     "outside_null": true
+    },
+    {
+     "latent": 1406,
+     "name": "Self-hosted Git vs GitHub workflows",
+     "excess": 0.09231,
+     "outside_null": true
+    },
+    {
+     "latent": 109,
+     "name": "GitHub issue backlog consolidation",
+     "excess": 0.08562,
+     "outside_null": true
+    },
+    {
+     "latent": 787,
+     "name": "GitHub issue triage automation",
+     "excess": 0.05618,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    331,
+    1452
+   ],
+   "seed_cos_top1": [
+    0.899,
+    0.8786
+   ],
+   "seed_cos_top5": [
+    0.899,
+    0.8786
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": -1,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    5,
+    5
+   ],
+   "x0": -0.1415,
+   "y0": -0.0114,
+   "x1": 0.0216,
+   "y1": 0.1154,
+   "n_points": 91,
+   "n_scored": 89,
+   "ood_frac": 0.022,
+   "head_mass": 0.3031,
+   "label_latent": 977,
+   "label": "EpicMap field service SaaS platform",
+   "label_excess": 0.12295,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 977,
+     "name": "EpicMap field service SaaS platform",
+     "excess": 0.12295,
+     "outside_null": true
+    },
+    {
+     "latent": 1416,
+     "name": "Flask development server configuration and management",
+     "excess": 0.10202,
+     "outside_null": true
+    },
+    {
+     "latent": 1840,
+     "name": "API documentation audit and cleanup",
+     "excess": 0.08707,
+     "outside_null": true
+    },
+    {
+     "latent": 2028,
+     "name": "Model Context Protocol (MCP)",
+     "excess": 0.08567,
+     "outside_null": true
+    },
+    {
+     "latent": 1273,
+     "name": "Documentation of code changes and work",
+     "excess": 0.06783,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1002,
+    349
+   ],
+   "seed_cos_top1": [
+    0.96,
+    0.9577
+   ],
+   "seed_cos_top5": [
+    0.96,
+    0.9577
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": -1,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    6,
+    3
+   ],
+   "x0": 0.0216,
+   "y0": -0.2651,
+   "x1": 0.1846,
+   "y1": -0.1383,
+   "n_points": 29,
+   "n_scored": 29,
+   "ood_frac": 0.0,
+   "head_mass": 0.1859,
+   "label_latent": 1197,
+   "label": "Portfolio hackathon section redesign",
+   "label_excess": 0.19047,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1197,
+     "name": "Portfolio hackathon section redesign",
+     "excess": 0.19047,
+     "outside_null": true
+    },
+    {
+     "latent": 244,
+     "name": "Understanding existing code structure before design",
+     "excess": 0.17233,
+     "outside_null": true
+    },
+    {
+     "latent": 927,
+     "name": "GitHub profile README widget integration",
+     "excess": 0.10601,
+     "outside_null": true
+    },
+    {
+     "latent": 1406,
+     "name": "Self-hosted Git vs GitHub workflows",
+     "excess": 0.09688,
+     "outside_null": true
+    },
+    {
+     "latent": 1037,
+     "name": "Badge CSS styling and sizing",
+     "excess": 0.09336,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1695,
+    1334
+   ],
+   "seed_cos_top1": [
+    0.4408,
+    0.2834
+   ],
+   "seed_cos_top5": [
+    0.4408,
+    0.2834
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    6,
+    4
+   ],
+   "x0": 0.0216,
+   "y0": -0.1383,
+   "x1": 0.1846,
+   "y1": -0.0114,
+   "n_points": 46,
+   "n_scored": 46,
+   "ood_frac": 0.0,
+   "head_mass": 0.2227,
+   "label_latent": 37,
+   "label": "Reviewing uncommitted changes before committing",
+   "label_excess": 0.11666,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 37,
+     "name": "Reviewing uncommitted changes before committing",
+     "excess": 0.11666,
+     "outside_null": true
+    },
+    {
+     "latent": 1053,
+     "name": "Git branch and worktree management",
+     "excess": 0.10585,
+     "outside_null": true
+    },
+    {
+     "latent": 1406,
+     "name": "Self-hosted Git vs GitHub workflows",
+     "excess": 0.09404,
+     "outside_null": true
+    },
+    {
+     "latent": 1245,
+     "name": "git worktree management and wt CLI",
+     "excess": 0.08595,
+     "outside_null": true
+    },
+    {
+     "latent": 132,
+     "name": "Stale git worktree cleanup workflow",
+     "excess": 0.05582,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1291,
+    1373
+   ],
+   "seed_cos_top1": [
+    0.7685,
+    0.5951
+   ],
+   "seed_cos_top5": [
+    0.7685,
+    0.7206
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": true,
+   "theme": -1,
+   "theme_label": null,
+   "protagonist_excess": -0.00079,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    6,
+    5
+   ],
+   "x0": 0.0216,
+   "y0": -0.0114,
+   "x1": 0.1846,
+   "y1": 0.1154,
+   "n_points": 59,
+   "n_scored": 59,
+   "ood_frac": 0.0,
+   "head_mass": 0.2433,
+   "label_latent": 161,
+   "label": "Claude Code configuration and dotfiles",
+   "label_excess": 0.12925,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 161,
+     "name": "Claude Code configuration and dotfiles",
+     "excess": 0.12925,
+     "outside_null": true
+    },
+    {
+     "latent": 1041,
+     "name": "Gitignore patterns for CLAUDE.md files",
+     "excess": 0.10886,
+     "outside_null": true
+    },
+    {
+     "latent": 29,
+     "name": "Python development tooling and CI infrastructure",
+     "excess": 0.10025,
+     "outside_null": true
+    },
+    {
+     "latent": 1084,
+     "name": "Git hooks for automated validation",
+     "excess": 0.09678,
+     "outside_null": true
+    },
+    {
+     "latent": 551,
+     "name": "Claude Code automation hooks",
+     "excess": 0.09227,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1291,
+    1373
+   ],
+   "seed_cos_top1": [
+    0.0596,
+    0.0469
+   ],
+   "seed_cos_top5": [
+    0.9422,
+    0.9754
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    6,
+    6
+   ],
+   "x0": 0.0216,
+   "y0": 0.1154,
+   "x1": 0.1846,
+   "y1": 0.2423,
+   "n_points": 72,
+   "n_scored": 72,
+   "ood_frac": 0.0,
+   "head_mass": 0.1383,
+   "label_latent": 1239,
+   "label": "Tmux session picker fuzzy finder redesign",
+   "label_excess": 0.16215,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1239,
+     "name": "Tmux session picker fuzzy finder redesign",
+     "excess": 0.16215,
+     "outside_null": true
+    },
+    {
+     "latent": 8,
+     "name": "fzf-based tmux session picker",
+     "excess": 0.14974,
+     "outside_null": true
+    },
+    {
+     "latent": 233,
+     "name": "Tmux session picker fuzzy finder implementations",
+     "excess": 0.14815,
+     "outside_null": true
+    },
+    {
+     "latent": 1606,
+     "name": "Dotfiles and shell environment configuration",
+     "excess": 0.11978,
+     "outside_null": true
+    },
+    {
+     "latent": 903,
+     "name": "Text-to-Speech MCP server with lexicon",
+     "excess": 0.09839,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1673,
+    2007
+   ],
+   "seed_cos_top1": [
+    0.2503,
+    0.3525
+   ],
+   "seed_cos_top5": [
+    0.2503,
+    0.3525
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00104,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    7,
+    3
+   ],
+   "x0": 0.1846,
+   "y0": -0.2651,
+   "x1": 0.3477,
+   "y1": -0.1383,
+   "n_points": 29,
+   "n_scored": 29,
+   "ood_frac": 0.0,
+   "head_mass": 0.1087,
+   "label_latent": 1162,
+   "label": "Rust ownership and borrowing principles",
+   "label_excess": 0.32689,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1162,
+     "name": "Rust ownership and borrowing principles",
+     "excess": 0.32689,
+     "outside_null": true
+    },
+    {
+     "latent": 1353,
+     "name": "CPU scheduler simulator in Rust",
+     "excess": 0.31981,
+     "outside_null": true
+    },
+    {
+     "latent": 450,
+     "name": "CPU Process Scheduling Algorithms",
+     "excess": 0.23914,
+     "outside_null": true
+    },
+    {
+     "latent": 229,
+     "name": "Learning algorithms from expert mentors",
+     "excess": 0.11901,
+     "outside_null": true
+    },
+    {
+     "latent": 80,
+     "name": "Cron endpoint authentication via bearer tokens",
+     "excess": 0.11899,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1067,
+    1982
+   ],
+   "seed_cos_top1": [
+    0.2054,
+    0.2067
+   ],
+   "seed_cos_top5": [
+    0.7556,
+    0.7804
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    7,
+    4
+   ],
+   "x0": 0.1846,
+   "y0": -0.1383,
+   "x1": 0.3477,
+   "y1": -0.0114,
+   "n_points": 42,
+   "n_scored": 42,
+   "ood_frac": 0.0,
+   "head_mass": 0.0892,
+   "label_latent": 1292,
+   "label": "Concurrent hash table implementation in Rust",
+   "label_excess": 0.2376,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1292,
+     "name": "Concurrent hash table implementation in Rust",
+     "excess": 0.2376,
+     "outside_null": true
+    },
+    {
+     "latent": 470,
+     "name": "C++ fundamentals curriculum teaching",
+     "excess": 0.2248,
+     "outside_null": true
+    },
+    {
+     "latent": 1682,
+     "name": "C++ Contains Duplicate coding exercise",
+     "excess": 0.11608,
+     "outside_null": true
+    },
+    {
+     "latent": 1939,
+     "name": "False sharing",
+     "excess": 0.10496,
+     "outside_null": true
+    },
+    {
+     "latent": 854,
+     "name": "Rust concurrent systems programming",
+     "excess": 0.08451,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    867,
+    1370
+   ],
+   "seed_cos_top1": [
+    0.2782,
+    0.0579
+   ],
+   "seed_cos_top5": [
+    0.332,
+    0.3084
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    7,
+    5
+   ],
+   "x0": 0.1846,
+   "y0": -0.0114,
+   "x1": 0.3477,
+   "y1": 0.1154,
+   "n_points": 56,
+   "n_scored": 56,
+   "ood_frac": 0.0,
+   "head_mass": 0.1725,
+   "label_latent": 903,
+   "label": "Text-to-Speech MCP server with lexicon",
+   "label_excess": 0.20559,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 903,
+     "name": "Text-to-Speech MCP server with lexicon",
+     "excess": 0.20559,
+     "outside_null": true
+    },
+    {
+     "latent": 210,
+     "name": "Text-to-Speech MCP server development",
+     "excess": 0.16069,
+     "outside_null": true
+    },
+    {
+     "latent": 161,
+     "name": "Claude Code configuration and dotfiles",
+     "excess": 0.12315,
+     "outside_null": true
+    },
+    {
+     "latent": 2028,
+     "name": "Model Context Protocol (MCP)",
+     "excess": 0.12212,
+     "outside_null": true
+    },
+    {
+     "latent": 1076,
+     "name": "Phase transitions and critical phenomena",
+     "excess": 0.11866,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    766,
+    1359
+   ],
+   "seed_cos_top1": [
+    0.4521,
+    0.1984
+   ],
+   "seed_cos_top5": [
+    0.4521,
+    0.2388
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 13,
+   "theme_label": "compute & systems internals",
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    7,
+    6
+   ],
+   "x0": 0.1846,
+   "y0": 0.1154,
+   "x1": 0.3477,
+   "y1": 0.2423,
+   "n_points": 49,
+   "n_scored": 49,
+   "ood_frac": 0.0,
+   "head_mass": 0.1384,
+   "label_latent": 2017,
+   "label": "Vite+ CLI installation and environment setup",
+   "label_excess": 0.0886,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 2017,
+     "name": "Vite+ CLI installation and environment setup",
+     "excess": 0.0886,
+     "outside_null": true
+    },
+    {
+     "latent": 945,
+     "name": "SketchyBar performance and macOS diagnostics",
+     "excess": 0.07973,
+     "outside_null": true
+    },
+    {
+     "latent": 1095,
+     "name": "dotfiles and system tool configuration",
+     "excess": 0.07148,
+     "outside_null": true
+    },
+    {
+     "latent": 1606,
+     "name": "Dotfiles and shell environment configuration",
+     "excess": 0.06274,
+     "outside_null": true
+    },
+    {
+     "latent": 115,
+     "name": "Vite+ development tooling setup issues",
+     "excess": 0.06128,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1055,
+    92
+   ],
+   "seed_cos_top1": [
+    0.1172,
+    0.075
+   ],
+   "seed_cos_top5": [
+    0.4816,
+    0.333
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 5,
+   "theme_label": "simulation & shader craft",
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    7,
+    7
+   ],
+   "x0": 0.1846,
+   "y0": 0.2423,
+   "x1": 0.3477,
+   "y1": 0.3691,
+   "n_points": 66,
+   "n_scored": 63,
+   "ood_frac": 0.0455,
+   "head_mass": 0.2508,
+   "label_latent": 1836,
+   "label": "Multi-agent systems for parallel task execution",
+   "label_excess": 0.0825,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1836,
+     "name": "Multi-agent systems for parallel task execution",
+     "excess": 0.0825,
+     "outside_null": true
+    },
+    {
+     "latent": 1547,
+     "name": "AI agents in developer workflows",
+     "excess": 0.05784,
+     "outside_null": true
+    },
+    {
+     "latent": 161,
+     "name": "Claude Code configuration and dotfiles",
+     "excess": 0.05261,
+     "outside_null": true
+    },
+    {
+     "latent": 1339,
+     "name": "Agent skills framework",
+     "excess": 0.04141,
+     "outside_null": true
+    },
+    {
+     "latent": 1609,
+     "name": "Interpretable decomposition",
+     "excess": 0.03502,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1651,
+    659
+   ],
+   "seed_cos_top1": [
+    0.9747,
+    0.9649
+   ],
+   "seed_cos_top5": [
+    0.9747,
+    0.9649
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": 0,
+   "theme_label": "agentic coding workflows",
+   "protagonist_excess": -0.00084,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    7,
+    8
+   ],
+   "x0": 0.1846,
+   "y0": 0.3691,
+   "x1": 0.3477,
+   "y1": 0.496,
+   "n_points": 88,
+   "n_scored": 82,
+   "ood_frac": 0.0682,
+   "head_mass": 0.0807,
+   "label_latent": 383,
+   "label": "Eight-pillar habit compounding system",
+   "label_excess": 0.11965,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 383,
+     "name": "Eight-pillar habit compounding system",
+     "excess": 0.11965,
+     "outside_null": true
+    },
+    {
+     "latent": 1344,
+     "name": "Conjugate training method for combat sports",
+     "excess": 0.04132,
+     "outside_null": true
+    },
+    {
+     "latent": 249,
+     "name": "Daily journaling for habit streaks",
+     "excess": 0.03587,
+     "outside_null": true
+    },
+    {
+     "latent": 765,
+     "name": "Kickboxing career progression narrative",
+     "excess": 0.03482,
+     "outside_null": true
+    },
+    {
+     "latent": 1849,
+     "name": "Track sprint race performance analysis",
+     "excess": 0.0249,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    884,
+    1232
+   ],
+   "seed_cos_top1": [
+    0.2141,
+    0.5835
+   ],
+   "seed_cos_top5": [
+    0.6315,
+    0.5835
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 11,
+   "theme_label": "learning systems & discipline",
+   "protagonist_excess": -0.00092,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    8,
+    0
+   ],
+   "x0": 0.3477,
+   "y0": -0.6457,
+   "x1": 0.5108,
+   "y1": -0.5188,
+   "n_points": 26,
+   "n_scored": 26,
+   "ood_frac": 0.0,
+   "head_mass": 0.0787,
+   "label_latent": 1641,
+   "label": "Humanitarian crisis funding data debugging",
+   "label_excess": 0.26189,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1641,
+     "name": "Humanitarian crisis funding data debugging",
+     "excess": 0.26189,
+     "outside_null": true
+    },
+    {
+     "latent": 940,
+     "name": "Beneficiary-to-budget project metrics",
+     "excess": 0.22067,
+     "outside_null": true
+    },
+    {
+     "latent": 1736,
+     "name": "Humanitarian crisis globe data pipeline",
+     "excess": 0.20402,
+     "outside_null": true
+    },
+    {
+     "latent": 1851,
+     "name": "B2B ratio weighted average refactoring",
+     "excess": 0.18406,
+     "outside_null": true
+    },
+    {
+     "latent": 1841,
+     "name": "Databricks data pipeline and validation",
+     "excess": 0.14065,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1756,
+    1550
+   ],
+   "seed_cos_top1": [
+    0.3586,
+    0.0168
+   ],
+   "seed_cos_top5": [
+    0.3586,
+    0.4051
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 6,
+   "theme_label": "film & media criticism",
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    8,
+    1
+   ],
+   "x0": 0.3477,
+   "y0": -0.5188,
+   "x1": 0.5108,
+   "y1": -0.392,
+   "n_points": 79,
+   "n_scored": 79,
+   "ood_frac": 0.0,
+   "head_mass": 0.1518,
+   "label_latent": 1736,
+   "label": "Humanitarian crisis globe data pipeline",
+   "label_excess": 0.21679,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1736,
+     "name": "Humanitarian crisis globe data pipeline",
+     "excess": 0.21679,
+     "outside_null": true
+    },
+    {
+     "latent": 924,
+     "name": "Interactive 3D globe visualization",
+     "excess": 0.18455,
+     "outside_null": true
+    },
+    {
+     "latent": 192,
+     "name": "ElevenLabs voice agent integration",
+     "excess": 0.07872,
+     "outside_null": true
+    },
+    {
+     "latent": 184,
+     "name": "3D polygon extrusion on globe maps",
+     "excess": 0.0746,
+     "outside_null": true
+    },
+    {
+     "latent": 1641,
+     "name": "Humanitarian crisis funding data debugging",
+     "excess": 0.05068,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1321,
+    735
+   ],
+   "seed_cos_top1": [
+    0.4909,
+    0.3628
+   ],
+   "seed_cos_top5": [
+    0.4909,
+    0.3995
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00104,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    8,
+    3
+   ],
+   "x0": 0.3477,
+   "y0": -0.2651,
+   "x1": 0.5108,
+   "y1": -0.1383,
+   "n_points": 20,
+   "n_scored": 20,
+   "ood_frac": 0.0,
+   "head_mass": 0.2366,
+   "label_latent": 1435,
+   "label": "Multi-agent malware analysis systems",
+   "label_excess": 0.16191,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1435,
+     "name": "Multi-agent malware analysis systems",
+     "excess": 0.16191,
+     "outside_null": true
+    },
+    {
+     "latent": 1549,
+     "name": "Dashboard UI redesign and development",
+     "excess": 0.12963,
+     "outside_null": true
+    },
+    {
+     "latent": 1836,
+     "name": "Multi-agent systems for parallel task execution",
+     "excess": 0.12458,
+     "outside_null": true
+    },
+    {
+     "latent": 411,
+     "name": "Visualization engineering for cognition",
+     "excess": 0.09431,
+     "outside_null": true
+    },
+    {
+     "latent": 658,
+     "name": "Debugging and development coordination",
+     "excess": 0.07049,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1775,
+    1334
+   ],
+   "seed_cos_top1": [
+    0.2034,
+    0.3128
+   ],
+   "seed_cos_top5": [
+    0.3911,
+    0.4046
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    8,
+    5
+   ],
+   "x0": 0.3477,
+   "y0": -0.0114,
+   "x1": 0.5108,
+   "y1": 0.1154,
+   "n_points": 52,
+   "n_scored": 52,
+   "ood_frac": 0.0,
+   "head_mass": 0.1775,
+   "label_latent": 437,
+   "label": "YouTube OAuth and API integration",
+   "label_excess": 0.17871,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 437,
+     "name": "YouTube OAuth and API integration",
+     "excess": 0.17871,
+     "outside_null": true
+    },
+    {
+     "latent": 754,
+     "name": "YouTube OAuth authentication implementation",
+     "excess": 0.16623,
+     "outside_null": true
+    },
+    {
+     "latent": 705,
+     "name": "OAuth authentication for YouTube API access",
+     "excess": 0.12822,
+     "outside_null": true
+    },
+    {
+     "latent": 660,
+     "name": "Resumable agent sessions and state persistence",
+     "excess": 0.0741,
+     "outside_null": true
+    },
+    {
+     "latent": 687,
+     "name": "Multi-source personal knowledge ingestion system",
+     "excess": 0.07237,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1757,
+    424
+   ],
+   "seed_cos_top1": [
+    0.6733,
+    0.7159
+   ],
+   "seed_cos_top5": [
+    0.6733,
+    0.7159
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": true,
+   "theme": 2,
+   "theme_label": "engineering careers & fundamentals",
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    8,
+    6
+   ],
+   "x0": 0.3477,
+   "y0": 0.1154,
+   "x1": 0.5108,
+   "y1": 0.2423,
+   "n_points": 125,
+   "n_scored": 120,
+   "ood_frac": 0.04,
+   "head_mass": 0.185,
+   "label_latent": 687,
+   "label": "Multi-source personal knowledge ingestion system",
+   "label_excess": 0.10859,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 687,
+     "name": "Multi-source personal knowledge ingestion system",
+     "excess": 0.10859,
+     "outside_null": true
+    },
+    {
+     "latent": 161,
+     "name": "Claude Code configuration and dotfiles",
+     "excess": 0.06123,
+     "outside_null": true
+    },
+    {
+     "latent": 1013,
+     "name": "Obsidian vault structure and setup",
+     "excess": 0.0576,
+     "outside_null": true
+    },
+    {
+     "latent": 660,
+     "name": "Resumable agent sessions and state persistence",
+     "excess": 0.05267,
+     "outside_null": true
+    },
+    {
+     "latent": 1096,
+     "name": "Atomic memory vault organization",
+     "excess": 0.05216,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1757,
+    424
+   ],
+   "seed_cos_top1": [
+    0.869,
+    0.8618
+   ],
+   "seed_cos_top5": [
+    0.869,
+    0.8618
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": 0,
+   "theme_label": "agentic coding workflows",
+   "protagonist_excess": -0.00121,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    8,
+    7
+   ],
+   "x0": 0.3477,
+   "y0": 0.2423,
+   "x1": 0.5108,
+   "y1": 0.3691,
+   "n_points": 230,
+   "n_scored": 221,
+   "ood_frac": 0.0391,
+   "head_mass": 0.1262,
+   "label_latent": 630,
+   "label": "Personal voice in content triage",
+   "label_excess": 0.03341,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 630,
+     "name": "Personal voice in content triage",
+     "excess": 0.03341,
+     "outside_null": true
+    },
+    {
+     "latent": 1403,
+     "name": "TouchDesigner real-time interactive visuals",
+     "excess": 0.02197,
+     "outside_null": true
+    },
+    {
+     "latent": 961,
+     "name": "Minimalist tool curation for development",
+     "excess": 0.02054,
+     "outside_null": true
+    },
+    {
+     "latent": 1968,
+     "name": "3D printer hardware and printing workflows",
+     "excess": 0.02003,
+     "outside_null": true
+    },
+    {
+     "latent": 1217,
+     "name": "Visual compositing and density rendering",
+     "excess": 0.01821,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    336,
+    1981
+   ],
+   "seed_cos_top1": [
+    0.5413,
+    0.7348
+   ],
+   "seed_cos_top5": [
+    0.5413,
+    0.7348
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": true,
+   "theme": 8,
+   "theme_label": "browser creative tooling",
+   "protagonist_excess": -0.00089,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    8,
+    8
+   ],
+   "x0": 0.3477,
+   "y0": 0.3691,
+   "x1": 0.5108,
+   "y1": 0.496,
+   "n_points": 204,
+   "n_scored": 191,
+   "ood_frac": 0.0637,
+   "head_mass": 0.0886,
+   "label_latent": 433,
+   "label": "Continued fractions and Ford circles",
+   "label_excess": 0.02701,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 433,
+     "name": "Continued fractions and Ford circles",
+     "excess": 0.02701,
+     "outside_null": true
+    },
+    {
+     "latent": 1726,
+     "name": "Developer judgment on AI-assisted coding",
+     "excess": 0.01861,
+     "outside_null": true
+    },
+    {
+     "latent": 1938,
+     "name": "Brain criticality and neural computation",
+     "excess": 0.01721,
+     "outside_null": true
+    },
+    {
+     "latent": 1887,
+     "name": "Prestige rankings guide academic choices",
+     "excess": 0.01688,
+     "outside_null": true
+    },
+    {
+     "latent": 2022,
+     "name": "Book recommendations and curation",
+     "excess": 0.0165,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    921,
+    934
+   ],
+   "seed_cos_top1": [
+    0.3142,
+    0.5851
+   ],
+   "seed_cos_top5": [
+    0.3142,
+    0.5851
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": -1,
+   "theme_label": null,
+   "protagonist_excess": -0.00137,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    8,
+    9
+   ],
+   "x0": 0.3477,
+   "y0": 0.496,
+   "x1": 0.5108,
+   "y1": 0.6228,
+   "n_points": 154,
+   "n_scored": 142,
+   "ood_frac": 0.0779,
+   "head_mass": 0.1666,
+   "label_latent": 926,
+   "label": "Mechanistic interpretability researchers",
+   "label_excess": 0.06379,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 926,
+     "name": "Mechanistic interpretability researchers",
+     "excess": 0.06379,
+     "outside_null": true
+    },
+    {
+     "latent": 1322,
+     "name": "Transformer neural network architecture",
+     "excess": 0.04658,
+     "outside_null": true
+    },
+    {
+     "latent": 793,
+     "name": "Developer reasoning about LLM capabilities",
+     "excess": 0.03356,
+     "outside_null": true
+    },
+    {
+     "latent": 504,
+     "name": "Scaling laws research",
+     "excess": 0.02942,
+     "outside_null": true
+    },
+    {
+     "latent": 1730,
+     "name": "Attention mechanisms in transformers",
+     "excess": 0.02919,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    812,
+    934
+   ],
+   "seed_cos_top1": [
+    0.7237,
+    0.3191
+   ],
+   "seed_cos_top5": [
+    0.7237,
+    0.4897
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 1,
+   "theme_label": "frontier AI research",
+   "protagonist_excess": 0.00354,
+   "protagonist_outside_null": true
+  },
+  {
+   "cell": [
+    9,
+    0
+   ],
+   "x0": 0.5108,
+   "y0": -0.6457,
+   "x1": 0.6739,
+   "y1": -0.5188,
+   "n_points": 84,
+   "n_scored": 84,
+   "ood_frac": 0.0,
+   "head_mass": 0.1107,
+   "label_latent": 1147,
+   "label": "Humanitarian data aggregation debugging",
+   "label_excess": 0.22016,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1147,
+     "name": "Humanitarian data aggregation debugging",
+     "excess": 0.22016,
+     "outside_null": true
+    },
+    {
+     "latent": 1736,
+     "name": "Humanitarian crisis globe data pipeline",
+     "excess": 0.20414,
+     "outside_null": true
+    },
+    {
+     "latent": 138,
+     "name": "Databricks repository integration workflow",
+     "excess": 0.16944,
+     "outside_null": true
+    },
+    {
+     "latent": 1841,
+     "name": "Databricks data pipeline and validation",
+     "excess": 0.14252,
+     "outside_null": true
+    },
+    {
+     "latent": 1641,
+     "name": "Humanitarian crisis funding data debugging",
+     "excess": 0.13299,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    719,
+    18
+   ],
+   "seed_cos_top1": [
+    0.2713,
+    0.3774
+   ],
+   "seed_cos_top5": [
+    0.609,
+    0.5495
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": -1,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    9,
+    1
+   ],
+   "x0": 0.5108,
+   "y0": -0.5188,
+   "x1": 0.6739,
+   "y1": -0.392,
+   "n_points": 57,
+   "n_scored": 57,
+   "ood_frac": 0.0,
+   "head_mass": 0.1628,
+   "label_latent": 138,
+   "label": "Databricks repository integration workflow",
+   "label_excess": 0.18501,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 138,
+     "name": "Databricks repository integration workflow",
+     "excess": 0.18501,
+     "outside_null": true
+    },
+    {
+     "latent": 980,
+     "name": "Databricks data pipeline notebook execution",
+     "excess": 0.15432,
+     "outside_null": true
+    },
+    {
+     "latent": 1841,
+     "name": "Databricks data pipeline and validation",
+     "excess": 0.1235,
+     "outside_null": true
+    },
+    {
+     "latent": 367,
+     "name": "API endpoint debugging and health checks",
+     "excess": 0.10888,
+     "outside_null": true
+    },
+    {
+     "latent": 1009,
+     "name": "Vector search index provisioning infrastructure",
+     "excess": 0.08753,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    395,
+    1456
+   ],
+   "seed_cos_top1": [
+    0.7566,
+    0.5041
+   ],
+   "seed_cos_top5": [
+    0.7566,
+    0.5041
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": true,
+   "theme": 0,
+   "theme_label": "agentic coding workflows",
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    9,
+    3
+   ],
+   "x0": 0.5108,
+   "y0": -0.2651,
+   "x1": 0.6739,
+   "y1": -0.1383,
+   "n_points": 154,
+   "n_scored": 153,
+   "ood_frac": 0.0065,
+   "head_mass": 0.1089,
+   "label_latent": 1435,
+   "label": "Multi-agent malware analysis systems",
+   "label_excess": 0.18188,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1435,
+     "name": "Multi-agent malware analysis systems",
+     "excess": 0.18188,
+     "outside_null": true
+    },
+    {
+     "latent": 1872,
+     "name": "Malware analysis systems",
+     "excess": 0.13014,
+     "outside_null": true
+    },
+    {
+     "latent": 1134,
+     "name": "Telegram bot deployment debugging and polling",
+     "excess": 0.10592,
+     "outside_null": true
+    },
+    {
+     "latent": 1237,
+     "name": "Telegram bot deployment and polling conflicts",
+     "excess": 0.09655,
+     "outside_null": true
+    },
+    {
+     "latent": 95,
+     "name": "Malware analysis sandbox architecture",
+     "excess": 0.08852,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1066,
+    1731
+   ],
+   "seed_cos_top1": [
+    0.369,
+    0.3967
+   ],
+   "seed_cos_top5": [
+    0.5078,
+    0.4046
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 0,
+   "theme_label": "agentic coding workflows",
+   "protagonist_excess": -0.00119,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    9,
+    5
+   ],
+   "x0": 0.5108,
+   "y0": -0.0114,
+   "x1": 0.6739,
+   "y1": 0.1154,
+   "n_points": 64,
+   "n_scored": 64,
+   "ood_frac": 0.0,
+   "head_mass": 0.2264,
+   "label_latent": 687,
+   "label": "Multi-source personal knowledge ingestion system",
+   "label_excess": 0.21584,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 687,
+     "name": "Multi-source personal knowledge ingestion system",
+     "excess": 0.21584,
+     "outside_null": true
+    },
+    {
+     "latent": 1660,
+     "name": "Graph-based agent orchestration",
+     "excess": 0.13448,
+     "outside_null": true
+    },
+    {
+     "latent": 420,
+     "name": "ytk enrichment output schema",
+     "excess": 0.12615,
+     "outside_null": true
+    },
+    {
+     "latent": 326,
+     "name": "Graphify-ytk integration evaluation",
+     "excess": 0.12217,
+     "outside_null": true
+    },
+    {
+     "latent": 1790,
+     "name": "Multi-source content ingestion and enrichment",
+     "excess": 0.11347,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1757,
+    424
+   ],
+   "seed_cos_top1": [
+    0.869,
+    0.8618
+   ],
+   "seed_cos_top5": [
+    0.869,
+    0.8618
+   ],
+   "stable_05": true,
+   "stable_08": true,
+   "strict_05": true,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00126,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    9,
+    6
+   ],
+   "x0": 0.5108,
+   "y0": 0.1154,
+   "x1": 0.6739,
+   "y1": 0.2423,
+   "n_points": 92,
+   "n_scored": 92,
+   "ood_frac": 0.0,
+   "head_mass": 0.1741,
+   "label_latent": 711,
+   "label": "Instagram reels ingestion and metadata enrichment",
+   "label_excess": 0.12477,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 711,
+     "name": "Instagram reels ingestion and metadata enrichment",
+     "excess": 0.12477,
+     "outside_null": true
+    },
+    {
+     "latent": 687,
+     "name": "Multi-source personal knowledge ingestion system",
+     "excess": 0.10648,
+     "outside_null": true
+    },
+    {
+     "latent": 1780,
+     "name": "Multimodal content ingestion with enrichment",
+     "excess": 0.07791,
+     "outside_null": true
+    },
+    {
+     "latent": 1397,
+     "name": "Multimodal content ingestion with AI enrichment",
+     "excess": 0.0715,
+     "outside_null": true
+    },
+    {
+     "latent": 420,
+     "name": "ytk enrichment output schema",
+     "excess": 0.06891,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1757,
+    424
+   ],
+   "seed_cos_top1": [
+    0.0804,
+    0.0259
+   ],
+   "seed_cos_top5": [
+    0.4368,
+    0.5346
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 10,
+   "theme_label": "neural network geometry",
+   "protagonist_excess": 0.00129,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    9,
+    7
+   ],
+   "x0": 0.5108,
+   "y0": 0.2423,
+   "x1": 0.6739,
+   "y1": 0.3691,
+   "n_points": 94,
+   "n_scored": 86,
+   "ood_frac": 0.0851,
+   "head_mass": 0.1244,
+   "label_latent": 2030,
+   "label": "Extracting and visualizing ridgelines from terrain",
+   "label_excess": 0.05989,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 2030,
+     "name": "Extracting and visualizing ridgelines from terrain",
+     "excess": 0.05989,
+     "outside_null": true
+    },
+    {
+     "latent": 1235,
+     "name": "Mapping between abstract representations",
+     "excess": 0.04813,
+     "outside_null": true
+    },
+    {
+     "latent": 703,
+     "name": "Procedurally-generated tree systems",
+     "excess": 0.04697,
+     "outside_null": true
+    },
+    {
+     "latent": 1959,
+     "name": "Procedural growth simulation and emergence",
+     "excess": 0.03548,
+     "outside_null": true
+    },
+    {
+     "latent": 587,
+     "name": "Preregistered experiments, adversarial verification",
+     "excess": 0.03146,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    559,
+    616
+   ],
+   "seed_cos_top1": [
+    0.1049,
+    0.306
+   ],
+   "seed_cos_top5": [
+    0.2769,
+    0.306
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 5,
+   "theme_label": "simulation & shader craft",
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    9,
+    8
+   ],
+   "x0": 0.5108,
+   "y0": 0.3691,
+   "x1": 0.6739,
+   "y1": 0.496,
+   "n_points": 21,
+   "n_scored": 17,
+   "ood_frac": 0.1905,
+   "head_mass": 0.0515,
+   "label_latent": 1943,
+   "label": "Digital simulation and computational modeling",
+   "label_excess": 0.06692,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1943,
+     "name": "Digital simulation and computational modeling",
+     "excess": 0.06692,
+     "outside_null": true
+    },
+    {
+     "latent": 1150,
+     "name": "Medical digital simulation and fabrication",
+     "excess": 0.05554,
+     "outside_null": true
+    },
+    {
+     "latent": 1179,
+     "name": "Black hole observation and detection",
+     "excess": 0.05054,
+     "outside_null": true
+    },
+    {
+     "latent": 1944,
+     "name": "Emergence and complex systems",
+     "excess": 0.04856,
+     "outside_null": true
+    },
+    {
+     "latent": 412,
+     "name": "Taylor series convergence in hierarchical approximation",
+     "excess": 0.04687,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1787,
+    1859
+   ],
+   "seed_cos_top1": [
+    0.0772,
+    0.0453
+   ],
+   "seed_cos_top5": [
+    0.1102,
+    0.1326
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 5,
+   "theme_label": "simulation & shader craft",
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    10,
+    5
+   ],
+   "x0": 0.6739,
+   "y0": -0.0114,
+   "x1": 0.8369,
+   "y1": 0.1154,
+   "n_points": 24,
+   "n_scored": 24,
+   "ood_frac": 0.0,
+   "head_mass": 0.2262,
+   "label_latent": 1790,
+   "label": "Multi-source content ingestion and enrichment",
+   "label_excess": 0.36094,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1790,
+     "name": "Multi-source content ingestion and enrichment",
+     "excess": 0.36094,
+     "outside_null": true
+    },
+    {
+     "latent": 711,
+     "name": "Instagram reels ingestion and metadata enrichment",
+     "excess": 0.29216,
+     "outside_null": true
+    },
+    {
+     "latent": 1780,
+     "name": "Multimodal content ingestion with enrichment",
+     "excess": 0.28019,
+     "outside_null": true
+    },
+    {
+     "latent": 2044,
+     "name": "Multimodal content ingestion and enrichment",
+     "excess": 0.26551,
+     "outside_null": true
+    },
+    {
+     "latent": 1397,
+     "name": "Multimodal content ingestion with AI enrichment",
+     "excess": 0.2436,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    571,
+    1840
+   ],
+   "seed_cos_top1": [
+    0.1921,
+    0.1513
+   ],
+   "seed_cos_top5": [
+    0.2421,
+    0.2672
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": null,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    11,
+    8
+   ],
+   "x0": 0.8369,
+   "y0": 0.3691,
+   "x1": 1.0,
+   "y1": 0.496,
+   "n_points": 70,
+   "n_scored": 70,
+   "ood_frac": 0.0,
+   "head_mass": 0.1673,
+   "label_latent": 1853,
+   "label": "Fork-based branch synchronization workflow",
+   "label_excess": 0.19005,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 1853,
+     "name": "Fork-based branch synchronization workflow",
+     "excess": 0.19005,
+     "outside_null": true
+    },
+    {
+     "latent": 259,
+     "name": "Conda-to-uv Python migration troubleshooting",
+     "excess": 0.17045,
+     "outside_null": true
+    },
+    {
+     "latent": 714,
+     "name": "Python package manager migration coordination",
+     "excess": 0.13998,
+     "outside_null": true
+    },
+    {
+     "latent": 1244,
+     "name": "uv package manager and conda removal",
+     "excess": 0.13691,
+     "outside_null": true
+    },
+    {
+     "latent": 1796,
+     "name": "Training mechanics and optimization",
+     "excess": 0.11593,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    1460,
+    914
+   ],
+   "seed_cos_top1": [
+    0.0211,
+    0.1265
+   ],
+   "seed_cos_top5": [
+    0.4245,
+    0.3196
+   ],
+   "stable_05": false,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": -1,
+   "theme_label": null,
+   "protagonist_excess": -0.00182,
+   "protagonist_outside_null": false
+  },
+  {
+   "cell": [
+    11,
+    9
+   ],
+   "x0": 0.8369,
+   "y0": 0.496,
+   "x1": 1.0,
+   "y1": 0.6228,
+   "n_points": 194,
+   "n_scored": 193,
+   "ood_frac": 0.0052,
+   "head_mass": 0.148,
+   "label_latent": 342,
+   "label": "NILOC indoor localization system",
+   "label_excess": 0.1472,
+   "label_outside_null": true,
+   "top5": [
+    {
+     "latent": 342,
+     "name": "NILOC indoor localization system",
+     "excess": 0.1472,
+     "outside_null": true
+    },
+    {
+     "latent": 544,
+     "name": "Avalon model checkpoint extraction and organization",
+     "excess": 0.10522,
+     "outside_null": true
+    },
+    {
+     "latent": 682,
+     "name": "Noise library synthesis for motion sensors",
+     "excess": 0.09516,
+     "outside_null": true
+    },
+    {
+     "latent": 1619,
+     "name": "VIO noise library extraction and injection",
+     "excess": 0.09458,
+     "outside_null": true
+    },
+    {
+     "latent": 1853,
+     "name": "Fork-based branch synchronization workflow",
+     "excess": 0.07817,
+     "outside_null": true
+    }
+   ],
+   "seed_tops": [
+    800,
+    226
+   ],
+   "seed_cos_top1": [
+    0.506,
+    0.4165
+   ],
+   "seed_cos_top5": [
+    0.6027,
+    0.6508
+   ],
+   "stable_05": true,
+   "stable_08": false,
+   "strict_05": false,
+   "theme": 12,
+   "theme_label": "transformer architecture internals",
+   "protagonist_excess": -0.0017,
+   "protagonist_outside_null": false
+  }
+ ]
+}
