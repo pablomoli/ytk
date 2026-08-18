@@ -1,0 +1,615 @@
+{
+ "commit": "d3e4a2b",
+ "mosaic": {
+  "cells": 800,
+  "with_image": 447,
+  "img_frac": 0.5587
+ },
+ "badges": {
+  "ge_08": 59,
+  "ge_05": 89
+ },
+ "protagonist_badge": 0.5724,
+ "tiles": [
+  {
+   "feature": 1983,
+   "name": "Designing systems around model strengths",
+   "freq": 0.15816,
+   "badge": 0.9112
+  },
+  {
+   "feature": 1547,
+   "name": "AI agents in developer workflows",
+   "freq": 0.10805,
+   "badge": 0.9574
+  },
+  {
+   "feature": 1726,
+   "name": "Developer judgment on AI-assisted coding",
+   "freq": 0.10556,
+   "badge": 0.9288
+  },
+  {
+   "feature": 977,
+   "name": "EpicMap field service SaaS platform",
+   "freq": 0.09646,
+   "badge": 0.9577
+  },
+  {
+   "feature": 1836,
+   "name": "Multi-agent systems for parallel task execution",
+   "freq": 0.08324,
+   "badge": 0.9649
+  },
+  {
+   "feature": 733,
+   "name": "Project scaffolding and planning",
+   "freq": 0.07996,
+   "badge": 0.9598
+  },
+  {
+   "feature": 891,
+   "name": "System design interview preparation frameworks",
+   "freq": 0.07487,
+   "badge": 0.9177
+  },
+  {
+   "feature": 161,
+   "name": "Claude Code configuration and dotfiles",
+   "freq": 0.07444,
+   "badge": 0.9422
+  },
+  {
+   "feature": 641,
+   "name": "Dataset construction and verification methodology",
+   "freq": 0.07165,
+   "badge": 0.9305
+  },
+  {
+   "feature": 822,
+   "name": "3D graphics and visualization",
+   "freq": 0.06886,
+   "badge": 0.8834
+  },
+  {
+   "feature": 1796,
+   "name": "Training mechanics and optimization",
+   "freq": 0.06425,
+   "badge": 0.9464
+  },
+  {
+   "feature": 290,
+   "name": "Icon library migration to Lucide",
+   "freq": 0.06382,
+   "badge": 0.5347
+  },
+  {
+   "feature": 660,
+   "name": "Resumable agent sessions and state persistence",
+   "freq": 0.06152,
+   "badge": 0.9332
+  },
+  {
+   "feature": 744,
+   "name": "YouTube video fetching and metadata systems",
+   "freq": 0.06073,
+   "badge": 0.8434
+  },
+  {
+   "feature": 116,
+   "name": "epicmap job display and filtering",
+   "freq": 0.05879,
+   "badge": 0.8858
+  },
+  {
+   "feature": 337,
+   "name": "Design patterns and skills for AI agents",
+   "freq": 0.05824,
+   "badge": 0.963
+  },
+  {
+   "feature": 1744,
+   "name": "Creating and deduplicating GitHub issues",
+   "freq": 0.05776,
+   "badge": 0.8786
+  },
+  {
+   "feature": 1031,
+   "name": "Search indexing and data retrieval systems",
+   "freq": 0.0577,
+   "badge": 0.8757
+  },
+  {
+   "feature": 272,
+   "name": "Byte-pair encoding and token merging",
+   "freq": 0.05503,
+   "badge": 0.9379
+  },
+  {
+   "feature": 1005,
+   "name": "Production troubleshooting and deployment debugging",
+   "freq": 0.05224,
+   "badge": 0.5999
+  },
+  {
+   "feature": 1616,
+   "name": "File organization and storage systems",
+   "freq": 0.05205,
+   "badge": 0.9014
+  },
+  {
+   "feature": 1498,
+   "name": "Tool use in language models",
+   "freq": 0.05205,
+   "badge": 0.9377
+  },
+  {
+   "feature": 793,
+   "name": "Developer reasoning about LLM capabilities",
+   "freq": 0.05175,
+   "badge": 0.973
+  },
+  {
+   "feature": 1653,
+   "name": "NAS file browser implementation",
+   "freq": 0.05126,
+   "badge": 0.9203
+  },
+  {
+   "feature": 1321,
+   "name": "Speed, velocity, and rates of change",
+   "freq": 0.05096,
+   "badge": 0.9092
+  },
+  {
+   "feature": 227,
+   "name": "Systems performance measurement and optimization",
+   "freq": 0.0506,
+   "badge": 0.58
+  },
+  {
+   "feature": 1406,
+   "name": "Self-hosted Git vs GitHub workflows",
+   "freq": 0.04944,
+   "badge": 0.6345
+  },
+  {
+   "feature": 1407,
+   "name": "Animated map marker and navigation effects",
+   "freq": 0.04853,
+   "badge": 0.4424
+  },
+  {
+   "feature": 1850,
+   "name": "Blender UV texture unwrapping technique",
+   "freq": 0.04805,
+   "badge": 0.7186
+  },
+  {
+   "feature": 1416,
+   "name": "Flask development server configuration and management",
+   "freq": 0.04769,
+   "badge": 0.7861
+  },
+  {
+   "feature": 1570,
+   "name": "iOS app development with AI tools",
+   "freq": 0.04726,
+   "badge": 0.6697
+  },
+  {
+   "feature": 1480,
+   "name": "SQLite and database systems",
+   "freq": 0.04623,
+   "badge": 0.8439
+  },
+  {
+   "feature": 1812,
+   "name": "Software and system architecture design",
+   "freq": 0.04605,
+   "badge": 0.9523
+  },
+  {
+   "feature": 618,
+   "name": "Hierarchical layer abstraction pattern",
+   "freq": 0.04593,
+   "badge": 0.8902
+  },
+  {
+   "feature": 1548,
+   "name": "LLM pricing and token costs",
+   "freq": 0.0458,
+   "badge": 0.9479
+  },
+  {
+   "feature": 411,
+   "name": "Visualization engineering for cognition",
+   "freq": 0.04574,
+   "badge": 0.8837
+  },
+  {
+   "feature": 1642,
+   "name": "EpicMap geospatial mapping platform",
+   "freq": 0.04538,
+   "badge": 0.5125
+  },
+  {
+   "feature": 751,
+   "name": "Language evolved to be learnable",
+   "freq": 0.04483,
+   "badge": 0.8951
+  },
+  {
+   "feature": 1713,
+   "name": "Open-weight models disrupting AI",
+   "freq": 0.04441,
+   "badge": 0.9265
+  },
+  {
+   "feature": 1479,
+   "name": "Modal performance debugging and optimization",
+   "freq": 0.04429,
+   "badge": 0.8291
+  },
+  {
+   "feature": 1235,
+   "name": "Mapping between abstract representations",
+   "freq": 0.04398,
+   "badge": 0.9294
+  },
+  {
+   "feature": 1612,
+   "name": "Quantitative rigor and mathematical formalism",
+   "freq": 0.0438,
+   "badge": 0.9184
+  },
+  {
+   "feature": 382,
+   "name": "Superposed sparse feature representation",
+   "freq": 0.04368,
+   "badge": 0.8528
+  },
+  {
+   "feature": 961,
+   "name": "Minimalist tool curation for development",
+   "freq": 0.04301,
+   "badge": 0.7608
+  },
+  {
+   "feature": 1035,
+   "name": "Reclaiming mental space from stimulation",
+   "freq": 0.04283,
+   "badge": 0.5619
+  },
+  {
+   "feature": 462,
+   "name": "Multi-county feature parity implementation",
+   "freq": 0.04229,
+   "badge": 0.8554
+  },
+  {
+   "feature": 1506,
+   "name": "Deliberate naming and identifier choice",
+   "freq": 0.0421,
+   "badge": 0.9254
+  },
+  {
+   "feature": 547,
+   "name": "Semantic search system implementation",
+   "freq": 0.04168,
+   "badge": 0.8852
+  },
+  {
+   "feature": 1130,
+   "name": "Admin dashboard tabbed SPA architecture",
+   "freq": 0.04065,
+   "badge": 0.8338
+  },
+  {
+   "feature": 229,
+   "name": "Learning algorithms from expert mentors",
+   "freq": 0.04028,
+   "badge": 0.7139
+  },
+  {
+   "feature": 752,
+   "name": "Mentoring aspiring AI researchers",
+   "freq": 0.04016,
+   "badge": 0.9332
+  },
+  {
+   "feature": 234,
+   "name": "Building systems that scale work",
+   "freq": 0.03962,
+   "badge": 0.9172
+  },
+  {
+   "feature": 1335,
+   "name": "Configurable color schemes",
+   "freq": 0.03907,
+   "badge": 0.9328
+  },
+  {
+   "feature": 1430,
+   "name": "Job creation modal NAS folder design",
+   "freq": 0.03907,
+   "badge": 0.6849
+  },
+  {
+   "feature": 1551,
+   "name": "Time-series database operation patterns",
+   "freq": 0.03895,
+   "badge": 0.8874
+  },
+  {
+   "feature": 1500,
+   "name": "Planning depth enables autonomous execution",
+   "freq": 0.03846,
+   "badge": 0.5603
+  },
+  {
+   "feature": 91,
+   "name": "Calendar overlap detection and unification",
+   "freq": 0.0381,
+   "badge": 0.7087
+  },
+  {
+   "feature": 1277,
+   "name": "Sprint issue tracking and sequencing",
+   "freq": 0.03798,
+   "badge": 0.3741
+  },
+  {
+   "feature": 569,
+   "name": "Batching external API calls asynchronously",
+   "freq": 0.03768,
+   "badge": 0.3857
+  },
+  {
+   "feature": 396,
+   "name": "Plat data system GIS integration",
+   "freq": 0.03749,
+   "badge": 0.8163
+  },
+  {
+   "feature": 658,
+   "name": "Debugging and development coordination",
+   "freq": 0.03725,
+   "badge": 0.7633
+  },
+  {
+   "feature": 598,
+   "name": "Creating and maintaining linked references",
+   "freq": 0.03719,
+   "badge": 0.9137
+  },
+  {
+   "feature": 1282,
+   "name": "Development project session summaries",
+   "freq": 0.03719,
+   "badge": 0.537
+  },
+  {
+   "feature": 1206,
+   "name": "Neural network mechanics and mathematics",
+   "freq": 0.03701,
+   "badge": 0.9493
+  },
+  {
+   "feature": 1339,
+   "name": "Agent skills framework",
+   "freq": 0.03689,
+   "badge": 0.9638
+  },
+  {
+   "feature": 20,
+   "name": "Status field features for events",
+   "freq": 0.03683,
+   "badge": 0.9432
+  },
+  {
+   "feature": 354,
+   "name": "Settings that toggle UI visibility",
+   "freq": 0.0367,
+   "badge": 0.4633
+  },
+  {
+   "feature": 1300,
+   "name": "Extract fixes from Claude PRs",
+   "freq": 0.03598,
+   "badge": 0.5232
+  },
+  {
+   "feature": 1509,
+   "name": "Type annotations via JSDoc or TypeScript",
+   "freq": 0.03567,
+   "badge": 0.8862
+  },
+  {
+   "feature": 1102,
+   "name": "PNEZD surveying data parser",
+   "freq": 0.03567,
+   "badge": 0.3234
+  },
+  {
+   "feature": 38,
+   "name": "Claude Opus 5",
+   "freq": 0.03537,
+   "badge": 0.9242
+  },
+  {
+   "feature": 369,
+   "name": "CSS layout cascade debugging and flexbox",
+   "freq": 0.03537,
+   "badge": 0.5492
+  },
+  {
+   "feature": 1309,
+   "name": "Control points from surveying",
+   "freq": 0.03488,
+   "badge": 0.934
+  },
+  {
+   "feature": 1125,
+   "name": "Sub-agent orchestration",
+   "freq": 0.0347,
+   "badge": 0.9344
+  },
+  {
+   "feature": 1166,
+   "name": "Software tools and their features",
+   "freq": 0.0347,
+   "badge": 0.53
+  },
+  {
+   "feature": 1207,
+   "name": "Temporal mismatch: estimates versus reality",
+   "freq": 0.0344,
+   "badge": 0.6458
+  },
+  {
+   "feature": 328,
+   "name": "UI animation design and implementation",
+   "freq": 0.03385,
+   "badge": 0.8834
+  },
+  {
+   "feature": 1378,
+   "name": "Hierarchy of engineering specializations",
+   "freq": 0.03337,
+   "badge": 0.9429
+  },
+  {
+   "feature": 706,
+   "name": "LLM pre-training efficiency and scaling",
+   "freq": 0.03331,
+   "badge": 0.9152
+  },
+  {
+   "feature": 6,
+   "name": "Multiple parcels per job support",
+   "freq": 0.03331,
+   "badge": 0.614
+  },
+  {
+   "feature": 1127,
+   "name": "Mixture of experts",
+   "freq": 0.03306,
+   "badge": 0.404
+  },
+  {
+   "feature": 87,
+   "name": "Job detail panel push-layout implementation",
+   "freq": 0.03294,
+   "badge": 0.3636
+  },
+  {
+   "feature": 1481,
+   "name": "Compute allocation and optimization strategies",
+   "freq": 0.03276,
+   "badge": 0.5414
+  },
+  {
+   "feature": 1694,
+   "name": "Mechanistic interpretability of reasoning",
+   "freq": 0.03276,
+   "badge": 0.675
+  },
+  {
+   "feature": 1167,
+   "name": "Evolutionary transitions driven by energy systems",
+   "freq": 0.03276,
+   "badge": 0.599
+  },
+  {
+   "feature": 1455,
+   "name": "Fieldwork calendar feature",
+   "freq": 0.0327,
+   "badge": 0.909
+  },
+  {
+   "feature": 1156,
+   "name": "User entity field and schema",
+   "freq": 0.0327,
+   "badge": 0.4488
+  },
+  {
+   "feature": 1112,
+   "name": "Video games and game development",
+   "freq": 0.03264,
+   "badge": 0.884
+  },
+  {
+   "feature": 17,
+   "name": "Backfill scripts populate missing data",
+   "freq": 0.03264,
+   "badge": 0.3982
+  },
+  {
+   "feature": 1322,
+   "name": "Transformer neural network architecture",
+   "freq": 0.03252,
+   "badge": 0.9588
+  },
+  {
+   "feature": 1933,
+   "name": "Hover elements clipped by CSS overflow",
+   "freq": 0.03252,
+   "badge": 0.4434
+  },
+  {
+   "feature": 1660,
+   "name": "Graph-based agent orchestration",
+   "freq": 0.03246,
+   "badge": 0.9476
+  },
+  {
+   "feature": 258,
+   "name": "Images beat text for language models",
+   "freq": 0.0324,
+   "badge": 0.9035
+  },
+  {
+   "feature": 291,
+   "name": "Tutorial walkthroughs of building projects",
+   "freq": 0.03234,
+   "badge": 0.7773
+  },
+  {
+   "feature": 1286,
+   "name": "How things actually work",
+   "freq": 0.03228,
+   "badge": 0.2592
+  },
+  {
+   "feature": 729,
+   "name": "Residual connections in transformer architecture",
+   "freq": 0.03209,
+   "badge": 0.5507
+  },
+  {
+   "feature": 37,
+   "name": "Reviewing uncommitted changes before committing",
+   "freq": 0.03203,
+   "badge": 0.7206
+  },
+  {
+   "feature": 479,
+   "name": "Database migration head conflicts",
+   "freq": 0.03191,
+   "badge": 0.6395
+  },
+  {
+   "feature": 132,
+   "name": "Stale git worktree cleanup workflow",
+   "freq": 0.03185,
+   "badge": 0.6799
+  },
+  {
+   "feature": 157,
+   "name": "Parcel datum transformation and coordinate offset fixes",
+   "freq": 0.03173,
+   "badge": 0.6879
+  }
+ ]
+}
