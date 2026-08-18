@@ -1,0 +1,178 @@
+{
+ "video_id": "UZDiGooFs54",
+ "title": "The moment we stopped understanding AI [AlexNet]",
+ "text_head": "Welch Labs traces how AlexNet's 2012 ImageNet win replaced hand-engineered vision pipelines like SIFT with learned convolutional features, then uses interpretability tools \u2014 first-layer kernel images, activation maps, feature visualization, nearest neighbors in the 4,096-dimensional penultimate layer, and Activation Atlases \u2014 to argue that the same scaled-up \"dumb compute block\" architecture that produced ChatGPT is precisely what made these models opaque.\n\nAlexNet is walked through layer by layer: its first convolutional layer holds 96 kernels of size 11\u00d711\u00d73, small enough to render directly ",
+ "vector_sample": [
+  -0.0058,
+  -0.0397,
+  -0.007,
+  -0.0152,
+  -0.058,
+  0.0421
+ ],
+ "vector_norm_dims": 1024,
+ "code_active": 32,
+ "code_mass": 2.5725,
+ "named_mass_frac": 0.6001,
+ "head_mass_frac": 0.319,
+ "top_latents": [
+  {
+   "latent": 1597,
+   "act": 0.2194,
+   "name": "Educational breakdown of language model mechanics"
+  },
+  {
+   "latent": 1211,
+   "act": 0.1803,
+   "name": "Sparse autoencoders and mechanistic interpretability"
+  },
+  {
+   "latent": 1310,
+   "act": 0.1553,
+   "name": "Transformer architecture and tokenization"
+  },
+  {
+   "latent": 411,
+   "act": 0.1474,
+   "name": "Visualization engineering for cognition"
+  },
+  {
+   "latent": 258,
+   "act": 0.1396,
+   "name": "Images beat text for language models"
+  },
+  {
+   "latent": 382,
+   "act": 0.1235,
+   "name": "Superposed sparse feature representation"
+  },
+  {
+   "latent": 817,
+   "act": 0.1036,
+   "name": null
+  },
+  {
+   "latent": 1481,
+   "act": 0.0964,
+   "name": "Compute allocation and optimization strategies"
+  },
+  {
+   "latent": 495,
+   "act": 0.0909,
+   "name": null
+  },
+  {
+   "latent": 618,
+   "act": 0.0843,
+   "name": "Hierarchical layer abstraction pattern"
+  }
+ ],
+ "neighbors_qwen": [
+  {
+   "title": "Hoagy Cunningham \u2014 Finding distributed features in LLMs with sparse autoencoders [TAIS 2024]",
+   "kind": "video",
+   "source": "youtube",
+   "sim": 0.6085
+  },
+  {
+   "title": "Stephen Blum live-codes mini ChatGPT transformer",
+   "kind": "memory",
+   "source": "instagram",
+   "sim": 0.6069
+  },
+  {
+   "title": "Transformers, the tech behind LLMs | Deep Learning Chapter 5",
+   "kind": "video",
+   "source": "youtube",
+   "sim": 0.6002
+  },
+  {
+   "title": "The Scaling Hypothesis",
+   "kind": "memory",
+   "source": "web",
+   "sim": 0.5878
+  },
+  {
+   "title": "Let's build GPT: from scratch, in code, spelled out.",
+   "kind": "video",
+   "source": "youtube",
+   "sim": 0.5866
+  }
+ ],
+ "neighbors_sae": [
+  {
+   "title": "Stephen Blum live-codes mini ChatGPT transformer",
+   "kind": "memory",
+   "source": "instagram",
+   "sim": 0.3667
+  },
+  {
+   "title": "Let's build GPT: from scratch, in code, spelled out.",
+   "kind": "video",
+   "source": "youtube",
+   "sim": 0.324
+  },
+  {
+   "title": "The Scaling Hypothesis",
+   "kind": "memory",
+   "source": "web",
+   "sim": 0.3024
+  },
+  {
+   "title": "Stanford CS25: V2 I Introduction to Transformers w/ Andrej Karpathy",
+   "kind": "video",
+   "source": "youtube",
+   "sim": 0.2892
+  },
+  {
+   "title": "I Built an LLM From Scratch",
+   "kind": "video",
+   "source": "youtube",
+   "sim": 0.2743
+  }
+ ],
+ "neighbor_overlap": 3,
+ "atlas_cell": {
+  "latent": 1597,
+  "cell": [
+   8,
+   9
+  ],
+  "on_frozen_layout": false,
+  "cell_method": "10-NN vote estimate (note postdates the frozen layout)"
+ },
+ "code": {
+  "114": 0.0531,
+  "224": 0.0453,
+  "258": 0.1396,
+  "276": 0.0706,
+  "286": 0.0467,
+  "306": 0.0532,
+  "382": 0.1235,
+  "411": 0.1474,
+  "435": 0.0519,
+  "468": 0.0598,
+  "495": 0.0909,
+  "575": 0.0522,
+  "618": 0.0843,
+  "655": 0.0744,
+  "817": 0.1036,
+  "851": 0.0635,
+  "926": 0.0445,
+  "1004": 0.0486,
+  "1127": 0.0506,
+  "1139": 0.0491,
+  "1174": 0.0525,
+  "1206": 0.0586,
+  "1211": 0.1803,
+  "1214": 0.0785,
+  "1310": 0.1553,
+  "1322": 0.049,
+  "1481": 0.0964,
+  "1514": 0.0635,
+  "1597": 0.2194,
+  "1847": 0.0461,
+  "1983": 0.0712,
+  "2045": 0.0489
+ }
+}
