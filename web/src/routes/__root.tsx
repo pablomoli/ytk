@@ -52,6 +52,9 @@ function RootLayout() {
             <Link to="/galaxy" activeProps={{ className: "active" }}>
               galaxy
             </Link>
+            <Link to="/atlas" activeProps={{ className: "active" }}>
+              atlas
+            </Link>
             <Link to="/garden" activeProps={{ className: "active" }}>
               garden
             </Link>

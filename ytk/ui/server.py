@@ -1150,6 +1150,117 @@ async def settings_docs():
 
 
 # ---------------------------------------------------------------------------
+# /atlas — the SAE head over the map (#183 rung 6). Annotation layer only:
+# every endpoint reads ~/.ytk exports produced by experiments/sae_qwen;
+# production search and the eval gate are never touched.
+# ---------------------------------------------------------------------------
+
+_ATLAS_JSON = Path.home() / ".ytk" / "atlas.json"
+_ATLAS_FEATURES = Path.home() / ".ytk" / "atlas_features.json"
+_ATLAS_SAE = Path.home() / ".ytk" / "atlas_sae.npz"
+_ATLAS_DOCS = Path.home() / ".ytk" / "atlas_docs.json"
+_atlas_rig: dict | None = None
+
+
+def _get_atlas_rig() -> dict:
+    """Numpy-only SAE rig, loaded once. Weights exported from the checkpoint
+    so the hub never grows a torch dependency for one page."""
+    global _atlas_rig
+    if _atlas_rig is None:
+        import numpy as np
+
+        z = np.load(_ATLAS_SAE)
+        _atlas_rig = {
+            "W_enc": z["W_enc"],
+            "b_enc": z["b_enc"],
+            "b_pre": z["b_pre"],
+            "W_dec": z["W_dec"],
+            "maxa": z["maxa"],
+            "docs": z["docs"],
+            "k": int(z["k"]),
+            "meta": json.loads(_ATLAS_DOCS.read_text()),
+        }
+    return _atlas_rig
+
+
+@app.get("/api/atlas")
+async def atlas_api():
+    if not _ATLAS_JSON.exists():
+        raise HTTPException(404, detail="No atlas built — run experiments/sae_qwen/atlas_bin.py")
+    return json.loads(_ATLAS_JSON.read_text())
+
+
+@app.get("/api/atlas/features")
+async def atlas_features_api():
+    if not _ATLAS_FEATURES.exists():
+        raise HTTPException(
+            404, detail="No feature cards — run experiments/sae_qwen/export_hub_features.py"
+        )
+    return json.loads(_ATLAS_FEATURES.read_text())
+
+
+class AtlasKnobRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=500)
+    latent: int = Field(ge=0, lt=2048)
+    clamp: float = Field(ge=0.0, le=4.0)
+
+
+@app.post("/api/atlas/knob")
+async def atlas_knob(req: AtlasKnobRequest):
+    """Section 35's intervention loop, live: encode the query, clamp one
+    latent to a multiple of its corpus max, decode, retrieve over the cached
+    doc bed. Both lists return so the top-10 never leaves the frame."""
+    import numpy as np
+
+    if not _ATLAS_SAE.exists() or not _ATLAS_DOCS.exists():
+        raise HTTPException(
+            404, detail="No SAE export — run experiments/sae_qwen/export_hub_assets.py"
+        )
+    rig = _get_atlas_rig()
+    from ytk.store import _embed_query
+
+    v = np.asarray(_embed_query(req.query), np.float32)
+    pre = np.maximum((v - rig["b_pre"]) @ rig["W_enc"].T + rig["b_enc"], 0.0)
+    top = np.argsort(-pre)[: rig["k"]]
+    z = np.zeros_like(pre)
+    z[top] = pre[top]
+
+    def retrieve(code: np.ndarray) -> list[dict]:
+        vv = code @ rig["W_dec"] + rig["b_pre"]
+        vv = vv / (np.linalg.norm(vv) + 1e-12)
+        sims = rig["docs"] @ vv
+        order = np.argsort(-sims)
+        seen: set[str] = set()
+        out: list[dict] = []
+        for i in order:
+            m = rig["meta"][int(i)]
+            if m["note_key"] in seen:
+                continue
+            seen.add(m["note_key"])
+            out.append(
+                {
+                    "title": m["title"],
+                    "kind": m["kind"],
+                    "source": m["source"],
+                    "sim": round(float(sims[i]), 4),
+                }
+            )
+            if len(out) == 10:
+                break
+        return out
+
+    zc = z.copy()
+    zc[req.latent] = req.clamp * float(rig["maxa"][req.latent])
+    active = [int(f) for f in top if pre[f] > 0]
+    return {
+        "base": retrieve(z),
+        "clamped": retrieve(zc),
+        "query_latents": [{"latent": f, "act": round(float(pre[f]), 4)} for f in active[:8]],
+        "latent_max": round(float(rig["maxa"][req.latent]), 4),
+    }
+
+
+# ---------------------------------------------------------------------------
 # React SPA (web/dist), served at the root
 # ---------------------------------------------------------------------------
 
@@ -1177,6 +1288,7 @@ def _spa_redirect(path: str = ""):
 # than a blanket fallback) keeps real 404s for junk paths and traversal noise.
 _SPA_ROUTES = {
     "",
+    "atlas",
     "library",
     "inbox",
     "tags",

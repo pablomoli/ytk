@@ -22,6 +22,7 @@ import { Route as GrowthRouteImport } from './routes/growth'
 import { Route as GardenRouteImport } from './routes/garden'
 import { Route as GalaxyRouteImport } from './routes/galaxy'
 import { Route as ChannelsRouteImport } from './routes/channels'
+import { Route as AtlasRouteImport } from './routes/atlas'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DocsIndexRouteImport } from './routes/docs.index'
 import { Route as DocsSectionRouteImport } from './routes/docs.$section'
@@ -91,6 +92,11 @@ const ChannelsRoute = ChannelsRouteImport.update({
   path: '/channels',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AtlasRoute = AtlasRouteImport.update({
+  id: '/atlas',
+  path: '/atlas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -109,6 +115,7 @@ const DocsSectionRoute = DocsSectionRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/atlas': typeof AtlasRoute
   '/channels': typeof ChannelsRoute
   '/galaxy': typeof GalaxyRoute
   '/garden': typeof GardenRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/atlas': typeof AtlasRoute
   '/channels': typeof ChannelsRoute
   '/galaxy': typeof GalaxyRoute
   '/garden': typeof GardenRoute
@@ -146,6 +154,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/atlas': typeof AtlasRoute
   '/channels': typeof ChannelsRoute
   '/galaxy': typeof GalaxyRoute
   '/garden': typeof GardenRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/atlas'
     | '/channels'
     | '/galaxy'
     | '/garden'
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/atlas'
     | '/channels'
     | '/galaxy'
     | '/garden'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/atlas'
     | '/channels'
     | '/galaxy'
     | '/garden'
@@ -221,6 +233,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AtlasRoute: typeof AtlasRoute
   ChannelsRoute: typeof ChannelsRoute
   GalaxyRoute: typeof GalaxyRoute
   GardenRoute: typeof GardenRoute
@@ -331,6 +344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChannelsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/atlas': {
+      id: '/atlas'
+      path: '/atlas'
+      fullPath: '/atlas'
+      preLoaderRoute: typeof AtlasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -357,6 +377,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AtlasRoute: AtlasRoute,
   ChannelsRoute: ChannelsRoute,
   GalaxyRoute: GalaxyRoute,
   GardenRoute: GardenRoute,
