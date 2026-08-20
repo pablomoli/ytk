@@ -1,9 +1,13 @@
 {
  "registered": "P1: same-latent split-half vs cross-pair pixel r, AUC >= 0.80",
- "n_qualifying": 1655,
- "same_median_r": 0.7497,
- "cross_median_r": 0.0729,
- "auc": 0.9686,
- "gate": "PASS",
+ "amendment": "exemplars deduped by note before the top-24 cut (contamination found by owner in the hub: segments repeat their video thumbnail; 40% mean duplication)",
+ "n_qualifying": 2045,
+ "same_median_r": 0.1613,
+ "cross_median_r": 0.196,
+ "auc": 0.4282,
+ "gate": "FAIL",
+ "contaminated_auc": 0.9666,
+ "contaminated_same_median_r": 0.7497,
+ "mean_duplicate_fraction_top24": 0.4,
  "seed": 49
 }

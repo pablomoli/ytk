@@ -25,6 +25,27 @@ def video_id(e: dict) -> str | None:
     return None
 
 
+def _dedup_exemplars(exemplars: list[dict]) -> list[dict]:
+    out, seen = [], set()
+    for e in exemplars:
+        key = video_id(e) or e["id"]
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(
+            {
+                "title": e["title"] or e["text"][:70],
+                "kind": e["kind"],
+                "source": e["source"],
+                "video_id": video_id(e),
+                "act": e["act"],
+            }
+        )
+        if len(out) == 6:
+            break
+    return out
+
+
 def main() -> None:
     features = json.loads((HERE / "features.json").read_text())
     atlas = json.loads((HERE / "atlas.json").read_text())
@@ -45,16 +66,9 @@ def main() -> None:
             "confidence": t.get("name_confidence"),
             "freq": round(t["freq"], 5),
             "badge": badge[f],
-            "exemplars": [
-                {
-                    "title": e["title"] or e["text"][:70],
-                    "kind": e["kind"],
-                    "source": e["source"],
-                    "video_id": video_id(e),
-                    "act": e["act"],
-                }
-                for e in t["exemplars"][:6]
-            ],
+            # one exemplar per note: segments repeat their parent video's
+            # thumbnail, and a card of copies overstates the evidence (#49)
+            "exemplars": _dedup_exemplars(t["exemplars"]),
         }
     out = {
         "checkpoint": features["checkpoint"],

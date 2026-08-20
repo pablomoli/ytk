@@ -103,25 +103,38 @@ def load_thumb(p: Path | None) -> np.ndarray | None:
 
 
 def mosaic(exemplars: list[dict]) -> tuple[np.ndarray, list, int]:
-    """3x3 composite; returns (rgb array, [T]-glyph positions, n_img)."""
+    """3x3 composite; returns (rgb array, [T]-glyph positions, n_img).
+
+    One cell per distinct thumbnail: segments repeat their parent video's
+    image, and a mosaic of copies overstates the evidence (the flaw section
+    49 documents). Duplicates are skipped, so sparse tiles read as sparse.
+    """
     gap = 2
     side = 3 * CELL + 2 * gap
     out = np.zeros((side, side, 3))
     out[:] = np.array([0.03, 0.03, 0.04])
     glyphs, n_img = [], 0
-    for i in range(9):
-        r, c = divmod(i, 3)
+    seen: set[Path] = set()
+    slot = 0
+    for e in exemplars:
+        if slot == 9:
+            break
+        p = thumb_path(e)
+        if p is not None and p in seen:
+            continue
+        r, c = divmod(slot, 3)
         y, x = r * (CELL + gap), c * (CELL + gap)
-        if i < len(exemplars):
-            img = load_thumb(thumb_path(exemplars[i]))
-            if img is not None:
-                out[y : y + CELL, x : x + CELL] = img
-                n_img += 1
-            else:
-                cell, ch = t_cell(exemplars[i]["source"])
-                out[y : y + CELL, x : x + CELL] = cell
-                glyphs.append((x + CELL / 2, y + CELL / 2, ch))
-    return out, glyphs, n_img
+        img = load_thumb(p)
+        if img is not None:
+            seen.add(p)
+            out[y : y + CELL, x : x + CELL] = img
+            n_img += 1
+        else:
+            cell, ch = t_cell(e["source"])
+            out[y : y + CELL, x : x + CELL] = cell
+            glyphs.append((x + CELL / 2, y + CELL / 2, ch))
+        slot += 1
+    return out, glyphs, n_img, slot
 
 
 def badge_color(b: float) -> str:
@@ -150,7 +163,7 @@ def fig01(head: list[dict], W_dec: np.ndarray, badges: list[float]) -> dict:
         axd = fig.add_subplot(gs[r, 2 * c])
         vector_image(axd, W_dec[f])
         axm = fig.add_subplot(gs[r, 2 * c + 1])
-        m, glyphs, n_img = mosaic(t["exemplars"])
+        m, glyphs, n_img, n_slots = mosaic(t["exemplars"])
         axm.imshow(m, interpolation="nearest")
         for x, y, ch in glyphs:
             axm.text(x, y, ch, color=MUTED, fontsize=5.5, ha="center", va="center")
@@ -174,7 +187,7 @@ def fig01(head: list[dict], W_dec: np.ndarray, badges: list[float]) -> dict:
             pad=2.2,
         )
         stats["img"] += n_img
-        stats["cells"] += min(len(t["exemplars"]), 9)
+        stats["cells"] += n_slots
         stats["badge_ge_08"] += b >= 0.8
         stats["badge_ge_05"] += b >= 0.5
     verdict(

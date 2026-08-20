@@ -19,6 +19,11 @@ buys stability: the latents that fire most are the ones whose directions
 reproduce across seeds. Every tile wears its own badge, so a reader can
 discount any single tile without discounting the wall.
 
+> **Later (section 49):** the mosaics were re-rendered with one exemplar
+> per note — segments repeat their parent video's thumbnail, so the original
+> tiles overstated the evidence. Distinct-image coverage is **45.9%**; the
+> paragraph below records the original, inflated number as written.
+
 **The wall's evidence is 55.9% pictures.** 502 of 899 mosaic cells carry a
 real thumbnail; the rest are `[T]` provenance tiles (letter = Vault, Web,
 Instagram, TikTok). Rung 0 predicted a mostly-`[T]` wall from map coverage

@@ -1,9 +1,9 @@
 {
- "commit": "affb287",
+ "commit": "9b977f9",
  "mosaic": {
-  "cells": 800,
-  "with_image": 447,
-  "img_frac": 0.5587
+  "cells": 653,
+  "with_image": 300,
+  "img_frac": 0.4594
  },
  "badges": {
   "ge_08": 59,

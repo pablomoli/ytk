@@ -23,6 +23,12 @@ function cellKey(c: AtlasCell) {
   return `${c.cell[0]},${c.cell[1]}`;
 }
 
+// clipPath ids must be CSS-identifier safe: a comma in url(#cell-8,9)
+// silently disables the clip and labels bleed across cells
+function clipId(key: string) {
+  return `cell-${key.replace(",", "-")}`;
+}
+
 function Lattice({
   atlas,
   selected,
@@ -52,7 +58,7 @@ function Lattice({
         const strength = Math.abs(c.label_excess) / emax;
         return (
           <g key={key} onClick={() => onSelect(key)} className="cursor-pointer">
-            <clipPath id={`cell-${key}`}>
+            <clipPath id={clipId(key)}>
               <rect
                 x={sx(c.x0)}
                 y={sy(c.y1)}
@@ -60,6 +66,10 @@ function Lattice({
                 height={sy(c.y0) - sy(c.y1)}
               />
             </clipPath>
+            <title>
+              #{c.label_latent} {c.label ?? ""} · {c.n_scored} notes
+              {c.stable_05 ? "" : " · label unstable across seeds"}
+            </title>
             <rect
               x={sx(c.x0)}
               y={sy(c.y1)}
@@ -78,6 +88,7 @@ function Lattice({
               fill="var(--ink)"
               opacity={c.stable_05 ? 0.95 : 0.45}
               style={{ fontSize: "1.7px" }}
+              clipPath={`url(#${clipId(key)})`}
             >
               #{c.label_latent}
             </text>
@@ -88,7 +99,7 @@ function Lattice({
               fill="var(--mute)"
               opacity={c.stable_05 ? 0.9 : 0.45}
               style={{ fontSize: "1.25px" }}
-              clipPath={`url(#cell-${key})`}
+              clipPath={`url(#${clipId(key)})`}
             >
               {(c.label ?? "").slice(0, 22)}
             </text>
