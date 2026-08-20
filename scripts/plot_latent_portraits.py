@@ -274,15 +274,31 @@ def fig03(z, res, feats) -> None:
             ("(note postdates the frozen map)", ""),
         ],
     )
+    # share: softmax at the measured background-pair std (section 50) — raw
+    # cosines compress onto the cone; shares restore visible contrast
+    T_bg = json.loads((SAE / "constellations.json").read_text())["background_pairs"]["std"]
+    sims = np.array([n["sim"] for n in tr["neighbors_qwen"]])
+    e = np.exp((sims - sims.max()) / T_bg)
+    shares = e / e.sum()
     y = block(
         y,
         f"keeps company with — {tr['neighbor_overlap']}/5 shared by both lenses",
         [
-            (("* " if n["title"] in shared else "  ") + n["title"][:34], f"{n['sim']:.2f}")
-            for n in tr["neighbors_qwen"]
+            (
+                ("* " if n["title"] in shared else "  ") + n["title"][:32],
+                f"{n['sim']:.2f} · {sh:.0%}",
+            )
+            for n, sh in zip(tr["neighbors_qwen"], shares)
         ],
     )
-    ax.text(0.0, y, "* = Qwen and SAE lens agree", color=MUTED, fontsize=6.8, va="top")
+    ax.text(
+        0.0,
+        y,
+        f"* = both lenses agree · % = share, softmax at T = {T_bg:.2f} (background-pair std)",
+        color=MUTED,
+        fontsize=6.8,
+        va="top",
+    )
     verdict(fig, "the face is evidence, not a derivation — that is all the gate allows")
     save(fig, "03-the-passport.png")
 

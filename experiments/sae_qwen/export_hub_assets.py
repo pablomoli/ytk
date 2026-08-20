@@ -51,6 +51,13 @@ def main() -> None:
         for i in doc_idx
     ]
 
+    # the share transform's temperature: std of background doc-pair cosines
+    # (section 50's measured null) — carried as data so it is never re-typed
+    rng = np.random.default_rng(50)
+    pairs = rng.choice(len(Xd), (5000, 2))
+    pairs = pairs[pairs[:, 0] != pairs[:, 1]]
+    bg_std = float(np.einsum("ij,ij->i", Xd[pairs[:, 0]], Xd[pairs[:, 1]]).std())
+
     np.savez_compressed(
         OUT / "atlas_sae.npz",
         W_enc=st["enc.weight"].numpy().astype(np.float32),
@@ -60,6 +67,7 @@ def main() -> None:
         maxa=maxa,
         docs=Xd,
         k=np.int64(32),
+        bg_std=np.float32(bg_std),
     )
     (OUT / "atlas_docs.json").write_text(json.dumps(meta))
     print(

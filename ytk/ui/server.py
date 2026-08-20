@@ -1178,6 +1178,7 @@ def _get_atlas_rig() -> dict:
             "maxa": z["maxa"],
             "docs": z["docs"],
             "k": int(z["k"]),
+            "bg_std": float(z["bg_std"]) if "bg_std" in z.files else 0.0,
             "meta": json.loads(_ATLAS_DOCS.read_text()),
         }
     return _atlas_rig
@@ -1247,6 +1248,15 @@ async def atlas_knob(req: AtlasKnobRequest):
             )
             if len(out) == 10:
                 break
+        # share: softmax over the list at the measured background-pair std —
+        # raw cosines compress onto the corpus cone, shares restore contrast
+        # (section 50); T is data from the export, never a typed constant
+        t = float(rig.get("bg_std") or 0.0)
+        if t > 0 and out:
+            s = np.array([r["sim"] for r in out])
+            e = np.exp((s - s.max()) / t)
+            for r, sh in zip(out, e / e.sum()):
+                r["share"] = round(float(sh), 4)
         return out
 
     zc = z.copy()

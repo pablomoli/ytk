@@ -43,3 +43,26 @@ contrast, never replaces the magnitude.
 Numbers land in `constellations.json`; runner
 `experiments/sae_qwen/constellations.py`. Results follow below this line
 only after the gate has run.
+
+---
+
+## Result: PASS at 89% — the code has a shape
+
+- **G1: 89% of 500 sampled notes exceed their own frequency-matched null's
+  p95** (bar 60%); median observed coherence 0.029 vs median null p95 0.014
+  (`01-the-shape-gate.png`). A code's 32 latents genuinely huddle in decoder
+  space — the shape is the note's, not the dictionary's.
+- **The constellations are readable as connectivity, not as scatter**
+  (`02-four-constellations.png`): 2D flattens most of the huddle, so the
+  figure draws the statistic itself — an edge wherever two active latents'
+  decoders agree past cosine 0.15. The EpicMap work note webs at 45 edges,
+  the AlexNet note holds 25, the hydration listicle frays to 12, and the
+  frequency-matched chance draw is dust at 4. Coherence is edge count.
+- **The share transform shipped**: background doc pairs measure mean 0.309,
+  std 0.106 — that std is now the softmax temperature wherever ranked
+  winners display (the passport's company column, the hub knob's lists,
+  carried as data in `atlas_sae.npz` so it is never re-typed). Raw cosine
+  always prints beside the share.
+- Exploratory, not claimed: coherence looks like a focus dial (work note
+  0.070 > protagonist 0.034 > listicle -0.004). Any use of that pattern
+  gets its own registration first.
