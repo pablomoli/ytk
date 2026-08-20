@@ -100,6 +100,21 @@ def fig01(res: dict) -> None:
     ax.text(0.802, len(AXIS_ORDER) - 0.75, "registered bar", color=RED, fontsize=8)
     ax.axvline(0.60, color=RED, lw=0.8, ls=":")
     ax.text(0.602, -0.35, "null ceiling", color=RED, fontsize=7.5)
+    from matplotlib.lines import Line2D
+
+    leg = ax.legend(
+        handles=[
+            Line2D([], [], marker="o", ls="", color=GOLD, ms=8, label="held-out AUC (axis passes)"),
+            Line2D([], [], marker="o", ls="", color=MUTED, ms=8, label="held-out AUC (axis fails)"),
+            Line2D([], [], color=DIM, lw=6, label="label-shuffle null, mean to p95"),
+        ],
+        frameon=False,
+        fontsize=8,
+        loc="center",
+        bbox_to_anchor=(0.42, 0.22),
+    )
+    for t_ in leg.get_texts():
+        t_.set_color(MUTED)
     ax.set_yticks(ys)
     ax.set_yticklabels(AXIS_ORDER)
     ax.set_xlim(0.42, 1.09)

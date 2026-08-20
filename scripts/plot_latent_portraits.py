@@ -170,6 +170,7 @@ def fig02(res) -> None:
     gs = fig.add_gridspec(
         2, 8, left=0.04, right=0.965, top=top, bottom=0.07, wspace=0.08, hspace=0.22
     )
+    row_labels = ("raw top-8\n(as gated)", "one per note\n(deduped)")
     for k, strip in enumerate((raw, dedup)):
         for i, img in enumerate(strip):
             ax = fig.add_subplot(gs[k, i])
@@ -178,6 +179,16 @@ def fig02(res) -> None:
             ax.set_yticks([])
             for s in ax.spines.values():
                 s.set_color(RED if k == 0 else DIM)
+            if i == 0:
+                ax.set_ylabel(
+                    row_labels[k],
+                    color=RED if k == 0 else MUTED,
+                    fontsize=8,
+                    rotation=0,
+                    ha="right",
+                    va="center",
+                    labelpad=34,
+                )
     verdict(fig, "the gate scored the top row — agreement between copies of one image")
     save(fig, "02-the-mechanism.png")
 
@@ -229,37 +240,49 @@ def fig03(z, res, feats) -> None:
     panel_title(ax, "compass", width=20)
 
     ax = fig.add_subplot(gs[0, 2])
-    vector_image(ax, code, annotate=[(PROT, "#1597")])
-    panel_title(ax, "code", width=16)
+    info = vector_image(ax, code, annotate=[(PROT, "#1597")])
+    ax.set_xlabel(info["meta"], color=MUTED, fontsize=6.6)
+    panel_title(ax, "code — 32 of 2,048 lit", width=22)
 
     ax = fig.add_subplot(gs[0, 3])
     ax.axis("off")
     top3 = tr["top_latents"][:3]
     shared = {n["title"] for n in tr["neighbors_qwen"]} & {n["title"] for n in tr["neighbors_sae"]}
-    txt = (
-        "\n".join(f"#{t['latent']} {(t['name'] or '')[:26]}  {t['act']:.2f}" for t in top3)
-        + f"\n\ncell {','.join(map(str, tr['atlas_cell']['cell']))} (10-NN est.)"
-        + f"\nlens-shared neighbors {tr['neighbor_overlap']}/5"
+
+    def block(y: float, header: str, lines: list[tuple[str, str]]) -> float:
+        """A labeled group: GOLD header, left text with right-aligned values."""
+        ax.text(0.0, y, header.upper(), color=GOLD, fontsize=7.4, va="top")
+        y -= 0.075
+        for left, right in lines:
+            ax.text(0.0, y, left, color=TEXT, fontsize=8, va="top")
+            if right:
+                ax.text(1.0, y, right, color=MUTED, fontsize=8, va="top", ha="right")
+            y -= 0.068
+        return y - 0.05
+
+    y = 0.98
+    y = block(
+        y,
+        "speaks in latents",
+        [(f"#{t['latent']}  {(t['name'] or '')[:28]}", f"{t['act']:.2f}") for t in top3],
     )
-    ax.text(
-        0.0,
-        0.95,
-        "speaks / resides / keeps company",
-        color=TEXT,
-        fontsize=9,
-        va="top",
-        weight="bold",
+    y = block(
+        y,
+        "resides",
+        [
+            (f"atlas cell {','.join(map(str, tr['atlas_cell']['cell']))}", "10-NN est."),
+            ("(note postdates the frozen map)", ""),
+        ],
     )
-    ax.text(0.0, 0.82, txt, color=MUTED, fontsize=8, va="top", linespacing=1.7)
-    ax.text(
-        0.0,
-        0.30,
-        "\n".join(f"* {t[:34]}" for t in sorted(shared)),
-        color=MUTED,
-        fontsize=7.6,
-        va="top",
-        linespacing=1.7,
+    y = block(
+        y,
+        f"keeps company with — {tr['neighbor_overlap']}/5 shared by both lenses",
+        [
+            (("* " if n["title"] in shared else "  ") + n["title"][:34], f"{n['sim']:.2f}")
+            for n in tr["neighbors_qwen"]
+        ],
     )
+    ax.text(0.0, y, "* = Qwen and SAE lens agree", color=MUTED, fontsize=6.8, va="top")
     verdict(fig, "the face is evidence, not a derivation — that is all the gate allows")
     save(fig, "03-the-passport.png")
 

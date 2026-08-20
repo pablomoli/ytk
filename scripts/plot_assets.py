@@ -150,10 +150,24 @@ def figure(w: float, ht: float, number: int, kicker: str, title: str, meta: str 
             linewidth=1.0,
         )
     )
+    n_meta = 0
     if meta:
-        fig.text(MARGIN, inch(rule + 0.26), meta, color=MUTED, fontsize=META_SIZE, va="baseline")
+        # wrap to the figure's usable width — a meta line that runs past the
+        # right margin is the header's version of a clipped label. ~16 CMU
+        # meta-size characters fit per inch at the sizes in use.
+        meta_lines = textwrap.wrap(meta, max(60, int((w - 2 * MARGIN * w) * 16)))
+        n_meta = len(meta_lines)
+        for i, ln in enumerate(meta_lines):
+            fig.text(
+                MARGIN,
+                inch(rule + 0.26 + i * 0.21),
+                ln,
+                color=MUTED,
+                fontsize=META_SIZE,
+                va="baseline",
+            )
     # leave room for the panel titles that sit under the header
-    header = rule + (0.92 if meta else 0.62)
+    header = rule + (0.92 + max(n_meta - 1, 0) * 0.21 if meta else 0.62)
     return fig, inch(header)
 
 
@@ -485,6 +499,11 @@ def semantic_rose(
     ys = np.append(rr * np.sin(tt), rr[0] * np.sin(tt[0]))
     ring = np.linspace(0, 2 * np.pi, 120)
     ax.plot(np.cos(ring) * rmax, np.sin(ring) * rmax, color=FRAME, lw=0.8)
+    # the ring self-reports its scale, so roses stay comparable across panels;
+    # below the lowest pole label, inside the axis limits
+    ax.text(
+        0, -rmax * 1.36, f"ring = {rmax:.2f}", color=MUTED, fontsize=5.8, ha="center", va="center"
+    )
     for t, name in zip(theta, pole_names):
         ax.plot([0, rmax * np.cos(t)], [0, rmax * np.sin(t)], color=FRAME, lw=0.5)
         ax.text(
