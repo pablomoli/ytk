@@ -1,0 +1,13 @@
+{
+ "registered": "AUC >= 0.80, same-latent split-half vs cross-pair, CLIP-image cosine",
+ "n_qualifying": 2045,
+ "n_unique_thumbnails": 505,
+ "same_median_cos": 0.8942,
+ "cross_median_cos": 0.8866,
+ "auc": 0.6031,
+ "gate": "FAIL",
+ "pixel_judge_auc_section49": 0.4282,
+ "device": "mps",
+ "protagonist_medoid": "/Users/melocoton/Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault/second-brain/sources/youtube/thumbnails/vLWSIGxpfYA-thumb.jpg",
+ "seed": 51
+}

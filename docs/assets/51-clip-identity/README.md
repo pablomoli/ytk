@@ -32,3 +32,25 @@ for good.
 Numbers land in `clip_identity.json`; runner
 `experiments/sae_qwen/clip_identity.py`. Results follow below this line
 only after the gate has run.
+
+---
+
+## Result: FAIL at 0.60 — dead in both judges, and now we know why
+
+- **AUC 0.60** against the registered 0.80 (`01-the-second-judge.png`).
+  Better than the pixel judge's 0.43, and still far short.
+- **The mechanism is in the medians:** same-latent halves 0.894,
+  cross-latent pairs 0.887. In CLIP space every YouTube thumbnail
+  resembles every other — faces, bold type, saturated design. The
+  thumbnail *genre* is its own cone, and it drowns the content.
+- **Post-hoc diagnostics, disclosed and unregistered:** centering out the
+  mean image embedding lifts AUC only to 0.64, so the cone is not the
+  whole story. The rest is structural: **505 unique images serve 2,045
+  qualifying latents** — random latent pairs already share 11% of their
+  exemplar images. A ~500-item visual vocabulary cannot individuate a
+  2,048-concept dictionary, under any judge.
+- Per the pre-registered interpretation: **the portrait metaphor closes
+  for good.** The passport's face stays what section 49 left it — a real
+  exemplar, evidence displayed, nothing derived. Any future visual
+  identity for latents needs a richer image source (frames, not
+  thumbnails) and would be a new metaphor with its own registration.
