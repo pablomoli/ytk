@@ -18,9 +18,12 @@ numbers into findings — is the same measurement run on deliberately meaningles
 data, so a score has something to be compared against.
 
 `docs/assets/` is the chronological visual-experiment record of this project:
-thirty-three numbered sections, each one folder with one `README.md`, holding the
+fifty-one numbered sections, each one folder with one `README.md`, holding the
 figures, animations, sidecar data and working notes for a question that was
-actually measured. The order is the order the work happened in, which is the
+actually measured. One slot is open: section 41 (vector search from first
+principles, #184) has its figures and rung sidecars committed but is still in
+flight — its README and its row below land when it does, which is why the
+table jumps from 40 to 42. The order is the order the work happened in, which is the
 point — early sections do not know what later ones found, wrong predictions
 stayed on the page, and the corrections are annotated in place rather than
 edited away. Every section is reproducible from a script in `scripts/`, every
@@ -120,6 +123,13 @@ left open and recorded it blocked; 28 dissolved it by recording the intent
 the pipeline had never written down, and retired 26's correction with its
 job done.
 
+**The activation atlas** — 42, 43, 44, 45, 46 in order, then 47, 48, 49, 50,
+51. The first five are the ladder (inventory, feature wall, cell binning,
+segment strips, the protagonist trace), each rung gated before the next built
+on it; the last five are the paraphrase hunt — four registered losses and one
+pass (50, constellations), with 49 the rare case of a passing gate that was
+itself the bug, caught by eye in the hub rather than by any null.
+
 **How this project decides things** — 08, 09, 18's pre-registration section, 19,
 20, 21. The gate that stops growth being mistaken for quality, the null model
 that turns a number into a finding, the registered predictions, and three
@@ -160,6 +170,11 @@ alongside the original claim — which was never edited.
   warned it would.
 - **18.5** (monotone handover) ← 21.4. The single-crossing premise does not
   generalize — 31 of 45 roads — so handover is a per-road readout, not a law.
+- **18** (the 31 always-on latents) ← 42. A different SAE over a different
+  vector set: the natively trained TopK dictionary has no always-on latents —
+  the shared cone direction lands in the decoder bias and pre-activation
+  offsets — so the subtraction list dissolves into the excess-over-base-rate
+  null.
 - **18 pre-registration, 18.4b** ← 19. The bar was cleared at r = 0.832 and the
   control collapsed at 0.757; the interpretation was withdrawn.
 - **18 pre-registration, 19.1** ← 19. Failed: rank metrics lose to cosine, no
@@ -223,6 +238,11 @@ alongside the original claim — which was never edited.
   coherence confirmation, structurally unable to detect a ring. Reported in
   the section, replaced by the per-planet max-z pair-excess gate; the
   registered result ships alongside the corrected one in `channels.json`.
+
+- **43** (the wall's evidence is 55.9% pictures) ← 49. Segments inherit their
+  parent video's thumbnail, so the mosaics overstated their evidence;
+  re-rendered one exemplar per note, distinct-image coverage is 45.9%. The
+  same one-per-note rule now governs the hub's feature cards.
 
 One program-level correction has no earlier section to annotate, and is
 recorded here instead. Section 24 found the deliberate-save label is a
