@@ -55,6 +55,12 @@ this is the ledger.
    register, code structure, proper nouns, discourse scaffolding (18.3).
    The corpus-wide anisotropy is not noise; it is the shared voice of the
    collection, and it now has a feature-level inventory.
+
+   > **Later:** section 42 re-derived this on the natively trained TopK
+   > dictionary and found no always-on latents at all — the cone lands in
+   > the decoder bias and pre-activation offsets, so the 31-latent
+   > subtraction list is a fact about this instrument, not about the
+   > corpus. The atlas replaced it with an excess-over-base-rate null.
 2. **The cone has internal geometry.** Six antipodal decoder pairs put
    twelve of those 31 features exactly on the 1/2-dimensionality plateau —
    the toy-model digon, in production decoders (21.2, against the
