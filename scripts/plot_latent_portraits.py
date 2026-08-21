@@ -211,9 +211,10 @@ def fig03(z, res, feats) -> None:
         3,
         "the passport",
         "One note's papers — only stamps that survived their gates",
-        f"'{tr['title']}' | face: #{PROT}'s most central real exemplar (a thumbnail, not a "
-        f"composite — the composite gate FAILED, fig 01) | rose: 48's surviving axes | code: "
-        f"rung 1 | {tr['named_mass_frac']:.0%} of code mass named | {SHA}",
+        f"'{tr['title']}' | faces: #{PROT}'s top-5 exemplars, one per note, opacity = "
+        f"activation rank (real thumbnails — the composite gate FAILED twice, sections 49/51) "
+        f"| rose: 48's surviving axes | code: rung 1 | {tr['named_mass_frac']:.0%} of code "
+        f"mass named | {SHA}",
     )
     gs = fig.add_gridspec(
         1,
@@ -226,14 +227,50 @@ def fig03(z, res, feats) -> None:
         wspace=0.2,
     )
 
-    ax = fig.add_subplot(gs[0, 0])
-    ax.imshow(z["medoids"][feats[PROT]], interpolation="bilinear")
-    ax.set_xticks([])
-    ax.set_yticks([])
-    for s in ax.spines.values():
-        s.set_color(CYAN)
-        s.set_linewidth(1.6)
-    panel_title(ax, "most central exemplar (real)", width=28)
+    # top-5 deduped exemplar faces, opacity fading down the activation ranking:
+    # the evidence ranked, never a derived image
+    rows_all = [json.loads(x) for x in (SAE / "data" / "rows.jsonl").read_text().splitlines()]
+    za = np.load(SAE / "data" / "acts_final_d2048_k32_s0.npz")
+    idxa, vala = za["idx"], za["val"]
+    hits = []
+    r_, j_ = np.nonzero((idxa == PROT) & (vala > 0))
+    for r, j in zip(r_, j_):
+        hits.append((float(vala[r, j]), int(r)))
+    hits.sort(reverse=True)
+    faces, seen = [], set()
+    for a, r in hits:
+        row = rows_all[r]
+        nk = row["id"].rsplit("_", 1)[0] if row["kind"] == "segment" else row["id"]
+        if nk in seen:
+            continue
+        if row["kind"] in ("video", "segment"):
+            p = VAULT / "youtube" / "thumbnails" / f"{nk}-thumb.jpg"
+            if p.exists():
+                im = Image.open(p).convert("RGB")
+                side = min(im.size)
+                left, up = (im.width - side) // 2, (im.height - side) // 2
+                faces.append(
+                    np.asarray(
+                        im.crop((left, up, left + side, up + side)).resize((160, 160)), float
+                    )
+                    / 255.0
+                )
+                seen.add(nk)
+        if len(faces) == 5:
+            break
+    gsl = gs[0, 0].subgridspec(3, 2, height_ratios=[2, 1, 1], hspace=0.06, wspace=0.06)
+    slots = [gsl[0, :], gsl[1, 0], gsl[1, 1], gsl[2, 0], gsl[2, 1]]
+    alphas = [1.0, 0.75, 0.6, 0.45, 0.32]
+    for k, (img, slot, al) in enumerate(zip(faces, slots, alphas)):
+        ax = fig.add_subplot(slot)
+        ax.imshow(img * al, interpolation="bilinear")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for s in ax.spines.values():
+            s.set_color(CYAN if k == 0 else DIM)
+            s.set_linewidth(1.4 if k == 0 else 0.8)
+        if k == 0:
+            panel_title(ax, "the evidence, ranked (opacity = rank)", width=30)
 
     ax = fig.add_subplot(gs[0, 1])
     semantic_rose(ax, (v / np.linalg.norm(v)) @ A.T, poles, color=CYAN)
