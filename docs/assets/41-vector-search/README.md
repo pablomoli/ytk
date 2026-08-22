@@ -70,3 +70,79 @@ misses will be reported with the hits.
 Recall sweeps stay on the same 1,000 referee queries; latency samples stay
 single-query — every number comparable to weekend 1's. Results follow
 below this line only after the runs.
+
+---
+
+## Results: two hits, three misses, one split — and every miss has a mechanism
+
+**P1 hit — centering is a no-op, exactly as registered** (figure 05).
+Centered PQ64: recall@10 0.1573 vs raw 0.161, inside the ±0.02 band, at the
+same 2.24s. K-means moved its centroids with the data; the constant q·mu
+never had a vote.
+
+**P2 miss — a random rotation is also a no-op: 0.156 vs the 0.25 bar.**
+The registered mechanism was wrong, and the autopsy is the lesson: a random
+rotation only helps when variance is piled into specific *coordinate*
+slices, but the cone is a direction with no reason to align with Qwen's
+axes — relative to the corpus's principal axes the raw coordinate basis
+already is a random basis, and rotating a rotationally symmetric situation
+changes nothing in expectation. OPQ earns its improvement by *fitting* a
+variance-balancing rotation; the poor man's version was too poor to be OPQ
+at all.
+
+**P3 miss — capacity scales but the bar overshot: PQ128 0.337 vs 0.45.**
+Doubling the bytes doubled the truth kept (0.161 -> 0.337, 4.33s, 1.19GB).
+The clean reading across rung 3: at this geometry no cheap transform and no
+doubling of PQ capacity buys retrieval-grade recall — compressed codes are
+a candidate generator, not an answer, which is exactly why production
+systems staple a rerank stage on top of them.
+
+**P4 split — the curve never reaches the box, and the control lands**
+(figure 06). IVF-1024 climbs 0.10 -> 0.83 as nprobe doubles 1 -> 64, but
+0.90-inside-5% is unreachable: nprobe 64 scans 6.6% for 0.826. The control
+clause hit: real-geometry list sizes carry ten times the isotropic skew
+(Gini 0.091 vs 0.009) — the cone's tax on every inverted index, though at
+this magnitude skew alone does not explain the flat curve; true-neighbor
+smear across lists is the stated hypothesis, unmeasured here. The latency
+column (8ms at nprobe 2, 1.04s at 64) still pays numpy's int8->f32
+conversion tax — the curve's shape is the index's, the milliseconds are
+the interpreter's.
+
+**P5 miss — the reference is fast and wrong** (figure 07). The registered
+finding stands (39GB never loads on 16GB; the footprint bars are the
+figure), and at 1M hnswlib is as fast as promised: 0.5-5.2ms p50. But
+recall tops out at 0.602 at ef 200 against the predicted 0.90 — on this
+unit-norm, cone-bearing, hub-heavy geometry the graph index is not a
+solved problem either, at any ef in the grid. RSS 7.9GB includes the
+subset ground-truth pass, disclosed rather than restated as the index's
+own footprint.
+
+**P6 pass, both targets** (figure 08, the CYAN points). The i8-native
+sweep: 5.81s p50 threaded (single-thread 20.7s reported beside it) vs
+numpy's 31.7s and the 10s bar — 1.6GB/s effective against numpy's 0.3.
+The ADC gather: 0.318s steady-state vs 2.4s and the 1s bar. Ground-truth
+overlap 29/30 across spot checks, so the kernel's one extra approximation
+(query quantized symmetric /127) costs a rounding error. Both benches ran
+after the queue finished, machine exclusive; the corpus was partially
+page-cached, as numpy's references were.
+
+The scoreboard the section keeps: P1 and P6 hit, P2, P3 and P5 missed,
+P4 split. Three of the six numbers this weekend registered were wrong in
+the honest direction — the geometry is harder than the intuition, at
+every rung, and the record says so at the same prominence as the wins.
+
+## Figures
+
+- `01-the-baseline.png` — 18k vectors: exact brute force beats the index.
+- `02-the-impostor-corpus.png` — the synthetic 10M wears the real geometry.
+- `03-the-wall.png` — exact at 10M: the cliff is the disk.
+- `04-what-speed-costs.png` — weekend 1's ladder: int8 and PQ64 priced.
+- `05-the-byte-budget.png` — rung 3: predictions drawn, dots land or miss.
+- `06-the-inverted-index.png` — rung 4: the scan-fraction curve and the
+  cone's tax.
+- `07-the-reference.png` — rung 5: what fits, and the 1M curve.
+- `08-the-climb.png` — every operating point on one recall-latency map.
+
+Sidecars `rung0.json`-`rung6.json`, `ivf-control.json`, `baseline.json`,
+`match.json`; runner `scripts/e41_vector_search.py` (figures via
+`figures2`); kernel `experiments/e41_kernel/`.

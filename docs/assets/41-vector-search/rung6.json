@@ -1,0 +1,25 @@
+{
+  "stamp": "2026-08-22",
+  "step": "rung6-rust-kernel",
+  "registered": "int8 sweep < 10s warm; ADC gather < 1s",
+  "sweep_s": {
+    "samples_single_thread": [20.719632417, 17.796147, 21.597052292],
+    "p50_single_thread": 20.719632417,
+    "samples": [7.1039825, 5.805643791, 5.697152125],
+    "p50": 5.805643791,
+    "threads": 8,
+    "gt_overlap_at_10": [1.0, 1.0, 0.9]
+  },
+  "gather_s": {
+    "samples": [1.286713083, 0.320855125, 0.317845125, 0.31783525, 0.315458917],
+    "p50": 0.317845125,
+    "recall_spot_checks": [0.1, 0.2, 0.2, 0.2, 0.0]
+  },
+  "numpy_reference": {"sweep_p50_s": 31.72, "gather_p50_s": 2.39},
+  "disclosures": [
+    "query quantized symmetric /127 — the kernel's one extra approximation; GT overlap 29/30 across spot checks",
+    "file partially page-cached from prior stages; numpy references measured under like conditions",
+    "gather first sample 1.29s is the cold read of the 610MB codes; steady state reported"
+  ],
+  "gate": "PASS"
+}

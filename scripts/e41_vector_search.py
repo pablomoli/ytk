@@ -1271,6 +1271,11 @@ def figures2(outdir: Path | None = None) -> None:
         ax.axhline(0.90, color=RED, lw=1.4, ls="--")
         ax.axvline(0.05, color=RED, lw=1.4, ls="--")
         ax.set_xscale("log")
+        ticks = [0.001, 0.01, 0.05, 0.1]
+        ax.set_xticks(ticks)
+        ax.set_xticklabels(
+            [f"{t:g}%".replace("%", "\%") if False else f"{t * 100:g}%" for t in ticks]
+        )
         ax.set_xlabel("fraction of corpus scanned (log)")
         ax.set_ylabel("recall@10")
         ax.set_ylim(0, 1.04)
@@ -1334,7 +1339,7 @@ def figures2(outdir: Path | None = None) -> None:
             f"{r5['machine_ram_gb']}GB RAM · {sha}",
         )
         gs = fig.add_gridspec(
-            1, 2, left=0.07, right=1 - MARGIN - 0.01, top=top, bottom=0.14, wspace=0.24
+            1, 2, left=0.105, right=1 - MARGIN - 0.01, top=top, bottom=0.14, wspace=0.26
         )
         ax = fig.add_subplot(gs[0])
         style_axes(ax)

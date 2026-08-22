@@ -63,11 +63,29 @@ fn sweep(args: &[String]) {
     let mmap = unsafe { Mmap::map(&file).unwrap() };
     let data: &[i8] = unsafe { std::slice::from_raw_parts(mmap.as_ptr() as *const i8, n * dim) };
 
+    let threads: usize = std::env::var("E41_THREADS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(8);
     let t0 = Instant::now();
-    let best = top10((0..n).map(|i| {
-        let row = &data[i * dim..(i + 1) * dim];
-        (i, dot_i8(row, &qi) as f32 * scales[i] * qscale)
-    }));
+    let chunk = n.div_ceil(threads);
+    let mut best: Vec<(usize, f32)> = std::thread::scope(|s| {
+        let handles: Vec<_> = (0..threads)
+            .map(|t| {
+                let (lo, hi) = (t * chunk, ((t + 1) * chunk).min(n));
+                let (data, scales, qi) = (&data, &scales, &qi);
+                s.spawn(move || {
+                    top10((lo..hi).map(|i| {
+                        let row = &data[i * dim..(i + 1) * dim];
+                        (i, dot_i8(row, qi) as f32 * scales[i] * qscale)
+                    }))
+                })
+            })
+            .collect();
+        handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
+    });
+    best.sort_by(|a, b| a.1.total_cmp(&b.1));
+    let best = &best[best.len().saturating_sub(K)..];
     let dt = t0.elapsed().as_secs_f64();
     for (i, s) in best.iter().rev() {
         println!("{i} {s}");
