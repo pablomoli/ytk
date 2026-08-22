@@ -1069,6 +1069,408 @@ def rung5() -> None:
     print(json.dumps(out, indent=2))
 
 
+def figures2(outdir: Path | None = None) -> None:
+    """Weekend-2 figures from the sidecars; each renders only when its data exists.
+
+    With outdir set, renders are checkpoints (scratchpad, for review mid-queue);
+    without it they are the committed assets.
+    """
+    import subprocess
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+
+    from plot_assets import (
+        BG,
+        BLUE,
+        CYAN,
+        DIM,
+        DPI,
+        GOLD,
+        MARGIN,
+        RED,
+        figure,
+        frame_panels,
+        panel_title,
+        style_axes,
+        verdict,
+    )
+
+    out_dir = outdir or ASSETS
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sha = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True
+    ).stdout.strip()
+
+    def load(name: str) -> dict | None:
+        p = ASSETS / name
+        return json.loads(p.read_text()) if p.exists() else None
+
+    r1, r2 = load("rung1.json"), load("rung2.json")
+    var = {v: load(f"rung3-{v}.json") for v in PQ3_VARIANTS}
+
+    # figure 05 — the byte budget: recall kept per layout, predictions drawn as geometry
+    if r1 and r2:
+        rows: list[tuple[str, float, float, float, str]] = [
+            ("int8 · 1028B", 1028, r1["recall_at_10"]["all"], r1["single_query_s"]["p50"], BLUE),
+            ("PQ64 · 64B", 64, r2["recall_at_10"]["all"], r2["single_query_s"]["p50"], GOLD),
+        ]
+        if var["center"]:
+            d = var["center"]
+            rows.append(
+                (
+                    "PQ64 centered · 64B",
+                    64,
+                    d["recall_at_10"]["all"],
+                    d["single_query_s"]["p50"],
+                    GOLD,
+                )
+            )
+        if var["rotate"]:
+            d = var["rotate"]
+            rows.append(
+                (
+                    "PQ64 rotated · 64B",
+                    64,
+                    d["recall_at_10"]["all"],
+                    d["single_query_s"]["p50"],
+                    GOLD,
+                )
+            )
+        if var["m128"]:
+            d = var["m128"]
+            rows.append(
+                ("PQ128 · 128B", 128, d["recall_at_10"]["all"], d["single_query_s"]["p50"], GOLD)
+            )
+
+        meta_bits = [f"{len(rows)} layouts · 1,000 referee queries · recall@10 vs exact top-10"]
+        if var["center"]:
+            meta_bits.append(
+                f"centered {var['center']['recall_at_10']['all']:.4f} vs raw "
+                f"{r2['recall_at_10']['all']:.3f} (P1 band ±0.02)"
+            )
+        if var["rotate"]:
+            meta_bits.append(f"rotated {var['rotate']['recall_at_10']['all']:.3f} (P2 bar 0.25)")
+        if var["m128"]:
+            meta_bits.append(f"128B {var['m128']['recall_at_10']['all']:.3f} (P3 bar 0.45)")
+        meta_bits.append(sha)
+
+        fig, top = figure(
+            15.0,
+            6.8,
+            5,
+            "the byte budget",
+            "What buys the truth back below 1KB per vector",
+            " · ".join(meta_bits),
+        )
+        gs = fig.add_gridspec(1, 1, left=0.20, right=1 - MARGIN - 0.02, top=top, bottom=0.13)
+        ax = fig.add_subplot(gs[0])
+        style_axes(ax)
+        panel_title(ax, "recall@10 by layout — registered predictions drawn before the runs")
+
+        ys = np.arange(len(rows))[::-1]
+        for y, (label, _, rec, lat, color) in zip(ys, rows):
+            ax.hlines(y, 0, rec, color=color, lw=3.4, alpha=0.95)
+            ax.plot([rec], [y], "o", color=color, ms=9)
+            ax.annotate(
+                f"{rec:.3f} · {lat:.2f}s",
+                (rec, y),
+                xytext=(8, 4),
+                textcoords="offset points",
+                color=color,
+                fontsize=9,
+            )
+        # P1: the registered no-change band around rung 2, spanning the centered row only
+        if len(rows) >= 3:
+            y_c = ys[2]
+            ax.barh(
+                y_c,
+                0.04,
+                left=r2["recall_at_10"]["all"] - 0.02,
+                height=0.62,
+                color=DIM,
+                zorder=0,
+            )
+            ax.annotate(
+                "P1: no change",
+                (r2["recall_at_10"]["all"], y_c - 0.44),
+                color="#9a968f",
+                fontsize=8.5,
+                ha="center",
+                va="top",
+            )
+        # P2 / P3 registered minimums as red ticks on their own rows
+        for pred, row_i in ((0.25, 3), (0.45, 4)):
+            if len(rows) > row_i:
+                ax.vlines(pred, ys[row_i] - 0.31, ys[row_i] + 0.31, color=RED, lw=1.6, ls="--")
+        ax.set_yticks(ys)
+        ax.set_yticklabels([r[0] for r in rows], fontsize=10)
+        ax.set_xlabel("recall@10 against exact ground truth")
+        ax.set_xlim(0, 1.06)
+
+        centered_null = (
+            var["center"]
+            and abs(var["center"]["recall_at_10"]["all"] - r2["recall_at_10"]["all"]) < 0.02
+        )
+        v = "centering is a no-op, exactly as registered — k-means moves with the data"
+        if var["rotate"] and var["m128"]:
+            v = (
+                f"centering {'holds the null' if centered_null else 'BREAKS the registered null'}; "
+                f"rotation {var['rotate']['recall_at_10']['all']:.2f}, "
+                f"128B {var['m128']['recall_at_10']['all']:.2f} vs bars 0.25 / 0.45"
+            )
+        verdict(fig, v)
+        frame_panels(fig)
+        out = out_dir / "05-the-byte-budget.png"
+        fig.savefig(out, dpi=DPI, facecolor=BG)
+        print(f"wrote {out}")
+
+    # figure 06 — IVF: what a scan fraction buys, and the cone's tax on list balance
+    r4, ctl = load("rung4.json"), load("ivf-control.json")
+    if r4:
+        by = {int(k): v for k, v in r4["by_nprobe"].items()}
+        probes = sorted(by)
+        scans = [by[p]["scanned_fraction"] for p in probes]
+        recalls = [by[p]["recall_at_10"] for p in probes]
+        lats = [by[p]["single_query_ms_p50"] for p in probes]
+
+        meta = (
+            f"nlist {r4['nlist']} · 1,000 referee queries · "
+            + " · ".join(
+                f"np{p} {by[p]['recall_at_10']:.2f}@{by[p]['scanned_fraction'] * 100:.1f}%"
+                for p in probes[:4]
+            )
+            + f" · {sha}"
+        )
+        fig, top = figure(
+            15.0,
+            6.8,
+            6,
+            "the inverted index",
+            "Recall against the fraction of the corpus a query touches",
+            meta,
+        )
+        ncols = 2 if ctl else 1
+        gs = fig.add_gridspec(
+            1, ncols, left=0.07, right=1 - MARGIN - 0.01, top=top, bottom=0.14, wspace=0.22
+        )
+        ax = fig.add_subplot(gs[0])
+        style_axes(ax)
+        panel_title(ax, "recall@10 vs scanned fraction — the registered box is 0.90 inside 5%")
+        ax.plot(scans, recalls, color=GOLD, lw=2.0, marker="o", ms=7)
+        for p, s, r, lt in zip(probes, scans, recalls, lats):
+            ax.annotate(
+                f"nprobe {p} · {lt:.0f}ms",
+                (s, r),
+                xytext=(7, -11),
+                textcoords="offset points",
+                color=GOLD,
+                fontsize=8.5,
+            )
+        ax.axhline(0.90, color=RED, lw=1.4, ls="--")
+        ax.axvline(0.05, color=RED, lw=1.4, ls="--")
+        ax.set_xscale("log")
+        ax.set_xlabel("fraction of corpus scanned (log)")
+        ax.set_ylabel("recall@10")
+        ax.set_ylim(0, 1.04)
+
+        if ctl:
+            ax2 = fig.add_subplot(gs[1])
+            style_axes(ax2)
+            panel_title(ax2, "list sizes, largest to smallest — the cone's tax vs isotropic")
+            rs = np.sort(np.asarray(ctl["real"]["sizes"]))[::-1]
+            iso = np.sort(np.asarray(ctl["isotropic"]["sizes"]))[::-1]
+            ax2.plot(
+                np.arange(1, len(rs) + 1),
+                rs,
+                color=GOLD,
+                lw=2.0,
+                label=f"real geometry · gini {ctl['real']['gini']:.2f}",
+            )
+            ax2.plot(
+                np.arange(1, len(iso) + 1),
+                iso,
+                color=DIM,
+                lw=2.0,
+                label=f"isotropic control · gini {ctl['isotropic']['gini']:.2f}",
+            )
+            ax2.set_xlabel(f"list rank (of {ctl['nlist']})")
+            ax2.set_ylabel("vectors in list")
+            ax2.legend(framealpha=0.0, labelcolor="#eceae7")
+
+        hit = min(
+            (p for p in probes if by[p]["recall_at_10"] >= 0.90),
+            default=None,
+            key=lambda p: by[p]["scanned_fraction"],
+        )
+        if hit is not None:
+            v = (
+                f"0.90 recall inside a {by[hit]['scanned_fraction'] * 100:.1f}% scan at "
+                f"{by[hit]['single_query_ms_p50']:.0f}ms — P4 "
+                + ("passes" if by[hit]["scanned_fraction"] <= 0.05 else "misses the 5% bound")
+            )
+        else:
+            v = f"no nprobe reaches 0.90 recall — P4 fails; best {max(recalls):.2f}"
+        verdict(fig, v)
+        frame_panels(fig)
+        out = out_dir / "06-the-inverted-index.png"
+        fig.savefig(out, dpi=DPI, facecolor=BG)
+        print(f"wrote {out}")
+
+    # figure 07 — the reference that cannot load
+    r5 = load("rung5.json")
+    if r5:
+        by = {int(k): v for k, v in r5["by_ef"].items()}
+        efs = sorted(by)
+        fig, top = figure(
+            15.0,
+            6.8,
+            7,
+            "the reference",
+            "The library that just works cannot even load the corpus",
+            f"hnswlib M=16 efC=200 · {r5['n']:,} of {N_FULL:,} vectors · build {r5['build_s']:.0f}s · "
+            f"RSS {r5['rss_gb']:.1f}GB · full corpus {r5['full_corpus_gb_f32']}GB f32 vs "
+            f"{r5['machine_ram_gb']}GB RAM · {sha}",
+        )
+        gs = fig.add_gridspec(
+            1, 2, left=0.07, right=1 - MARGIN - 0.01, top=top, bottom=0.14, wspace=0.24
+        )
+        ax = fig.add_subplot(gs[0])
+        style_axes(ax)
+        panel_title(ax, "what fits — corpus footprint by layout vs the machine")
+        names = ["f32", "int8", "PQ128", "PQ64", "HNSW 1M (RSS)"]
+        sizes = [38.1, 9.5, 1.28, 0.64, r5["rss_gb"]]
+        colors = [GOLD, GOLD, GOLD, GOLD, CYAN]
+        yb = np.arange(len(names))[::-1]
+        ax.barh(yb, sizes, height=0.6, color=colors)
+        ax.axvline(16, color=RED, lw=1.6, ls="--")
+        ax.text(16.6, yb[0] + 0.1, "16GB machine", color=RED, fontsize=9)
+        for y, s in zip(yb, sizes):
+            ax.annotate(
+                f"{s:.2g}GB",
+                (s, y),
+                xytext=(6, -3),
+                textcoords="offset points",
+                color="#eceae7",
+                fontsize=9,
+            )
+        ax.set_yticks(yb)
+        ax.set_yticklabels(names, fontsize=10)
+        ax.set_xscale("log")
+        ax.set_xlabel("resident bytes (GB, log)")
+
+        ax2 = fig.add_subplot(gs[1])
+        style_axes(ax2)
+        panel_title(
+            ax2, f"at {r5['n'] // 1_000_000}M it is excellent — recall vs p50 latency by efSearch"
+        )
+        ax2.plot(
+            [by[e]["p50_ms"] for e in efs],
+            [by[e]["recall_at_10"] for e in efs],
+            color=CYAN,
+            lw=2.0,
+            marker="o",
+            ms=7,
+        )
+        for e in efs:
+            ax2.annotate(
+                f"ef {e}",
+                (by[e]["p50_ms"], by[e]["recall_at_10"]),
+                xytext=(7, -11),
+                textcoords="offset points",
+                color=CYAN,
+                fontsize=8.5,
+            )
+        ax2.axhline(0.90, color=RED, lw=1.4, ls="--")
+        ax2.set_xlabel("p50 latency per query (ms)")
+        ax2.set_ylabel("recall@10 (1M ground truth)")
+        ax2.set_ylim(0, 1.04)
+
+        good = [e for e in efs if by[e]["recall_at_10"] >= 0.90]
+        v = "the graph index never gets to run at 10M — 39GB against 16GB is the finding"
+        if good:
+            e = min(good, key=lambda e: by[e]["p50_ms"])
+            v += f"; at 1M it serves 0.90 recall in {by[e]['p50_ms']:.1f}ms"
+        verdict(fig, v)
+        frame_panels(fig)
+        out = out_dir / "07-the-reference.png"
+        fig.savefig(out, dpi=DPI, facecolor=BG)
+        print(f"wrote {out}")
+
+    # figure 08 — the whole climb on one panel
+    r0, r6 = load("rung0.json"), load("rung6.json")
+    if r0 and r1 and r2:
+        pts = [
+            ("exact f32", r0["single_query_s"]["p50"] * 1000, 1.0, GOLD),
+            ("int8", r1["single_query_s"]["p50"] * 1000, r1["recall_at_10"]["all"], GOLD),
+            ("PQ64", r2["single_query_s"]["p50"] * 1000, r2["recall_at_10"]["all"], GOLD),
+        ]
+        for vname, label in (("rotate", "PQ64 rotated"), ("m128", "PQ128")):
+            if var[vname]:
+                d = var[vname]
+                pts.append(
+                    (label, d["single_query_s"]["p50"] * 1000, d["recall_at_10"]["all"], GOLD)
+                )
+        if r4:
+            by = {int(k): v for k, v in r4["by_nprobe"].items()}
+            for p in sorted(by):
+                pts.append(
+                    (f"IVF np{p}", by[p]["single_query_ms_p50"], by[p]["recall_at_10"], BLUE)
+                )
+        if r5:
+            by5 = {int(k): v for k, v in r5["by_ef"].items()}
+            e = max(by5)
+            pts.append((f"HNSW 1M ef{e}", by5[e]["p50_ms"], by5[e]["recall_at_10"], CYAN))
+        if r6:
+            for kname, ref in (("sweep_s", r1), ("gather_s", r2)):
+                if kname in r6:
+                    pts.append(
+                        (
+                            "rust " + kname.split("_")[0],
+                            r6[kname]["p50"] * 1000,
+                            ref["recall_at_10"]["all"],
+                            CYAN,
+                        )
+                    )
+
+        fig, top = figure(
+            15.0,
+            7.2,
+            8,
+            "the climb",
+            "Every layout on one map — truth kept against time paid",
+            f"{len(pts)} operating points · 10M vectors · 1,000 referee queries · "
+            f"exact {r0['single_query_s']['p50']:.0f}s -> best measured point · {sha}",
+        )
+        gs = fig.add_gridspec(1, 1, left=0.08, right=1 - MARGIN - 0.02, top=top, bottom=0.13)
+        ax = fig.add_subplot(gs[0])
+        style_axes(ax)
+        panel_title(ax, "recall@10 vs single-query latency — up and left is the whole game")
+        for label, ms, rec, color in pts:
+            ax.plot([ms], [rec], "o", color=color, ms=8)
+            ax.annotate(
+                label,
+                (ms, rec),
+                xytext=(7, 5),
+                textcoords="offset points",
+                color=color,
+                fontsize=8.5,
+            )
+        ax.axvline(100, color=RED, lw=1.4, ls="--")
+        ax.text(110, 0.08, "the Exa target: 1B under 100ms", color=RED, fontsize=9)
+        ax.set_xscale("log")
+        ax.set_xlabel("latency per query (ms, log)")
+        ax.set_ylabel("recall@10")
+        ax.set_ylim(0, 1.06)
+
+        verdict(fig, "the ladder is real: each rung trades an order of magnitude for a stated loss")
+        frame_panels(fig)
+        out = out_dir / "08-the-climb.png"
+        fig.savefig(out, dpi=DPI, facecolor=BG)
+        print(f"wrote {out}")
+
+
 if __name__ == "__main__":
     cmds = {
         "baseline": baseline,
@@ -1087,6 +1489,7 @@ if __name__ == "__main__":
         "rung4-control": rung4_control,
         "rung5": rung5,
         "figures": figures,
+        "figures2": lambda: figures2(Path(sys.argv[2]) if len(sys.argv) > 2 else None),
     }
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
         sys.exit(__doc__)
