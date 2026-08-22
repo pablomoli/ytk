@@ -24,11 +24,11 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
+from paths import CKPT, DATA
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1]))
-DATA = HERE / "data"
 
 D_SAE = 2048
 PROT_VIDEO = "UZDiGooFs54"
@@ -128,9 +128,7 @@ def main() -> None:
     X = np.asarray(got["embeddings"], np.float32)[order]
     X /= np.maximum(np.linalg.norm(X, axis=1, keepdims=True), 1e-9)
     m = T.TopKSAE(1024, D_SAE, 32)
-    m.load_state_dict(
-        torch.load(HERE / "checkpoints" / "final_d2048_k32_s0.pt", map_location="cpu")["state"]
-    )
+    m.load_state_dict(torch.load(CKPT / "final_d2048_k32_s0.pt", map_location="cpu")["state"])
     m.eval()
     with torch.no_grad():
         pre = m.pre_acts(torch.as_tensor(X))

@@ -16,9 +16,9 @@ import re
 from pathlib import Path
 
 import numpy as np
+from paths import DATA
 
 HERE = Path(__file__).resolve().parent
-DATA = HERE / "data"
 SEED = 48
 CODE_RE = re.compile(r"```|\bdef |\(\) \{|=>")
 

@@ -17,10 +17,10 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
+from paths import CKPT, DATA
 
 HERE = Path(__file__).resolve().parent
-DATA = HERE / "data"
-CKPT = HERE / "checkpoints"
+CKPT = CKPT
 
 DEAD_STEPS = 500  # latent unseen for this many steps counts as dead for AuxK
 AUX_K = 256

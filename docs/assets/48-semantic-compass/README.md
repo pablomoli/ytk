@@ -54,6 +54,22 @@ Results follow below this line only after the gates have run.
   registered null clause: its written pole has only 21 web notes in the
   cache, and a 21-note pool makes the shuffle null's p95 reach 0.61. The
   axis died of my recipe's thin pole, not of absent structure.
+
+  > **Later:** section 52 found this reading wrong, and wrong in a way the
+  > thin pole hid. Chroma embeds a YouTube note's *enrichment* — thesis,
+  > summary, key concepts — not its transcript; the `## Transcript` fold
+  > never reaches the store. Every doc vector in the corpus is composed
+  > prose, so both poles here share a register and the contrast cannot have
+  > been measuring one. A 42-note Haiku pilot labeled the doc corpus 39
+  > written to 3 spoken, and re-running this exact runner on a corpus grown
+  > to 28 web notes still reproduces the loss. The 0.95 is better read as
+  > **provenance signal wearing a register label** — video-derived notes
+  > separating from article-derived ones by topic and phrasing. The axis did
+  > not die of a thin pole; the pole was thin *and* the name never matched
+  > the recipe. Section 52 rebuilds it as a within-video contrast — a
+  > video's transcript segments against that same video's note — which holds
+  > speaker and topic constant so only register varies. The loss recorded
+  > here stands, and its bar does not move.
 - code-prose was degenerate: the lexical rule found 10 positive notes in
   the 900-character text heads. Ten notes cannot anchor a direction.
 - G2 passed: signature stability mean cosine **0.92** across disjoint

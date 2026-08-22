@@ -15,12 +15,13 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from paths import CKPT
 
 HERE = Path(__file__).resolve().parent
 
 
 def dec(seed: int) -> np.ndarray:
-    blob = torch.load(HERE / "checkpoints" / f"final_d2048_k32_s{seed}.pt", map_location="cpu")
+    blob = torch.load(CKPT / f"final_d2048_k32_s{seed}.pt", map_location="cpu")
     W = blob["state"]["W_dec"].numpy()
     return W / np.maximum(np.linalg.norm(W, axis=1, keepdims=True), 1e-9)
 

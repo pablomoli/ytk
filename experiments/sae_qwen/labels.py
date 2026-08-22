@@ -10,9 +10,10 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+from paths import DATA
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1]))
-DATA = HERE / "data"
 
 
 def build() -> dict:

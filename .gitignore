@@ -53,9 +53,11 @@ ytk/CLAUDE.md
 docs/session-*-brief.md
 experiments/encoder_harness/data/
 # E2 SAE run outputs: ~500MB of checkpoints and cached vectors, all
-# regenerable from experiments/sae_qwen/*.py at fixed seeds
-experiments/sae_qwen/checkpoints/
-experiments/sae_qwen/data/
+# regenerable from experiments/sae_qwen/*.py at fixed seeds. No trailing
+# slash: these are per-worktree symlinks into ~/.ytk/sae, not directories,
+# and a trailing slash would leave the links tracked.
+experiments/sae_qwen/checkpoints
+experiments/sae_qwen/data
 media/
 
 # E1 embedding cache, regenerable by scripts/e1_style_lens.py

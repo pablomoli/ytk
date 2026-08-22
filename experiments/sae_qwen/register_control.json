@@ -1,0 +1,38 @@
+{
+ "note": "controls on the registered register axis; not gated, not a bar",
+ "length_confound": {
+  "spoken_p10_median_p90": [
+   760,
+   996,
+   1199
+  ],
+  "written_p10_median_p90": [
+   1282,
+   1610,
+   1974
+  ],
+  "length_alone_auc_full": 0.9768,
+  "pearson_proj_vs_log_len": -0.194
+ },
+ "caliper_matched": {
+  "caliper": "within 10% on character length",
+  "n_pairs": 216,
+  "n_notes_unmatched": 210,
+  "length_alone_auc_matched": 0.6782,
+  "probe_auc_matched": 0.9613,
+  "probe_p_matched": 0.00498,
+  "null_mean": 0.5066
+ },
+ "independent_judge": {
+  "segments": {
+   "spoken": 191,
+   "written": 9
+  },
+  "doc_notes": {
+   "written": 1209,
+   "spoken": 11
+  },
+  "n_segments": 200,
+  "n_doc_notes": 1220
+ }
+}

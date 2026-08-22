@@ -15,9 +15,9 @@ import json
 from pathlib import Path
 
 import numpy as np
+from paths import DATA
 
 HERE = Path(__file__).resolve().parent
-DATA = HERE / "data"
 SEED = 47
 RIDGE = 1.0
 K = 10

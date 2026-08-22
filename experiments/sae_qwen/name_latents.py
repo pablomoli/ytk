@@ -15,14 +15,14 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from paths import DATA
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1]))
 
 import numpy as np  # noqa: E402
 from features import NAME_SYSTEM, Name, feature_table  # noqa: E402
-
-DATA = HERE / "data"
 
 
 def main() -> None:

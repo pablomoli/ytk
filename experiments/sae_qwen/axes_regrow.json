@@ -1,0 +1,120 @@
+{
+ "registered": "G1 per axis: held-out AUC >= 0.80 and permutation p < 0.05 (200 shuffles); compass >= 4 of 5; G2 mean signature cos >= 0.90",
+ "gate1": {
+  "spoken-written": {
+   "method": "ridge probe",
+   "grouped_split": true,
+   "n_pole_a": 14254,
+   "n_pole_b": 426,
+   "ridge_C": 100.0,
+   "auc": 0.9951,
+   "null_auc_mean": 0.5014,
+   "null_auc_p95": 0.5366,
+   "n_perm": 200,
+   "p_value": 0.00498,
+   "pass": true
+  },
+  "scroll-sit": {
+   "method": "contrast-of-means",
+   "grouped_split": false,
+   "n_pole_a": 270,
+   "n_pole_b": 456,
+   "ridge_C": null,
+   "auc": 0.91,
+   "null_auc_mean": 0.4971,
+   "null_auc_p95": 0.5555,
+   "n_perm": 200,
+   "p_value": 0.00498,
+   "pass": true
+  },
+  "mine-world": {
+   "method": "contrast-of-means",
+   "grouped_split": false,
+   "n_pole_a": 4510,
+   "n_pole_b": 726,
+   "ridge_C": null,
+   "auc": 0.9728,
+   "null_auc_mean": 0.4989,
+   "null_auc_p95": 0.5242,
+   "n_perm": 200,
+   "p_value": 0.00498,
+   "pass": true
+  },
+  "fresh-settled": {
+   "method": "contrast-of-means",
+   "grouped_split": false,
+   "n_pole_a": 1352,
+   "n_pole_b": 966,
+   "ridge_C": null,
+   "auc": 0.9124,
+   "null_auc_mean": 0.5001,
+   "null_auc_p95": 0.5243,
+   "n_perm": 200,
+   "p_value": 0.00498,
+   "pass": true
+  },
+  "code-prose": {
+   "method": "ridge probe",
+   "grouped_split": false,
+   "n_pole_a": 907,
+   "n_pole_b": 310,
+   "ridge_C": 1.0,
+   "auc": 0.9201,
+   "null_auc_mean": 0.4986,
+   "null_auc_p95": 0.5395,
+   "n_perm": 200,
+   "p_value": 0.00498,
+   "pass": true
+  }
+ },
+ "axes_kept": [
+  "spoken-written",
+  "scroll-sit",
+  "mine-world",
+  "fresh-settled",
+  "code-prose"
+ ],
+ "gate2": {
+  "mean_cos": 0.9565,
+  "p10_cos": 0.8972,
+  "pass": true
+ },
+ "axis_abs_cos": {
+  "spoken-written|scroll-sit": 0.298,
+  "spoken-written|mine-world": 0.093,
+  "spoken-written|fresh-settled": 0.006,
+  "spoken-written|code-prose": 0.132,
+  "scroll-sit|mine-world": 0.033,
+  "scroll-sit|fresh-settled": 0.014,
+  "scroll-sit|code-prose": 0.177,
+  "mine-world|fresh-settled": 0.321,
+  "mine-world|code-prose": 0.544,
+  "fresh-settled|code-prose": 0.387
+ },
+ "labels": {
+  "n": 1220,
+  "speech_register": {
+   "written": 1209,
+   "spoken": 11
+  },
+  "register_confidence": {
+   "high": 1209,
+   "medium": 9,
+   "medium-high": 2
+  },
+  "code_bearing": {
+   "True": 907,
+   "False": 313
+  },
+  "code_confidence": {
+   "high": 1032,
+   "medium": 179,
+   "medium-high": 6,
+   "low-medium": 1,
+   "low": 2
+  }
+ },
+ "verdict": "PASS",
+ "register_axis_kept": true,
+ "seed": 52
+}

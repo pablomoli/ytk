@@ -17,9 +17,9 @@ import json
 from pathlib import Path
 
 import numpy as np
+from paths import CKPT, DATA
 
 HERE = Path(__file__).resolve().parent
-DATA = HERE / "data"
 SEED = 50
 N_NOTES = 500
 N_NULL = 100
@@ -29,9 +29,7 @@ PROT_VIDEO = "UZDiGooFs54"
 def decoder() -> np.ndarray:
     import torch
 
-    blob = torch.load(
-        HERE / "checkpoints" / "final_d2048_k32_s0.pt", map_location="cpu", weights_only=False
-    )
+    blob = torch.load(CKPT / "final_d2048_k32_s0.pt", map_location="cpu", weights_only=False)
     W = blob["state"]["W_dec"].numpy().astype(np.float32)
     return W / np.maximum(np.linalg.norm(W, axis=1, keepdims=True), 1e-9)
 
@@ -103,9 +101,7 @@ def main() -> None:
     v /= np.linalg.norm(v)
     import torch
 
-    blob = torch.load(
-        HERE / "checkpoints" / "final_d2048_k32_s0.pt", map_location="cpu", weights_only=False
-    )
+    blob = torch.load(CKPT / "final_d2048_k32_s0.pt", map_location="cpu", weights_only=False)
     import sys
 
     sys.path.insert(0, str(HERE))

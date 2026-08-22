@@ -17,11 +17,11 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from paths import CKPT, DATA
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1]))
-DATA = HERE / "data"
 
 PROT_VIDEO = "UZDiGooFs54"
 PROT = 1597
@@ -42,9 +42,7 @@ def main() -> None:
     text = (got["documents"][0] or "")[:600]
 
     m = T.TopKSAE(1024, 2048, 32)
-    m.load_state_dict(
-        torch.load(HERE / "checkpoints" / "final_d2048_k32_s0.pt", map_location="cpu")["state"]
-    )
+    m.load_state_dict(torch.load(CKPT / "final_d2048_k32_s0.pt", map_location="cpu")["state"])
     m.eval()
     with torch.no_grad():
         pre = m.pre_acts(torch.as_tensor(v[None]))

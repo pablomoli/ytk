@@ -21,10 +21,10 @@ from collections import Counter
 from pathlib import Path
 
 import numpy as np
+from paths import CKPT, DATA
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1] / "scripts"))
-DATA = HERE / "data"
 
 GRID = 12
 MIN_CELL = 15
@@ -36,7 +36,7 @@ PROT_VIDEO = "UZDiGooFs54"
 def load_decoder(seed: int) -> np.ndarray:
     import torch
 
-    blob = torch.load(HERE / "checkpoints" / f"final_d2048_k32_s{seed}.pt", map_location="cpu")
+    blob = torch.load(CKPT / f"final_d2048_k32_s{seed}.pt", map_location="cpu")
     W = blob["state"]["W_dec"].numpy()
     return W / np.maximum(np.linalg.norm(W, axis=1, keepdims=True), 1e-9)
 

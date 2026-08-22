@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from paths import DATA
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -26,7 +27,7 @@ def main() -> None:
     from ytk import store
 
     rows = [json.loads(x) for x in QUERIES.read_text().splitlines() if x.strip()]
-    out = HERE / "data" / "queries.npz"
+    out = DATA / "queries.npz"
     Q = np.stack([np.asarray(store._embed_query(r["query"]), dtype=np.float32) for r in rows])
     Q /= np.maximum(np.linalg.norm(Q, axis=1, keepdims=True), 1e-9)
     np.savez_compressed(

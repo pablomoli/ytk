@@ -17,16 +17,14 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from paths import CKPT, DATA
 
 HERE = Path(__file__).resolve().parent
-DATA = HERE / "data"
 OUT = Path.home() / ".ytk"
 
 
 def main() -> None:
-    blob = torch.load(
-        HERE / "checkpoints" / "final_d2048_k32_s0.pt", map_location="cpu", weights_only=False
-    )
+    blob = torch.load(CKPT / "final_d2048_k32_s0.pt", map_location="cpu", weights_only=False)
     st = blob["state"]
 
     z = np.load(DATA / "acts_final_d2048_k32_s0.npz")

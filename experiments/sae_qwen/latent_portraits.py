@@ -17,10 +17,10 @@ import json
 from pathlib import Path
 
 import numpy as np
+from paths import DATA
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
-DATA = HERE / "data"
 VAULT = Path.home() / (
     "Library/Mobile Documents/iCloud~md~obsidian/Documents/Vault/second-brain/sources"
 )

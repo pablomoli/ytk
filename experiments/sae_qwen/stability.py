@@ -16,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from paths import CKPT
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -31,14 +32,14 @@ def main() -> None:
     groups = {
         "seed_and_split": (
             "3 seeds, each with its own note-level split",
-            [HERE / "checkpoints" / f"final_d2048_k32_s{s}.pt" for s in (0, 1, 2)],
+            [CKPT / f"final_d2048_k32_s{s}.pt" for s in (0, 1, 2)],
         ),
         "init_only": (
             "3 inits on one fixed split (split seed 0)",
             [
-                HERE / "checkpoints" / "final_d2048_k32_s0.pt",
-                HERE / "checkpoints" / "fixsplit_d2048_k32_s10.pt",
-                HERE / "checkpoints" / "fixsplit_d2048_k32_s11.pt",
+                CKPT / "final_d2048_k32_s0.pt",
+                CKPT / "fixsplit_d2048_k32_s10.pt",
+                CKPT / "fixsplit_d2048_k32_s11.pt",
             ],
         ),
     }

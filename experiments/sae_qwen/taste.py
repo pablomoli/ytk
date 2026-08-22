@@ -22,9 +22,9 @@ import json
 from pathlib import Path
 
 import numpy as np
+from paths import DATA
 
 HERE = Path(__file__).resolve().parent
-DATA = HERE / "data"
 
 
 def note_activations(acts_path: Path, rows: list[dict], keys: list[str]):

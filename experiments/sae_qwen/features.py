@@ -17,12 +17,12 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from paths import DATA
 from pydantic import BaseModel
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1]))
-DATA = HERE / "data"
 
 NAME_SYSTEM = (
     "You name features of a sparse autoencoder trained on document embeddings "

@@ -20,10 +20,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from paths import CKPT, DATA
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-DATA = HERE / "data"
 FROZEN = REPO / "eval" / "retrieval" / "frozen_corpus.json"
 
 
@@ -170,7 +170,7 @@ def main():
 
     base = score(X, rows, qz, frozen)
     report = {"frozen_size": len(frozen), "configs": {}}
-    ckpts = a.ckpts or sorted(str(p) for p in (HERE / "checkpoints").glob("sae_*.pt"))
+    ckpts = a.ckpts or sorted(str(p) for p in (CKPT).glob("sae_*.pt"))
     for c in ckpts:
         R = reconstruct(c, X)
         s = summarize(base, score(R, rows, qz, frozen))

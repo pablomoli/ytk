@@ -15,11 +15,11 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from paths import DATA as OUT
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1]))
 
-OUT = HERE / "data"
 TEXT_PREFIX = 900
 
 

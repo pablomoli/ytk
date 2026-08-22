@@ -18,11 +18,11 @@ from collections import Counter
 from pathlib import Path
 
 import numpy as np
+from paths import CKPT, DATA
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1]))
-DATA = HERE / "data"
 
 PROTAGONIST_VIDEO = "UZDiGooFs54"  # The moment we stopped understanding AI [AlexNet]
 CONE_FREQ = 0.5  # a latent firing on half the corpus shapes cells, not content
@@ -52,7 +52,7 @@ def protagonist_latents(features: dict) -> dict:
     X = np.asarray(got["embeddings"], dtype=np.float32)
     X /= np.maximum(np.linalg.norm(X, axis=1, keepdims=True), 1e-9)
 
-    blob = torch.load(HERE / "checkpoints" / features["checkpoint"], map_location="cpu")
+    blob = torch.load(CKPT / features["checkpoint"], map_location="cpu")
     c = blob["cfg"]
     m = T.TopKSAE(X.shape[1], c["d_sae"], c["k"])
     m.load_state_dict(blob["state"])
