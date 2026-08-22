@@ -701,6 +701,374 @@ def rung2() -> None:
     print(json.dumps(out, indent=2))
 
 
+PQ3_VARIANTS = ("center", "rotate", "m128")
+
+
+def _corpus_mean() -> np.ndarray:
+    """Mean of the frozen 10M memmap — never re-derived from the live store."""
+    path = DATA_DIR / "e41-mu.npy"
+    if path.exists():
+        return np.load(path)
+    mm = np.memmap(DATA_DIR / "synthetic-10m.f32", dtype=np.float32, mode="r").reshape(N_FULL, 1024)
+    acc = np.zeros(1024, dtype=np.float64)
+    for start in range(0, N_FULL, CHUNK):
+        acc += np.asarray(mm[start : start + CHUNK]).sum(axis=0, dtype=np.float64)
+    mu = (acc / N_FULL).astype(np.float32)
+    np.save(path, mu)
+    return mu
+
+
+def _rotation() -> np.ndarray:
+    path = DATA_DIR / "rot-1024.npy"
+    if path.exists():
+        return np.load(path)
+    rng = np.random.default_rng(SEED + 5)
+    q, _ = np.linalg.qr(rng.standard_normal((1024, 1024)))
+    q = q.astype(np.float32)
+    np.save(path, q)
+    return q
+
+
+def _variant_transform(variant: str):
+    """Applied identically to corpus rows and queries; both preserve exact ranking."""
+    if variant == "center":
+        mu = _corpus_mean()
+        return lambda x: x - mu
+    if variant == "rotate":
+        rot = _rotation()
+        return lambda x: x @ rot
+    return lambda x: x
+
+
+def _pq_fit(sample: np.ndarray, m: int, rng: np.random.Generator) -> np.ndarray:
+    d_sub = sample.shape[1] // m
+    books = np.zeros((m, PQ_KS, d_sub), dtype=np.float32)
+    t0 = time.perf_counter()
+    for i in range(m):
+        x = sample[:, i * d_sub : (i + 1) * d_sub]
+        cb = x[rng.choice(len(x), PQ_KS, replace=False)].copy()
+        for _ in range(PQ_ITERS):
+            d2 = (x**2).sum(1)[:, None] - 2 * x @ cb.T + (cb**2).sum(1)[None]
+            assign = d2.argmin(1)
+            for j in range(PQ_KS):
+                mask = assign == j
+                if mask.any():
+                    cb[j] = x[mask].mean(0)
+        books[i] = cb
+        if i % 16 == 0:
+            print(f"codebook {i}/{m}  {time.perf_counter() - t0:.0f}s", flush=True)
+    return books
+
+
+def _pq_encode_stream(books: np.ndarray, transform, out_path: Path) -> None:
+    mm = np.memmap(DATA_DIR / "synthetic-10m.f32", dtype=np.float32, mode="r").reshape(N_FULL, 1024)
+    m, _, d_sub = books.shape
+    codes = np.zeros((N_FULL, m), dtype=np.uint8)
+    t0 = time.perf_counter()
+    for start in range(0, N_FULL, CHUNK):
+        chunk = transform(np.asarray(mm[start : start + CHUNK]))
+        for i in range(m):
+            x = chunk[:, i * d_sub : (i + 1) * d_sub]
+            cb = books[i]
+            d2 = (x**2).sum(1)[:, None] - 2 * x @ cb.T + (cb**2).sum(1)[None]
+            codes[start : start + CHUNK, i] = d2.argmin(1).astype(np.uint8)
+        if (start // CHUNK) % 8 == 0:
+            print(
+                f"encode {start + CHUNK:,}/{N_FULL:,}  {time.perf_counter() - t0:.0f}s", flush=True
+            )
+    np.save(out_path, codes)
+    print(f"encoded -> {out_path}  {time.perf_counter() - t0:.0f}s")
+
+
+def _adc_search_one(q: np.ndarray, books: np.ndarray, codes: np.ndarray) -> np.ndarray:
+    m, _, d_sub = books.shape
+    lut = np.einsum("mkd,md->mk", books, q.reshape(m, d_sub))
+    scores = np.zeros(N_FULL, dtype=np.float32)
+    for start in range(0, N_FULL, 2_000_000):
+        block = codes[start : start + 2_000_000]
+        scores[start : start + 2_000_000] = lut[np.arange(m)[None, :], block].sum(1)
+    return np.argpartition(scores, -K)[-K:]
+
+
+def rung3_train(variant: str) -> None:
+    """PQ variant codebooks + full encode; center/rotate are rank-preserving transforms."""
+    assert variant in PQ3_VARIANTS
+    m = 128 if variant == "m128" else PQ_M
+    transform = _variant_transform("none" if variant == "m128" else variant)
+    mm = np.memmap(DATA_DIR / "synthetic-10m.f32", dtype=np.float32, mode="r").reshape(N_FULL, 1024)
+    rng = np.random.default_rng(SEED + 6)
+    sample = transform(np.asarray(mm[rng.choice(N_FULL, PQ_TRAIN, replace=False)]))
+    books = _pq_fit(sample, m, rng)
+    np.save(DATA_DIR / f"pq3-books-{variant}.npy", books)
+    _pq_encode_stream(books, transform, DATA_DIR / f"pq3-codes-{variant}.npy")
+
+
+def rung3(variant: str) -> None:
+    """ADC sweep for one PQ variant against the frozen referee."""
+    assert variant in PQ3_VARIANTS
+    books = np.load(DATA_DIR / f"pq3-books-{variant}.npy")
+    codes = np.load(DATA_DIR / f"pq3-codes-{variant}.npy")
+    queries = np.load(DATA_DIR / "gt-queries.npy")
+    gt = np.load(DATA_DIR / "gt-top100.npy")
+    transform = _variant_transform("none" if variant == "m128" else variant)
+    # center: ADC scores differ from raw by the constant q@mu — same ranking, so raw q is used
+    q_all = queries if variant == "center" else transform(queries)
+
+    single_s = []
+    for q in q_all[:5]:
+        t = time.perf_counter()
+        _adc_search_one(q, books, codes)
+        single_s.append(time.perf_counter() - t)
+
+    found = np.zeros((N_GT_QUERIES, K), dtype=np.int64)
+    t0 = time.perf_counter()
+    for i, q in enumerate(q_all):
+        found[i] = _adc_search_one(q, books, codes)
+        if i % 250 == 249:
+            print(f"sweep {i + 1}/{N_GT_QUERIES}  {time.perf_counter() - t0:.0f}s", flush=True)
+    all_s = time.perf_counter() - t0
+
+    out = {
+        "stamp": time.strftime("%Y-%m-%d"),
+        "step": f"rung3-pq-{variant}",
+        "bytes_per_vector": int(books.shape[0]),
+        "corpus_gb": round(codes.nbytes / 2**30, 2),
+        "single_query_s": {"samples": single_s, "p50": float(np.median(single_s))},
+        "recall_at_10": {
+            "all": _recall_at_10(found, gt),
+            "real_queries": _recall_at_10(found[:500], gt[:500]),
+            "synthetic_queries": _recall_at_10(found[500:], gt[500:]),
+        },
+        "all_queries_s": all_s,
+    }
+    (ASSETS / f"rung3-{variant}.json").write_text(json.dumps(out, indent=2) + "\n")
+    print(json.dumps(out, indent=2))
+
+
+IVF_NLIST = 1024
+IVF_TRAIN = 500_000
+IVF_ITERS = 10
+IVF_NPROBES = (1, 2, 4, 8, 16, 32, 64)
+
+
+def _kmeans_dot(sample: np.ndarray, nlist: int, rng: np.random.Generator) -> np.ndarray:
+    """Spherical k-means by dot product — the metric search will use."""
+    cb = sample[rng.choice(len(sample), nlist, replace=False)].copy()
+    for it in range(IVF_ITERS):
+        assign = (sample @ cb.T).argmax(1)
+        for j in range(nlist):
+            mask = assign == j
+            if mask.any():
+                c = sample[mask].mean(0)
+                cb[j] = c / np.linalg.norm(c)
+        print(f"kmeans iter {it}", flush=True)
+    return cb
+
+
+def rung4_train() -> None:
+    """IVF: coarse centroids, assignment, and a list-contiguous int8 layout on disk."""
+    mm = np.memmap(DATA_DIR / "synthetic-10m.f32", dtype=np.float32, mode="r").reshape(N_FULL, 1024)
+    rng = np.random.default_rng(SEED + 7)
+    sample = np.asarray(mm[rng.choice(N_FULL, IVF_TRAIN, replace=False)])
+    t0 = time.perf_counter()
+    centroids = _kmeans_dot(sample, IVF_NLIST, rng)
+    np.save(DATA_DIR / "ivf-centroids.npy", centroids)
+
+    assign = np.zeros(N_FULL, dtype=np.int32)
+    for start in range(0, N_FULL, CHUNK):
+        chunk = np.asarray(mm[start : start + CHUNK])
+        assign[start : start + CHUNK] = (chunk @ centroids.T).argmax(1)
+        if (start // CHUNK) % 8 == 0:
+            print(
+                f"assign {start + CHUNK:,}/{N_FULL:,}  {time.perf_counter() - t0:.0f}s", flush=True
+            )
+    perm = np.argsort(assign, kind="stable")
+    sizes = np.bincount(assign, minlength=IVF_NLIST)
+    offsets = np.zeros(IVF_NLIST + 1, dtype=np.int64)
+    offsets[1:] = np.cumsum(sizes)
+    np.save(DATA_DIR / "ivf-perm.npy", perm)
+    np.save(DATA_DIR / "ivf-offsets.npy", offsets)
+
+    i8 = np.memmap(DATA_DIR / "synthetic-10m.i8", dtype=np.int8, mode="r").reshape(N_FULL, 1024)
+    scales = np.load(DATA_DIR / "scales.npy")
+    out = np.memmap(DATA_DIR / "ivf-i8.bin", dtype=np.int8, mode="w+", shape=(N_FULL, 1024))
+    for start in range(0, N_FULL, CHUNK):
+        out[start : start + CHUNK] = i8[perm[start : start + CHUNK]]
+        if (start // CHUNK) % 8 == 0:
+            print(
+                f"reorder {start + CHUNK:,}/{N_FULL:,}  {time.perf_counter() - t0:.0f}s", flush=True
+            )
+    out.flush()
+    np.save(DATA_DIR / "ivf-scales.npy", scales[perm])
+    print(f"ivf layout done in {time.perf_counter() - t0:.0f}s")
+
+
+def rung4() -> None:
+    """Recall/latency vs nprobe over the list-contiguous int8 layout."""
+    centroids = np.load(DATA_DIR / "ivf-centroids.npy")
+    perm = np.load(DATA_DIR / "ivf-perm.npy")
+    offsets = np.load(DATA_DIR / "ivf-offsets.npy")
+    scales = np.load(DATA_DIR / "ivf-scales.npy")
+    mm = np.memmap(DATA_DIR / "ivf-i8.bin", dtype=np.int8, mode="r").reshape(N_FULL, 1024)
+    queries = np.load(DATA_DIR / "gt-queries.npy")
+    gt = np.load(DATA_DIR / "gt-top100.npy")
+
+    def search_one(q: np.ndarray, nprobe: int) -> np.ndarray:
+        lists = np.argsort(q @ centroids.T)[-nprobe:]
+        best_s: list[np.ndarray] = []
+        best_i: list[np.ndarray] = []
+        for li in lists:
+            lo, hi = int(offsets[li]), int(offsets[li + 1])
+            if lo == hi:
+                continue
+            rows = np.asarray(mm[lo:hi]).astype(np.float32)
+            s = (rows @ q) * scales[lo:hi]
+            k = min(K, len(s))
+            idx = np.argpartition(s, -k)[-k:]
+            best_s.append(s[idx])
+            best_i.append(perm[lo + idx])
+        s = np.concatenate(best_s)
+        i = np.concatenate(best_i)
+        return i[np.argsort(s)[-K:]]
+
+    results = {}
+    for nprobe in IVF_NPROBES:
+        single_s = []
+        for q in queries[:5]:
+            t = time.perf_counter()
+            search_one(q, nprobe)
+            single_s.append(time.perf_counter() - t)
+        found = np.zeros((N_GT_QUERIES, K), dtype=np.int64)
+        scanned = 0
+        t0 = time.perf_counter()
+        for i, q in enumerate(queries):
+            lists = np.argsort(q @ centroids.T)[-nprobe:]
+            scanned += int((offsets[lists + 1] - offsets[lists]).sum())
+            found[i] = search_one(q, nprobe)
+        results[str(nprobe)] = {
+            "recall_at_10": _recall_at_10(found, gt),
+            "single_query_ms_p50": float(np.median(single_s)) * 1000,
+            "scanned_fraction": scanned / (N_GT_QUERIES * N_FULL),
+            "sweep_s": time.perf_counter() - t0,
+        }
+        print(f"nprobe {nprobe}: {json.dumps(results[str(nprobe)])}", flush=True)
+
+    out = {
+        "stamp": time.strftime("%Y-%m-%d"),
+        "step": "rung4-ivf",
+        "nlist": IVF_NLIST,
+        "by_nprobe": results,
+    }
+    (ASSETS / "rung4.json").write_text(json.dumps(out, indent=2) + "\n")
+    print(json.dumps(out, indent=2))
+
+
+def rung4_control() -> None:
+    """List-size skew: real geometry vs isotropic, same n, same nlist."""
+    mm = np.memmap(DATA_DIR / "synthetic-10m.f32", dtype=np.float32, mode="r").reshape(N_FULL, 1024)
+    rng = np.random.default_rng(SEED + 8)
+    n, nlist = 1_000_000, 256
+    real = np.asarray(mm[rng.choice(N_FULL, n, replace=False)])
+    iso = rng.standard_normal((n, 1024), dtype=np.float32)
+    iso /= np.linalg.norm(iso, axis=1, keepdims=True)
+
+    def sizes(x: np.ndarray) -> np.ndarray:
+        cb = _kmeans_dot(x[rng.choice(n, IVF_TRAIN // 2, replace=False)], nlist, rng)
+        assign = np.zeros(n, dtype=np.int32)
+        for start in range(0, n, CHUNK):
+            assign[start : start + CHUNK] = (x[start : start + CHUNK] @ cb.T).argmax(1)
+        return np.bincount(assign, minlength=nlist)
+
+    def gini(s: np.ndarray) -> float:
+        s = np.sort(s.astype(np.float64))
+        i = np.arange(1, len(s) + 1)
+        return float(((2 * i - len(s) - 1) * s).sum() / (len(s) * s.sum()))
+
+    real_sizes, iso_sizes = sizes(real), sizes(iso)
+    out = {
+        "stamp": time.strftime("%Y-%m-%d"),
+        "step": "rung4-control",
+        "n": n,
+        "nlist": nlist,
+        "real": {
+            "sizes": real_sizes.tolist(),
+            "gini": gini(real_sizes),
+            "max_over_median": float(real_sizes.max() / np.median(real_sizes)),
+        },
+        "isotropic": {
+            "sizes": iso_sizes.tolist(),
+            "gini": gini(iso_sizes),
+            "max_over_median": float(iso_sizes.max() / np.median(iso_sizes)),
+        },
+    }
+    (ASSETS / "ivf-control.json").write_text(json.dumps(out) + "\n")
+    print(json.dumps({k: v for k, v in out.items() if k not in ("real", "isotropic")}, indent=2))
+    print(f"gini real {out['real']['gini']:.3f} vs isotropic {out['isotropic']['gini']:.3f}")
+
+
+HNSW_N = 1_000_000
+HNSW_EFS = (10, 40, 100, 200)
+
+
+def rung5() -> None:
+    """hnswlib at the RAM ceiling: the full corpus cannot load; reference numbers at 1M."""
+    import resource
+
+    import hnswlib
+
+    mm = np.memmap(DATA_DIR / "synthetic-10m.f32", dtype=np.float32, mode="r").reshape(N_FULL, 1024)
+    queries = np.load(DATA_DIR / "gt-queries.npy")
+
+    t0 = time.perf_counter()
+    _, gt_idx = _chunked_topk(mm[:HNSW_N], queries, GT_K)
+    gt_s = time.perf_counter() - t0
+
+    # chunked adds keep peak RSS at index + one chunk; a materialized 1M copy would not fit
+    index = hnswlib.Index(space="ip", dim=1024)
+    index.init_index(max_elements=HNSW_N, ef_construction=200, M=16)
+    t0 = time.perf_counter()
+    for start in range(0, HNSW_N, CHUNK):
+        chunk = np.asarray(mm[start : start + CHUNK])
+        index.add_items(chunk, np.arange(start, start + len(chunk)), num_threads=-1)
+        print(
+            f"hnsw add {start + len(chunk):,}/{HNSW_N:,}  {time.perf_counter() - t0:.0f}s",
+            flush=True,
+        )
+    build_s = time.perf_counter() - t0
+    rss_gb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**30
+
+    results = {}
+    for ef in HNSW_EFS:
+        index.set_ef(ef)
+        found = np.zeros((N_GT_QUERIES, K), dtype=np.int64)
+        lat = []
+        for i, q in enumerate(queries):
+            t = time.perf_counter()
+            labels, _ = index.knn_query(q[None, :], k=K, num_threads=1)
+            lat.append(time.perf_counter() - t)
+            found[i] = labels[0]
+        results[str(ef)] = {
+            "recall_at_10": _recall_at_10(found, gt_idx),
+            "p50_ms": float(np.median(lat)) * 1000,
+            "p99_ms": float(np.percentile(lat, 99)) * 1000,
+        }
+        print(f"ef {ef}: {json.dumps(results[str(ef)])}", flush=True)
+
+    out = {
+        "stamp": time.strftime("%Y-%m-%d"),
+        "step": "rung5-hnsw-1m",
+        "n": HNSW_N,
+        "full_corpus_gb_f32": 38.1,
+        "machine_ram_gb": 16,
+        "build_s": build_s,
+        "rss_gb": rss_gb,
+        "gt_subset_s": gt_s,
+        "by_ef": results,
+    }
+    (ASSETS / "rung5.json").write_text(json.dumps(out, indent=2) + "\n")
+    print(json.dumps(out, indent=2))
+
+
 if __name__ == "__main__":
     cmds = {
         "baseline": baseline,
@@ -712,6 +1080,12 @@ if __name__ == "__main__":
         "rung1": rung1,
         "rung2-train": rung2_train,
         "rung2": rung2,
+        "rung3-train": lambda: rung3_train(sys.argv[2]),
+        "rung3": lambda: rung3(sys.argv[2]),
+        "rung4-train": rung4_train,
+        "rung4": rung4,
+        "rung4-control": rung4_control,
+        "rung5": rung5,
         "figures": figures,
     }
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
