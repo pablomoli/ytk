@@ -94,14 +94,14 @@ def test_hydrate_failure_marks_and_does_not_raise():
     assert "OSError" in item.hydrate_error
 
 
-def test_hydrate_instagram_skips_fetch_but_stamps():
+def test_hydrate_instagram_skips_fetch_without_stamping():
     item = reels.ReelItem(url="https://www.instagram.com/reel/abc123/", source="instagram")
 
     def boom(url):
         raise AssertionError("fetcher must not be called for instagram")
 
     changed = hydrate.hydrate_item(item, fetch_json=boom, fetch_html=boom)
-    assert item.hydrated_at is not None
+    assert item.hydrated_at is None
     assert item.hydrate_error is None
     assert item.title is None
     assert item.author is None
@@ -110,14 +110,14 @@ def test_hydrate_instagram_skips_fetch_but_stamps():
     assert changed is False
 
 
-def test_hydrate_tiktok_skips_fetch_but_stamps():
+def test_hydrate_tiktok_skips_fetch_without_stamping():
     item = reels.ReelItem(url="https://www.tiktok.com/@user/video/123", source="tiktok")
 
     def boom(url):
         raise AssertionError("fetcher must not be called for tiktok")
 
     changed = hydrate.hydrate_item(item, fetch_json=boom, fetch_html=boom)
-    assert item.hydrated_at is not None
+    assert item.hydrated_at is None
     assert item.hydrate_error is None
     assert item.title is None
     assert item.author is None
@@ -132,6 +132,8 @@ def test_hydrate_instagram_does_not_clobber_existing_preview():
         source="instagram",
         title="Kept",
         preview_url="https://scontent.cdninstagram.com/signed.jpg",
+        hydrated_at="2026-08-01",
+        hydrate_error="previous failure",
     )
 
     def boom(url):
@@ -140,4 +142,6 @@ def test_hydrate_instagram_does_not_clobber_existing_preview():
     changed = hydrate.hydrate_item(item, fetch_json=boom, fetch_html=boom)
     assert item.title == "Kept"
     assert item.preview_url == "https://scontent.cdninstagram.com/signed.jpg"
+    assert item.hydrated_at == "2026-08-01"
+    assert item.hydrate_error == "previous failure"
     assert changed is False

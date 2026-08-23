@@ -7,7 +7,9 @@ import time
 
 import pytest
 
-from ytk import reels
+from ytk import hydrate, reels
+
+_REAL_HYDRATE_ITEM = hydrate.hydrate_item
 
 NOTE_TEMPLATE = """---
 url: {url}
@@ -144,6 +146,35 @@ def test_queue_add_hydrates_new_items(hub, monkeypatch):
     assert items[0].hydrated_at == "2026-08-04"
     # persisted, not just held in memory
     assert reels.load_state(hub.STATE_PATH).pending[0].title == "Hydrated"
+
+
+def test_queue_add_leaves_unsupported_sources_unhydrated(hub, monkeypatch):
+    fetched = []
+
+    def refuse_fetch(url):
+        fetched.append(url)
+        raise AssertionError("unsupported sources must not be fetched")
+
+    def real_hydrate(item, **kwargs):
+        return _REAL_HYDRATE_ITEM(
+            item,
+            fetch_json=refuse_fetch,
+            fetch_html=refuse_fetch,
+        )
+
+    monkeypatch.setattr(hub.hydrate, "hydrate_item", real_hydrate)
+    urls = [
+        "https://www.instagram.com/reel/abc123/",
+        "https://www.tiktok.com/@user/video/123",
+    ]
+
+    assert hub.queue_add(urls) == 2
+
+    items = {item.url: item for item in hub.queue_items()}
+    assert fetched == []
+    assert set(items) == set(urls)
+    assert all(item.hydrated_at is None for item in items.values())
+    assert all(item.hydrate_error is None for item in items.values())
 
 
 def test_queue_add_invalidates_cover_when_hydration_changes_preview(hub, monkeypatch, tmp_path):
