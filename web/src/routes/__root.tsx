@@ -1,5 +1,6 @@
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 import { ChromeProvider, useChromeVisible } from "../lib/chrome";
+import { TooltipProvider } from "../components/ui/tooltip";
 
 export const Route = createRootRoute({
   component: RootShell,
@@ -7,9 +8,11 @@ export const Route = createRootRoute({
 
 function RootShell() {
   return (
-    <ChromeProvider>
-      <RootLayout />
-    </ChromeProvider>
+    <TooltipProvider>
+      <ChromeProvider>
+        <RootLayout />
+      </ChromeProvider>
+    </TooltipProvider>
   );
 }
 
