@@ -1802,7 +1802,11 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
   const pick = (event: MouseEvent) => {
     if (drag) return;
     const rect = canvas.getBoundingClientRect();
+    // Chrome floating above the stage (popovers, control rail) must not pick through.
+    const overStage =
+      event.target instanceof Node && (canvas.parentElement?.contains(event.target) ?? false);
     if (
+      !overStage ||
       event.clientX < rect.left ||
       event.clientX > rect.right ||
       event.clientY < rect.top ||

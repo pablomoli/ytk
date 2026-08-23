@@ -312,7 +312,7 @@ function InboxPage() {
           {body}
         </div>
         <aside
-          className="rail order-1 flex max-h-[52dvh] w-full flex-none flex-col gap-3.5 overflow-hidden rounded-[10px] border border-line bg-bg1 p-4 min-[761px]:order-none min-[761px]:max-h-none min-[761px]:w-80 min-[761px]:basis-80"
+          className="rail order-1 flex max-h-[52dvh] w-full flex-none flex-col gap-3.5 overflow-hidden rounded-[10px] border border-line bg-bg1 p-4 min-[761px]:order-none min-[761px]:max-h-none min-[761px]:w-[320px] min-[761px]:basis-[320px]"
           aria-label="Inbox controls"
         >
           <InboxJobProgress job={job.data} currentTitle={currentTitle} elapsed={elapsed} />
@@ -340,7 +340,7 @@ function InboxPage() {
             </RailWidget>
 
             <RailWidget title="add to queue" prefKey={RAIL_QUEUE_PREF} defaultOpen>
-              <label className="font-data text-xs tracking-[0.04em] text-ink2" htmlFor="inbox-urls">
+              <label className="font-data text-xs tracking-[0.04em] text-mute" htmlFor="inbox-urls">
                 URLs
               </label>
               <textarea
@@ -457,7 +457,7 @@ function InboxPage() {
             {sel.size > 0 ? (
               <RailWidget title="ingest selection" prefKey={RAIL_INGEST_PREF} defaultOpen>
                 <fieldset className="m-0 border-0 p-0">
-                  <legend className="mb-1.5 font-data text-xs tracking-[0.04em] text-ink2">
+                  <legend className="mb-1.5 font-data text-xs tracking-[0.04em] text-mute">
                     Tags
                   </legend>
                   <div className="flex flex-wrap gap-2">
@@ -487,7 +487,7 @@ function InboxPage() {
                     </div>
                     <p className="my-1 italic text-ink2">{reflectTarget.reflection_question}</p>
                     <label
-                      className="mb-1 block text-xs tracking-[0.04em] text-ink2"
+                      className="mb-1 block text-xs tracking-[0.04em] text-mute"
                       htmlFor="inbox-reflection"
                     >
                       Reflection
@@ -502,7 +502,7 @@ function InboxPage() {
                   </div>
                 ) : null}
                 <label
-                  className="mb-1 block font-data text-xs tracking-[0.04em] text-ink2"
+                  className="mb-1 block font-data text-xs tracking-[0.04em] text-mute"
                   htmlFor="inbox-thought"
                 >
                   Thought

@@ -49,7 +49,7 @@ const groups = (["Learn and curate", "Labs", "Maintain"] as const).map((section)
 }));
 
 const linkClass =
-  "inline-flex min-h-11 items-center rounded-md px-3 font-data text-sm tracking-[0.03em] text-ink2 no-underline lowercase hover:bg-bg3 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&.active]:font-semibold [&.active]:text-live [&.active]:underline [&.active]:decoration-2 [&.active]:underline-offset-4";
+  "inline-flex min-h-11 items-center rounded-md px-3 sm:min-h-8 font-data text-sm tracking-[0.03em] text-ink2 no-underline lowercase hover:bg-bg3 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&.active]:font-semibold [&.active]:text-live [&.active]:underline [&.active]:decoration-2 [&.active]:underline-offset-4";
 
 export function HubNav() {
   const pathname = useLocation().pathname;
@@ -86,16 +86,16 @@ export function HubNav() {
               variant="ghost"
               aria-label={secondaryActive ? "More, current section" : "More"}
               data-active={secondaryActive}
-              className="gap-1 data-[active=true]:font-semibold data-[active=true]:text-live data-[active=true]:underline data-[active=true]:decoration-2 data-[active=true]:underline-offset-4"
+              className="gap-1 sm:min-h-8! data-[active=true]:font-semibold data-[active=true]:text-live data-[active=true]:underline data-[active=true]:decoration-2 data-[active=true]:underline-offset-4"
             >
               More
               <CaretDownIcon aria-hidden="true" className="size-4" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-56 p-2" align="start">
+          <PopoverContent className="grid w-auto grid-cols-3 gap-x-6 p-3" align="start">
             {groups.map((group) => (
-              <section key={group.section} className="not-last:mb-3">
-                <h2 className="m-0 px-2 py-1 font-data text-xs tracking-[0.08em] text-mute uppercase">
+              <section key={group.section}>
+                <h2 className="m-0 px-2 py-1 font-data! text-xs! font-semibold! tracking-[0.08em] text-mute! uppercase">
                   {group.section}
                 </h2>
                 <div className="flex flex-col">

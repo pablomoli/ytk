@@ -167,7 +167,7 @@ function RoadPanel({
   onClose: () => void;
 }) {
   return (
-    <aside className="absolute left-3 top-14 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
+    <aside className="absolute left-[17rem] top-3 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
       <header className="mb-2 flex items-center justify-between">
         <span className="text-xs uppercase tracking-widest text-mute">road</span>
         <span>
@@ -512,7 +512,7 @@ function MapPage() {
         <div ref={labels} className="map-labels" />
         <section
           aria-label="Map controls"
-          className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-card border border-line bg-bg1/95 p-2 text-ink shadow-[0_8px_24px_#00000066] backdrop-blur"
+          className="absolute left-3 top-3 z-20 flex max-h-[calc(100%-1.5rem)] w-[16rem] flex-col items-stretch gap-2 overflow-y-auto rounded-card border border-line bg-bg1/95 p-2 text-ink shadow-[0_8px_24px_#00000066] backdrop-blur"
         >
           <SegmentedControl
             label="View"
@@ -533,8 +533,8 @@ function MapPage() {
                 Filters{Object.values(filters).filter(Boolean).length ? ` (${Object.values(filters).filter(Boolean).length})` : ""}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-72">
-              <h2 className="m-0 px-2 py-1 font-data text-xs tracking-[0.08em] text-mute uppercase">
+            <PopoverContent side="right" align="start" className="w-72">
+              <h2 className="m-0 px-2 py-1 font-data! text-xs! font-semibold! tracking-[0.08em] text-mute! uppercase">
                 Filters
               </h2>
               <div className="grid gap-1" role="group" aria-label="Map filters">
@@ -591,8 +591,8 @@ function MapPage() {
                 Layers{Object.values(layers).filter(Boolean).length ? ` (${Object.values(layers).filter(Boolean).length})` : ""}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-64">
-              <h2 className="m-0 px-2 py-1 font-data text-xs tracking-[0.08em] text-mute uppercase">
+            <PopoverContent side="right" align="start" className="w-64">
+              <h2 className="m-0 px-2 py-1 font-data! text-xs! font-semibold! tracking-[0.08em] text-mute! uppercase">
                 Layers
               </h2>
               <div className="grid gap-1" role="group" aria-label="Map layers">
@@ -660,8 +660,8 @@ function MapPage() {
                 </TooltipTrigger>
                 <TooltipContent>Map help</TooltipContent>
               </Tooltip>
-              <PopoverContent align="end" className="w-72 text-sm leading-6 text-ink2">
-                <h2 className="m-0 font-data text-xs tracking-[0.08em] text-mute uppercase">
+              <PopoverContent side="right" align="end" className="w-72 text-sm leading-6 text-ink2">
+                <h2 className="m-0 font-data! text-xs! font-semibold! tracking-[0.08em] text-mute! uppercase">
                   Map help
                 </h2>
                 <p className="mt-2">Drag to orbit in 3D. Right-drag to pan. Scroll or use the camera buttons to zoom.</p>
