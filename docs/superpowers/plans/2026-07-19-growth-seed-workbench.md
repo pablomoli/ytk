@@ -1063,7 +1063,7 @@ gh issue comment 80 --repo pablomoli/ytk --body "<direction-change comment: meta
 
 ### Task 12: Session wrap (per CLAUDE.md, non-negotiable)
 
-- [ ] Write session brief to `second-brain/projects/ytk/session-NNN-brief.md` (next NNN) via vault_write; mirror to `docs/session-NNN-brief.md`; update `wiki/index.md`.
+- [ ] Write the next session brief through `vault_write` at `second-brain/projects/ytk/session-NNN-brief.md`; update `wiki/index.md`. Session briefs remain vault-only.
 - [ ] `vault_remember` the decisions (moodboard steering, taste-at-selection-time, philosophy clamps).
 - [ ] Verify `git status` clean (scratch files excepted), all commits pushed.
 

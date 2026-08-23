@@ -63,4 +63,3 @@ none of them may inherit this section's bar retroactively.
 
 The atlas keeps its two honest modes: TEXT is measurement, IMG is evidence.
 There is no paraphrase mode, and the display contract says so.
-

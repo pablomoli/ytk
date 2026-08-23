@@ -630,7 +630,6 @@ git push
 ### Task 9: Full verification and close-out
 
 **Files:**
-- Modify: `docs/session-045-brief.md`
 - Modify through vault tools: `second-brain/projects/ytk/session-045-brief.md`
 - Modify through vault tools: `second-brain/wiki/hot.md`
 - Modify through vault tools: `second-brain/wiki/index.md`
@@ -664,9 +663,9 @@ Run `just check` again after any change. Do not rely on the earlier result.
 
 - [ ] **Step 4: Write session documentation**
 
-Write the repository session brief and mirrored vault brief with decisions,
-verification evidence, commands, and remaining strictness/monolith follow-ups.
-Update the vault index and hot state through the ytk MCP tools.
+Update the vault-only session brief with decisions, verification evidence,
+commands, and remaining strictness/monolith follow-ups. Update the vault index
+and hot state through the ytk MCP tools.
 
 - [ ] **Step 5: Update issue #122 using CLIs**
 

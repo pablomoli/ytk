@@ -3,9 +3,6 @@ name = "e41-kernel"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
-memmap2 = "0.9"
-
 [profile.release]
 codegen-units = 1
 lto = true

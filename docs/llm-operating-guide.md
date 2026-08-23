@@ -64,8 +64,9 @@ near-duplicate — search first (`vault_search`), then write.
   write time — do not coin a synonym for an existing tag.
 - Wikilinks: `[[relative-note-name]]` without extension. Link liberally
   between atoms, briefs, and source notes — the graph is the product.
-- Session briefs: `second-brain/projects/ytk/session-NNN-brief.md`, mirrored
-  to repo `docs/session-NNN-brief.md`.
+- Session briefs live only at
+  `second-brain/projects/ytk/session-NNN-brief.md`. Do not mirror planning or
+  session briefs into the repository.
 
 ## 5. Session rituals
 
@@ -77,8 +78,8 @@ Start (in order):
 4. `vault_search` for anything the task mentions that you don't recognize
 
 End (non-negotiable):
-1. Write the session brief (vault + repo mirror), or a planning brief for
-   planning sessions. The brief carries a **Sources consulted** section:
+1. Write the session brief in the vault only, or a planning brief for planning
+   sessions. The brief carries a **Sources consulted** section:
    every vault note read this session, as `[[wikilinks]]`. This is the
    citation rung of #96's evidence ladder — before it existed, 56 briefs
    held one source reference, and reuse was only visible through claude-mem

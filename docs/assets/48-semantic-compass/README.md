@@ -85,4 +85,3 @@ reference should. Whether to adopt the three-axis instrument, and whether
 to re-register spoken-written with an adequately pooled written pole once
 more web notes are cached, are owner decisions; neither inherits this
 section's bar.
-

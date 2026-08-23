@@ -63,7 +63,7 @@ ytk/
   .env                 — local config (gitignored)
   .env.example         — template
   CLAUDE.md            — this file
-  docs/                — local session briefs (mirror of vault/projects/ytk/)
+  docs/                — tracked project docs; session briefs are vault-only
   docs/experiments.md  — index to the visual-experiment record; reading paths + corrections
   docs/assets/         — the record itself: 26 numbered sections, one README each
   docs/assets/README.md — visualization house style: palette, composition, design intent
@@ -325,7 +325,7 @@ Configured in `.env` as `OBSIDIAN_VAULT_PATH`.
 
 **At session start:** read `second-brain/wiki/hot.md` first, then `second-brain/wiki/index.md`, then drill into `second-brain/projects/ytk/` as needed. Also read `second-brain/inbox/memories/index.md` and drill into the relevant project atoms.
 
-**At session end (non-negotiable):** write a session brief to `second-brain/projects/ytk/session-NNN-brief.md`. Include what was built, decisions and rationale, what's next, exact commands to run the project, and a **Sources consulted** section listing every vault note read during the session as `[[wikilinks]]` (omit the section only if none were read). This is the citation rung of #96's evidence ladder — 56 briefs contained one source reference because nothing asked. The vault copy is the only copy: `.gitignore` excludes `docs/session-*-brief.md`, because a brief is vault-derived content and this repo is public. Writing one to `docs/` is harmless but it will not be tracked, and the four briefs under `docs/` (042-045) predate the rule rather than setting a precedent.
+**At session end (non-negotiable):** write a session brief to `second-brain/projects/ytk/session-NNN-brief.md`. Include what was built, decisions and rationale, what's next, exact commands to run the project, and a **Sources consulted** section listing every vault note read during the session as `[[wikilinks]]` (omit the section only if none were read). This is the citation rung of #96's evidence ladder — 56 briefs contained one source reference because nothing asked. The vault copy is the only copy: `.gitignore` excludes `docs/session-*-brief.md`, because a brief is vault-derived content and this repo is public. Do not write briefs to `docs/`; the four tracked briefs there (042-045) predate this rule and remain only as historical records.
 
 **At planning session end:** write a planning brief instead (goals, options considered, decision made, open questions).
 

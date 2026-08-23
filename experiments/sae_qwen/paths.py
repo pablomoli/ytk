@@ -1,10 +1,8 @@
-"""Where the E2 SAE run store lives.
+"""Paths for regenerable E2 SAE artifacts.
 
-Outside the repo on purpose. The store is ~500MB of cached vectors and
-checkpoints, all regenerable at fixed seeds, and any copy sitting inside a
-worktree is a copy that can be committed by accident — 035b45c committed a
-symlink to it and left every other worktree pointing at a loop. Set
-YTK_SAE_STORE to run against a scratch store.
+The run store stays outside repositories and worktrees so cached vectors and
+checkpoints cannot enter version control. Set YTK_SAE_STORE to select a
+scratch store; the default is ``~/.ytk/sae``.
 """
 
 from __future__ import annotations

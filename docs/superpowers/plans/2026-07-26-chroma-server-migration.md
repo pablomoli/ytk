@@ -665,7 +665,7 @@ unless the user explicitly requests it.
 
 **Files:**
 - Modify runtime files only: `~/.ytk/.env`, launchd plists, recovery backups
-- Create: next `docs/session-NNN-brief.md`
+- Create through vault MCP: next `second-brain/projects/ytk/session-NNN-brief.md`
 
 **Interfaces:**
 - Consumes: installed `ytk chroma` lifecycle and migration commands
@@ -773,7 +773,6 @@ server owns files under `~/.ytk/chroma-server`.
 
 - [ ] **Step 10: Record and push close-out**
 
-Write the session brief to the vault and repo, update the hot note and vault
-index, call `vault_remember`, comment on issue #130 with verified counts and
-live results, then commit and push the repository brief. Leave the legacy
-directory intact.
+Write the session brief to the vault, update the hot note and vault index, call
+`vault_remember`, comment on issue #130 with verified counts and live results,
+then commit and push the repository changes. Leave the legacy directory intact.

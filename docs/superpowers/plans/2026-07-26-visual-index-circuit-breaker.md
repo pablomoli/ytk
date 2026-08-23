@@ -232,8 +232,7 @@ Expected: JSON readiness, a non-running ingest status, and HTTP `200`.
 ### Task 4: Full verification and close-out
 
 **Files:**
-- Create: next sequential `docs/session-NNN-brief.md`
-- Create through vault MCP: matching `second-brain/projects/ytk/session-NNN-brief.md`
+- Create through vault MCP: next sequential `second-brain/projects/ytk/session-NNN-brief.md`
 - Update through vault MCP: `second-brain/wiki/index.md` and `second-brain/wiki/hot.md` if project state changed.
 
 **Interfaces:**

@@ -1273,9 +1273,7 @@ def figures2(outdir: Path | None = None) -> None:
         ax.set_xscale("log")
         ticks = [0.001, 0.01, 0.05, 0.1]
         ax.set_xticks(ticks)
-        ax.set_xticklabels(
-            [f"{t:g}%".replace("%", "\%") if False else f"{t * 100:g}%" for t in ticks]
-        )
+        ax.set_xticklabels([f"{t * 100:g}%" for t in ticks])
         ax.set_xlabel("fraction of corpus scanned (log)")
         ax.set_ylabel("recall@10")
         ax.set_ylim(0, 1.04)
