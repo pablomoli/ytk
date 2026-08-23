@@ -8,6 +8,7 @@ type SegmentedControlProps = Omit<
   "type" | "value" | "defaultValue" | "onValueChange" | "aria-label" | "aria-labelledby"
 > & {
   label: string;
+  hideLabel?: boolean;
   value: string;
   onValueChange: (value: string) => void;
 };
@@ -15,6 +16,7 @@ type SegmentedControlProps = Omit<
 function SegmentedControl({
   className,
   label,
+  hideLabel = false,
   value,
   onValueChange,
   orientation = "horizontal",
@@ -25,7 +27,10 @@ function SegmentedControl({
 
   return (
     <div data-slot="segmented-control" className="flex flex-wrap items-center gap-2">
-      <span id={labelId} className="font-data text-sm tracking-[0.03em] text-ink2 lowercase">
+      <span
+        id={labelId}
+        className={cn("font-data text-sm tracking-[0.03em] text-ink2 lowercase", hideLabel && "sr-only")}
+      >
         {label}
       </span>
       <ToggleGroupPrimitive.Root

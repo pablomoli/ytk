@@ -95,7 +95,7 @@ export function HubNav() {
           <PopoverContent className="grid w-auto grid-cols-3 gap-x-6 p-3" align="start">
             {groups.map((group) => (
               <section key={group.section}>
-                <h2 className="m-0 px-2 py-1 font-data! text-xs! font-semibold! tracking-[0.08em] text-mute! uppercase">
+                <h2 className="m-0 px-2 py-1 font-data text-xs tracking-[0.08em] text-mute uppercase">
                   {group.section}
                 </h2>
                 <div className="flex flex-col">

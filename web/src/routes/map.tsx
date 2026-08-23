@@ -13,11 +13,13 @@ import {
   CaretLeftIcon,
   CaretRightIcon,
   FunnelIcon,
+  GlobeHemisphereWestIcon,
   HouseIcon,
   InfoIcon,
   MinusIcon,
   PathIcon,
   PlusIcon,
+  ArticleIcon,
   SlidersHorizontalIcon,
   XIcon,
 } from "@phosphor-icons/react";
@@ -34,6 +36,7 @@ import type { MapHover } from "../lib/mapRenderer";
 import { focusHash, legendRows, parseFocusHash } from "../lib/mapGroups";
 import type { MapFocus } from "../lib/mapGroups";
 import { Button } from "../components/ui/button";
+import { IconButton } from "../components/ui/icon-button";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { SegmentedControl, SegmentedControlItem } from "../components/ui/segmented-control";
 import { Toolbar, ToolbarButton } from "../components/ui/toolbar";
@@ -132,7 +135,7 @@ function MapToolbarButton({
           </span>
         </ToolbarButton>
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent side="right">{label}</TooltipContent>
     </Tooltip>
   );
 }
@@ -167,7 +170,7 @@ function RoadPanel({
   onClose: () => void;
 }) {
   return (
-    <aside className="absolute left-[18rem] top-3 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
+    <aside className="absolute left-[5.25rem] top-3 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
       <header className="mb-2 flex items-center justify-between">
         <span className="text-xs uppercase tracking-widest text-mute">road</span>
         <span>
@@ -512,29 +515,45 @@ function MapPage() {
         <div ref={labels} className="map-labels" />
         <section
           aria-label="Map controls"
-          className="absolute left-3 top-3 z-20 flex max-h-[calc(100%-1.5rem)] w-[16rem] flex-col items-stretch gap-2 overflow-y-auto rounded-card border border-line bg-bg1/95 p-2 text-ink shadow-[0_8px_24px_#00000066] backdrop-blur"
+          className="absolute bottom-0 left-0 top-0 z-20 flex w-[4.5rem] flex-col items-center gap-2 overflow-y-auto border-r border-line bg-bg1/95 px-2 py-3 text-ink backdrop-blur"
         >
           <SegmentedControl
             label="View"
+            hideLabel
+            orientation="vertical"
             value={view}
             onValueChange={(value) => resetView(value as "all" | "content")}
           >
-            <SegmentedControlItem value="all">Everything</SegmentedControlItem>
-            <SegmentedControlItem value="content">Content</SegmentedControlItem>
+            <Tooltip>
+              <SegmentedControlItem value="all" asChild>
+                <TooltipTrigger aria-label="Everything">
+                  <GlobeHemisphereWestIcon aria-hidden="true" className="size-5" />
+                </TooltipTrigger>
+              </SegmentedControlItem>
+              <TooltipContent side="right">Everything</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <SegmentedControlItem value="content" asChild>
+                <TooltipTrigger aria-label="Content">
+                  <ArticleIcon aria-hidden="true" className="size-5" />
+                </TooltipTrigger>
+              </SegmentedControlItem>
+              <TooltipContent side="right">Content</TooltipContent>
+            </Tooltip>
           </SegmentedControl>
           <Popover>
             <PopoverTrigger asChild>
-              <Button
+              <IconButton
+                label="Filters"
                 variant="outline"
+                tooltipSide="right"
                 aria-pressed={Object.values(filters).some(Boolean)}
-                aria-label="Filters"
               >
-                <FunnelIcon aria-hidden="true" className="size-5" />
-                Filters{Object.values(filters).filter(Boolean).length ? ` (${Object.values(filters).filter(Boolean).length})` : ""}
-              </Button>
+                <FunnelIcon />
+              </IconButton>
             </PopoverTrigger>
             <PopoverContent side="right" align="start" className="w-72">
-              <h2 className="m-0 px-2 py-1 font-data! text-xs! font-semibold! tracking-[0.08em] text-mute! uppercase">
+              <h2 className="m-0 px-2 py-1 font-data text-xs tracking-[0.08em] text-mute uppercase">
                 Filters
               </h2>
               <div className="grid gap-1" role="group" aria-label="Map filters">
@@ -572,6 +591,8 @@ function MapPage() {
           </Popover>
           <SegmentedControl
             label="Projection"
+            hideLabel
+            orientation="vertical"
             value={projection}
             onValueChange={(value) =>
               dispatch({ type: "set-projection", projection: value as "2d" | "3d" })
@@ -582,17 +603,17 @@ function MapPage() {
           </SegmentedControl>
           <Popover>
             <PopoverTrigger asChild>
-              <Button
+              <IconButton
+                label="Layers"
                 variant="outline"
+                tooltipSide="right"
                 aria-pressed={Object.values(layers).some(Boolean)}
-                aria-label="Layers"
               >
-                <SlidersHorizontalIcon aria-hidden="true" className="size-5" />
-                Layers{Object.values(layers).filter(Boolean).length ? ` (${Object.values(layers).filter(Boolean).length})` : ""}
-              </Button>
+                <SlidersHorizontalIcon />
+              </IconButton>
             </PopoverTrigger>
             <PopoverContent side="right" align="start" className="w-64">
-              <h2 className="m-0 px-2 py-1 font-data! text-xs! font-semibold! tracking-[0.08em] text-mute! uppercase">
+              <h2 className="m-0 px-2 py-1 font-data text-xs tracking-[0.08em] text-mute uppercase">
                 Layers
               </h2>
               <div className="grid gap-1" role="group" aria-label="Map layers">
@@ -627,16 +648,16 @@ function MapPage() {
               ) : null}
             </PopoverContent>
           </Popover>
-          <Button
+          <IconButton
+            label="Road"
             variant={roadMode ? "default" : "outline"}
-            aria-label="Road"
+            tooltipSide="right"
             aria-pressed={roadMode}
             onClick={() => (roadMode ? closeRoad() : dispatch({ type: "toggle-road" }))}
           >
-            <PathIcon aria-hidden="true" className="size-5" />
-            Road
-          </Button>
-          <Toolbar label="Map camera">
+            <PathIcon />
+          </IconButton>
+          <Toolbar label="Map camera" orientation="vertical" className="flex-col">
             <MapToolbarButton label="Home camera" onClick={() => renderer.current?.resetCamera()}>
               <HouseIcon />
             </MapToolbarButton>
@@ -660,8 +681,8 @@ function MapPage() {
                 </TooltipTrigger>
                 <TooltipContent>Map help</TooltipContent>
               </Tooltip>
-              <PopoverContent side="right" align="end" className="w-72 text-sm leading-6 text-ink2">
-                <h2 className="m-0 font-data! text-xs! font-semibold! tracking-[0.08em] text-mute! uppercase">
+              <PopoverContent side="right" align="start" className="w-72 text-sm leading-6 text-ink2">
+                <h2 className="m-0 font-data text-xs tracking-[0.08em] text-mute uppercase">
                   Map help
                 </h2>
                 <p className="mt-2">Drag to orbit in 3D. Right-drag to pan. Scroll or use the camera buttons to zoom.</p>
