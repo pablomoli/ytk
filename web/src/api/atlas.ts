@@ -69,8 +69,8 @@ export type AtlasFeatures = {
 };
 
 export type KnobResult = {
-  base: { title: string; kind: string; source: string; sim: number }[];
-  clamped: { title: string; kind: string; source: string; sim: number }[];
+  base: { title: string; kind: string; source: string; sim: number; share?: number }[];
+  clamped: { title: string; kind: string; source: string; sim: number; share?: number }[];
   query_latents: { latent: number; act: number }[];
   latent_max: number;
 };
