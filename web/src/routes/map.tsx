@@ -170,7 +170,7 @@ function RoadPanel({
   onClose: () => void;
 }) {
   return (
-    <aside className="absolute left-[5.25rem] top-3 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
+    <aside className="absolute left-[4rem] top-2 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
       <header className="mb-2 flex items-center justify-between">
         <span className="text-xs uppercase tracking-widest text-mute">road</span>
         <span>
@@ -515,12 +515,13 @@ function MapPage() {
         <div ref={labels} className="map-labels" />
         <section
           aria-label="Map controls"
-          className="absolute bottom-0 left-0 top-0 z-20 flex w-[4.5rem] flex-col items-center gap-2 overflow-y-auto border-r border-line bg-bg1/95 px-2 py-3 text-ink backdrop-blur"
+          className="absolute left-2 top-2 z-20 flex max-h-[calc(100%-1rem)] flex-col items-center gap-1 overflow-y-auto text-ink"
         >
           <SegmentedControl
             label="View"
             hideLabel
             orientation="vertical"
+            className="gap-1 border-0 bg-transparent p-0"
             value={view}
             onValueChange={(value) => resetView(value as "all" | "content")}
           >
@@ -593,6 +594,7 @@ function MapPage() {
             label="Projection"
             hideLabel
             orientation="vertical"
+            className="gap-1 border-0 bg-transparent p-0"
             value={projection}
             onValueChange={(value) =>
               dispatch({ type: "set-projection", projection: value as "2d" | "3d" })
@@ -657,7 +659,7 @@ function MapPage() {
           >
             <PathIcon />
           </IconButton>
-          <Toolbar label="Map camera" orientation="vertical" className="flex-col">
+          <Toolbar label="Map camera" orientation="vertical" className="flex-col gap-1 border-0 bg-transparent p-0">
             <MapToolbarButton label="Home camera" onClick={() => renderer.current?.resetCamera()}>
               <HouseIcon />
             </MapToolbarButton>
