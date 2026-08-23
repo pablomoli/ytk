@@ -697,6 +697,18 @@ export function ExperimentsSection() {
   );
 }
 
+export function MaintenanceSection() {
+  return (
+    <details open>
+      <summary>Maintenance</summary>
+      <div className="settings-body">
+        <span>Review model-proposed duplicate tags before updating the permanent alias map.</span>
+        <a href="/tags">Open tag cleanup</a>
+      </div>
+    </details>
+  );
+}
+
 export function SettingsSections({
   draft,
   update,
@@ -752,6 +764,7 @@ export function SettingsSections({
       />
       <AskPromptSection />
       <ExperimentsSection />
+      <MaintenanceSection />
     </>
   );
 }

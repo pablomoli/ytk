@@ -34,7 +34,7 @@ So:
   vocabulary of *your intent at capture time* (`build-idea`, `reference`),
   not topics — enrichment already covers topics.
 - **the ~400 enrichment tags** — not configured anywhere. Haiku coins them
-  per note. You garden them after the fact with /tags (merge variants) —
+  per note. You garden them after the fact with [Tag cleanup](/tags) (merge variants) —
   accepted merges hold forever via the alias map.
 - **filters.interest_tags** (Ingest filters) — a pre-write gate on `ytk add`.
   Non-empty means "refuse videos unless enrichment tagged one of these".

@@ -39,6 +39,10 @@ export type MapRenderer = {
   // index into the current route whose dot pulses (the stop being driven)
   setRouteActive: (k?: number) => void;
   flyTo: (point: MapPoint) => void;
+  // Camera-only home: pose and zoom return to mount defaults, state untouched.
+  resetCamera: () => void;
+  // Zoom anchored at the viewport center; factor > 1 zooms in.
+  zoomBy: (factor: number) => void;
   destroy: () => void;
 };
 
@@ -753,7 +757,7 @@ export function mountMapRenderer(
     c3: number[];
     c2: number[];
     radius: number;
-    node: HTMLDivElement;
+    node: HTMLButtonElement;
     line?: SVGLineElement | undefined;
     rank: number;
     n: number;
@@ -1655,9 +1659,15 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
               ),
             ),
           );
-          const node = document.createElement("div");
-          node.className = "map-label";
+          const node = document.createElement("button");
+          node.type = "button";
+          node.className = "map-label border-0 bg-transparent p-0 font-[inherit]";
           node.textContent = entry.label;
+          node.setAttribute("aria-label", `Focus ${entry.label}`);
+          node.setAttribute(
+            "aria-pressed",
+            String(entry.focus.dom === focus.dom && entry.focus.sub === focus.sub),
+          );
           node.style.fontSize = `${Math.max(10, Math.min(14, 9 + Math.sqrt(entry.n) * 0.25))}px`;
           node.style.pointerEvents = "auto";
           node.style.cursor = "pointer";
@@ -2068,6 +2078,30 @@ void main(){ vec4 s=texture2D(scene,uv); vec3 b=texture2D(bloom,uv).rgb;
     },
     setRouteActive: (k) => {
       routeActive = k;
+      wake();
+    },
+    resetCamera: () => {
+      flyItem = undefined;
+      zoomAnchor = null;
+      killMomentum();
+      scale = 1;
+      scaleTarget = 1;
+      offset = [0, 0];
+      angle = 0.5;
+      tilt = 0.3;
+      wake();
+    },
+    zoomBy: (factor) => {
+      flyItem = undefined;
+      killMomentum();
+      zoomAnchor = [0, 0];
+      scaleTarget = Math.max(0.3, Math.min(12, (scaleTarget || scale) * factor));
+      if (reduceMotion) {
+        const ratio = scaleTarget / scale;
+        scale = scaleTarget;
+        offset = [offset[0] * ratio, offset[1] * ratio];
+        zoomAnchor = null;
+      }
       wake();
     },
     flyTo: (point) => {

@@ -12,6 +12,7 @@ import {
   IngestFiltersSection,
   InterestSection,
   MapColorSection,
+  MaintenanceSection,
   MiscSection,
   ToneSection,
 } from "./SettingsSections";
@@ -147,4 +148,9 @@ test("ask prompt section persists the pref and never stores the default", () => 
   fireEvent.change(input, { target: { value: "  " } });
   expect(getStringPref(ASK_PROMPT_PREF)).toBeNull();
   localStorage.removeItem(ASK_PROMPT_PREF);
+});
+
+test("maintenance links keep tag cleanup reachable from settings", () => {
+  render(<MaintenanceSection />);
+  expect(screen.getByRole("link", { name: "Open tag cleanup" })).toHaveAttribute("href", "/tags");
 });

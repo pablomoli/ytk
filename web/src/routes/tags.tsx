@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { CheckIcon, XIcon } from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useApplyTagMerges, useProposeTagMerges, useTagMergeStatus } from "../api/tagMerge";
 import type { EditableTagProposal } from "../lib/tagMerge";
 import { editableProposals, mappingFromProposals } from "../lib/tagMerge";
 import { useHoverDecode } from "../lib/useHoverDecode";
 import { HubControls } from "../components/HubControls";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { Button } from "../components/ui/button";
+import { IconButton } from "../components/ui/icon-button";
 import "../styles.css";
 
 export const Route = createFileRoute("/tags")({ component: TagsPage });
@@ -16,6 +20,7 @@ function TagsPage() {
   const decode = useHoverDecode();
   const [groups, setGroups] = useState<EditableTagProposal[]>([]);
   const [message, setMessage] = useState("");
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (status.data?.state === "done") {
@@ -61,6 +66,7 @@ function TagsPage() {
   };
 
   const submit = () => {
+    setConfirming(false);
     apply.mutate(mapping, {
       onSuccess: (result) => {
         setGroups([]);
@@ -74,94 +80,133 @@ function TagsPage() {
 
   const stateMessage =
     status.data?.state === "running"
-      ? "clustering + refining with haiku..."
+      ? "Finding duplicate tag vocabulary with the configured model."
       : status.data?.state === "error"
         ? status.data.detail || "proposal generation failed"
         : status.data?.state === "done" && !status.data.proposals.length
-          ? "no merge candidates found — vocabulary is clean"
-          : message;
+          ? "No merge candidates found. The vocabulary is clean."
+          : status.data?.state === "idle"
+            ? "No cleanup is running."
+            : message;
+  const statusRole = status.data?.state === "error" ? "alert" : "status";
 
   return (
-    <div className="tags-page">
+    <div className="tags-page min-h-full bg-bg0 text-ink">
       <HubControls>
-        <span className="count">{groups.length ? `${groups.length} proposals` : ""}</span>
+        <span className="count">{groups.length ? `${groups.length} groups` : ""}</span>
       </HubControls>
-      <main className="tags-main">
-        <div className="tag-actions">
-          <button
-            className="btn primary"
+      <main className="tags-main mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8">
+        <header className="max-w-2xl">
+          <p className="mb-2 font-data text-xs tracking-[0.12em] text-mute uppercase">
+            Maintenance
+          </p>
+          <h1 className="m-0 font-serif text-3xl font-normal text-ink">Tag cleanup</h1>
+          <p className="mt-3 text-base leading-7 text-ink2">
+            Periodic vocabulary maintenance for merging duplicate tags. Review every suggestion
+            before anything changes.
+          </p>
+        </header>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
             type="button"
             onClick={start}
             disabled={propose.isPending || status.data?.state === "running"}
           >
             Find merge candidates
-          </button>
-          <span className={status.data?.state === "error" ? "tag-error" : "tag-status"}>
+          </Button>
+          <span
+            role={statusRole}
+            aria-live={statusRole === "status" ? "polite" : undefined}
+            className={statusRole === "alert" ? "text-live" : "text-sm text-mute"}
+          >
             {stateMessage}
           </span>
         </div>
-        <p className="hint">
-          Click a tag to make it the canonical name. Use × to keep a tag out of the merge. Nothing
-          changes until Apply.
-        </p>
-        <div className="tag-groups">
+        {groups.length ? (
+          <p className="m-0 text-sm leading-6 text-mute">
+            Choose the canonical tag, exclude variants that should stay independent, then merge or
+            skip each group.
+          </p>
+        ) : null}
+        <div className="flex flex-col gap-4">
           {groups.map((group, index) => (
             <section
-              className={`tag-group${group.accepted ? "" : " skipped"}`}
+              className={`rounded-card border p-4 ${group.accepted ? "border-line bg-bg1" : "border-line/60 bg-bg1/60 opacity-70"}`}
               key={`${group.canonical}-${index}`}
+              aria-label={`Merge group ${index + 1}`}
             >
-              <div className="tag-group-row">
-                <div className="chips">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex flex-1 flex-wrap gap-2">
                   {[group.canonical, ...group.variants].map((tag) => {
                     const canonical = tag === group.canonical;
                     const excluded = group.excluded.has(tag);
                     return (
-                      <span className={`tag-chip-wrap${excluded ? " excluded" : ""}`} key={tag}>
-                        <button
-                          className={`tag-chip${canonical ? " canonical" : ""}`}
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-lg border p-1 ${excluded ? "border-line/60 opacity-50" : "border-line"}`}
+                        key={tag}
+                      >
+                        <Button
+                          variant={canonical ? "default" : "secondary"}
+                          size="sm"
                           type="button"
                           aria-pressed={canonical}
+                          aria-label={canonical ? `${tag}, canonical` : `Make ${tag} canonical`}
                           disabled={canonical}
                           onClick={() => (canonical ? undefined : makeCanonical(index, tag))}
                         >
                           <span className="tag-name" onMouseEnter={decode.onMouseEnter}>
                             {tag}
-                          </span>{" "}
-                          <span>{group.counts[tag] ?? ""}</span>
-                        </button>
+                          </span>
+                          <span className={canonical ? "text-bg0/70" : "text-mute"}>
+                            {group.counts[tag] ?? ""}
+                          </span>
+                          {canonical ? (
+                            <>
+                              <CheckIcon aria-hidden="true" className="size-4" />
+                              <span className="text-xs">canonical</span>
+                            </>
+                          ) : null}
+                        </Button>
                         {!canonical ? (
-                          <button
-                            className="tag-exclude"
-                            type="button"
-                            aria-label={`Exclude ${tag}`}
+                          <IconButton
+                            label={
+                              excluded
+                                ? `Include ${tag} in this merge`
+                                : `Exclude ${tag} from this merge`
+                            }
+                            aria-pressed={excluded}
                             onClick={() => toggleExcluded(index, tag)}
                           >
-                            ×
-                          </button>
+                            <XIcon />
+                          </IconButton>
                         ) : null}
                       </span>
                     );
                   })}
                 </div>
-                <div className="tag-group-buttons">
-                  <button
-                    className={`tag-group-button${group.accepted ? " on" : ""}`}
+                <div className="flex gap-2" role="group" aria-label={`Decision for group ${index + 1}`}>
+                  <Button
+                    variant={group.accepted ? "default" : "secondary"}
                     type="button"
+                    aria-label="Merge this group"
+                    aria-pressed={group.accepted}
                     onClick={() =>
                       updateGroup(index, (current) => ({ ...current, accepted: true }))
                     }
                   >
-                    merge
-                  </button>
-                  <button
-                    className={`tag-group-button${group.accepted ? "" : " on"}`}
+                    Merge
+                  </Button>
+                  <Button
+                    variant={group.accepted ? "secondary" : "default"}
                     type="button"
+                    aria-label="Skip this group"
+                    aria-pressed={!group.accepted}
                     onClick={() =>
                       updateGroup(index, (current) => ({ ...current, accepted: false }))
                     }
                   >
-                    skip
-                  </button>
+                    Skip
+                  </Button>
                 </div>
               </div>
             </section>
@@ -169,21 +214,28 @@ function TagsPage() {
         </div>
       </main>
       {groups.length ? (
-        <div className="tag-apply-bar">
-          <button
-            className="btn primary"
+        <div className="tag-apply-bar sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-line bg-bg1 px-4 py-3">
+          <Button
             type="button"
-            onClick={submit}
+            onClick={() => setConfirming(true)}
             disabled={!retired || apply.isPending}
           >
-            Apply
-          </button>
-          <span>
+            Apply selected merges
+          </Button>
+          <span className="text-sm text-mute">
             {retired
-              ? `${retired} tags will be retired into ${new Set(Object.values(mapping)).size} canonical tags`
-              : "no merges selected"}
+              ? `${retired} tags will become ${new Set(Object.values(mapping)).size} canonical tags`
+              : "No merges selected"}
           </span>
         </div>
+      ) : null}
+      {confirming ? (
+        <ConfirmDialog
+          message={`Apply ${retired} tag aliases? This rewrites matching notes and updates the permanent alias map.`}
+          confirmLabel="Apply merges"
+          onConfirm={submit}
+          onCancel={() => setConfirming(false)}
+        />
       ) : null}
     </div>
   );

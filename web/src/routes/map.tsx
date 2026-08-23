@@ -1,4 +1,26 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  ArrowsOutIcon,
+  CheckIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  FunnelIcon,
+  HouseIcon,
+  InfoIcon,
+  MinusIcon,
+  PathIcon,
+  PlusIcon,
+  SlidersHorizontalIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMap, isMapV2 } from "../api/map";
 import type { MapData, MapDomain, MapPoint } from "../api/map";
@@ -11,7 +33,18 @@ import { mapDomainColor, mapGroupColor, mapSubColor, mountMapRenderer } from "..
 import type { MapHover } from "../lib/mapRenderer";
 import { focusHash, legendRows, parseFocusHash } from "../lib/mapGroups";
 import type { MapFocus } from "../lib/mapGroups";
-import { HubControls } from "../components/HubControls";
+import { Button } from "../components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { SegmentedControl, SegmentedControlItem } from "../components/ui/segmented-control";
+import { Toolbar, ToolbarButton } from "../components/ui/toolbar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
+import {
+  initialMapControls,
+  mapControlsReducer,
+  visibleMapLayers,
+  type MapFilter,
+  type MapLayer,
+} from "../lib/mapControls";
 import "../styles.css";
 
 export const Route = createFileRoute("/map")({ component: MapPage });
@@ -81,6 +114,29 @@ const pathErrorDetail = (error: unknown): string => {
   return error instanceof Error ? error.message : "path request failed";
 };
 
+function MapToolbarButton({
+  label,
+  children,
+  onClick,
+}: {
+  label: string;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <ToolbarButton size="icon" aria-label={label} onClick={onClick}>
+          <span aria-hidden="true" className="inline-flex [&>svg]:size-5">
+            {children}
+          </span>
+        </ToolbarButton>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function RoadPanel({
   ends,
   loading,
@@ -90,8 +146,10 @@ function RoadPanel({
   route,
   activeStop,
   driving,
+  candidates,
   onDrive,
   onFly,
+  onSetEnd,
   onClose,
 }: {
   ends: { a?: MapPoint; b?: MapPoint };
@@ -102,8 +160,10 @@ function RoadPanel({
   route?: MapRoute | undefined;
   activeStop?: number | undefined;
   driving: boolean;
+  candidates: MapPoint[];
   onDrive: () => void;
   onFly: (pointIndex: number, waypointIndex: number) => void;
+  onSetEnd: (side: "a" | "b", point?: MapPoint) => void;
   onClose: () => void;
 }) {
   return (
@@ -120,20 +180,50 @@ function RoadPanel({
             </button>
           ) : null}
           <button
-            className="cursor-pointer appearance-none border-0 bg-transparent px-1 font-data text-sm text-mute hover:text-ink"
+            className="inline-flex size-11 cursor-pointer appearance-none items-center justify-center rounded-md border-0 bg-transparent text-mute hover:bg-bg2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
             onClick={onClose}
             aria-label="Close road mode"
           >
-            x
+            <XIcon aria-hidden="true" className="size-5" />
           </button>
         </span>
       </header>
-      {!ends.a ? <p className="text-mute">click a note to start the road</p> : null}
-      {ends.a && !ends.b ? (
-        <p className="text-mute">
-          from <span className="text-ink">{ends.a.t}</span> - click the destination
-        </p>
-      ) : null}
+      <div className="mb-3 grid gap-2">
+        <label className="grid gap-1 text-xs text-mute">
+          Road start
+          <select
+            className="min-h-11 min-w-0 rounded-md border border-line bg-bg2 px-2 text-sm text-ink"
+            value={ends.a?.u ?? ""}
+            onChange={(event) =>
+              onSetEnd("a", candidates.find((point) => point.u === event.target.value))
+            }
+          >
+            <option value="">Choose a note</option>
+            {candidates.map((point) => (
+              <option key={`a-${point.u}`} value={point.u}>
+                {point.t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs text-mute">
+          Road destination
+          <select
+            className="min-h-11 min-w-0 rounded-md border border-line bg-bg2 px-2 text-sm text-ink"
+            value={ends.b?.u ?? ""}
+            onChange={(event) =>
+              onSetEnd("b", candidates.find((point) => point.u === event.target.value))
+            }
+          >
+            <option value="">Choose a note</option>
+            {candidates.map((point) => (
+              <option key={`b-${point.u}`} value={point.u}>
+                {point.t}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       {loading ? <p className="text-mute">routing...</p> : null}
       {error != null ? (
         <p className="text-live" role="alert">
@@ -178,26 +268,18 @@ function MapPage() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const labels = useRef<HTMLDivElement>(null);
   const leaders = useRef<SVGSVGElement>(null);
-  const [view, setView] = useState<"all" | "content">(
-    location.hash === "#content" ? "content" : "all",
-  );
-  const [flat, setFlat] = useState(location.hash === "#2d");
-  const [terrain, setTerrain] = useState(false);
-  const [web, setWeb] = useState(false);
-  const [fog, setFog] = useState(false);
+  const [controls, dispatch] = useReducer(mapControlsReducer, location.hash, initialMapControls);
+  const { view, projection, filters, layers, road: roadMode } = controls;
+  const flat = projection === "2d";
+  const { signal, recent, media, time: timeOn } = filters;
+  const { terrain, web, fog, shell: fogShell } = layers;
   const [fogLevel, setFogLevel] = useState(0);
-  const [fogShell, setFogShell] = useState(false);
-  const [signal, setSignal] = useState(false);
-  const [recent, setRecent] = useState(false);
-  const [media, setMedia] = useState(false);
-  const [timeOn, setTimeOn] = useState(false);
   const [clock, setClock] = useState(1);
   const [pointHover, setPointHover] = useState<MapHover>();
   const [focus, setFocusState] = useState<MapFocus>({});
   const [hover, setHover] = useState<MapFocus>();
   const [hiddenDoms, setHiddenDoms] = useState<Set<number>>(new Set());
   const [legendOpen, setLegendOpen] = useState(true);
-  const [roadMode, setRoadMode] = useState(false);
   const [roadEnds, setRoadEnds] = useState<{ a?: MapPoint; b?: MapPoint }>({});
   const renderer = useRef<ReturnType<typeof mountMapRenderer> | undefined>(undefined);
   const flatRef = useRef(flat);
@@ -315,6 +397,7 @@ function MapPage() {
   // row and the map dot track the current stop, and any manual action stops
   // the tour.
   const [activeStop, setActiveStop] = useState<number | undefined>(undefined);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [driving, setDriving] = useState(false);
   useEffect(() => {
     renderer.current?.setRoute(
@@ -388,19 +471,32 @@ function MapPage() {
       : map.data!.points.length;
   const trust = layout.params.trustworthiness_3d ?? layout.params.trustworthiness;
   const resetView = (next: "all" | "content") => {
-    setView(next);
+    dispatch({ type: "set-view", view: next });
     setFocus({}, next);
     setHiddenDoms(new Set());
     setHover(undefined);
     // Non-content waypoints have no honest position in the content view, so
     // the road does not survive a view switch.
-    setRoadMode(false);
     setRoadEnds({});
   };
   const closeRoad = () => {
-    setRoadMode(false);
+    if (roadMode) dispatch({ type: "toggle-road" });
     setRoadEnds({});
   };
+  const resetMap = () => {
+    dispatch({ type: "reset" });
+    setClock(1);
+    setFogLevel(0);
+    setRoadEnds({});
+    setHiddenDoms(new Set());
+    setHover(undefined);
+    setFocus({}, "all");
+    renderer.current?.resetCamera();
+  };
+  const roadCandidates = map.data!.points
+    .filter((point): point is MapPoint & { u: string } => Boolean(point.u))
+    .sort((a, b) => a.t.localeCompare(b.t))
+    .slice(0, 100);
   const toggleHidden = (dom: number) =>
     setHiddenDoms((current) => {
       const next = new Set(current);
@@ -410,167 +506,188 @@ function MapPage() {
     });
   return (
     <div className="map-page">
-      <HubControls className="absolute top-3 right-4 z-10 p-0">
-        <span className="count">{map.data?.points.length ?? 0} notes</span>
-      </HubControls>
-      <div className="map-controls" aria-label="Map controls">
-        <div>
-          <button
-            className={`fchip${view === "all" ? " on" : ""}`}
-            onClick={() => resetView("all")}
-          >
-            everything
-          </button>
-          <button
-            className={`fchip${view === "content" ? " on" : ""}`}
-            onClick={() => resetView("content")}
-          >
-            content
-          </button>
-        </div>
-        <div>
-          <button
-            className={`fchip${signal ? " on" : ""}`}
-            onClick={() => setSignal((current) => !current)}
-          >
-            signal
-          </button>
-          <button
-            className={`fchip${recent ? " on" : ""}`}
-            onClick={() => setRecent((current) => !current)}
-          >
-            recent
-          </button>
-          {view === "all" ? (
-            <button
-              className={`fchip${media ? " on" : ""}`}
-              onClick={() => setMedia((current) => !current)}
-              title="Dim session and memory notes so consumed media reads in place"
-            >
-              media
-            </button>
-          ) : null}
-          <button
-            className={`fchip${timeOn ? " on" : ""}`}
-            onClick={() => setTimeOn((current) => !current)}
-            title="Sweep notes in by the date they were born"
-          >
-            time
-          </button>
-          <button className="fchip" onClick={() => setFlat((current) => !current)}>
-            {flat ? "3d" : "2d"}
-          </button>
-          <button
-            className={`fchip${roadMode ? " on" : ""}`}
-            onClick={() => (roadMode ? closeRoad() : setRoadMode(true))}
-            title="Pick two notes and walk the slerp road between them"
-          >
-            road
-          </button>
-        </div>
-        {timeOn ? (
-          <div className="map-scrub">
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.002}
-              value={clock}
-              aria-label="Time machine: reveal notes up to this date"
-              onChange={(event) => setClock(Number(event.target.value))}
-            />
-            <span>
-              {scrubDate}
-              <em>
-                {shown} / {dates.length}
-              </em>
-            </span>
-          </div>
-        ) : null}
-        <div>
-          {map.data?.all.terrain || map.data?.content.terrain ? (
-            <button
-              className={`fchip${terrain ? " on" : ""}`}
-              onClick={() => {
-                setWeb(false);
-                setTerrain((current) => !current);
-              }}
-            >
-              terrain
-            </button>
-          ) : null}
-          {map.data?.all.web || map.data?.content.web ? (
-            <button
-              className={`fchip${web ? " on" : ""}`}
-              onClick={() => {
-                if (!web) {
-                  setTerrain(false);
-                  setFlat(false);
-                }
-                setWeb((current) => !current);
-              }}
-            >
-              web
-            </button>
-          ) : null}
-          {map.data?.all.fog || map.data?.content.fog ? (
-            <button
-              className={`fchip${fog ? " on" : ""}`}
-              onClick={() => {
-                if (!fog) {
-                  setTerrain(false);
-                  setFlat(false);
-                }
-                setFog((current) => !current);
-              }}
-            >
-              fog
-            </button>
-          ) : null}
-          {fog ? (
-            <button
-              className={`fchip${fogShell ? " on" : ""}`}
-              onClick={() => setFogShell((current) => !current)}
-              title="show only the shell |density - level| < 0.06: a pseudo-isosurface at the slider's level"
-            >
-              shell
-            </button>
-          ) : null}
-        </div>
-        {fog ? (
-          <input
-            className="fog-level"
-            type="range"
-            min={0}
-            max={0.9}
-            step={0.01}
-            value={fogLevel}
-            onChange={(event) => setFogLevel(Number(event.target.value))}
-            title={
-              fogShell
-                ? "isosurface level: slide to sweep the shell through the density field"
-                : "density threshold: slide up to shrink the fog to its cores"
-            }
-          />
-        ) : null}
-      </div>
       <div className="map-stage" aria-label="Knowledge map renderer">
         <canvas ref={canvas} />
         <svg ref={leaders} className="map-leaders" />
         <div ref={labels} className="map-labels" />
+        <section
+          aria-label="Map controls"
+          className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-card border border-line bg-bg1/95 p-2 text-ink shadow-[0_8px_24px_#00000066] backdrop-blur"
+        >
+          <SegmentedControl
+            label="View"
+            value={view}
+            onValueChange={(value) => resetView(value as "all" | "content")}
+          >
+            <SegmentedControlItem value="all">Everything</SegmentedControlItem>
+            <SegmentedControlItem value="content">Content</SegmentedControlItem>
+          </SegmentedControl>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                aria-pressed={Object.values(filters).some(Boolean)}
+                aria-label="Filters"
+              >
+                <FunnelIcon aria-hidden="true" className="size-5" />
+                Filters{Object.values(filters).filter(Boolean).length ? ` (${Object.values(filters).filter(Boolean).length})` : ""}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72">
+              <h2 className="m-0 px-2 py-1 font-data text-xs tracking-[0.08em] text-mute uppercase">
+                Filters
+              </h2>
+              <div className="grid gap-1" role="group" aria-label="Map filters">
+                {(["signal", "recent", ...(view === "all" ? ["media" as const] : []), "time"] as MapFilter[]).map(
+                  (filter) => (
+                    <Button
+                      key={filter}
+                      variant="ghost"
+                      aria-pressed={filters[filter]}
+                      className="w-full justify-between aria-pressed:bg-bg3 aria-pressed:font-semibold aria-pressed:text-accent"
+                      onClick={() => dispatch({ type: "toggle-filter", filter })}
+                    >
+                      {filter[0].toUpperCase() + filter.slice(1)}
+                      {filters[filter] ? <CheckIcon aria-hidden="true" className="size-4" /> : null}
+                    </Button>
+                  ),
+                )}
+              </div>
+              {timeOn ? (
+                <label className="mt-2 grid gap-1 px-2 font-data text-xs text-mute">
+                  Reveal notes through {scrubDate || "latest date"}
+                  <input
+                    className="min-h-11 w-full accent-accent"
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.002}
+                    value={clock}
+                    aria-valuetext={`${shown} of ${dates.length} dated notes through ${scrubDate}`}
+                    onChange={(event) => setClock(Number(event.target.value))}
+                  />
+                </label>
+              ) : null}
+            </PopoverContent>
+          </Popover>
+          <SegmentedControl
+            label="Projection"
+            value={projection}
+            onValueChange={(value) =>
+              dispatch({ type: "set-projection", projection: value as "2d" | "3d" })
+            }
+          >
+            <SegmentedControlItem value="2d">2D</SegmentedControlItem>
+            <SegmentedControlItem value="3d">3D</SegmentedControlItem>
+          </SegmentedControl>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                aria-pressed={Object.values(layers).some(Boolean)}
+                aria-label="Layers"
+              >
+                <SlidersHorizontalIcon aria-hidden="true" className="size-5" />
+                Layers{Object.values(layers).filter(Boolean).length ? ` (${Object.values(layers).filter(Boolean).length})` : ""}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64">
+              <h2 className="m-0 px-2 py-1 font-data text-xs tracking-[0.08em] text-mute uppercase">
+                Layers
+              </h2>
+              <div className="grid gap-1" role="group" aria-label="Map layers">
+                {(Object.keys(visibleMapLayers(layout)) as MapLayer[])
+                  .filter((layer) => visibleMapLayers(layout)[layer])
+                  .map((layer) => (
+                    <Button
+                      key={layer}
+                      variant="ghost"
+                      aria-pressed={layers[layer]}
+                      className="w-full justify-between aria-pressed:bg-bg3 aria-pressed:font-semibold aria-pressed:text-accent"
+                      onClick={() => dispatch({ type: "toggle-layer", layer })}
+                    >
+                      {layer[0].toUpperCase() + layer.slice(1)}
+                      {layers[layer] ? <CheckIcon aria-hidden="true" className="size-4" /> : null}
+                    </Button>
+                  ))}
+              </div>
+              {fog ? (
+                <label className="mt-2 grid gap-1 px-2 font-data text-xs text-mute">
+                  {fogShell ? "Shell level" : "Fog density"}
+                  <input
+                    className="min-h-11 w-full accent-accent"
+                    type="range"
+                    min={0}
+                    max={0.9}
+                    step={0.01}
+                    value={fogLevel}
+                    onChange={(event) => setFogLevel(Number(event.target.value))}
+                  />
+                </label>
+              ) : null}
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant={roadMode ? "default" : "outline"}
+            aria-label="Road"
+            aria-pressed={roadMode}
+            onClick={() => (roadMode ? closeRoad() : dispatch({ type: "toggle-road" }))}
+          >
+            <PathIcon aria-hidden="true" className="size-5" />
+            Road
+          </Button>
+          <Toolbar label="Map camera">
+            <MapToolbarButton label="Home camera" onClick={() => renderer.current?.resetCamera()}>
+              <HouseIcon />
+            </MapToolbarButton>
+            <MapToolbarButton label="Zoom out" onClick={() => renderer.current?.zoomBy(0.8)}>
+              <MinusIcon />
+            </MapToolbarButton>
+            <MapToolbarButton label="Zoom in" onClick={() => renderer.current?.zoomBy(1.25)}>
+              <PlusIcon />
+            </MapToolbarButton>
+            <MapToolbarButton label="Reset map" onClick={resetMap}>
+              <ArrowsOutIcon />
+            </MapToolbarButton>
+            <Popover>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <ToolbarButton size="icon" aria-label="Map help">
+                      <InfoIcon aria-hidden="true" className="size-5" />
+                    </ToolbarButton>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Map help</TooltipContent>
+              </Tooltip>
+              <PopoverContent align="end" className="w-72 text-sm leading-6 text-ink2">
+                <h2 className="m-0 font-data text-xs tracking-[0.08em] text-mute uppercase">
+                  Map help
+                </h2>
+                <p className="mt-2">Drag to orbit in 3D. Right-drag to pan. Scroll or use the camera buttons to zoom.</p>
+                <p className="mt-2">Use the Road tool to choose two notes by pointer or with the endpoint selectors.</p>
+              </PopoverContent>
+            </Popover>
+          </Toolbar>
+        </section>
         <aside className={`map-legend${legendOpen ? "" : " collapsed"}`}>
           <button
             className="map-legend-toggle"
             onClick={() => setLegendOpen((open) => !open)}
             aria-label={legendOpen ? "Collapse cluster legend" : "Expand cluster legend"}
           >
-            {legendOpen ? "›" : "‹"}
+            {legendOpen ? (
+              <CaretRightIcon aria-hidden="true" />
+            ) : (
+              <CaretLeftIcon aria-hidden="true" />
+            )}
           </button>
           {legendOpen ? (
             <>
               {rows.map((row) => (
                 <div key={row.dom}>
-                  <button
+                  <div className="flex items-center gap-1">
+                    <button
                     className={
                       hiddenDoms.has(row.dom) ||
                       (focus.dom !== undefined && focus.dom !== row.dom && hover?.dom !== row.dom)
@@ -579,24 +696,37 @@ function MapPage() {
                     }
                     onMouseEnter={() => setHover({ dom: row.dom })}
                     onMouseLeave={() => setHover(undefined)}
-                    onClick={(event) => {
-                      if (event.altKey) toggleHidden(row.dom);
-                      else
-                        setFocus(
-                          focus.dom === row.dom && focus.sub === undefined ? {} : { dom: row.dom },
-                        );
-                    }}
+                    onFocus={() => setHover({ dom: row.dom })}
+                    onBlur={() => setHover(undefined)}
+                    aria-pressed={focus.dom === row.dom && focus.sub === undefined}
+                    onClick={() =>
+                      setFocus(
+                        focus.dom === row.dom && focus.sub === undefined ? {} : { dom: row.dom },
+                      )
+                    }
                   >
                     <i style={{ background: domColor(row.dom) }} />
                     {row.label}
                     <span>{row.n}</span>
-                  </button>
+                    </button>
+                    <label className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center" title={`Show ${row.label}`}>
+                      <input
+                        type="checkbox"
+                        checked={!hiddenDoms.has(row.dom)}
+                        aria-label={`Show ${row.label}`}
+                        onChange={() => toggleHidden(row.dom)}
+                      />
+                    </label>
+                  </div>
                   {row.subs.map((s) => (
                     <button
                       key={s.sub}
                       className={`sub${hiddenDoms.has(row.dom) || (focus.sub !== undefined && focus.sub !== s.sub && hover?.sub !== s.sub) ? " off" : ""}`}
                       onMouseEnter={() => setHover({ dom: row.dom, sub: s.sub })}
                       onMouseLeave={() => setHover(undefined)}
+                      onFocus={() => setHover({ dom: row.dom, sub: s.sub })}
+                      onBlur={() => setHover(undefined)}
+                      aria-pressed={focus.sub === s.sub}
                       onClick={() =>
                         setFocus(
                           focus.sub === s.sub ? { dom: row.dom } : { dom: row.dom, sub: s.sub },
@@ -611,10 +741,24 @@ function MapPage() {
                 </div>
               ))}
               <footer>
-                {visibleNotes} notes · trust {trust?.toFixed(2) ?? "n/a"} · sil{" "}
-                {layout.params.silhouette?.toFixed(2) ?? "n/a"}
-                <br />
-                drag orbit · right-drag pan · scroll zoom
+                <strong>{visibleNotes} notes</strong>
+                <details className="mt-2" open={diagnosticsOpen}>
+                  <summary
+                    className="min-h-11 cursor-pointer py-3"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setDiagnosticsOpen((open) => !open);
+                    }}
+                  >
+                    Diagnostics
+                  </summary>
+                  {diagnosticsOpen ? (
+                    <p>
+                      trust {trust?.toFixed(2) ?? "n/a"} · silhouette{" "}
+                      {layout.params.silhouette?.toFixed(2) ?? "n/a"}
+                    </p>
+                  ) : null}
+                </details>
               </footer>
             </>
           ) : (
@@ -635,6 +779,7 @@ function MapPage() {
             route={route}
             activeStop={activeStop}
             driving={driving}
+            candidates={roadCandidates}
             onDrive={() => {
               setActiveStop(undefined);
               setDriving((current) => !current);
@@ -645,6 +790,14 @@ function MapPage() {
               const point = map.data?.points[pointIndex];
               if (point) renderer.current?.flyTo(point);
             }}
+            onSetEnd={(side, point) =>
+              setRoadEnds((current) => {
+                const other = side === "a" ? current.b : current.a;
+                const keep = other ? (side === "a" ? { b: other } : { a: other }) : {};
+                if (!point || point.u === other?.u) return keep;
+                return side === "a" ? { ...keep, a: point } : { ...keep, b: point };
+              })
+            }
             onClose={closeRoad}
           />
         ) : null}
