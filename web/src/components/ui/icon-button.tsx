@@ -19,12 +19,12 @@ function IconButton({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          data-slot="icon-button"
           type="button"
           size="icon"
           variant={variant}
           aria-label={label}
           {...props}
+          data-slot="icon-button"
         >
           <span aria-hidden="true" className="inline-flex [&>svg]:size-5 [&>svg]:shrink-0">
             {children}

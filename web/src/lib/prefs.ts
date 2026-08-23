@@ -11,7 +11,6 @@ export const RAIL_SOURCES_PREF = "ytk:inbox:rail:sources";
 export const RAIL_QUEUE_PREF = "ytk:inbox:rail:queue";
 export const RAIL_MATCH_PREF = "ytk:inbox:rail:match";
 export const RAIL_INGEST_PREF = "ytk:inbox:rail:ingest";
-export const RAIL_JOB_PREF = "ytk:inbox:rail:job";
 
 /* An unset key is not the same as an explicitly closed one: rail widgets
    need per-widget defaults, so reads take the fallback and writes record

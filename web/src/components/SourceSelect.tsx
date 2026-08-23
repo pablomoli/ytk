@@ -1,17 +1,15 @@
+import { useState } from "react";
+import { ArrowCounterClockwise, CheckSquare } from "@phosphor-icons/react";
 import { SOURCES, canonicalSource, sourceIcon } from "./icons";
 import type { SourceSelection } from "../lib/sourceFilter";
 import { allSources, materializeSources } from "../lib/sourceFilter";
+import { cn } from "../lib/utils";
+import { IconButton } from "./ui/icon-button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
-/* Multi-select source filter for the inbox (#126).
-
-   The inbox used SourceFilter — action chips with aria-pressed, one selectable
-   at a time, mounted in the global header. That is the wrong vocabulary twice
-   over: this is a page-local preference, not a global action, and it is
-   multi-valued, so it is a named group of checkboxes living in the inbox rail.
-
-   SourceFilter is left alone rather than migrated, because /library and / still
-   use it for genuinely single-valued filtering. #126 is inbox-scoped; folding
-   those in is a separate change. */
+/* Multi-select source filter for the inbox rail (#126): a named group of
+   checkboxes, several on at once. SourceFilter stays single-valued for / and
+   /library. */
 export function SourceSelect({
   selection,
   onChange,
@@ -31,45 +29,85 @@ export function SourceSelect({
   };
 
   return (
-    <div className="source-select">
-      <div className="source-select-grid" role="group" aria-label="Filter by source">
-        {SOURCES.map((s) => {
-          const checked = active.has(canonicalSource(s));
-          return (
-            <label key={s} className={`source-option${checked ? " on" : ""}`} title={s}>
-              <input type="checkbox" checked={checked} onChange={() => toggle(s)} />
-              {sourceIcon(s, 22)}
-              {/* The name is always in the DOM and only visually hidden, so it
-                  still names the checkbox for assistive technology and for
-                  anyone navigating by keyboard. Revealed on hover and on
-                  focus-visible, as an overlay inside the tile: the rail clips
-                  its overflow, so a tooltip escaping the tile would be cut off
-                  at the widget edge. */}
-              <span className="source-option-label">{s}</span>
-            </label>
-          );
-        })}
+    <div className="flex flex-col gap-2">
+      <div
+        className="grid grid-cols-4 gap-1.5"
+        role="group"
+        aria-label="Filter by source"
+      >
+        {SOURCES.map((s) => (
+          <SourceTile
+            key={s}
+            source={s}
+            checked={active.has(canonicalSource(s))}
+            onToggle={() => toggle(s)}
+          />
+        ))}
       </div>
-      <div className="source-select-actions">
-        <button
-          className="btn"
-          type="button"
+      <div className="flex gap-2">
+        <IconButton
+          label="Select all sources"
+          variant="secondary"
+          className="flex-1"
           onClick={() => onChange(everything)}
           disabled={active.size === everything.size}
         >
-          all sources
-        </button>
-        <button
-          className="btn"
-          type="button"
+          <CheckSquare />
+        </IconButton>
+        <IconButton
+          label="Restore default sources"
+          variant="secondary"
+          className="flex-1"
           onClick={() => onChange(null)}
-          /* Back to the default, which is not "select everything": it re-hides
-             the sources excluded by policy. */
+          // Not "select everything": null re-applies DEFAULT_HIDDEN.
           disabled={selection === null}
         >
-          defaults
-        </button>
+          <ArrowCounterClockwise />
+        </IconButton>
       </div>
     </div>
+  );
+}
+
+function SourceTile({
+  source,
+  checked,
+  onToggle,
+}: {
+  source: string;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  return (
+    // Controlled: Radix closes its tooltip on click, but a tile must keep
+    // disclosing its name while the checkbox holds focus after a click.
+    <Tooltip open={hovered || focused}>
+      <TooltipTrigger asChild>
+        <label
+          className={cn(
+            "relative grid aspect-square min-h-11 min-w-11 cursor-pointer place-items-center rounded-lg border border-line bg-bg1 transition-[border-color,background-color] duration-[180ms] ease-hub hover:border-accent has-focus-visible:outline-2 has-focus-visible:outline-offset-1 has-focus-visible:outline-accent [&>svg]:opacity-35 [&>svg]:grayscale",
+            checked &&
+              "border-accent/40 bg-accent/10 [&>svg]:opacity-100 [&>svg]:grayscale-0",
+          )}
+          onPointerEnter={() => setHovered(true)}
+          onPointerLeave={() => setHovered(false)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+        >
+          {sourceIcon(source, 22)}
+          <span className="sr-only">{source}</span>
+          {/* Last in DOM so it paints above the glyph and is the pointer target. */}
+          <input
+            type="checkbox"
+            className="absolute inset-0 cursor-pointer appearance-none rounded-lg outline-none"
+            checked={checked}
+            onChange={onToggle}
+          />
+        </label>
+      </TooltipTrigger>
+      <TooltipContent>{source}</TooltipContent>
+    </Tooltip>
   );
 }

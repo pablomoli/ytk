@@ -1,10 +1,19 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { userEvent } from "vitest/browser";
 import { expect, test, vi } from "vitest";
 import { SourceSelect } from "./SourceSelect";
 import { SOURCES } from "./icons";
+import { TooltipProvider } from "./ui/tooltip";
+
+const renderSelect = (selection: React.ComponentProps<typeof SourceSelect>["selection"], onChange = () => {}) =>
+  render(
+    <TooltipProvider delayDuration={0}>
+      <SourceSelect selection={selection} onChange={onChange} />
+    </TooltipProvider>,
+  );
 
 test("exposes the sources as a named group of checkboxes", () => {
-  render(<SourceSelect selection={null} onChange={() => {}} />);
+  renderSelect(null);
 
   const group = screen.getByRole("group", { name: /filter by source/i });
   expect(group).toBeInTheDocument();
@@ -12,13 +21,13 @@ test("exposes the sources as a named group of checkboxes", () => {
 });
 
 test("every source starts checked now that none are hidden by default", () => {
-  render(<SourceSelect selection={null} onChange={() => {}} />);
+  renderSelect(null);
 
   for (const box of screen.getAllByRole("checkbox")) expect(box).toBeChecked();
 });
 
 test("youtube and instagram can be checked together", () => {
-  render(<SourceSelect selection={new Set(["youtube", "instagram"])} onChange={() => {}} />);
+  renderSelect(new Set(["youtube", "instagram"]));
 
   expect(screen.getByRole("checkbox", { name: /youtube/i })).toBeChecked();
   expect(screen.getByRole("checkbox", { name: /instagram/i })).toBeChecked();
@@ -29,7 +38,7 @@ test("youtube and instagram can be checked together", () => {
    would silently drop every other source. */
 test("unchecking one source from the default keeps the others", () => {
   const onChange = vi.fn();
-  render(<SourceSelect selection={null} onChange={onChange} />);
+  renderSelect(null, onChange);
 
   fireEvent.click(screen.getByRole("checkbox", { name: /youtube/i }));
 
@@ -44,16 +53,16 @@ test("unchecking one source from the default keeps the others", () => {
    below) and there would be nothing to widen. */
 test("'all sources' selects every source", () => {
   const onChange = vi.fn();
-  render(<SourceSelect selection={new Set(["youtube"])} onChange={onChange} />);
+  renderSelect(new Set(["youtube"]), onChange);
 
-  fireEvent.click(screen.getByRole("button", { name: /all sources/i }));
+  fireEvent.click(screen.getByRole("button", { name: /select all sources/i }));
 
   expect(onChange.mock.calls[0][0]).toEqual(new Set(SOURCES));
 });
 
 test("'all sources' is disabled on the default, which now covers everything", () => {
-  render(<SourceSelect selection={null} onChange={() => {}} />);
-  expect(screen.getByRole("button", { name: /all sources/i })).toBeDisabled();
+  renderSelect(null);
+  expect(screen.getByRole("button", { name: /select all sources/i })).toBeDisabled();
 });
 
 /* Reset is not "select everything" — it returns to the unchosen state, which
@@ -62,19 +71,39 @@ test("'all sources' is disabled on the default, which now covers everything", ()
    `null` means "not chosen" and tracks the default as it changes. */
 test("'defaults' returns to the default rather than selecting everything", () => {
   const onChange = vi.fn();
-  render(<SourceSelect selection={new Set(["tiktok"])} onChange={onChange} />);
+  renderSelect(new Set(["tiktok"]), onChange);
 
-  fireEvent.click(screen.getByRole("button", { name: /defaults/i }));
+  fireEvent.click(screen.getByRole("button", { name: /restore default sources/i }));
 
   expect(onChange).toHaveBeenCalledWith(null);
 });
 
 test("disables 'defaults' when already on the default", () => {
-  render(<SourceSelect selection={null} onChange={() => {}} />);
-  expect(screen.getByRole("button", { name: /defaults/i })).toBeDisabled();
+  renderSelect(null);
+  expect(screen.getByRole("button", { name: /restore default sources/i })).toBeDisabled();
 });
 
 test("disables 'all sources' when everything is already selected", () => {
-  render(<SourceSelect selection={new Set(SOURCES)} onChange={() => {}} />);
-  expect(screen.getByRole("button", { name: /all sources/i })).toBeDisabled();
+  renderSelect(new Set(SOURCES));
+  expect(screen.getByRole("button", { name: /select all sources/i })).toBeDisabled();
+});
+
+test("source icons disclose their names on keyboard focus", async () => {
+  renderSelect(null);
+  const youtube = screen.getByRole("checkbox", { name: "youtube" });
+
+  await act(async () => userEvent.click(youtube));
+
+  expect(await screen.findByRole("tooltip")).toHaveTextContent("youtube");
+});
+
+test("bulk source actions are compact named icon controls", () => {
+  renderSelect(new Set(["youtube"]));
+  const selectAll = screen.getByRole("button", { name: "Select all sources" });
+  const restore = screen.getByRole("button", { name: "Restore default sources" });
+
+  expect(selectAll).toHaveAttribute("data-slot", "icon-button");
+  expect(restore).toHaveAttribute("data-slot", "icon-button");
+  expect(selectAll.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+  expect(restore.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 });

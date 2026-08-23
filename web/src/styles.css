@@ -231,11 +231,6 @@ body {
   font-family: inherit;
 }
 
-.addbox-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
 .btn {
   background: #2a2a2a;
   color: #eee;
@@ -260,45 +255,6 @@ body {
   background: #2a2a2a;
   color: #666;
   cursor: default;
-}
-
-.progress {
-  color: #888;
-  font-size: 0.82rem;
-  min-height: 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.progress.running {
-  color: #e2b04a;
-}
-
-.progress-line {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-/* The title can be a full video name; keep the rail from stretching. */
-.progress-current {
-  color: #bbb;
-  font-size: 0.78rem;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.progress-hint {
-  color: #666;
-  font-size: 0.72rem;
-}
-
-.progress-failed {
-  color: #d08a7a;
-  font-size: 0.75rem;
 }
 
 .sentinel {
@@ -406,14 +362,6 @@ body {
   color: #555;
 }
 
-/* Multi-select source filter in the inbox rail (#126). Checkboxes, not chips:
-   several can be on at once, and the box is the thing that says so. */
-.source-select {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
 /* Pull feedback. Disabled buttons were the only sign anything was happening,
    which reads as a dead UI rather than a busy one. */
 .pull-status {
@@ -444,104 +392,6 @@ body {
   border-top-color: #e2b04a;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-.source-select-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.35rem;
-}
-
-/* One square tile per source: glyph only, name on hover. Selection is carried
-   by the tile's own fill and border rather than a checkbox the eye has to
-   find — but the input is still a real checkbox underneath, just not painted. */
-.source-option {
-  position: relative;
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1;
-  border: 1px solid #ffffff14;
-  border-radius: 8px;
-  background: #ffffff05;
-  color: #aaa;
-  cursor: pointer;
-  overflow: hidden;
-  transition:
-    border-color 0.15s,
-    background 0.15s,
-    opacity 0.15s;
-}
-
-/* Unselected sources read as switched off rather than merely unhighlighted;
-   the brand colours in the glyphs are strong enough that a subtler treatment
-   left every tile looking active. */
-.source-option svg {
-  opacity: 0.35;
-  filter: grayscale(1);
-  transition:
-    opacity 0.15s,
-    filter 0.15s;
-}
-
-.source-option.on {
-  border-color: #e2b04a66;
-  background: #e2b04a14;
-}
-
-.source-option.on svg {
-  opacity: 1;
-  filter: none;
-}
-
-.source-option:hover {
-  border-color: #e2b04a;
-}
-
-/* Visually hidden, not removed: this is the checkbox's accessible name. */
-.source-option input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.source-option-label {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 0 0.15rem;
-  /* Near-opaque: at 0.9 the brand colours ghosted through the name and made it
-     hard to read against the busier glyphs. */
-  background: #101010fa;
-  color: #eee;
-  font-size: 0.6rem;
-  text-align: center;
-  overflow-wrap: anywhere;
-  opacity: 0;
-  transition: opacity 0.12s;
-  pointer-events: none;
-}
-
-.source-option:hover .source-option-label,
-.source-option:has(input:focus-visible) .source-option-label {
-  opacity: 1;
-}
-
-/* Keyboard ring. focus-visible, not focus-within: a click parked focus on the checkbox and the ring stuck like hover. */
-.source-option:has(input:focus-visible) {
-  outline: 2px solid #e2b04a;
-  outline-offset: 1px;
-}
-
-.source-select-actions {
-  display: flex;
-  gap: 0.4rem;
-}
-
-.source-select-actions .btn {
-  flex: 1;
 }
 
 .thumb-wrap {
@@ -1415,71 +1265,6 @@ body {
 
 /* --- right-hand control rail layout --- */
 
-/* The rail and the grid are two full-height columns side by side, and the grid
-   is the one that scrolls. The rail is therefore on screen by construction —
-   no sticky offset, no viewport arithmetic, nothing that has to know how far
-   down the page this row starts (#134). */
-.hub-row {
-  display: flex;
-  /* override .hub-body's column direction (both classes are on this element) */
-  flex-direction: row;
-  align-items: stretch;
-  gap: 1rem;
-  flex: 1 1 0;
-  min-height: 0;
-}
-
-.grid-col {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  /* Scrolled cards fade at the clip line instead of being chopped mid-corner
-     directly under the nav (#21). Side padding keeps rounded corners, borders
-     and checkboxes inside the scroller's paint area. */
-  padding: 6px 6px 0;
-  mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 100%);
-}
-
-.rail {
-  width: 320px;
-  flex: 0 0 320px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  padding: 1rem;
-  box-sizing: border-box;
-  background: #181818;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.rail-scroll {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  min-height: 0;
-  /* Keeps the last widget from ending flush against the footer's rule, where
-     a heading cut mid-glyph reads as broken rather than as scrollable. */
-  padding-bottom: 0.6rem;
-}
-
-/* Pinned outside .rail-scroll: the ingest action must stay reachable no
-   matter how many widgets are expanded. */
-.rail-footer {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 0.7rem;
-  border-top: 1px solid var(--line);
-}
-
 .rail-widget > summary {
   cursor: pointer;
   list-style: none;
@@ -1534,14 +1319,6 @@ body {
   font-family: inherit;
 }
 
-.rail .addurls {
-  min-height: 2.2rem;
-}
-
-.rail .thought {
-  min-height: 8rem;
-}
-
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -1564,11 +1341,6 @@ body {
   border-color: #e2b04a;
   color: #241a05;
   font-weight: 600;
-}
-
-.selcount {
-  color: #bbb;
-  font-size: 0.85rem;
 }
 
 .card.selected {
@@ -1623,18 +1395,6 @@ body {
   opacity: 0.55;
 }
 
-.profile-rank-batch {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0.4rem 0 0.1rem;
-}
-
-.profile-rank-batch .btn {
-  padding: 0.32rem 0.7rem;
-  font-size: 0.8rem;
-}
-
 .btn.ghost {
   background: none;
   border: 1px solid var(--line);
@@ -1687,13 +1447,6 @@ body {
 
 .profile-rank-toggle input {
   accent-color: #e2b04a;
-}
-
-/* Selective source pull: a caret next to "refresh" opens a checkbox popover. */
-.btn.caret {
-  padding: 0.32rem 0.55rem;
-  font-size: 0.8rem;
-  line-height: 1;
 }
 
 /* Recap panel on the fresh feed. */
@@ -1781,24 +1534,6 @@ body {
 @keyframes spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 760px) {
-  .hub-row {
-    flex-direction: column;
-  }
-
-  .grid-col,
-  .rail {
-    width: 100%;
-    flex-basis: auto;
-  }
-
-  .rail {
-    position: static;
-    max-height: none;
-    order: -1;
   }
 }
 

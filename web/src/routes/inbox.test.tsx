@@ -1,5 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { page } from "vitest/browser";
 import { beforeEach, expect, test, vi } from "vitest";
+import type { JobStatus } from "../api/job";
+import { TooltipProvider } from "../components/ui/tooltip";
 
 let routeSearch: { sources?: string } = {};
 
@@ -37,6 +40,18 @@ vi.mock("../lib/useInfiniteWindow", () => ({
 
 const startRank = vi.fn();
 const ingestMutate = vi.fn();
+const idleJob: JobStatus = {
+  running: false,
+  total: 0,
+  done: 0,
+  current: null,
+  current_started: null,
+  queued: [],
+  failures: [],
+  annotated: 0,
+  linked: [],
+};
+let jobQuery = { data: idleJob };
 const queue = [
   { url: "new", source: "tiktok", text: "Newest ordinary item", shared_at: "2026-07-20" },
   { url: "match", source: "tiktok", text: "Strong profile match", shared_at: "2026-07-01" },
@@ -86,9 +101,7 @@ vi.mock("../api/queue", () => ({
   useQueue: () => ({ isLoading: false, isError: false, data: queue }),
 }));
 vi.mock("../api/job", () => ({
-  useJobStatus: () => ({
-    data: { running: false, total: 0, done: 0, current: null, queued: [], failures: [] },
-  }),
+  useJobStatus: () => jobQuery,
 }));
 vi.mock("../api/mutations", () => ({
   useAddUrls: () => ({ mutate: vi.fn(), isPending: false }),
@@ -107,7 +120,15 @@ import { Route } from "./inbox";
 function renderPage() {
   const Page = (Route as unknown as { options: { component: React.ComponentType } }).options
     .component;
-  return render(<Page />);
+  return render(
+    <TooltipProvider delayDuration={0}>
+      <div className="hub-shell">
+        <main className="hub-outlet">
+          <Page />
+        </main>
+      </div>
+    </TooltipProvider>,
+  );
 }
 
 const SHOW_MATCHES_KEY = "ytk:inbox:show-profile-matches";
@@ -118,6 +139,7 @@ beforeEach(() => {
   rankQuery = { data: completedRank, isError: false };
   startRank.mockClear();
   ingestMutate.mockClear();
+  jobQuery = { data: idleJob };
   localStorage.clear();
 });
 
@@ -266,10 +288,7 @@ test("reroll pages through stratified batches, moves the highlight, and wraps", 
 
 const selectCard = (label: string) =>
   fireEvent.click(screen.getByRole("checkbox", { name: `Select ${label}` }));
-const ingestButton = () =>
-  [...document.querySelectorAll(".rail-footer button")].find(
-    (b) => b.textContent?.trim() === "ingest",
-  ) as HTMLButtonElement;
+const ingestButton = () => screen.getByRole("button", { name: /ingest \d+ items?/i });
 
 test("selecting a flagged item surfaces its question above the thought box", () => {
   renderPage();
@@ -285,14 +304,14 @@ test("selecting a flagged item surfaces its question above the thought box", () 
   expect(block).toHaveTextContent("Flagged item");
   expect(block).toHaveTextContent("ana");
   // Above the existing thought box.
-  const thought = screen.getByLabelText("Thought to add to selected items");
+  const thought = screen.getByLabelText("Thought");
   expect(block.compareDocumentPosition(thought) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test("the reflection answer joins the ingest payload keyed by url", () => {
   renderPage();
   selectCard("Flagged item");
-  fireEvent.change(screen.getByLabelText("Reflection answer"), {
+  fireEvent.change(screen.getByLabelText("Reflection"), {
     target: { value: "it tracks my craft" },
   });
   fireEvent.click(ingestButton());
@@ -313,41 +332,144 @@ test("ingesting with the answer empty sends no reflections key", () => {
   expect(ingestMutate.mock.calls[0][0]).not.toHaveProperty("reflections");
 });
 
-test("the rail splits into five independently collapsible widgets", async () => {
+test("zero selection hides the ingest composer and its actions", async () => {
   const { container } = renderPage();
   await screen.findAllByRole("group");
-  /* Scoped to the rail's own <details> rather than every role="group" on the
-     page: the source filter is a group too, and counting it here would make
-     this assert something it does not mean. */
-  expect(container.querySelectorAll(".rail details").length).toBe(5);
+  expect(container.querySelectorAll(".rail details")).toHaveLength(3);
+  expect(screen.queryByText("ingest selection")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Thought")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /ingest \d+ items?/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /clear selection/i })).not.toBeInTheDocument();
 });
 
-test("queue and ingest start open, match and job start collapsed", async () => {
+test("selection reveals one contextual composer and combined ingest action", async () => {
+  const { container } = renderPage();
+  selectCard("Newest ordinary item");
+
+  expect(container.querySelectorAll(".rail details")).toHaveLength(4);
+  expect(screen.getByText("ingest selection")).toBeInTheDocument();
+  expect(screen.getByLabelText("Thought")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Ingest 1 item" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Clear selection" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "design" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+});
+
+test("queue starts open while profile match starts collapsed", async () => {
   renderPage();
   const openOf = (t: string) => (screen.getByText(t).closest("details") as HTMLDetailsElement).open;
   await screen.findByText("add to queue");
   expect(openOf("add to queue")).toBe(true);
-  expect(openOf("ingest selection")).toBe(true);
   expect(openOf("profile match")).toBe(false);
-  expect(openOf("job progress")).toBe(false);
+});
+
+test("running progress stays above the rail scroller", async () => {
+  jobQuery = {
+    data: {
+      ...idleJob,
+      running: true,
+      total: 4,
+      done: 1,
+      current: "new",
+      current_started: Math.floor(Date.now() / 1000) - 17,
+      queued: ["match", "other-match", "flagged"],
+    },
+  };
+  const { container } = renderPage();
+  const progress = screen.getByLabelText("Ingest job progress");
+  const scroll = container.querySelector(".rail-scroll");
+  const rail = screen.getByRole("complementary", { name: "Inbox controls" });
+
+  expect(progress).toHaveTextContent("3 items remaining");
+  expect(progress).toHaveTextContent("elapsed");
+  expect(progress).not.toHaveTextContent(/\d+\/\d+/);
+  expect(progress).not.toHaveTextContent(/~2 min|minute or two/i);
+  expect(rail).toContainElement(progress);
+  expect(scroll).not.toContainElement(progress);
+  expect(progress.nextElementSibling).toBe(scroll);
 });
 
 test("the ingest action renders outside the rail's scroll region", async () => {
   const { container } = renderPage();
-  await screen.findByText("add to queue");
+  selectCard("Newest ordinary item");
   const footer = container.querySelector(".rail-footer");
   const scroll = container.querySelector(".rail-scroll");
-  const ingest = [...container.querySelectorAll("button")].find(
-    (b) => b.textContent?.trim() === "ingest",
-  );
-  expect(footer).toBeTruthy();
-  expect(ingest && footer?.contains(ingest)).toBe(true);
-  expect(ingest && scroll?.contains(ingest)).toBe(false);
+  const ingest = screen.getByRole("button", { name: "Ingest 1 item" });
+  expect(footer).toContainElement(ingest);
+  expect(scroll).not.toContainElement(ingest);
 });
 
-test("the selected count renders in the pinned footer", async () => {
-  const { container } = renderPage();
-  await screen.findByText("add to queue");
-  const footer = container.querySelector(".rail-footer");
-  expect(footer?.querySelector(".selcount")).toBeTruthy();
+test("clear selection hides the composer without discarding its draft", () => {
+  renderPage();
+  selectCard("Newest ordinary item");
+  fireEvent.change(screen.getByLabelText("Thought"), { target: { value: "keep this draft" } });
+  fireEvent.click(screen.getByRole("button", { name: "design" }));
+
+  fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+  expect(screen.queryByLabelText("Thought")).not.toBeInTheDocument();
+
+  selectCard("Newest ordinary item");
+  expect(screen.getByLabelText("Thought")).toHaveValue("keep this draft");
+  expect(screen.getByRole("button", { name: "design" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("drafts clear only after ingest succeeds", () => {
+  renderPage();
+  selectCard("Flagged item");
+  fireEvent.change(screen.getByLabelText("Thought"), { target: { value: "a useful note" } });
+  fireEvent.change(screen.getByLabelText("Reflection"), { target: { value: "because it matters" } });
+  fireEvent.click(screen.getByRole("button", { name: "design" }));
+  fireEvent.click(ingestButton());
+
+  expect(screen.getByLabelText("Thought")).toHaveValue("a useful note");
+  expect(screen.getByLabelText("Reflection")).toHaveValue("because it matters");
+
+  const options = ingestMutate.mock.calls[0][1] as { onSuccess: () => void };
+  act(() => options.onSuccess());
+  expect(screen.queryByLabelText("Thought")).not.toBeInTheDocument();
+
+  selectCard("Flagged item");
+  expect(screen.getByLabelText("Thought")).toHaveValue("");
+  expect(screen.getByLabelText("Reflection")).toHaveValue("");
+  expect(screen.getByRole("button", { name: "design" })).toHaveAttribute("aria-pressed", "false");
+});
+
+test("queue inputs use visible labels and example placeholders", () => {
+  renderPage();
+  const urls = screen.getByLabelText("URLs");
+  expect(urls).toHaveAttribute("placeholder", expect.stringMatching(/^example:/i));
+  expect(screen.getByText("URLs").tagName).toBe("LABEL");
+});
+
+test.each([
+  [375, 812],
+  [390, 844],
+  [760, 900],
+  [761, 900],
+  [768, 1024],
+  [1440, 900],
+])("keeps progress, selection action, and cards reachable at %ix%i", async (width, height) => {
+  await page.viewport(width, height);
+  jobQuery = {
+    data: {
+      ...idleJob,
+      running: true,
+      total: 4,
+      done: 1,
+      current: "new",
+      current_started: Math.floor(Date.now() / 1000) - 17,
+      queued: ["match", "other-match", "flagged"],
+    },
+  };
+  renderPage();
+  selectCard("Reddit item");
+
+  expect(screen.getByLabelText("Ingest job progress")).toBeInViewport();
+  expect(screen.getByRole("button", { name: "Ingest 1 item" })).toBeInViewport();
+  expect(screen.getByText("Reddit item").closest(".card")).toBeInViewport();
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+
+  await page.viewport(1024, 768);
 });

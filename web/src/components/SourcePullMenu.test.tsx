@@ -12,7 +12,7 @@ const flushOpen = () =>
 
 test("lists every pullable source once opened", () => {
   render(<SourcePullMenu onPull={() => {}} />);
-  fireEvent.click(screen.getByRole("button", { name: "pull specific sources" }));
+  fireEvent.click(screen.getByRole("button", { name: "Pull specific sources" }));
 
   for (const s of PULL_SOURCES) {
     expect(screen.getByRole("checkbox", { name: s })).toBeInTheDocument();
@@ -23,23 +23,34 @@ test("lists every pullable source once opened", () => {
 test("pulls only the chosen sources", () => {
   const onPull = vi.fn();
   render(<SourcePullMenu onPull={onPull} />);
-  fireEvent.click(screen.getByRole("button", { name: "pull specific sources" }));
+  fireEvent.click(screen.getByRole("button", { name: "Pull specific sources" }));
 
   fireEvent.click(screen.getByRole("checkbox", { name: "instagram" }));
-  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /^pull/ }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /^Pull/ }));
 
   expect(onPull).toHaveBeenCalledWith(["instagram"]);
 });
 
 test("the confirm button is inert until something is chosen", () => {
   render(<SourcePullMenu onPull={() => {}} />);
-  fireEvent.click(screen.getByRole("button", { name: "pull specific sources" }));
-  expect(within(screen.getByRole("dialog")).getByRole("button", { name: /^pull/ })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Pull specific sources" }));
+  expect(within(screen.getByRole("dialog")).getByRole("button", { name: /^Pull/ })).toBeDisabled();
+});
+
+test("uses an icon trigger but keeps the pull confirmation labeled", () => {
+  render(<SourcePullMenu onPull={() => {}} />);
+  const trigger = screen.getByRole("button", { name: "Pull specific sources" });
+  expect(trigger).toHaveAttribute("data-slot", "icon-button");
+  expect(trigger.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole("checkbox", { name: "youtube" }));
+  expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Pull 1 source" })).toBeInTheDocument();
 });
 
 test("clicking inside the portaled popover does not dismiss it", async () => {
   render(<SourcePullMenu onPull={() => {}} />);
-  fireEvent.click(screen.getByRole("button", { name: "pull specific sources" }));
+  fireEvent.click(screen.getByRole("button", { name: "Pull specific sources" }));
   await flushOpen();
 
   const box = screen.getByRole("checkbox", { name: "youtube" });
@@ -52,7 +63,7 @@ test("clicking inside the portaled popover does not dismiss it", async () => {
 
 test("closes on an outside pointerdown and on Escape", async () => {
   render(<SourcePullMenu onPull={() => {}} />);
-  const caret = screen.getByRole("button", { name: "pull specific sources" });
+  const caret = screen.getByRole("button", { name: "Pull specific sources" });
 
   fireEvent.click(caret);
   await flushOpen();
@@ -72,7 +83,7 @@ test("renders outside the rail so a clipping container cannot cut it off", () =>
       <SourcePullMenu onPull={() => {}} />
     </div>,
   );
-  fireEvent.click(screen.getByRole("button", { name: "pull specific sources" }));
+  fireEvent.click(screen.getByRole("button", { name: "Pull specific sources" }));
 
   const menu = screen.getByRole("dialog");
   expect(container.querySelector(".rail")).not.toContainElement(menu);

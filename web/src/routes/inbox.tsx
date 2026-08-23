@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
+import {
+  ArrowClockwise,
+  ArrowCounterClockwise,
+  ArrowsClockwise,
+  X,
+} from "@phosphor-icons/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useQueue } from "../api/queue";
@@ -16,9 +22,11 @@ import { MasonryGrid } from "../components/MasonryGrid";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
 import { CountUp } from "../components/CountUp";
-import { IngestRing } from "../components/IngestRing";
+import { InboxJobProgress } from "../components/InboxJobProgress";
 import { ScrambleStatus } from "../components/ScrambleStatus";
 import { RailWidget } from "../components/RailWidget";
+import { Button } from "../components/ui/button";
+import { IconButton } from "../components/ui/icon-button";
 import { useInfiniteWindow } from "../lib/useInfiniteWindow";
 import { useBatchCursor } from "../lib/useBatchCursor";
 import { filterAndSortQueue } from "../lib/queueItems";
@@ -30,7 +38,6 @@ import {
   RAIL_QUEUE_PREF,
   RAIL_MATCH_PREF,
   RAIL_INGEST_PREF,
-  RAIL_JOB_PREF,
   RAIL_SOURCES_PREF,
   getPref,
   getStringPref,
@@ -258,6 +265,7 @@ function InboxPage() {
       {
         onSuccess: () => {
           setSel(new Set());
+          setChosenTags(new Set());
           setThought("");
           setReflection("");
         },
@@ -299,10 +307,16 @@ function InboxPage() {
 
   return (
     <div id="inbox-page" className="hub-page hub-page-fill">
-      <div className="hub-body hub-row">
-        <div className="grid-col">{body}</div>
-        <aside className="rail">
-          <div className="rail-scroll">
+      <div className="flex min-h-0 flex-1 flex-col items-stretch gap-4 p-4 min-[761px]:flex-row">
+        <div className="order-2 flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto px-1.5 pt-1.5 [mask-image:linear-gradient(to_bottom,transparent_0,#000_14px,#000_100%)] min-[761px]:order-none">
+          {body}
+        </div>
+        <aside
+          className="rail order-1 flex max-h-[52dvh] w-full flex-none flex-col gap-3.5 overflow-hidden rounded-[10px] border border-line bg-bg1 p-4 min-[761px]:order-none min-[761px]:max-h-none min-[761px]:w-80 min-[761px]:basis-80"
+          aria-label="Inbox controls"
+        >
+          <InboxJobProgress job={job.data} currentTitle={currentTitle} elapsed={elapsed} />
+          <div className="rail-scroll flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto pb-2">
             <RailWidget
               title="sources"
               prefKey={RAIL_SOURCES_PREF}
@@ -326,21 +340,29 @@ function InboxPage() {
             </RailWidget>
 
             <RailWidget title="add to queue" prefKey={RAIL_QUEUE_PREF} defaultOpen>
+              <label className="font-data text-xs tracking-[0.04em] text-ink2" htmlFor="inbox-urls">
+                URLs
+              </label>
               <textarea
-                className="addurls"
-                aria-label="URLs to add to the queue"
+                id="inbox-urls"
+                className="min-h-11"
                 value={urlsText}
                 onChange={handleUrlsChange}
-                placeholder="paste urls to add..."
+                placeholder="Example: https://youtube.com/watch?v=..."
                 rows={2}
               />
-              <div className="addbox-actions">
-                <button className="btn primary" onClick={handleAdd} disabled={addUrls.isPending}>
-                  add
-                </button>
-                <button className="btn" onClick={handleRefresh} disabled={refreshSources.isPending}>
-                  refresh
-                </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={handleAdd} disabled={addUrls.isPending}>
+                  Add
+                </Button>
+                <IconButton
+                  label="Refresh sources"
+                  onClick={handleRefresh}
+                  disabled={refreshSources.isPending}
+                  variant="secondary"
+                >
+                  <ArrowClockwise />
+                </IconButton>
                 <SourcePullMenu onPull={handleSelectivePull} disabled={refreshSources.isPending} />
               </div>
               {/* Disabled buttons were the only sign a pull was running, which
@@ -363,8 +385,8 @@ function InboxPage() {
             </RailWidget>
 
             <RailWidget title="profile match" prefKey={RAIL_MATCH_PREF}>
-              <button
-                className="btn"
+              <Button
+                variant="secondary"
                 onClick={handleRankByProfile}
                 disabled={profileRank.data?.state === "running" || startProfileRank.isPending}
               >
@@ -373,7 +395,7 @@ function InboxPage() {
                   : allPicks.length
                     ? "re-rank by profile"
                     : "rank by profile"}
-              </button>
+              </Button>
               {allPicks.length > 0 ? (
                 <label className="profile-rank-toggle">
                   <input
@@ -385,23 +407,33 @@ function InboxPage() {
                 </label>
               ) : null}
               {showMatches && allPicks.length > 0 && profileRank.data?.state !== "running" ? (
-                <div className="profile-rank-batch">
-                  <button className="btn" onClick={cursor.advance} disabled={batchCount <= 1}>
-                    reroll
-                  </button>
+                <div className="mt-2 flex items-center gap-2">
+                  <IconButton
+                    label="reroll"
+                    onClick={cursor.advance}
+                    disabled={batchCount <= 1}
+                    variant="secondary"
+                  >
+                    <ArrowsClockwise />
+                  </IconButton>
                   <span className="batch-indicator" aria-live="polite">
                     batch {activeBatch + 1}/{batchCount}
                   </span>
-                  <button className="btn ghost" onClick={cursor.reset} disabled={activeBatch === 0}>
-                    reset
-                  </button>
+                  <IconButton
+                    label="reset"
+                    onClick={cursor.reset}
+                    disabled={activeBatch === 0}
+                    variant="ghost"
+                  >
+                    <ArrowCounterClockwise />
+                  </IconButton>
                 </div>
               ) : null}
               <div
                 className={`profile-rank-status${profileRank.data?.state === "running" ? " running" : ""}`}
               >
                 {profileRank.data?.state === "running" ? (
-                  <span>scoring the full inbox · this can take a minute or two</span>
+                  <span>scoring the inbox</span>
                 ) : profileRank.data?.picks.length ? (
                   <span>
                     {activeHighlightCount} highlighted · {profileRank.data.candidates} text items
@@ -422,96 +454,80 @@ function InboxPage() {
               </div>
             </RailWidget>
 
-            <RailWidget title="ingest selection" prefKey={RAIL_INGEST_PREF} defaultOpen>
-              <div className="chips">
-                {(tags.data ?? []).map((t) => (
-                  <button
-                    key={t}
-                    className={`chip${chosenTags.has(t) ? " on" : ""}`}
-                    onClick={() => handleToggleTag(t)}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-              {reflectTarget ? (
-                <div className="mb-2 font-data text-[12.5px]" data-testid="rail-reflection">
-                  <div className="truncate text-mute">
-                    {(reflectTarget.text || reflectTarget.author || reflectTarget.url).slice(
-                      0,
-                      120,
-                    )}
-                    {reflectTarget.text && reflectTarget.author ? ` · ${reflectTarget.author}` : ""}
+            {sel.size > 0 ? (
+              <RailWidget title="ingest selection" prefKey={RAIL_INGEST_PREF} defaultOpen>
+                <fieldset className="m-0 border-0 p-0">
+                  <legend className="mb-1.5 font-data text-xs tracking-[0.04em] text-ink2">
+                    Tags
+                  </legend>
+                  <div className="flex flex-wrap gap-2">
+                    {(tags.data ?? []).map((t) => (
+                      <Button
+                        key={t}
+                        size="sm"
+                        variant={chosenTags.has(t) ? "default" : "outline"}
+                        aria-pressed={chosenTags.has(t)}
+                        onClick={() => handleToggleTag(t)}
+                      >
+                        {t}
+                      </Button>
+                    ))}
                   </div>
-                  <p className="my-1 italic text-ink2">{reflectTarget.reflection_question}</p>
-                  <input
-                    className="w-full rounded-[6px] border border-line bg-bg3 px-1.5 py-1 text-ink placeholder:text-mute"
-                    aria-label="Reflection answer"
-                    placeholder="answer (optional)"
-                    value={reflection}
-                    onChange={(e) => setReflection(e.target.value)}
-                  />
-                </div>
-              ) : null}
-              <textarea
-                className="thought"
-                aria-label="Thought to add to selected items"
-                value={thought}
-                onChange={handleThoughtChange}
-                placeholder="thought (optional)"
-              />
-            </RailWidget>
-
-            {/* Always mounted: the rail is four widgets, always. An idle
-                section stays out of the way by staying collapsed, not by
-                disappearing — the gate below only decides whether there is
-                anything to show inside it. */}
-            <RailWidget
-              title="job progress"
-              prefKey={RAIL_JOB_PREF}
-              forceOpenKey={job.data?.running ? job.data.total : null}
-            >
-              {job.data && (job.data.running || job.data.total > 0) ? (
-                <div className={`progress${job.data.running ? " running" : ""}`}>
-                  <span className="progress-line">
-                    <IngestRing
-                      done={job.data.done}
-                      total={job.data.total}
-                      running={job.data.running}
+                </fieldset>
+                {reflectTarget ? (
+                  <div className="mb-2 font-data text-[12.5px]" data-testid="rail-reflection">
+                    <div className="text-mute">
+                      {(reflectTarget.text || reflectTarget.author || reflectTarget.url).slice(
+                        0,
+                        120,
+                      )}
+                      {reflectTarget.text && reflectTarget.author
+                        ? ` · ${reflectTarget.author}`
+                        : ""}
+                    </div>
+                    <p className="my-1 italic text-ink2">{reflectTarget.reflection_question}</p>
+                    <label
+                      className="mb-1 block text-xs tracking-[0.04em] text-ink2"
+                      htmlFor="inbox-reflection"
+                    >
+                      Reflection
+                    </label>
+                    <input
+                      id="inbox-reflection"
+                      className="min-h-11 w-full rounded-[6px] border border-line bg-bg3 px-2 py-1.5 text-ink placeholder:text-mute"
+                      placeholder="Example: it connects to my current work"
+                      value={reflection}
+                      onChange={(e) => setReflection(e.target.value)}
                     />
-                    <span>
-                      <ScrambleStatus text={job.data.running ? "running" : "done"} />
-                      {" · "}
-                      {job.data.done}/{job.data.total}
-                      {job.data.running && elapsed ? ` · ${elapsed}` : ""}
-                    </span>
-                  </span>
-                  {job.data.running ? (
-                    <>
-                      <span className="progress-current" title={currentTitle}>
-                        <ScrambleStatus text={currentTitle} />
-                      </span>
-                      <span className="progress-hint">enrichment takes ~2 min per item</span>
-                    </>
-                  ) : null}
-                  {job.data.failures.length > 0 ? (
-                    <span className="progress-failed">{job.data.failures.length} failed</span>
-                  ) : null}
-                </div>
-              ) : null}
-            </RailWidget>
+                  </div>
+                ) : null}
+                <label
+                  className="mb-1 block font-data text-xs tracking-[0.04em] text-ink2"
+                  htmlFor="inbox-thought"
+                >
+                  Thought
+                </label>
+                <textarea
+                  id="inbox-thought"
+                  className="min-h-24"
+                  value={thought}
+                  onChange={handleThoughtChange}
+                  placeholder="Example: compare this with the last saved source"
+                />
+              </RailWidget>
+            ) : null}
           </div>
 
-          <div className="rail-footer">
-            <span className="selcount">{sel.size} selected</span>
-            <button
-              className="btn primary"
-              onClick={handleIngest}
-              disabled={sel.size === 0 || ingest.isPending}
-            >
-              ingest
-            </button>
-          </div>
+          {sel.size > 0 ? (
+            <div className="rail-footer flex flex-none items-center gap-2 border-t border-line pt-3">
+              <IconButton label="Clear selection" onClick={() => setSel(new Set())}>
+                <X />
+              </IconButton>
+              <Button className="flex-1" onClick={handleIngest} disabled={ingest.isPending}>
+                Ingest {sel.size} {sel.size === 1 ? "item" : "items"}
+              </Button>
+            </div>
+          ) : null}
         </aside>
       </div>
       {inspecting ? (

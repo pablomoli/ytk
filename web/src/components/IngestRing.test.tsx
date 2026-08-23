@@ -8,6 +8,7 @@ test("ring exposes progressbar semantics and fill fraction", () => {
   expect(ring).toHaveAttribute("role", "progressbar");
   expect(ring).toHaveAttribute("aria-valuenow", "3");
   expect(ring).toHaveAttribute("aria-valuemax", "8");
+  expect(ring).toHaveAttribute("aria-valuetext", "5 items remaining");
   const fill = container.querySelector(".ingest-ring-fill") as SVGCircleElement;
   expect(fill.style.strokeDashoffset).not.toBe("");
 });

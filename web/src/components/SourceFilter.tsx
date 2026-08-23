@@ -1,8 +1,15 @@
 import { SOURCES, sourceIcon } from "./icons";
 import { cn } from "../lib/utils";
+import { Toolbar, ToolbarButton } from "./ui/toolbar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
-// Single-select source filter: same icon-tile vocabulary as the inbox's
-// SourceSelect, one source at a time.
+// Single-select source filter for / and /library. Radix Toolbar gives the
+// chips one tab stop and arrow-key roving; the tooltip only echoes the name.
 export function SourceFilter({
   value,
   onChange,
@@ -12,21 +19,34 @@ export function SourceFilter({
   value?: string | undefined;
   onChange: (s?: string) => void;
 }) {
+  // Own provider: the chips mount in HubControls, outside any page-level one.
   return (
-    <span className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by source">
-      {SOURCES.map((s) => (
-        <button
-          key={s}
-          type="button"
-          className={cn("source-option size-9", value === s && "on")}
-          aria-pressed={value === s}
-          title={s}
-          onClick={() => onChange(value === s ? undefined : s)}
-        >
-          {sourceIcon(s, 18)}
-          <span className="source-option-label">{s}</span>
-        </button>
-      ))}
-    </span>
+    <TooltipProvider>
+      <Toolbar label="Filter by source" className="flex-wrap">
+        {SOURCES.map((s) => {
+          const on = value === s;
+          return (
+            <Tooltip key={s}>
+              <TooltipTrigger asChild>
+                <ToolbarButton
+                  size="icon"
+                  className={cn(
+                    "[&>svg]:opacity-40 [&>svg]:grayscale",
+                    on &&
+                      "border-accent/40 bg-accent/10 [&>svg]:opacity-100 [&>svg]:grayscale-0",
+                  )}
+                  aria-pressed={on}
+                  onClick={() => onChange(on ? undefined : s)}
+                >
+                  {sourceIcon(s, 20)}
+                  <span className="sr-only">{s}</span>
+                </ToolbarButton>
+              </TooltipTrigger>
+              <TooltipContent>{s}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </Toolbar>
+    </TooltipProvider>
   );
 }
