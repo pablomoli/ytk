@@ -553,18 +553,15 @@ function MapPage() {
                 <FunnelIcon />
               </IconButton>
             </PopoverTrigger>
-            <PopoverContent side="right" align="start" className="w-72">
-              <h2 className="m-0 px-2 py-1 font-data text-xs tracking-[0.08em] text-mute uppercase">
-                Filters
-              </h2>
-              <div className="grid gap-1" role="group" aria-label="Map filters">
+            <PopoverContent side="right" align="start" className="w-44 p-1">
+              <div className="grid" role="group" aria-label="Map filters">
                 {(["signal", "recent", ...(view === "all" ? ["media" as const] : []), "time"] as MapFilter[]).map(
                   (filter) => (
                     <Button
                       key={filter}
                       variant="ghost"
                       aria-pressed={filters[filter]}
-                      className="w-full justify-between aria-pressed:bg-bg3 aria-pressed:font-semibold aria-pressed:text-accent"
+                      className="min-h-8 w-full justify-between px-2 py-1 aria-pressed:bg-bg3 aria-pressed:font-semibold aria-pressed:text-accent"
                       onClick={() => dispatch({ type: "toggle-filter", filter })}
                     >
                       {filter[0].toUpperCase() + filter.slice(1)}
@@ -614,11 +611,8 @@ function MapPage() {
                 <SlidersHorizontalIcon />
               </IconButton>
             </PopoverTrigger>
-            <PopoverContent side="right" align="start" className="w-64">
-              <h2 className="m-0 px-2 py-1 font-data text-xs tracking-[0.08em] text-mute uppercase">
-                Layers
-              </h2>
-              <div className="grid gap-1" role="group" aria-label="Map layers">
+            <PopoverContent side="right" align="start" className="w-44 p-1">
+              <div className="grid" role="group" aria-label="Map layers">
                 {(Object.keys(visibleMapLayers(layout)) as MapLayer[])
                   .filter((layer) => visibleMapLayers(layout)[layer])
                   .map((layer) => (
@@ -626,7 +620,7 @@ function MapPage() {
                       key={layer}
                       variant="ghost"
                       aria-pressed={layers[layer]}
-                      className="w-full justify-between aria-pressed:bg-bg3 aria-pressed:font-semibold aria-pressed:text-accent"
+                      className="min-h-8 w-full justify-between px-2 py-1 aria-pressed:bg-bg3 aria-pressed:font-semibold aria-pressed:text-accent"
                       onClick={() => dispatch({ type: "toggle-layer", layer })}
                     >
                       {layer[0].toUpperCase() + layer.slice(1)}
