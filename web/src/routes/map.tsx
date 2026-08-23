@@ -167,7 +167,7 @@ function RoadPanel({
   onClose: () => void;
 }) {
   return (
-    <aside className="absolute left-[17rem] top-3 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
+    <aside className="absolute left-[18rem] top-3 z-10 max-h-[70vh] w-80 overflow-y-auto rounded-card border border-line bg-bg1/90 p-3 font-data text-sm text-ink backdrop-blur">
       <header className="mb-2 flex items-center justify-between">
         <span className="text-xs uppercase tracking-widest text-mute">road</span>
         <span>
