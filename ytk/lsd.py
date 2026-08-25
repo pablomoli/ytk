@@ -666,3 +666,315 @@ def deck_for(run_id: str) -> dict[str, Any]:
         raise FileNotFoundError(run_id)
     deck = cast(list[dict[str, Any]], json.loads(deck_file.read_text()))
     return {"run_id": run_id, "cards": deck, "ratings": load_ratings(run_id)}
+
+
+# ---------------------------------------------------------------- rung 0.5: newness
+
+
+class WhatIf(BaseModel):
+    title: str
+    body: str
+
+
+class PairIdeasV2(BaseModel):
+    build: BuildIdea
+    post: PostIdea
+    whatif: WhatIf
+
+
+# Phrases the first run repeated across hundreds of ideas (the 3-gram table in
+# docs/assets/53-lsd/README.md). Banned by name so the second run cannot lean on them.
+BANNED_PHRASES = (
+    "the piece argues",
+    "first experiment",
+    "a tool that",
+    "Note A",
+    "Note B",
+    "measure whether",
+)
+
+GEN_SYSTEM_V2 = """You are given two texts, A and B, from one person's reading. Do not summarise
+them, do not name them, do not say "A" or "B". Take the MECHANISM of one (how
+it works, its moving parts, its rule) and run it inside the WORLD of the other,
+then push the result into a domain that neither text lives in. The result
+should feel strange first and inevitable second. Concrete nouns, no hedging,
+no lists of options. Produce three things:
+
+build: something that could exist. title (under 8 words, no colon), pitch
+(2-3 sentences: what it is and the one mechanism it runs on),
+first_experiment (one sentence: the smallest thing that would show it works
+or fails).
+
+post: an angle for a piece. hook (one sentence, no dash characters, not a
+question), angle (2 sentences: the claim, and the leap that makes it).
+
+whatif: the unreasonable version. title (a what-if in under 12 words), body
+(3-4 sentences following it all the way, as if it were already true).
+
+Forbidden phrases: "the piece argues", "first experiment", "a tool that",
+"Note A", "Note B", "measure whether", "in this piece". Return only the JSON
+object."""
+
+SONNET = "claude-sonnet-5"
+
+
+def gen_prompt_v2(run: Run, pair: Pair) -> str:
+    a, b = run.notes[pair.i], run.notes[pair.j]
+    return f"### A\n{a.text}\n\n### B\n{b.text}"
+
+
+def structured_with_model(model: str | None) -> Structured:
+    def call(system: str, user: str, result: type[Any]) -> Any:
+        from ytk.sdk import structured
+
+        if model is None:
+            return structured(system, user, result, max_tokens=1400)
+        return structured(system, user, result, model=model, max_tokens=1400)
+
+    return call
+
+
+def generate_pair_v2(
+    run: Run,
+    index: int,
+    call: Structured,
+    sample: int = 0,
+) -> list[Candidate]:
+    pair = run.pairs[index]
+    ideas = cast(PairIdeasV2, call(GEN_SYSTEM_V2, gen_prompt_v2(run, pair), PairIdeasV2))
+    suffix = f"-s{sample}"
+    return [
+        Candidate(
+            id=f"{run.run_id}-{index}-build{suffix}",
+            pair_index=index,
+            kind="build",
+            title=ideas.build.title,
+            body=f"{ideas.build.pitch}\n\n{ideas.build.first_experiment}",
+        ),
+        Candidate(
+            id=f"{run.run_id}-{index}-post{suffix}",
+            pair_index=index,
+            kind="post",
+            title=ideas.post.hook,
+            body=ideas.post.angle,
+        ),
+        Candidate(
+            id=f"{run.run_id}-{index}-whatif{suffix}",
+            pair_index=index,
+            kind="whatif",
+            title=ideas.whatif.title,
+            body=ideas.whatif.body,
+        ),
+    ]
+
+
+def generate_v2(
+    run: Run,
+    call: Structured,
+    samples: int = 1,
+    checkpoint: Callable[[Run], object] | None = None,
+    log: Callable[[str], object] = print,
+) -> Run:
+    """Like generate(), with `samples` draws per pair, all kept in the run and
+    tagged by sample index; selection happens later, on embeddings."""
+    have: set[tuple[int, int]] = set()
+    for c in run.candidates:
+        s = int(c.id.rsplit("-s", 1)[1]) if "-s" in c.id else 0
+        have.add((c.pair_index, s))
+    todo = [(i, s) for i in range(len(run.pairs)) for s in range(samples) if (i, s) not in have]
+    for n, (index, s) in enumerate(todo, 1):
+        try:
+            run.candidates.extend(generate_pair_v2(run, index, call, sample=s))
+        except Exception as exc:
+            log(f"pair {index} sample {s} failed: {exc}")
+            continue
+        if checkpoint is not None:
+            checkpoint(run)
+        log(f"generated {n}/{len(todo)} (pair {index} s{s}, {run.pairs[index].pool})")
+    return run
+
+
+def select_farthest(run: Run, C: Vec, mu: Vec) -> list[int]:
+    """Temperature by selection. Per (pair, kind), keep the sample whose worst
+    similarity — to the corpus mean or to any idea already kept — is lowest.
+    Returns kept candidate row indices, in pair order."""
+    groups: dict[tuple[int, str], list[int]] = {}
+    for row, c in enumerate(run.candidates):
+        groups.setdefault((c.pair_index, c.kind), []).append(row)
+    mu_hat = (mu / np.linalg.norm(mu)).astype(np.float32)
+    kept: list[int] = []
+    for key in sorted(groups):
+        rows = groups[key]
+        scores: list[float] = []
+        for r in rows:
+            worst = float(C[r] @ mu_hat)
+            if kept:
+                worst = max(worst, float((C[kept] @ C[r]).max()))
+            scores.append(worst)
+        kept.append(rows[int(np.argmin(scores))])
+    return kept
+
+
+def newness(
+    run: Run,
+    rows: Sequence[int],
+    C: Vec,
+    X: Vec,
+    exclude_parents: bool = True,
+) -> dict[str, Any]:
+    """N1 spread, N2 voice, N3 distance, and the text stats, over `rows` of
+    the run's candidates. Medians, plus per-kind medians."""
+    if not rows:
+        return {}
+    mu = X.mean(axis=0)
+    mu_hat = mu / np.linalg.norm(mu)
+    Xc, _ = centre(X)
+    sub = C[list(rows)]
+    subc = sub - mu
+    subc /= np.linalg.norm(subc, axis=1, keepdims=True)
+    S = subc @ subc.T
+    np.fill_diagonal(S, -np.inf)
+    n1: npt.NDArray[np.float64] = (S.max(axis=1) if len(rows) > 1 else np.zeros(1)).astype(
+        np.float64
+    )
+    n2: npt.NDArray[np.float32] = sub @ mu_hat
+    sims = subc @ Xc.T
+    n3 = np.empty(len(rows))
+    for k, r in enumerate(rows):
+        s = sims[k].copy()
+        if exclude_parents:
+            pair = run.pairs[run.candidates[r].pair_index]
+            s[[pair.i, pair.j]] = -np.inf
+        n3[k] = s.max()
+    cands = [run.candidates[r] for r in rows]
+    posts = [c.title for c in cands if c.kind == "post"]
+    leak = sum(
+        1
+        for c in cands
+        if re.search(r"\bNote [AB]\b", c.body) or re.search(r"\bNote [AB]\b", c.title)
+    )
+    banned = sum(1 for c in cands for ph in BANNED_PHRASES[:3] if ph in c.body.lower())
+    kinds = sorted({c.kind for c in cands})
+    per_kind: dict[str, dict[str, float]] = {}
+    for kind in kinds:
+        ks = [k for k, c in enumerate(cands) if c.kind == kind]
+        per_kind[kind] = {
+            "n1": float(np.median([float(n1[k]) for k in ks])),
+            "n2": float(np.median([float(n2[k]) for k in ks])),
+            "n3": float(np.median([float(n3[k]) for k in ks])),
+        }
+    return {
+        "n": len(rows),
+        "n1": float(np.median(n1)),
+        "n2": float(np.median(n2)),
+        "n3": float(np.median(n3)),
+        "leak": leak,
+        "banned": banned,
+        "em_dash_hooks": (sum("—" in t for t in posts) / len(posts)) if posts else 0.0,
+        "per_kind": per_kind,
+    }
+
+
+# ---------------------------------------------------------------- rung 0.5: latents
+
+
+LATENT_FEATURES = Path(__file__).resolve().parents[1] / "experiments" / "sae_qwen" / "features.json"
+LATENT_SAE = Path(os.path.expanduser("~/.ytk/atlas_sae.npz"))
+
+
+def load_latents(
+    features_path: Path = LATENT_FEATURES, sae_path: Path = LATENT_SAE
+) -> tuple[list[Note], Vec]:
+    """Named native latents as pseudo-notes (name, rationale, exemplar titles)
+    with their unit decoder rows as vectors."""
+    import ast
+
+    d = cast(dict[str, Any], json.loads(features_path.read_text()))
+    feats = cast(list[dict[str, Any]], d["features"])
+    z = np.load(sae_path)
+    W = np.asarray(z["W_dec"], dtype=np.float32)
+    notes: list[Note] = []
+    vecs: list[Vec] = []
+    for f in feats:
+        idx = int(f["feature"])
+        name = str(f.get("name", "")).strip()
+        if not name:
+            continue
+        ex_raw = f.get("exemplars", [])
+        ex = cast(
+            list[dict[str, Any]], ast.literal_eval(ex_raw) if isinstance(ex_raw, str) else ex_raw
+        )
+        titles: list[str] = []
+        for e in ex:
+            t = str(e.get("title", "")).strip()
+            if t and t not in titles:
+                titles.append(t)
+            if len(titles) == 5:
+                break
+        text = f"{name}. {str(f.get('name_rationale', '')).strip()}\nSeen in: " + "; ".join(titles)
+        notes.append(Note(f"latent-{idx}", "latent", name, text[:TEXT_LIMIT]))
+        vecs.append(W[idx] / np.linalg.norm(W[idx]))
+    return notes, np.stack(vecs)
+
+
+def latent_run(seed: int, n: int, run_id: str) -> Run:
+    """A run whose 'notes' are latents; ORTHO is the bottom TAIL_PCT of
+    decoder cosine among named-latent pairs. Decoder rows carry no cone, so
+    centring is skipped and cos_c == cos_raw."""
+    notes, W = load_latents()
+    rng = np.random.default_rng(seed)
+    bg = background_cosines(W, rng, 50_000)
+    tail = float(np.percentile(bg, TAIL_PCT))
+    pairs = sample_pairs(W, W, "ortho", n, rng, tail)
+    return Run(
+        run_id=run_id,
+        seed=seed,
+        n_notes=len(notes),
+        mean_norm=float(np.linalg.norm(W.mean(axis=0))),
+        tail=tail,
+        background_std=float(bg.std()),
+        notes=notes,
+        pairs=pairs,
+    )
+
+
+N1_BAR, N2_BAR, N3_BAR = 0.39, 0.51, 0.33
+
+
+def rank_compare(
+    run: Run, rows: Sequence[int], C: Vec, X: Vec, top: int = DECK_TOP
+) -> dict[str, Any]:
+    """A4: judge-first top-`top` per kind vs novelty-first (ideas under all
+    three per-idea bars, then judge). Reports how many of each top set clear
+    the bars and how large the novel pool is."""
+    mu = X.mean(axis=0)
+    mu_hat = mu / np.linalg.norm(mu)
+    Xc, _ = centre(X)
+    sub = C[list(rows)]
+    subc = sub - mu
+    subc /= np.linalg.norm(subc, axis=1, keepdims=True)
+    S = subc @ subc.T
+    np.fill_diagonal(S, -np.inf)
+    n1 = S.max(axis=1)
+    n2 = sub @ mu_hat
+    sims = subc @ Xc.T
+    n3 = np.empty(len(rows))
+    for k, r in enumerate(rows):
+        pair = run.pairs[run.candidates[r].pair_index]
+        s = sims[k].copy()
+        s[[pair.i, pair.j]] = -np.inf
+        n3[k] = s.max()
+    passes = (n1 <= N1_BAR) & (n2 <= N2_BAR) & (n3 <= N3_BAR)
+    out: dict[str, Any] = {"novel_pool": int(passes.sum()), "n": len(rows)}
+    for kind in sorted({run.candidates[r].kind for r in rows}):
+        ks = [k for k, r in enumerate(rows) if run.candidates[r].kind == kind]
+        by_judge = sorted(ks, key=lambda k: -(run.candidates[rows[k]].judge or 0.0))[:top]
+        novel = [k for k in ks if passes[k]]
+        by_novel = sorted(novel, key=lambda k: -(run.candidates[rows[k]].judge or 0.0))[:top]
+        out[kind] = {
+            "judge_first_pass": int(sum(passes[k] for k in by_judge)),
+            "novelty_first_size": len(by_novel),
+            "judge_first_ids": [run.candidates[rows[k]].id for k in by_judge],
+            "novelty_first_ids": [run.candidates[rows[k]].id for k in by_novel],
+        }
+    return out
