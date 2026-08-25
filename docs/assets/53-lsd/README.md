@@ -120,7 +120,43 @@ inside their bands.
 
 ## C4 — where the ideas land
 
-*(pending: drawn from the run file once generation and novelty finish)*
+![C4](c4-landing.png)
+
+600 candidates from 300 pairs (one pair failed mid-response and was regenerated;
+three judge batches failed and were rescored, all resumable, all 600 scored).
+Each idea embedded as a document, then centred. Two readouts per idea: cosine
+to its nearest existing note that is not a parent, and cosine to its parents'
+midpoint.
+
+**Ideas stay near their parents, not near the corpus.** 80% of candidates sit
+closer to their own parents' midpoint than to any other note. The nearest
+foreign note is at 0.33 centred in every pool (3.7 background std above
+unrelated, about the level of a top-10 neighbour), so the generator is not
+paraphrasing an existing note. The midpoint tells the pools apart: NEAR 0.52,
+RAND 0.45, ORTHO 0.40 (r = 0.375 with the pair's own cosine). Two unrelated
+parents have a midpoint that describes their child worse, which is what an
+idea that is genuinely *between* two distant things should look like.
+
+**Disclosed: the judge leans toward the cone.** Mean judge score, build:
+NEAR 4.66, RAND 4.62, ORTHO 4.53 (ORTHO-NEAR -0.13, permutation p 0.13);
+post: NEAR 3.31, RAND 3.04, ORTHO 3.00 (-0.31, p 0.028). Section 18's
+prediction, that a coherence ranker without a null prefers the corpus voice,
+shows up as a small, consistent preference for pairs inside the cone. The
+judge is also lenient on build ideas (213 fives of 600 overall; 58-67 of each
+build pool's 100 score 5), so "judge top-5" is a tie-break among fives more
+often than a ranking. Both are exactly the properties G2 is registered to
+test against the owner's score; neither moves a bar.
+
+**Disclosed: orthogonal children lean harder into the cone.** Raw cosine to
+the corpus mean, build: ORTHO 0.613, RAND 0.585, NEAR 0.548 (|mu| = 0.508).
+Combining two distant notes produces text that is *more* corpus-generic in
+the shared direction, not less. Novelty in the residual space and
+genericness in the cone direction are not opposites here; a candidate can be
+both. This is the strongest argument for the owner's blind rating being the
+only ground truth the section accepts.
+
+Deck written: 60 cards, pool labels stripped, at
+`~/.ytk/lsd/runs/20260824-234313-deck.json`.
 
 ## C5, C6 — the owner's ratings
 
