@@ -26,6 +26,7 @@ from .batch_cli import batch_group as batch_command
 from .config import load_config
 from .enrich import enrich
 from .filter import FilterResult, check_post_enrichment, check_pre_transcript
+from .lsd_cli import lsd_group as lsd_command
 from .memo import (
     AUDIO_DIR,
 )
@@ -129,6 +130,7 @@ def cli():
 
 cli.add_command(work_command)
 cli.add_command(batch_command)
+cli.add_command(lsd_command)
 
 
 @cli.command()

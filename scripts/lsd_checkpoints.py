@@ -341,6 +341,119 @@ def c4(run: lsd.Run, out: Path) -> None:
     save(fig, out, "c4-landing.png")
 
 
+def c5(run: lsd.Run, out: Path) -> None:
+    ratings = lsd.load_ratings(run.run_id)
+    by_id = {c.id: c for c in run.candidates}
+    pts = [
+        (by_id[i].judge or 0.0, s)
+        for i, s in ratings.items()
+        if i in by_id and by_id[i].judge is not None
+    ]
+    if len(pts) < 10:
+        print("c5 skipped: fewer than 10 ratings")
+        return
+    rng = np.random.default_rng(run.seed + 13)
+    jx = np.array([p[0] for p in pts])
+    oy = np.array([p[1] for p in pts])
+    rho = lsd.spearman(list(jx), list(oy))
+    null = np.array([lsd.spearman(list(jx), list(rng.permutation(oy))) for _ in range(2000)])
+    p95 = float(np.percentile(null, 95))
+    fig, top = figure(
+        13,
+        6.8,
+        SECTION,
+        "C5 · JUDGE VS OWNER",
+        "Does the coherence judge's score track the owner's blind rating? Spearman against a permutation null",
+        f"{len(pts)} rated cards · rho = {rho:.3f} · null p95 {p95:.3f} · p = {float(np.mean(null >= rho)):.3f} · bar {lsd.G2_MIN_RHO} · {sha()}",
+    )
+    axes = fig.subplots(
+        1, 2, gridspec_kw={"top": top, "bottom": 0.12, "left": 0.06, "right": 0.98, "wspace": 0.18}
+    )
+    ax = axes[0]
+    jit = rng.uniform(-0.15, 0.15, size=(len(pts), 2))
+    ax.scatter(jx + jit[:, 0], oy + jit[:, 1], s=34, color=GOLD, alpha=0.8)
+    ax.set_xlim(0.5, 5.5)
+    ax.set_ylim(0.5, 5.5)
+    ax.axhline(lsd.YES - 0.5, color=RED, ls="--", lw=1)
+    panel_title(ax, "each card: judge score (x) against owner score (y); red = the yes line")
+    style_axes(ax)
+    ax.set_xlabel("judge 1-5", color=MUTED)
+    ax.set_ylabel("owner 1-5", color=MUTED)
+    ax = axes[1]
+    hist(ax, null, DIM, np.linspace(-0.6, 0.8, 90), alpha=1.0)
+    ax.axvline(rho, color=GOLD, lw=2)
+    ax.axvline(lsd.G2_MIN_RHO, color=RED, ls="--", lw=1.2)
+    panel_title(ax, "shuffled-rating null (grey), observed rho (gold), the bar (red)")
+    style_axes(ax)
+    ax.set_yticks([])
+    ax.set_xlabel("Spearman rho", color=MUTED)
+    verdict(
+        fig,
+        f"G2 {'PASS' if rho >= lsd.G2_MIN_RHO else 'FAIL'}: rho {rho:.2f} vs bar {lsd.G2_MIN_RHO}, null p95 {p95:.2f}",
+    )
+    save(fig, out, "c5-judge-vs-owner.png")
+
+
+def c6(run: lsd.Run, out: Path) -> None:
+    ratings = lsd.load_ratings(run.run_id)
+    if not ratings:
+        print("c6 skipped: no ratings")
+        return
+    res = lsd.gates(run, ratings, np.random.default_rng(run.seed + 13), permutations=200)
+    by_id = {c.id: c for c in run.candidates}
+    top_ids = {c.id for k in lsd.KINDS for p in lsd.POOLS for c in lsd.judge_top(run, k, p)}
+    base = [s >= lsd.YES for i, s in ratings.items() if i in by_id and i not in top_ids]
+    p_base = float(np.mean(base)) if base else 0.0
+    ks = np.arange(6)
+    from math import comb
+
+    binom = np.array([comb(5, int(k)) * p_base**k * (1 - p_base) ** (5 - k) for k in ks])
+    fig, top = figure(
+        13,
+        6.8,
+        SECTION,
+        "C6 · THE YIELD CLAIM",
+        "Owner-yes among each pool's judge-top-5, per kind, over the binomial band of the non-top cards",
+        " · ".join(
+            f"{k} "
+            + "/".join(
+                f"{p[:1].upper()}{res['hits_top'][k][p]}of{res['rated_top'][k][p]}"
+                for p in lsd.POOLS
+            )
+            for k in lsd.KINDS
+        )
+        + f" · non-top yes rate {p_base:.2f} · bar {lsd.G1_MIN_HITS} of 5 · {sha()}",
+    )
+    axes = fig.subplots(
+        1, 2, gridspec_kw={"top": top, "bottom": 0.12, "left": 0.06, "right": 0.98, "wspace": 0.18}
+    )
+    for ax, kind in zip(axes, lsd.KINDS, strict=True):
+        ax.barh(ks, binom / binom.max() * 0.9, color=DIM, height=0.8, left=-1.0)
+        for n, p in enumerate(lsd.POOLS):
+            ax.bar(n, res["hits_top"][kind][p], color=POOL_COLOR[p], width=0.7)
+        ax.axhline(lsd.G1_MIN_HITS - 0.5, color=RED, ls="--", lw=1.2)
+        ax.set_xticks([-0.55, 0, 1, 2])
+        ax.set_xticklabels(["chance", "ORTHO", "NEAR", "RAND"], color=MUTED)
+        ax.set_ylim(-0.5, 5.5)
+        ax.set_yticks(ks)
+        panel_title(
+            ax,
+            f"{kind}: yes among judge-top-5 (bars) vs 5-card binomial at the non-top rate (grey)",
+        )
+        style_axes(ax)
+        ax.set_ylabel("cards scored >= 4", color=MUTED)
+    verdict(
+        fig,
+        f"G1 {'PASS' if res['g1_pass'] else 'FAIL'}: "
+        + (
+            ", ".join(res["g1_kinds"])
+            if res["g1_kinds"]
+            else "ORTHO's top-5 never reaches 3 of 5 while beating NEAR"
+        ),
+    )
+    save(fig, out, "c6-yield.png")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=53)
@@ -366,6 +479,8 @@ def main() -> None:
     c2(run, Xc, out)
     c3(run, out)
     c4(run, out)
+    c5(run, out)
+    c6(run, out)
 
 
 if __name__ == "__main__":
