@@ -158,6 +158,52 @@ only ground truth the section accepts.
 Deck written: 60 cards, pool labels stripped, at
 `~/.ytk/lsd/runs/20260824-234313-deck.json`.
 
+## Rung 0.5 — newness (pre-registration, written before any arm ran)
+
+**The owner's readout.** Shown two cards from the deck, the owner said they
+read like the corpus. Measured (`scripts/lsd_pilot.py --baseline`): each idea
+is slightly farther from any note than notes are from each other (nearest
+note 0.33 vs the notes' own nearest-neighbour median 0.39), but the 600 ideas
+are a monoculture — an idea's nearest *idea* sits at 0.60, two random ideas
+at raw 0.35 against 0.25 for two random notes, effective dimensions 94 vs
+113, cone cosine 0.56 vs 0.51. Text: 165/300 hooks carry an em dash, 135/300
+open with The/Your/Why/What/Every, "the piece argues that" x58, "Note A/B"
+leaks into 142/600 bodies. The sampler is not the bottleneck (C1); the
+generator is: one low-temperature sample under a prompt that names the
+owner's register and demands a concrete project.
+
+**Newness gates**, all against the notes' own geometry, all medians:
+
+- **N1 spread** — an idea's nearest other idea in its arm <= 0.39 (the
+  notes' nearest-neighbour median). Baseline 0.60.
+- **N2 voice** — raw cosine to the corpus mean <= 0.51 (the notes' median).
+  Baseline 0.56.
+- **N3 distance** — nearest note (centred, parents excluded) <= 0.33 (the
+  notes' NN 25th percentile). Baseline 0.33.
+- **Text** — zero "Note A/B" leakage; em-dash hooks <= 30%.
+
+An arm passes when all four hold. N1 depends on n, so every arm is scored on
+the same 30 pairs (10 per pool, drawn once with seed 53 from the frozen run)
+and the baseline is those pairs' existing 60 ideas, not the full 600.
+
+**Arms, sequential, one lever each.** A0 baseline (existing ideas). A1 the
+analogy prompt: run the mechanism of A inside the world of B, in a domain
+neither note lives in, never name the notes, no project or experiment asked
+for, template phrases from the 3-gram table banned; kinds build, post, and a
+new `whatif`. A2 = A1 + four samples per pair, keeping per kind the sample
+farthest from the centroid of the arm's already-kept ideas (temperature by
+selection). A3 = A1 with Sonnet generating, Haiku still judging. A4 = no new
+calls: over A2's kept ideas, novelty-first ranking (pass N1-N3, then judge)
+vs judge-first, compared on how many of each top-5 pass the gates. A5 =
+latent pairs: the 287 named native latents, pairs from the bottom 10% of
+decoder cosine, each latent presented as its name, rationale, and five
+exemplar titles, generated with A1's prompt.
+
+**Predictions.** A1 moves N2 and the text stats most; A2 moves N1 most; A5
+has the lowest N3; A3 is unknown and is the one that would change the cost
+model. No arm is expected to pass all four; the section reports which gates
+each arm clears.
+
 ## C5, C6 — the owner's ratings
 
 *(pending: require the rating deck, which requires the approved hub page)*
