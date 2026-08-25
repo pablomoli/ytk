@@ -505,3 +505,132 @@ def load_run(run_id: str) -> Run:
         pairs=[Pair(**p) for p in cast(list[dict[str, Any]], d["pairs"])],
         candidates=[Candidate(**c) for c in cast(list[dict[str, Any]], d.get("candidates", []))],
     )
+
+
+# ---------------------------------------------------------------- scoring
+
+
+YES = 4.0  # owner score at or above this counts as "would build / would publish"
+G1_MIN_HITS = 3
+G2_MIN_RHO = 0.30
+
+
+@dataclass
+class Rating:
+    run_id: str
+    candidate_id: str
+    score: float
+    note: str = ""
+    ts: str = ""
+
+
+def ratings_path() -> Path:
+    return LSD_HOME / "ratings.jsonl"
+
+
+def append_rating(rating: Rating) -> None:
+    path = ratings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as fh:
+        fh.write(json.dumps(asdict(rating)) + "\n")
+
+
+def load_ratings(run_id: str) -> dict[str, float]:
+    """candidate id -> latest owner score for one run."""
+    path = ratings_path()
+    if not path.exists():
+        return {}
+    out: dict[str, float] = {}
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        d = cast(dict[str, Any], json.loads(line))
+        if d.get("run_id") == run_id:
+            out[str(d["candidate_id"])] = float(d["score"])
+    return out
+
+
+def _ranks(a: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Average ranks, ties shared."""
+    order = np.argsort(a, kind="stable")
+    ranks = np.empty(len(a), dtype=np.float64)
+    ranks[order] = np.arange(1, len(a) + 1, dtype=np.float64)
+    for v in np.unique(a):
+        m = a == v
+        if m.sum() > 1:
+            ranks[m] = ranks[m].mean()
+    return ranks
+
+
+def spearman(x: Sequence[float], y: Sequence[float]) -> float:
+    xa, ya = np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64)
+    if len(xa) < 3 or xa.std() == 0 or ya.std() == 0:
+        return 0.0
+    return float(np.corrcoef(_ranks(xa), _ranks(ya))[0, 1])
+
+
+def judge_top(run: Run, kind: str, pool: str, top: int = DECK_TOP) -> list[Candidate]:
+    scored = [
+        c
+        for c in run.candidates
+        if c.kind == kind and c.judge is not None and run.pairs[c.pair_index].pool == pool
+    ]
+    scored.sort(key=lambda c: (-(c.judge or 0.0), c.id))
+    return scored[:top]
+
+
+def gates(
+    run: Run, ratings: dict[str, float], rng: np.random.Generator, permutations: int = 2000
+) -> dict[str, Any]:
+    """G1 and G2 against the registered bars, plus the disclosed readouts.
+    Only this function ever joins a rating to a pool label."""
+    hits: dict[str, dict[str, int]] = {}
+    rated_top: dict[str, dict[str, int]] = {}
+    for kind in KINDS:
+        hits[kind], rated_top[kind] = {}, {}
+        for pool in POOLS:
+            ids = [c.id for c in judge_top(run, kind, pool)]
+            got = [ratings[i] for i in ids if i in ratings]
+            hits[kind][pool] = sum(s >= YES for s in got)
+            rated_top[kind][pool] = len(got)
+    g1_kinds = [
+        k for k in KINDS if hits[k]["ortho"] >= G1_MIN_HITS and hits[k]["ortho"] > hits[k]["near"]
+    ]
+    by_id = {c.id: c for c in run.candidates}
+    pairs = [
+        (by_id[i].judge or 0.0, s)
+        for i, s in ratings.items()
+        if i in by_id and by_id[i].judge is not None
+    ]
+    jx = [p[0] for p in pairs]
+    oy = [p[1] for p in pairs]
+    rho = spearman(jx, oy)
+    null = (
+        np.array([spearman(jx, list(rng.permutation(oy))) for _ in range(permutations)])
+        if pairs
+        else np.zeros(1)
+    )
+    pool_mean: dict[str, dict[str, float | None]] = {}
+    for kind in KINDS:
+        pool_mean[kind] = {}
+        for pool in POOLS:
+            got = [
+                s
+                for i, s in ratings.items()
+                if i in by_id
+                and by_id[i].kind == kind
+                and run.pairs[by_id[i].pair_index].pool == pool
+            ]
+            pool_mean[kind][pool] = float(np.mean(got)) if got else None
+    return {
+        "rated": len(ratings),
+        "hits_top": hits,
+        "rated_top": rated_top,
+        "g1_pass": bool(g1_kinds),
+        "g1_kinds": g1_kinds,
+        "rho": rho,
+        "rho_null_p95": float(np.percentile(null, 95)),
+        "rho_p": float(np.mean(null >= rho)) if pairs else 1.0,
+        "g2_pass": rho >= G2_MIN_RHO,
+        "owner_mean_by_pool": pool_mean,
+    }
