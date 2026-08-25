@@ -96,7 +96,7 @@ function LsdPage() {
           <header className="flex items-baseline justify-between gap-4">
             <span className="font-data text-xs tracking-[0.08em] text-mute uppercase">{current.kind}</span>
             <span className="font-data text-xs tracking-[0.03em] text-mute lowercase">
-              card {done + 1} of {cards.length}
+              card {revealed ? done : done + 1} of {cards.length}
             </span>
           </header>
           <h1 className="m-0 font-display text-2xl leading-tight text-ink">{current.title}</h1>
