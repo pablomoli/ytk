@@ -226,8 +226,9 @@ function InboxPage() {
   const [pulling, setPulling] = useState<string[] | undefined>(undefined);
 
   const handleRefresh = () => {
-    setPulling(undefined); // plain refresh: all sources, cadence-respecting
-    refreshSources.mutate(undefined);
+    setPulling(undefined);
+    // A click is intent; the cadence window exists for the automatic poll.
+    refreshSources.mutate({ force: true });
   };
 
   const handleSelectivePull = (only: string[]) => {

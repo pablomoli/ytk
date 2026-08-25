@@ -4,9 +4,9 @@ import type { PullResult } from "../lib/pullStatus";
 
 export const addUrls = (urls: string[]) => apiSend("/api/queue/add", "POST", { urls });
 
-/* No args -> pull every source, non-forced (the plain "refresh" button, which
-   respects the per-source cadence throttle). A selective pull from the source
-   menu passes `only` and forces, since the user explicitly picked those now. */
+/* No args -> every source, cadence-respecting (the page-load poll). Both
+   buttons force: the plain refresh for all sources, the pull-only menu for
+   the chosen subset. */
 export const refreshSources = (opts?: { only?: string[]; force?: boolean }) => {
   const params = new URLSearchParams();
   if (opts?.force) params.set("force", "true");
