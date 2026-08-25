@@ -1,7 +1,14 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiGet, apiSend, queryClient } from "./client";
 
-export type LsdKind = "build" | "post";
+export type LsdKind = "third" | "build" | "post" | "whatif";
+
+export type LsdExtra = {
+  trail?: string[];
+  bridge?: string;
+  consequence?: string;
+  question?: string;
+};
 
 export type LsdCard = {
   id: string;
@@ -9,6 +16,7 @@ export type LsdCard = {
   title: string;
   body: string;
   parents: { id: string; title: string }[];
+  extra?: LsdExtra;
 };
 
 export type LsdRun = { run_id: string; cards: number; rated: number };

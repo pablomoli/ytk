@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useLsdDeck, useLsdRuns, useRateCard } from "../api/lsd";
-import type { LsdCard } from "../api/lsd";
 import { HubControls } from "../components/HubControls";
 import { Skeletons } from "../components/Skeletons";
 import { EmptyState, ErrorState } from "../components/StateViews";
@@ -16,10 +15,18 @@ export const Route = createFileRoute("/lsd")({
 const SCORES = ["1", "2", "3", "4", "5"] as const;
 const YES = 4;
 
-const KIND_PROMPT: Record<LsdCard["kind"], string> = {
-  build: "would you build this?",
-  post: "would you publish this?",
-};
+// One question for every kind: the deck exists to show new things, not to
+// ship them. 4+ means it was new and it holds.
+const QUESTION = "did this show you something you had not seen?";
+
+function Scaffold({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="font-data text-xs tracking-[0.08em] text-mute uppercase">{label}</span>
+      <p className="m-0 text-sm leading-relaxed text-ink2">{text}</p>
+    </div>
+  );
+}
 
 /* Section 53's rating deck. One card at a time, pool never shown, parents
    hidden until the card is rated: a NEAR pair's twin titles would unblind
@@ -104,7 +111,7 @@ function LsdPage() {
 
           {!revealed ? (
             <div className="flex flex-col gap-3">
-              <SegmentedControl label={KIND_PROMPT[current.kind]} value={score} onValueChange={submit}>
+              <SegmentedControl label={QUESTION} value={score} onValueChange={submit}>
                 {SCORES.map((s) => (
                   <SegmentedControlItem key={s} value={s} aria-label={`score ${s}`} disabled={rate.isPending}>
                     {s}
@@ -112,7 +119,7 @@ function LsdPage() {
                 ))}
               </SegmentedControl>
               <span className="font-data text-xs tracking-[0.03em] text-mute lowercase">
-                1 no · 3 maybe · {YES}+ yes. keys 1-5 rate.
+                1 never thought it · 3 adjacent to something I had · {YES}+ new and it holds. keys 1-5.
               </span>
               <textarea
                 aria-label="note"
@@ -140,6 +147,21 @@ function LsdPage() {
                   </li>
                 ))}
               </ul>
+              {current.extra?.bridge && <Scaffold label="bridge" text={current.extra.bridge} />}
+              {current.extra?.consequence && (
+                <Scaffold label="consequence" text={current.extra.consequence} />
+              )}
+              {current.extra?.question && <Scaffold label="question" text={current.extra.question} />}
+              {current.extra?.trail && current.extra.trail.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <span className="font-data text-xs tracking-[0.08em] text-mute uppercase">trail</span>
+                  <ol className="m-0 flex list-decimal flex-col gap-0.5 pl-5 font-data text-xs text-ink2">
+                    {current.extra.trail.map((step, k) => (
+                      <li key={k}>{step}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
               <Button onClick={next} className="self-start">
                 next
               </Button>

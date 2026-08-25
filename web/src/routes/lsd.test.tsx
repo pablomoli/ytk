@@ -19,6 +19,7 @@ const cards: LsdCard[] = [
       { id: "a", title: "What is Applied Math, Really?" },
       { id: "b", title: "WigglyPaint hex-color trick" },
     ],
+    extra: { bridge: "same shape", trail: ["step one", "step two"], question: "why?" },
   },
   {
     id: "r-1-post",
@@ -55,6 +56,8 @@ test("shows the first unrated card with its kind and hides the parents", () => {
   expect(screen.getByRole("heading", { name: "Hidden-State Doodler" })).toBeInTheDocument();
   expect(screen.getByText("build")).toBeInTheDocument();
   expect(screen.queryByText("What is Applied Math, Really?")).not.toBeInTheDocument();
+  expect(screen.queryByText("same shape")).not.toBeInTheDocument();
+  expect(screen.getByText("did this show you something you had not seen?")).toBeInTheDocument();
   expect(screen.getByText("0 of 2 rated")).toBeInTheDocument();
 });
 
@@ -68,6 +71,8 @@ test("rating sends the score and only then reveals the parents", () => {
   act(() => opts.onSuccess());
   expect(screen.getByText("What is Applied Math, Really?")).toBeInTheDocument();
   expect(screen.getByText("WigglyPaint hex-color trick")).toBeInTheDocument();
+  expect(screen.getByText("same shape")).toBeInTheDocument();
+  expect(screen.getByText("step two")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "next" })).toBeInTheDocument();
 });
 
