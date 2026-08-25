@@ -634,3 +634,35 @@ def gates(
         "g2_pass": rho >= G2_MIN_RHO,
         "owner_mean_by_pool": pool_mean,
     }
+
+
+# ---------------------------------------------------------------- hub
+
+
+def list_runs() -> list[dict[str, Any]]:
+    """Runs with a written deck, newest first, with rating progress."""
+    out: list[dict[str, Any]] = []
+    runs_dir = LSD_HOME / "runs"
+    if not runs_dir.exists():
+        return out
+    for deck_file in sorted(runs_dir.glob("*-deck.json"), reverse=True):
+        run_id = deck_file.name.removesuffix("-deck.json")
+        deck = cast(list[dict[str, Any]], json.loads(deck_file.read_text()))
+        rated = load_ratings(run_id)
+        out.append(
+            {
+                "run_id": run_id,
+                "cards": len(deck),
+                "rated": sum(1 for c in deck if c["id"] in rated),
+            }
+        )
+    return out
+
+
+def deck_for(run_id: str) -> dict[str, Any]:
+    """The blind deck plus the owner's ratings so far. Cards never carry pools."""
+    deck_file = run_path(run_id).with_name(f"{run_id}-deck.json")
+    if not deck_file.exists():
+        raise FileNotFoundError(run_id)
+    deck = cast(list[dict[str, Any]], json.loads(deck_file.read_text()))
+    return {"run_id": run_id, "cards": deck, "ratings": load_ratings(run_id)}

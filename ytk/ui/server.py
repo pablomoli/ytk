@@ -424,6 +424,47 @@ async def rec_status_api(key: str, req: RecStatusRequest):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.get("/api/lsd/runs")
+async def lsd_runs_api():
+    """Runs with a rating deck, newest first (section 53)."""
+    from ytk import lsd
+
+    return {"runs": lsd.list_runs()}
+
+
+@app.get("/api/lsd/deck")
+async def lsd_deck_api(run: str):
+    """The blind deck for one run: cards without pool labels, plus ratings so far."""
+    from ytk import lsd
+
+    try:
+        return lsd.deck_for(run)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"no deck for run {run}")
+
+
+class LsdRateRequest(BaseModel):
+    run_id: str
+    candidate_id: str
+    score: int = Field(ge=1, le=5)
+    note: str = ""
+
+
+@app.post("/api/lsd/rate")
+async def lsd_rate_api(req: LsdRateRequest):
+    """Append one owner rating; the last rating per candidate wins."""
+    from datetime import datetime
+
+    from ytk import lsd
+
+    lsd.append_rating(
+        lsd.Rating(
+            req.run_id, req.candidate_id, float(req.score), req.note, datetime.now(UTC).isoformat()
+        )
+    )
+    return {"ok": True}
+
+
 def _exemplar_thumbs(titles: list[str]) -> dict[str, str]:
     """title -> /vault-media rel path for exemplars whose thumbnail exists.
 
@@ -1305,6 +1346,7 @@ _SPA_ROUTES = {
     "map",
     "garden",
     "growth",
+    "lsd",
     "profile",
     "settings",
     "channels",

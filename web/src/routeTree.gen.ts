@@ -16,6 +16,7 @@ import { Route as RecsRouteImport } from './routes/recs'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as OrbRouteImport } from './routes/orb'
 import { Route as MapRouteImport } from './routes/map'
+import { Route as LsdRouteImport } from './routes/lsd'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as GrowthRouteImport } from './routes/growth'
@@ -60,6 +61,11 @@ const OrbRoute = OrbRouteImport.update({
 const MapRoute = MapRouteImport.update({
   id: '/map',
   path: '/map',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LsdRoute = LsdRouteImport.update({
+  id: '/lsd',
+  path: '/lsd',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LibraryRoute = LibraryRouteImport.update({
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/growth': typeof GrowthRoute
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
+  '/lsd': typeof LsdRoute
   '/map': typeof MapRoute
   '/orb': typeof OrbRoute
   '/profile': typeof ProfileRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByTo {
   '/growth': typeof GrowthRoute
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
+  '/lsd': typeof LsdRoute
   '/map': typeof MapRoute
   '/orb': typeof OrbRoute
   '/profile': typeof ProfileRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/growth': typeof GrowthRoute
   '/inbox': typeof InboxRoute
   '/library': typeof LibraryRoute
+  '/lsd': typeof LsdRoute
   '/map': typeof MapRoute
   '/orb': typeof OrbRoute
   '/profile': typeof ProfileRoute
@@ -182,6 +191,7 @@ export interface FileRouteTypes {
     | '/growth'
     | '/inbox'
     | '/library'
+    | '/lsd'
     | '/map'
     | '/orb'
     | '/profile'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/growth'
     | '/inbox'
     | '/library'
+    | '/lsd'
     | '/map'
     | '/orb'
     | '/profile'
@@ -220,6 +231,7 @@ export interface FileRouteTypes {
     | '/growth'
     | '/inbox'
     | '/library'
+    | '/lsd'
     | '/map'
     | '/orb'
     | '/profile'
@@ -240,6 +252,7 @@ export interface RootRouteChildren {
   GrowthRoute: typeof GrowthRoute
   InboxRoute: typeof InboxRoute
   LibraryRoute: typeof LibraryRoute
+  LsdRoute: typeof LsdRoute
   MapRoute: typeof MapRoute
   OrbRoute: typeof OrbRoute
   ProfileRoute: typeof ProfileRoute
@@ -300,6 +313,13 @@ declare module '@tanstack/react-router' {
       path: '/map'
       fullPath: '/map'
       preLoaderRoute: typeof MapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lsd': {
+      id: '/lsd'
+      path: '/lsd'
+      fullPath: '/lsd'
+      preLoaderRoute: typeof LsdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/library': {
@@ -384,6 +404,7 @@ const rootRouteChildren: RootRouteChildren = {
   GrowthRoute: GrowthRoute,
   InboxRoute: InboxRoute,
   LibraryRoute: LibraryRoute,
+  LsdRoute: LsdRoute,
   MapRoute: MapRoute,
   OrbRoute: OrbRoute,
   ProfileRoute: ProfileRoute,

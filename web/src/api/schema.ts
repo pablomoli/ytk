@@ -202,9 +202,9 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Queue Profile Rank Api
-     * @description Start the expensive, on-demand profile ranking for pending items.
-     */
+         * Queue Profile Rank Api
+         * @description Start the expensive, on-demand profile ranking for pending items.
+         */
     post: operations["queue_profile_rank_api_api_queue_profile_rank_post"];
     delete?: never;
     options?: never;
@@ -220,12 +220,29 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Queue Profile Rank Status Api
-     * @description Return the active rank job or the last result cached on disk.
-     */
+         * Queue Profile Rank Status Api
+         * @description Return the active rank job or the last result cached on disk.
+         */
     get: operations["queue_profile_rank_status_api_api_queue_profile_rank_status_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/recap": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Recap Api */
+    post: operations["recap_api_api_recap_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -300,6 +317,60 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/reflect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reflect Api */
+    post: operations["reflect_api_api_reflect_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/reflect/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Reflect Status Api */
+    get: operations["reflect_status_api_api_reflect_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/reflect-answer": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+         * Reflect Answer Api
+         * @description Store (or clear, with an empty answer) a pending item's reflection.
+         */
+    post: operations["reflect_answer_api_api_reflect_answer_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/fresh": {
     parameters: {
       query?: never;
@@ -310,6 +381,264 @@ export interface paths {
     /** Fresh Api */
     get: operations["fresh_api_api_fresh_get"];
     put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/path": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Path Api */
+    get: operations["path_api_api_path_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/library": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Library Api
+         * @description The whole ingested store as cards — the fresh feed without the window.
+         */
+    get: operations["library_api_api_library_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/channels": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Channels Api
+         * @description Creators you consume, grouped and loved-first, for the /channels page.
+         */
+    get: operations["channels_api_api_channels_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/channels/{key}/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+         * Channel Status Api
+         * @description Set a creator's loved/muted flag (null clears it).
+         */
+    post: operations["channel_status_api_api_channels__key__status_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/recs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Recs Api
+         * @description Resolved movie/show/anime/book/manga recommendations for the /recs page.
+         */
+    get: operations["recs_api_api_recs_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/recs/{key}/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+         * Rec Status Api
+         * @description Set a rec's want/seen/skip flag (null clears it).
+         */
+    post: operations["rec_status_api_api_recs__key__status_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/lsd/runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Lsd Runs Api
+         * @description Runs with a rating deck, newest first (section 53).
+         */
+    get: operations["lsd_runs_api_api_lsd_runs_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/lsd/deck": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Lsd Deck Api
+         * @description The blind deck for one run: cards without pool labels, plus ratings so far.
+         */
+    get: operations["lsd_deck_api_api_lsd_deck_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/lsd/rate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+         * Lsd Rate Api
+         * @description Append one owner rating; the last rating per candidate wins.
+         */
+    post: operations["lsd_rate_api_api_lsd_rate_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Profile Api
+         * @description The latest interest snapshot, shaped for the /profile page.
+         */
+    get: operations["profile_api_api_profile_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/profile/run": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Profile Run Api */
+    post: operations["profile_run_api_api_profile_run_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/garden-buckets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Garden Buckets Get */
+    get: operations["garden_buckets_get_api_garden_buckets_get"];
+    /**
+         * Garden Buckets Put
+         * @description Save the bucket file VERBATIM after validation — it is hand-authored
+         *     yaml whose comments document the matching rules; round-tripping through a
+         *     parser would destroy them.
+         */
+    put: operations["garden_buckets_put_api_garden_buckets_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/growth/philosophy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Growth Philosophy Get */
+    get: operations["growth_philosophy_get_api_growth_philosophy_get"];
+    /**
+         * Growth Philosophy Put
+         * @description Save verbatim — hand-authored markdown, same contract as garden-buckets.
+         */
+    put: operations["growth_philosophy_put_api_growth_philosophy_put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -359,9 +688,12 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Ready Api
-     * @description Readiness of the search subsystem, for the UI's warming indicator.
-     */
+         * Ready Api
+         * @description Readiness of the search subsystem, for the UI's warming indicator.
+         *
+         *     capture_problems surfaces dead capture sources (e.g. chat.db access lost
+         *     to a TCC reset) so a broken pipeline is visible instead of silent.
+         */
     get: operations["ready_api_api_ready_get"];
     put?: never;
     post?: never;
@@ -379,9 +711,9 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Imessage Warm Api
-     * @description Still-warm self-note sessions, for the inbox 'brewing' card.
-     */
+         * Imessage Warm Api
+         * @description Still-warm self-note sessions, for the inbox 'brewing' card.
+         */
     get: operations["imessage_warm_api_api_imessage_warm_get"];
     put?: never;
     post?: never;
@@ -399,12 +731,12 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Inbox Search Api
-     * @description Visual+text search for the inbox picker.
-     *
-     *     scope=ingested: note-backed covers (re-ingest candidates).
-     *     scope=pending: covers of items waiting in the queue (find-to-drain).
-     */
+         * Inbox Search Api
+         * @description Visual+text search for the inbox picker.
+         *
+         *     scope=ingested: note-backed covers (re-ingest candidates).
+         *     scope=pending: covers of items waiting in the queue (find-to-drain).
+         */
     get: operations["inbox_search_api_api_inbox_search_get"];
     put?: never;
     post?: never;
@@ -424,10 +756,10 @@ export interface paths {
     get?: never;
     put?: never;
     /**
-     * Snap Api
-     * @description Accept a raw image body (phone screenshot via Tailscale + iOS Shortcut).
-     *     The note travels as a query param: POST /api/snap?note=...&tags=a,b
-     */
+         * Snap Api
+         * @description Accept a raw image body (phone screenshot via Tailscale + iOS Shortcut).
+         *     The note travels as a query param: POST /api/snap?note=...&tags=a,b
+         */
     post: operations["snap_api_api_snap_post"];
     delete?: never;
     options?: never;
@@ -460,9 +792,9 @@ export interface paths {
       cookie?: never;
     };
     /**
-     * Memo Audio
-     * @description Serve a memo recording by basename from the memo audio dir only.
-     */
+         * Memo Audio
+         * @description Serve a memo recording by basename from the memo audio dir only.
+         */
     get: operations["memo_audio_api_memo_audio__name__get"];
     put?: never;
     post?: never;
@@ -481,6 +813,57 @@ export interface paths {
     };
     /** Vault Media */
     get: operations["vault_media_vault_media__rel_path__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/docs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Docs Manifest Api */
+    get: operations["docs_manifest_api_api_docs_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/docs/{section_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Docs Section Api */
+    get: operations["docs_section_api_api_docs__section_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/docs-media/{rel_path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Docs Media */
+    get: operations["docs_media_docs_media__rel_path__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -524,6 +907,132 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/garden": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Garden Topology Api
+         * @description Per-bucket tree topology snapshots for the garden's data-native mode.
+         *
+         *     Serves render data only: centroids and member maps are attach-time
+         *     machinery (scripts/garden_lab/dendro.py) and stay server-side.
+         */
+    get: operations["garden_topology_api_api_garden_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/garden/e7": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Garden E7 Manifest
+         * @description The public E7 manifest (truth lives only in the private answer key,
+         *     never in this file) plus completed trial ids for safe resume.
+         */
+    get: operations["garden_e7_manifest_api_garden_e7_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/garden/e7/response": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+         * Garden E7 Response
+         * @description Validated, idempotent, append-only. Correctness is never computed
+         *     here — the answer key is not readable by this process's code path.
+         */
+    post: operations["garden_e7_response_api_garden_e7_response_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/orb": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Orb Api
+         * @description The /orb sphere gallery: content points + precomputed sphere layouts.
+         *     Thin by design — every coordinate comes from build_map.py --attach-sphere.
+         */
+    get: operations["orb_api_api_orb_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/galaxy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Galaxy Api
+         * @description The /galaxy view: precomputed orbits + theme planets from build_map.py.
+         */
+    get: operations["galaxy_api_api_galaxy_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/galaxy-tex/{name}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+         * Galaxy Tex
+         * @description Serve a planet texture PNG by basename from the galaxy texture dir only.
+         */
+    get: operations["galaxy_tex_galaxy_tex__name__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/map": {
     parameters: {
       query?: never;
@@ -533,40 +1042,6 @@ export interface paths {
     };
     /** Map Data Api */
     get: operations["map_data_api_api_map_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/map": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Map Page */
-    get: operations["map_page_map_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/inbox": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Inbox Page */
-    get: operations["inbox_page_inbox_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -592,15 +1067,15 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/settings": {
+  "/api/atlas": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    /** Settings Page */
-    get: operations["settings_page_settings_get"];
+    /** Atlas Api */
+    get: operations["atlas_api_api_atlas_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -609,15 +1084,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/tags": {
+  "/api/atlas/features": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    /** Tags Page */
-    get: operations["tags_page_tags_get"];
+    /** Atlas Features Api */
+    get: operations["atlas_features_api_api_atlas_features_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/atlas/knob": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+         * Atlas Knob
+         * @description Section 35's intervention loop, live: encode the query, clamp one
+         *     latent to a multiple of its corpus max, decode, retrieve over the cached
+         *     doc bed. Both lists return so the top-10 never leaves the frame.
+         */
+    post: operations["atlas_knob_api_atlas_knob_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/{path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Spa */
+    get: operations["_spa__path__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -633,8 +1147,8 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Index */
-    get: operations["index__get"];
+    /** Spa */
+    get: operations["_spa__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -647,22 +1161,47 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AtlasKnobRequest */
+    AtlasKnobRequest: {
+      /** Query */
+      query: string;
+      /** Latent */
+      latent: number;
+      /** Clamp */
+      clamp: number;
+    };
     /** Body_memo_api_api_memo_post */
     Body_memo_api_api_memo_post: {
       /** File */
       file?: string | null;
       /**
-       * Text
-       * @default
-       */
+             * Text
+             * @default
+             */
       text: string;
+    };
+    /** ChannelStatusRequest */
+    ChannelStatusRequest: {
+      /** Status */
+      status?: string | null;
+    };
+    /** E7Response */
+    E7Response: {
+      /** Trial */
+      trial: string;
+      /** Choice */
+      choice: string;
+      /** Confidence */
+      confidence: number;
+      /** Rt Ms */
+      rt_ms: number;
     };
     /** EnrichPreviewRequest */
     EnrichPreviewRequest: {
       /**
-       * Tone
-       * @default
-       */
+             * Tone
+             * @default
+             */
       tone: string;
     };
     /** HTTPValidationError */
@@ -675,15 +1214,36 @@ export interface components {
       /** Urls */
       urls: string[];
       /**
-       * Tags
-       * @default []
-       */
+             * Tags
+             * @default []
+             */
       tags: string[];
       /**
-       * Thought
-       * @default
-       */
+             * Thought
+             * @default
+             */
       thought: string;
+      /**
+             * Reflections
+             * @default {}
+             */
+      reflections: {
+        [key: string]: string;
+      };
+    };
+    /** LsdRateRequest */
+    LsdRateRequest: {
+      /** Run Id */
+      run_id: string;
+      /** Candidate Id */
+      candidate_id: string;
+      /** Score */
+      score: number;
+      /**
+             * Note
+             * @default
+             */
+      note: string;
     };
     /** NoteDeleteRequest */
     NoteDeleteRequest: {
@@ -694,6 +1254,27 @@ export interface components {
     QueueAddRequest: {
       /** Urls */
       urls: string[];
+    };
+    /** RecStatusRequest */
+    RecStatusRequest: {
+      /** Status */
+      status?: string | null;
+    };
+    /** ReflectAnswerRequest */
+    ReflectAnswerRequest: {
+      /** Url */
+      url: string;
+      /** Answer */
+      answer: string;
+    };
+    /** ReflectRequest */
+    ReflectRequest: {
+      /** Path */
+      path: string;
+      /** Question */
+      question: string;
+      /** Answer */
+      answer: string;
     };
     /** TagMergeRequest */
     TagMergeRequest: {
@@ -895,6 +1476,7 @@ export interface operations {
     parameters: {
       query?: {
         force?: boolean;
+        only?: string | null;
       };
       header?: never;
       path?: never;
@@ -1108,6 +1690,37 @@ export interface operations {
       };
     };
   };
+  recap_api_api_recap_post: {
+    parameters: {
+      query?: {
+        n?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   ingest_api_api_ingest_post: {
     parameters: {
       query?: never;
@@ -1214,6 +1827,92 @@ export interface operations {
       };
     };
   };
+  reflect_api_api_reflect_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReflectRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reflect_status_api_api_reflect_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  reflect_answer_api_api_reflect_answer_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReflectAnswerRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   fresh_api_api_fresh_get: {
     parameters: {
       query?: {
@@ -1241,6 +1940,399 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  path_api_api_path_get: {
+    parameters: {
+      query: {
+        a: string;
+        b: string;
+        stops?: number;
+        k?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  library_api_api_library_get: {
+    parameters: {
+      query?: {
+        n?: number;
+        offset?: number;
+        source?: string;
+        q?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  channels_api_api_channels_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  channel_status_api_api_channels__key__status_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChannelStatusRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  recs_api_api_recs_get: {
+    parameters: {
+      query?: {
+        kind?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  rec_status_api_api_recs__key__status_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RecStatusRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  lsd_runs_api_api_lsd_runs_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  lsd_deck_api_api_lsd_deck_get: {
+    parameters: {
+      query: {
+        run: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  lsd_rate_api_api_lsd_rate_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LsdRateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  profile_api_api_profile_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  profile_run_api_api_profile_run_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  garden_buckets_get_api_garden_buckets_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  garden_buckets_put_api_garden_buckets_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  growth_philosophy_get_api_growth_philosophy_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  growth_philosophy_put_api_growth_philosophy_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
     };
@@ -1507,6 +2599,88 @@ export interface operations {
       };
     };
   };
+  docs_manifest_api_api_docs_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  docs_section_api_api_docs__section_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        section_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  docs_media_docs_media__rel_path__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        rel_path: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   favicon_favicon_svg_get: {
     parameters: {
       query?: never;
@@ -1567,7 +2741,7 @@ export interface operations {
       };
     };
   };
-  map_data_api_api_map_get: {
+  garden_topology_api_api_garden_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -1587,7 +2761,7 @@ export interface operations {
       };
     };
   };
-  map_page_map_get: {
+  garden_e7_manifest_api_garden_e7_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -1602,12 +2776,45 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "text/html": string;
+          "application/json": unknown;
         };
       };
     };
   };
-  inbox_page_inbox_get: {
+  garden_e7_response_api_garden_e7_response_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["E7Response"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  orb_api_api_orb_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -1622,7 +2829,78 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "text/html": string;
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  galaxy_api_api_galaxy_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  galaxy_tex_galaxy_tex__name__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  map_data_api_api_map_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
     };
@@ -1647,9 +2925,115 @@ export interface operations {
       };
     };
   };
-  settings_page_settings_get: {
+  atlas_api_api_atlas_get: {
     parameters: {
       query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  atlas_features_api_api_atlas_features_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  atlas_knob_api_atlas_knob_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AtlasKnobRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  _spa__path__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        path: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  _spa__get: {
+    parameters: {
+      query?: {
+        path?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -1665,44 +3049,13 @@ export interface operations {
           "text/html": string;
         };
       };
-    };
-  };
-  tags_page_tags_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
+      /** @description Validation Error */
+      422: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "text/html": string;
-        };
-      };
-    };
-  };
-  index__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "text/html": string;
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

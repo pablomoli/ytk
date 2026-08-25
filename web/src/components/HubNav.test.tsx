@@ -62,11 +62,12 @@ test("the registry preserves every existing deep link exactly once", () => {
     "/atlas",
     "/garden",
     "/growth",
+    "/lsd",
     "/docs",
     "/tags",
     "/settings",
   ]);
-  expect(new Set(HUB_DESTINATIONS.map((item) => item.to)).size).toBe(15);
+  expect(new Set(HUB_DESTINATIONS.map((item) => item.to)).size).toBe(16);
 });
 
 test("More announces when a nested destination is current", () => {

@@ -18,6 +18,7 @@ type NavDestination = {
     | "/atlas"
     | "/garden"
     | "/growth"
+    | "/lsd"
     | "/docs"
     | "/tags"
     | "/settings";
@@ -37,6 +38,7 @@ export const HUB_DESTINATIONS = [
   { label: "Atlas", to: "/atlas", section: "Labs" },
   { label: "Garden", to: "/garden", section: "Labs" },
   { label: "Growth", to: "/growth", section: "Labs" },
+  { label: "LSD", to: "/lsd", section: "Labs" },
   { label: "Docs", to: "/docs", section: "Labs" },
   { label: "Tag cleanup", to: "/tags", section: "Maintain" },
   { label: "Settings", to: "/settings", section: "Maintain" },
