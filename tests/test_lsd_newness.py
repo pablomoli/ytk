@@ -93,3 +93,55 @@ def test_load_latents_reads_names_and_decoder_rows(tmp_path):
     assert [n.id for n in notes] == ["latent-3", "latent-7"]
     assert notes[0].text.startswith("Alpha thing. why\nSeen in: T1; T2")
     assert np.allclose(np.linalg.norm(V, axis=1), 1.0, atol=1e-5)
+
+
+def _stub_v3(system: str, user: str, result: type[Any]) -> Any:
+    assert "cross product" in system and "### A" in user
+    return lsd.CrossProduct(
+        trail=[f"step {k}" for k in range(10)],
+        bridge="same shape",
+        third=lsd.Third(
+            name="Glassweight", definition="a def", properties=["p1", "p2", "p3", "p4"]
+        ),
+        consequence="breaks",
+        question="why?",
+    )
+
+
+def test_generate_v3_yields_one_third_per_sample_with_scaffolding():
+    run, _ = _run(n_pairs=2)
+    lsd.generate_v3(run, _stub_v3, samples=2, log=lambda s: None)
+    assert len(run.candidates) == 4
+    c = run.candidates[0]
+    assert c.kind == "third" and c.title == "Glassweight"
+    assert c.body == "a def\n\n- p1\n- p2\n- p3"
+    assert set(c.extra) == {"trail", "bridge", "consequence", "question"}
+    assert len(c.extra["trail"]) == 10
+    calls: list[str] = []
+    lsd.generate_v3(run, lambda s, u, r: calls.append(u), samples=2, log=lambda s: None)
+    assert calls == []
+
+
+def test_newness_reports_n4_and_per_pool():
+    run, X = _run(n_pairs=3)
+    lsd.generate_v3(run, _stub_v3, samples=1, log=lambda s: None)
+    Xc, _ = lsd.centre(X)
+    # Every third embeds onto its first parent: N4 must read 1.0.
+    C = np.stack([X[run.pairs[c.pair_index].i] for c in run.candidates]).astype(np.float32)
+    rep = lsd.newness(run, list(range(len(run.candidates))), C, X)
+    assert abs(rep["n4"] - 1.0) < 1e-4
+    assert set(rep["per_pool"]) == {"ortho", "near", "rand"}
+    assert "n4" in rep["per_kind"]["third"]
+
+
+def test_extra_survives_json_and_deck(tmp_path, monkeypatch):
+    monkeypatch.setattr(lsd, "LSD_HOME", tmp_path)
+    run, _ = _run(n_pairs=3)
+    lsd.generate_v3(run, _stub_v3, samples=1, log=lambda s: None)
+    for c in run.candidates:
+        c.judge = 4.0
+    lsd.save_run(run)
+    back = lsd.load_run("r")
+    assert back.candidates[0].extra["question"] == "why?"
+    deck = lsd.build_deck(back, np.random.default_rng(0), top=1, extra=0)
+    assert all(card["kind"] == "third" and card["extra"]["bridge"] == "same shape" for card in deck)

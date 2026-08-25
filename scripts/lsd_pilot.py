@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ytk import lsd
 
 PER_POOL = 10
-ARMS = ("A0", "A1", "A2", "A3", "A5")
+ARMS = ("A0", "A1", "A2", "A3", "A5", "A6", "A7")
 K_SAMPLES = 4
 
 
@@ -60,7 +60,7 @@ def arm_run(base: lsd.Run, arm: str, picked: list[int]) -> lsd.Run:
     run_id = f"{base.run_id}-{arm}"
     if lsd.run_path(run_id).exists():
         return lsd.load_run(run_id)
-    if arm == "A5":
+    if arm in ("A5", "A7"):
         run = lsd.latent_run(base.seed + 5, len(picked), run_id)
     else:
         run = lsd.Run(
@@ -95,8 +95,9 @@ def generate_arm(run: lsd.Run, arm: str) -> None:
     if arm == "A0":
         return
     model = lsd.SONNET if arm == "A3" else None
-    samples = K_SAMPLES if arm == "A2" else 1
-    lsd.generate_v2(
+    samples = K_SAMPLES if arm in ("A2", "A6", "A7") else 1
+    gen = lsd.generate_v3 if arm in ("A6", "A7") else lsd.generate_v2
+    gen(
         run,
         lsd.structured_with_model(model),
         samples=samples,
@@ -106,7 +107,7 @@ def generate_arm(run: lsd.Run, arm: str) -> None:
 
 
 def kept_rows(run: lsd.Run, arm: str, C: lsd.Vec, mu: lsd.Vec) -> list[int]:
-    if arm == "A2":
+    if arm in ("A2", "A6", "A7"):
         return lsd.select_farthest(run, C, mu)
     return list(range(len(run.candidates)))
 
@@ -143,10 +144,10 @@ def main() -> None:
         C = embed_all(run, run.run_id)
         rows = kept_rows(run, arm, C, mu)
         # Latent parents are not notes, so nothing is excluded from A5's N3.
-        report = lsd.newness(run, rows, C, X, exclude_parents=arm != "A5")
+        report = lsd.newness(run, rows, C, X, exclude_parents=arm not in ("A5", "A7"))
         report["kept"] = len(rows)
         report["judge_mean"] = float(np.mean([run.candidates[r].judge or 0.0 for r in rows]))
-        if arm == "A2":
+        if arm in ("A2", "A6"):
             # A4 lives here: novelty-first vs judge-first top-5 over A2's kept ideas.
             report["a4"] = lsd.rank_compare(run, rows, C, X)
         arms_out[arm] = report
@@ -156,7 +157,7 @@ def main() -> None:
             + ", ".join(
                 f"{k} {v:.3f}" if isinstance(v, float) else f"{k} {v}"
                 for k, v in report.items()
-                if k not in ("per_kind", "a4")
+                if k not in ("per_kind", "per_pool", "a4")
             )
         )
     log(f"pilot -> {out_path}")

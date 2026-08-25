@@ -68,6 +68,8 @@ class Candidate:
     novelty_nearest: float | None = None
     novelty_parents: float | None = None
     corpus_cos: float | None = None
+    # v3 scaffolding (trail, bridge, consequence, question), shown after rating.
+    extra: dict[str, Any] = field(default_factory=lambda: dict[str, Any]())
 
 
 @dataclass
@@ -471,6 +473,7 @@ def build_deck(
                         "title": c.title,
                         "body": c.body,
                         "parents": [{"id": a.id, "title": a.title}, {"id": b.id, "title": b.title}],
+                        "extra": c.extra,
                     }
                 )
     order = rng.permutation(len(cards))
@@ -847,6 +850,10 @@ def newness(
             pair = run.pairs[run.candidates[r].pair_index]
             s[[pair.i, pair.j]] = -np.inf
         n3[k] = s.max()
+    n4 = np.empty(len(rows))
+    for k, r in enumerate(rows):
+        pair = run.pairs[run.candidates[r].pair_index]
+        n4[k] = max(float(subc[k] @ Xc[pair.i]), float(subc[k] @ Xc[pair.j]))
     cands = [run.candidates[r] for r in rows]
     posts = [c.title for c in cands if c.kind == "post"]
     leak = sum(
@@ -863,12 +870,22 @@ def newness(
             "n1": float(np.median([float(n1[k]) for k in ks])),
             "n2": float(np.median([float(n2[k]) for k in ks])),
             "n3": float(np.median([float(n3[k]) for k in ks])),
+            "n4": float(np.median([float(n4[k]) for k in ks])),
+        }
+    per_pool: dict[str, dict[str, float]] = {}
+    for pool in sorted({run.pairs[c.pair_index].pool for c in cands}):
+        ks = [k for k, c in enumerate(cands) if run.pairs[c.pair_index].pool == pool]
+        per_pool[pool] = {
+            "n3": float(np.median([float(n3[k]) for k in ks])),
+            "n4": float(np.median([float(n4[k]) for k in ks])),
         }
     return {
         "n": len(rows),
         "n1": float(np.median(n1)),
         "n2": float(np.median(n2)),
         "n3": float(np.median(n3)),
+        "n4": float(np.median(n4)),
+        "per_pool": per_pool,
         "leak": leak,
         "banned": banned,
         "em_dash_hooks": (sum("—" in t for t in posts) / len(posts)) if posts else 0.0,
@@ -939,7 +956,7 @@ def latent_run(seed: int, n: int, run_id: str) -> Run:
     )
 
 
-N1_BAR, N2_BAR, N3_BAR = 0.39, 0.51, 0.33
+N1_BAR, N2_BAR, N3_BAR, N4_BAR = 0.39, 0.51, 0.33, 0.39
 
 
 def rank_compare(
@@ -979,3 +996,97 @@ def rank_compare(
             "novelty_first_ids": [run.candidates[rows[k]].id for k in by_novel],
         }
     return out
+
+
+# ---------------------------------------------------------------- rung 0.6: the cross product
+
+
+class Third(BaseModel):
+    name: str
+    definition: str
+    properties: list[str]
+
+
+class CrossProduct(BaseModel):
+    trail: list[str]
+    bridge: str
+    third: Third
+    consequence: str
+    question: str
+
+
+GEN_SYSTEM_V3 = """You are given two texts, A and B. Your job is to find their cross product: a
+THIRD concept that is perpendicular to both, that exists only where they
+meet, and that neither text contains. Not a blend, not a summary, not one
+restated in the other's words. If a reader who knows A and B could have
+written it, it is not new enough.
+
+First, think loosely. trail: ten short free-association steps, alternating
+from A and from B, each step a noun phrase that drifts one hop further from
+its source (5-12 words each). Let them wander into sensation, physics, ritual,
+biology, games, geometry, whatever. Do not steer toward a conclusion.
+
+Then, from where the trails cross:
+
+bridge: the one structural sense in which A and B are the same shape, with the
+mapping explicit (this in A is that in B), two sentences.
+
+third: name (a new term, 1-4 words, not a phrase from either text), definition
+(one sentence a stranger could use), properties (exactly three, each a concrete
+thing that would be true of it).
+
+consequence: what breaks, in something the reader currently believes, if the
+third concept is real. Two sentences.
+
+question: the question that neither text could ask alone, one sentence, ending
+in a question mark.
+
+Never name the texts, never write "A" or "B" outside the trail, no dash
+characters, no hedging, no lists of alternatives. Return only the JSON object."""
+
+
+def gen_prompt_v3(run: Run, pair: Pair) -> str:
+    a, b = run.notes[pair.i], run.notes[pair.j]
+    return f"### A\n{a.text}\n\n### B\n{b.text}"
+
+
+def generate_pair_v3(run: Run, index: int, call: Structured, sample: int = 0) -> list[Candidate]:
+    pair = run.pairs[index]
+    cp = cast(CrossProduct, call(GEN_SYSTEM_V3, gen_prompt_v3(run, pair), CrossProduct))
+    props = "\n".join(f"- {x}" for x in cp.third.properties[:3])
+    return [
+        Candidate(
+            id=f"{run.run_id}-{index}-third-s{sample}",
+            pair_index=index,
+            kind="third",
+            title=cp.third.name,
+            body=f"{cp.third.definition}\n\n{props}",
+            extra={
+                "trail": cp.trail[:12],
+                "bridge": cp.bridge,
+                "consequence": cp.consequence,
+                "question": cp.question,
+            },
+        )
+    ]
+
+
+def generate_v3(
+    run: Run,
+    call: Structured,
+    samples: int = 1,
+    checkpoint: Callable[[Run], object] | None = None,
+    log: Callable[[str], object] = print,
+) -> Run:
+    have = {(c.pair_index, int(c.id.rsplit("-s", 1)[1])) for c in run.candidates if "-s" in c.id}
+    todo = [(i, s) for i in range(len(run.pairs)) for s in range(samples) if (i, s) not in have]
+    for n, (index, s) in enumerate(todo, 1):
+        try:
+            run.candidates.extend(generate_pair_v3(run, index, call, sample=s))
+        except Exception as exc:
+            log(f"pair {index} sample {s} failed: {exc}")
+            continue
+        if checkpoint is not None:
+            checkpoint(run)
+        log(f"generated {n}/{len(todo)} (pair {index} s{s}, {run.pairs[index].pool})")
+    return run
