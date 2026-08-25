@@ -204,6 +204,44 @@ has the lowest N3; A3 is unknown and is the one that would change the cost
 model. No arm is expected to pass all four; the section reports which gates
 each arm clears.
 
+## Rung 0.6 — the cross product (pre-registration, written before A6 ran)
+
+**The owner's correction.** Shown the first cards, the owner asked why the
+framing was "would you publish this". The `build` and `post` primitives
+were inherited from Tan's use (tweets) and from the designer's framing of
+the owner as a builder; neither was the object wanted. The object is the
+interpretation of two orthogonal concepts: a **third**, new concept, the
+cross product of A and B, with narrative allowed only where it solidifies
+that concept. Growing the corpus is not a goal; seeing new things is.
+
+**Primitives (v3).** One card is one `third`: a name, a one-sentence
+definition, three properties it would have. Around it, kept as scaffolding
+and shown only after rating: a ten-step free-association `trail` from A and
+from B (how the model got there), a `bridge` (the one structural sense in
+which A and B are the same shape, mapping made explicit), a `consequence`
+(what breaks if the third were real), and a `question` neither source could
+pose alone. `build`, `post` and `whatif` are retired.
+
+**The cross-product gate, N4.** A cross product is perpendicular to both
+inputs, so the third's centred cosine to A and to B must each sit at or
+below 0.39, the notes' nearest-neighbour median: the third is not a
+neighbour of either parent. Reported as the median over cards of
+max(cos(third, A), cos(third, B)). N1-N3 and the text gates stay as
+registered.
+
+**The cross-product prediction, P1.** A cross product is larger when its
+inputs are more orthogonal. Prediction: thirds from ORTHO pairs sit farther
+from both parents than thirds from NEAR pairs (lower N4), with RAND between,
+on the same 30 pairs. This is Tan's claim in geometric form, and it can fail.
+
+**The rating question.** "Did this show you something you had not seen?" 1
+never thought it; 3 adjacent to something I had; 5 genuinely new and it
+holds. G1 and G2 stand as registered, on this score.
+
+**Arms.** A6 = v3 prompt, Haiku, four samples per pair, farthest kept (A2's
+recipe), on the 30 shared pairs. A7 = A6 on the 30 latent pairs. Both
+scored on N1-N4 and the text gates; P1 read from A6 by pool.
+
 ## C5, C6 — the owner's ratings
 
 *(pending: require the rating deck, which requires the approved hub page)*
