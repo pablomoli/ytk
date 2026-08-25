@@ -9,6 +9,7 @@ figure is one claim; the math is in the section README, not here.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -28,6 +29,7 @@ from plot_assets import (
     DPI,
     GOLD,
     MUTED,
+    PURPLE,
     RED,
     TEXT,
     figure,
@@ -454,6 +456,124 @@ def c6(run: lsd.Run, out: Path) -> None:
     save(fig, out, "c6-yield.png")
 
 
+ARM_LABEL = {
+    "A0": "A0 baseline",
+    "A1": "A1 prompt",
+    "A2": "A2 +4 samples",
+    "A3": "A3 Sonnet",
+    "A5": "A5 latents",
+}
+ARM_COLOR = {"A0": DIM, "A1": BLUE, "A2": GOLD, "A3": CYAN, "A5": PURPLE}
+
+
+def c7(run: lsd.Run, X, Xc, out: Path) -> None:
+    pilot_path = lsd.run_path(run.run_id).with_name(f"{run.run_id}-pilot.json")
+    if not pilot_path.exists():
+        print("c7 skipped: no pilot")
+        return
+    pilot = json.loads(pilot_path.read_text())
+    arms = [a for a in ARM_LABEL if a in pilot["arms"]]
+    S = Xc @ Xc.T
+    np.fill_diagonal(S, -np.inf)
+    nn_notes = S.max(axis=1)
+    mu = X.mean(axis=0)
+    cone_notes = X @ (mu / np.linalg.norm(mu))
+    gates = [
+        ("N1 spread: nearest other idea", "n1", lsd.N1_BAR, nn_notes, "notes: nearest neighbour"),
+        (
+            "N2 voice: cosine to the corpus mean",
+            "n2",
+            lsd.N2_BAR,
+            cone_notes,
+            "notes: own cone cosine",
+        ),
+        ("N3 distance: nearest note", "n3", lsd.N3_BAR, nn_notes, "notes: nearest neighbour"),
+    ]
+    passing = [
+        a
+        for a in arms
+        if all(pilot["arms"][a][k] <= bar for _, k, bar, _, _ in gates)
+        and pilot["arms"][a]["leak"] == 0
+    ]
+    fig, top = figure(
+        13,
+        7.6,
+        SECTION,
+        "C7 · THE NEWNESS GATES, FIVE ARMS",
+        "Each arm's median on the three gates, drawn inside the notes' own distribution; the bar is red",
+        " · ".join(
+            f"{a} n1 {pilot['arms'][a]['n1']:.2f} n2 {pilot['arms'][a]['n2']:.2f} n3 {pilot['arms'][a]['n3']:.2f} leak {pilot['arms'][a]['leak']}"
+            for a in arms
+        )
+        + f" · 30 shared pairs · {sha()}",
+    )
+    axes = fig.subplots(
+        1,
+        4,
+        gridspec_kw={
+            "top": top,
+            "bottom": 0.12,
+            "left": 0.05,
+            "right": 0.99,
+            "wspace": 0.22,
+            "width_ratios": [1, 1, 1, 0.9],
+        },
+    )
+    for ax, (title, key, bar, dist, dlabel) in zip(axes[:3], gates, strict=True):
+        ax.hist(dist, bins=40, orientation="horizontal", color=DIM, alpha=1.0, density=True)
+        ax.axhline(bar, color=RED, ls="--", lw=1.4)
+        xs = np.linspace(0.15, 0.95, len(arms))
+        xmax = ax.get_xlim()[1]
+        for x, a in zip(xs, arms, strict=True):
+            v = pilot["arms"][a][key]
+            ax.scatter(
+                [x * xmax],
+                [v],
+                s=150,
+                color=ARM_COLOR[a],
+                edgecolors=TEXT,
+                linewidths=0.6,
+                zorder=5,
+            )
+            ax.text(x * xmax, v + 0.02, a, color=TEXT, ha="center", fontsize=8.5)
+            for pk in pilot["arms"][a]["per_kind"].values():
+                ax.scatter([x * xmax], [pk[key]], s=18, color=ARM_COLOR[a], alpha=0.8, zorder=4)
+        ax.set_ylim(min(0.0, float(dist.min())) - 0.02, max(0.85, float(np.percentile(dist, 99.5))))
+        ax.set_xticks([])
+        panel_title(ax, title)
+        style_axes(ax)
+        ax.set_xlabel(dlabel + " (grey)", color=MUTED)
+        ax.text(xmax * 0.02, bar + 0.012, f"bar {bar}", color=RED, fontsize=8.5)
+    ax = axes[3]
+    ys = np.arange(len(arms))
+    leak = [pilot["arms"][a]["leak"] / pilot["arms"][a]["n"] for a in arms]
+    dash = [pilot["arms"][a]["em_dash_hooks"] for a in arms]
+    ax.barh(ys - 0.18, leak, height=0.34, color=RED, alpha=0.85)
+    ax.barh(ys + 0.18, dash, height=0.34, color=MUTED, alpha=0.85)
+    for y, a, lk, dh in zip(ys, arms, leak, dash, strict=True):
+        ax.text(
+            0.02,
+            y - 0.18,
+            f"{ARM_LABEL[a]}  leak {100 * lk:.0f}%",
+            color=TEXT,
+            va="center",
+            fontsize=8.5,
+        )
+        ax.text(
+            0.02, y + 0.18, f"em-dash hooks {100 * dh:.0f}%", color=MUTED, va="center", fontsize=8.5
+        )
+    ax.set_yticks([])
+    ax.set_xlim(0, 1)
+    ax.set_ylim(len(arms) - 0.5, -0.6)
+    panel_title(ax, "text: leakage (red), em-dash hooks (grey)")
+    style_axes(ax)
+    ax.set_xlabel("share of the arm's ideas", color=MUTED)
+    verdict(
+        fig, ("passes all gates: " + ", ".join(passing)) if passing else "no arm passes all gates"
+    )
+    save(fig, out, "c7-newness-arms.png")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=53)
@@ -481,6 +601,7 @@ def main() -> None:
     c4(run, out)
     c5(run, out)
     c6(run, out)
+    c7(run, X, Xc, out)
 
 
 if __name__ == "__main__":

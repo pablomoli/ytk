@@ -447,7 +447,8 @@ def build_deck(
     the rest, shuffled. Pool labels stay in the run file; the deck never
     carries them, and the scorer is the only join."""
     cards: list[dict[str, Any]] = []
-    for kind in KINDS:
+    kinds = sorted({c.kind for c in run.candidates}) or list(KINDS)
+    for kind in kinds:
         for pool in POOLS:
             scored = [
                 c
