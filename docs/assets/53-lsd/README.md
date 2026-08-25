@@ -108,6 +108,16 @@ The frozen run: ORTHO centred median -0.123 (raw 0.170), RAND -0.026 (raw
 RAND and NEAR 3.4 above. Three regimes, no overlap between NEAR and the other
 two; ORTHO and RAND touch at the tail line by construction.
 
+## Sampler under 20 seeds (`seeds.json`)
+
+The separations C3 reports for seed 53 are one draw. Twenty seeds of the
+same sampler (100 pairs per pool, `scripts/lsd_seeds.py`): ORTHO sits 1.25
+background std below RAND (95% band 0.99-1.43), NEAR 3.32 above (2.97-3.53).
+The tilt shift is 0.63 std (0.62-0.64) and the tail shift 1.25 (1.25-1.26)
+in every seed, so C1's design call does not depend on the seed. No note is
+drawn more than 4 times in any pool of any seed. Seed 53's 1.1 and 3.4 are
+inside their bands.
+
 ## C4 — where the ideas land
 
 *(pending: drawn from the run file once generation and novelty finish)*
