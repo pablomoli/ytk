@@ -279,6 +279,68 @@ def c3(run: lsd.Run, out: Path) -> None:
     save(fig, out, "c3-pools.png")
 
 
+def c4(run: lsd.Run, out: Path) -> None:
+    cands = [c for c in run.candidates if c.novelty_nearest is not None]
+    if not cands:
+        print("c4 skipped: no novelty yet")
+        return
+    sd = run.background_std
+    fig, top = figure(
+        13,
+        7.0,
+        SECTION,
+        "C4 · WHERE THE IDEAS LAND",
+        "Each generated idea: centred cosine to its nearest existing note vs to its parents' midpoint, per pool",
+        " · ".join(
+            f"{p.upper()} nearest {np.median([c.novelty_nearest for c in cands if run.pairs[c.pair_index].pool == p]):.3f}"
+            f" / midpoint {np.median([c.novelty_parents for c in cands if run.pairs[c.pair_index].pool == p]):.3f}"
+            f" / cone {np.median([c.corpus_cos for c in cands if run.pairs[c.pair_index].pool == p]):.3f}"
+            for p in lsd.POOLS
+        )
+        + f" · n = {len(cands)} · |mu| {run.mean_norm:.3f} · {sha()}",
+    )
+    axes = fig.subplots(
+        1, 3, gridspec_kw={"top": top, "bottom": 0.11, "left": 0.05, "right": 0.99, "wspace": 0.14}
+    )
+    xs = np.array([c.novelty_parents for c in cands])
+    ys = np.array([c.novelty_nearest for c in cands])
+    lo, hi = float(min(xs.min(), ys.min())) - 0.03, float(max(xs.max(), ys.max())) + 0.03
+    for ax, p in zip(axes, lsd.POOLS, strict=True):
+        m = np.array([run.pairs[c.pair_index].pool == p for c in cands])
+        kinds = np.array([c.kind for c in cands])
+        ax.plot([lo, hi], [lo, hi], color=DIM, lw=1)
+        ax.axvspan(-sd, sd, color=DIM, alpha=0.5, zorder=0)
+        ax.scatter(
+            xs[m & (kinds == "build")],
+            ys[m & (kinds == "build")],
+            s=26,
+            color=POOL_COLOR[p],
+            marker="o",
+        )
+        ax.scatter(
+            xs[m & (kinds == "post")],
+            ys[m & (kinds == "post")],
+            s=26,
+            color=POOL_COLOR[p],
+            marker="^",
+            alpha=0.7,
+        )
+        ax.set_xlim(lo, hi)
+        ax.set_ylim(lo, hi)
+        ax.set_aspect("equal")
+        panel_title(ax, f"{p.upper()}: circles build, triangles post")
+        style_axes(ax)
+        ax.set_xlabel("cosine to parents' midpoint (centred)", color=MUTED)
+        if ax is axes[0]:
+            ax.set_ylabel("cosine to nearest other note (centred)", color=MUTED)
+    above = float(np.mean(ys > xs))
+    verdict(
+        fig,
+        f"{100 * above:.0f}% of ideas sit closer to some existing note than to their own parents' midpoint; the grey band is one background std",
+    )
+    save(fig, out, "c4-landing.png")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=53)
@@ -293,12 +355,17 @@ def main() -> None:
         run = lsd.new_run(args.seed, args.n)
         print("saved", lsd.save_run(run))
     notes, X = lsd.load_notes()
-    assert len(notes) == run.n_notes, "store changed since the run was frozen"
+    if len(notes) != run.n_notes:
+        # The store grows daily; figures use the run's own note set.
+        ids = {n.id for n in run.notes}
+        X = X[[k for k, n in enumerate(notes) if n.id in ids]]
+        assert len(X) == run.n_notes, "a frozen note left the store"
     Xc, _ = lsd.centre(X)
     c0(run, X, Xc, out)
     c1(run, Xc, out)
     c2(run, Xc, out)
     c3(run, out)
+    c4(run, out)
 
 
 if __name__ == "__main__":
