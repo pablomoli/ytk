@@ -28,8 +28,12 @@ def log(msg: str) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True)
-    ap.add_argument("--stage", default="all", choices=["all", "generate", "judge", "novelty", "deck"])
-    ap.add_argument("--limit", type=int, default=None, help="generate at most N pairs this invocation")
+    ap.add_argument(
+        "--stage", default="all", choices=["all", "generate", "judge", "novelty", "deck"]
+    )
+    ap.add_argument(
+        "--limit", type=int, default=None, help="generate at most N pairs this invocation"
+    )
     args = ap.parse_args()
     run = lsd.load_run(args.run)
     log(f"run {run.run_id}: {len(run.pairs)} pairs, {len(run.candidates)} candidates so far")

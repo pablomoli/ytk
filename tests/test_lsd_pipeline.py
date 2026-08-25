@@ -29,7 +29,12 @@ def _stub_gen(system: str, user: str, result: type[Any]) -> Any:
 def test_generate_makes_two_candidates_per_pair_and_resumes():
     run, _ = _run()
     saves: list[int] = []
-    lsd.generate(run, call=_stub_gen, checkpoint=lambda r: saves.append(len(r.candidates)), log=lambda s: None)
+    lsd.generate(
+        run,
+        call=_stub_gen,
+        checkpoint=lambda r: saves.append(len(r.candidates)),
+        log=lambda s: None,
+    )
     assert len(run.candidates) == 12
     assert {c.kind for c in run.candidates} == {"build", "post"}
     assert saves == [2, 4, 6, 8, 10, 12]
@@ -59,7 +64,9 @@ def test_judge_scores_every_candidate_in_mixed_batches():
     def stub_judge(system: str, user: str, result: type[Any]) -> Any:
         ids = [line.split("id: ")[1] for line in user.splitlines() if line.startswith("id: ")]
         batches.append(ids)
-        return lsd.JudgeScores(scores=[lsd.JudgeScore(id=i, score=7 if i.endswith("build") else 0) for i in ids])
+        return lsd.JudgeScores(
+            scores=[lsd.JudgeScore(id=i, score=7 if i.endswith("build") else 0) for i in ids]
+        )
 
     lsd.judge(run, np.random.default_rng(1), call=stub_judge, batch_size=5, log=lambda s: None)
     assert all(c.judge is not None for c in run.candidates)
@@ -79,7 +86,11 @@ def test_novelty_fills_three_numbers_and_excludes_parents():
 
     lsd.novelty(run, X, embed=embed)
     for c in run.candidates:
-        assert c.novelty_nearest is not None and c.novelty_parents is not None and c.corpus_cos is not None
+        assert (
+            c.novelty_nearest is not None
+            and c.novelty_parents is not None
+            and c.corpus_cos is not None
+        )
         assert c.novelty_nearest < 0.999
 
 
