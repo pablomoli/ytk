@@ -131,6 +131,59 @@ the grader has caught real failures a dozen times without a miss; `enriched`
 passes on the grader alone, which is why the grader's deterministic checks
 come first.
 
+## Asks (step 1, agreed 2026-08-29)
+
+What "unsure" means, kind by kind. Triggers are deterministic wherever
+possible so the grader tier can raise them without a model. One ask per
+item at a time, ordered as listed: quality before intent before
+connections. Every answer is a labeled row.
+
+| kind | trigger | proposal | if parked |
+|---|---|---|---|
+| intent missing | item has no `take` | why this one? intent / reaction / just want it / drop | expires to `dropped` as reflex |
+| transcript junk | no captions; auto-captions with a garble score; language not en; Whisper `no_speech` | retry with Whisper / keep with the warning / drop | waits; retry sweep may clear it |
+| blind item | visual-heavy source with frames failed or no transcript | retry frames / proceed text-only / drop | waits; retry sweep may clear it |
+| duplicate | same URL, or cosine above the measured near-dup baseline | merge into [[X]] / keep separate / drop | keep separate |
+| grader bounce, twice | enricher failed the rubric two rounds | accept as is / say what is wrong (edit) / drop | waits |
+| connections | connect has candidates with an argument each | approve these links / strike some / none | none written |
+| stance tension | item contradicts a take, decision record or journal line | does this change your stance on X? yes (say how) / no / later | no |
+| routing | a brain-dump piece fits two destinations | file under A / B | held in the dump |
+| reflex sweep | 20+ items landed from one source with nothing from the owner | archive all / pick some / keep waiting | archive all |
+
+Step 0 volumes (`docs/research/2026-08-29-step0-intake.md`): ~56 items a
+week land, so "intent missing" alone is ~8 asks a day; the per-appearance
+digest absorbs that, a per-item interrupt would not.
+
+### Parked
+
+An item that was asked and not answered within its window. It keeps its
+ledger row and evidence bundle; nothing is redone. It is not in the vault:
+no note, no embedding, no links. Every digest carries one line, "N parked,
+oldest from <date>", so the pile cannot grow silently.
+
+Unparked by any of four events, never by a plain timer:
+
+1. The owner answers. An ask never expires; a late answer moves the item
+   to `answered` and the loop advances it on that event.
+2. A retry succeeds. The idle sweep re-runs the deterministic check that
+   parked the item (auto-captions arrive days after upload; frame
+   extraction recovers when the session is healthy). A pass returns the
+   item to `read` with no ask.
+3. Relevance. The `speak` triggers apply to parked items: a new capture
+   lands near one, or a session works on what it is about. The agent
+   re-raises it with that context.
+4. The reflex sweep. Past a per-source threshold, one aggregate ask
+   replaces N individual ones.
+
+Only "intent missing" expires on its own, to `dropped` as a reflex:
+archived with URL, title and the non-answer. Quality kinds never auto-drop.
+`dropped` is not deletion; a re-capture of the same URL raises the
+duplicate ask with "you dropped this on <date>, revive?".
+
+The intent window starts at 7 days, stated as a guess: step 0 found no
+instrument for answer latency. The `asks` table is that instrument; the
+window is re-sized from four weeks of real answers.
+
 ## Native kernels
 
 Admission rule, from the Muratori note (`sources/youtube/why-performant-code-matters...`,
@@ -153,8 +206,8 @@ wait on the model and the disk), parsing (I/O and embedding dominate),
 
 | step | deliverable | decides |
 |---|---|---|
-| 0 | measurement note: capture rate per source, answer latency, hub open hours | the loop's two tunables |
-| 1 | ask taxonomy | what "unsure" means, kind by kind, with a proposal shape each |
+| 0 | done: `docs/research/2026-08-29-step0-intake.md` | 56 items/wk, two daily bands, 6.7% Instagram pass-through; answer latency has no instrument |
+| 1 | done: the Asks section below | nine kinds, ordered; parked semantics |
 | 2 | verb contracts, grader rubric shape, activity log row, kernel 1 | depth, taste, blame; first native consumer |
 | 3 | loop shape, host, event mechanism, breaker | shape B tested against 0-2 |
 | 4 | voice and surface consolidation | outbox, hub renderer, hook renderer, retirements |
