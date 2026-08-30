@@ -299,6 +299,53 @@ capture-to-ask under 3 minutes while the hub is up; P2 hub idle CPU
 unchanged; P3 zero double-processed items across the first 100 captures
 with #38 fixed and the process killed mid-tick twice on purpose.
 
+## Voice and consolidation (step 4, agreed 2026-08-30)
+
+**The outbox is a table, delivery is a view.** `outbox`: `id, kind (ask |
+speak), subkind, item_id, created_at, payload (proposal: target state,
+evidence summary, one line of why, options), presented_at, answered_at,
+answer_ref`. A surface renders every open message whenever the owner
+appears; that render is the digest, nothing is sent. `presented_at`
+records seen-without-answering, which is the answer-latency instrument
+step 0 found missing. Answers insert into the event tables; only the
+loop transitions.
+
+**Digest order, fixed:** asks by kind (quality first), speaks, one
+parked line, one loop-health line.
+
+**Renderers:**
+
+1. Hub. `/` is the digest (decided: the front door shows what needs the
+   owner). The digest page keeps the queue picker and gains ask cards
+   (accept / reject / edit, controlled state) and the loop strip. Fresh
+   merges into the library (`library.tsx` gains a recency-first section;
+   the fresh route retires).
+2. Session. The SessionStart hook adds a compact voice block: open-ask
+   count, top three by age, speaks relevant to the session's project.
+   MCP tools `voice_list` and `voice_answer` — inserts only.
+3. Notification. One-line speaks ride the focus-aware notify that
+   `ytk memo` already has.
+
+**Skills: all new.** The voice verbs get new skills written for this
+engine (digest/answer, annotate, tell-me-about, connect, teach,
+journal-into-vault); existing `~/.claude` skills are not reused or
+wrapped (decided 2026-08-30 — the owner keeps them separate). The new
+skills are thin: each calls the ytk CLI/MCP verb and formats nothing the
+verb does not return.
+
+**Speak, computed where it is cheap.** Relevance-to-now at session
+start; tension, accumulation, unfinished occasions and loved-creator
+from the idle sweep. Every speak names its trigger.
+
+**`$$`, resolved.** The marker becomes capture plus a take of kind
+reflex (message text as the take when present): the intent ask never
+fires, but the item still passes read, grade and connect. Speed kept,
+bypass removed.
+
+**Retired:** `append_daily_digest` and the `review-*.md` files; the
+fresh route; the what's-new pull page behavior. The hub catch-up thread
+and autoingest are already committed removals.
+
 ## Native kernels
 
 Admission rule, from the Muratori note (`sources/youtube/why-performant-code-matters...`,
@@ -325,7 +372,7 @@ wait on the model and the disk), parsing (I/O and embedding dominate),
 | 1 | done: the Asks section below | nine kinds, ordered; parked semantics |
 | 2 | designed: the Contracts section below; rubric v1 drafted at `~/.ytk/rubric.md`; kernel 1 scoped, not built | depth, taste, blame; first native consumer |
 | 3 | done: The loop section below | hub hosts, single writer, event wake + poll net, watchdog breaker; #38 is a prerequisite |
-| 4 | voice and surface consolidation | outbox, hub renderer, hook renderer, retirements |
+| 4 | done: Voice and consolidation section below | outbox table + presented_at instrument; / is the digest; all-new skills; $$ keeps speed, loses bypass |
 | 5 | ledger schema, written spec, worktree-sized plans | locked last |
 
 Acceptance thread, every tier once, unattended until it needs the owner:
