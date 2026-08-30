@@ -184,6 +184,59 @@ The intent window starts at 7 days, stated as a guess: step 0 found no
 instrument for answer latency. The `asks` table is that instrument; the
 window is re-sized from four weeks of real answers.
 
+## Contracts (step 2, agreed 2026-08-29)
+
+**Enricher.** In: the evidence bundle from `read` (transcript with quality
+status, sampled frames, description, caption), the owner's `take` (kind
+and text), the tag vocabulary, the per-source bias. Never the rubric. Out:
+the existing `Enrichment` model plus `evidence_gaps` (what could not be
+seen, as a field) and `take_response` (one paragraph answering the take:
+agree and add, push back, or name what the reason misses). Note spine:
+`My take`, `Response`, `Thesis`, then the rest.
+
+**Grader.** Two layers; never shares a prompt with the enricher.
+
+- Deterministic, code only, every draft: schema valid; banned phrasing
+  absent; every key-moment timestamp inside the duration and adjacent to
+  matching transcript text; each key concept findable in transcript or
+  description (fuzzy); concept count scaled to length; tags in vocabulary
+  or new with a reason; near-duplicate cosine against the corpus below the
+  measured baseline (kernel 1's first consumer); `take_response` present
+  when a take exists. A failure bounces with the failing check named and
+  spends no model call.
+- Model, after the deterministic layer passes: reads the rubric, the draft
+  and the evidence; returns pass, or bounce with a list of (rubric item,
+  what fell short, where in the draft); spot-checks three summary claims
+  against the transcript and bounces on an ungrounded one. Two bounces
+  raise the "grader bounce, twice" ask.
+- Model split, a measured starting point rather than a decision: enricher
+  on Sonnet, grader on Opus, with the registered prediction that swapping
+  them changes the bounce rate. Recorded as the least certain part of the
+  design.
+
+**Rubric.** `~/.ytk/rubric.md`, owner-written prose, versioned by hash so
+every grade row names the version it was judged under. Sections: who the
+note is for, what the owner enjoys reading, what is unwanted, thesis,
+summary, response to the take, concepts, insights, moments, visual
+sources, grounding, tags, exemplars. Every bounce quotes the rubric item;
+a wrong bounce is fixed by editing the rubric, never a prompt in code.
+Draft v1 was written by the assistant on 2026-08-29 and is corrected by
+the owner over time.
+
+**Activity row.** One table, every action by every actor: `item_id, at,
+actor (enricher | grader | connect | loop | sweep | owner), action,
+from_state, to_state, inputs (evidence hash, take id, rubric hash, prompt
+version), output ref, model, tokens, duration_ms, reason (one line),
+detail (json)`. Blame is a query.
+
+**Kernel 1, scoped.** `ytk_kernel` (PyO3, maturin, built in
+`hatch_build.py` beside the SPA) exposing `sweep(query, k)` over an int8
+matrix exported from the store, promoted from `experiments/e41_kernel/`.
+Consumers: the grader's duplicate check and `connect`'s candidate list.
+Chroma stays until the kernel passes the #85 retrieval gate at parity. The
+pre-registration (theoretical maximum at 19 MB, prediction, measurement)
+is written before the crate is touched.
+
 ## Native kernels
 
 Admission rule, from the Muratori note (`sources/youtube/why-performant-code-matters...`,
@@ -208,7 +261,7 @@ wait on the model and the disk), parsing (I/O and embedding dominate),
 |---|---|---|
 | 0 | done: `docs/research/2026-08-29-step0-intake.md` | 56 items/wk, two daily bands, 6.7% Instagram pass-through; answer latency has no instrument |
 | 1 | done: the Asks section below | nine kinds, ordered; parked semantics |
-| 2 | verb contracts, grader rubric shape, activity log row, kernel 1 | depth, taste, blame; first native consumer |
+| 2 | designed: the Contracts section below; rubric v1 drafted at `~/.ytk/rubric.md`; kernel 1 scoped, not built | depth, taste, blame; first native consumer |
 | 3 | loop shape, host, event mechanism, breaker | shape B tested against 0-2 |
 | 4 | voice and surface consolidation | outbox, hub renderer, hook renderer, retirements |
 | 5 | ledger schema, written spec, worktree-sized plans | locked last |
