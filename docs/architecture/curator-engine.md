@@ -237,6 +237,68 @@ Chroma stays until the kernel passes the #85 retrieval gate at parity. The
 pre-registration (theoretical maximum at 19 MB, prediction, measurement)
 is written before the crate is touched.
 
+## The loop (step 3, agreed 2026-08-30)
+
+**Host: the hub process, one instance.** The events already originate
+there (ingest POST, memo POST, iMessage watcher, source pulls), it is
+resident under launchd KeepAlive, and it is the surface the owner
+watches. Hard prerequisite: #38 — an exclusive lock on `~/.ytk/hub.lock`
+at startup; a second instance exits quietly. The loop is one worker
+thread fed by the ledger.
+
+**Wake: events, with a poll as the safety net.** In-process events set a
+`threading.Event`. Out-of-process writers (CLI, MCP, the nightly capture
+job) insert their row and nudge `POST /api/loop/wake`; a 60-second
+`SELECT max(id)` poll catches a lost nudge. The idle sweep is "due if the
+last sweep is older than N hours", checked on every wake and on start, so
+laptop sleep coalesces missed runs instead of queuing them.
+
+**Tick.** Next advanceable item — `captured`, `answered`, or `parked`
+with a retry due; newest first for captures, answer order for answers.
+One transition, one activity row, repeat until nothing is advanceable or
+the tick budget (10 items or 10 minutes) is hit. The SDK's `max_turns`
+bounds a single verb. Measured base rates: one enrichment p50 58 s
+(YouTube p50 129 s, max 188 s over 63 timed captures); ~8 items/day is
+~12 minutes of model wall-time.
+
+**Single writer.** The loop thread is the only actor that writes
+transitions. Every other process inserts into event tables only:
+captures (unique on source+url), takes, answers (unique on ask id).
+Double delivery is a no-op by constraint. Crash mid-transition: the loop
+leases the item (`working_until`) before the side effect and writes the
+transition after it; expired leases revert on restart and the verb
+re-runs; verbs are idempotent (notes located by frontmatter url, drafts
+keyed by item+attempt).
+
+**Breaker, outside the process.** `com.ytk.watchdog` (launchd, every 5
+minutes) reads `~/.ytk/loop-health.json` — written by the loop each
+tick: last tick, items advanced, errors in window, rate-limit hits,
+tokens today — and the kill file `~/.ytk/loop.kill`. Trips on 3+
+rate-limit errors in an hour, error rate over threshold, the same item
+advanced 3 times without a state change, or a daily token ceiling. A
+trip writes `~/.ytk/loop.inert`; the loop checks the flag before every
+transition and cannot clear it — only `ytk loop resume` can. Thresholds
+start as stated guesses, re-sized from the activity table. Uncertainty
+on record: whether `ResultMessage` carries `usage`/`duration_ms` under
+subscription auth; if not, the token ceiling falls back to a call count.
+`sdk.py` must stop discarding those fields either way.
+
+**Stuck and drift.** Per-item `tick_count`; 3 without a state change
+parks with reason "stuck". Drift (links per item, new tags per week,
+bounces per rubric item) is a digest readout, not a trip.
+
+**Watch.** No new surface: the activity table is the log, `ytk loop
+status` prints health, the inbox page carries a one-line strip inside
+the page, the voice digest carries the same line.
+
+**Idle cost.** One thread blocked on an event, one SELECT a minute, no
+model calls until an event.
+
+**Registered predictions** (checked when it runs): P1 median
+capture-to-ask under 3 minutes while the hub is up; P2 hub idle CPU
+unchanged; P3 zero double-processed items across the first 100 captures
+with #38 fixed and the process killed mid-tick twice on purpose.
+
 ## Native kernels
 
 Admission rule, from the Muratori note (`sources/youtube/why-performant-code-matters...`,
@@ -262,7 +324,7 @@ wait on the model and the disk), parsing (I/O and embedding dominate),
 | 0 | done: `docs/research/2026-08-29-step0-intake.md` | 56 items/wk, two daily bands, 6.7% Instagram pass-through; answer latency has no instrument |
 | 1 | done: the Asks section below | nine kinds, ordered; parked semantics |
 | 2 | designed: the Contracts section below; rubric v1 drafted at `~/.ytk/rubric.md`; kernel 1 scoped, not built | depth, taste, blame; first native consumer |
-| 3 | loop shape, host, event mechanism, breaker | shape B tested against 0-2 |
+| 3 | done: The loop section below | hub hosts, single writer, event wake + poll net, watchdog breaker; #38 is a prerequisite |
 | 4 | voice and surface consolidation | outbox, hub renderer, hook renderer, retirements |
 | 5 | ledger schema, written spec, worktree-sized plans | locked last |
 
