@@ -1,0 +1,173 @@
+{
+ "generated": "2026-08-30T00:04:25+00:00",
+ "total_notes": 751,
+ "notes_with_take": 32,
+ "weekly_rate_last_12w": {
+  "youtube": 31.62,
+  "instagram": 20.54,
+  "web": 2.15,
+  "tiktok": 1.23
+ },
+ "weekly_by_source": {
+  "2026-04-20": {
+   "youtube": 9,
+   "tiktok": 1
+  },
+  "2026-04-27": {},
+  "2026-05-04": {},
+  "2026-05-11": {
+   "youtube": 18
+  },
+  "2026-05-18": {},
+  "2026-05-25": {
+   "youtube": 1
+  },
+  "2026-06-01": {
+   "youtube": 4
+  },
+  "2026-06-08": {
+   "youtube": 9,
+   "tiktok": 2
+  },
+  "2026-06-15": {
+   "youtube": 18
+  },
+  "2026-06-22": {
+   "youtube": 7
+  },
+  "2026-06-29": {
+   "youtube": 15,
+   "instagram": 1
+  },
+  "2026-07-06": {
+   "youtube": 25
+  },
+  "2026-07-13": {
+   "youtube": 29,
+   "instagram": 144,
+   "web": 1,
+   "tiktok": 1
+  },
+  "2026-07-20": {
+   "youtube": 93,
+   "instagram": 59,
+   "web": 2,
+   "tiktok": 8
+  },
+  "2026-07-27": {
+   "youtube": 98,
+   "instagram": 18,
+   "web": 12,
+   "tiktok": 5
+  },
+  "2026-08-03": {
+   "youtube": 51,
+   "instagram": 2,
+   "web": 6
+  },
+  "2026-08-10": {
+   "youtube": 32,
+   "instagram": 17,
+   "web": 7
+  },
+  "2026-08-17": {
+   "youtube": 25,
+   "instagram": 26
+  },
+  "2026-08-24": {
+   "youtube": 5
+  }
+ },
+ "capture_log_rows": 668,
+ "capture_log_real_rows": 524,
+ "hub_hours_local": [
+  120,
+  77,
+  66,
+  0,
+  0,
+  0,
+  0,
+  22,
+  0,
+  11,
+  0,
+  11,
+  11,
+  19,
+  0,
+  0,
+  25,
+  0,
+  77,
+  0,
+  0,
+  0,
+  1,
+  19
+ ],
+ "sync_hours_local": [
+  0,
+  1,
+  3,
+  0,
+  0,
+  9,
+  17,
+  0,
+  1,
+  1,
+  7,
+  1,
+  1,
+  3,
+  2,
+  6,
+  0,
+  0,
+  0,
+  0,
+  0,
+  9,
+  3,
+  1
+ ],
+ "instagram_pending": 3739,
+ "instagram_ingested": 267,
+ "instagram_pass_through": 0.0667,
+ "instagram_by_month": {
+  "2026-01": {
+   "landed": 1,
+   "ingested": 0
+  },
+  "2026-02": {
+   "landed": 1,
+   "ingested": 0
+  },
+  "2026-03": {
+   "landed": 18,
+   "ingested": 0
+  },
+  "2026-04": {
+   "landed": 107,
+   "ingested": 0
+  },
+  "2026-05": {
+   "landed": 136,
+   "ingested": 0
+  },
+  "2026-06": {
+   "landed": 250,
+   "ingested": 0
+  },
+  "2026-07": {
+   "landed": 2920,
+   "ingested": 222
+  },
+  "2026-08": {
+   "landed": 573,
+   "ingested": 45
+  }
+ },
+ "answer_latency": "unmeasured: ingested items leave the pending queue and no timestamp survives"
+}
