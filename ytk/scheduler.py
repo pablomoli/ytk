@@ -16,7 +16,6 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 from . import capture_log, db
 from .config import Config
-from .filter import check_post_enrichment, check_pre_transcript
 
 _YTK_DIR = Path.home() / ".ytk"
 _CLIENT_SECRETS = _YTK_DIR / "client_secrets.json"
@@ -172,19 +171,20 @@ def sync(
     dry_run: bool = False,
     verbose: bool = False,
 ) -> SyncResult:
-    """
-    Fetch the 'ytk' playlist, skip already-processed videos, and run the
-    filter + enrichment + vault pipeline on each new video.
+    """P2 (#197): fetch the 'ytk' playlist and capture every new video into
+    the curator ledger (surface sync, actor sweep). The vault-writing half of
+    sync is gone — notes land only after an item passes the owner. A read
+    failure leaves the video unprocessed so the next run retries it; the
+    capture row itself is idempotent.
 
-    All filter and pipeline failures are logged to stderr and recorded in the
-    database — no exceptions propagate to the caller.
-
-    If dry_run is True, print what would be processed without running the pipeline.
-    Returns a SyncResult with counts: seen, already_processed, skipped, failed, ingested.
+    Returns a SyncResult; `ingested` now counts captures.
     """
-    from .enrich import enrich
-    from .metadata import fetch_metadata
-    from .transcript import fetch_transcript, segments_to_text
+    from . import capture as capture_verb
+    from . import (
+        evidence,
+        gatherers,  # noqa: F401 — import fills evidence.GATHERERS
+    )
+    from .ledger import connect
 
     def _log(msg: str) -> None:
         if verbose:
@@ -200,115 +200,47 @@ def sync(
     _log(
         f"{len(videos)} in playlist - {result.already_processed} already processed, {len(new_videos)} new"
     )
-    if not dry_run:
-        for v in new_videos:
-            _log(f"  will process: {v['title']} ({v['video_id']})")
 
-    for entry in new_videos:
-        video_id: str = entry["video_id"]
-        title: str = entry["title"]
-        url = f"https://www.youtube.com/watch?v={video_id}"
+    conn = connect()
+    try:
+        for entry in new_videos:
+            video_id: str = entry["video_id"]
+            title: str = entry["title"]
+            url = f"https://www.youtube.com/watch?v={video_id}"
 
-        if dry_run:
-            print(f"[dry-run] would process: {title} ({video_id})", file=sys.stderr)
-            continue
-
-        _log(f"processing: {title!r}")
-        try:
-            _log("  metadata...")
-            meta = fetch_metadata(url)
-        except Exception as exc:
-            reason = f"metadata fetch error: {exc}"
-            print(f"[ytk] FAILED {title!r}: {reason}", file=sys.stderr)
-            db.mark_failed(video_id, title, reason)
-            result.failed += 1
-            continue
-
-        # Pre-transcript filter
-        pre = check_pre_transcript(meta, cfg)
-        if not pre.passed:
-            reasons = "; ".join(f.detail for f in pre.failures)
-            print(f"[ytk] SKIPPED {title!r}: {reasons}", file=sys.stderr)
-            db.mark_skipped(video_id, title, reasons)
-            result.skipped += 1
-            continue
-
-        _log(f"  transcript (model={cfg.whisper_model})...")
-        try:
-            segments, _source = fetch_transcript(url, whisper_model=cfg.whisper_model)
-        except Exception as exc:
-            reason = f"transcript fetch error: {exc}"
-            print(f"[ytk] FAILED {title!r}: {reason}", file=sys.stderr)
-            db.mark_failed(video_id, title, reason)
-            result.failed += 1
-            continue
-
-        _log(f"  transcript: {len(segments)} segments via {_source!r}")
-        _log("  enrichment...")
-        try:
-            enrichment = enrich(segments_to_text(segments), meta)
-        except Exception as exc:
-            reason = f"enrichment error: {exc}"
-            print(f"[ytk] FAILED {title!r}: {reason}", file=sys.stderr)
-            db.mark_failed(video_id, title, reason)
-            result.failed += 1
-            continue
-
-        _log(f"  enrichment: tags={enrichment.interest_tags}")
-        # Post-enrichment filter
-        post = check_post_enrichment(enrichment, cfg)
-        if not post.passed:
-            reasons = "; ".join(f.detail for f in post.failures)
-            print(f"[ytk] SKIPPED {title!r}: {reasons}", file=sys.stderr)
-            db.mark_skipped(video_id, title, reasons)
-            result.skipped += 1
-            continue
-
-        # Write vault note — import deferred so the module loads without vault.py.
-        try:
-            from .vault import NoteAlreadyExists, write_note  # type: ignore[import]
-        except ImportError:
-            NoteAlreadyExists = None  # type: ignore[assignment]
-            write_note = None  # type: ignore[assignment]
-
-        if write_note is None:
-            reason = "vault.py not available"
-            print(f"[ytk] FAILED {title!r}: {reason}", file=sys.stderr)
-            db.mark_failed(video_id, title, reason)
-            result.failed += 1
-            continue
-
-        _log("  writing vault note...")
-        try:
-            write_note(meta, enrichment, segments)
-        except Exception as exc:
-            if NoteAlreadyExists is not None and isinstance(exc, NoteAlreadyExists):
-                print(f"[ytk] already in vault: {title!r}", file=sys.stderr)
-                db.mark_processed(video_id, title)
-                capture_log.log_capture(
-                    "sync", url, source="youtube", outcome="ok", note_found=True
-                )
-                result.ingested += 1
+            if dry_run:
+                print(f"[dry-run] would capture: {title} ({video_id})", file=sys.stderr)
                 continue
-            reason = f"vault write error: {exc}"
-            print(f"[ytk] FAILED {title!r}: {reason}", file=sys.stderr)
-            db.mark_failed(video_id, title, reason)
-            result.failed += 1
-            continue
 
-        _log("  embedding...")
-        try:
-            from .store import upsert as _upsert
+            _log(f"capturing: {title!r}")
+            try:
+                res = capture_verb.capture(
+                    conn,
+                    source="youtube",
+                    url=url,
+                    title=title,
+                    surface="sync",
+                    actor="sweep",
+                    log=False,
+                )
+                if not res.duplicate:
+                    rr = evidence.read_item(conn, res.item_id, actor="sweep")
+                    if rr.error:
+                        raise RuntimeError(f"read failed: {rr.error}")
+            except Exception as exc:
+                print(f"[ytk] FAILED {title!r}: {exc}", file=sys.stderr)
+                db.mark_failed(video_id, title, str(exc))
+                capture_log.log_capture(
+                    "sync", url, source="youtube", outcome="error", error=str(exc)
+                )
+                result.failed += 1
+                continue
 
-            _upsert(meta, enrichment, segments)
-        except Exception as exc:
-            print(f"[ytk] WARNING: embedding failed for {title!r}: {exc}", file=sys.stderr)
-
-        db.mark_processed(video_id, title)
-        print(f"[ytk] ingested: {title!r}", file=sys.stderr)
-        # provenance only; db carries failures/skips (the log's surface field
-        # is what separates playlist arrivals from hub picks and feed batches)
-        capture_log.log_capture("sync", url, source="youtube", outcome="ok", note_found=True)
-        result.ingested += 1
+            db.mark_processed(video_id, title)
+            print(f"[ytk] captured: {title!r}", file=sys.stderr)
+            capture_log.log_capture("sync", url, source="youtube", outcome="captured")
+            result.ingested += 1
+    finally:
+        conn.close()
 
     return result

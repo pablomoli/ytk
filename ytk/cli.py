@@ -22,10 +22,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from .batch_cli import batch_group as batch_command
 from .config import load_config
-from .enrich import enrich
-from .filter import FilterResult, check_post_enrichment, check_pre_transcript
+from .filter import FilterResult
 from .memo import (
     AUDIO_DIR,
 )
@@ -53,8 +51,7 @@ from .memo import (
 from .memo import (
     write_memo_note as memo_write_note,
 )
-from .transcript import fetch_transcript, segments_to_text
-from .vault import LINK_REMINDER, NoteAlreadyExists, write_note
+from .vault import LINK_REMINDER, NoteAlreadyExists
 from .workboard_cli import work as work_command
 
 load_dotenv(Path.home() / ".ytk" / ".env")  # global install location
@@ -128,163 +125,59 @@ def cli():
 
 
 cli.add_command(work_command)
-cli.add_command(batch_command)
+
+
+def _capture_and_read(url: str, note: str, surface: str, source: str | None = None) -> None:
+    """P2 (#197): capture into the ledger, then read evidence. The vault is
+    written only after the item passes the owner (first law); a failed read
+    keeps the capture and is retried by a later sweep."""
+    from . import capture as capture_verb
+    from . import (
+        evidence,
+        gatherers,  # noqa: F401 — import fills evidence.GATHERERS
+    )
+    from .ledger import connect, item_state
+    from .reels import classify_url
+
+    source = source or classify_url(url)
+    conn = connect()
+    try:
+        res = capture_verb.capture(
+            conn, source=source, url=url, surface=surface, text=note or None, take_kind="intent"
+        )
+        if res.duplicate:
+            state = item_state(conn, res.item_id)
+            console.print(f"[yellow]Already captured[/] (item {res.item_id}, state {state})")
+            if res.take_id is not None:
+                console.print("[dim]take attached to the existing item[/]")
+            return
+        console.print(f"[bold green]Captured[/] {source} item {res.item_id}")
+        rr = evidence.read_item(conn, res.item_id)
+        if rr.error:
+            console.print(f"[yellow]Read failed, capture kept:[/] {rr.error}")
+            return
+        if rr.ask_id is not None:
+            ask = conn.execute("SELECT kind FROM asks WHERE id = ?", (rr.ask_id,)).fetchone()
+            console.print(f"[yellow]Ask raised:[/] {ask['kind']} — the item waits for your answer")
+        else:
+            console.print(f"[green]Read[/] — evidence at {rr.bundle_path}")
+    finally:
+        conn.close()
 
 
 @cli.command()
 @click.argument("url")
-@click.option("--force", is_flag=True, default=False, help="Skip all filter prompts.")
-@click.option("--note", default="", help="Your thought about this save; steers enrichment.")
+@click.option(
+    "--force", is_flag=True, default=False, help="Kept for callers; capture filters nothing."
+)
+@click.option("--note", default="", help="Your take on this save; the enricher builds on it (P4).")
 @click.pass_context
 def add(ctx: click.Context, url: str, force: bool, note: str):
-    """Fetch and ingest a URL, dispatched by source."""
-    from .metadata import fetch_metadata  # deferred: yt_dlp costs ~75ms (#146)
-    from .store import upsert  # deferred: chromadb costs ~330ms (#146)
+    """Capture a URL into the curator ledger and read its evidence (#197 P2).
 
-    if re.search(r"instagram\.com/", url):
-        ctx.invoke(add_instagram, url=url, note=note)
-        return
-    if re.search(r"tiktok\.com/", url):
-        ctx.invoke(add_tiktok, url=url, note=note)
-        return
-    if re.search(r"pinterest\.com/", url):
-        ctx.invoke(add_pinterest, url=url, note=note)
-        return
-    if re.search(r"reddit\.com/r/", url):
-        ctx.invoke(add_reddit, url=url, note=note)
-        return
-    if not re.search(r"(?:youtube\.com/|youtu\.be/)", url):
-        ctx.invoke(ingest, url=url, force=force, note=note)
-        return
-
-    cfg = load_config()
-
-    with console.status("[bold cyan]Fetching metadata...[/]"):
-        meta = fetch_metadata(url)
-
-    # --- pre-transcript filter (duration) ---
-    pre_result = check_pre_transcript(meta, cfg)
-    if not _prompt_on_failures(pre_result, force):
-        raise SystemExit(0)
-
-    with console.status("[bold cyan]Fetching transcript...[/]"):
-        try:
-            segments, source = fetch_transcript(url, whisper_model=cfg.whisper_model)
-        except Exception as exc:
-            if cfg.filters.require_captions:
-                console.print(f"\n[yellow]Filter:[/] No captions available ({exc})")
-                if not force and not click.confirm("Add anyway?", default=False):
-                    raise SystemExit(0)
-            raise
-
-    # --- metadata panel ---
-    info = Table.grid(padding=(0, 2))
-    info.add_column(style="bold cyan", no_wrap=True)
-    info.add_column()
-    info.add_row("Title", meta["title"])
-    info.add_row("Uploader", meta["uploader"])
-    info.add_row("Date", _fmt_date(meta["upload_date"]))
-    info.add_row("Duration", _fmt_duration(meta["duration"]))
-    if meta["view_count"]:
-        info.add_row("Views", f"{meta['view_count']:,}")
-    if meta["tags"]:
-        info.add_row("Tags", ", ".join(meta["tags"][:8]))
-    info.add_row("Transcript via", source)
-    console.print(Panel(info, title="[bold]Metadata[/]", box=box.ROUNDED))
-
-    # --- chapters ---
-    if meta["chapters"]:
-        ch_table = Table("Time", "Chapter", box=box.SIMPLE, show_header=True)
-        for ch in meta["chapters"]:
-            ch_table.add_row(_fmt_duration(ch["start_time"]), ch["title"])
-        console.print(Panel(ch_table, title="[bold]Chapters[/]", box=box.ROUNDED))
-
-    # --- transcript preview ---
-    full_text = segments_to_text(segments)
-    preview = textwrap.fill(full_text[:800], width=80)
-    if len(full_text) > 800:
-        preview += f"\n[dim]... ({len(full_text):,} chars total, {len(segments)} segments)[/dim]"
-
-    console.print(
-        Panel(
-            preview,
-            title=f"[bold]Transcript[/] [dim]({len(segments)} segments)[/dim]",
-            box=box.ROUNDED,
-        )
-    )
-
-    # --- visual frame extraction ---
-    visual_blocks: list[dict] | None = None
-    frame_bytes: list[bytes] = []
-    try:
-        from .vision import download_video_temp, extract_frames, hint_detect, image_blocks
-
-        with console.status("[bold cyan]Scanning for visual content...[/]"):
-            hint_ts = hint_detect(segments)
-        if hint_ts:
-            with console.status("[bold cyan]Downloading video for frame extraction...[/]"):
-                video_tmp = download_video_temp(url)
-            try:
-                with console.status("[bold cyan]Extracting frames...[/]"):
-                    frame_bytes = extract_frames(video_tmp, hint_ts, baseline_n=4) or []
-                MAX_FRAMES = 8
-                if len(frame_bytes) > MAX_FRAMES:
-                    frame_bytes = frame_bytes[:MAX_FRAMES]
-                visual_blocks = image_blocks(frame_bytes=frame_bytes) if frame_bytes else None
-            finally:
-                video_tmp.unlink(missing_ok=True)
-    except Exception:
-        visual_blocks = None
-
-    # --- AI enrichment ---
-    with console.status("[bold cyan]Enriching via Claude Code...[/]"):
-        result = enrich(full_text, meta, visual_blocks=visual_blocks, user_note=note)
-
-    # --- post-enrichment filter (interest tags) ---
-    post_result = check_post_enrichment(result, cfg)
-    if not _prompt_on_failures(post_result, force):
-        raise SystemExit(0)
-
-    # thesis
-    console.print(Panel(f"[italic]{result.thesis}[/]", title="[bold]Thesis[/]", box=box.ROUNDED))
-
-    # summary
-    console.print(Panel(result.summary, title="[bold]Commentary[/]", box=box.ROUNDED))
-
-    # key concepts + interest tags side by side
-    grid = Table.grid(padding=(0, 4))
-    grid.add_column()
-    grid.add_column()
-
-    concepts = "\n".join(f"[cyan]•[/] {c}" for c in result.key_concepts)
-    tags = " ".join(f"[bold cyan]#{t}[/]" for t in result.interest_tags)
-    grid.add_row(concepts, tags)
-    console.print(Panel(grid, title="[bold]Key Concepts & Tags[/]", box=box.ROUNDED))
-
-    # insights
-    insights = "\n".join(f"[yellow]>[/] {i}" for i in result.insights)
-    console.print(Panel(insights, title="[bold]Insights[/]", box=box.ROUNDED))
-
-    # key moments
-    if result.key_moments:
-        moments_table = Table("Timestamp", "Moment", box=box.SIMPLE, show_header=True)
-        for m in result.key_moments:
-            moments_table.add_row(f"[cyan]{m.timestamp}[/]", m.description)
-        console.print(Panel(moments_table, title="[bold]Key Moments[/]", box=box.ROUNDED))
-
-    # --- write vault note ---
-    try:
-        note_path = write_note(meta, result, segments, frame_bytes=frame_bytes or None)
-        console.print(f"\n[bold green]Note written:[/] {note_path}")
-        console.print(LINK_REMINDER, style="dim", markup=False)
-    except NoteAlreadyExists as exc:
-        console.print(f"\n[yellow]Note already exists:[/] {exc}")
-    except OSError as exc:
-        console.print(f"\n[yellow]Vault not configured:[/] {exc}")
-
-    # --- upsert into vector store ---
-    with console.status("[bold cyan]Indexing embeddings...[/]"):
-        upsert(meta, result, segments)
+    No vault note is written here; the item enters the corpus only after it
+    passes the owner."""
+    _capture_and_read(url, note, "cli")
 
 
 @cli.command(name="feed")
@@ -306,54 +199,23 @@ def feed(ctx: click.Context, urls: tuple[str, ...], file: str | None, force: boo
         console.print("[yellow]No URLs provided.[/] Pass URLs or --file <path>.")
         return
 
-    from ytk import capture_log
-    from ytk.reels import classify_url
-
     ok = 0
-    skipped = 0
     failed = 0
     for i, url in enumerate(items, 1):
         console.rule(f"[bold]{i}/{len(items)}[/] {url}")
-        attempt_started = time.time()
-        note_found = None
         try:
-            ctx.invoke(add, url=url, force=force)
+            # capture() logs each attempt itself, surface "feed".
+            _capture_and_read(url, "", "feed")
             ok += 1
-            outcome, error = "ok", None
-            # Same verification hub drains use: "ok" without a note is the
-            # silent-loss class E5 measures, and feed was blind to it (#148).
-            from ytk.vault import find_note_by_url
-
-            note_found = find_note_by_url(url, since=attempt_started - 5) is not None
-        except SystemExit as exc:
-            if exc.code in (0, None):
-                skipped += 1
-                console.print("[dim]skipped (filtered or already ingested)[/]")
-                outcome, error = "skipped", None
-            else:
-                failed += 1
-                console.print(f"[red]failed:[/] exited {exc.code}")
-                outcome, error = "error", f"exited {exc.code}"
         except Exception as exc:
             failed += 1
             console.print(f"[red]failed:[/] {exc}")
-            outcome, error = "error", str(exc)
-        capture_log.log_capture(
-            "feed",
-            url,
-            source=classify_url(url),
-            outcome=outcome,
-            error=error,
-            duration_s=time.time() - attempt_started,
-            note_found=note_found,
-        )
 
     table = Table(box=box.SIMPLE, title="Feed Result")
     table.add_column("Total", justify="right")
-    table.add_column("OK", justify="right", style="green")
-    table.add_column("Skipped", justify="right", style="yellow")
+    table.add_column("Captured", justify="right", style="green")
     table.add_column("Failed", justify="right", style="red")
-    table.add_row(str(len(items)), str(ok), str(skipped), str(failed))
+    table.add_row(str(len(items)), str(ok), str(failed))
     console.print(table)
 
 
@@ -491,13 +353,8 @@ def reels(
         console.rule(f"[bold]{i}/{len(selected)}[/] {item.url}")
         succeeded = False
         try:
-            ctx.invoke(add, url=item.url)
+            _capture_and_read(item.url, "", "reels")
             succeeded = True
-        except SystemExit as exc:
-            if exc.code in (0, None):
-                succeeded = True
-            else:
-                console.print(f"[red]failed:[/] exited {exc.code}")
         except Exception as exc:
             console.print(f"[red]failed:[/] {exc}")
 
@@ -1198,58 +1055,8 @@ def graph_cmd(open_browser: bool, output: str | None, threshold: float):
 @click.option("--force", is_flag=True, default=False, help="Skip interest-tag filter.")
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 def ingest(url: str, force: bool, note: str):
-    """Fetch a web article, enrich with AI, and store in the vault."""
-    from .ingest import enrich_web, fetch_web
-    from .store import strip_frontmatter, upsert_doc
-    from .vault import content_note_doc_id, write_web_note
-
-    cfg = load_config()
-
-    with console.status("[bold cyan]Fetching article...[/]"):
-        try:
-            content = fetch_web(url)
-        except ValueError as exc:
-            console.print(f"[red]Fetch failed:[/] {exc}")
-            raise SystemExit(1)
-
-    info = Table.grid(padding=(0, 2))
-    info.add_column(style="bold cyan", no_wrap=True)
-    info.add_column()
-    info.add_row("Title", content.title)
-    if content.author:
-        info.add_row("Author", content.author)
-    if content.date:
-        info.add_row("Date", content.date)
-    info.add_row("Words", f"{len(content.text.split()):,}")
-    console.print(Panel(info, title="[bold]Article[/]", box=box.ROUNDED))
-
-    with console.status("[bold cyan]Enriching with Claude Haiku...[/]"):
-        result = enrich_web(content, user_note=note)
-
-    post_result = check_post_enrichment(result, cfg)
-    if not _prompt_on_failures(post_result, force):
-        raise SystemExit(0)
-
-    console.print(Panel(f"[italic]{result.thesis}[/]", title="[bold]Thesis[/]", box=box.ROUNDED))
-    console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
-
-    try:
-        note_path = write_web_note(content.url, content.title, content.author, content.date, result)
-        console.print(f"\n[bold green]Note written:[/] {note_path}")
-        console.print(LINK_REMINDER, style="dim", markup=False)
-        doc_id = content_note_doc_id(note_path)
-        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
-        upsert_doc(
-            doc_id,
-            body,
-            {
-                "doc_id": doc_id,
-                "tags": ", ".join(result.interest_tags),
-                "source_path": str(note_path),
-            },
-        )
-    except OSError as exc:
-        console.print(f"\n[yellow]Vault not configured:[/] {exc}")
+    """Capture a web article into the curator ledger and read it (#197 P2)."""
+    _capture_and_read(url, note, "cli", source="web")
 
 
 @cli.command(name="add-instagram")
@@ -1261,12 +1068,22 @@ def ingest(url: str, force: bool, note: str):
     help="Re-ingest and atomically replace the existing note, preserving user tags and sections.",
 )
 def add_instagram(url: str, note: str = "", refresh: bool = False):
+    """Capture an Instagram post into the curator ledger and read it (#197 P2).
+
+    --refresh keeps its pre-P2 behavior: re-ingest and atomically replace an
+    EXISTING vault note (backfills, #182). New posts only capture."""
+    if refresh:
+        _instagram_refresh_pipeline(url, note, refresh)
+        return
+    _capture_and_read(url, note, "cli", source="instagram")
+
+
+def _instagram_refresh_pipeline(url: str, note: str = "", refresh: bool = True):
     """Fetch an Instagram post, analyze visually with AI, and store in the vault."""
     from .enrich import enrich_instagram, enrich_instagram_reel
     from .instagram import capture_reel_media, fetch_instagram
     from .store import strip_frontmatter, upsert_doc
     from .vault import (
-        NoteAlreadyExists,
         content_note_doc_id,
         refresh_instagram_note,
         write_instagram_note,
@@ -1457,184 +1274,16 @@ def backfill_instagram_reels(dry_run: bool, apply_: bool):
 @click.argument("url")
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 def add_pinterest(url: str, note: str = ""):
-    """Fetch a Pinterest pin, analyze the image with AI, and store in the vault."""
-    from .enrich import enrich_instagram
-    from .pinterest import fetch_pinterest
-    from .store import strip_frontmatter, upsert_doc
-    from .vault import NoteAlreadyExists, content_note_doc_id, write_pinterest_note
-    from .vision import image_blocks
-
-    with console.status("[bold cyan]Fetching pin...[/]"):
-        try:
-            pin = fetch_pinterest(url)
-        except ValueError as exc:
-            console.print(f"[red]Fetch failed:[/] {exc}")
-            raise SystemExit(1)
-
-    info = Table.grid(padding=(0, 2))
-    info.add_column(style="bold cyan", no_wrap=True)
-    info.add_column()
-    info.add_row("Title", pin.title or "(untitled)")
-    if pin.description:
-        info.add_row("Description", pin.description[:120])
-    console.print(Panel(info, title="[bold]Pinterest Pin[/]", box=box.ROUNDED))
-
-    with console.status("[bold cyan]Analyzing image with AI...[/]"):
-        try:
-            blocks = image_blocks(urls=[pin.image_url], force_base64=True)
-            result = enrich_instagram(
-                caption=f"{pin.title}\n\n{pin.description}".strip(),
-                username="pinterest",
-                slide_count=1,
-                visual_blocks=blocks,
-                user_note=note,
-            )
-        except Exception as exc:
-            console.print(f"[red]Enrichment failed:[/] {exc}")
-            raise SystemExit(1)
-
-    console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
-
-    try:
-        note_path = write_pinterest_note(pin, result)
-        console.print(f"\n[bold green]Note written:[/] {note_path}")
-        console.print(LINK_REMINDER, style="dim", markup=False)
-        doc_id = content_note_doc_id(note_path)
-        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
-        upsert_doc(
-            doc_id,
-            body,
-            {
-                "doc_id": doc_id,
-                "tags": ", ".join(result.interest_tags),
-                "source_path": str(note_path),
-            },
-        )
-    except NoteAlreadyExists as exc:
-        console.print(f"\n[yellow]Note already exists:[/] {exc}")
-    except OSError as exc:
-        console.print(f"\n[yellow]Vault not configured:[/] {exc}")
+    """Capture a Pinterest pin into the curator ledger and read it (#197 P2)."""
+    _capture_and_read(url, note, "cli", source="pinterest")
 
 
 @cli.command(name="add-tiktok")
 @click.argument("url")
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 def add_tiktok(url: str, note: str = ""):
-    """Fetch a TikTok, transcribe + extract frames, and store in the vault."""
-    from .enrich import enrich_tiktok
-    from .store import strip_frontmatter, upsert_doc
-    from .tiktok import fetch_tiktok, transcribe_tiktok
-    from .vault import NoteAlreadyExists, content_note_doc_id, write_tiktok_note
-    from .vision import download_video_temp, extract_frames, image_blocks
-
-    cfg = load_config()
-
-    with console.status("[bold cyan]Fetching TikTok metadata...[/]"):
-        try:
-            post = fetch_tiktok(url)
-        except ValueError as exc:
-            console.print(f"[red]Fetch failed:[/] {exc}")
-            raise SystemExit(1)
-
-    info = Table.grid(padding=(0, 2))
-    info.add_column(style="bold cyan", no_wrap=True)
-    info.add_column()
-    info.add_row("Author", f"@{post.username}")
-    info.add_row("Title", post.title or "[dim](none)[/]")
-    info.add_row("Date", post.timestamp or "[dim](unknown)[/]")
-    info.add_row("Duration", f"{post.duration}s")
-    if post.view_count is not None:
-        info.add_row("Views", f"{post.view_count:,}")
-    if post.like_count is not None:
-        info.add_row("Likes", f"{post.like_count:,}")
-    if post.music:
-        info.add_row("Music", post.music)
-    console.print(Panel(info, title="[bold]TikTok[/]", box=box.ROUNDED))
-
-    with console.status("[bold cyan]Transcribing audio with Whisper...[/]"):
-        segments = transcribe_tiktok(url, whisper_model=cfg.whisper_model)
-    transcript = " ".join(s["text"] for s in segments).strip()
-    if transcript:
-        preview = textwrap.fill(transcript[:600], width=80)
-        console.print(
-            Panel(
-                preview,
-                title=f"[bold]Transcript[/] [dim]({len(segments)} segs)[/dim]",
-                box=box.ROUNDED,
-            )
-        )
-    else:
-        console.print("[dim]No transcribable speech detected.[/]")
-
-    frame_bytes: list[bytes] = []
-    visual_blocks: list[dict] | None = None
-    video_tmp: Path | None = None
-    try:
-        with console.status("[bold cyan]Downloading video for frame extraction...[/]"):
-            video_tmp = download_video_temp(url)
-        with console.status("[bold cyan]Extracting frames...[/]"):
-            frame_bytes = extract_frames(video_tmp, timestamps=[], baseline_n=6) or []
-        if frame_bytes:
-            visual_blocks = image_blocks(frame_bytes=frame_bytes)
-    except Exception as exc:
-        console.print(f"[yellow]Frame extraction failed:[/] {exc}")
-    finally:
-        if video_tmp is not None:
-            video_tmp.unlink(missing_ok=True)
-
-    with console.status("[bold cyan]Enriching with Claude...[/]"):
-        try:
-            result = enrich_tiktok(
-                post={
-                    "title": post.title,
-                    "description": post.description,
-                    "username": post.username,
-                    "duration": post.duration,
-                    "music": post.music,
-                },
-                transcript=transcript,
-                visual_blocks=visual_blocks,
-                user_note=note,
-            )
-        except Exception as exc:
-            console.print(f"[red]Enrichment failed:[/] {exc}")
-            raise SystemExit(1)
-
-    console.print(Panel(f"[italic]{result.thesis}[/]", title="[bold]Thesis[/]", box=box.ROUNDED))
-    console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
-
-    grid = Table.grid(padding=(0, 4))
-    grid.add_column()
-    grid.add_column()
-    concepts = "\n".join(f"[cyan]•[/] {c}" for c in result.key_concepts)
-    tags = " ".join(f"[bold cyan]#{t}[/]" for t in result.interest_tags)
-    grid.add_row(concepts, tags)
-    console.print(Panel(grid, title="[bold]Key Concepts & Tags[/]", box=box.ROUNDED))
-
-    insights = "\n".join(f"[yellow]>[/] {i}" for i in result.insights)
-    console.print(Panel(insights, title="[bold]Insights[/]", box=box.ROUNDED))
-
-    try:
-        note_path = write_tiktok_note(
-            post, result, transcript=transcript, frame_bytes=frame_bytes or None
-        )
-        console.print(f"\n[bold green]Note written:[/] {note_path}")
-        console.print(LINK_REMINDER, style="dim", markup=False)
-        doc_id = content_note_doc_id(note_path)
-        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
-        upsert_doc(
-            doc_id,
-            body,
-            {
-                "doc_id": doc_id,
-                "tags": ", ".join(result.interest_tags),
-                "source_path": str(note_path),
-            },
-        )
-    except NoteAlreadyExists as exc:
-        console.print(f"\n[yellow]Note already exists:[/] {exc}")
-    except OSError as exc:
-        console.print(f"\n[yellow]Vault not configured:[/] {exc}")
+    """Capture a TikTok into the curator ledger and read it (#197 P2)."""
+    _capture_and_read(url, note, "cli", source="tiktok")
 
 
 @cli.command(name="tiktok-sync")
@@ -1769,160 +1418,8 @@ def reddit_discover(topic: str, limit: int):
 @click.argument("url")
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 def add_reddit(url: str, note: str = ""):
-    """Ingest one Reddit post (self-text or link) with its top comments."""
-    from .config import load_config
-    from .enrich import enrich_content
-    from .reddit_feed import (
-        RedditAuthError,
-        build_content_block,
-        external_video_url,
-        fetch_comments,
-        post_from_thread,
-        reddit_cookie_header,
-        top_comments,
-    )
-    from .store import strip_frontmatter, upsert_doc
-    from .vault import _cross_link_notes, content_note_doc_id, write_reddit_note
-
-    try:
-        cookie = reddit_cookie_header()
-        thread = fetch_comments(url, cookie)
-    except RedditAuthError as exc:
-        raise click.ClickException(str(exc))
-    post = post_from_thread(thread)
-    if not post:
-        raise click.ClickException(f"Could not parse a Reddit post from {url}")
-
-    comments = top_comments(thread)
-    block = build_content_block(post, comments)
-    cfg = load_config()
-
-    with console.status("[bold cyan]Enriching with Claude...[/]"):
-        result = enrich_content(block, "reddit", user_note=note, tone=cfg.hub.enrich_tone)
-
-    console.print(Panel(f"[italic]{result.thesis}[/]", title="[bold]Thesis[/]", box=box.ROUNDED))
-    console.print(Panel(result.summary, title="[bold]Summary[/]", box=box.ROUNDED))
-
-    try:
-        note_path = write_reddit_note(post, result, comments)
-        console.print(f"\n[bold green]Note written:[/] {note_path}")
-        console.print(LINK_REMINDER, style="dim", markup=False)
-        doc_id = content_note_doc_id(note_path)
-        body = strip_frontmatter(note_path.read_text(encoding="utf-8"))
-        upsert_doc(
-            doc_id,
-            body,
-            {
-                "doc_id": doc_id,
-                "tags": ", ".join(result.interest_tags),
-                "source_path": str(note_path),
-            },
-        )
-
-        video_url = external_video_url(post)
-        if video_url:
-            from . import db, hydrate
-
-            vid = hydrate.youtube_video_id(video_url)
-            if vid and not db.is_processed(vid):
-                ctx = click.get_current_context()
-                try:
-                    ctx.invoke(add, url=video_url, note=note)
-                except (Exception, SystemExit) as exc:
-                    console.print(f"\n[yellow]Linked video ingest failed:[/] {exc}")
-            # Cross-link regardless of ingest outcome: the video note may
-            # already exist, or ingest may have failed after writing one.
-            _cross_link_notes(note_path, video_url)
-    except NoteAlreadyExists as exc:
-        console.print(f"\n[yellow]Note already exists:[/] {exc}")
-
-
-@cli.command(name="recs-refresh")
-@click.option(
-    "--unresolved-only",
-    is_flag=True,
-    help="Only retry entries that never resolved; skip metadata backfill of resolved ones.",
-)
-def recs_refresh(unresolved_only: bool):
-    """Re-resolve stored recs against TMDb / AniList / Google Books.
-
-    Retries every unresolved entry (a failed resolution is otherwise permanent
-    — record() only re-tries a title when a new note mentions it) and
-    backfills fields added since an entry was stored, such as genres.
-    Preserves status, sources, and first_seen; merges an entry that resolves
-    into an existing canonical twin.
-    """
-    from ytk import recs
-
-    with console.status("[cyan]Re-resolving recs...[/]"):
-        summary = recs.refresh(only_unresolved=unresolved_only)
-    console.print(
-        f"[green]Refreshed[/] {summary['total']} entries: "
-        f"{summary['resolved']} resolved, {summary['still_unresolved']} still unresolved, "
-        f"{summary['merged']} merged into canonical twins "
-        f"({summary['total_after']} entries now)."
-    )
-
-
-@cli.command(name="recs-backfill")
-@click.option("--limit", type=int, default=None, help="Scan at most N unscanned notes this run.")
-@click.option(
-    "--all", "rescan_all", is_flag=True, help="Re-scan every note, ignoring the scanned set."
-)
-def recs_backfill(limit: int | None, rescan_all: bool):
-    """Scan existing notes for movie/show/anime/book/manga recs and resolve them.
-
-    Runs the recommendation extractor over each note body, resolves titles via
-    TMDb / AniList / Open Library, and merges into ~/.ytk/recs.json. Idempotent:
-    scanned notes are tracked so re-runs only touch new ones (unless --all).
-    """
-    import json as _json
-
-    from ytk import recs, vault
-    from ytk.store import strip_frontmatter
-
-    brain = vault._get_brain_path()
-    sources = brain / "sources"
-    notes = sorted(sources.glob("**/*.md")) if sources.exists() else []
-    scanned_path = Path.home() / ".ytk" / "recs-scanned.json"
-    scanned: set[str] = set()
-    if scanned_path.exists() and not rescan_all:
-        try:
-            scanned = set(_json.loads(scanned_path.read_text(encoding="utf-8")))
-        except (ValueError, OSError):
-            scanned = set()
-
-    todo = [md for md in notes if rescan_all or str(md.relative_to(brain.parent)) not in scanned]
-    if limit:
-        todo = todo[:limit]
-    if not todo:
-        console.print("[green]Nothing to scan[/] — all notes already processed.")
-        return
-
-    found = 0
-    with console.status(f"[cyan]Scanning {len(todo)} notes for recs...[/]") as status:
-        for i, md in enumerate(todo, 1):
-            rel = str(md.relative_to(brain.parent))
-            status.update(f"[cyan]{i}/{len(todo)}[/] {md.stem[:50]}  ·  {found} recs so far")
-            try:
-                body = strip_frontmatter(md.read_text(encoding="utf-8"))
-                for r in recs.extract_recommendations(body[:12000]):
-                    entry = recs.record(r["kind"], r["title"], r.get("creator"), rel)
-                    if entry:
-                        found += 1
-            except Exception as exc:
-                console.print(f"[yellow]skip {md.stem}:[/] {exc}")
-            scanned.add(rel)
-            if i % 10 == 0:
-                scanned_path.parent.mkdir(parents=True, exist_ok=True)
-                scanned_path.write_text(_json.dumps(sorted(scanned)), encoding="utf-8")
-
-    scanned_path.parent.mkdir(parents=True, exist_ok=True)
-    scanned_path.write_text(_json.dumps(sorted(scanned)), encoding="utf-8")
-    total = len(recs.entries())
-    console.print(
-        f"[bold green]Done[/] — {found} recommendations recorded, {total} titles in the store."
-    )
+    """Capture a Reddit post into the curator ledger and read it (#197 P2)."""
+    _capture_and_read(url, note, "cli", source="reddit")
 
 
 def _parse_date(value: str) -> str:
@@ -1973,7 +1470,7 @@ def add_imessage(contact: str, since: str | None, until: str | None):
         until = _parse_date(until)
     from .imessage import enrich_journal, export_conversation, find_exported_file, parse_txt
     from .store import strip_frontmatter, upsert_doc
-    from .vault import NoteAlreadyExists, content_note_doc_id, write_journal_note
+    from .vault import content_note_doc_id, write_journal_note
 
     with console.status("[bold cyan]Exporting conversation...[/]"):
         try:
@@ -2666,126 +2163,6 @@ def schedule_uninstall():
         console.print("[yellow]No plist found.[/] Nothing to uninstall.")
         return
 
-    subprocess.run(["launchctl", "unload", str(plist_path)], check=False)
-    plist_path.unlink()
-    console.print(f"[bold green]Uninstalled:[/] {plist_path}")
-
-
-@cli.command(name="autoingest")
-@click.option("--count", type=int, default=None, help="Max items to pull (hard-capped).")
-@click.option("--dry-run", is_flag=True, help="Show what would be ingested without ingesting.")
-def autoingest_cmd(count: int | None, dry_run: bool):
-    """Ingest a small, profile-matched batch of pending items, stratified by theme.
-
-    Scores pending items that carry text against your interest-profile theme
-    centroids, spreads the pick across themes, boosts loved creators and skips
-    muted ones, then ingests the top batch (tagged `auto-ingested`).
-    """
-    from ytk.autoingest import run_autoingest
-
-    report = run_autoingest(count=count, dry_run=dry_run)
-    if report.get("error"):
-        raise click.ClickException(report["error"])
-
-    console.print(
-        f"[bold]{len(report['selected'])} selected[/] from {report['candidates']} "
-        f"scorable pending items" + (" [yellow](dry run)[/]" if dry_run else "")
-    )
-    for p in report["selected"]:
-        console.print(
-            f"  [cyan]{p['score']:+.3f}[/] [dim]{p['source']:9}[/] {p['title']}  [dim]-> {p['theme']}[/]"
-        )
-    if not dry_run:
-        msg = f"[green]{len(report['ingested'])} ingested[/]"
-        if report.get("failures"):
-            msg += f", [red]{len(report['failures'])} failed[/]"
-        console.print(msg)
-
-
-@cli.group(name="autoingest-schedule")
-def autoingest_schedule():
-    """Manage the scheduled profile-matched auto-ingest job."""
-
-
-@autoingest_schedule.command(name="install")
-@click.option("--weekday", default=0, show_default=True, help="Day for weekly runs (0=Sun..6=Sat).")
-@click.option("--hour", default=7, show_default=True, help="Hour (0-23) to run.")
-@click.option("--count", type=int, default=None, help="Items per run (defaults to config).")
-def autoingest_schedule_install(weekday: int, hour: int, count: int | None):
-    """Install a launchd job that runs `ytk autoingest` on a schedule.
-
-    Cadence follows config.autoingest_cadence (daily | weekly); weekly runs on
-    the given weekday, daily every day at the given hour.
-    """
-    ytk_bin = shutil.which("ytk")
-    if not ytk_bin:
-        console.print("[red]ytk binary not found in PATH.[/] Run [bold]uv tool install .[/] first.")
-        raise SystemExit(1)
-
-    cadence = load_config().autoingest_cadence.lower()
-    log_path = Path.home() / ".ytk" / "autoingest.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-
-    args = [ytk_bin, "autoingest"]
-    if count is not None:
-        args += ["--count", str(count)]
-    args_xml = "\n".join(f"        <string>{a}</string>" for a in args)
-
-    weekday_xml = (
-        ""
-        if cadence == "daily"
-        else f"""        <key>Weekday</key>
-        <integer>{weekday}</integer>
-"""
-    )
-    plist_label = "com.ytk.autoingest"
-    plist_path = Path.home() / "Library" / "LaunchAgents" / f"{plist_label}.plist"
-    plist_path.parent.mkdir(parents=True, exist_ok=True)
-    plist_path.write_text(
-        f"""\
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>{plist_label}</string>
-    <key>ProgramArguments</key>
-    <array>
-{args_xml}
-    </array>
-    <key>StartCalendarInterval</key>
-    <dict>
-{weekday_xml}        <key>Hour</key>
-        <integer>{hour}</integer>
-        <key>Minute</key>
-        <integer>0</integer>
-    </dict>
-    <key>StandardOutPath</key>
-    <string>{log_path}</string>
-    <key>StandardErrorPath</key>
-    <string>{log_path}</string>
-    <key>RunAtLoad</key>
-    <false/>
-</dict>
-</plist>
-""",
-        encoding="utf-8",
-    )
-    subprocess.run(["launchctl", "unload", str(plist_path)], check=False)
-    subprocess.run(["launchctl", "load", str(plist_path)], check=True)
-    when = "daily" if cadence == "daily" else f"weekly (day {weekday})"
-    console.print(f"[bold green]Installed:[/] {plist_path}")
-    console.print(f"Runs {when} at [bold]{hour:02d}:00[/]. Logs: {log_path}")
-
-
-@autoingest_schedule.command(name="uninstall")
-def autoingest_schedule_uninstall():
-    """Remove the auto-ingest launchd job."""
-    plist_path = Path.home() / "Library" / "LaunchAgents" / "com.ytk.autoingest.plist"
-    if not plist_path.exists():
-        console.print("[yellow]No plist found.[/] Nothing to uninstall.")
-        return
     subprocess.run(["launchctl", "unload", str(plist_path)], check=False)
     plist_path.unlink()
     console.print(f"[bold green]Uninstalled:[/] {plist_path}")

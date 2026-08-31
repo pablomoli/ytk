@@ -197,30 +197,24 @@ def test_queue_add_invalidates_cover_when_hydration_changes_preview(hub, monkeyp
     assert not (covers / key).exists()
 
 
-def test_ingest_annotates_digests_and_dequeues(hub):
+def test_ingest_dequeues_without_touching_the_vault(hub):
+    """P2 (#197): the drain hands each item to INGEST (capture + read) and
+    dequeues; the annotate/digest chain died with direct vault writes."""
     url = "https://www.instagram.com/reel/abc/"
     hub.queue_add([url])
 
-    def fake_ingest(u, note=""):
-        p = hub.brain / "sources" / "instagram" / "someone-abc.md"
-        p.write_text(NOTE_TEMPLATE.format(url=u), encoding="utf-8")
-
-    hub.INGEST = fake_ingest
+    calls = []
+    hub.INGEST = lambda u, note="": calls.append((u, note))
     started = hub.start_ingest([url], tags=["build-idea"], thought="I want one.")
     assert started == 1
     status = _wait_done(hub)
 
     assert status["done"] == 1
-    assert status["annotated"] == 1
     assert status["failures"] == []
     assert hub.queue_items() == []
-
-    note_text = (hub.brain / "sources" / "instagram" / "someone-abc.md").read_text()
-    assert "- build-idea" in note_text
-    assert "## My take" in note_text
-    digests = list((hub.brain / "inbox").glob("review-*.md"))
-    assert len(digests) == 1
-    assert "[[someone-abc]]" in digests[0].read_text()
+    assert calls == [(url, "I want one.")]
+    assert list((hub.brain / "sources" / "instagram").glob("*.md")) == []
+    assert list((hub.brain / "inbox").glob("review-*.md")) == []  # digest writer gone
 
 
 def test_ingest_failure_keeps_item_queued(hub):

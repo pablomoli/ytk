@@ -49,6 +49,8 @@ def classify_url(url: str) -> str:
         return "youtube"
     if re.search(r"pinterest\.com/", url):
         return "pinterest"
+    if re.search(r"reddit\.com/r/", url):
+        return "reddit"
     return "web"
 
 

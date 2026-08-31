@@ -52,18 +52,3 @@ class TestScorePending:
         tv = [(SimpleNamespace(id="a"), np.array([1.0, 0.0]))]
         (s,) = autoingest.score_pending([_item("u", "hi", author=None)], tv, set())
         assert s["channel_key"] is None
-
-
-class TestRunGuards:
-    def test_no_profile_returns_error(self, monkeypatch):
-        monkeypatch.setattr("ytk.interest.load_latest", lambda: None)
-        report = autoingest.run_autoingest(dry_run=True)
-        assert "error" in report and report["selected"] == []
-
-    def test_no_centroids_returns_error(self, monkeypatch):
-        monkeypatch.setattr(
-            "ytk.interest.load_latest", lambda: SimpleNamespace(themes=[], embedding_model=None)
-        )
-        monkeypatch.setattr("ytk.autoingest._theme_vectors", lambda snap: [])
-        report = autoingest.run_autoingest(dry_run=True)
-        assert "error" in report

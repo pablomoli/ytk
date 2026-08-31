@@ -274,6 +274,13 @@ def search_subreddits(query: str, cookie_header: str, limit: int = 10) -> list[d
     return out
 
 
+def fetch_post(url: str, cookie_header: str) -> dict:
+    """Fetch one post by its permalink URL via the listing parser."""
+    listing = _get(url.rstrip("/") + ".json?limit=1", cookie_header)
+    data = listing[0] if isinstance(listing, list) else listing
+    return parse_posts(data)[0]
+
+
 def fetch_comments(permalink: str, cookie_header: str, limit: int = 60) -> list:
     """Fetch a post thread. Only accepts our own /r/ permalinks (guardrail)."""
     path = urllib.parse.urlparse(permalink).path

@@ -26,6 +26,13 @@ def _no_real_instagram_session(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _hub_lock_to_tmp(tmp_path_factory, monkeypatch):
+    """The live hub holds ~/.ytk/hub.lock (#38); a test that touches the real
+    path contends with production and gets the wrong answer."""
+    monkeypatch.setenv("YTK_HUB_LOCK", str(tmp_path_factory.mktemp("lock") / "hub.lock"))
+
+
+@pytest.fixture(autouse=True)
 def _isolate_config(tmp_path_factory, monkeypatch):
     """Point every test at a throwaway config, never the developer's real one.
 

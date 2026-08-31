@@ -67,30 +67,34 @@ def test_capture_log_is_redirected_away_from_production_by_default(monkeypatch, 
     assert target != str(Path.home() / ".ytk" / "capture_log.jsonl")
 
 
-def test_feed_records_note_found(tmp_path, monkeypatch):
-    """A feed run must verify the note landed, exactly as hub drains do (#148)."""
+def test_feed_logs_captures_with_feed_surface(tmp_path, monkeypatch):
+    """P2 (#197): feed captures into the ledger; the capture itself is the
+    logged outcome — note_found died with direct vault writes."""
     import os
     from pathlib import Path
 
-    import click
     from click.testing import CliRunner
 
     from ytk import cli as ytk_cli
+    from ytk import evidence
 
-    note = tmp_path / "note.md"
-    note.write_text("---\nurl: https://youtu.be/realvideo123\n---\n")
-    monkeypatch.setattr(
-        "ytk.vault.find_note_by_url", lambda url, since: note if "realvideo123" in url else None
+    monkeypatch.setenv("YTK_LEDGER", str(tmp_path / "ledger.db"))
+    monkeypatch.setenv("YTK_EVIDENCE", str(tmp_path / "evidence"))
+    import ytk.gatherers  # noqa: F401 — fill the registry before overriding
+
+    monkeypatch.setitem(
+        evidence.GATHERERS,
+        "youtube",
+        lambda url, title: evidence.EvidenceBundle(
+            source="youtube",
+            url=url,
+            title="T",
+            transcript=[{"start": 0, "duration": 1, "text": "hi"}],
+            transcript_origin="api-manual",
+            transcript_language="en",
+            transcript_status="ok",
+        ),
     )
-
-    @click.command()
-    @click.argument("url")
-    @click.option("--force", is_flag=True)
-    def fake_add(url: str, force: bool = False) -> None:
-        pass
-
-    monkeypatch.setattr(ytk_cli, "add", fake_add)
-
     result = CliRunner().invoke(ytk_cli.cli, ["feed", "https://youtu.be/realvideo123"])
     assert result.exit_code == 0, result.output
 
@@ -99,7 +103,7 @@ def test_feed_records_note_found(tmp_path, monkeypatch):
     ]
     feed_records = [r for r in records if r["surface"] == "feed"]
     assert feed_records, records
-    assert feed_records[-1]["note_found"] is True
+    assert feed_records[-1]["outcome"] == "captured"
 
 
 def test_log_capture_notes_silent_partial(tmp_path, monkeypatch):

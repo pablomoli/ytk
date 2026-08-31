@@ -42,7 +42,7 @@ def test_ledger_status_counts_tables(env):
 
 
 def test_ui_exits_quietly_when_lock_held(tmp_path, monkeypatch):
-    monkeypatch.setattr(hublock, "DEFAULT_PATH", tmp_path / "hub.lock")
+    monkeypatch.setenv("YTK_HUB_LOCK", str(tmp_path / "hub.lock"))
     held = hublock.acquire()
     assert held is not None
     with patch("uvicorn.run") as run:
@@ -53,7 +53,7 @@ def test_ui_exits_quietly_when_lock_held(tmp_path, monkeypatch):
 
 
 def test_ui_takes_lock_before_serving(tmp_path, monkeypatch):
-    monkeypatch.setattr(hublock, "DEFAULT_PATH", tmp_path / "hub.lock")
+    monkeypatch.setenv("YTK_HUB_LOCK", str(tmp_path / "hub.lock"))
     lock_free_at_serve: list[bool] = []
     with (
         patch("ytk.chroma_runtime.runtime_config", return_value=MagicMock(mode="embedded")),

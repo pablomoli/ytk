@@ -197,6 +197,58 @@ def _fetch_via_whisper(url: str, whisper_model: str = "base") -> tuple[list[dict
     return segments, "whisper"
 
 
+@dataclass
+class TranscriptEvidence:
+    """Transcript plus the quality flags the read gate judges (#197 P2).
+
+    origin api-manual|api-auto|whisper|none; status ok|no_speech|failed|none.
+    The api path used to decide manual-vs-auto and throw the flag away;
+    whisper used to discard its detected language."""
+
+    segments: list[dict]
+    origin: str
+    language: str | None
+    status: str
+
+
+def fetch_transcript_evidence(url: str, whisper_model: str = "base") -> TranscriptEvidence:
+    video_id = _video_id(url)
+    try:
+        transcript_list = YouTubeTranscriptApi().list(video_id)
+        try:
+            t = transcript_list.find_manually_created_transcript(["en"])
+            origin = "api-manual"
+        except NoTranscriptFound:
+            t = transcript_list.find_generated_transcript(["en"])
+            origin = "api-auto"
+        segments = [{"start": s.start, "duration": s.duration, "text": s.text} for s in t.fetch()]
+        return TranscriptEvidence(
+            segments=segments,
+            origin=origin,
+            language=getattr(t, "language_code", None),
+            status="ok" if segments else "no_speech",
+        )
+    except (NoTranscriptFound, TranscriptsDisabled, RequestBlocked):
+        pass
+    try:
+        audio_path = _download_audio(url)
+        model = WhisperModel(whisper_model, device="cpu", compute_type="int8")
+        raw_segments, info = model.transcribe(str(audio_path), beam_size=5)
+        segments = [
+            {"start": s.start, "duration": round(s.end - s.start, 3), "text": s.text.strip()}
+            for s in raw_segments
+            if s.text.strip()
+        ]
+        return TranscriptEvidence(
+            segments=segments,
+            origin="whisper",
+            language=getattr(info, "language", None),
+            status="ok" if segments else "no_speech",
+        )
+    except Exception:
+        return TranscriptEvidence(segments=[], origin="none", language=None, status="none")
+
+
 def fetch_transcript(url: str, whisper_model: str = "base") -> tuple[list[dict], str]:
     """
     Return (segments, source) where segments are [{start, duration, text}].

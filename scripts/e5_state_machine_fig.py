@@ -1,7 +1,7 @@
 """E5/#148: the overnight batch pipeline's transition function, drawn.
 
-Nodes and edges come from ytk.batch (STATES is imported, not restated), so the
-figure cannot drift from the machine without this script failing.
+Nodes and edges came from ytk.batch while it existed; the pipeline retired in
+#197 P2, so STATES is frozen here as the historical record the figure drew.
 
     uv run --with matplotlib python scripts/e5_state_machine_fig.py
 """
@@ -15,7 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from memory_field_audits import figure, footer, save, stamp
 from plot_assets import BLUE, CYAN, GOLD, MARGIN, MUTED, RED, TEXT
 
-from ytk.batch import STATES
+# ytk.batch was removed in #197 P2; the machine as it stood:
+STATES = ("captured", "submitted", "enriched", "filed", "skipped")
 
 
 def main() -> None:

@@ -4,9 +4,9 @@
 """Ingest-hub backend: queue operations, background ingest job, fresh feed.
 
 The hub shares the pending-queue state file with the `ytk reels` CLI. Ingestion
-reuses the `ytk add` pipeline in-process; after each success the note is located
-by its frontmatter url, annotated with the user's bucket and thought, logged to
-the daily digest, and removed from the queue.
+captures each item into the curator ledger and reads its evidence (#197 P2);
+the thought becomes a take, and the item leaves the queue once its ledger row
+exists. Notes are written downstream, after the item passes the owner.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from datetime import UTC
 from pathlib import Path
 from typing import cast
 
-from ytk import capture_log, directives, hydrate, reels, vault
+from ytk import capture_log, hydrate, reels, vault
 from ytk.config import load_config
 from ytk.memo import (
     AUDIO_DIR as MEMO_AUDIO_DIR,
@@ -610,50 +610,6 @@ def probe_capture_health() -> list[str]:
     return problems
 
 
-_SYNC_MARKER = STATE_PATH.parent / "last-sync-ok"
-_catchup_started = False
-
-
-def start_sync_catchup(check_every_s: float = 1800.0, stale_after_h: float = 20.0) -> bool:
-    """Run stale playlist syncs while the machine is awake.
-
-    The launchd attempt may run while streaming enrichment is unavailable.
-    Either path updates the shared success marker.
-    """
-    global _catchup_started
-    if _catchup_started:
-        return False
-    _catchup_started = True
-
-    def _last_ok_age_h() -> float:
-        try:
-            return (time.time() - _SYNC_MARKER.stat().st_mtime) / 3600
-        except FileNotFoundError:
-            return float("inf")
-
-    def _run() -> None:
-        while True:
-            try:
-                if _last_ok_age_h() > stale_after_h:
-                    from ytk.config import load_config
-                    from ytk.scheduler import authenticate, sync
-
-                    res = sync(authenticate(), load_config(), verbose=False)
-                    if res.failed == 0:
-                        _SYNC_MARKER.touch()
-                    print(
-                        f"[sync catchup] ingested={res.ingested} "
-                        f"failed={res.failed} seen={res.seen}",
-                        flush=True,
-                    )
-            except Exception as exc:
-                print(f"[sync catchup] {type(exc).__name__}: {exc}", flush=True)
-            time.sleep(check_every_s)
-
-    threading.Thread(target=_run, daemon=True).start()
-    return True
-
-
 def start_imessage_watcher(interval: float = 3.0, debounce: float = 8.0) -> bool:
     """Watch chat.db for writes and pull the self-chat within seconds.
 
@@ -977,22 +933,39 @@ def add_tag(name: str) -> list[str]:
 
 
 def ingest_via_cli(url: str, note: str = "") -> None:
-    """Run the existing `ytk add` pipeline in-process for one URL.
+    """Capture one URL into the curator ledger and read it (#197 P2).
 
-    The user's thought rides along so enrichment can steer toward it.
+    The user's thought becomes a take; the note is written only after the
+    item passes the owner. The drain logs the attempt, so capture() stays
+    quiet here. A read failure raises so the drain records it and the item
+    stays queued for retry; the capture row itself survives either way.
     """
-    from ytk.cli import cli as click_cli
+    from ytk import capture as capture_verb
+    from ytk import (
+        evidence,
+        gatherers,  # noqa: F401 — import fills evidence.GATHERERS
+    )
+    from ytk.ledger import connect
+    from ytk.reels import classify_url
 
-    # hand-picked from the inbox = explicit intent: bypass filter prompts,
-    # which would otherwise raise a blank click.Abort in this TTY-less worker
-    args = ["add", url, "--force"]
-    if note.strip():
-        args += ["--note", note]
+    conn = connect()
     try:
-        click_cli.main(args=args, standalone_mode=False)
-    except SystemExit as exc:
-        if exc.code not in (0, None):
-            raise RuntimeError(f"add exited with code {exc.code}")
+        res = capture_verb.capture(
+            conn,
+            source=classify_url(url),
+            url=url,
+            surface="hub",
+            text=note.strip() or None,
+            take_kind="intent",
+            log=False,
+        )
+        if res.duplicate:
+            return
+        rr = evidence.read_item(conn, res.item_id)
+        if rr.error:
+            raise RuntimeError(f"read failed: {rr.error}")
+    finally:
+        conn.close()
 
 
 # test seams: stubbed in unit tests, real in production
@@ -1414,7 +1387,6 @@ def start_ingest(urls: list[str], tags: list[str], thought: str) -> int:
 
 
 def _drain() -> None:
-    started = time.time()
     while True:
         with _LOCK:
             if not _QUEUE:
@@ -1446,10 +1418,9 @@ def _drain() -> None:
             thought = f"{prefix}{q} {reflection}"
         try:
             if item.source == "imessage":
-                note = INGEST_TEXT(item, thought)
+                INGEST_TEXT(item, thought)
             else:
                 INGEST(item.url, thought)
-                note = find_note_by_url(item.url, since=started - 5)
             capture_log.log_capture(
                 "hub",
                 item.url,
@@ -1457,29 +1428,15 @@ def _drain() -> None:
                 outcome="ok",
                 attempt=_ATTEMPTS.get(item.url),
                 duration_s=time.time() - attempt_started,
-                # ok with no note is the silent partial E5 exists to count
-                note_found=note is not None,
             )
-            if note and (tags or thought.strip()):
-                vault.annotate_note(note, tags, thought)
-                _embed_take(note, item.url, thought)
-                vault.append_daily_digest(note, tags, thought)
-                applied = directives.process(note, thought)
-                with _LOCK:
-                    _JOB["annotated"] += 1
-                    _JOB["linked"].extend(applied)
             if reflection:
                 from datetime import datetime
 
                 from ytk.reflect import append_why_i_save
 
                 q = question or REFLECTION_POOL[0]
-                title = note.stem if note else item.url
-                append_why_i_save(q, reflection, title, f"{datetime.now():%Y-%m-%d}")
+                append_why_i_save(q, reflection, item.url, f"{datetime.now():%Y-%m-%d}")
                 store_reflection_answer(item.url, "")
-            elif note and question:
-                # flagged, ingested unanswered: one passive line, never a nag
-                vault.append_reflection_prompt(note, question)
             _remove_from_queue(item.url)
         except Exception as exc:
             capture_log.log_capture(
@@ -1504,18 +1461,6 @@ def _drain() -> None:
             more = bool(_QUEUE)
         if more:
             time.sleep(PACING_SECONDS)
-
-    try:
-        REINDEX()
-    except Exception:
-        pass
-    try:
-        from ytk import visual
-
-        visual.index_covers(skip_existing=True)
-        visual.sync_pending_visual()
-    except Exception:
-        pass
 
 
 # ---------------------------------------------------------------------------

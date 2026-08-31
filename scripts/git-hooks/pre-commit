@@ -4,7 +4,8 @@
 # Costs ~40 s only when triggered. Bypass (sparingly): git commit --no-verify
 # Install once per clone: git config core.hooksPath scripts/git-hooks
 
-changed=$(git diff --cached --name-only)
+# --diff-filter=d: a staged deletion has no file for ruff to read (E902).
+changed=$(git diff --cached --name-only --diff-filter=d)
 
 # Python quality gate: lint and format only the staged .py files, so
 # the hook stays in the hundreds of milliseconds and never becomes something

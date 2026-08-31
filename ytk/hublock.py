@@ -9,15 +9,20 @@ the lock.
 from __future__ import annotations
 
 import fcntl
+import os
 from pathlib import Path
 from typing import IO
 
-DEFAULT_PATH = Path.home() / ".ytk" / "hub.lock"
+
+def lock_path() -> Path:
+    """YTK_HUB_LOCK overrides so tests never contend with the live hub."""
+    env = os.environ.get("YTK_HUB_LOCK")
+    return Path(env) if env else Path.home() / ".ytk" / "hub.lock"
 
 
 def acquire(path: Path | None = None) -> IO[str] | None:
     """Take the exclusive lock; None when another instance already holds it."""
-    path = path or DEFAULT_PATH
+    path = path or lock_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     handle = open(path, "w")
     try:

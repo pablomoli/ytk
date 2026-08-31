@@ -98,7 +98,7 @@ MIGRATIONS: list[str] = [
 ]
 
 
-def _now() -> str:
+def now() -> str:
     return datetime.now(UTC).isoformat()
 
 
@@ -119,7 +119,7 @@ def insert_item(
         VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT (source, url) DO NOTHING
         """,
-        (source, url, title, provenance, captured_at or _now(), payload_ref),
+        (source, url, title, provenance, captured_at or now(), payload_ref),
     )
     conn.commit()
     return cur.lastrowid if cur.rowcount else None
@@ -150,7 +150,7 @@ def insert_activity(
         """,
         (
             item_id,
-            at or _now(),
+            at or now(),
             actor,
             action,
             from_state,
@@ -163,6 +163,24 @@ def insert_activity(
             reason,
             detail,
         ),
+    )
+    conn.commit()
+    assert cur.lastrowid is not None
+    return cur.lastrowid
+
+
+def insert_take(
+    conn: sqlite3.Connection,
+    item_id: int,
+    *,
+    kind: str,
+    text: str,
+    surface: str | None = None,
+    at: str | None = None,
+) -> int:
+    cur = conn.execute(
+        "INSERT INTO takes (item_id, kind, text, written_at, surface) VALUES (?, ?, ?, ?, ?)",
+        (item_id, kind, text, at or now(), surface),
     )
     conn.commit()
     assert cur.lastrowid is not None
@@ -197,7 +215,7 @@ def insert_answer(
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT (ask_id) DO NOTHING
         """,
-        (ask_id, choice, text, at or _now(), surface),
+        (ask_id, choice, text, at or now(), surface),
     )
     conn.commit()
     return cur.lastrowid if cur.rowcount else None
