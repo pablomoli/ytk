@@ -185,3 +185,16 @@ def test_read_failure_records_activity_without_transition(env, monkeypatch):
     assert row["action"] == "read"
     assert row["to_state"] is None
     assert "network down" in row["reason"]
+
+
+def test_read_backfills_missing_item_title(env, monkeypatch):
+    # #200: a hub Add-box capture has title NULL; the read learns it and the
+    # digest card must not show a raw URL.
+    conn = ledger.connect()
+    item = ledger.insert_item(conn, source="youtube", url="https://y/1", provenance="hub")
+    ledger.insert_activity(conn, item, actor="owner", action="capture", to_state="captured")
+    ledger.insert_take(conn, item, kind="intent", text="why")
+    monkeypatch.setitem(evidence.GATHERERS, "youtube", lambda url, title: bundle(title="Learned"))
+    evidence.read_item(conn, item)
+    row = conn.execute("SELECT title FROM items WHERE id = ?", (item,)).fetchone()
+    assert row["title"] == "Learned"

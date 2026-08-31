@@ -371,7 +371,11 @@ def outbox_api():
         rows = asks.open_outbox(conn)
         asks.mark_presented(conn, [r["id"] for r in rows])
         ask_rows = [
-            {**r, "proposal": json.loads(r["payload"]) if r["payload"] else {}}
+            {
+                **r,
+                "proposal": json.loads(r["payload"]) if r["payload"] else {},
+                **asks.ask_context(conn, r["item_id"], r["subkind"]),
+            }
             for r in rows
             if r["kind"] == "ask"
         ]

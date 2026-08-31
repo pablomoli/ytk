@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from typing import Any
+from typing import Any, cast
 
 from ytk import ledger
 
@@ -219,3 +219,80 @@ def mark_presented(conn: sqlite3.Connection, outbox_ids: list[int]) -> None:
         [(at, oid) for oid in outbox_ids],
     )
     conn.commit()
+
+
+def ask_context(conn: sqlite3.Connection, item_id: int | None, kind: str | None) -> dict[str, Any]:
+    """What a card needs to be answerable, attached at render time so
+    already-open asks gain it without a re-raise (live catch 2026-08-31:
+    the bounce card asked the owner to judge a draft it did not show).
+    Title and thumbnail come from the evidence bundle when the items row
+    lacks them; bounce asks also carry the latest draft and every grader
+    objection."""
+    import json as _json
+    from pathlib import Path
+
+    ctx: dict[str, Any] = {"thumbnail": None, "draft": None, "objections": None}
+    if item_id is None:
+        return ctx
+    item = conn.execute("SELECT title, payload_ref FROM items WHERE id = ?", (item_id,)).fetchone()
+    if item is None:
+        return ctx
+    bundle: dict[str, Any] = {}
+    if item["payload_ref"]:
+        try:
+            loaded: object = _json.loads(Path(item["payload_ref"]).read_text())
+            if isinstance(loaded, dict):
+                bundle = dict(cast("dict[str, Any]", loaded))
+        except (OSError, ValueError):
+            bundle = {}
+    if not item["title"] and bundle.get("title"):
+        ctx["title"] = bundle["title"]
+    ctx["thumbnail"] = bundle.get("thumbnail")
+    if kind != "grader bounce, twice":
+        return ctx
+    draft_row = conn.execute(
+        """
+        SELECT output_ref FROM activity
+        WHERE item_id = ? AND action = 'enrich' AND output_ref IS NOT NULL
+        ORDER BY id DESC LIMIT 1
+        """,
+        (item_id,),
+    ).fetchone()
+    if draft_row and Path(draft_row["output_ref"]).exists():
+        try:
+            raw: object = _json.loads(Path(draft_row["output_ref"]).read_text())
+            if isinstance(raw, dict):
+                draft = dict(cast("dict[str, Any]", raw))
+                ctx["draft"] = {
+                    k: draft.get(k)
+                    for k in ("thesis", "summary", "key_concepts", "insights", "take_response")
+                }
+        except (OSError, ValueError):
+            pass
+    grade_row = conn.execute(
+        """
+        SELECT detail FROM activity
+        WHERE item_id = ? AND action = 'grade' AND detail IS NOT NULL
+        ORDER BY id DESC LIMIT 1
+        """,
+        (item_id,),
+    ).fetchone()
+    if grade_row:
+        try:
+            detail: object = _json.loads(grade_row["detail"])
+        except ValueError:
+            detail = None
+        if isinstance(detail, dict):
+            typed_detail = cast("dict[str, Any]", detail)
+            objections: list[dict[str, Any]] = []
+            bounces = cast("list[dict[str, Any]]", typed_detail.get("bounces") or [])
+            for b in bounces:
+                objections.append({"check": b.get("check"), "detail": b.get("detail")})
+            spots = cast("list[dict[str, Any]]", typed_detail.get("spot_checks") or [])
+            for s in spots:
+                if not s.get("grounded", True):
+                    objections.append(
+                        {"check": "ungrounded claim", "detail": s.get("claim") or s.get("detail")}
+                    )
+            ctx["objections"] = objections
+    return ctx

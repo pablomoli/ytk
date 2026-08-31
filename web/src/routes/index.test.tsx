@@ -111,6 +111,53 @@ test("parked and loop lines render once each", () => {
   expect(screen.getByText(/2 advanced/)).toBeInTheDocument();
 });
 
+test("bounce ask renders the draft, the grader's objections, and the thumbnail", () => {
+  outbox = {
+    isLoading: false,
+    isError: false,
+    data: {
+      asks: [
+        {
+          id: 3,
+          ask_id: 31,
+          item_id: 9,
+          subkind: "grader bounce, twice",
+          created_at: "2026-08-31T23:00:00+00:00",
+          title: "How to Read Academic Papers",
+          url: "https://y/9",
+          source: "youtube",
+          thumbnail: "https://i.ytimg.com/vi/x/hq720.jpg",
+          draft: {
+            thesis: "A six-step workflow for deep reading.",
+            summary: "Front-load context, then alternate reads.",
+            key_concepts: ["deep research report", "author interview"],
+            insights: ["interview the first author"],
+            take_response: "This answers your reading-list intent.",
+          },
+          objections: [
+            { check: "concept grounding", detail: "'Empirical-field framing' not findable" },
+          ],
+          proposal: {
+            kind: "grader bounce, twice",
+            options: ["accept as is", "say what is wrong", "drop"],
+          },
+        },
+      ],
+      speaks: [],
+      parked: { count: 0, oldest: null },
+      loop: { ok: true, line: "ok" },
+    },
+  };
+  const { container } = renderPage();
+  expect(screen.getByText("How to Read Academic Papers")).toBeInTheDocument();
+  expect(screen.getByText(/six-step workflow/)).toBeInTheDocument();
+  expect(screen.getByText(/Front-load context/)).toBeInTheDocument();
+  expect(screen.getByText(/deep research report/)).toBeInTheDocument();
+  expect(screen.getByText(/not findable/)).toBeInTheDocument();
+  const img = container.querySelector("img");
+  expect(img?.getAttribute("src")).toBe("https://i.ytimg.com/vi/x/hq720.jpg");
+});
+
 test("inert loop line wears the warning tone", () => {
   outbox = {
     isLoading: false,

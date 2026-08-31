@@ -48,7 +48,45 @@ function AskCard({ ask, onAnswered }: { ask: OutboxAsk; onAnswered: (line: strin
           (ask.title ?? "untitled")
         )}
       </h3>
-      {ask.proposal.why ? <p className="m-0 italic text-ink2 text-sm">{ask.proposal.why}</p> : null}
+      {ask.thumbnail ? (
+        <img
+          src={ask.thumbnail}
+          alt=""
+          className="max-h-40 w-fit rounded-card border border-line object-cover"
+        />
+      ) : null}
+      {ask.draft ? (
+        <div className="flex flex-col gap-1.5 rounded-card border border-line bg-bg3 p-3 text-sm">
+          {ask.draft.thesis ? <p className="m-0 font-medium text-ink">{ask.draft.thesis}</p> : null}
+          {ask.draft.summary ? <p className="m-0 text-ink2">{ask.draft.summary}</p> : null}
+          {ask.draft.key_concepts?.length ? (
+            <ul className="m-0 list-disc pl-5 text-ink2">
+              {ask.draft.key_concepts.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          ) : null}
+          {ask.draft.take_response ? (
+            <p className="m-0 italic text-ink2">{ask.draft.take_response}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {ask.objections?.length ? (
+        <div className="flex flex-col gap-1">
+          <span className="sub !text-accent">the grader said</span>
+          <ul className="m-0 list-disc pl-5 text-sm text-ink2">
+            {ask.objections.map((o, i) => (
+              <li key={i}>
+                {o.check ? <strong className="text-ink">{o.check}: </strong> : null}
+                {o.detail}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {!ask.objections?.length && ask.proposal.why ? (
+        <p className="m-0 italic text-ink2 text-sm">{ask.proposal.why}</p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2 pt-1">
         {options.map((option) => (
           <Button

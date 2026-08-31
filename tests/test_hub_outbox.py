@@ -115,3 +115,104 @@ def test_drop_answer_reaches_the_loop_but_reports_not_advancing(client, stub_spa
     body = client.post("/api/outbox/answer", json={"ask_id": ask_id, "choice": "drop"}).json()
     assert body["advancing"] is False
     assert stub_spawn == [True]
+
+
+def test_bounce_ask_carries_draft_objections_title_and_thumbnail(client, tmp_path):
+    # Live catch 2026-08-31: the bounce card asked the owner to judge a draft
+    # it did not show. Context is attached at render time from the ledger and
+    # disk, so already-open asks gain it without a re-raise.
+    import json as _json
+
+    bundle = tmp_path / "b.json"
+    bundle.write_text(
+        _json.dumps(
+            {
+                "source": "youtube",
+                "url": "https://y/2",
+                "title": "How to read papers",
+                "thumbnail": "https://i.ytimg.com/vi/x/hq720.jpg",
+                "transcript": [],
+                "transcript_origin": "api-manual",
+                "transcript_language": "en",
+                "transcript_status": "ok",
+            }
+        )
+    )
+    draft = tmp_path / "d.json"
+    draft.write_text(
+        _json.dumps(
+            {
+                "thesis": "A six-step workflow for deep reading.",
+                "summary": "Front-load context, then alternate reads.",
+                "key_concepts": ["deep research report"],
+                "insights": ["interview the first author"],
+                "interest_tags": [],
+                "key_moments": [],
+                "recommendations": [],
+                "evidence_gaps": [],
+                "take_response": "This answers your reading-list intent.",
+                "new_tags": [],
+            }
+        )
+    )
+    conn = ledger.connect()
+    item_id = ledger.insert_item(conn, source="youtube", url="https://y/2")
+    assert item_id is not None
+    conn.execute("UPDATE items SET payload_ref = ? WHERE id = ?", (str(bundle), item_id))
+    ledger.insert_activity(conn, item_id, actor="owner", action="capture", to_state="captured")
+    ledger.insert_activity(conn, item_id, actor="enricher", action="enrich", output_ref=str(draft))
+    ledger.insert_activity(
+        conn,
+        item_id,
+        actor="grader",
+        action="grade",
+        detail=_json.dumps(
+            {
+                "layer": "deterministic",
+                "bounces": [
+                    {"check": "concept grounding", "detail": "not findable", "where": None}
+                ],
+            }
+        ),
+    )
+    asks.raise_ask(
+        conn,
+        item_id,
+        proposal={"kind": "grader bounce, twice", "options": ["accept as is", "drop"]},
+    )
+    conn.close()
+    body = client.get("/api/outbox").json()
+    card = body["asks"][0]
+    assert card["title"] == "How to read papers"  # bundle fallback, items.title NULL
+    assert card["thumbnail"] == "https://i.ytimg.com/vi/x/hq720.jpg"
+    assert card["draft"]["thesis"] == "A six-step workflow for deep reading."
+    assert card["draft"]["key_concepts"] == ["deep research report"]
+    assert card["objections"] == [{"check": "concept grounding", "detail": "not findable"}]
+
+
+def test_intent_ask_still_gets_title_and_thumbnail_but_no_draft(client, tmp_path):
+    import json as _json
+
+    bundle = tmp_path / "b2.json"
+    bundle.write_text(
+        _json.dumps(
+            {
+                "source": "youtube",
+                "url": "https://y/3",
+                "title": "T3",
+                "thumbnail": "https://i/t.jpg",
+            }
+        )
+    )
+    conn = ledger.connect()
+    item_id = ledger.insert_item(conn, source="youtube", url="https://y/3")
+    assert item_id is not None
+    conn.execute("UPDATE items SET payload_ref = ? WHERE id = ?", (str(bundle), item_id))
+    ledger.insert_activity(conn, item_id, actor="owner", action="capture", to_state="captured")
+    asks.raise_intent_ask(conn, item_id)
+    conn.close()
+    body = client.get("/api/outbox").json()
+    card = body["asks"][0]
+    assert card["title"] == "T3"
+    assert card["thumbnail"] == "https://i/t.jpg"
+    assert card.get("draft") is None

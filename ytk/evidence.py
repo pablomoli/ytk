@@ -174,6 +174,10 @@ def read_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") ->
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(asdict(bundle), indent=1))
     conn.execute("UPDATE items SET payload_ref = ? WHERE id = ?", (str(out), item_id))
+    if bundle.title and not row["title"]:
+        # #200: Add-box captures arrive titleless; the ask card must not
+        # show a raw URL.
+        conn.execute("UPDATE items SET title = ? WHERE id = ?", (bundle.title, item_id))
     ledger.insert_activity(
         conn,
         item_id,

@@ -8,6 +8,16 @@ export type AskProposal = {
   window_days?: number;
 };
 
+export type AskDraft = {
+  thesis?: string | null;
+  summary?: string | null;
+  key_concepts?: string[] | null;
+  insights?: string[] | null;
+  take_response?: string | null;
+};
+
+export type AskObjection = { check?: string | null; detail?: string | null };
+
 export type OutboxAsk = {
   id: number;
   ask_id: number;
@@ -17,6 +27,9 @@ export type OutboxAsk = {
   title?: string | null;
   url?: string | null;
   source?: string | null;
+  thumbnail?: string | null;
+  draft?: AskDraft | null;
+  objections?: AskObjection[] | null;
   proposal: AskProposal;
 };
 
