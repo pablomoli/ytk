@@ -2951,6 +2951,15 @@ def ui(ctx, host: str | None, port: int | None, reload: bool):
     """Run the hub in the foreground, or manage the background daemon."""
     if ctx.invoked_subcommand is not None:
         return
+    from . import hublock
+
+    # Held for the life of the process; the second instance exits before
+    # ever touching the port (#38).
+    hub_lock = hublock.acquire()
+    if hub_lock is None:
+        console.print("[dim]hub already running; exiting.[/]")
+        return
+    ctx.call_on_close(hub_lock.close)
     from .chroma_runtime import runtime_config, wait_for_chroma  # deferred: chromadb (#146)
 
     chroma_cfg = runtime_config()
@@ -3057,6 +3066,55 @@ def ui_status():
         console.print(f"hub: [green]responding[/] at http://{host}:{port}")
     except Exception as exc:
         console.print(f"hub: [red]not responding[/] on port {port} ({exc})")
+
+
+@cli.group(name="ledger")
+def ledger_group():
+    """Curator-engine ledger (#197): the append-only record every verb writes to."""
+
+
+@ledger_group.command(name="grandfather")
+def ledger_grandfather():
+    """Give every existing source note an items row and one kept-unlabeled
+    activity row. Idempotent; generates no asks."""
+    from . import ledger
+    from .vault import _get_brain_path
+
+    conn = ledger.connect()
+    try:
+        result = ledger.grandfather(conn, _get_brain_path())
+    finally:
+        conn.close()
+    for source in sorted(result.imported):
+        console.print(f"{source}: {result.imported[source]}")
+    console.print(f"imported {sum(result.imported.values())} notes")
+    for rel in result.skipped:
+        console.print(f"[yellow]duplicate url, not imported:[/] {rel}")
+
+
+@ledger_group.command(name="status")
+def ledger_status():
+    """Row counts per table and items by state."""
+    from . import ledger
+
+    conn = ledger.connect()
+    try:
+        for table in ("items", "activity", "takes", "asks", "answers", "outbox", "snapshots"):
+            n = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+            console.print(f"{table}: {n}")
+        states = conn.execute(
+            """
+            SELECT to_state, count(*) FROM (
+                SELECT item_id, to_state,
+                       row_number() OVER (PARTITION BY item_id ORDER BY id DESC) AS rn
+                FROM activity WHERE to_state IS NOT NULL
+            ) WHERE rn = 1 GROUP BY to_state ORDER BY 2 DESC
+            """
+        ).fetchall()
+        for state, n in states:
+            console.print(f"  {state}: {n}")
+    finally:
+        conn.close()
 
 
 @cli.command(name="chat")
