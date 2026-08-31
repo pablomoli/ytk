@@ -1348,54 +1348,6 @@ def annotate_note(note_path: Path, tags: list[str], thought: str) -> None:
     note_path.write_text(text, encoding="utf-8")
 
 
-def append_daily_digest(note_path: Path, tags: list[str], thought: str) -> Path:
-    """Append one wikilinked line for an annotated ingest to today's digest.
-
-    Returns the digest path (inbox/review-YYYY-MM-DD.md, created on first use)
-    so the daily journal flow has a single hub to glance at.
-    """
-    from datetime import date
-
-    inbox = _get_brain_path() / "inbox"
-    inbox.mkdir(parents=True, exist_ok=True)
-    today = date.today().isoformat()
-    digest = inbox / f"review-{today}.md"
-    if not digest.exists():
-        digest.write_text(f"# Ingest digest — {today}\n\n", encoding="utf-8")
-
-    snippet = " ".join(thought.split())
-    if len(snippet) > 80:
-        snippet = snippet[:80].rstrip() + "..."
-    line = f"- [[{note_path.stem}]]"
-    hashtags = " ".join(f"#{_normalize_tag(t)}" for t in tags if t)
-    if hashtags:
-        line += f" ({hashtags})"
-    if snippet:
-        line += f": {snippet}"
-    with digest.open("a", encoding="utf-8") as f:
-        f.write(line + "\n")
-    return digest
-
-
-def append_reflection_prompt(note_path: Path, question: str) -> Path:
-    """One passive digest line for a flagged item ingested unanswered (#98).
-
-    Deliberately identical in shape to the annotated lines so the digest
-    stays a list, not a to-do: the question is an invitation, never a nag.
-    """
-    from datetime import date
-
-    inbox = _get_brain_path() / "inbox"
-    inbox.mkdir(parents=True, exist_ok=True)
-    today = date.today().isoformat()
-    digest = inbox / f"review-{today}.md"
-    if not digest.exists():
-        digest.write_text(f"# Ingest digest — {today}\n\n", encoding="utf-8")
-    with digest.open("a", encoding="utf-8") as f:
-        f.write(f"- [[{note_path.stem}]] — open question: {question}\n")
-    return digest
-
-
 # Trees another writer owns. Scanning one either duplicates its content under a
 # second, path-derived id or fights the owner for the same id (#147).
 _OWNED_ELSEWHERE = (

@@ -25,7 +25,7 @@ type NavDestination = {
 };
 
 export const HUB_DESTINATIONS = [
-  { label: "Fresh", to: "/", section: "core" },
+  { label: "Digest", to: "/", section: "core" },
   { label: "Inbox", to: "/inbox", section: "core" },
   { label: "Library", to: "/library", section: "core" },
   { label: "Map", to: "/map", section: "core" },

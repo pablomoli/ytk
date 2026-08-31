@@ -47,7 +47,7 @@ def test_old_app_prefix_redirects():
 
 
 def test_api_not_shadowed_by_spa():
-    r = client.get("/api/fresh?n=1")
+    r = client.get("/api/outbox")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("application/json")
 

@@ -3,9 +3,9 @@
 # passes strict — the list of files carrying them only shrinks.
 """Local UI server for the ytk ingest hub.
 
-Serves the fresh feed (/), the inbox queue picker (/inbox), the hub API
-(queue, ingest job, fresh notes), vault media, plus vault search and note
-reader endpoints.
+Serves the digest (/), the inbox queue picker (/inbox), the hub API
+(queue, ingest job, outbox, library), vault media, plus vault search and
+note reader endpoints.
 """
 
 from __future__ import annotations
@@ -345,11 +345,52 @@ async def reflect_answer_api(req: ReflectAnswerRequest):
     return {"stored": bool(req.answer.strip())}
 
 
-@app.get("/api/fresh")
-async def fresh_api(n: int = 30):
-    from ytk.ui import hub
+@app.get("/api/outbox")
+def outbox_api():
+    """The digest, in delivery order (#197 P3). Rendering IS delivery:
+    returned ask rows get presented_at stamped, once."""
+    from ytk import asks, ledger
 
-    return hub.fresh_notes(n=n)
+    conn = ledger.connect()
+    try:
+        rows = asks.open_outbox(conn)
+        asks.mark_presented(conn, [r["id"] for r in rows])
+        ask_rows = [
+            {**r, "proposal": json.loads(r["payload"]) if r["payload"] else {}}
+            for r in rows
+            if r["kind"] == "ask"
+        ]
+        return {
+            "asks": ask_rows,
+            "speaks": [],  # no triggers until P5/P8
+            "parked": asks.parked_summary(conn),
+            "loop": None,  # health line lands with P5's loop
+        }
+    finally:
+        conn.close()
+
+
+class OutboxAnswerRequest(BaseModel):
+    ask_id: int
+    choice: str
+    text: str | None = None
+
+
+@app.post("/api/outbox/answer")
+def outbox_answer_api(req: OutboxAnswerRequest):
+    from ytk import asks, ledger
+
+    conn = ledger.connect()
+    try:
+        known = conn.execute("SELECT item_id FROM asks WHERE id = ?", (req.ask_id,)).fetchone()
+        if known is None:
+            raise HTTPException(status_code=404, detail="no such ask")
+        answer_id = asks.answer_ask(
+            conn, req.ask_id, choice=req.choice, text=req.text, surface="hub"
+        )
+        return {"answer_id": answer_id, "state": ledger.item_state(conn, known["item_id"])}
+    finally:
+        conn.close()
 
 
 @app.get("/api/path")

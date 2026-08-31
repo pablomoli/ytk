@@ -1558,16 +1558,6 @@ def set_rec_status(key: str, status: str | None) -> dict:
     return recs.set_status(key, status)
 
 
-def fresh_notes(n: int = 30) -> list[dict]:
-    """The most recently ingested source notes, newest first, with thumbnails.
-
-    Includes voice/text memos from inbox/memos — they're ingested and indexed
-    like everything else, so they belong in the feed.
-    """
-    brain, memos, pool = _note_pool()
-    return [_note_card(md, brain, memos) for md in pool[:n]]
-
-
 _LIB_CACHE: tuple[float, int, list[dict]] | None = None
 
 

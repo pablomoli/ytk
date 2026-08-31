@@ -34,7 +34,7 @@ test("keeps four core destinations primary and every secondary route in More", (
   render(<HubNav />);
   const nav = screen.getByRole("navigation", { name: "Hub navigation" });
   expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual([
-    "Fresh",
+    "Digest",
     "Inbox",
     "Library",
     "Map",

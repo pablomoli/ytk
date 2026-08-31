@@ -90,30 +90,3 @@ def test_annotate_normalizes_bucket(note):
 
     annotate_note(note, tags=["Anime Recs"], thought="")
     assert "  - anime-recs\n" in note.read_text(encoding="utf-8")
-
-
-def test_append_daily_digest_creates_and_appends(tmp_path, monkeypatch, note):
-    from ytk.vault import append_daily_digest
-
-    line_path = append_daily_digest(
-        note,
-        tags=["build-idea", "touchdesigner"],
-        thought="I could make this for my desk, honestly.",
-    )
-    assert line_path.parent.name == "inbox"
-    text = line_path.read_text(encoding="utf-8")
-    assert "[[someone-2026-07-01-abc]]" in text
-    assert "#build-idea" in text and "#touchdesigner" in text
-    assert "I could make this" in text
-
-    append_daily_digest(note, tags=["music"], thought="")
-    text = line_path.read_text(encoding="utf-8")
-    assert text.count("[[someone-2026-07-01-abc]]") == 2
-
-
-def test_append_daily_digest_truncates_long_thoughts(tmp_path, monkeypatch, note):
-    from ytk.vault import append_daily_digest
-
-    path = append_daily_digest(note, tags=["b"], thought="x" * 300)
-    line = [l for l in path.read_text().splitlines() if "[[" in l][0]
-    assert len(line) < 200

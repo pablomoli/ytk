@@ -12,6 +12,7 @@ import { useDeleteNote } from "../api/fresh";
 import type { FreshNote } from "../api/fresh";
 import { useLibrary } from "../api/library";
 import { HubControls } from "../components/HubControls";
+import { RecapPanel } from "../components/RecapPanel";
 import { CountUp } from "../components/CountUp";
 import { CURSOR_PREF, getPref } from "../lib/prefs";
 import "../styles.css";
@@ -125,6 +126,8 @@ function LibraryPage() {
         </span>
       </HubControls>
       <div className="hub-body">
+        {/* fresh merged into library (#197 P3): recency leads, the store follows */}
+        {!source && !q ? <RecapPanel /> : null}
         {remove.isError ? (
           <div className="delete-error" role="alert">
             failed to delete note: {String(remove.error)}

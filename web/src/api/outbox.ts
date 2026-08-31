@@ -1,0 +1,42 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiGet, apiSend, queryClient } from "./client";
+
+export type AskProposal = {
+  kind: string;
+  why?: string;
+  options?: string[];
+  window_days?: number;
+};
+
+export type OutboxAsk = {
+  id: number;
+  ask_id: number;
+  item_id: number;
+  subkind: string;
+  created_at: string;
+  title?: string | null;
+  url?: string | null;
+  source?: string | null;
+  proposal: AskProposal;
+};
+
+export type Outbox = {
+  asks: OutboxAsk[];
+  speaks: unknown[];
+  parked: { count: number; oldest: string | null };
+  loop: null;
+};
+
+export function useOutbox() {
+  return useQuery({ queryKey: ["outbox"], queryFn: () => apiGet<Outbox>("/api/outbox") });
+}
+
+export type AskAnswer = { ask_id: number; choice: string; text?: string };
+
+export function useAnswerAsk() {
+  return useMutation({
+    mutationFn: (answer: AskAnswer) =>
+      apiSend<{ answer_id: number | null; state: string }>("/api/outbox/answer", "POST", answer),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["outbox"] }),
+  });
+}

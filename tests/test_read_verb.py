@@ -134,6 +134,8 @@ def test_read_writes_bundle_and_advances_state(env, monkeypatch):
     conn = ledger.connect()
     item = ledger.insert_item(conn, source="youtube", url="https://y/1", provenance="hub")
     ledger.insert_activity(conn, item, actor="owner", action="capture", to_state="captured")
+    # A take, or P3's intent-missing ask fires (tests/test_asks.py covers that).
+    ledger.insert_take(conn, item, kind="intent", text="why I captured it")
     monkeypatch.setitem(evidence.GATHERERS, "youtube", lambda url, title: bundle())
     result = evidence.read_item(conn, item)
     assert result.ask_id is None

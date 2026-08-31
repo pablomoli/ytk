@@ -2469,6 +2469,19 @@ def ledger_grandfather():
         console.print(f"[yellow]duplicate url, not imported:[/] {rel}")
 
 
+@ledger_group.command(name="backfill-outbox")
+def ledger_backfill_outbox():
+    """Give P2-era asks their outbox rows (#197 P3). Idempotent."""
+    from . import asks, ledger
+
+    conn = ledger.connect()
+    try:
+        created = asks.backfill_outbox(conn)
+    finally:
+        conn.close()
+    console.print(f"outbox rows created: {created}")
+
+
 @ledger_group.command(name="status")
 def ledger_status():
     """Row counts per table and items by state."""

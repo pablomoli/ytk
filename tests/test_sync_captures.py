@@ -54,7 +54,11 @@ def test_sync_captures_new_videos_as_sweep(env):
     row = conn.execute("SELECT * FROM items").fetchone()
     assert row["provenance"] == "sync"
     assert row["title"] == "A talk"
-    assert ledger.item_state(conn, row["id"]) == "read"
+    # P3: a sync capture carries no take, so the clean read ends in the
+    # intent-missing ask rather than resting at read.
+    assert ledger.item_state(conn, row["id"]) == "asking"
+    kind = conn.execute("SELECT kind FROM asks").fetchone()
+    assert kind["kind"] == "intent missing"
     actor = conn.execute("SELECT actor FROM activity WHERE action = 'capture'").fetchone()
     assert actor["actor"] == "sweep"
 

@@ -24,12 +24,6 @@ export type SimilarItem = {
   url?: string | null;
 };
 
-export const fetchFresh = () => apiGet<FreshNote[]>("/api/fresh?n=60");
-
-export function useFreshNotes() {
-  return useQuery({ queryKey: ["fresh"], queryFn: fetchFresh });
-}
-
 export function useNote(path?: string) {
   return useQuery({
     queryKey: ["note", path],

@@ -65,3 +65,22 @@ def test_ui_takes_lock_before_serving(tmp_path, monkeypatch):
         result = CliRunner().invoke(cli, ["ui"])
     assert result.exit_code == 0, result.output
     assert lock_free_at_serve == [False]
+
+
+def test_ledger_backfill_outbox_reports_created_rows(env):
+    import json
+
+    conn = ledger.connect()
+    item_id = ledger.insert_item(conn, source="youtube", url="https://y/orphan", title="O")
+    conn.execute(
+        "INSERT INTO asks (item_id, kind, proposal, created_at) VALUES (?, ?, ?, ?)",
+        (item_id, "transcript junk", json.dumps({"kind": "transcript junk"}), ledger.now()),
+    )
+    conn.commit()
+    conn.close()
+    result = CliRunner().invoke(cli, ["ledger", "backfill-outbox"])
+    assert result.exit_code == 0
+    assert "1" in result.output
+    conn = ledger.connect()
+    assert conn.execute("SELECT count(*) FROM outbox").fetchone()[0] == 1
+    conn.close()

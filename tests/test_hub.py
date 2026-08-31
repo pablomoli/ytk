@@ -38,6 +38,9 @@ def hub(tmp_path, monkeypatch, stub_pullers):
     monkeypatch.setattr(hub_mod, "PROFILE_RANK_PATH", tmp_path / "profile-rank.json")
     monkeypatch.setattr(hub_mod, "PACING_SECONDS", 0.0)
     monkeypatch.setattr(hub_mod, "REINDEX", lambda: 0)
+    # library cards cache is module-global and keyed on pool size, which can
+    # collide across tmp brains of equal size; never let it cross tests
+    monkeypatch.setattr(hub_mod, "_LIB_CACHE", None)
     # reset job state between tests
     hub_mod._JOB.update(
         running=False,
@@ -347,7 +350,7 @@ def test_resume_abandons_an_item_that_keeps_killing_the_hub(hub):
     assert hub._load_persisted() == []
 
 
-def test_fresh_notes_lists_recent_with_thumbnails(hub):
+def test_library_notes_lists_recent_with_thumbnails(hub):
     note = hub.brain / "sources" / "instagram" / "someone-abc.md"
     note.write_text(
         NOTE_TEMPLATE.format(url="https://www.instagram.com/reel/abc/"),
@@ -359,7 +362,7 @@ def test_fresh_notes_lists_recent_with_thumbnails(hub):
 
     os.utime(older, (1, 1))
 
-    notes = hub.fresh_notes(n=10)
+    notes = hub.library_notes(n=10)["items"]
     assert notes[0]["stem"] == "someone-abc"
     assert notes[0]["source"] == "instagram"
     assert notes[0]["thumbnail"] == "sources/instagram/cover.jpg"
@@ -605,13 +608,15 @@ def test_api_ingest_bad_urls_400(client, hub):
     assert r.status_code == 400
 
 
-def test_api_fresh(client, hub):
+def test_api_fresh_is_retired(client, hub):
+    # P3 (#197): the fresh feed merged into /api/library; the endpoint is gone.
     (hub.brain / "sources" / "instagram" / "someone-abc.md").write_text(
         NOTE_TEMPLATE.format(url="https://x/"), encoding="utf-8"
     )
-    r = client.get("/api/fresh")
+    assert client.get("/api/fresh").status_code == 404
+    r = client.get("/api/library")
     assert r.status_code == 200
-    assert r.json()[0]["stem"] == "someone-abc"
+    assert r.json()["items"][0]["stem"] == "someone-abc"
 
 
 def test_vault_media_serves_images_and_blocks_traversal(client, hub):
@@ -621,13 +626,13 @@ def test_vault_media_serves_images_and_blocks_traversal(client, hub):
     assert r.status_code in (400, 404)
 
 
-def test_fresh_notes_flags_my_take(hub):
+def test_library_notes_flags_my_take(hub):
     note = hub.brain / "sources" / "instagram" / "taken.md"
     note.write_text(
         NOTE_TEMPLATE.format(url="https://x/") + "\n## My take\n\nmine\n",
         encoding="utf-8",
     )
-    assert hub.fresh_notes(n=5)[0]["has_take"] is True
+    assert hub.library_notes(n=5)["items"][0]["has_take"] is True
 
 
 # --- source pulls + buckets -------------------------------------------------------
@@ -825,7 +830,7 @@ def test_imessage_ingest_routes_like_a_memo(hub, monkeypatch):
     assert calls["finalize"] == "thought" and calls["index"] == "thought"
 
 
-def test_fresh_notes_includes_memos(hub):
+def test_library_notes_includes_memos(hub):
     memo_dir = hub.brain / "inbox" / "memos"
     memo_dir.mkdir(parents=True, exist_ok=True)
     (memo_dir / "2026-07-05-1512-test.md").write_text(
@@ -834,7 +839,7 @@ def test_fresh_notes_includes_memos(hub):
         "And it starts listening to me.\n",
         encoding="utf-8",
     )
-    notes = hub.fresh_notes()
+    notes = hub.library_notes()["items"]
     memos = [n for n in notes if n["source"] == "memo"]
     assert len(memos) == 1
     m = memos[0]
@@ -849,7 +854,11 @@ def test_fresh_notes_includes_memos(hub):
         "make rae an emulator game\n",
         encoding="utf-8",
     )
-    texted = [n for n in hub.fresh_notes() if n["source"] == "memo" and n["channel"] == "imessage"]
+    texted = [
+        n
+        for n in hub.library_notes()["items"]
+        if n["source"] == "memo" and n["channel"] == "imessage"
+    ]
     assert len(texted) == 1
     assert texted[0]["audio"] is None
 

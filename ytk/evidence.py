@@ -18,7 +18,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import ledger
+from . import asks, ledger
 
 VISUAL_SOURCES = {"instagram", "tiktok", "pinterest"}
 
@@ -165,22 +165,10 @@ def read_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") ->
         to_state="read",
         output_ref=str(out),
     )
-    asks = quality_asks(bundle)
-    if not asks:
-        return ReadResult(bundle_path=out, ask_id=None)
-    ask = asks[0]
-    cur = conn.execute(
-        "INSERT INTO asks (item_id, kind, proposal, created_at) VALUES (?, ?, ?, ?)",
-        (item_id, ask["kind"], json.dumps(ask), ledger.now()),
-    )
-    ask_id = cur.lastrowid
-    ledger.insert_activity(
-        conn,
-        item_id,
-        actor=actor,
-        action="ask",
-        from_state="read",
-        to_state="asking",
-        reason=ask["why"],
-    )
+    quality = quality_asks(bundle)
+    if quality:
+        ask_id = asks.raise_ask(conn, item_id, proposal=quality[0], actor=actor)
+        return ReadResult(bundle_path=out, ask_id=ask_id)
+    # Quality passed; intent comes second (spec order). No take, no note.
+    ask_id = asks.raise_intent_ask(conn, item_id, actor=actor)
     return ReadResult(bundle_path=out, ask_id=ask_id)
