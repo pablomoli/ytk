@@ -154,12 +154,22 @@ def test_two_bounces_raise_the_ask(conn, monkeypatch):
     assert not list((evidence.evidence_dir().parent).glob("**/sources/**/*.md"))
 
 
+def _answer(conn, ask_id, **kw):
+    """answer_ask + the transition the loop writes in production (P5)."""
+    from ytk import loop
+
+    asks.answer_ask(conn, ask_id, **kw)
+    row = conn.execute("SELECT id FROM answers WHERE ask_id = ?", (ask_id,)).fetchone()
+    item = conn.execute("SELECT item_id FROM asks WHERE id = ?", (ask_id,)).fetchone()
+    loop.apply_answer(conn, item["item_id"], row["id"])
+
+
 def test_intent_answer_becomes_take_and_advances(conn, monkeypatch):
     _stub_sdk(monkeypatch, [dict(DRAFT)], [dict(PASS_VERDICT)])
     item_id = _seed(conn, state_take=False)
     ask_id = asks.raise_intent_ask(conn, item_id)
     assert ask_id is not None
-    asks.answer_ask(conn, ask_id, choice="intent", text="how the breaker works", surface="hub")
+    _answer(conn, ask_id, choice="intent", text="how the breaker works", surface="hub")
     take = conn.execute("SELECT * FROM takes WHERE item_id = ?", (item_id,)).fetchone()
     assert take["kind"] == "intent"
     assert take["text"] == "how the breaker works"
@@ -173,7 +183,7 @@ def test_accept_as_is_lands_last_draft_without_model_calls(conn, monkeypatch):
     item_id = _seed(conn)
     res = curator.advance_item(conn, item_id)
     assert res.outcome == "asked"
-    asks.answer_ask(conn, res.ask_id, choice="accept as is")
+    _answer(conn, res.ask_id, choice="accept as is")
 
     def explode(*a, **k):
         raise AssertionError("accept as is must not spend a model call")
@@ -192,7 +202,7 @@ def test_say_what_is_wrong_feeds_owner_text(conn, monkeypatch):
     )
     item_id = _seed(conn)
     res = curator.advance_item(conn, item_id)
-    asks.answer_ask(conn, res.ask_id, choice="say what is wrong", text="name the actual flags")
+    _answer(conn, res.ask_id, choice="say what is wrong", text="name the actual flags")
     res2 = curator.advance_item(conn, item_id)
     assert res2.outcome == "kept"
     retry = [c for c in calls if c["model"] == "claude-sonnet-5"][2]

@@ -36,6 +36,16 @@ def _ledger_to_tmp(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _loop_files_to_tmp(tmp_path_factory, monkeypatch):
+    """The loop's health/kill/inert files live under ~/.ytk (#197 P5); a test
+    that touches the real ones can trip or resurrect the production loop."""
+    base = tmp_path_factory.mktemp("loop")
+    monkeypatch.setenv("YTK_LOOP_HEALTH", str(base / "loop-health.json"))
+    monkeypatch.setenv("YTK_LOOP_KILL", str(base / "loop.kill"))
+    monkeypatch.setenv("YTK_LOOP_INERT", str(base / "loop.inert"))
+
+
+@pytest.fixture(autouse=True)
 def _hub_lock_to_tmp(tmp_path_factory, monkeypatch):
     """The live hub holds ~/.ytk/hub.lock (#38); a test that touches the real
     path contends with production and gets the wrong answer."""

@@ -20,11 +20,13 @@ export type OutboxAsk = {
   proposal: AskProposal;
 };
 
+export type LoopHealth = { ok: boolean; line: string };
+
 export type Outbox = {
   asks: OutboxAsk[];
   speaks: unknown[];
   parked: { count: number; oldest: string | null };
-  loop: null;
+  loop: LoopHealth | null;
 };
 
 export function useOutbox() {

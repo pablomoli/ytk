@@ -933,18 +933,13 @@ def add_tag(name: str) -> list[str]:
 
 
 def ingest_via_cli(url: str, note: str = "") -> None:
-    """Capture one URL into the curator ledger and read it (#197 P2).
+    """Capture one URL into the curator ledger and wake the loop (#197 P5).
 
-    The user's thought becomes a take; the note is written only after the
-    item passes the owner. The drain logs the attempt, so capture() stays
-    quiet here. A read failure raises so the drain records it and the item
-    stays queued for retry; the capture row itself survives either way.
+    The user's thought becomes a take; reads, asks and advances belong to
+    the loop thread (single writer). The drain logs the attempt, so
+    capture() stays quiet here.
     """
     from ytk import capture as capture_verb
-    from ytk import (
-        evidence,
-        gatherers,  # noqa: F401 — import fills evidence.GATHERERS
-    )
     from ytk.ledger import connect
     from ytk.reels import classify_url
 
@@ -961,38 +956,47 @@ def ingest_via_cli(url: str, note: str = "") -> None:
         )
         if res.duplicate:
             return
-        rr = evidence.read_item(conn, res.item_id)
-        if rr.error:
-            raise RuntimeError(f"read failed: {rr.error}")
-        if rr.ask_id is None:
-            # clean read with a take: enrich + grade now (P4). The drain is
-            # already a background job, so synchronous is fine here.
-            from ytk import curator
-
-            curator.advance_item(conn, res.item_id)
     finally:
         conn.close()
+    wake_loop()
 
 
-def _advance_item_job(item_id: int) -> None:
-    from ytk import curator, ledger
+# ---------------------------------------------------------------------------
+# The loop (#197 P5): one worker thread, the single writer of transitions
+# ---------------------------------------------------------------------------
 
-    conn = ledger.connect()
-    try:
-        curator.advance_item(conn, item_id)
-    except Exception:
-        import logging
-
-        logging.getLogger("ytk.hub").exception("advance failed for item %s", item_id)
-    finally:
-        conn.close()
+_LOOP_WAKE = threading.Event()
+_LOOP_STOP = threading.Event()
+_LOOP_THREAD: threading.Thread | None = None
 
 
-def spawn_advance(item_id: int) -> None:
-    """P4 pre-loop: an answer POST returns immediately; enrich + grade run
-    on a hub background thread (1-3 min of model wall-time must not block
-    the digest). P5's loop absorbs this whole."""
-    threading.Thread(target=_advance_item_job, args=(item_id,), daemon=True).start()
+def start_loop() -> None:
+    """Start the curator loop thread. The hub singleton lock (#38) is the
+    host precondition — one hub, one loop."""
+    global _LOOP_THREAD
+    from ytk import loop
+
+    if _LOOP_THREAD is not None and _LOOP_THREAD.is_alive():
+        return
+    _LOOP_STOP.clear()
+    _LOOP_THREAD = threading.Thread(
+        target=loop.run_loop, args=(_LOOP_WAKE, _LOOP_STOP), name="ytk-loop", daemon=True
+    )
+    _LOOP_THREAD.start()
+
+
+def stop_loop() -> None:
+    thread = _LOOP_THREAD
+    if thread is None or not thread.is_alive():
+        return
+    _LOOP_STOP.set()
+    _LOOP_WAKE.set()
+    thread.join(timeout=10)
+
+
+def wake_loop() -> None:
+    """In-process nudge: an event row was inserted, the loop should look."""
+    _LOOP_WAKE.set()
 
 
 # test seams: stubbed in unit tests, real in production

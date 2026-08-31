@@ -17,10 +17,10 @@ QUALITY = {
 
 @pytest.fixture(autouse=True)
 def stub_spawn(monkeypatch):
-    """A non-drop answer now spawns background enrichment (P4); tests record
-    the spawn instead of running model calls on a thread."""
-    calls: list[int] = []
-    monkeypatch.setattr("ytk.ui.hub.spawn_advance", calls.append)
+    """An answer nudges the loop (P5); tests record the wake instead of
+    letting a thread near model work."""
+    calls: list[bool] = []
+    monkeypatch.setattr("ytk.ui.hub.wake_loop", lambda: calls.append(True))
     return calls
 
 
@@ -48,7 +48,7 @@ def test_outbox_returns_digest_and_stamps_presented(client):
     assert body["asks"][0]["proposal"]["options"] == QUALITY["options"]
     assert body["speaks"] == []
     assert body["parked"] == {"count": 0, "oldest": None}
-    assert body["loop"] is None
+    assert body["loop"]["ok"] is True
     conn = ledger.connect()
     stamped = conn.execute(
         "SELECT presented_at FROM outbox WHERE ask_id = ?", (ask_id,)
@@ -57,16 +57,16 @@ def test_outbox_returns_digest_and_stamps_presented(client):
     assert stamped is not None
 
 
-def test_answer_transitions_the_item(client):
+def test_answer_records_and_leaves_transition_to_loop(client):
     item_id, ask_id = seed_ask()
     resp = client.post(
         "/api/outbox/answer",
         json={"ask_id": ask_id, "choice": "keep with the warning"},
     )
     assert resp.status_code == 200
-    assert resp.json()["state"] == "answered"
+    assert resp.json()["state"] == "asking"  # the loop writes the transition
     conn = ledger.connect()
-    assert ledger.item_state(conn, item_id) == "answered"
+    assert ledger.item_state(conn, item_id) == "asking"
     conn.close()
     assert client.get("/api/outbox").json()["asks"] == []
 
@@ -78,7 +78,7 @@ def test_answer_twice_is_a_noop(client):
         "/api/outbox/answer", json={"ask_id": ask_id, "choice": "keep with the warning"}
     )
     assert again.status_code == 200
-    assert again.json() == {"answer_id": None, "state": "dropped", "advancing": False}
+    assert again.json() == {"answer_id": None, "state": "asking", "advancing": False}
 
 
 def test_answer_unknown_ask_is_404(client):
@@ -100,17 +100,18 @@ def test_parked_line_counts_parked_items(client):
     assert parked["oldest"] is not None
 
 
-def test_non_drop_answer_spawns_advance(client, stub_spawn):
-    item_id, ask_id = seed_ask()
+def test_non_drop_answer_wakes_the_loop(client, stub_spawn):
+    _, ask_id = seed_ask()
     body = client.post(
         "/api/outbox/answer", json={"ask_id": ask_id, "choice": "keep with the warning"}
     ).json()
     assert body["advancing"] is True
-    assert stub_spawn == [item_id]
+    assert stub_spawn == [True]
 
 
-def test_drop_answer_does_not_advance(client, stub_spawn):
+def test_drop_answer_reaches_the_loop_but_reports_not_advancing(client, stub_spawn):
+    # P5: the loop writes the dropped transition too, so a drop still nudges.
     _, ask_id = seed_ask()
     body = client.post("/api/outbox/answer", json={"ask_id": ask_id, "choice": "drop"}).json()
     assert body["advancing"] is False
-    assert stub_spawn == []
+    assert stub_spawn == [True]

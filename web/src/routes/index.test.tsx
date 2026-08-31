@@ -57,7 +57,7 @@ let outbox: {
     asks,
     speaks: [],
     parked: { count: 3, oldest: "2026-08-12T00:00:00+00:00" },
-    loop: null,
+    loop: { ok: true, line: "last tick 13:00Z \u00b7 2 advanced \u00b7 0 errors" },
   },
 };
 
@@ -108,14 +108,36 @@ test("say-more opens a text field and sends choice with text", () => {
 test("parked and loop lines render once each", () => {
   renderPage();
   expect(screen.getByText(/3 parked, oldest from/)).toBeInTheDocument();
-  expect(screen.getByText(/loop/)).toBeInTheDocument();
+  expect(screen.getByText(/2 advanced/)).toBeInTheDocument();
+});
+
+test("inert loop line wears the warning tone", () => {
+  outbox = {
+    isLoading: false,
+    isError: false,
+    data: {
+      asks: [],
+      speaks: [],
+      parked: { count: 0, oldest: null },
+      loop: { ok: false, line: "inert \u2014 tripped: token ceiling; run `ytk loop resume`" },
+    },
+  };
+  const { container } = renderPage();
+  const strip = container.querySelector("[data-loop-strip]");
+  expect(strip?.textContent).toContain("token ceiling");
+  expect(strip?.className).toContain("text-accent");
 });
 
 test("empty outbox invites, not apologizes", () => {
   outbox = {
     isLoading: false,
     isError: false,
-    data: { asks: [], speaks: [], parked: { count: 0, oldest: null }, loop: null },
+    data: {
+      asks: [],
+      speaks: [],
+      parked: { count: 0, oldest: null },
+      loop: { ok: true, line: "never ticked" },
+    },
   };
   renderPage();
   expect(screen.getByText(/nothing needs you/i)).toBeInTheDocument();

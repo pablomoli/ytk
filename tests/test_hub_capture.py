@@ -53,18 +53,10 @@ def _wait_done(timeout=5.0):
 
 
 @pytest.fixture(autouse=True)
-def stub_advance(monkeypatch):
-    """The drain now advances clean take-ful reads (P4); these tests pin the
-    capture path, so the verb is recorded, never run."""
-    from ytk.curator import AdvanceResult
-
-    calls: list[int] = []
-
-    def fake(conn, item_id, *, actor="loop"):
-        calls.append(item_id)
-        return AdvanceResult(item_id, "skipped", detail="stubbed in tests")
-
-    monkeypatch.setattr("ytk.curator.advance_item", fake)
+def stub_wake(monkeypatch):
+    """The drain inserts and wakes the in-process loop (P5)."""
+    calls: list[bool] = []
+    monkeypatch.setattr(hub, "wake_loop", lambda: calls.append(True))
     return calls
 
 
@@ -80,7 +72,8 @@ def test_drain_captures_with_take_and_hub_log_line(env):
     conn = ledger.connect()
     row = conn.execute("SELECT * FROM items").fetchone()
     assert row["provenance"] == "hub"
-    assert ledger.item_state(conn, row["id"]) == "read"
+    # P5: the drain stops at the capture; the loop reads and advances.
+    assert ledger.item_state(conn, row["id"]) == "captured"
     take = conn.execute("SELECT text FROM takes WHERE item_id = ?", (row["id"],)).fetchone()
     assert take["text"] == "why I saved it"
     lines = [json.loads(line) for line in env.read_text().splitlines()]

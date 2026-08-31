@@ -1,5 +1,5 @@
-"""P2 capture unification (#197): every add-shaped command inserts a ledger
-row and writes nothing to the vault."""
+"""P2/P5 (#197): every add-shaped command inserts a ledger row, nudges the
+loop, and writes nothing to the vault. Reads and advances are the loop's."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from ytk import evidence, ledger
+from ytk import ledger
 from ytk.cli import cli
 from ytk.evidence import EvidenceBundle
 
@@ -35,30 +35,12 @@ def clean_bundle(source: str, url: str) -> EvidenceBundle:
 
 
 @pytest.fixture(autouse=True)
-def stub_advance(monkeypatch):
-    """P4 wired enrichment behind clean take-ful reads; capture tests assert
-    ledger behavior only, so the advance verb is recorded, never run."""
-    from ytk.curator import AdvanceResult
-
-    calls: list[int] = []
-
-    def fake(conn, item_id, *, actor="loop"):
-        calls.append(item_id)
-        return AdvanceResult(item_id, "skipped", detail="stubbed in tests")
-
-    monkeypatch.setattr("ytk.curator.advance_item", fake)
+def stub_nudge(monkeypatch):
+    """The CLI inserts and nudges (P5, single writer); tests record the
+    nudge instead of POSTing at a hub."""
+    calls: list[bool] = []
+    monkeypatch.setattr("ytk.wake.nudge_loop", lambda: calls.append(True) or True)
     return calls
-
-
-@pytest.fixture(autouse=True)
-def stub_gatherers(monkeypatch):
-    """Consumer tests never do network; the read verb gets a clean bundle."""
-    import ytk.gatherers  # noqa: F401 — fill the registry before overriding
-
-    for source in list(evidence.GATHERERS):
-        monkeypatch.setitem(
-            evidence.GATHERERS, source, lambda url, title, s=source: clean_bundle(s, url)
-        )
 
 
 @pytest.mark.parametrize(
@@ -77,44 +59,34 @@ def stub_gatherers(monkeypatch):
         (["add-pinterest"], "pinterest", "https://www.pinterest.com/pin/123/"),
     ],
 )
-def test_command_captures_and_reads_without_vault_write(env, args, source, url):
+def test_command_captures_and_nudges_without_reading(env, stub_nudge, args, source, url):
     result = CliRunner().invoke(cli, [*args, url, "--note", "my take"])
     assert result.exit_code == 0, result.output
     conn = ledger.connect()
     row = conn.execute("SELECT * FROM items").fetchone()
     assert row["source"] == source
     assert row["url"] == url
-    assert ledger.item_state(conn, row["id"]) == "read"
+    # P5: the CLI stops at the capture; the loop reads and advances.
+    assert ledger.item_state(conn, row["id"]) == "captured"
     take = conn.execute("SELECT text FROM takes WHERE item_id = ?", (row["id"],)).fetchone()
     assert take["text"] == "my take"
     assert not (env / "vault").exists()  # nothing wrote a note
+    assert stub_nudge == [True]
 
 
-def test_add_reports_ask_when_gate_fires(env, monkeypatch):
+def test_add_points_at_the_digest(env, stub_nudge):
     url = "https://www.youtube.com/watch?v=abcdefghijk"
-    b = clean_bundle("youtube", url)
-    b.transcript = []
-    b.transcript_origin = "none"
-    b.transcript_status = "none"
-    monkeypatch.setitem(evidence.GATHERERS, "youtube", lambda u, t: b)
     result = CliRunner().invoke(cli, ["add", url])
     assert result.exit_code == 0, result.output
-    assert "transcript junk" in result.output
-    conn = ledger.connect()
-    row = conn.execute("SELECT id FROM items").fetchone()
-    assert ledger.item_state(conn, row["id"]) == "asking"
+    assert "loop" in result.output.lower()
 
 
-def test_add_survives_gatherer_failure_with_capture_kept(env, monkeypatch):
+def test_add_reports_unreachable_hub_and_keeps_the_capture(env, monkeypatch):
+    monkeypatch.setattr("ytk.wake.nudge_loop", lambda: False)
     url = "https://www.youtube.com/watch?v=abcdefghijk"
-
-    def boom(u, t):
-        raise RuntimeError("network down")
-
-    monkeypatch.setitem(evidence.GATHERERS, "youtube", boom)
     result = CliRunner().invoke(cli, ["add", url])
     assert result.exit_code == 0, result.output
-    assert "network down" in result.output
+    assert "hub not reachable" in result.output
     conn = ledger.connect()
     row = conn.execute("SELECT id FROM items").fetchone()
     assert ledger.item_state(conn, row["id"]) == "captured"
@@ -136,11 +108,10 @@ def test_add_never_calls_enrichment(env):
     assert result.exit_code == 0, result.output
 
 
-def test_note_ful_add_advances_and_bare_add_does_not(env, stub_advance):
-    url = "https://www.youtube.com/watch?v=abcdefghijk"
-    CliRunner().invoke(cli, ["add", url, "--note", "my take"], catch_exceptions=False)
-    assert len(stub_advance) == 1
-    CliRunner().invoke(
-        cli, ["add", "https://www.youtube.com/watch?v=other0000ok"], catch_exceptions=False
-    )
-    assert len(stub_advance) == 1  # take-less read raised the intent ask instead
+def test_add_never_reads_in_process(env, monkeypatch):
+    def boom(conn, item_id, *, actor="loop"):
+        raise AssertionError("read_item must not run on the CLI surface (P5)")
+
+    monkeypatch.setattr("ytk.evidence.read_item", boom)
+    result = CliRunner().invoke(cli, ["add", "https://www.youtube.com/watch?v=abcdefghijk"])
+    assert result.exit_code == 0, result.output

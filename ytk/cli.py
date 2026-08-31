@@ -128,14 +128,11 @@ cli.add_command(work_command)
 
 
 def _capture_and_read(url: str, note: str, surface: str, source: str | None = None) -> None:
-    """P2 (#197): capture into the ledger, then read evidence. The vault is
-    written only after the item passes the owner (first law); a failed read
-    keeps the capture and is retried by a later sweep."""
+    """P5 (#197, single writer): capture into the ledger and nudge the loop.
+    The CLI inserts events only; the loop reads, asks and advances. Owner
+    decision 2026-08-31: return immediately, no poll."""
     from . import capture as capture_verb
-    from . import (
-        evidence,
-        gatherers,  # noqa: F401 — import fills evidence.GATHERERS
-    )
+    from . import wake
     from .ledger import connect, item_state
     from .reels import classify_url
 
@@ -152,34 +149,12 @@ def _capture_and_read(url: str, note: str, surface: str, source: str | None = No
                 console.print("[dim]take attached to the existing item[/]")
             return
         console.print(f"[bold green]Captured[/] {source} item {res.item_id}")
-        rr = evidence.read_item(conn, res.item_id)
-        if rr.error:
-            console.print(f"[yellow]Read failed, capture kept:[/] {rr.error}")
-            return
-        if rr.ask_id is not None:
-            ask = conn.execute("SELECT kind FROM asks WHERE id = ?", (rr.ask_id,)).fetchone()
-            console.print(f"[yellow]Ask raised:[/] {ask['kind']} — the item waits for your answer")
-        else:
-            console.print(f"[green]Read[/] — evidence at {rr.bundle_path}")
-            _advance_after_read(conn, res.item_id)
     finally:
         conn.close()
-
-
-def _advance_after_read(conn, item_id: int) -> None:
-    """P4: a clean read with a take goes straight through enrich + grade.
-    The CLI is the acting surface, so it runs the verb synchronously (P2/P3
-    precedent); the hub does the same work in its background job."""
-    from . import curator
-
-    with console.status("[bold cyan]Enriching (through the grader)...[/]"):
-        adv = curator.advance_item(conn, item_id)
-    if adv.outcome == "kept":
-        console.print(f"[bold green]Note kept:[/] {adv.note_path}")
-    elif adv.outcome == "asked":
-        console.print("[yellow]Grader bounced twice[/] — ask raised; answer it in the digest")
-    elif adv.outcome == "error":
-        console.print(f"[red]Advance failed:[/] {adv.detail}")
+    if wake.nudge_loop():
+        console.print("[dim]the loop has it — check the digest[/]")
+    else:
+        console.print("[dim]hub not reachable; the loop catches up on start[/]")
 
 
 @cli.command()
@@ -2522,6 +2497,139 @@ def ledger_status():
             console.print(f"  {state}: {n}")
     finally:
         conn.close()
+
+
+@cli.group(name="loop")
+def loop_group():
+    """The curator loop (#197 P5): watch, resume, breaker management."""
+
+
+@loop_group.command(name="status")
+def loop_status():
+    """Health line, breaker flags, and items by state."""
+    from . import ledger, loop
+
+    line = loop.health_line()
+    tone = "green" if line["ok"] else "red"
+    console.print(f"[bold {tone}]loop:[/] {line['line']}")
+    h = loop.read_health()
+    if h.get("last_sweep_at"):
+        console.print(f"last sweep: {h['last_sweep_at']}")
+    if loop.kill_path().exists():
+        console.print("[yellow]kill file present[/] — the next watchdog pass trips the breaker")
+    conn = ledger.connect()
+    try:
+        states = conn.execute(
+            """
+            SELECT to_state, count(*) FROM (
+                SELECT item_id, to_state,
+                       row_number() OVER (PARTITION BY item_id ORDER BY id DESC) AS rn
+                FROM activity WHERE to_state IS NOT NULL
+            ) WHERE rn = 1 GROUP BY to_state ORDER BY 2 DESC
+            """
+        ).fetchall()
+        for state, n in states:
+            console.print(f"  {state}: {n}")
+    finally:
+        conn.close()
+
+
+@loop_group.command(name="resume")
+def loop_resume():
+    """Clear the inert flag — the only thing that can (the loop never does)."""
+    from . import loop
+
+    if loop.inert_path().exists():
+        reason = loop.inert_path().read_text().strip()
+        loop.inert_path().unlink()
+        console.print(f"[bold green]resumed[/] (was: {reason})")
+    else:
+        console.print("loop was not inert; nothing to clear")
+    if loop.kill_path().exists():
+        console.print(
+            f"[yellow]kill file still present[/] at {loop.kill_path()} — "
+            "remove it or the watchdog trips again within 5 minutes"
+        )
+
+
+@loop_group.command(name="kill")
+def loop_kill():
+    """Write the kill file; the watchdog drops the loop inert on its next pass."""
+    from . import loop
+
+    loop.kill_path().parent.mkdir(parents=True, exist_ok=True)
+    loop.kill_path().write_text("")
+    console.print(f"[bold]kill file written:[/] {loop.kill_path()}")
+
+
+@loop_group.command(name="watchdog-run")
+def loop_watchdog_run():
+    """One watchdog pass (the com.ytk.watchdog launchd entry point)."""
+    from . import watchdog
+
+    reason = watchdog.run_once()
+    if reason is None:
+        console.print("healthy")
+    else:
+        console.print(f"[bold red]tripped:[/] {reason}")
+
+
+_WATCHDOG_LABEL = "com.ytk.watchdog"
+_WATCHDOG_PLIST = Path.home() / "Library" / "LaunchAgents" / f"{_WATCHDOG_LABEL}.plist"
+
+
+@loop_group.command(name="install")
+def loop_install():
+    """Install the com.ytk.watchdog launchd agent (every 5 minutes)."""
+    ytk_bin = shutil.which("ytk")
+    if not ytk_bin:
+        console.print("[red]ytk binary not found in PATH.[/] Run [bold]uv tool install .[/] first.")
+        raise SystemExit(1)
+    log_path = Path.home() / ".ytk" / "logs" / "watchdog.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    # Wrapper script so the plist never shell-interpolates the binary path
+    # (the com.ytk.nightly pattern).
+    script_path = Path.home() / ".ytk" / "watchdog.sh"
+    script_path.write_text(f"#!/bin/sh\n{ytk_bin} loop watchdog-run\n", encoding="utf-8")
+    script_path.chmod(0o700)
+    _WATCHDOG_PLIST.parent.mkdir(parents=True, exist_ok=True)
+    _WATCHDOG_PLIST.write_text(
+        f"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{_WATCHDOG_LABEL}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{script_path}</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>300</integer>
+    <key>StandardOutPath</key>
+    <string>{log_path}</string>
+    <key>StandardErrorPath</key>
+    <string>{log_path}</string>
+</dict>
+</plist>
+""",
+        encoding="utf-8",
+    )
+    subprocess.run(["launchctl", "load", str(_WATCHDOG_PLIST)], check=True)
+    console.print(f"[bold green]Installed:[/] {_WATCHDOG_PLIST}")
+
+
+@loop_group.command(name="uninstall")
+def loop_uninstall():
+    """Remove the com.ytk.watchdog launchd agent."""
+    if not _WATCHDOG_PLIST.exists():
+        console.print("[yellow]No plist found.[/] Nothing to uninstall.")
+        return
+    subprocess.run(["launchctl", "unload", str(_WATCHDOG_PLIST)], check=False)
+    _WATCHDOG_PLIST.unlink()
+    console.print(f"[bold green]Uninstalled:[/] {_WATCHDOG_PLIST}")
 
 
 @cli.command(name="chat")

@@ -103,7 +103,9 @@ def test_intent_ask_skipped_when_take_exists(conn):
 # ------------------------------------------------------------------ answer
 
 
-def test_answer_records_row_stamps_outbox_and_transitions(conn):
+def test_answer_records_row_and_leaves_transition_to_loop(conn):
+    # P5: answers are event inserts; the loop is the single writer of
+    # transitions (loop.apply_answer, covered in test_loop.py).
     item_id = item(conn)
     ask_id = asks.raise_ask(conn, item_id, proposal=QUALITY)
     answer_id = asks.answer_ask(
@@ -112,19 +114,16 @@ def test_answer_records_row_stamps_outbox_and_transitions(conn):
     assert answer_id is not None
     out = conn.execute("SELECT * FROM outbox WHERE ask_id = ?", (ask_id,)).fetchone()
     assert out["answered_at"] is not None
-    assert ledger.item_state(conn, item_id) == "answered"
-    last = conn.execute(
-        "SELECT actor, from_state FROM activity WHERE item_id = ? ORDER BY id DESC", (item_id,)
-    ).fetchone()
-    assert last["actor"] == "owner"
-    assert last["from_state"] == "asking"
+    assert ledger.item_state(conn, item_id) == "asking"
 
 
-def test_answer_drop_transitions_to_dropped(conn):
+def test_answer_drop_records_choice_without_transition(conn):
     item_id = item(conn)
     ask_id = asks.raise_ask(conn, item_id, proposal=QUALITY)
     asks.answer_ask(conn, ask_id, choice="drop", surface="hub")
-    assert ledger.item_state(conn, item_id) == "dropped"
+    assert ledger.item_state(conn, item_id) == "asking"
+    row = conn.execute("SELECT choice FROM answers WHERE ask_id = ?", (ask_id,)).fetchone()
+    assert row["choice"] == "drop"
 
 
 def test_answer_twice_is_a_noop(conn):
@@ -133,11 +132,12 @@ def test_answer_twice_is_a_noop(conn):
     asks.answer_ask(conn, ask_id, choice="drop", surface="hub")
     again = asks.answer_ask(conn, ask_id, choice="keep with the warning", surface="cli")
     assert again is None
-    assert ledger.item_state(conn, item_id) == "dropped"
+    row = conn.execute("SELECT choice FROM answers WHERE ask_id = ?", (ask_id,)).fetchone()
+    assert row["choice"] == "drop"
     transitions = conn.execute(
         "SELECT count(*) FROM activity WHERE item_id = ? AND to_state IS NOT NULL", (item_id,)
     ).fetchone()[0]
-    assert transitions == 3  # captured, asking, dropped — no fourth
+    assert transitions == 2  # captured, asking — the loop writes the third
 
 
 # ------------------------------------------------------------------ backfill

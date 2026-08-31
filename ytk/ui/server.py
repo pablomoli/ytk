@@ -42,7 +42,11 @@ async def _lifespan(app: FastAPI):
     hub.probe_capture_health()
     hub.start_imessage_watcher()
     hub.warm_search()
+    # The curator loop (#197 P5): single writer, hosted here behind the
+    # hub singleton lock (#38).
+    hub.start_loop()
     yield
+    hub.stop_loop()
 
 
 app = FastAPI(title="ytk ingest hub", docs_url=None, redoc_url=None, lifespan=_lifespan)
@@ -345,11 +349,22 @@ async def reflect_answer_api(req: ReflectAnswerRequest):
     return {"stored": bool(req.answer.strip())}
 
 
+@app.post("/api/loop/wake")
+def loop_wake_api():
+    """Out-of-process nudge (#197 P5): CLI, MCP and launchd jobs insert their
+    event row, then POST here; a lost nudge is caught by the 60s poll."""
+    from ytk.ui import hub
+
+    hub.wake_loop()
+    return {"woken": True}
+
+
 @app.get("/api/outbox")
 def outbox_api():
     """The digest, in delivery order (#197 P3). Rendering IS delivery:
     returned ask rows get presented_at stamped, once."""
     from ytk import asks, ledger
+    from ytk import loop as loop_mod
 
     conn = ledger.connect()
     try:
@@ -364,7 +379,7 @@ def outbox_api():
             "asks": ask_rows,
             "speaks": [],  # no triggers until P5/P8
             "parked": asks.parked_summary(conn),
-            "loop": None,  # health line lands with P5's loop
+            "loop": loop_mod.health_line(),
         }
     finally:
         conn.close()
@@ -389,13 +404,13 @@ def outbox_answer_api(req: OutboxAnswerRequest):
             conn, req.ask_id, choice=req.choice, text=req.text, surface="hub"
         )
         state = ledger.item_state(conn, known["item_id"])
-        advancing = answer_id is not None and state == "answered"
-        if advancing:
-            # P4: a non-drop answer unfreezes the item; enrich + grade run in
-            # the hub's background so this POST stays instant.
+        advancing = answer_id is not None and req.choice != "drop"
+        if answer_id is not None:
+            # P5: the answer is the event; the loop writes the transition and
+            # runs the verbs. The POST stays instant either way.
             from ytk.ui import hub
 
-            hub.spawn_advance(known["item_id"])
+            hub.wake_loop()
         return {"answer_id": answer_id, "state": state, "advancing": advancing}
     finally:
         conn.close()

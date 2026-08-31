@@ -173,17 +173,13 @@ def sync(
 ) -> SyncResult:
     """P2 (#197): fetch the 'ytk' playlist and capture every new video into
     the curator ledger (surface sync, actor sweep). The vault-writing half of
-    sync is gone — notes land only after an item passes the owner. A read
-    failure leaves the video unprocessed so the next run retries it; the
-    capture row itself is idempotent.
+    sync is gone — notes land only after an item passes the owner. P5: sync
+    stops at the capture and nudges the loop once per batch; reads and asks
+    are the loop's. The capture row itself is idempotent.
 
     Returns a SyncResult; `ingested` now counts captures.
     """
     from . import capture as capture_verb
-    from . import (
-        evidence,
-        gatherers,  # noqa: F401 — import fills evidence.GATHERERS
-    )
     from .ledger import connect
 
     def _log(msg: str) -> None:
@@ -214,7 +210,7 @@ def sync(
 
             _log(f"capturing: {title!r}")
             try:
-                res = capture_verb.capture(
+                capture_verb.capture(
                     conn,
                     source="youtube",
                     url=url,
@@ -223,10 +219,6 @@ def sync(
                     actor="sweep",
                     log=False,
                 )
-                if not res.duplicate:
-                    rr = evidence.read_item(conn, res.item_id, actor="sweep")
-                    if rr.error:
-                        raise RuntimeError(f"read failed: {rr.error}")
             except Exception as exc:
                 print(f"[ytk] FAILED {title!r}: {exc}", file=sys.stderr)
                 db.mark_failed(video_id, title, str(exc))
@@ -243,4 +235,9 @@ def sync(
     finally:
         conn.close()
 
+    if result.ingested:
+        # One nudge per batch (P5): the rows are the events, the loop reads.
+        from . import wake
+
+        wake.nudge_loop()
     return result

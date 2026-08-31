@@ -104,7 +104,7 @@ function DigestPage() {
   } else if (outbox.isError) {
     body = <ErrorState error={outbox.error} onRetry={() => void outbox.refetch()} />;
   } else if (outbox.data) {
-    const { asks, parked } = outbox.data;
+    const { asks, parked, loop } = outbox.data;
     body = (
       <>
         {asks.length ? (
@@ -137,7 +137,12 @@ function DigestPage() {
             {parked.count} parked
             {parked.oldest ? `, oldest from ${parked.oldest.slice(0, 10)}` : ""}
           </span>
-          <span className="sub text-mute">loop not running — arrives with P5</span>
+          <span
+            data-loop-strip
+            className={loop && !loop.ok ? "sub text-accent" : "sub text-mute"}
+          >
+            {loop ? loop.line : "loop not running"}
+          </span>
         </footer>
       </>
     );

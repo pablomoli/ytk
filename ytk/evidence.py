@@ -190,3 +190,54 @@ def read_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") ->
     # Quality passed; intent comes second (spec order). No take, no note.
     ask_id = asks.raise_intent_ask(conn, item_id, actor=actor)
     return ReadResult(bundle_path=out, ask_id=ask_id)
+
+
+def retry_parked(conn: sqlite3.Connection, item_id: int, *, actor: str = "sweep") -> bool:
+    """Re-run the deterministic gate on a parked item (#197 P5 sweep).
+
+    Auto-captions arrive days after upload and frame extraction recovers, so
+    a re-gather can clear what parked the item. A pass writes the fresh
+    bundle, retires the stale quality ask, and returns the item to read with
+    no new ask (spec, Parked); a fail records the attempt and stays parked.
+    """
+    row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
+    gatherer = GATHERERS.get(row["source"])
+    if gatherer is None:
+        return False
+    try:
+        bundle = gatherer(row["url"], row["title"])
+    except Exception as exc:
+        ledger.insert_activity(
+            conn, item_id, actor=actor, action="retry-read", reason=f"retry failed: {exc}"
+        )
+        return False
+    if quality_asks(bundle):
+        ledger.insert_activity(
+            conn, item_id, actor=actor, action="retry-read", reason="gate still failing"
+        )
+        return False
+    out = evidence_dir() / f"{item_id}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(asdict(bundle), indent=1))
+    conn.execute("UPDATE items SET payload_ref = ? WHERE id = ?", (str(out), item_id))
+    conn.execute(
+        """
+        UPDATE outbox SET answered_at = ? WHERE answered_at IS NULL AND ask_id IN
+            (SELECT id FROM asks WHERE item_id = ?)
+        """,
+        (ledger.now(), item_id),
+    )
+    ledger.insert_activity(
+        conn,
+        item_id,
+        actor=actor,
+        action="read",
+        from_state=ledger.item_state(conn, item_id),
+        to_state="read",
+        output_ref=str(out),
+        reason="retry gate passed",
+    )
+    # Quality cleared; the funnel continues in spec order — a takeless item
+    # still owes the owner its "why this one?".
+    asks.raise_intent_ask(conn, item_id, actor=actor)
+    return True

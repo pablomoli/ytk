@@ -41,11 +41,15 @@ _INTENT_TAKE_KINDS = {"intent": "intent", "reaction": "reaction", "just want it"
 
 
 def _open_ask_id(conn: sqlite3.Connection, item_id: int) -> int | None:
+    """Open = no answer AND its outbox row unstamped. The sweep retires asks
+    (retry pass, intent expiry) by stamping outbox.answered_at with no answers
+    row — answers stay owner-only events (P5)."""
     row = conn.execute(
         """
         SELECT asks.id FROM asks
         LEFT JOIN answers ON answers.ask_id = asks.id
-        WHERE asks.item_id = ? AND answers.id IS NULL
+        LEFT JOIN outbox ON outbox.ask_id = asks.id
+        WHERE asks.item_id = ? AND answers.id IS NULL AND outbox.answered_at IS NULL
         LIMIT 1
         """,
         (item_id,),
@@ -117,36 +121,27 @@ def answer_ask(
     text: str | None = None,
     surface: str | None = None,
 ) -> int | None:
-    """Record an answer and advance the item. Insert-only on answers
-    (UNIQUE ask_id); a second answer is a no-op returning None."""
+    """Record an answer: event inserts only. Insert-only on answers (UNIQUE
+    ask_id); a second answer is a no-op returning None. The transition is the
+    loop's to write (loop.apply_answer) — surfaces nudge, never advance (P5,
+    single writer)."""
     at = ledger.now()
     answer_id = ledger.insert_answer(conn, ask_id, choice=choice, text=text, surface=surface, at=at)
     if answer_id is None:
         return None
     conn.execute("UPDATE outbox SET answered_at = ? WHERE ask_id = ?", (at, ask_id))
+    conn.commit()
     ask = conn.execute("SELECT item_id, kind FROM asks WHERE id = ?", (ask_id,)).fetchone()
-    item_id = ask["item_id"]
     if ask["kind"] == "intent missing" and choice in _INTENT_TAKE_KINDS:
+        # The intent answer IS the take (P4): a labeled event, not a transition.
         ledger.insert_take(
             conn,
-            item_id,
+            ask["item_id"],
             kind=_INTENT_TAKE_KINDS[choice],
             text=text or "",
             surface=surface,
             at=at,
         )
-    to_state = "dropped" if choice in _DROP_CHOICES else "answered"
-    ledger.insert_activity(
-        conn,
-        item_id,
-        actor="owner",
-        action="answer",
-        from_state=ledger.item_state(conn, item_id),
-        to_state=to_state,
-        reason=choice,
-        detail=json.dumps({"ask_id": ask_id, "text": text}) if text else None,
-        at=at,
-    )
     return answer_id
 
 

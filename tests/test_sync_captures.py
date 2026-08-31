@@ -41,6 +41,14 @@ def env(tmp_path, monkeypatch):
     return tmp_path
 
 
+@pytest.fixture(autouse=True)
+def stub_nudge(monkeypatch):
+    """Sync inserts and nudges once per batch (P5); recorded, never POSTed."""
+    calls: list[bool] = []
+    monkeypatch.setattr("ytk.wake.nudge_loop", lambda: calls.append(True) or True)
+    return calls
+
+
 def _run_sync(videos):
     with patch.object(scheduler, "fetch_playlist_videos", return_value=videos):
         return scheduler.sync(MagicMock(), Config())
@@ -54,11 +62,10 @@ def test_sync_captures_new_videos_as_sweep(env):
     row = conn.execute("SELECT * FROM items").fetchone()
     assert row["provenance"] == "sync"
     assert row["title"] == "A talk"
-    # P3: a sync capture carries no take, so the clean read ends in the
-    # intent-missing ask rather than resting at read.
-    assert ledger.item_state(conn, row["id"]) == "asking"
-    kind = conn.execute("SELECT kind FROM asks").fetchone()
-    assert kind["kind"] == "intent missing"
+    # P5: sync stops at the capture and nudges once; the loop reads, and
+    # the take-less read raises the intent ask there.
+    assert ledger.item_state(conn, row["id"]) == "captured"
+    assert conn.execute("SELECT count(*) FROM asks").fetchone()[0] == 0
     actor = conn.execute("SELECT actor FROM activity WHERE action = 'capture'").fetchone()
     assert actor["actor"] == "sweep"
 
@@ -73,16 +80,18 @@ def test_sync_skips_processed_and_is_idempotent(env):
     assert conn.execute("SELECT count(*) FROM items").fetchone()[0] == 1
 
 
-def test_sync_read_failure_leaves_video_unprocessed_for_retry(env, monkeypatch):
-    def boom(url, title):
-        raise RuntimeError("network down")
+def test_sync_nudges_once_per_batch(env, stub_nudge):
+    _run_sync(
+        [
+            {"video_id": "abcdefghijk", "title": "A"},
+            {"video_id": "lmnopqrstuv", "title": "B"},
+        ]
+    )
+    assert stub_nudge == [True]
 
-    monkeypatch.setitem(evidence.GATHERERS, "youtube", boom)
-    result = _run_sync([{"video_id": "abcdefghijk", "title": "A talk"}])
-    assert result.failed == 1
-    import ytk.db as db
 
-    assert not db.is_processed("abcdefghijk")
-    conn = ledger.connect()
-    row = conn.execute("SELECT id FROM items").fetchone()
-    assert ledger.item_state(conn, row["id"]) == "captured"  # capture survives
+def test_sync_with_nothing_new_does_not_nudge(env, stub_nudge):
+    _run_sync([{"video_id": "abcdefghijk", "title": "A"}])
+    stub_nudge.clear()
+    _run_sync([{"video_id": "abcdefghijk", "title": "A"}])
+    assert stub_nudge == []
