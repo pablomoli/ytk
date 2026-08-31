@@ -119,8 +119,8 @@ function DigestPage() {
           </div>
         ) : (
           <p className="text-ink2 italic">
-            nothing needs you — <Link to="/library">the library</Link> has everything kept,{" "}
-            <Link to="/inbox">the inbox</Link> takes more.
+            nothing needs you — <Link to="/library" className="text-accent">the library</Link> has
+            everything kept, <Link to="/inbox" className="text-accent">the inbox</Link> takes more.
           </p>
         )}
         {receipts.length ? (
