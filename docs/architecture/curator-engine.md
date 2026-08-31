@@ -1,8 +1,9 @@
 # The curator engine
 
-Design overview for the redesign of passive ingestion, agreed 2026-08-29.
-Status: design approved at the tier level; steps 0-5 below each produce
-their own decision before code. Research input:
+Design for the redesign of passive ingestion, agreed 2026-08-29/30.
+Status: DESIGN COMPLETE and locked 2026-08-30 (steps 0-5 all decided).
+Implementation starts at plan P1 below; changes to this document after
+the lock are amendments, stated as such. Research input:
 `docs/research/2026-08-29-loop-shapes.md` (with the critic's verdict).
 Diagram: `curator-engine.excalidraw`.
 
@@ -346,6 +347,56 @@ bypass removed.
 fresh route; the what's-new pull page behavior. The hub catch-up thread
 and autoingest are already committed removals.
 
+## Ledger and plans (step 5, locked 2026-08-30)
+
+`~/.ytk/ledger.db`, SQLite WAL, migrations in the `ytk/db.py` style.
+
+```
+items      id, source, url, title, provenance, captured_at,
+           payload_ref (evidence bundle), lease_until, tick_count
+           UNIQUE(source, url)                  -- double capture is a no-op
+activity   id, item_id, at, actor (enricher|grader|connect|loop|sweep|owner),
+           action, from_state, to_state,
+           inputs (json: evidence_hash, take_id, rubric_hash, prompt_version),
+           output_ref, model, tokens, duration_ms, reason, detail (json)
+           -- transitions ARE activity rows; state = the item's last row
+           -- with a non-null to_state
+takes      id, item_id, kind (intent|reaction|reflex), text, written_at, surface
+asks       id, item_id, kind, proposal (json), created_at
+answers    id, ask_id UNIQUE, choice, text, at, surface   -- insert-only
+outbox     id, kind (ask|speak), subkind, item_id, ask_id, created_at,
+           payload, presented_at, answered_at
+snapshots  id, item_id, at, before_ref, after_ref
+           -- any transition that rewrites a vault note; the vault is
+           -- iCloud, not git, and this is the only undo
+```
+
+Transitions and the activity log are one table so state and history
+cannot drift apart. Grandfathering: the 751 existing notes get `items`
+rows with `provenance = grandfathered` and one activity row to
+`kept-unlabeled`; no backfill asks — the unfinished-occasions speak
+trigger surfaces the worth-revisiting ones at digest pace.
+
+### Plans
+
+Eight, each a `wt` worktree landing green on `just check`, in order:
+
+| plan | delivers | unblocks |
+|---|---|---|
+| P1 | ledger + migrations + `hub.lock` (#38 fixed) + grandfather import | everything |
+| P2 | capture unification: all six writers insert `items`, vault writes stop; `read` verb with the quality gate | P3 |
+| P3 | asks + outbox + the hub digest (`/`), fresh into library | the first law live end to end |
+| P4 | enricher/grader contracts, rubric wiring, `take_response`, activity rows with usage fields (`sdk.py` stops discarding them) | P5, P6 |
+| P5 | loop thread + wake API + idle sweep + `com.ytk.watchdog` + `ytk loop status` | unattended operation |
+| P6 | `connect` + the Connections section + snapshots | the argued links |
+| P7 | kernel 1 (`ytk_kernel`, pre-registered) under the dup check and connect candidates | Chroma retirement path |
+| P8 | new skills, session voice block, MCP voice_list/voice_answer, retirements | consolidation done |
+
+After P3 the first law is enforced; everything later deepens quality.
+The acceptance thread (cringelords end to end; the kill-it-mid-tick
+test) runs after P5 and again after P8. Open issues absorbed by #197
+are retargeted to their plan now that the spec is locked.
+
 ## Native kernels
 
 Admission rule, from the Muratori note (`sources/youtube/why-performant-code-matters...`,
@@ -373,7 +424,7 @@ wait on the model and the disk), parsing (I/O and embedding dominate),
 | 2 | designed: the Contracts section below; rubric v1 drafted at `~/.ytk/rubric.md`; kernel 1 scoped, not built | depth, taste, blame; first native consumer |
 | 3 | done: The loop section below | hub hosts, single writer, event wake + poll net, watchdog breaker; #38 is a prerequisite |
 | 4 | done: Voice and consolidation section below | outbox table + presented_at instrument; / is the digest; all-new skills; $$ keeps speed, loses bypass |
-| 5 | ledger schema, written spec, worktree-sized plans | locked last |
+| 5 | locked: Ledger and plans section below | one activity table; grandfather without asks; eight worktree plans P1-P8 |
 
 Acceptance thread, every tier once, unattended until it needs the owner:
 "second brain cringelords" arrives, is read, the owner is asked why and
