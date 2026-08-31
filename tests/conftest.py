@@ -26,6 +26,16 @@ def _no_real_instagram_session(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _ledger_to_tmp(tmp_path_factory, monkeypatch):
+    """Fixture URLs reached ~/.ytk/ledger.db through tests that ran the real
+    capture path before pinning their own env (the E5 capture-log incident,
+    replayed). Every test gets a throwaway ledger and evidence dir."""
+    base = tmp_path_factory.mktemp("ledger")
+    monkeypatch.setenv("YTK_LEDGER", str(base / "ledger.db"))
+    monkeypatch.setenv("YTK_EVIDENCE", str(base / "evidence"))
+
+
+@pytest.fixture(autouse=True)
 def _hub_lock_to_tmp(tmp_path_factory, monkeypatch):
     """The live hub holds ~/.ytk/hub.lock (#38); a test that touches the real
     path contends with production and gets the wrong answer."""
