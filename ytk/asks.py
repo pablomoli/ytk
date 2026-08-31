@@ -35,6 +35,10 @@ INTENT_WINDOW_DAYS = 7
 # Any choice that is not a drop moves the item forward to answered.
 _DROP_CHOICES = frozenset({"drop"})
 
+# The intent-missing answer IS the take (P4): the sentence enrichment is
+# built on, and a labeled example for the future intent predictor.
+_INTENT_TAKE_KINDS = {"intent": "intent", "reaction": "reaction", "just want it": "reflex"}
+
 
 def _open_ask_id(conn: sqlite3.Connection, item_id: int) -> int | None:
     row = conn.execute(
@@ -120,7 +124,17 @@ def answer_ask(
     if answer_id is None:
         return None
     conn.execute("UPDATE outbox SET answered_at = ? WHERE ask_id = ?", (at, ask_id))
-    item_id = conn.execute("SELECT item_id FROM asks WHERE id = ?", (ask_id,)).fetchone()["item_id"]
+    ask = conn.execute("SELECT item_id, kind FROM asks WHERE id = ?", (ask_id,)).fetchone()
+    item_id = ask["item_id"]
+    if ask["kind"] == "intent missing" and choice in _INTENT_TAKE_KINDS:
+        ledger.insert_take(
+            conn,
+            item_id,
+            kind=_INTENT_TAKE_KINDS[choice],
+            text=text or "",
+            surface=surface,
+            at=at,
+        )
     to_state = "dropped" if choice in _DROP_CHOICES else "answered"
     ledger.insert_activity(
         conn,

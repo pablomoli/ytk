@@ -15,6 +15,15 @@ QUALITY = {
 }
 
 
+@pytest.fixture(autouse=True)
+def stub_spawn(monkeypatch):
+    """A non-drop answer now spawns background enrichment (P4); tests record
+    the spawn instead of running model calls on a thread."""
+    calls: list[int] = []
+    monkeypatch.setattr("ytk.ui.hub.spawn_advance", calls.append)
+    return calls
+
+
 @pytest.fixture()
 def client():
     from ytk.ui.server import app
@@ -69,7 +78,7 @@ def test_answer_twice_is_a_noop(client):
         "/api/outbox/answer", json={"ask_id": ask_id, "choice": "keep with the warning"}
     )
     assert again.status_code == 200
-    assert again.json() == {"answer_id": None, "state": "dropped"}
+    assert again.json() == {"answer_id": None, "state": "dropped", "advancing": False}
 
 
 def test_answer_unknown_ask_is_404(client):
@@ -89,3 +98,19 @@ def test_parked_line_counts_parked_items(client):
     parked = client.get("/api/outbox").json()["parked"]
     assert parked["count"] == 1
     assert parked["oldest"] is not None
+
+
+def test_non_drop_answer_spawns_advance(client, stub_spawn):
+    item_id, ask_id = seed_ask()
+    body = client.post(
+        "/api/outbox/answer", json={"ask_id": ask_id, "choice": "keep with the warning"}
+    ).json()
+    assert body["advancing"] is True
+    assert stub_spawn == [item_id]
+
+
+def test_drop_answer_does_not_advance(client, stub_spawn):
+    _, ask_id = seed_ask()
+    body = client.post("/api/outbox/answer", json={"ask_id": ask_id, "choice": "drop"}).json()
+    assert body["advancing"] is False
+    assert stub_spawn == []

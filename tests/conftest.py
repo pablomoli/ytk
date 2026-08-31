@@ -55,6 +55,15 @@ def _isolate_config(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _rubric_to_tmp(tmp_path_factory, monkeypatch):
+    """The rubric at ~/.ytk/rubric.md is the owner's; a test must neither
+    read it (its content would leak into assertions) nor ever write it."""
+    p = tmp_path_factory.mktemp("rubric") / "rubric.md"
+    p.write_text("# Rubric (test stub)\n\nBe specific. No filler.\n")
+    monkeypatch.setenv("YTK_RUBRIC", str(p))
+
+
+@pytest.fixture(autouse=True)
 def _capture_log_to_tmp(tmp_path, monkeypatch):
     """The E5 instrument (#149) appends to ~/.ytk/capture_log.jsonl by default;
     six days of its baseline window were 92% pytest fixtures because tests

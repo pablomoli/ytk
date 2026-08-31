@@ -52,6 +52,22 @@ def _wait_done(timeout=5.0):
     raise AssertionError("drain did not finish")
 
 
+@pytest.fixture(autouse=True)
+def stub_advance(monkeypatch):
+    """The drain now advances clean take-ful reads (P4); these tests pin the
+    capture path, so the verb is recorded, never run."""
+    from ytk.curator import AdvanceResult
+
+    calls: list[int] = []
+
+    def fake(conn, item_id, *, actor="loop"):
+        calls.append(item_id)
+        return AdvanceResult(item_id, "skipped", detail="stubbed in tests")
+
+    monkeypatch.setattr("ytk.curator.advance_item", fake)
+    return calls
+
+
 def test_drain_captures_with_take_and_hub_log_line(env):
     from ytk import reels
 

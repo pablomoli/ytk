@@ -26,7 +26,9 @@ import logging
 import os
 import shutil
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from claude_agent_sdk import (
     ClaudeAgentOptions,
@@ -38,6 +40,37 @@ from pydantic import BaseModel
 log = logging.getLogger(__name__)
 
 _FAST_MODEL = "claude-haiku-4-5"
+
+
+@dataclass
+class StructuredResult:
+    """A structured call plus what it cost (#197 P4): activity rows carry
+    model, tokens, duration_ms, so the transport must not discard them."""
+
+    data: dict[str, Any]
+    model: str | None
+    tokens: int | None  # input + output; the full usage dict keeps the rest
+    duration_ms: int | None
+    usage: dict[str, Any] | None
+
+
+def result_from(msg: ResultMessage, requested_model: str | None) -> StructuredResult:
+    """Map a ResultMessage to a StructuredResult. Usage may be absent under
+    subscription auth (recorded spec uncertainty) — every field is
+    None-tolerant so the token ceiling can fall back to a call count."""
+    tokens = None
+    if msg.usage is not None:
+        tokens = int(msg.usage.get("input_tokens", 0)) + int(msg.usage.get("output_tokens", 0))
+    model = requested_model
+    if model is None and msg.model_usage:
+        model = next(iter(msg.model_usage))
+    return StructuredResult(
+        data=msg.structured_output,
+        model=model,
+        tokens=tokens,
+        duration_ms=msg.duration_ms,
+        usage=msg.usage,
+    )
 
 
 def structured[R: BaseModel](
@@ -129,7 +162,24 @@ def run_structured(
     max_turns: int = 20,
     model: str | None = None,
 ) -> dict:
-    """Run a one-shot enrichment against Claude Code and return validated JSON.
+    """Legacy front door: JSON only. New callers that write activity rows
+    use call_structured, which keeps the usage fields."""
+    return call_structured(
+        system_prompt, user_prompt, schema, add_dirs=add_dirs, max_turns=max_turns, model=model
+    ).data
+
+
+def call_structured(
+    system_prompt: str,
+    user_prompt: str,
+    schema: dict[str, Any],
+    *,
+    add_dirs: Sequence[str | Path] | None = None,
+    max_turns: int = 20,
+    model: str | None = None,
+) -> StructuredResult:
+    """Run a one-shot structured call against Claude Code; returns the JSON
+    plus model/tokens/duration for the caller's activity row.
 
     The schema must be a valid JSON Schema object (object root). Set
     `add_dirs` to grant filesystem Read access to extracted frames/slides.
@@ -169,7 +219,7 @@ async def _run_structured_async(
     add_dirs: Sequence[str | Path],
     max_turns: int,
     model: str | None = None,
-) -> dict:
+) -> StructuredResult:
     options = _build_options(system_prompt, schema, add_dirs, max_turns, model)
 
     async with ClaudeSDKClient(options=options) as client:
@@ -177,11 +227,14 @@ async def _run_structured_async(
         async for msg in client.receive_response():
             if isinstance(msg, ResultMessage):
                 if msg.is_error:
-                    raise RuntimeError(f"Agent SDK call failed: {msg.result!r}")
+                    raise RuntimeError(
+                        f"Agent SDK call failed ({msg.subtype}): "
+                        f"result={msg.result!r} errors={msg.errors!r}"
+                    )
                 if msg.structured_output is None:
                     raise RuntimeError(
                         f"Agent SDK returned no structured output; result={msg.result!r}"
                     )
-                return msg.structured_output
+                return result_from(msg, model)
 
     raise RuntimeError("Agent SDK stream ended without a ResultMessage")

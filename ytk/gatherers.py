@@ -57,6 +57,12 @@ def gather_youtube(url: str, title: str | None) -> EvidenceBundle:
         description=meta.get("description"),
         frames=frames,
         gaps=gaps,
+        media_id=meta.get("id") or None,
+        uploader=meta.get("uploader") or None,
+        upload_date=meta.get("upload_date") or None,
+        duration=meta.get("duration") or None,
+        thumbnail=meta.get("thumbnail") or None,
+        chapters=meta.get("chapters") or [],
     )
 
 

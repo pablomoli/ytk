@@ -49,6 +49,24 @@ class EvidenceBundle:
     text: str | None = None  # web article body, boilerplate-stripped
     frames: list[str] = field(default_factory=list[str])  # file paths
     gaps: list[str] = field(default_factory=list[str])  # what could not be seen
+    # P4 additions, all defaulted: P2-era bundles on disk lack them, and the
+    # consumers (timestamp check, note writer) must skip rather than crash.
+    media_id: str | None = None  # platform id (YouTube video id)
+    uploader: str | None = None
+    upload_date: str | None = None  # YYYYMMDD
+    duration: float | None = None  # seconds
+    thumbnail: str | None = None
+    chapters: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
+
+
+def load_bundle(path: Path) -> EvidenceBundle:
+    """Reload a bundle written by read_item. Unknown keys are dropped and
+    missing ones default, so bundles written before a field existed load."""
+    from dataclasses import fields
+
+    raw = json.loads(Path(path).read_text())
+    known = {f.name for f in fields(EvidenceBundle)}
+    return EvidenceBundle(**{k: v for k, v in raw.items() if k in known})
 
 
 @dataclass

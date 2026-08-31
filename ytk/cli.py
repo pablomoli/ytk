@@ -161,8 +161,25 @@ def _capture_and_read(url: str, note: str, surface: str, source: str | None = No
             console.print(f"[yellow]Ask raised:[/] {ask['kind']} — the item waits for your answer")
         else:
             console.print(f"[green]Read[/] — evidence at {rr.bundle_path}")
+            _advance_after_read(conn, res.item_id)
     finally:
         conn.close()
+
+
+def _advance_after_read(conn, item_id: int) -> None:
+    """P4: a clean read with a take goes straight through enrich + grade.
+    The CLI is the acting surface, so it runs the verb synchronously (P2/P3
+    precedent); the hub does the same work in its background job."""
+    from . import curator
+
+    with console.status("[bold cyan]Enriching (through the grader)...[/]"):
+        adv = curator.advance_item(conn, item_id)
+    if adv.outcome == "kept":
+        console.print(f"[bold green]Note kept:[/] {adv.note_path}")
+    elif adv.outcome == "asked":
+        console.print("[yellow]Grader bounced twice[/] — ask raised; answer it in the digest")
+    elif adv.outcome == "error":
+        console.print(f"[red]Advance failed:[/] {adv.detail}")
 
 
 @cli.command()

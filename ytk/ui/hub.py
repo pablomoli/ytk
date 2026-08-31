@@ -964,8 +964,35 @@ def ingest_via_cli(url: str, note: str = "") -> None:
         rr = evidence.read_item(conn, res.item_id)
         if rr.error:
             raise RuntimeError(f"read failed: {rr.error}")
+        if rr.ask_id is None:
+            # clean read with a take: enrich + grade now (P4). The drain is
+            # already a background job, so synchronous is fine here.
+            from ytk import curator
+
+            curator.advance_item(conn, res.item_id)
     finally:
         conn.close()
+
+
+def _advance_item_job(item_id: int) -> None:
+    from ytk import curator, ledger
+
+    conn = ledger.connect()
+    try:
+        curator.advance_item(conn, item_id)
+    except Exception:
+        import logging
+
+        logging.getLogger("ytk.hub").exception("advance failed for item %s", item_id)
+    finally:
+        conn.close()
+
+
+def spawn_advance(item_id: int) -> None:
+    """P4 pre-loop: an answer POST returns immediately; enrich + grade run
+    on a hub background thread (1-3 min of model wall-time must not block
+    the digest). P5's loop absorbs this whole."""
+    threading.Thread(target=_advance_item_job, args=(item_id,), daemon=True).start()
 
 
 # test seams: stubbed in unit tests, real in production

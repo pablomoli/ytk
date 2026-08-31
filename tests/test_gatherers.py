@@ -86,3 +86,83 @@ def test_web_strips_boilerplate():
     assert "cookies" not in b.text
     assert "The real article." in b.text
     assert b.transcript_origin == "none"
+
+
+def test_youtube_carries_note_and_grader_metadata():
+    """P4: the timestamp check needs duration; the note writer needs
+    uploader/upload_date/thumbnail/id without a refetch."""
+    ev = TranscriptEvidence(
+        segments=[{"start": 0, "duration": 2, "text": "hi"}],
+        origin="api-manual",
+        language="en",
+        status="ok",
+    )
+    meta = {
+        "id": "abc123xyz00",
+        "title": "T",
+        "description": "D",
+        "uploader": "Someone",
+        "upload_date": "20260830",
+        "duration": 613,
+        "thumbnail": "https://i.ytimg.com/vi/abc123xyz00/hq.jpg",
+        "chapters": [{"start_time": 0, "title": "intro"}],
+    }
+    with (
+        patch("ytk.gatherers.fetch_metadata", return_value=meta),
+        patch("ytk.gatherers.fetch_transcript_evidence", return_value=ev),
+        patch("ytk.gatherers.hint_detect", return_value=[]),
+    ):
+        b = gatherers.gather_youtube("https://y/1", None)
+    assert b.media_id == "abc123xyz00"
+    assert b.uploader == "Someone"
+    assert b.upload_date == "20260830"
+    assert b.duration == 613
+    assert b.thumbnail == "https://i.ytimg.com/vi/abc123xyz00/hq.jpg"
+    assert b.chapters == [{"start_time": 0, "title": "intro"}]
+
+
+def test_bundle_metadata_defaults_tolerate_p2_era_bundles():
+    from ytk.evidence import EvidenceBundle
+
+    b = EvidenceBundle(
+        source="web",
+        url="https://x",
+        title=None,
+        transcript=[],
+        transcript_origin="none",
+        transcript_language=None,
+        transcript_status="none",
+    )
+    assert b.duration is None
+    assert b.media_id is None
+    assert b.chapters == []
+
+
+def test_load_bundle_round_trips_and_tolerates_old_json(tmp_path):
+    import json
+    from dataclasses import asdict
+
+    from ytk.evidence import EvidenceBundle, load_bundle
+
+    b = EvidenceBundle(
+        source="youtube",
+        url="https://y/1",
+        title="T",
+        transcript=[{"start": 0, "duration": 2, "text": "hi"}],
+        transcript_origin="api-manual",
+        transcript_language="en",
+        transcript_status="ok",
+        duration=613,
+    )
+    p = tmp_path / "b.json"
+    p.write_text(json.dumps(asdict(b)))
+    assert load_bundle(p) == b
+
+    old = asdict(b)
+    for key in ("media_id", "uploader", "upload_date", "duration", "thumbnail", "chapters"):
+        old.pop(key)
+    old["future_field"] = 1
+    p.write_text(json.dumps(old))
+    loaded = load_bundle(p)
+    assert loaded.duration is None
+    assert loaded.url == "https://y/1"

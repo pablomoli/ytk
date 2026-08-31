@@ -35,6 +35,22 @@ def clean_bundle(source: str, url: str) -> EvidenceBundle:
 
 
 @pytest.fixture(autouse=True)
+def stub_advance(monkeypatch):
+    """P4 wired enrichment behind clean take-ful reads; capture tests assert
+    ledger behavior only, so the advance verb is recorded, never run."""
+    from ytk.curator import AdvanceResult
+
+    calls: list[int] = []
+
+    def fake(conn, item_id, *, actor="loop"):
+        calls.append(item_id)
+        return AdvanceResult(item_id, "skipped", detail="stubbed in tests")
+
+    monkeypatch.setattr("ytk.curator.advance_item", fake)
+    return calls
+
+
+@pytest.fixture(autouse=True)
 def stub_gatherers(monkeypatch):
     """Consumer tests never do network; the read verb gets a clean bundle."""
     import ytk.gatherers  # noqa: F401 — fill the registry before overriding
@@ -118,3 +134,13 @@ def test_add_never_calls_enrichment(env):
     with patch("ytk.enrich.enrich", side_effect=AssertionError("enrichment ran")) as _:
         result = CliRunner().invoke(cli, ["add", "https://www.youtube.com/watch?v=abcdefghijk"])
     assert result.exit_code == 0, result.output
+
+
+def test_note_ful_add_advances_and_bare_add_does_not(env, stub_advance):
+    url = "https://www.youtube.com/watch?v=abcdefghijk"
+    CliRunner().invoke(cli, ["add", url, "--note", "my take"], catch_exceptions=False)
+    assert len(stub_advance) == 1
+    CliRunner().invoke(
+        cli, ["add", "https://www.youtube.com/watch?v=other0000ok"], catch_exceptions=False
+    )
+    assert len(stub_advance) == 1  # take-less read raised the intent ask instead

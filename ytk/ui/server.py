@@ -388,7 +388,15 @@ def outbox_answer_api(req: OutboxAnswerRequest):
         answer_id = asks.answer_ask(
             conn, req.ask_id, choice=req.choice, text=req.text, surface="hub"
         )
-        return {"answer_id": answer_id, "state": ledger.item_state(conn, known["item_id"])}
+        state = ledger.item_state(conn, known["item_id"])
+        advancing = answer_id is not None and state == "answered"
+        if advancing:
+            # P4: a non-drop answer unfreezes the item; enrich + grade run in
+            # the hub's background so this POST stays instant.
+            from ytk.ui import hub
+
+            hub.spawn_advance(known["item_id"])
+        return {"answer_id": answer_id, "state": state, "advancing": advancing}
     finally:
         conn.close()
 
