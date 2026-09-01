@@ -227,3 +227,68 @@ class TestGroundingNormalization:
         bounces = [x for x in _check(d) if x.check == "concept grounding"]
         assert len(bounces) == 1
         assert "Jawed Karim" in bounces[0].detail
+
+
+class TestGraderEvidence:
+    """The judge sees what the writer saw: timestamped transcript lines and
+    the same capped frames. Half of item 756's objections were the grader's
+    own blindness quoting the rubric (2026-08-31)."""
+
+    def test_rendered_transcript_carries_timestamps(self):
+        b = _bundle(
+            transcript=[
+                {"start": 0, "duration": 3, "text": "we built a three-file loop for agents"},
+                {"start": 400, "duration": 3, "text": "ripgrep scans the rules markdown fast"},
+            ]
+        )
+        rendered = grader._render_evidence(b)
+        assert "[0:00] we built a three-file loop for agents" in rendered
+        assert "[6:40] ripgrep scans the rules markdown fast" in rendered
+
+    def test_grade_model_shows_capped_frames(self, tmp_path, monkeypatch):
+        from ytk import sdk
+        from ytk.enricher import ENRICH_MAX_FRAMES
+
+        frames = []
+        for i in range(4):
+            f = tmp_path / f"frame-{i}.jpg"
+            f.write_bytes(b"jpeg")
+            frames.append(str(f))
+        b = _bundle(frames=frames)
+        seen = {}
+
+        def fake(system, user, schema, *, add_dirs=None, max_turns=20, model=None):
+            seen["user"] = user
+            seen["add_dirs"] = add_dirs
+            return sdk.StructuredResult(
+                data={"passed": True, "bounces": [], "spot_checks": []},
+                model=model,
+                tokens=10,
+                duration_ms=5,
+                usage=None,
+            )
+
+        monkeypatch.setattr(sdk, "call_structured", fake)
+        grader.grade_model(_draft(), b, "rubric text", take_text=None)
+        listed = [ln for ln in seen["user"].splitlines() if "frame-" in ln]
+        assert len(listed) == ENRICH_MAX_FRAMES
+        assert seen["add_dirs"] == [str(tmp_path)]
+
+    def test_grade_model_without_frames_grants_no_dirs(self, monkeypatch):
+        from ytk import sdk
+
+        seen = {}
+
+        def fake(system, user, schema, *, add_dirs=None, max_turns=20, model=None):
+            seen["add_dirs"] = add_dirs
+            return sdk.StructuredResult(
+                data={"passed": True, "bounces": [], "spot_checks": []},
+                model=model,
+                tokens=10,
+                duration_ms=5,
+                usage=None,
+            )
+
+        monkeypatch.setattr(sdk, "call_structured", fake)
+        grader.grade_model(_draft(), _bundle(), "rubric text", take_text=None)
+        assert not seen["add_dirs"]

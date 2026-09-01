@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
@@ -18,7 +19,8 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from .sdk import StructuredResult
 
-from .enricher import EnrichmentV2
+from .enrich import fmt_ts
+from .enricher import ENRICH_MAX_FRAMES, EnrichmentV2
 from .evidence import EvidenceBundle
 
 # From the rubric's "What I do not want", frozen into code so the check is
@@ -274,7 +276,11 @@ def _render_evidence(bundle: EvidenceBundle) -> str:
     if bundle.text:
         parts.append(f"Body:\n{bundle.text}")
     if bundle.transcript:
-        lines = "\n".join(str(s.get("text", "")) for s in bundle.transcript)
+        # Timestamped like the enricher's view: the rubric's key-moment rule
+        # ("sit next to matching transcript text") is unjudgeable without them.
+        lines = "\n".join(
+            f"[{fmt_ts(float(s.get('start', 0)))}] {s.get('text', '')}" for s in bundle.transcript
+        )
         parts.append(f"Transcript:\n{lines}")
     if bundle.gaps:
         parts.append("Not seen at capture:\n" + "\n".join(f"- {g}" for g in bundle.gaps))
@@ -301,5 +307,14 @@ def grade_model(
         f"{take_block}The draft note:\n{draft.model_dump_json(indent=1)}\n\n"
         f"The evidence it was written from:\n{_render_evidence(bundle)}"
     )
-    res = sdk.call_structured(system, user, ModelVerdict.model_json_schema(), model=GRADER_MODEL)
+    # The judge sees the same capped frames the writer saw (item 756: the
+    # grader bounced visually-grounded claims it was never shown).
+    frame_paths = [f for f in bundle.frames if Path(f).exists()][:ENRICH_MAX_FRAMES]
+    add_dirs: list[str] = []
+    if frame_paths:
+        user += "\n\nExtracted frames:\n" + "\n".join(f"  {f}" for f in frame_paths)
+        add_dirs = sorted({str(Path(f).parent) for f in frame_paths})
+    res = sdk.call_structured(
+        system, user, ModelVerdict.model_json_schema(), add_dirs=add_dirs, model=GRADER_MODEL
+    )
     return ModelVerdict.model_validate(res.data), res

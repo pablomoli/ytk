@@ -171,7 +171,7 @@ function AskCard({ ask, onAnswered }: { ask: OutboxAsk; onAnswered: (line: strin
               size="sm"
               variant={option === "drop" ? "outline" : "secondary"}
               disabled={answer.isPending}
-              onClick={() => send(option)}
+              onClick={() => send(option, text.trim() || undefined)}
             >
               {option}
             </Button>
@@ -182,24 +182,13 @@ function AskCard({ ask, onAnswered }: { ask: OutboxAsk; onAnswered: (line: strin
         </div>
       ) : null}
       {saying ? (
-        <div className="flex flex-col gap-2">
-          <textarea
-            className="w-full rounded-card border border-line bg-bg3 p-2.5 text-ink text-sm"
-            rows={2}
-            value={text}
-            placeholder="your words land as the answer text"
-            onChange={(e) => setText(e.target.value)}
-          />
-          <div>
-            <Button
-              size="sm"
-              disabled={answer.isPending || !text.trim()}
-              onClick={() => send(options[0] ?? "edit", text.trim())}
-            >
-              answer
-            </Button>
-          </div>
-        </div>
+        <textarea
+          className="w-full rounded-card border border-line bg-bg3 p-2.5 text-ink text-sm"
+          rows={2}
+          value={text}
+          placeholder="type here, then pick an option — your words ride the choice"
+          onChange={(e) => setText(e.target.value)}
+        />
       ) : null}
       {answer.isError ? (
         <p className="m-0 sub text-accent" role="alert">

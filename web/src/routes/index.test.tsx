@@ -94,16 +94,57 @@ test("clicking an option answers through the mutation", () => {
   );
 });
 
-test("say-more opens a text field and sends choice with text", () => {
+test("typed words ride the clicked option — never a silent wrong choice", () => {
   renderPage();
   fireEvent.click(screen.getAllByRole("button", { name: "say more" })[0]!);
   const box = screen.getByRole("textbox");
   fireEvent.change(box, { target: { value: "keep it, the garble is the joke" } });
-  fireEvent.click(screen.getByRole("button", { name: "answer" }));
+  fireEvent.click(screen.getByRole("button", { name: "keep with the warning" }));
   expect(mutate).toHaveBeenCalledWith(
-    expect.objectContaining({ ask_id: 11, text: "keep it, the garble is the joke" }),
+    { ask_id: 11, choice: "keep with the warning", text: "keep it, the garble is the joke" },
     expect.anything(),
   );
+});
+
+test("say what is wrong carries the typed guidance (the 756 empty-answer bug)", () => {
+  mutate.mockClear();
+  const initial = outbox;
+  outbox = {
+    isLoading: false,
+    isError: false,
+    data: {
+      asks: [
+        {
+          id: 9,
+          ask_id: 91,
+          item_id: 55,
+          subkind: "grader bounce, twice",
+          created_at: "2026-08-31T23:00:00+00:00",
+          title: "A bounced note",
+          url: "https://y/55",
+          source: "instagram",
+          proposal: {
+            kind: "grader bounce, twice",
+            options: ["accept as is", "say what is wrong", "drop"],
+          },
+        },
+      ],
+      speaks: [],
+      parked: { count: 0, oldest: null },
+      loop: { ok: true, line: "ok" },
+    },
+  };
+  renderPage();
+  fireEvent.click(screen.getByRole("button", { name: "say more" }));
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "drop the node inventory" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "say what is wrong" }));
+  expect(mutate).toHaveBeenCalledWith(
+    { ask_id: 91, choice: "say what is wrong", text: "drop the node inventory" },
+    expect.anything(),
+  );
+  outbox = initial;
 });
 
 test("parked and loop lines render once each", () => {
