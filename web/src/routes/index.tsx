@@ -242,7 +242,7 @@ function WorkingCard({ working, error }: { working: WorkingOn; error?: LoopError
           <img
             src={working.thumbnail}
             alt=""
-            className="h-14 w-14 rounded-card border border-line object-cover"
+            className="!h-14 !w-14 shrink-0 rounded-card border border-line object-cover"
           />
         ) : null}
         <div className="flex flex-col gap-1 min-w-0">
