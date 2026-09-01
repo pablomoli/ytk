@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import json
+import shutil
 import subprocess
 import tempfile
 import urllib.request
@@ -74,12 +75,28 @@ def hint_detect(segments: list[dict]) -> list[float]:
     return sorted({float(t) for t in timestamps if isinstance(t, (int, float))})
 
 
+# launchd strips PATH to /usr/bin:/bin:/usr/sbin:/sbin, so the hub process
+# (where the loop reads) cannot see homebrew's ffmpeg/ffprobe by bare name.
+_TOOL_DIRS = (Path("/opt/homebrew/bin"), Path("/usr/local/bin"))
+
+
+def _tool(name: str) -> str:
+    found = shutil.which(name)
+    if found:
+        return found
+    for d in _TOOL_DIRS:
+        candidate = d / name
+        if candidate.is_file():
+            return str(candidate)
+    return name
+
+
 def probe_duration(video_path: Path) -> float | None:
     """Probe a video's duration in seconds via ffprobe. None if probing fails."""
     try:
         probe = subprocess.run(
             [
-                "ffprobe",
+                _tool("ffprobe"),
                 "-v",
                 "quiet",
                 "-print_format",
@@ -119,7 +136,7 @@ def extract_frames(
         try:
             subprocess.run(
                 [
-                    "ffmpeg",
+                    _tool("ffmpeg"),
                     "-v",
                     "quiet",
                     "-ss",

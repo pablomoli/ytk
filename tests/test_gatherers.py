@@ -166,3 +166,69 @@ def test_load_bundle_round_trips_and_tolerates_old_json(tmp_path):
     loaded = load_bundle(p)
     assert loaded.duration is None
     assert loaded.url == "https://y/1"
+
+
+def test_instagram_reel_carries_thumbnail(tmp_path):
+    post = InstagramPost(
+        url="https://www.instagram.com/reel/x/",
+        username="u",
+        timestamp="2026-01-01",
+        caption="c",
+        video_path=Path("/tmp/fake.mp4"),
+        thumbnail_url="https://cdn/cover.jpg",
+        media_kind="video",
+    )
+    cap = ReelCapture(frame_bytes=[], transcript_segments=[], transcript_status="none")
+    with (
+        patch("ytk.gatherers.fetch_instagram", return_value=post),
+        patch("ytk.gatherers.capture_reel_media", return_value=cap),
+    ):
+        b = gatherers.gather_instagram(post.url, None)
+    assert b.thumbnail == "https://cdn/cover.jpg"
+
+
+def test_instagram_carousel_downloads_images_to_local_files(tmp_path):
+    post = InstagramPost(
+        url="https://www.instagram.com/p/x/",
+        username="u",
+        timestamp="2026-01-01",
+        caption="c",
+        images=["https://cdn/a.jpg", "https://cdn/b.jpg"],
+        media_kind="carousel",
+    )
+
+    def fake_download(url, dest):
+        dest.write_bytes(b"img")
+        return dest
+
+    with (
+        patch("ytk.gatherers.fetch_instagram", return_value=post),
+        patch("ytk.gatherers._download_image", side_effect=fake_download),
+    ):
+        b = gatherers.gather_instagram(post.url, None)
+    assert len(b.frames) == 2
+    for p in b.frames:
+        assert Path(p).is_file()
+    assert b.thumbnail == "https://cdn/a.jpg"
+
+
+def test_instagram_image_download_failure_lands_in_gaps_not_urls_in_frames(tmp_path):
+    post = InstagramPost(
+        url="https://www.instagram.com/p/y/",
+        username="u",
+        timestamp="2026-01-01",
+        caption="c",
+        images=["https://cdn/a.jpg"],
+        media_kind="image",
+    )
+
+    def boom(url, dest):
+        raise OSError("cdn said no")
+
+    with (
+        patch("ytk.gatherers.fetch_instagram", return_value=post),
+        patch("ytk.gatherers._download_image", side_effect=boom),
+    ):
+        b = gatherers.gather_instagram(post.url, None)
+    assert b.frames == []
+    assert any("image download failed" in g for g in b.gaps)

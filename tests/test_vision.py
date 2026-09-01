@@ -99,3 +99,45 @@ def test_image_blocks_empty_returns_empty():
 
     assert image_blocks() == []
     assert image_blocks(urls=[], frame_bytes=[]) == []
+
+
+class TestToolResolver:
+    """#202: the hub runs under launchd with PATH=/usr/bin:/bin:/usr/sbin:/sbin,
+    so bare 'ffmpeg'/'ffprobe' fail in exactly the process the loop reads in."""
+
+    def test_prefers_a_path_hit(self, monkeypatch):
+        from ytk import vision
+
+        monkeypatch.setattr("shutil.which", lambda name: f"/found/{name}")
+        assert vision._tool("ffmpeg") == "/found/ffmpeg"
+
+    def test_falls_back_to_known_install_dirs(self, monkeypatch, tmp_path):
+        from ytk import vision
+
+        monkeypatch.setattr("shutil.which", lambda name: None)
+        monkeypatch.setattr(vision, "_TOOL_DIRS", (tmp_path,))
+        (tmp_path / "ffprobe").write_text("")
+        assert vision._tool("ffprobe") == str(tmp_path / "ffprobe")
+
+    def test_bare_name_is_the_last_resort(self, monkeypatch, tmp_path):
+        from ytk import vision
+
+        monkeypatch.setattr("shutil.which", lambda name: None)
+        monkeypatch.setattr(vision, "_TOOL_DIRS", (tmp_path / "missing",))
+        assert vision._tool("ffmpeg") == "ffmpeg"
+
+    def test_probe_and_extract_invoke_the_resolved_binary(self, monkeypatch, tmp_path):
+        import subprocess as sp
+
+        from ytk import vision
+
+        seen = []
+
+        def fake_run(cmd, **kw):
+            seen.append(cmd[0])
+            raise sp.CalledProcessError(1, cmd)
+
+        monkeypatch.setattr(vision, "_tool", lambda name: f"/resolved/{name}")
+        monkeypatch.setattr("subprocess.run", fake_run)
+        assert vision.probe_duration(tmp_path / "v.mp4") is None
+        assert seen == ["/resolved/ffprobe"]

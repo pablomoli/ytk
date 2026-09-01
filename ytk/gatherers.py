@@ -11,6 +11,7 @@ Network and whisper work happens here — callers stub these in tests.
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 from typing import Any
 
 from .evidence import GATHERERS, EvidenceBundle, evidence_dir, strip_boilerplate
@@ -66,6 +67,35 @@ def gather_youtube(url: str, title: str | None) -> EvidenceBundle:
     )
 
 
+def _download_image(url: str, dest: Path) -> Path:
+    import requests
+
+    with requests.get(url, timeout=30) as resp:
+        resp.raise_for_status()
+        dest.write_bytes(resp.content)
+    return dest
+
+
+def _save_images(post_url: str, image_urls: list[str], gaps: list[str]) -> list[str]:
+    """Download CDN image URLs to local evidence files. The note writer embeds
+    only local files (vault assets are copies, never hotlinks); a URL left in
+    frames is silently dropped at landing, so failures go to gaps instead."""
+    if not image_urls:
+        return []
+    key = hashlib.sha1(post_url.encode(), usedforsecurity=False).hexdigest()[:12]
+    img_dir = evidence_dir() / "frames" / key
+    img_dir.mkdir(parents=True, exist_ok=True)
+    paths: list[str] = []
+    for i, src in enumerate(image_urls):
+        dest = img_dir / f"img-{i}.jpg"
+        try:
+            _download_image(src, dest)
+            paths.append(str(dest))
+        except Exception as exc:
+            gaps.append(f"image download failed: {exc}")
+    return paths
+
+
 def gather_instagram(url: str, title: str | None) -> EvidenceBundle:
     post = fetch_instagram(url)
     frames: list[str] = []
@@ -80,6 +110,8 @@ def gather_instagram(url: str, title: str | None) -> EvidenceBundle:
         status = cap.transcript_status
         origin = "whisper" if segments else "none"
         gaps.extend(cap.warnings)
+    frames += _save_images(url, list(post.images), gaps)
+    thumbnail = post.thumbnail_url or (post.images[0] if post.images else None)
     return EvidenceBundle(
         source="instagram",
         url=url,
@@ -89,7 +121,8 @@ def gather_instagram(url: str, title: str | None) -> EvidenceBundle:
         transcript_language=None,
         transcript_status=status,
         caption=post.caption,
-        frames=frames or list(post.images),
+        frames=frames,
+        thumbnail=thumbnail,
         gaps=gaps,
     )
 
