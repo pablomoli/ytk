@@ -156,12 +156,16 @@ def propose(
     """Find candidates, argue them, raise the connections ask. Returns the
     ask id, or None when there is nothing worth asking about. Never writes
     the vault."""
+    from . import loop
+
+    loop.stamp_stage("connect", "finding candidates")
     candidates = find_candidates(f"{thesis}\n\n{summary}", exclude_media_id=exclude_media_id)
     if not candidates:
         ledger.insert_activity(
             conn, item_id, actor=actor, action="connect", reason="no candidates in band"
         )
         return None
+    loop.stamp_stage("connect", f"arguing {len(candidates)} candidates")
     links, res = _argue(thesis, summary, candidates)
     ledger.insert_activity(
         conn,

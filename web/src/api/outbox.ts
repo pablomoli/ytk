@@ -40,7 +40,26 @@ export type OutboxAsk = {
   proposal: AskProposal;
 };
 
-export type LoopHealth = { ok: boolean; working?: boolean; line: string };
+export type WorkingStage = { key: string; detail?: string | null };
+
+export type WorkingOn = {
+  item_id: number;
+  action: string;
+  title: string;
+  thumbnail?: string | null;
+  started_at: string;
+  stage?: WorkingStage | null;
+};
+
+export type LoopError = { at: string; item_id: number; reason: string };
+
+export type LoopHealth = {
+  ok: boolean;
+  working?: boolean;
+  line: string;
+  working_on?: WorkingOn | null;
+  last_error?: LoopError | null;
+};
 
 export type Outbox = {
   asks: OutboxAsk[];

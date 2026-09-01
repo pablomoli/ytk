@@ -523,3 +523,87 @@ class TestSweepConnectionsExpiry:
         )
         loop.sweep(conn)
         assert ledger.item_state(conn, item) == "asking"
+
+
+class TestStageProgress:
+    """Progress UI: the health json narrates the verb's stages, not just its
+    existence — the digest leads with what the loop is doing."""
+
+    def test_stamp_stage_updates_working_on(self, conn):
+        loop.write_health(
+            working_on={"item_id": 1, "action": "advance", "title": "T", "started_at": loop._now()}
+        )
+        loop.stamp_stage("grade", "against rubric v3")
+        w = loop.read_health()["working_on"]
+        assert w["stage"] == {"key": "grade", "detail": "against rubric v3"}
+
+    def test_stamp_stage_without_working_on_is_a_noop(self):
+        loop.write_health(working_on=None)
+        loop.stamp_stage("enrich", None)
+        assert loop.read_health().get("working_on") is None
+
+    def test_initial_stamp_carries_stage_and_thumbnail(self, conn, monkeypatch, tmp_path):
+        import json as _json
+
+        item = _seed(conn, take="t")
+        bundle = tmp_path / "b.json"
+        bundle.write_text(_json.dumps({"thumbnail": "https://cdn/cover.jpg"}))
+        conn.execute("UPDATE items SET payload_ref = ? WHERE id = ?", (str(bundle), item))
+        conn.commit()
+        _to_state(conn, item, "answered")
+        seen: dict = {}
+
+        def fake_advance(conn2, item_id, *, actor="loop"):
+            seen.update(loop.read_health().get("working_on") or {})
+            ledger.insert_activity(conn2, item_id, actor=actor, action="keep", to_state="kept")
+
+        monkeypatch.setattr("ytk.curator.advance_item", fake_advance)
+        loop.tick_once(conn)
+        assert seen["stage"]["key"] == "enrich"
+        assert seen["thumbnail"] == "https://cdn/cover.jpg"
+
+    def test_loop_error_stamps_last_error(self, conn, monkeypatch):
+        item = _seed(conn, take="t")
+        _to_state(conn, item, "answered")
+
+        def boom(conn2, item_id, *, actor="loop"):
+            raise RuntimeError("SDK call failed (transient)")
+
+        monkeypatch.setattr("ytk.curator.advance_item", boom)
+        loop.tick_once(conn)
+        err = loop.read_health()["last_error"]
+        assert err["item_id"] == item
+        assert "SDK call failed" in err["reason"]
+        assert err["at"]
+
+    def test_health_line_exposes_working_structure_and_recent_error(self):
+        from datetime import UTC, datetime, timedelta
+
+        started = (datetime.now(UTC) - timedelta(seconds=30)).isoformat()
+        loop.write_health(
+            working_on={
+                "item_id": 7,
+                "action": "advance",
+                "title": "The Reel",
+                "started_at": started,
+                "thumbnail": "https://cdn/c.jpg",
+                "stage": {"key": "grade", "detail": None},
+            },
+            last_error={"at": loop._now(), "item_id": 7, "reason": "transient"},
+        )
+        line = loop.health_line()
+        assert line["working"] is True
+        assert "grading The Reel" in line["line"]
+        assert line["working_on"]["stage"]["key"] == "grade"
+        assert line["last_error"]["reason"] == "transient"
+
+    def test_stale_error_is_not_surfaced(self):
+        from datetime import UTC, datetime, timedelta
+
+        old = (datetime.now(UTC) - timedelta(minutes=30)).isoformat()
+        loop.write_health(
+            last_tick_at="2026-08-31T00:00:00+00:00",
+            working_on=None,
+            last_error={"at": old, "item_id": 7, "reason": "ancient"},
+        )
+        assert loop.health_line().get("last_error") is None

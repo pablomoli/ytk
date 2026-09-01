@@ -15,7 +15,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import asks, grader, ledger, rubric
+from . import asks, grader, ledger, loop, rubric
 from .enricher import EnrichmentV2, draft_path, enrich_item
 from .evidence import load_bundle
 
@@ -131,6 +131,7 @@ def _land(
     url lookup."""
     from .notes import index_note, write_curator_note
 
+    loop.stamp_stage("land", "writing the note")
     item = conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item_id,)).fetchone()
     bundle = load_bundle(Path(item["payload_ref"]))
     take = _latest_take(conn, item_id)
@@ -196,9 +197,11 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
     vocab = _vocab()
     for _ in range(MAX_ROUNDS):
         attempt = _next_attempt(conn, item_id)
+        loop.stamp_stage("enrich", f"attempt {attempt}")
         enriched = enrich_item(conn, item_id, attempt=attempt, feedback=feedback)
         draft = enriched.draft
 
+        loop.stamp_stage("checks")
         bounces = grader.deterministic_checks(
             draft,
             bundle,
@@ -224,6 +227,7 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
             feedback = [f"{b.check}: {b.detail}" for b in bounces]
             continue
 
+        loop.stamp_stage("grade", "against the rubric")
         verdict, res = grader.grade_model(
             draft, bundle, rub.text, take_text=take["text"] if take else None
         )

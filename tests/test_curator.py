@@ -266,3 +266,15 @@ def test_connect_failure_never_unlands_the_note(conn, monkeypatch):
         "SELECT reason FROM activity WHERE item_id = ? AND action = 'connect-error'", (item_id,)
     ).fetchone()
     assert "argue call failed" in err["reason"]
+
+
+def test_advance_narrates_stages_into_health(conn, monkeypatch):
+    from ytk import loop as loop_mod
+
+    stages = []
+    monkeypatch.setattr(loop_mod, "stamp_stage", lambda key, detail=None: stages.append(key))
+    monkeypatch.setattr("ytk.connect.propose", lambda *a, **k: None)
+    _stub_sdk(monkeypatch, [dict(DRAFT)], [dict(PASS_VERDICT)])
+    item_id = _seed(conn)
+    curator.advance_item(conn, item_id)
+    assert stages == ["enrich", "checks", "grade", "land"]

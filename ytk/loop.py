@@ -267,39 +267,96 @@ def _health_numbers(conn: sqlite3.Connection) -> dict[str, Any]:
 # What the digest strip shows while a verb runs (#199). Stale past the
 # lease window means the loop died mid-verb; render nothing rather than
 # a forever-growing elapsed.
-_WORKING_VERBS = {"read": "reading", "answer": "applying answer to", "advance": "enriching"}
+_WORKING_VERBS = {
+    "read": "reading",
+    "answer": "applying answer to",
+    "advance": "enriching",
+    "enrich": "enriching",
+    "checks": "checking",
+    "grade": "grading",
+    "land": "landing",
+    "connect": "connecting",
+}
+# An error older than this is history, not news; the activity table keeps it.
+ERROR_SURFACE_MINUTES = 15
+
+
+_INITIAL_STAGE = {"read": "read", "answer": "answer", "advance": "enrich"}
 
 
 def _stamp_working(conn: sqlite3.Connection, pick: Pick) -> None:
-    row = conn.execute("SELECT title FROM items WHERE id = ?", (pick.item_id,)).fetchone()
+    row = conn.execute(
+        "SELECT title, payload_ref FROM items WHERE id = ?", (pick.item_id,)
+    ).fetchone()
     title = (row["title"] if row and row["title"] else None) or f"item {pick.item_id}"
+    thumbnail = None
+    if row and row["payload_ref"]:
+        try:
+            loaded: object = json.loads(Path(row["payload_ref"]).read_text())
+            if isinstance(loaded, dict):
+                thumbnail = cast("dict[str, Any]", loaded).get("thumbnail")
+        except (OSError, ValueError):
+            thumbnail = None
     write_health(
         working_on={
             "item_id": pick.item_id,
             "action": pick.action,
             "title": title,
+            "thumbnail": thumbnail,
             "started_at": _now(),
+            "stage": {"key": _INITIAL_STAGE.get(pick.action, pick.action), "detail": None},
         }
     )
 
 
-def _working_fragment() -> tuple[bool, str]:
+def stamp_stage(key: str, detail: str | None = None) -> None:
+    """Narrate the verb's progress into the health json. Called by the verbs
+    (enricher rounds, grader layers, landing, connect) from the loop thread;
+    a no-op when nothing is being worked on."""
     raw = read_health().get("working_on")
     if not isinstance(raw, dict):
-        return False, ""
+        return
+    w = dict(cast("dict[str, Any]", raw))
+    w["stage"] = {"key": key, "detail": detail}
+    write_health(working_on=w)
+
+
+def _working_fragment() -> tuple[bool, str, dict[str, Any] | None]:
+    raw = read_health().get("working_on")
+    if not isinstance(raw, dict):
+        return False, "", None
     w = cast("dict[str, Any]", raw)
     started_raw = w.get("started_at")
     if not isinstance(started_raw, str):
-        return False, ""
+        return False, "", None
     try:
         started = datetime.fromisoformat(started_raw)
     except ValueError:
-        return False, ""
+        return False, "", None
     elapsed = (datetime.now(UTC) - started).total_seconds()
     if elapsed < 0 or elapsed > LEASE_MINUTES * 60:
-        return False, ""
-    verb = _WORKING_VERBS.get(str(w.get("action")), "working on")
-    return True, f"{verb} {w.get('title')!s} · {int(elapsed)}s"
+        return False, "", None
+    stage = w.get("stage")
+    key = str(cast("dict[str, Any]", stage).get("key")) if isinstance(stage, dict) else None
+    verb = _WORKING_VERBS.get(key or str(w.get("action")), "working on")
+    return True, f"{verb} {w.get('title')!s} · {int(elapsed)}s", dict(w)
+
+
+def _recent_error() -> dict[str, Any] | None:
+    raw = read_health().get("last_error")
+    if not isinstance(raw, dict):
+        return None
+    err = cast("dict[str, Any]", raw)
+    at = err.get("at")
+    if not isinstance(at, str):
+        return None
+    try:
+        seen = datetime.fromisoformat(at)
+    except ValueError:
+        return None
+    if (datetime.now(UTC) - seen).total_seconds() > ERROR_SURFACE_MINUTES * 60:
+        return None
+    return dict(err)
 
 
 def _answered_connections(conn: sqlite3.Connection, item_id: int) -> bool:
@@ -362,6 +419,9 @@ def tick_once(conn: sqlite3.Connection) -> TickStats:
                 curator.advance_item(conn, pick.item_id, actor="loop")
         except Exception as exc:
             stats.errors += 1
+            write_health(
+                last_error={"at": _now(), "item_id": pick.item_id, "reason": str(exc)[:200]}
+            )
             ledger.insert_activity(
                 conn,
                 pick.item_id,
@@ -582,9 +642,18 @@ def health_line() -> dict[str, Any]:
     if inert_path().exists():
         reason = inert_path().read_text().strip() or "no reason recorded"
         return {"ok": False, "working": False, "line": f"inert — {reason}; run `ytk loop resume`"}
-    working, fragment = _working_fragment()
+    working, fragment, working_on = _working_fragment()
+    err = _recent_error()
     if working:
-        return {"ok": True, "working": True, "line": fragment}
+        out: dict[str, Any] = {
+            "ok": True,
+            "working": True,
+            "line": fragment,
+            "working_on": working_on,
+        }
+        if err:
+            out["last_error"] = err
+        return out
     h = read_health()
     last = h.get("last_tick_at")
     if not last:
@@ -593,4 +662,7 @@ def health_line() -> dict[str, Any]:
         f"last tick {str(last)[11:16]}Z · {h.get('items_advanced', 0)} advanced · "
         f"{h.get('errors_last_hour', 0)} errors · {h.get('tokens_today', 0):,} tokens today"
     )
-    return {"ok": True, "working": False, "line": line}
+    out = {"ok": True, "working": False, "line": line}
+    if err:
+        out["last_error"] = err
+    return out

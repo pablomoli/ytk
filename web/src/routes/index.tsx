@@ -5,7 +5,7 @@ import { Skeletons } from "../components/Skeletons";
 import { ErrorState } from "../components/StateViews";
 import { Button } from "../components/ui/button";
 import { useAnswerAsk, useOutbox } from "../api/outbox";
-import type { OutboxAsk, ProposedLink } from "../api/outbox";
+import type { LoopError, OutboxAsk, ProposedLink, WorkingOn } from "../api/outbox";
 import "../styles.css";
 
 export const Route = createFileRoute("/")({
@@ -199,6 +199,93 @@ function AskCard({ ask, onAnswered }: { ask: OutboxAsk; onAnswered: (line: strin
   );
 }
 
+// The verb pipeline as the owner sees it. connect is a tail stage: it only
+// runs after land, so it renders once reached, not as a pending promise.
+const STAGE_TRAIL = ["read", "enrich", "checks", "grade", "land"] as const;
+const STAGE_LABEL: Record<string, string> = {
+  read: "read",
+  enrich: "enrich",
+  checks: "checks",
+  grade: "grade",
+  land: "land",
+  connect: "connect",
+  answer: "answer",
+};
+
+function useElapsed(startedAt: string | undefined): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!startedAt) return 0;
+  const started = Date.parse(startedAt);
+  return Number.isNaN(started) ? 0 : Math.max(0, Math.floor((now - started) / 1000));
+}
+
+function fmtElapsed(s: number): string {
+  return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+}
+
+function WorkingCard({ working, error }: { working: WorkingOn; error?: LoopError | null | undefined }) {
+  const elapsed = useElapsed(working.started_at);
+  const stageKey = working.stage?.key ?? working.action;
+  const trailIdx = STAGE_TRAIL.indexOf(stageKey as (typeof STAGE_TRAIL)[number]);
+  return (
+    <article data-working-card className="card p-4 flex flex-col gap-2.5 border-live">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="sub !text-live">the loop is working</span>
+        <span className="sub !text-mute">{fmtElapsed(elapsed)}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        {working.thumbnail ? (
+          <img
+            src={working.thumbnail}
+            alt=""
+            className="h-14 w-14 rounded-card border border-line object-cover"
+          />
+        ) : null}
+        <div className="flex flex-col gap-1 min-w-0">
+          <span className="title text-base leading-snug truncate">{working.title}</span>
+          <span className="sub !text-ink2">
+            {STAGE_LABEL[stageKey] ?? stageKey}
+            {working.stage?.detail ? ` — ${working.stage.detail}` : ""}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5" aria-label="stage trail">
+        {STAGE_TRAIL.map((stage, i) => {
+          const state = trailIdx < 0 ? "pending" : i < trailIdx ? "done" : i === trailIdx ? "current" : "pending";
+          return (
+            <span key={stage} className="flex items-center gap-1.5">
+              {i > 0 ? <span className="text-mute text-xs">→</span> : null}
+              <span
+                data-stage={stage}
+                data-state={state}
+                className={
+                  state === "current"
+                    ? "sub !text-live"
+                    : state === "done"
+                      ? "sub !text-ink2"
+                      : "sub !text-mute"
+                }
+              >
+                {stage}
+              </span>
+            </span>
+          );
+        })}
+        {stageKey === "connect" ? <span className="sub !text-live">→ connect</span> : null}
+      </div>
+      {error ? (
+        <p className="m-0 sub !text-accent" role="status">
+          hiccup {error.at.slice(11, 16)}Z — {error.reason} — the loop retries
+        </p>
+      ) : null}
+    </article>
+  );
+}
+
 // Poll cadence while the loop is mid-verb (#199), and how long after an
 // answer the strip keeps looking so it catches the verb starting.
 const POLL_MS = 2500;
@@ -228,8 +315,10 @@ function DigestPage() {
     body = <ErrorState error={outbox.error} onRetry={() => void outbox.refetch()} />;
   } else if (outbox.data) {
     const { asks, parked, loop } = outbox.data;
+    const workingOn = loop?.working ? loop.working_on : null;
     body = (
       <>
+        {workingOn ? <WorkingCard working={workingOn} error={loop?.last_error} /> : null}
         {asks.length ? (
           <div className="flex flex-col gap-3">
             {asks.map((ask) => (
@@ -243,7 +332,7 @@ function DigestPage() {
               />
             ))}
           </div>
-        ) : (
+        ) : workingOn ? null : (
           <p className="text-ink2 italic">
             nothing needs you — <Link to="/library" className="text-accent">the library</Link> has
             everything kept, <Link to="/inbox" className="text-accent">the inbox</Link> takes more.

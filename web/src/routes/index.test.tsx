@@ -373,3 +373,76 @@ test("connections card hides the generic option buttons", () => {
   expect(screen.queryByRole("button", { name: "strike some" })).toBeNull();
   expect(screen.queryByRole("button", { name: "say more" })).toBeNull();
 });
+
+test("working card leads the digest with stage trail and elapsed", () => {
+  const initial = outbox;
+  outbox = {
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+    data: {
+      asks: [],
+      speaks: [],
+      parked: { count: 0, oldest: null },
+      loop: {
+        ok: true,
+        working: true,
+        line: "grading luchen_xi · 40s",
+        working_on: {
+          item_id: 756,
+          action: "advance",
+          title: "luchen_xi",
+          thumbnail: "https://cdn/cover.jpg",
+          started_at: new Date(Date.now() - 40_000).toISOString(),
+          stage: { key: "grade", detail: "against the rubric" },
+        },
+      },
+    },
+  } as typeof outbox;
+  const { container } = renderPage();
+  const card = container.querySelector("[data-working-card]");
+  expect(card).not.toBeNull();
+  expect(card!.textContent).toContain("luchen_xi");
+  expect(card!.textContent).toContain("grade — against the rubric");
+  expect(card!.textContent).toContain("40s");
+  expect(card!.querySelector('[data-stage="enrich"]')?.getAttribute("data-state")).toBe("done");
+  expect(card!.querySelector('[data-stage="grade"]')?.getAttribute("data-state")).toBe("current");
+  expect(card!.querySelector('[data-stage="land"]')?.getAttribute("data-state")).toBe("pending");
+  expect(screen.queryByText(/nothing needs you/i)).toBeNull();
+  outbox = initial;
+});
+
+test("a recent loop error renders as a hiccup line on the working card", () => {
+  const initial = outbox;
+  outbox = {
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+    data: {
+      asks: [],
+      speaks: [],
+      parked: { count: 0, oldest: null },
+      loop: {
+        ok: true,
+        working: true,
+        line: "enriching luchen_xi · 10s",
+        working_on: {
+          item_id: 756,
+          action: "advance",
+          title: "luchen_xi",
+          started_at: new Date().toISOString(),
+          stage: { key: "enrich", detail: "attempt 3" },
+        },
+        last_error: {
+          at: "2026-09-01T03:23:40+00:00",
+          item_id: 756,
+          reason: "Agent SDK call failed (transient)",
+        },
+      },
+    },
+  } as typeof outbox;
+  renderPage();
+  expect(screen.getByRole("status").textContent).toContain("Agent SDK call failed");
+  expect(screen.getByRole("status").textContent).toContain("the loop retries");
+  outbox = initial;
+});
