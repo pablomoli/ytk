@@ -32,6 +32,12 @@ from .evidence import EvidenceBundle, evidence_dir, load_bundle
 
 ENRICHER_MODEL = "claude-sonnet-5"
 
+# Frames shown to the model per enrich call. Measured 2026-08-31 (item 756,
+# four ~60KB reel frames): 4 frames fail structured output 5-attempts-deep,
+# 3/3 reproductions; 2 and 1 succeed. The bundle keeps every frame — the
+# note embeds them all; only the model call is capped.
+ENRICH_MAX_FRAMES = 2
+
 
 class NewTag(BaseModel):
     tag: str
@@ -176,7 +182,7 @@ def enrich_item(
         take["text"] if take else None,
         feedback,
     )
-    frame_paths = [p for p in bundle.frames if Path(p).exists()]
+    frame_paths = [p for p in bundle.frames if Path(p).exists()][:ENRICH_MAX_FRAMES]
     if frame_paths:
         user += "\n\nExtracted frames:\n" + "\n".join(f"  {p}" for p in frame_paths)
     add_dirs = sorted({str(Path(p).parent) for p in frame_paths})

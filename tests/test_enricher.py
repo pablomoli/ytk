@@ -4,6 +4,7 @@ carrying model/tokens/duration."""
 
 import json
 from dataclasses import asdict
+from pathlib import Path
 
 import pytest
 
@@ -150,3 +151,48 @@ def test_take_less_item_enriches_without_response_section(conn, stub_call, monke
     ).fetchone()
     assert row["tokens"] is None  # subscription auth may not report usage
     assert json.loads(row["inputs"])["take_id"] is None
+
+
+def test_enricher_sees_at_most_two_frames(conn, monkeypatch, tmp_path):
+    """Measured 2026-08-31 on item 756 (four ~60KB reel frames): 4 frames
+    fail structured output 3/3, 2 and 1 succeed. The cap protects the model
+    call; the bundle keeps every frame for the note embed."""
+    import json as _json
+
+    from ytk import sdk
+    from ytk.enricher import enrich_item
+
+    frames = []
+    for i in range(4):
+        f = tmp_path / f"frame-{i}.jpg"
+        f.write_bytes(b"jpeg")
+        frames.append(str(f))
+    item = _seed(conn)
+    bundle = _json.loads(
+        Path(
+            conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item,)).fetchone()[
+                "payload_ref"
+            ]
+        ).read_text()
+    )
+    bundle["frames"] = frames
+    Path(
+        conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item,)).fetchone()[
+            "payload_ref"
+        ]
+    ).write_text(_json.dumps(bundle))
+
+    seen = {}
+
+    def fake(system, user, schema, *, add_dirs=None, max_turns=20, model=None):
+        seen["user"] = user
+        seen["add_dirs"] = add_dirs
+        return sdk.StructuredResult(
+            data=dict(DRAFT), model=model, tokens=10, duration_ms=5, usage=None
+        )
+
+    monkeypatch.setattr(sdk, "call_structured", fake)
+    enrich_item(conn, item, attempt=1)
+    listed = [ln for ln in seen["user"].splitlines() if "frame-" in ln]
+    assert len(listed) == 2
+    assert "frame-0" in listed[0] and "frame-1" in listed[1]
