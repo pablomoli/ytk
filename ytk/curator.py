@@ -148,6 +148,23 @@ def _land(
         output_ref=str(note),
         reason=reason,
     )
+    # Connect runs only on fresh landings (owner decision 2026-08-31): the
+    # grandfathered kept pile is excluded structurally, no selector needed.
+    # A connect failure never un-lands the note.
+    try:
+        from . import connect
+
+        connect.propose(
+            conn,
+            item_id,
+            draft.thesis,
+            draft.summary,
+            exclude_media_id=bundle.media_id,
+        )
+    except Exception as exc:
+        ledger.insert_activity(
+            conn, item_id, actor="connect", action="connect-error", reason=str(exc)[:300]
+        )
     return note
 
 

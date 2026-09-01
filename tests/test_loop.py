@@ -326,3 +326,200 @@ class TestHealth:
         loop.write_health(inert=False)
         raw = loop.health_path().read_text()
         assert json.loads(raw)["inert"] is False
+
+
+class TestWorkingOn:
+    """#199: the health json names what the loop is doing while it does it."""
+
+    def test_stamped_during_dispatch_and_cleared_after(self, conn, monkeypatch):
+        item = _seed(conn, take="t")
+        _to_state(conn, item, "answered")
+        seen: dict = {}
+
+        def fake_advance(conn2, item_id, *, actor="loop"):
+            seen.update(loop.read_health().get("working_on") or {})
+            ledger.insert_activity(conn2, item_id, actor=actor, action="keep", to_state="kept")
+
+        monkeypatch.setattr("ytk.curator.advance_item", fake_advance)
+        loop.tick_once(conn)
+        assert seen["item_id"] == item
+        assert seen["action"] == "advance"
+        assert seen["started_at"]
+        assert loop.read_health().get("working_on") is None
+
+    def test_cleared_after_verb_error(self, conn, monkeypatch):
+        item = _seed(conn, take="t")
+        _to_state(conn, item, "answered")
+
+        def boom(conn2, item_id, *, actor="loop"):
+            raise RuntimeError("verb failed")
+
+        monkeypatch.setattr("ytk.curator.advance_item", boom)
+        loop.tick_once(conn)
+        assert loop.read_health().get("working_on") is None
+
+    def test_stamp_carries_title_when_items_row_has_one(self, conn, monkeypatch):
+        item = _seed(conn, take="t")
+        conn.execute("UPDATE items SET title = ? WHERE id = ?", ("A Real Title", item))
+        conn.commit()
+        _to_state(conn, item, "answered")
+        seen: dict = {}
+
+        def fake_advance(conn2, item_id, *, actor="loop"):
+            seen.update(loop.read_health().get("working_on") or {})
+            ledger.insert_activity(conn2, item_id, actor=actor, action="keep", to_state="kept")
+
+        monkeypatch.setattr("ytk.curator.advance_item", fake_advance)
+        loop.tick_once(conn)
+        assert seen["title"] == "A Real Title"
+
+
+class TestHealthLineWorking:
+    def test_renders_working_on_with_elapsed(self):
+        from datetime import UTC, datetime, timedelta
+
+        started = (datetime.now(UTC) - timedelta(seconds=40)).isoformat()
+        loop.write_health(
+            last_tick_at="2026-08-31T00:00:00+00:00",
+            working_on={
+                "item_id": 7,
+                "action": "advance",
+                "title": "How to Read Papers",
+                "started_at": started,
+            },
+        )
+        line = loop.health_line()
+        assert line["ok"] is True
+        assert line["working"] is True
+        assert "enriching How to Read Papers" in line["line"]
+        assert "40s" in line["line"]
+
+    def test_read_action_renders_as_reading(self):
+        from datetime import UTC, datetime
+
+        loop.write_health(
+            working_on={
+                "item_id": 7,
+                "action": "read",
+                "title": "Some Video",
+                "started_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        assert "reading Some Video" in loop.health_line()["line"]
+
+    def test_stale_working_on_is_ignored(self):
+        from datetime import UTC, datetime, timedelta
+
+        stale = (datetime.now(UTC) - timedelta(minutes=20)).isoformat()
+        loop.write_health(
+            last_tick_at="2026-08-31T00:00:00+00:00",
+            working_on={"item_id": 7, "action": "advance", "title": "X", "started_at": stale},
+        )
+        line = loop.health_line()
+        assert line["working"] is False
+        assert "enriching" not in line["line"]
+
+    def test_idle_line_reports_not_working(self):
+        loop.write_health(last_tick_at="2026-08-31T00:00:00+00:00", working_on=None)
+        assert loop.health_line()["working"] is False
+
+
+class TestConnectionsDispatch:
+    """#197 P6: an answered connections ask routes to connect.apply_links —
+    advance_item would re-enrich a kept item."""
+
+    def _connections_item(self, conn):
+        item = _seed(conn, take="t")
+        ledger.insert_activity(
+            conn, item, actor="loop", action="keep", from_state="enriched", to_state="kept"
+        )
+        ask_id = asks.raise_ask(
+            conn,
+            item,
+            proposal={
+                "kind": "connections",
+                "why": "1 related note argued",
+                "options": ["approve", "strike some", "none"],
+                "links": [{"target": "a", "target_title": "A", "argument": "x"}],
+            },
+            actor="connect",
+        )
+        asks.answer_ask(conn, ask_id, choice="approve")
+        return item
+
+    def test_answered_connections_ask_routes_to_apply_links(self, conn, monkeypatch):
+        item = self._connections_item(conn)
+        applied = []
+
+        def fake_apply(conn2, item_id, *, actor="loop"):
+            applied.append(item_id)
+            ledger.insert_activity(
+                conn2,
+                item_id,
+                actor=actor,
+                action="connect-apply",
+                from_state="answered",
+                to_state="connected",
+            )
+
+        advanced = []
+        monkeypatch.setattr("ytk.connect.apply_links", fake_apply)
+        monkeypatch.setattr("ytk.curator.advance_item", lambda *a, **k: advanced.append(a))
+        loop.tick_once(conn)
+        assert applied == [item]
+        assert advanced == []
+        assert ledger.item_state(conn, item) == "connected"
+
+    def test_other_answered_items_still_route_to_advance(self, conn, verbs):
+        item = _seed(conn, take="t")
+        _to_state(conn, item, "answered")
+        loop.tick_once(conn)
+        assert verbs["advance"] == [item]
+
+
+class TestSweepConnectionsExpiry:
+    def test_stale_connections_ask_resolves_as_none(self, conn):
+        from datetime import UTC, datetime, timedelta
+
+        item = _seed(conn, take="t")
+        ledger.insert_activity(
+            conn, item, actor="loop", action="keep", from_state="enriched", to_state="kept"
+        )
+        ask_id = asks.raise_ask(
+            conn,
+            item,
+            proposal={
+                "kind": "connections",
+                "why": "1 related note argued",
+                "options": ["approve", "strike some", "none"],
+                "links": [{"target": "a", "target_title": "A", "argument": "x"}],
+            },
+            actor="connect",
+        )
+        old = (datetime.now(UTC) - timedelta(days=loop.ASK_PARK_DAYS + 1)).isoformat()
+        conn.execute("UPDATE asks SET created_at = ? WHERE id = ?", (old, ask_id))
+        conn.commit()
+        loop.sweep(conn)
+        assert ledger.item_state(conn, item) == "kept"
+        stamped = conn.execute(
+            "SELECT answered_at FROM outbox WHERE ask_id = ?", (ask_id,)
+        ).fetchone()
+        assert stamped["answered_at"] is not None
+        row = conn.execute(
+            "SELECT reason FROM activity WHERE item_id = ? AND actor = 'sweep'", (item,)
+        ).fetchone()
+        assert "none" in row["reason"]
+
+    def test_fresh_connections_ask_is_left_alone(self, conn):
+        item = _seed(conn, take="t")
+        ledger.insert_activity(
+            conn, item, actor="loop", action="keep", from_state="enriched", to_state="kept"
+        )
+        asks.raise_ask(
+            conn,
+            item,
+            proposal={"kind": "connections", "why": "w", "options": [], "links": []},
+            actor="connect",
+        )
+        loop.sweep(conn)
+        assert ledger.item_state(conn, item) == "asking"

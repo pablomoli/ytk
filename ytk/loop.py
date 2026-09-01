@@ -264,6 +264,58 @@ def _health_numbers(conn: sqlite3.Connection) -> dict[str, Any]:
     }
 
 
+# What the digest strip shows while a verb runs (#199). Stale past the
+# lease window means the loop died mid-verb; render nothing rather than
+# a forever-growing elapsed.
+_WORKING_VERBS = {"read": "reading", "answer": "applying answer to", "advance": "enriching"}
+
+
+def _stamp_working(conn: sqlite3.Connection, pick: Pick) -> None:
+    row = conn.execute("SELECT title FROM items WHERE id = ?", (pick.item_id,)).fetchone()
+    title = (row["title"] if row and row["title"] else None) or f"item {pick.item_id}"
+    write_health(
+        working_on={
+            "item_id": pick.item_id,
+            "action": pick.action,
+            "title": title,
+            "started_at": _now(),
+        }
+    )
+
+
+def _working_fragment() -> tuple[bool, str]:
+    raw = read_health().get("working_on")
+    if not isinstance(raw, dict):
+        return False, ""
+    w = cast("dict[str, Any]", raw)
+    started_raw = w.get("started_at")
+    if not isinstance(started_raw, str):
+        return False, ""
+    try:
+        started = datetime.fromisoformat(started_raw)
+    except ValueError:
+        return False, ""
+    elapsed = (datetime.now(UTC) - started).total_seconds()
+    if elapsed < 0 or elapsed > LEASE_MINUTES * 60:
+        return False, ""
+    verb = _WORKING_VERBS.get(str(w.get("action")), "working on")
+    return True, f"{verb} {w.get('title')!s} · {int(elapsed)}s"
+
+
+def _answered_connections(conn: sqlite3.Connection, item_id: int) -> bool:
+    """True when the item's LATEST ask is a connections ask with an answer.
+    Latest-only, same rule as the pending-answer selector (P5 live catch)."""
+    row = conn.execute(
+        """
+        SELECT asks.kind, answers.id AS answer_id FROM asks
+        LEFT JOIN answers ON answers.ask_id = asks.id
+        WHERE asks.item_id = ? ORDER BY asks.id DESC LIMIT 1
+        """,
+        (item_id,),
+    ).fetchone()
+    return bool(row and row["kind"] == "connections" and row["answer_id"] is not None)
+
+
 def tick_once(conn: sqlite3.Connection) -> TickStats:
     """One tick: advance items until nothing is advanceable or the budget is
     hit. The only caller in production is the loop thread — every transition
@@ -289,6 +341,7 @@ def tick_once(conn: sqlite3.Connection) -> TickStats:
         if not lease(conn, pick.item_id):
             continue
         before = ledger.item_state(conn, pick.item_id)
+        _stamp_working(conn, pick)
         try:
             if pick.action == "answer":
                 assert pick.answer_id is not None
@@ -299,6 +352,12 @@ def tick_once(conn: sqlite3.Connection) -> TickStats:
                 rr = evidence.read_item(conn, pick.item_id, actor="loop")
                 if rr.error:
                     raise RuntimeError(rr.error)
+            elif _answered_connections(conn, pick.item_id):
+                # An answered connections ask must not fall into
+                # advance_item, which would re-enrich a kept item (P6).
+                from . import connect
+
+                connect.apply_links(conn, pick.item_id, actor="loop")
             else:
                 curator.advance_item(conn, pick.item_id, actor="loop")
         except Exception as exc:
@@ -312,6 +371,8 @@ def tick_once(conn: sqlite3.Connection) -> TickStats:
             )
             _maybe_park_stuck(conn, pick.item_id)
             continue
+        finally:
+            write_health(working_on=None)
         after = ledger.item_state(conn, pick.item_id)
         changed = after != before
         clear_lease(conn, pick.item_id, state_changed=changed)
@@ -397,6 +458,27 @@ def sweep(conn: sqlite3.Connection) -> SweepStats:
             reason=f"ask unanswered past {ASK_PARK_DAYS}d",
         )
         stats.parked += 1
+
+    # A parked connections ask writes "none" (spec, Asks): the note is live
+    # either way, so the item returns to kept instead of stranding at asking.
+    for ask in _open_asks(conn, ("connections",)):
+        if ask["created_at"] >= park_before:
+            continue
+        if ledger.item_state(conn, ask["item_id"]) != "asking":
+            continue
+        conn.execute(
+            "UPDATE outbox SET answered_at = ? WHERE ask_id = ?", (ledger.now(), ask["id"])
+        )
+        ledger.insert_activity(
+            conn,
+            ask["item_id"],
+            actor="sweep",
+            action="connect-none",
+            from_state="asking",
+            to_state="kept",
+            reason=f"connections ask unanswered past {ASK_PARK_DAYS}d: none written",
+        )
+        stats.expired += 1
 
     cooldown = (datetime.now(UTC) - timedelta(hours=RETRY_COOLDOWN_HOURS)).isoformat()
     for ask in _open_asks(conn, RETRY_KINDS):
@@ -499,13 +581,16 @@ def health_line() -> dict[str, Any]:
     """The one-liner every watch surface renders (digest, ytk loop status)."""
     if inert_path().exists():
         reason = inert_path().read_text().strip() or "no reason recorded"
-        return {"ok": False, "line": f"inert — {reason}; run `ytk loop resume`"}
+        return {"ok": False, "working": False, "line": f"inert — {reason}; run `ytk loop resume`"}
+    working, fragment = _working_fragment()
+    if working:
+        return {"ok": True, "working": True, "line": fragment}
     h = read_health()
     last = h.get("last_tick_at")
     if not last:
-        return {"ok": True, "line": "never ticked"}
+        return {"ok": True, "working": False, "line": "never ticked"}
     line = (
         f"last tick {str(last)[11:16]}Z · {h.get('items_advanced', 0)} advanced · "
         f"{h.get('errors_last_hour', 0)} errors · {h.get('tokens_today', 0):,} tokens today"
     )
-    return {"ok": True, "line": line}
+    return {"ok": True, "working": False, "line": line}

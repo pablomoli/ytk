@@ -81,7 +81,11 @@ _STOP = frozenset(
 
 
 def _tokens(text: str) -> set[str]:
-    return {w for w in _WORD.findall(text.lower()) if w not in _STOP}
+    # Hyphens split before matching (#201): "Empirical-field framing" must
+    # meet the transcript's "empirical field" — a near-verbatim coinage is
+    # not a hallucination. Applies to both sides, so evidence hyphens also
+    # ground unhyphenated draft phrasing.
+    return {w for w in _WORD.findall(text.lower().replace("-", " ")) if w not in _STOP}
 
 
 def _parse_ts(ts: str) -> float | None:

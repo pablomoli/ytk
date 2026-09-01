@@ -213,3 +213,56 @@ def test_ineligible_states_are_noops(conn, monkeypatch):
     _stub_sdk(monkeypatch, [], [])
     item_id = _seed(conn, state_take=False)  # read, no take
     assert curator.advance_item(conn, item_id).outcome == "skipped"
+
+
+def test_landing_triggers_connect_propose(conn, monkeypatch):
+    """#197 P6: connect runs only on fresh landings — structurally excluding
+    the grandfathered kept pile (no selector over kept exists)."""
+    _stub_sdk(monkeypatch, [dict(DRAFT)], [dict(PASS_VERDICT)])
+    calls = []
+    monkeypatch.setattr(
+        "ytk.connect.propose",
+        lambda conn2, item_id, thesis, summary, *, exclude_media_id, actor="connect": calls.append(
+            {"item_id": item_id, "thesis": thesis, "exclude": exclude_media_id}
+        ),
+    )
+    item_id = _seed(conn)
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "kept"
+    assert calls == [{"item_id": item_id, "thesis": DRAFT["thesis"], "exclude": "abc123xyz00"}]
+
+
+def test_accept_as_is_also_triggers_connect(conn, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "ytk.connect.propose",
+        lambda conn2, item_id, thesis, summary, **kw: calls.append(item_id),
+    )
+    _stub_sdk(monkeypatch, [dict(BAD_DRAFT), dict(BAD_DRAFT)], [])
+    item_id = _seed(conn)
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "asked"
+    asks.answer_ask(conn, res.ask_id, choice="accept as is")
+    ledger.insert_activity(
+        conn, item_id, actor="owner", action="answer", from_state="asking", to_state="answered"
+    )
+    res2 = curator.advance_item(conn, item_id)
+    assert res2.outcome == "kept"
+    assert calls == [item_id]
+
+
+def test_connect_failure_never_unlands_the_note(conn, monkeypatch):
+    _stub_sdk(monkeypatch, [dict(DRAFT)], [dict(PASS_VERDICT)])
+
+    def boom(*a, **k):
+        raise RuntimeError("argue call failed")
+
+    monkeypatch.setattr("ytk.connect.propose", boom)
+    item_id = _seed(conn)
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "kept"
+    assert ledger.item_state(conn, item_id) == "kept"
+    err = conn.execute(
+        "SELECT reason FROM activity WHERE item_id = ? AND action = 'connect-error'", (item_id,)
+    ).fetchone()
+    assert "argue call failed" in err["reason"]

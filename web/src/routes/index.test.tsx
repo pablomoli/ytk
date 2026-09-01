@@ -49,6 +49,7 @@ const asks = [
 let outbox: {
   isLoading: boolean;
   isError: boolean;
+  refetch?: () => void;
   data?: unknown;
 } = {
   isLoading: false,
@@ -188,4 +189,146 @@ test("empty outbox invites, not apologizes", () => {
   };
   renderPage();
   expect(screen.getByText(/nothing needs you/i)).toBeInTheDocument();
+});
+
+test("digest polls while the loop is mid-verb (#199)", () => {
+  vi.useFakeTimers();
+  const refetch = vi.fn();
+  outbox = {
+    isLoading: false,
+    isError: false,
+    refetch,
+    data: {
+      asks: [],
+      speaks: [],
+      parked: { count: 0, oldest: null },
+      loop: { ok: true, working: true, line: "enriching How to Read Papers · 40s" },
+    },
+  } as typeof outbox;
+  renderPage();
+  expect(screen.getByText(/enriching How to Read Papers/)).toBeInTheDocument();
+  vi.advanceTimersByTime(6000);
+  expect(refetch.mock.calls.length).toBeGreaterThanOrEqual(2);
+  vi.useRealTimers();
+});
+
+test("digest does not poll when the loop is idle", () => {
+  vi.useFakeTimers();
+  const refetch = vi.fn();
+  outbox = {
+    isLoading: false,
+    isError: false,
+    refetch,
+    data: {
+      asks: [],
+      speaks: [],
+      parked: { count: 0, oldest: null },
+      loop: { ok: true, working: false, line: "last tick 13:00Z" },
+    },
+  } as typeof outbox;
+  renderPage();
+  vi.advanceTimersByTime(10000);
+  expect(refetch).not.toHaveBeenCalled();
+  vi.useRealTimers();
+});
+
+test("answering opens a poll window so the strip catches the verb starting", () => {
+  vi.useFakeTimers();
+  const refetch = vi.fn();
+  mutate.mockImplementation((_answer, opts) => opts?.onSuccess?.());
+  outbox = {
+    isLoading: false,
+    isError: false,
+    refetch,
+    data: {
+      asks,
+      speaks: [],
+      parked: { count: 3, oldest: null },
+      loop: { ok: true, working: false, line: "last tick 13:00Z" },
+    },
+  } as typeof outbox;
+  renderPage();
+  fireEvent.click(screen.getByRole("button", { name: "retry with Whisper" }));
+  vi.advanceTimersByTime(6000);
+  expect(refetch.mock.calls.length).toBeGreaterThanOrEqual(2);
+  mutate.mockReset();
+  vi.useRealTimers();
+});
+
+const connectionsAsk = {
+  id: 4,
+  ask_id: 41,
+  item_id: 12,
+  subkind: "connections",
+  created_at: "2026-08-31T23:30:00+00:00",
+  title: "How to Read Deep Learning Papers",
+  url: "https://y/12",
+  source: "youtube",
+  proposal: {
+    kind: "connections",
+    why: "2 related notes argued",
+    options: ["approve", "strike some", "none"],
+    links: [
+      { target: "paper-notes", target_title: "Paper Notes", argument: "same margin-question triage" },
+      { target: "loop-video", target_title: "Loop Video", argument: "both gate work behind a judge" },
+    ],
+  },
+};
+
+function renderConnections() {
+  outbox = {
+    isLoading: false,
+    isError: false,
+    data: {
+      asks: [connectionsAsk],
+      speaks: [],
+      parked: { count: 0, oldest: null },
+      loop: { ok: true, working: false, line: "ok" },
+    },
+  };
+  return renderPage();
+}
+
+test("connections card renders each link checked with its argument (#197 P6)", () => {
+  renderConnections();
+  const boxes = screen.getAllByRole("checkbox");
+  expect(boxes).toHaveLength(2);
+  boxes.forEach((b) => expect(b).toBeChecked());
+  expect(screen.getByText(/same margin-question triage/)).toBeInTheDocument();
+  expect(screen.getByText(/\[\[paper-notes\]\]/)).toBeInTheDocument();
+});
+
+test("all links kept answers approve without text", () => {
+  mutate.mockClear();
+  renderConnections();
+  fireEvent.click(screen.getByRole("button", { name: "approve" }));
+  expect(mutate).toHaveBeenCalledWith(
+    { ask_id: 41, choice: "approve" },
+    expect.anything(),
+  );
+});
+
+test("striking one link answers strike some with the survivors as JSON", () => {
+  mutate.mockClear();
+  renderConnections();
+  fireEvent.click(screen.getByRole("checkbox", { name: "link paper-notes" }));
+  fireEvent.click(screen.getByRole("button", { name: "approve 1 of 2" }));
+  expect(mutate).toHaveBeenCalledWith(
+    { ask_id: 41, choice: "strike some", text: JSON.stringify(["loop-video"]) },
+    expect.anything(),
+  );
+});
+
+test("striking every link sends none", () => {
+  mutate.mockClear();
+  renderConnections();
+  for (const box of screen.getAllByRole("checkbox")) fireEvent.click(box);
+  fireEvent.click(screen.getByRole("button", { name: "none survive" }));
+  expect(mutate).toHaveBeenCalledWith({ ask_id: 41, choice: "none" }, expect.anything());
+});
+
+test("connections card hides the generic option buttons", () => {
+  renderConnections();
+  expect(screen.queryByRole("button", { name: "strike some" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "say more" })).toBeNull();
 });

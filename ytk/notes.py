@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+import sqlite3
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 
@@ -156,3 +158,71 @@ def index_note(note_path: Path, bundle: EvidenceBundle, draft: EnrichmentV2) -> 
             "source_path": str(note_path),
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Snapshots and the Connections section (#197 P6)
+# ---------------------------------------------------------------------------
+
+
+def snapshots_dir() -> Path:
+    import os
+
+    from .evidence import evidence_dir
+
+    env = os.environ.get("YTK_SNAPSHOTS")
+    return Path(env) if env else evidence_dir() / "snapshots"
+
+
+def snapshot_note(conn: sqlite3.Connection, item_id: int, path: Path) -> Path:
+    """Copy the note before a rewrite and record the snapshots row. The vault
+    is iCloud, not git; this row is the only undo. Every rewriter of an
+    existing note calls this first."""
+    from . import ledger
+
+    dst_dir = snapshots_dir()
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    dst = dst_dir / f"{item_id}-{stamp}.md"
+    n = 1
+    while dst.exists():
+        dst = dst_dir / f"{item_id}-{stamp}-{n}.md"
+        n += 1
+    shutil.copyfile(path, dst)
+    conn.execute(
+        "INSERT INTO snapshots (item_id, at, before_ref, after_ref) VALUES (?, ?, ?, ?)",
+        (item_id, ledger.now(), str(dst), str(path)),
+    )
+    conn.commit()
+    return dst
+
+
+def apply_connections(path: Path, links: Iterable[tuple[str, str]]) -> None:
+    """Write (or replace) the `## Connections` section: one wikilink per
+    approved link with its one-clause argument. Sits after Thesis — the
+    section argues the thesis's neighbors — or at the end when no Thesis
+    exists. Replacing the whole section keeps re-runs idempotent."""
+    text = path.read_text(encoding="utf-8")
+    block = "## Connections\n" + "\n".join(f"- [[{t}]] — {arg}" for t, arg in links)
+
+    lines = text.split("\n")
+    starts = [i for i, ln in enumerate(lines) if ln.startswith("## ")]
+
+    def section_end(start_idx: int) -> int:
+        later = [i for i in starts if i > start_idx]
+        return later[0] if later else len(lines)
+
+    existing = [i for i, ln in enumerate(lines) if ln.strip() == "## Connections"]
+    if existing:
+        i = existing[0]
+        lines[i : section_end(i)] = [*block.split("\n"), ""]
+    else:
+        thesis = [i for i, ln in enumerate(lines) if ln.strip() == "## Thesis"]
+        if thesis:
+            at = section_end(thesis[0])
+            lines[at:at] = [*block.split("\n"), ""]
+        else:
+            if lines and lines[-1] == "":
+                lines = lines[:-1]
+            lines += ["", *block.split("\n")]
+    path.write_text("\n".join(lines), encoding="utf-8")

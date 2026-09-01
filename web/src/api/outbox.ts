@@ -1,11 +1,18 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiGet, apiSend, queryClient } from "./client";
 
+export type ProposedLink = {
+  target: string;
+  target_title: string;
+  argument: string;
+};
+
 export type AskProposal = {
   kind: string;
   why?: string;
   options?: string[];
   window_days?: number;
+  links?: ProposedLink[];
 };
 
 export type AskDraft = {
@@ -33,7 +40,7 @@ export type OutboxAsk = {
   proposal: AskProposal;
 };
 
-export type LoopHealth = { ok: boolean; line: string };
+export type LoopHealth = { ok: boolean; working?: boolean; line: string };
 
 export type Outbox = {
   asks: OutboxAsk[];

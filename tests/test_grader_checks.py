@@ -191,3 +191,39 @@ def test_grader_and_enricher_share_no_prompt():
 
     assert grader.GRADER_PROMPT_VERSION != e.PROMPT_VERSION
     assert "research assistant" not in grader._GRADE_SYSTEM
+
+
+class TestGroundingNormalization:
+    """#201: a hyphenated near-verbatim coinage must ground; smuggled world
+    knowledge must still bounce. Reproduced live on item 755."""
+
+    def test_hyphenated_concept_grounds_against_unhyphenated_transcript(self):
+        b = _bundle(
+            transcript=[
+                {"start": 0, "duration": 4, "text": "deep learning is a very empirical field"},
+                {"start": 4, "duration": 4, "text": "things are flat-out wrong and janky"},
+            ]
+        )
+        d = _draft(
+            key_concepts=["Empirical-field framing: why the papers read like lab notes"],
+            key_moments=[],
+        )
+        assert [x for x in _check(d, b) if x.check == "concept grounding"] == []
+
+    def test_transcript_hyphen_grounds_unhyphenated_concept(self):
+        b = _bundle(
+            transcript=[
+                {"start": 0, "duration": 4, "text": "the flat-out claim ships anyway"},
+            ]
+        )
+        d = _draft(key_concepts=["flat out: shipped without review"], key_moments=[])
+        assert [x for x in _check(d, b) if x.check == "concept grounding"] == []
+
+    def test_smuggled_world_knowledge_still_bounces(self):
+        d = _draft(
+            key_concepts=["Jawed Karim: uploaded the first video"],
+            key_moments=[],
+        )
+        bounces = [x for x in _check(d) if x.check == "concept grounding"]
+        assert len(bounces) == 1
+        assert "Jawed Karim" in bounces[0].detail
