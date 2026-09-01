@@ -242,7 +242,7 @@ function WorkingCard({ working, error }: { working: WorkingOn; error?: LoopError
           <img
             src={working.thumbnail}
             alt=""
-            className="!h-14 !w-14 shrink-0 rounded-card border border-line object-cover"
+            className="max-h-20 w-fit shrink-0 rounded-card border border-line"
           />
         ) : null}
         <div className="flex flex-col gap-1 min-w-0">
@@ -253,12 +253,12 @@ function WorkingCard({ working, error }: { working: WorkingOn; error?: LoopError
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-1.5" aria-label="stage trail">
+      <div className="flex items-baseline gap-1.5" aria-label="stage trail">
         {STAGE_TRAIL.map((stage, i) => {
           const state = trailIdx < 0 ? "pending" : i < trailIdx ? "done" : i === trailIdx ? "current" : "pending";
           return (
-            <span key={stage} className="flex items-center gap-1.5">
-              {i > 0 ? <span className="text-mute text-xs">→</span> : null}
+            <span key={stage} className="flex items-baseline gap-1.5">
+              {i > 0 ? <span className="sub !text-mute">→</span> : null}
               <span
                 data-stage={stage}
                 data-state={state}
@@ -275,7 +275,12 @@ function WorkingCard({ working, error }: { working: WorkingOn; error?: LoopError
             </span>
           );
         })}
-        {stageKey === "connect" ? <span className="sub !text-live">→ connect</span> : null}
+        {stageKey === "connect" ? (
+          <span className="flex items-baseline gap-1.5">
+            <span className="sub !text-mute">→</span>
+            <span className="sub !text-live">connect</span>
+          </span>
+        ) : null}
       </div>
       {error ? (
         <p className="m-0 sub !text-accent" role="status">
