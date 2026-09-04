@@ -17,8 +17,6 @@ export const Route = createFileRoute("/")({
 // mirrors the digest order itself (spec: quality first).
 const QUALITY_KINDS = new Set(["transcript junk", "blind item", "duplicate", "grader bounce, twice"]);
 
-type Variant = "grid" | "poster";
-
 /* Stroke glyphs, lucide-shaped but inlined: lucide-react is not a dependency
    here and one icon set is not worth adding one. */
 const GLYPHS: Record<string, string[]> = {
@@ -180,15 +178,7 @@ function ConnectionsAnswer({
    by name in tests and by screen readers. */
 const OPTION_GLYPH: Record<string, string> = { drop: "x", "accept as is": "check" };
 
-function AskCard({
-  ask,
-  poster,
-  onAnswered,
-}: {
-  ask: OutboxAsk;
-  poster: boolean;
-  onAnswered: (line: string) => void;
-}) {
+function AskCard({ ask, onAnswered }: { ask: OutboxAsk; onAnswered: (line: string) => void }) {
   const answer = useAnswerAsk();
   const [saying, setSaying] = useState(false);
   const [text, setText] = useState("");
@@ -349,35 +339,6 @@ function AskCard({
     </p>
   ) : null;
 
-  if (poster && ask.thumbnail) {
-    return (
-      <article data-ask={ask.ask_id} data-kind={ask.subkind} className="card flex flex-col">
-        <div className="relative">
-          <img src={ask.thumbnail} alt="" className="w-full !h-auto block" />
-          <div
-            className="absolute inset-x-0 bottom-0 flex items-center gap-2 p-2 pt-6"
-            style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.78))" }}
-          >
-            <KindMark ask={ask} />
-            <h3 className="title m-0 min-w-0 flex-1 truncate text-sm leading-snug text-white">
-              {title}
-            </h3>
-          </div>
-        </div>
-        <div className="flex flex-col gap-1.5 p-2">
-          {ask.proposal.why ? (
-            <p className="m-0 text-xs italic text-ink2">{ask.proposal.why}</p>
-          ) : null}
-          {hasChips ? <div className="flex flex-wrap items-center gap-1">{chips}</div> : null}
-          {openSections}
-          {isIntent || saying ? sayBox : null}
-          {pills}
-          {error}
-        </div>
-      </article>
-    );
-  }
-
   return (
     <article data-ask={ask.ask_id} data-kind={ask.subkind} className="card flex flex-col">
       {ask.thumbnail ? <img src={ask.thumbnail} alt="" className="w-full !h-auto block" /> : null}
@@ -495,32 +456,10 @@ function WorkingCard({ working, error }: { working: WorkingOn; error?: LoopError
 const POLL_MS = 2500;
 const ANSWER_POLL_WINDOW_MS = 90_000;
 
-function initialVariant(): Variant {
-  try {
-    return new URLSearchParams(window.location.search).get("variant") === "poster"
-      ? "poster"
-      : "grid";
-  } catch {
-    return "grid";
-  }
-}
-
 function DigestPage() {
   const outbox = useOutbox();
   const [receipts, setReceipts] = useState<string[]>([]);
   const [pollUntil, setPollUntil] = useState(0);
-  const [variant, setVariant] = useState<Variant>(initialVariant);
-
-  const pickVariant = (v: Variant) => {
-    setVariant(v);
-    try {
-      const u = new URL(window.location.href);
-      u.searchParams.set("variant", v);
-      window.history.replaceState(null, "", u);
-    } catch {
-      /* history is a convenience, not a dependency */
-    }
-  };
 
   const working = outbox.data?.loop?.working ?? false;
   const { refetch } = outbox;
@@ -546,28 +485,6 @@ function DigestPage() {
     body = (
       <>
         {hasBoard ? (
-          <div className="flex items-center justify-end gap-1">
-            <Button
-              size="sm"
-              variant={variant === "grid" ? "secondary" : "ghost"}
-              aria-pressed={variant === "grid"}
-              className="h-6 min-h-6 min-w-0 px-2 py-0 text-xs"
-              onClick={() => pickVariant("grid")}
-            >
-              grid
-            </Button>
-            <Button
-              size="sm"
-              variant={variant === "poster" ? "secondary" : "ghost"}
-              aria-pressed={variant === "poster"}
-              className="h-6 min-h-6 min-w-0 px-2 py-0 text-xs"
-              onClick={() => pickVariant("poster")}
-            >
-              poster
-            </Button>
-          </div>
-        ) : null}
-        {hasBoard ? (
           <MasonryGrid>
             {workingOn ? (
               <WorkingCard key="working" working={workingOn} error={loop?.last_error} />
@@ -576,7 +493,6 @@ function DigestPage() {
               <AskCard
                 key={ask.ask_id}
                 ask={ask}
-                poster={variant === "poster"}
                 onAnswered={(line) => {
                   setReceipts((r) => [line, ...r]);
                   setPollUntil(Date.now() + ANSWER_POLL_WINDOW_MS);
