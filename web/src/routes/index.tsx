@@ -622,7 +622,7 @@ function DigestPage() {
           {outbox.data ? `${outbox.data.asks.length} waiting` : "the digest"}
         </span>
       </HubControls>
-      <div className="hub-body w-full">{body}</div>
+      <div className="hub-body">{body}</div>
     </div>
   );
 }
