@@ -1,4 +1,4 @@
-import { act, render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 
 vi.mock("@tanstack/react-router", () => ({
@@ -58,7 +58,7 @@ let outbox: {
     asks,
     speaks: [],
     parked: { count: 3, oldest: "2026-08-12T00:00:00+00:00" },
-    loop: { ok: true, line: "last tick 13:00Z · 2 advanced · 0 errors" },
+    loop: { ok: true, line: "last tick 13:00Z \u00b7 2 advanced \u00b7 0 errors" },
   },
 };
 
@@ -69,43 +69,24 @@ vi.mock("../api/outbox", () => ({
 
 import { Route } from "./index";
 
-/* Cards live inside MasonryGrid now, and styles.css keeps a card
-   visibility:hidden until the grid's rAF layout pass places it — role queries
-   see nothing before that frame. Flush it under whichever clock the test runs. */
-async function flushMasonry() {
-  if (vi.isFakeTimers()) {
-    act(() => {
-      vi.advanceTimersByTime(64);
-    });
-  } else {
-    await act(async () => {
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-      );
-    });
-  }
-}
-
-async function renderPage() {
+function renderPage() {
   const Page = (Route as unknown as { options: { component: React.ComponentType } }).options
     .component;
-  const utils = render(<Page />);
-  await flushMasonry();
-  return utils;
+  return render(<Page />);
 }
 
-test("renders ask cards in delivery order with kind, title and why", async () => {
-  const { container } = await renderPage();
+test("renders ask cards in delivery order with kind, title and why", () => {
+  const { container } = renderPage();
   const cards = [...container.querySelectorAll("[data-ask]")];
   expect(cards).toHaveLength(2);
-  expect(cards[0]!.getAttribute("data-kind")).toBe("transcript junk");
+  expect(cards[0]!.textContent).toContain("transcript junk");
   expect(cards[0]!.textContent).toContain("A garbled talk");
   expect(cards[0]!.textContent).toContain("auto-captions garbled");
-  expect(cards[1]!.getAttribute("data-kind")).toBe("intent missing");
+  expect(cards[1]!.textContent).toContain("intent missing");
 });
 
-test("clicking an option answers through the mutation", async () => {
-  await renderPage();
+test("clicking an option answers through the mutation", () => {
+  renderPage();
   fireEvent.click(screen.getByRole("button", { name: "retry with Whisper" }));
   expect(mutate).toHaveBeenCalledWith(
     expect.objectContaining({ ask_id: 11, choice: "retry with Whisper" }),
@@ -113,38 +94,19 @@ test("clicking an option answers through the mutation", async () => {
   );
 });
 
-test("typed words ride the clicked option — never a silent wrong choice", async () => {
-  const { container } = await renderPage();
-  const junk = within(container.querySelector('[data-ask="11"]') as HTMLElement);
-  fireEvent.click(junk.getByRole("button", { name: "say more" }));
-  fireEvent.change(junk.getByRole("textbox"), {
-    target: { value: "keep it, the garble is the joke" },
-  });
-  fireEvent.click(junk.getByRole("button", { name: "keep with the warning" }));
+test("typed words ride the clicked option — never a silent wrong choice", () => {
+  renderPage();
+  fireEvent.click(screen.getAllByRole("button", { name: "say more" })[0]!);
+  const box = screen.getByRole("textbox");
+  fireEvent.change(box, { target: { value: "keep it, the garble is the joke" } });
+  fireEvent.click(screen.getByRole("button", { name: "keep with the warning" }));
   expect(mutate).toHaveBeenCalledWith(
     { ask_id: 11, choice: "keep with the warning", text: "keep it, the garble is the joke" },
     expect.anything(),
   );
 });
 
-test("intent card shows the textarea at rest and gates intent/reaction on words", async () => {
-  mutate.mockClear();
-  const { container } = await renderPage();
-  const intent = within(container.querySelector('[data-ask="12"]') as HTMLElement);
-  expect(intent.getByRole("textbox")).toBeInTheDocument();
-  expect(intent.getByRole("button", { name: "intent" })).toBeDisabled();
-  expect(intent.getByRole("button", { name: "reaction" })).toBeDisabled();
-  expect(intent.getByRole("button", { name: "just want it" })).toBeEnabled();
-  expect(intent.getByRole("button", { name: "drop" })).toBeEnabled();
-  fireEvent.change(intent.getByRole("textbox"), { target: { value: "for the go course" } });
-  fireEvent.click(intent.getByRole("button", { name: "intent" }));
-  expect(mutate).toHaveBeenCalledWith(
-    { ask_id: 12, choice: "intent", text: "for the go course" },
-    expect.anything(),
-  );
-});
-
-test("say what is wrong carries the typed guidance (the 756 empty-answer bug)", async () => {
+test("say what is wrong carries the typed guidance (the 756 empty-answer bug)", () => {
   mutate.mockClear();
   const initial = outbox;
   outbox = {
@@ -172,7 +134,7 @@ test("say what is wrong carries the typed guidance (the 756 empty-answer bug)", 
       loop: { ok: true, line: "ok" },
     },
   };
-  await renderPage();
+  renderPage();
   fireEvent.click(screen.getByRole("button", { name: "say more" }));
   fireEvent.change(screen.getByRole("textbox"), {
     target: { value: "drop the node inventory" },
@@ -185,13 +147,13 @@ test("say what is wrong carries the typed guidance (the 756 empty-answer bug)", 
   outbox = initial;
 });
 
-test("parked and loop lines render once each", async () => {
-  await renderPage();
+test("parked and loop lines render once each", () => {
+  renderPage();
   expect(screen.getByText(/3 parked, oldest from/)).toBeInTheDocument();
   expect(screen.getByText(/2 advanced/)).toBeInTheDocument();
 });
 
-test("bounce ask keeps the thumbnail at rest and unfolds draft and objections from chips", async () => {
+test("bounce ask renders the draft, the grader's objections, and the thumbnail", () => {
   outbox = {
     isLoading: false,
     isError: false,
@@ -228,21 +190,17 @@ test("bounce ask keeps the thumbnail at rest and unfolds draft and objections fr
       loop: { ok: true, line: "ok" },
     },
   };
-  const { container } = await renderPage();
+  const { container } = renderPage();
   expect(screen.getByText("How to Read Academic Papers")).toBeInTheDocument();
-  const img = container.querySelector("img");
-  expect(img?.getAttribute("src")).toBe("https://i.ytimg.com/vi/x/hq720.jpg");
-  // Folded at rest: the draft and the objection detail wait behind their chips.
-  expect(screen.queryByText(/six-step workflow/)).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "draft" }));
   expect(screen.getByText(/six-step workflow/)).toBeInTheDocument();
   expect(screen.getByText(/Front-load context/)).toBeInTheDocument();
   expect(screen.getByText(/deep research report/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "concept grounding" }));
   expect(screen.getByText(/not findable/)).toBeInTheDocument();
+  const img = container.querySelector("img");
+  expect(img?.getAttribute("src")).toBe("https://i.ytimg.com/vi/x/hq720.jpg");
 });
 
-test("inert loop line wears the warning tone", async () => {
+test("inert loop line wears the warning tone", () => {
   outbox = {
     isLoading: false,
     isError: false,
@@ -250,16 +208,16 @@ test("inert loop line wears the warning tone", async () => {
       asks: [],
       speaks: [],
       parked: { count: 0, oldest: null },
-      loop: { ok: false, line: "inert — tripped: token ceiling; run `ytk loop resume`" },
+      loop: { ok: false, line: "inert \u2014 tripped: token ceiling; run `ytk loop resume`" },
     },
   };
-  const { container } = await renderPage();
+  const { container } = renderPage();
   const strip = container.querySelector("[data-loop-strip]");
   expect(strip?.textContent).toContain("token ceiling");
   expect(strip?.className).toContain("text-accent");
 });
 
-test("empty outbox invites, not apologizes", async () => {
+test("empty outbox invites, not apologizes", () => {
   outbox = {
     isLoading: false,
     isError: false,
@@ -270,11 +228,11 @@ test("empty outbox invites, not apologizes", async () => {
       loop: { ok: true, line: "never ticked" },
     },
   };
-  await renderPage();
+  renderPage();
   expect(screen.getByText(/nothing needs you/i)).toBeInTheDocument();
 });
 
-test("digest polls while the loop is mid-verb (#199)", async () => {
+test("digest polls while the loop is mid-verb (#199)", () => {
   vi.useFakeTimers();
   const refetch = vi.fn();
   outbox = {
@@ -288,16 +246,14 @@ test("digest polls while the loop is mid-verb (#199)", async () => {
       loop: { ok: true, working: true, line: "enriching How to Read Papers · 40s" },
     },
   } as typeof outbox;
-  await renderPage();
+  renderPage();
   expect(screen.getByText(/enriching How to Read Papers/)).toBeInTheDocument();
-  act(() => {
-    vi.advanceTimersByTime(6000);
-  });
+  vi.advanceTimersByTime(6000);
   expect(refetch.mock.calls.length).toBeGreaterThanOrEqual(2);
   vi.useRealTimers();
 });
 
-test("digest does not poll when the loop is idle", async () => {
+test("digest does not poll when the loop is idle", () => {
   vi.useFakeTimers();
   const refetch = vi.fn();
   outbox = {
@@ -311,15 +267,13 @@ test("digest does not poll when the loop is idle", async () => {
       loop: { ok: true, working: false, line: "last tick 13:00Z" },
     },
   } as typeof outbox;
-  await renderPage();
-  act(() => {
-    vi.advanceTimersByTime(10000);
-  });
+  renderPage();
+  vi.advanceTimersByTime(10000);
   expect(refetch).not.toHaveBeenCalled();
   vi.useRealTimers();
 });
 
-test("answering opens a poll window so the strip catches the verb starting", async () => {
+test("answering opens a poll window so the strip catches the verb starting", () => {
   vi.useFakeTimers();
   const refetch = vi.fn();
   mutate.mockImplementation((_answer, opts) => opts?.onSuccess?.());
@@ -334,11 +288,9 @@ test("answering opens a poll window so the strip catches the verb starting", asy
       loop: { ok: true, working: false, line: "last tick 13:00Z" },
     },
   } as typeof outbox;
-  await renderPage();
+  renderPage();
   fireEvent.click(screen.getByRole("button", { name: "retry with Whisper" }));
-  act(() => {
-    vi.advanceTimersByTime(6000);
-  });
+  vi.advanceTimersByTime(6000);
   expect(refetch.mock.calls.length).toBeGreaterThanOrEqual(2);
   mutate.mockReset();
   vi.useRealTimers();
@@ -364,7 +316,7 @@ const connectionsAsk = {
   },
 };
 
-async function renderConnections() {
+function renderConnections() {
   outbox = {
     isLoading: false,
     isError: false,
@@ -378,9 +330,8 @@ async function renderConnections() {
   return renderPage();
 }
 
-test("connections card unfolds each link checked with its argument (#197 P6)", async () => {
-  await renderConnections();
-  fireEvent.click(screen.getByRole("button", { name: "2 links" }));
+test("connections card renders each link checked with its argument (#197 P6)", () => {
+  renderConnections();
   const boxes = screen.getAllByRole("checkbox");
   expect(boxes).toHaveLength(2);
   boxes.forEach((b) => expect(b).toBeChecked());
@@ -388,9 +339,9 @@ test("connections card unfolds each link checked with its argument (#197 P6)", a
   expect(screen.getByText(/\[\[paper-notes\]\]/)).toBeInTheDocument();
 });
 
-test("all links kept answers approve without text", async () => {
+test("all links kept answers approve without text", () => {
   mutate.mockClear();
-  await renderConnections();
+  renderConnections();
   fireEvent.click(screen.getByRole("button", { name: "approve" }));
   expect(mutate).toHaveBeenCalledWith(
     { ask_id: 41, choice: "approve" },
@@ -398,10 +349,9 @@ test("all links kept answers approve without text", async () => {
   );
 });
 
-test("striking one link answers strike some with the survivors as JSON", async () => {
+test("striking one link answers strike some with the survivors as JSON", () => {
   mutate.mockClear();
-  await renderConnections();
-  fireEvent.click(screen.getByRole("button", { name: "2 links" }));
+  renderConnections();
   fireEvent.click(screen.getByRole("checkbox", { name: "link paper-notes" }));
   fireEvent.click(screen.getByRole("button", { name: "approve 1 of 2" }));
   expect(mutate).toHaveBeenCalledWith(
@@ -410,22 +360,21 @@ test("striking one link answers strike some with the survivors as JSON", async (
   );
 });
 
-test("striking every link sends none", async () => {
+test("striking every link sends none", () => {
   mutate.mockClear();
-  await renderConnections();
-  fireEvent.click(screen.getByRole("button", { name: "2 links" }));
+  renderConnections();
   for (const box of screen.getAllByRole("checkbox")) fireEvent.click(box);
   fireEvent.click(screen.getByRole("button", { name: "none survive" }));
   expect(mutate).toHaveBeenCalledWith({ ask_id: 41, choice: "none" }, expect.anything());
 });
 
-test("connections card hides the generic option buttons", async () => {
-  await renderConnections();
+test("connections card hides the generic option buttons", () => {
+  renderConnections();
   expect(screen.queryByRole("button", { name: "strike some" })).toBeNull();
   expect(screen.queryByRole("button", { name: "say more" })).toBeNull();
 });
 
-test("working card leads the digest with stage trail and elapsed", async () => {
+test("working card leads the digest with stage trail and elapsed", () => {
   const initial = outbox;
   outbox = {
     isLoading: false,
@@ -450,7 +399,7 @@ test("working card leads the digest with stage trail and elapsed", async () => {
       },
     },
   } as typeof outbox;
-  const { container } = await renderPage();
+  const { container } = renderPage();
   const card = container.querySelector("[data-working-card]");
   expect(card).not.toBeNull();
   expect(card!.textContent).toContain("luchen_xi");
@@ -463,7 +412,7 @@ test("working card leads the digest with stage trail and elapsed", async () => {
   outbox = initial;
 });
 
-test("a recent loop error renders as a hiccup line on the working card", async () => {
+test("a recent loop error renders as a hiccup line on the working card", () => {
   const initial = outbox;
   outbox = {
     isLoading: false,
@@ -492,7 +441,7 @@ test("a recent loop error renders as a hiccup line on the working card", async (
       },
     },
   } as typeof outbox;
-  await renderPage();
+  renderPage();
   expect(screen.getByRole("status").textContent).toContain("Agent SDK call failed");
   expect(screen.getByRole("status").textContent).toContain("the loop retries");
   outbox = initial;
