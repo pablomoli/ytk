@@ -40,7 +40,14 @@ def _save_media(bundle: EvidenceBundle, note_dir: Path) -> list[Path]:
     if bundle.thumbnail:
         thumb_dir = note_dir / "thumbnails"
         thumb_dir.mkdir(parents=True, exist_ok=True)
-        got = vault._save_image(bundle.thumbnail, thumb_dir / f"{key}-thumb")
+        if bundle.thumbnail.startswith(("http://", "https://")):
+            got = vault._save_image(bundle.thumbnail, thumb_dir / f"{key}-thumb")
+        else:
+            src = Path(bundle.thumbnail)
+            got = None
+            if src.is_file():
+                got = thumb_dir / f"{key}-thumb{src.suffix or '.jpg'}"
+                shutil.copyfile(src, got)
         if got:
             saved.append(got)
     local_frames = [Path(p) for p in bundle.frames if Path(p).is_file()]

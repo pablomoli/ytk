@@ -350,7 +350,7 @@ function AskCard({ ask, onAnswered }: { ask: OutboxAsk; onAnswered: (line: strin
           </h3>
         </div>
         {ask.proposal.why ? (
-          <p className="m-0 text-sm italic text-ink2">{ask.proposal.why}</p>
+          <p className="m-0 text-sm italic text-ink2 line-clamp-2">{ask.proposal.why}</p>
         ) : null}
         {hasChips ? <div className="flex flex-wrap items-center gap-1">{chips}</div> : null}
         {openSections}

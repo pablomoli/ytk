@@ -291,10 +291,14 @@ def _stamp_working(conn: sqlite3.Connection, pick: Pick) -> None:
     title = (row["title"] if row and row["title"] else None) or f"item {pick.item_id}"
     thumbnail = None
     if row and row["payload_ref"]:
+        from .evidence import resolve_thumbnail
+
         try:
             loaded: object = json.loads(Path(row["payload_ref"]).read_text())
             if isinstance(loaded, dict):
-                thumbnail = cast("dict[str, Any]", loaded).get("thumbnail")
+                thumbnail = resolve_thumbnail(
+                    pick.item_id, cast("dict[str, Any]", loaded).get("thumbnail")
+                )
         except (OSError, ValueError):
             thumbnail = None
     write_health(

@@ -96,6 +96,25 @@ def _save_images(post_url: str, image_urls: list[str], gaps: list[str]) -> list[
     return paths
 
 
+def _save_thumbnail(post_url: str, thumb_url: str | None, gaps: list[str]) -> str | None:
+    """Instagram CDN URLs expire within days; a hotlinked cover goes blank
+    on every surface that renders it later. Download at read time; on
+    failure fall back to the URL (better briefly than never)."""
+    if not thumb_url:
+        return None
+    from .evidence import thumbs_dir
+
+    key = hashlib.sha1(post_url.encode(), usedforsecurity=False).hexdigest()[:12]
+    dest = thumbs_dir() / f"{key}.jpg"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        _download_image(thumb_url, dest)
+        return str(dest)
+    except Exception as exc:
+        gaps.append(f"thumbnail download failed: {exc}")
+        return thumb_url
+
+
 def gather_instagram(url: str, title: str | None) -> EvidenceBundle:
     post = fetch_instagram(url)
     frames: list[str] = []
@@ -111,7 +130,9 @@ def gather_instagram(url: str, title: str | None) -> EvidenceBundle:
         origin = "whisper" if segments else "none"
         gaps.extend(cap.warnings)
     frames += _save_images(url, list(post.images), gaps)
-    thumbnail = post.thumbnail_url or (post.images[0] if post.images else None)
+    thumbnail = _save_thumbnail(
+        url, post.thumbnail_url or (post.images[0] if post.images else None), gaps
+    )
     return EvidenceBundle(
         source="instagram",
         url=url,
