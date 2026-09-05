@@ -145,6 +145,22 @@ def evidence_dir() -> Path:
     return Path(env) if env else Path.home() / ".ytk" / "evidence"
 
 
+def thumbs_dir() -> Path:
+    return evidence_dir() / "thumbs"
+
+
+def resolve_thumbnail(item_id: int, raw: object) -> str | None:
+    """A bundle thumbnail is either a stable CDN URL (youtube) or a local
+    evidence file (instagram — its CDN links expire within days, which left
+    cards coverless). Local files reach the browser via the guarded
+    /api/evidence/thumb/<item_id> route."""
+    if not isinstance(raw, str) or not raw:
+        return None
+    if raw.startswith(("http://", "https://")):
+        return raw
+    return f"/api/evidence/thumb/{item_id}" if Path(raw).is_file() else None
+
+
 # source -> callable(url, title) -> EvidenceBundle. Real gatherers do network
 # work; tests and callers substitute per source.
 GATHERERS: dict[str, Callable[[str, str | None], EvidenceBundle]] = {}

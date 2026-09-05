@@ -420,6 +420,35 @@ def outbox_answer_api(req: OutboxAnswerRequest):
         conn.close()
 
 
+@app.get("/api/evidence/thumb/{item_id}")
+def evidence_thumb_api(item_id: int):
+    """Serve an item's locally-stored evidence thumbnail. Only files that
+    actually live under the evidence dir are served — the path comes from
+    the item's own bundle, never from the request."""
+    from fastapi.responses import FileResponse
+
+    from ytk import evidence, ledger
+
+    conn = ledger.connect()
+    try:
+        row = conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item_id,)).fetchone()
+    finally:
+        conn.close()
+    if row is None or not row["payload_ref"]:
+        raise HTTPException(status_code=404, detail="no such item")
+    try:
+        bundle = json.loads(Path(row["payload_ref"]).read_text())
+    except (OSError, ValueError):
+        raise HTTPException(status_code=404, detail="no evidence bundle")
+    thumb = bundle.get("thumbnail") if isinstance(bundle, dict) else None
+    if not isinstance(thumb, str) or thumb.startswith(("http://", "https://")):
+        raise HTTPException(status_code=404, detail="no local thumbnail")
+    path = Path(thumb).resolve()
+    if not path.is_relative_to(evidence.evidence_dir().resolve()) or not path.is_file():
+        raise HTTPException(status_code=404, detail="no local thumbnail")
+    return FileResponse(path)
+
+
 @app.get("/api/path")
 def path_api(a: str, b: str, stops: int = 9, k: int = 3):
     from ytk.ui import hub

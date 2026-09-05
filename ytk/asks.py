@@ -247,7 +247,9 @@ def ask_context(conn: sqlite3.Connection, item_id: int | None, kind: str | None)
             bundle = {}
     if not item["title"] and bundle.get("title"):
         ctx["title"] = bundle["title"]
-    ctx["thumbnail"] = bundle.get("thumbnail")
+    from .evidence import resolve_thumbnail
+
+    ctx["thumbnail"] = resolve_thumbnail(item_id, bundle.get("thumbnail"))
     if kind != "grader bounce, twice":
         return ctx
     draft_row = conn.execute(

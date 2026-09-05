@@ -179,12 +179,21 @@ def test_instagram_reel_carries_thumbnail(tmp_path):
         media_kind="video",
     )
     cap = ReelCapture(frame_bytes=[], transcript_segments=[], transcript_status="none")
+
+    def fake_download(url, dest):
+        dest.write_bytes(b"img")
+        return dest
+
     with (
         patch("ytk.gatherers.fetch_instagram", return_value=post),
         patch("ytk.gatherers.capture_reel_media", return_value=cap),
+        patch("ytk.gatherers._download_image", side_effect=fake_download),
     ):
         b = gatherers.gather_instagram(post.url, None)
-    assert b.thumbnail == "https://cdn/cover.jpg"
+    # Downloaded at read time: IG CDN URLs expire within days (coverless cards).
+    assert b.thumbnail is not None and not b.thumbnail.startswith("http")
+    assert Path(b.thumbnail).is_file()
+    assert "/thumbs/" in b.thumbnail
 
 
 def test_instagram_carousel_downloads_images_to_local_files(tmp_path):
@@ -209,7 +218,7 @@ def test_instagram_carousel_downloads_images_to_local_files(tmp_path):
     assert len(b.frames) == 2
     for p in b.frames:
         assert Path(p).is_file()
-    assert b.thumbnail == "https://cdn/a.jpg"
+    assert b.thumbnail is not None and Path(b.thumbnail).is_file()
 
 
 def test_instagram_image_download_failure_lands_in_gaps_not_urls_in_frames(tmp_path):
@@ -232,3 +241,28 @@ def test_instagram_image_download_failure_lands_in_gaps_not_urls_in_frames(tmp_p
         b = gatherers.gather_instagram(post.url, None)
     assert b.frames == []
     assert any("image download failed" in g for g in b.gaps)
+
+
+def test_instagram_thumbnail_download_failure_falls_back_to_url(tmp_path):
+    post = InstagramPost(
+        url="https://www.instagram.com/reel/z/",
+        username="u",
+        timestamp="2026-01-01",
+        caption="c",
+        video_path=Path("/tmp/fake.mp4"),
+        thumbnail_url="https://cdn/cover.jpg",
+        media_kind="video",
+    )
+    cap = ReelCapture(frame_bytes=[], transcript_segments=[], transcript_status="none")
+
+    def boom(url, dest):
+        raise OSError("cdn said no")
+
+    with (
+        patch("ytk.gatherers.fetch_instagram", return_value=post),
+        patch("ytk.gatherers.capture_reel_media", return_value=cap),
+        patch("ytk.gatherers._download_image", side_effect=boom),
+    ):
+        b = gatherers.gather_instagram(post.url, None)
+    assert b.thumbnail == "https://cdn/cover.jpg"
+    assert any("thumbnail download failed" in g for g in b.gaps)

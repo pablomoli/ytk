@@ -216,3 +216,53 @@ def test_intent_ask_still_gets_title_and_thumbnail_but_no_draft(client, tmp_path
     assert card["title"] == "T3"
     assert card["thumbnail"] == "https://i/t.jpg"
     assert card.get("draft") is None
+
+
+class TestEvidenceThumbRoute:
+    def _client(self):
+        from fastapi.testclient import TestClient
+
+        from ytk.ui.server import app
+
+        return TestClient(app)
+
+    def _item_with_thumb(self, thumb):
+        import json as _json
+
+        from ytk import evidence, ledger
+        from ytk.capture import capture
+
+        conn = ledger.connect()
+        item = capture(
+            conn, source="instagram", url="https://ig/t1", surface="cli", log=False
+        ).item_id
+        bundle = evidence.evidence_dir() / f"{item}.json"
+        bundle.parent.mkdir(parents=True, exist_ok=True)
+        bundle.write_text(_json.dumps({"thumbnail": thumb}))
+        conn.execute("UPDATE items SET payload_ref = ? WHERE id = ?", (str(bundle), item))
+        conn.commit()
+        conn.close()
+        return item
+
+    def test_serves_a_local_evidence_thumbnail(self):
+        from ytk import evidence
+
+        f = evidence.thumbs_dir() / "abc.jpg"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(b"jpegbytes")
+        item = self._item_with_thumb(str(f))
+        r = self._client().get(f"/api/evidence/thumb/{item}")
+        assert r.status_code == 200
+        assert r.content == b"jpegbytes"
+
+    def test_refuses_paths_outside_the_evidence_dir(self, tmp_path):
+        outside = tmp_path / "smuggled.jpg"
+        outside.write_bytes(b"nope")
+        item = self._item_with_thumb(str(outside))
+        assert self._client().get(f"/api/evidence/thumb/{item}").status_code == 404
+
+    def test_url_thumbnails_and_missing_items_404(self):
+        item = self._item_with_thumb("https://cdn/x.jpg")
+        c = self._client()
+        assert c.get(f"/api/evidence/thumb/{item}").status_code == 404
+        assert c.get("/api/evidence/thumb/999999").status_code == 404
