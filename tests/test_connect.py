@@ -92,7 +92,7 @@ class TestFindCandidates:
         _stub_store(monkeypatch, results)
         notes = {r.source: _note(brain, f"sources/youtube/{r.doc_id}-note.md") for r in results}
         _stub_vault(monkeypatch, notes)
-        got = connect.find_candidates("q", exclude_media_id=None)
+        got = connect.find_candidates([("thesis", "q")], exclude_media_id=None)
         assert [c.target for c in got] == ["good1-note", "good2-note"]
         assert got[0].cosine == pytest.approx(0.75)
 
@@ -104,7 +104,7 @@ class TestFindCandidates:
         ]
         _stub_store(monkeypatch, results)
         _stub_vault(monkeypatch, {"https://y/good": _note(brain, "sources/youtube/good-note.md")})
-        got = connect.find_candidates("q", exclude_media_id="me")
+        got = connect.find_candidates([("thesis", "q")], exclude_media_id="me")
         assert [c.target for c in got] == ["good-note"]
 
     def test_store_down_returns_empty(self, monkeypatch):
@@ -112,7 +112,7 @@ class TestFindCandidates:
             raise RuntimeError("chroma down")
 
         monkeypatch.setattr("ytk.store.search_all", boom)
-        assert connect.find_candidates("q", exclude_media_id=None) == []
+        assert connect.find_candidates([("thesis", "q")], exclude_media_id=None) == []
 
     def test_cap_is_respected(self, monkeypatch, brain):
         results = [_result(f"v{i}", f"t{i}", distance=0.2 + i * 0.01) for i in range(9)]
@@ -121,7 +121,7 @@ class TestFindCandidates:
             monkeypatch,
             {r.source: _note(brain, f"sources/youtube/{r.doc_id}.md") for r in results},
         )
-        got = connect.find_candidates("q", exclude_media_id=None)
+        got = connect.find_candidates([("thesis", "q")], exclude_media_id=None)
         assert len(got) == connect.MAX_CANDIDATES
 
     def test_memory_hits_resolve_by_source_path(self, monkeypatch, brain):
@@ -138,7 +138,7 @@ class TestFindCandidates:
         gone = brain / "sources/instagram/deleted.md"
         _stub_store(monkeypatch, [_memory(reel, 0.3), _memory(gone, 0.3)])
         _stub_vault(monkeypatch, {})
-        got = connect.find_candidates("q", exclude_media_id=None)
+        got = connect.find_candidates([("thesis", "q")], exclude_media_id=None)
         assert [c.target for c in got] == ["leo-xi25-DY_Ode"]
         assert got[0].target_title == "Particle dissolve on a koi"
         assert got[0].thesis == "A koi dissolves into particles under hand tracking."
@@ -151,7 +151,10 @@ class TestFindCandidates:
         _stub_store(monkeypatch, [_memory(own, 0.1), _memory(twin, 0.3), _memory(other, 0.3)])
         _stub_vault(monkeypatch, {})
         got = connect.find_candidates(
-            "q", exclude_media_id=None, exclude_url="https://ig/DbyN", exclude_path=own
+            [("thesis", "q")],
+            exclude_media_id=None,
+            exclude_url="https://ig/DbyN",
+            exclude_path=own,
         )
         assert [c.target for c in got] == ["other"]
 
@@ -167,10 +170,82 @@ class TestFindCandidates:
         ]
         _stub_store(monkeypatch, hits)
         _stub_vault(monkeypatch, {})
-        got = connect.find_candidates("q", exclude_media_id=None)
+        got = connect.find_candidates([("thesis", "q")], exclude_media_id=None)
         assert [c.target for c in got] == ["2026-07-23-fog-splats", "rndyrbrts-visual-language"]
         # No frontmatter title and no heading: the stem, never the store's doc id.
         assert got[0].target_title == "2026-07-23-fog-splats"
+
+
+class TestPerConceptQueries:
+    """#210: the thesis plus one query per key concept, unioned by note, the
+    best cosine kept and the label of the query that earned it."""
+
+    def test_build_queries_is_thesis_then_one_per_concept(self):
+        qs = connect.build_queries(
+            "T", ["Triposplat: the open-source project", "  ", "plain concept without colon"]
+        )
+        assert qs == [
+            ("thesis", "T"),
+            ("Triposplat", "Triposplat: the open-source project"),
+            ("plain concept without colon", "plain concept without colon"),
+        ]
+
+    def test_union_keeps_best_cosine_and_its_label(self, monkeypatch, brain):
+        koi = _note(brain, "sources/instagram/koi.md", thesis="koi")
+        godot = _note(brain, "sources/instagram/godot.md", thesis="godot")
+        by_query = {
+            "thesis text": [_memory(koi, 0.48), _memory(godot, 0.45)],
+            "Particle dissolution: ...": [_memory(koi, 0.30), _memory(godot, 0.47)],
+        }
+        calls = []
+
+        def fake(q, *a, **k):
+            calls.append(q)
+            return by_query[q]
+
+        monkeypatch.setattr("ytk.store.search_all", fake)
+        _stub_vault(monkeypatch, {})
+        got = connect.find_candidates(
+            [("thesis", "thesis text"), ("Particle dissolution", "Particle dissolution: ...")],
+            exclude_media_id=None,
+        )
+        assert calls == ["thesis text", "Particle dissolution: ..."]
+        assert [(c.target, c.via) for c in got] == [
+            ("koi", "Particle dissolution"),
+            ("godot", "thesis"),
+        ]
+        assert got[0].cosine == pytest.approx(0.70)
+        assert got[1].cosine == pytest.approx(0.55)
+
+    def test_same_note_reached_by_two_ids_is_one_candidate(self, monkeypatch, brain):
+        """A video note is reachable as a video hit (by url) and, once
+        reindexed, as a memory hit (by path); one note, one candidate."""
+        note = _note(brain, "sources/youtube/vid.md", url="https://y/vid", thesis="v")
+        hits = [_result("vid", "vid", 0.3, url="https://y/vid"), _memory(note, 0.35)]
+        _stub_store(monkeypatch, hits)
+        _stub_vault(monkeypatch, {"https://y/vid": note})
+        got = connect.find_candidates([("thesis", "q")], exclude_media_id=None)
+        assert [c.target for c in got] == ["vid"]
+        assert got[0].cosine == pytest.approx(0.70)
+
+    def test_propose_queries_thesis_and_each_concept(self, conn, monkeypatch, brain):
+        calls = []
+
+        def fake(q, *a, **k):
+            calls.append(q)
+            return []
+
+        monkeypatch.setattr("ytk.store.search_all", fake)
+        item = _item(conn)
+        connect.propose(
+            conn,
+            item,
+            "the thesis",
+            "the summary",
+            exclude_media_id=None,
+            key_concepts=["Codex: drives the skill", "Triposplat: image to splat"],
+        )
+        assert calls == ["the thesis", "Codex: drives the skill", "Triposplat: image to splat"]
 
 
 def _argue_stub(monkeypatch, links, tokens=500):
@@ -264,6 +339,26 @@ class TestPropose:
         item = _item(conn)
         assert connect.propose(conn, item, "thesis", "summary", exclude_media_id=None) is None
         assert asks._open_ask_id(conn, item) is None
+
+    def test_argue_prompt_names_what_each_candidate_matched_on(self, conn, monkeypatch, brain):
+        koi = _note(brain, "sources/instagram/koi.md", thesis="koi dissolves")
+        monkeypatch.setattr(
+            "ytk.store.search_all",
+            lambda q, *a, **k: [_memory(koi, 0.3)] if q.startswith("Particle") else [],
+        )
+        _stub_vault(monkeypatch, {})
+        calls = _argue_stub(monkeypatch, [])
+        item = _item(conn)
+        connect.propose(
+            conn,
+            item,
+            "thesis",
+            "summary",
+            exclude_media_id=None,
+            key_concepts=["Particle dissolution effect: layered onto the koi"],
+        )
+        assert "target=koi" in calls[0]["user"]
+        assert "matched on: Particle dissolution effect" in calls[0]["user"]
 
     def test_argue_prompt_carries_no_rubric(self, conn, monkeypatch, tmp_path):
         """Connect is enricher-tier: the wall between it and the grader is

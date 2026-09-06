@@ -43,6 +43,7 @@ class Candidate(BaseModel):
     target_title: str
     thesis: str
     cosine: float
+    via: str = "thesis"  # the query label that earned the cosine: thesis or a concept name
 
 
 class ProposedLink(BaseModel):
@@ -106,34 +107,62 @@ def _note_url(note: Path) -> str | None:
     return m.group(1) if m else None
 
 
+def concept_label(concept: str) -> str:
+    """The name before the enricher's colon ("Triposplat: the open-source
+    project ..." -> "Triposplat"); the whole line, clipped, when there is
+    none."""
+    head = concept.split(":", 1)[0].strip() if ":" in concept[:80] else concept.strip()
+    return head[:60] or concept[:60]
+
+
+def build_queries(thesis: str, key_concepts: list[str] | None) -> list[tuple[str, str]]:
+    """(label, text) pairs: the thesis, then one query per key concept. The
+    summary is left out on purpose — folded into one blob its generic half
+    wins the match (#210, measured on the splats reel)."""
+    out = [("thesis", thesis)]
+    for concept in key_concepts or []:
+        if concept.strip():
+            out.append((concept_label(concept), concept))
+    return out
+
+
 def find_candidates(
-    query: str,
+    queries: list[tuple[str, str]],
     *,
     exclude_media_id: str | None,
     exclude_url: str | None = None,
     exclude_path: Path | None = None,
 ) -> list[Candidate]:
-    """Neighbors across both collections in the band [CANDIDATE_FLOOR,
-    NEAR_DUP_BASELINE), resolved to vault notes, capped. Video hits resolve
-    by url, memory hits by their indexed source_path; the item's own note
-    is excluded by media id, url or path. The one transport seam kernel 1
-    replaces in P7; None-tolerant when the store is down (no candidates,
-    never a failure)."""
+    """Neighbors across both collections for every (label, query) pair,
+    unioned by note with the best cosine kept and the label that earned it,
+    cut to the band [CANDIDATE_FLOOR, NEAR_DUP_BASELINE), resolved to vault
+    notes, capped. Video hits resolve by url, memory hits by their indexed
+    source_path; the item's own note is excluded by media id, url or path.
+    The one transport seam kernel 1 replaces in P7; None-tolerant when the
+    store is down (no candidates, never a failure)."""
     from .grader import NEAR_DUP_BASELINE
 
     try:
         from . import store, vault
 
-        results = store.search_all(query, n=_FETCH_N, rerank=False, actor="connect")
         brain = vault.get_brain_path()
+        # (type, doc id) -> best (cosine, label, hit); the band cut runs on
+        # raw hits so only survivors pay for a note lookup.
+        best: dict[tuple[str, str], tuple[float, str, Any]] = {}
+        for label, text in queries:
+            for r in store.search_all(text, n=_FETCH_N, rerank=False, actor="connect"):
+                cosine = 1.0 - r.distance
+                if cosine >= NEAR_DUP_BASELINE or cosine < CANDIDATE_FLOOR:
+                    continue
+                key = (r.type, r.doc_id)
+                if key not in best or cosine > best[key][0]:
+                    best[key] = (cosine, label, r)
     except Exception:
         return []
     own = exclude_path.resolve() if exclude_path else None
     out: list[Candidate] = []
-    for r in results:
-        cosine = 1.0 - r.distance
-        if cosine >= NEAR_DUP_BASELINE or cosine < CANDIDATE_FLOOR:
-            continue
+    seen_notes: set[Path] = set()
+    for cosine, label, r in sorted(best.values(), key=lambda t: -t[0]):
         note: Path | None
         try:
             if r.type == "video":
@@ -150,15 +179,19 @@ def find_candidates(
             continue
         if note is None or not _linkable(note, brain):
             continue
-        if own is not None and note.resolve() == own:
+        resolved = note.resolve()
+        if resolved == own or resolved in seen_notes:
             continue
         if exclude_url and r.type != "video" and _note_url(note) == exclude_url:
             continue
+        seen_notes.add(resolved)
         # A memory hit's title is its doc id; the stem reads better when the
         # note itself names nothing.
         fallback_title = r.title if r.type == "video" else note.stem
         title, thesis = _note_identity(note, fallback_title, r.excerpt)
-        out.append(Candidate(target=note.stem, target_title=title, thesis=thesis, cosine=cosine))
+        out.append(
+            Candidate(target=note.stem, target_title=title, thesis=thesis, cosine=cosine, via=label)
+        )
         if len(out) >= MAX_CANDIDATES:
             break
     return out
@@ -169,8 +202,11 @@ _ARGUE_SYSTEM = """You connect notes in a personal knowledge vault.
 Given a new note's thesis and summary, and a numbered list of candidate
 notes, return the links worth making. For each link give ONE clause (not a
 sentence chain) arguing why the two notes belong together, tied to the new
-note's thesis. A candidate you cannot argue in one clause is omitted, not
-padded. Returning no links is a fine answer."""
+note's thesis. Each candidate names the part of the new note it matched on
+(the thesis, or one key concept); build the argument from that part when it
+holds, and drop the candidate when the match is only the word. A candidate
+you cannot argue in one clause is omitted, not padded. Returning no links is
+a fine answer."""
 
 _ARGUE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -202,7 +238,9 @@ def _argue(
 
     lines = [f"New note thesis: {thesis}", f"Summary: {summary}", "", "Candidates:"]
     for i, c in enumerate(candidates, start=1):
-        lines.append(f"{i}. target={c.target} · {c.target_title} · thesis: {c.thesis}")
+        lines.append(
+            f"{i}. target={c.target} · {c.target_title} · matched on: {c.via} · thesis: {c.thesis}"
+        )
     res = sdk.call_structured(
         _ARGUE_SYSTEM, "\n".join(lines), _ARGUE_SCHEMA, model=CONNECT_MODEL, max_turns=4
     )
@@ -235,6 +273,7 @@ def propose(
     exclude_media_id: str | None,
     exclude_url: str | None = None,
     note_path: Path | None = None,
+    key_concepts: list[str] | None = None,
     actor: str = "connect",
 ) -> int | None:
     """Find candidates, argue them, raise the connections ask. Returns the
@@ -244,7 +283,7 @@ def propose(
 
     loop.stamp_stage("connect", "finding candidates")
     candidates = find_candidates(
-        f"{thesis}\n\n{summary}",
+        build_queries(thesis, key_concepts),
         exclude_media_id=exclude_media_id,
         exclude_url=exclude_url,
         exclude_path=note_path,
