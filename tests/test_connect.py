@@ -12,6 +12,7 @@ import pytest
 
 from ytk import asks, connect, ledger
 from ytk.capture import capture
+from ytk.connect import Candidate
 from ytk.sdk import StructuredResult
 
 
@@ -252,6 +253,132 @@ class TestPerConceptQueries:
             key_concepts=["Codex: drives the skill", "Triposplat: image to splat"],
         )
         assert calls == ["the thesis", "Codex: drives the skill", "Triposplat: image to splat"]
+
+
+class TestReadTake:
+    """#210: the owner's take is read before the store. A [[wikilink]] is a
+    candidate at cosine 1.0 with no search; an @handle, a creator's name or
+    a #NNN issue names a set, and the members the search reaches come back
+    first at 1.0 — the take says who, the store says which. The take also
+    runs as one more query."""
+
+    def test_wikilink_names_a_note(self, brain):
+        note = _note(brain, "study/rndyrbrts-visual-language.md", title="Randy's visual language")
+        got = connect.read_take("goes with [[rndyrbrts-visual-language]] for sure")
+        assert [(c.target, c.cosine, c.via) for c in got.named] == [
+            (note.stem, 1.0, connect.TAKE_LABEL)
+        ]
+        assert got.named[0].target_title == "Randy's visual language"
+        assert got.promote == {}
+
+    def test_handle_creator_and_issue_name_sets_to_promote(self, brain):
+        reel = _note(brain, "sources/instagram/leo.xi25-2026-05-31-DY_Ode-qTAV.md")
+        _note(brain, "sources/instagram/leonardo-2026-01-01-x.md")
+        own = _note(brain, "sources/instagram/leo.xi25-2026-06-01-own.md")
+        dwarkesh = brain / "sources/youtube/openai-hf.md"
+        dwarkesh.parent.mkdir(parents=True, exist_ok=True)
+        dwarkesh.write_text(
+            "---\nurl: https://y/1\nuploader: Dwarkesh Patel\n---\n## Summary\nS.\n"
+        )
+        ally = brain / "sources/youtube/interviews.md"
+        ally.write_text("---\nurl: https://y/2\nuploader: Ally\n---\n## Summary\nT.\n")
+        atom = brain / "inbox/memories/2026-07-23-fog-splats.md"
+        atom.parent.mkdir(parents=True, exist_ok=True)
+        atom.write_text("---\nid: memory_x\n---\n\nfog splats shipped (issue #100 rungs 1-2)\n")
+        (brain / "inbox/memories/2026-08-01-other.md").write_text("---\n---\n\nissue #1000\n")
+        got = connect.read_take(
+            "really the same move as @leo.xi25 and the dwarkesh patel episode; see #100",
+            exclude_path=own,
+        )
+        assert got.named == []
+        assert {p.name: why for p, why in got.promote.items()} == {
+            reel.name: "@leo.xi25",
+            "openai-hf.md": "Dwarkesh Patel",
+            "2026-07-23-fog-splats.md": "#100",
+        }
+
+    def test_nothing_named_means_nothing_to_promote(self, brain):
+        _note(brain, "sources/instagram/leo.xi25-2026-05-31-x.md")
+        got = connect.read_take("I really want to work with gaussian splats")
+        assert got.named == [] and got.promote == {}
+        assert connect.read_take(None) == connect.TakeReading()
+
+    def test_promoted_hits_skip_the_floor_and_come_first(self, monkeypatch, brain):
+        reel = _note(brain, "sources/instagram/leo.xi25-2026-05-31-x.md", thesis="koi")
+        vid = _note(brain, "sources/youtube/openai-hf.md", url="https://y/1", thesis="attack")
+        strong = _note(brain, "sources/instagram/strong.md", thesis="strong")
+        hits = [
+            _memory(strong, 0.30),  # 0.70, an ordinary candidate
+            _memory(reel, 0.60),  # 0.40, under the floor but named by the take
+            _result("vid", "openai-hf", 0.62, url="https://y/1"),  # 0.38, same
+            _memory(_note(brain, "sources/instagram/weak.md"), 0.60),  # 0.40, dropped
+        ]
+        _stub_store(monkeypatch, hits)
+        _stub_vault(monkeypatch, {"https://y/1": vid})
+        got = connect.find_candidates(
+            [("thesis", "q")],
+            exclude_media_id=None,
+            promote={reel: "@leo.xi25", vid: "Dwarkesh Patel"},
+        )
+        assert [(c.target, c.cosine, c.via) for c in got] == [
+            ("leo.xi25-2026-05-31-x", 1.0, connect.TAKE_LABEL),
+            ("openai-hf", 1.0, connect.TAKE_LABEL),
+            ("strong", pytest.approx(0.70), "thesis"),
+        ]
+
+    def test_take_is_the_first_query(self):
+        qs = connect.build_queries("T", ["C: c"], "my take")
+        assert qs[0] == (connect.TAKE_LABEL, "my take")
+        assert qs[1:] == [("thesis", "T"), ("C", "C: c")]
+        assert connect.build_queries("T", None, "  ")[0] == ("thesis", "T")
+
+    def test_merge_keeps_named_first_and_fills_the_cap(self):
+        named = [
+            Candidate(target=f"n{i}", target_title="", thesis="", cosine=1.0, via="take")
+            for i in range(2)
+        ]
+        found = [
+            Candidate(target=t, target_title="", thesis="", cosine=0.6, via="thesis")
+            for t in ("n0", "f1", "f2", "f3", "f4", "f5")
+        ]
+        got = connect.merge_candidates(named, found)
+        assert [c.target for c in got] == ["n0", "n1", "f1", "f2", "f3"]
+        assert len(got) == connect.MAX_CANDIDATES
+
+    def test_propose_argues_named_candidates_with_the_take(self, conn, monkeypatch, brain):
+        _note(brain, "study/rndyrbrts-visual-language.md", thesis="Randy's sliders.")
+        monkeypatch.setattr("ytk.store.search_all", lambda *a, **k: [])
+        calls = _argue_stub(
+            monkeypatch, [{"target": "rndyrbrts-visual-language", "argument": "same sliders"}]
+        )
+        item = _item(conn)
+        ask_id = connect.propose(
+            conn,
+            item,
+            "thesis",
+            "summary",
+            exclude_media_id=None,
+            take="pairs with [[rndyrbrts-visual-language]]",
+        )
+        assert ask_id is not None
+        user = calls[0]["user"]
+        assert "Owner's take: pairs with [[rndyrbrts-visual-language]]" in user
+        assert f"matched on: {connect.TAKE_LABEL}" in user
+        prop = json.loads(
+            conn.execute("SELECT proposal FROM asks WHERE id = ?", (ask_id,)).fetchone()["proposal"]
+        )
+        assert [link["target"] for link in prop["links"]] == ["rndyrbrts-visual-language"]
+
+    def test_propose_promotes_what_the_take_names_through_the_store(self, conn, monkeypatch, brain):
+        reel = _note(brain, "sources/instagram/leo.xi25-2026-05-31-x.md", thesis="koi")
+        monkeypatch.setattr("ytk.store.search_all", lambda *a, **k: [_memory(reel, 0.6)])
+        calls = _argue_stub(monkeypatch, [])
+        item = _item(conn)
+        connect.propose(
+            conn, item, "thesis", "summary", exclude_media_id=None, take="like @leo.xi25"
+        )
+        assert "target=leo.xi25-2026-05-31-x" in calls[0]["user"]
+        assert f"matched on: {connect.TAKE_LABEL}" in calls[0]["user"]
 
 
 def _argue_stub(monkeypatch, links, tokens=500):

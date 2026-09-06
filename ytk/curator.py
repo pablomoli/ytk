@@ -230,6 +230,7 @@ def _land(
             exclude_url=bundle.url,
             note_path=note,
             key_concepts=draft.key_concepts,
+            take=take["text"] if take else None,
         )
     except Exception as exc:
         ledger.insert_activity(

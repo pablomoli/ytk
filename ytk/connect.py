@@ -117,14 +117,144 @@ def concept_label(concept: str) -> str:
     return head[:60] or concept[:60]
 
 
-def build_queries(thesis: str, key_concepts: list[str] | None) -> list[tuple[str, str]]:
-    """(label, text) pairs: the thesis, then one query per key concept. The
-    summary is left out on purpose — folded into one blob its generic half
-    wins the match (#210, measured on the splats reel)."""
-    out = [("thesis", thesis)]
+TAKE_LABEL = "the owner's take"
+
+
+def build_queries(
+    thesis: str, key_concepts: list[str] | None, take: str | None = None
+) -> list[tuple[str, str]]:
+    """(label, text) pairs: the owner's take first when there is one, the
+    thesis, then one query per key concept. The summary is left out on
+    purpose — folded into one blob its generic half wins the match (#210,
+    measured on the splats reel)."""
+    out: list[tuple[str, str]] = []
+    if take and take.strip():
+        out.append((TAKE_LABEL, take.strip()))
+    out.append(("thesis", thesis))
     for concept in key_concepts or []:
         if concept.strip():
             out.append((concept_label(concept), concept))
+    return out
+
+
+# Linkable content lives here; the take's literal lookups scan nothing else.
+_CONTENT_DIRS = ("sources", "inbox/memories", "study", "decisions", "debugging", "tools", "notes")
+_WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]")
+_HANDLE = re.compile(r"(?<![\w.])@([A-Za-z0-9_.]{2,30})")
+_ISSUE = re.compile(r"(?<![\w&])#(\d{1,5})(?!\d)")
+
+
+def _content_notes(brain: Path) -> list[Path]:
+    out: list[Path] = []
+    for d in _CONTENT_DIRS:
+        root = brain / d
+        if root.is_dir():
+            out.extend(root.rglob("*.md"))
+    return out
+
+
+def _uploader_of(note: Path) -> str | None:
+    try:
+        head = note.read_text(encoding="utf-8")[:2000]
+    except OSError:
+        return None
+    m = re.search(r"^uploader:\s*(.+)$", head, re.MULTILINE)
+    return m.group(1).strip().strip("\"'") if m else None
+
+
+class TakeReading(BaseModel):
+    """What the owner's take names. `named` are notes the take points at
+    outright ([[wikilinks]]), candidates at cosine 1.0 with no search.
+    `promote` maps notes the take names as a set (every note filed under an
+    @handle, by a creator, or citing a #NNN issue) to what named them; the
+    store decides which members are about this item, and those come back
+    at cosine 1.0 too. The take says who, the store says which."""
+
+    named: list[Candidate] = []
+    promote: dict[Path, str] = {}
+
+
+def read_take(take: str | None, *, exclude_path: Path | None = None) -> TakeReading:
+    """Read the take before the store: a [[wikilink]] is a candidate as is;
+    an @handle, a creator's name (uploader frontmatter, whole words) or a
+    #NNN issue names the set of notes to promote when the search reaches
+    them."""
+    if not take or not take.strip():
+        return TakeReading()
+    try:
+        from . import vault
+
+        brain = vault.get_brain_path()
+    except Exception:
+        return TakeReading()
+    own = exclude_path.resolve() if exclude_path else None
+    named: dict[Path, Candidate] = {}
+    promote: dict[Path, str] = {}
+
+    def usable(note: Path) -> Path | None:
+        if not note.is_file() or not _linkable(note, brain):
+            return None
+        resolved = note.resolve()
+        return None if resolved == own else resolved
+
+    for name in _WIKILINK.findall(take):
+        target = Path(name.strip())
+        direct = brain / target.with_suffix(".md")
+        matches = [direct] if direct.is_file() else list(brain.rglob(f"{target.name}.md"))
+        for note in matches:
+            resolved = usable(note)
+            if resolved is None or resolved in named:
+                continue
+            title, thesis = _note_identity(note, note.stem, "")
+            named[resolved] = Candidate(
+                target=note.stem, target_title=title, thesis=thesis, cosine=1.0, via=TAKE_LABEL
+            )
+
+    handles = [h.lower().rstrip(".") for h in _HANDLE.findall(take)]
+    issues = _ISSUE.findall(take)
+    issue_pattern = re.compile(r"#(?:" + "|".join(issues) + r")(?!\d)") if issues else None
+    for note in _content_notes(brain):
+        why: str | None = None
+        stem = note.stem.lower()
+        handle = next((h for h in handles if stem == h or stem.startswith(h + "-")), None)
+        if handle:
+            why = f"@{handle}"
+        elif note.parent.name == "youtube":
+            uploader = _uploader_of(note)
+            # Whole words, four characters up: "Ally" matched "really" as a substring.
+            if (
+                uploader
+                and len(uploader) >= 4
+                and re.search(rf"(?<!\w){re.escape(uploader.lower())}(?!\w)", take.lower())
+            ):
+                why = uploader
+        if why is None and issue_pattern is not None:
+            try:
+                m = issue_pattern.search(note.read_text(encoding="utf-8"))
+            except OSError:
+                m = None
+            if m:
+                why = m.group(0)
+        if why is None:
+            continue
+        resolved = usable(note)
+        if resolved is not None and resolved not in named:
+            promote.setdefault(resolved, why)
+    return TakeReading(named=list(named.values()), promote=promote)
+
+
+def merge_candidates(named: list[Candidate], found: list[Candidate]) -> list[Candidate]:
+    """The take's candidates first and never dropped; the store's fill the
+    cap behind them without repeating a target."""
+    seen = {c.target for c in named}
+    out = list(named)
+    for c in found:
+        if c.target in seen:
+            continue
+        if len(out) >= MAX_CANDIDATES:
+            break
+        seen.add(c.target)
+        out.append(c)
     return out
 
 
@@ -134,37 +264,54 @@ def find_candidates(
     exclude_media_id: str | None,
     exclude_url: str | None = None,
     exclude_path: Path | None = None,
+    promote: dict[Path, str] | None = None,
 ) -> list[Candidate]:
     """Neighbors across both collections for every (label, query) pair,
     unioned by note with the best cosine kept and the label that earned it,
     cut to the band [CANDIDATE_FLOOR, NEAR_DUP_BASELINE), resolved to vault
     notes, capped. Video hits resolve by url, memory hits by their indexed
     source_path; the item's own note is excluded by media id, url or path.
-    The one transport seam kernel 1 replaces in P7; None-tolerant when the
-    store is down (no candidates, never a failure)."""
+    A hit on a note in `promote` (named by the owner's take) skips the floor
+    and comes back first at cosine 1.0. The one transport seam kernel 1
+    replaces in P7; None-tolerant when the store is down (no candidates,
+    never a failure)."""
     from .grader import NEAR_DUP_BASELINE
+
+    promote_paths = {p.resolve() for p in (promote or {})}
+    promote_urls = {u for p in promote_paths if (u := _note_url(p))}
+
+    def promotable(r: Any) -> bool:
+        if not promote_paths:
+            return False
+        if r.type == "video":
+            return r.source in promote_urls
+        return bool(r.source) and Path(r.source).resolve() in promote_paths
 
     try:
         from . import store, vault
 
         brain = vault.get_brain_path()
-        # (type, doc id) -> best (cosine, label, hit); the band cut runs on
-        # raw hits so only survivors pay for a note lookup.
-        best: dict[tuple[str, str], tuple[float, str, Any]] = {}
+        # (type, doc id) -> best (cosine, label, hit, promoted); the band
+        # cut runs on raw hits so only survivors pay for a note lookup.
+        best: dict[tuple[str, str], tuple[float, str, Any, bool]] = {}
         for label, text in queries:
             for r in store.search_all(text, n=_FETCH_N, rerank=False, actor="connect"):
                 cosine = 1.0 - r.distance
-                if cosine >= NEAR_DUP_BASELINE or cosine < CANDIDATE_FLOOR:
+                if cosine >= NEAR_DUP_BASELINE:
+                    continue
+                promoted = promotable(r)
+                if not promoted and cosine < CANDIDATE_FLOOR:
                     continue
                 key = (r.type, r.doc_id)
                 if key not in best or cosine > best[key][0]:
-                    best[key] = (cosine, label, r)
+                    best[key] = (cosine, label, r, promoted)
     except Exception:
         return []
     own = exclude_path.resolve() if exclude_path else None
     out: list[Candidate] = []
     seen_notes: set[Path] = set()
-    for cosine, label, r in sorted(best.values(), key=lambda t: -t[0]):
+    ranked = sorted(best.values(), key=lambda t: (not t[3], -t[0]))
+    for cosine, label, r, promoted in ranked:
         note: Path | None
         try:
             if r.type == "video":
@@ -192,7 +339,13 @@ def find_candidates(
         fallback_title = r.title if r.type == "video" else note.stem
         title, thesis = _note_identity(note, fallback_title, r.excerpt)
         out.append(
-            Candidate(target=note.stem, target_title=title, thesis=thesis, cosine=cosine, via=label)
+            Candidate(
+                target=note.stem,
+                target_title=title,
+                thesis=thesis,
+                cosine=1.0 if promoted else cosine,
+                via=TAKE_LABEL if promoted else label,
+            )
         )
         if len(out) >= MAX_CANDIDATES:
             break
@@ -205,10 +358,11 @@ Given a new note's thesis and summary, and a numbered list of candidate
 notes, return the links worth making. For each link give ONE clause (not a
 sentence chain) arguing why the two notes belong together, tied to the new
 note's thesis. Each candidate names the part of the new note it matched on
-(the thesis, or one key concept); build the argument from that part when it
-holds, and drop the candidate when the match is only the word. A candidate
-you cannot argue in one clause is omitted, not padded. Returning no links is
-a fine answer."""
+(the thesis, one key concept, or the owner's take); build the argument from
+that part when it holds, and drop the candidate when the match is only the
+word. A candidate the owner's take names outright is theirs to keep: argue
+it in their terms. A candidate you cannot argue in one clause is omitted,
+not padded. Returning no links is a fine answer."""
 
 _ARGUE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -234,11 +388,14 @@ ARGUE_PROMPT_VERSION = hashlib.sha256(
 
 
 def _argue(
-    thesis: str, summary: str, candidates: list[Candidate]
+    thesis: str, summary: str, candidates: list[Candidate], take: str | None = None
 ) -> tuple[list[ProposedLink], Any]:
     from . import sdk
 
-    lines = [f"New note thesis: {thesis}", f"Summary: {summary}", "", "Candidates:"]
+    lines = [f"New note thesis: {thesis}", f"Summary: {summary}"]
+    if take and take.strip():
+        lines.append(f"Owner's take: {take.strip()}")
+    lines += ["", "Candidates:"]
     for i, c in enumerate(candidates, start=1):
         lines.append(
             f"{i}. target={c.target} · {c.target_title} · matched on: {c.via} · thesis: {c.thesis}"
@@ -276,6 +433,7 @@ def propose(
     exclude_url: str | None = None,
     note_path: Path | None = None,
     key_concepts: list[str] | None = None,
+    take: str | None = None,
     actor: str = "connect",
 ) -> int | None:
     """Find candidates, argue them, raise the connections ask. Returns the
@@ -284,19 +442,22 @@ def propose(
     from . import loop
 
     loop.stamp_stage("connect", "finding candidates")
-    candidates = find_candidates(
-        build_queries(thesis, key_concepts),
+    reading = read_take(take, exclude_path=note_path)
+    found = find_candidates(
+        build_queries(thesis, key_concepts, take),
         exclude_media_id=exclude_media_id,
         exclude_url=exclude_url,
         exclude_path=note_path,
+        promote=reading.promote,
     )
+    candidates = merge_candidates(reading.named, found)
     if not candidates:
         ledger.insert_activity(
             conn, item_id, actor=actor, action="connect", reason="no candidates in band"
         )
         return None
     loop.stamp_stage("connect", f"arguing {len(candidates)} candidates")
-    links, res = _argue(thesis, summary, candidates)
+    links, res = _argue(thesis, summary, candidates, take)
     ledger.insert_activity(
         conn,
         item_id,

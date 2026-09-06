@@ -336,6 +336,7 @@ def test_landing_triggers_connect_propose(conn, monkeypatch):
     assert call["exclude_url"] == "https://www.youtube.com/watch?v=abc123xyz00"
     assert call["note_path"].exists()
     assert call["key_concepts"] == DRAFT["key_concepts"]
+    assert call["take"] == "why loops beat cron"
 
 
 def test_accept_as_is_also_triggers_connect(conn, monkeypatch):
