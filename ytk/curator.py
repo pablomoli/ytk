@@ -288,13 +288,14 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
                 return AdvanceResult(item_id, "error", detail="no draft to accept")
             note = _land(conn, item_id, draft, actor=actor, reason="owner accepted as is")
             return AdvanceResult(item_id, "kept", note_path=note)
-        if answered["text"]:
-            # The owner's line plus the findings that raised the ask: a
-            # one-word answer must not drop the grader's own list.
-            findings = [
-                {"check": "the owner says", "detail": answered["text"]},
-                *_last_findings(conn, item_id),
-            ]
+        if answered["choice"] == "say what is wrong" or answered["text"]:
+            # The owner's line, when there is one, plus the findings that
+            # raised the ask: a one-word answer must not drop the grader's
+            # own list, and a bare "say what is wrong" sends the last verdict
+            # back as the findings rather than starting a blind round.
+            findings = _last_findings(conn, item_id)
+            if answered["text"]:
+                findings = [{"check": "the owner says", "detail": answered["text"]}, *findings]
             last = _last_draft(conn, item_id)
             previous = last.model_dump() if last is not None else None
 

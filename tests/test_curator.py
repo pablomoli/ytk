@@ -438,3 +438,23 @@ def test_a_grade_over_a_different_packet_is_refused(conn, monkeypatch):
         curator._grade_inputs(
             conn, item_id, view=real, attempt_n=1, rubric_hash=None, prompt_version=None
         )
+
+
+def test_bare_say_what_is_wrong_sends_the_last_verdict_back(conn, monkeypatch):
+    """No owner line: the retry is still a patch over the last draft with the
+    grader's findings in, never a blind first attempt."""
+    calls = _stub_sdk(
+        monkeypatch,
+        [dict(DRAFT), dict(DRAFT), {"summary": "fixed"}],
+        [dict(BOUNCE_VERDICT), dict(BOUNCE_VERDICT), dict(PASS_VERDICT)],
+    )
+    item_id = _seed(conn)
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "asked"
+    _answer(conn, res.ask_id, choice="say what is wrong", text=None)
+    out = curator.advance_item(conn, item_id)
+    assert out.outcome == "kept"
+    retry = [c for c in calls if c["model"] == "claude-sonnet-5"][-1]
+    assert "Previous draft:" in retry["user"]
+    assert "Thesis: could attach to any video" in retry["user"]
+    assert "the owner says" not in retry["user"]
