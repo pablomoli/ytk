@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -82,12 +83,19 @@ _STOP = frozenset(
 )
 
 
+def _fold(text: str) -> str:
+    """Accents off before the ASCII word regex sees the text: Whisper writes
+    "omertà", the draft writes "omerta", and the word regex would otherwise
+    cut the accented form to "omert" (item 758)."""
+    return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+
+
 def _tokens(text: str) -> set[str]:
     # Hyphens split before matching (#201): "Empirical-field framing" must
     # meet the transcript's "empirical field" — a near-verbatim coinage is
     # not a hallucination. Applies to both sides, so evidence hyphens also
     # ground unhyphenated draft phrasing.
-    return {w for w in _WORD.findall(text.lower().replace("-", " ")) if w not in _STOP}
+    return {w for w in _WORD.findall(_fold(text).lower().replace("-", " ")) if w not in _STOP}
 
 
 def _parse_ts(ts: str) -> float | None:

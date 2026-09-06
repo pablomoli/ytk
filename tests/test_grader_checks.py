@@ -219,6 +219,17 @@ class TestGroundingNormalization:
         d = _draft(key_concepts=["flat out: shipped without review"], key_moments=[])
         assert [x for x in _check(d, b) if x.check == "concept grounding"] == []
 
+    def test_accented_transcript_grounds_unaccented_concept(self):
+        """Item 758: Whisper wrote "omertà", the draft wrote "omerta", and
+        the ASCII word regex bounced a concept spoken on the record."""
+        b = _bundle(
+            transcript=[
+                {"start": 0, "duration": 4, "text": "the mafia would be jealous of this omertà"},
+            ]
+        )
+        d = _draft(key_concepts=["omerta: the agents' collective silence"], key_moments=[])
+        assert [x for x in _check(d, b) if x.check == "concept grounding"] == []
+
     def test_smuggled_world_knowledge_still_bounces(self):
         d = _draft(
             key_concepts=["Jawed Karim: uploaded the first video"],
