@@ -203,3 +203,75 @@ def test_v2_schema_asks_for_a_title():
 
     assert "title" in SCHEMA_V2["properties"]
     assert "title" in _V2_ADDENDUM
+
+
+class TestPatchRetry:
+    """A retry is a patch: previous draft + findings in, changed fields out,
+    unchanged fields copied in code; the prompt carries transcript windows
+    around the cited timestamps, not the whole transcript."""
+
+    def _prev(self):
+        from ytk.enricher import EnrichmentV2
+
+        return EnrichmentV2.model_validate(
+            {
+                "thesis": "old thesis",
+                "summary": "old summary",
+                "key_concepts": ["keep me: as is"],
+                "insights": ["insight stays"],
+                "interest_tags": ["ai-agents"],
+                "key_moments": [{"timestamp": "5:48", "description": "icon quiz reveal"}],
+            }
+        )
+
+    def test_merge_keeps_unnamed_fields(self):
+        from ytk.enricher import EnrichmentPatch, merge_patch
+
+        out = merge_patch(self._prev(), EnrichmentPatch(summary="new summary"))
+        assert out.summary == "new summary"
+        assert out.thesis == "old thesis"
+        assert out.key_concepts == ["keep me: as is"]
+        assert out.key_moments[0].timestamp == "5:48"
+
+    def test_patch_prompt_windows_the_transcript_around_cited_stamps(self):
+        from ytk.enricher import build_patch_prompt
+        from ytk.evidence import EvidenceBundle
+
+        transcript = [
+            {"start": t, "duration": 1, "text": f"line at {t}"} for t in range(0, 3600, 30)
+        ]
+        b = EvidenceBundle(
+            source="youtube",
+            url="u",
+            title="T",
+            transcript=transcript,
+            transcript_origin="api-manual",
+            transcript_language="en",
+            transcript_status="ok",
+            duration=3600,
+        )
+        prompt = build_patch_prompt(
+            b, self._prev(), ["[Key moments] 5:48 is wrong, the reveal is at 5:43"], "intent", "why"
+        )
+        assert "Previous draft:" in prompt and "old thesis" in prompt
+        assert "Grader findings:" in prompt
+        assert "line at 330" in prompt  # inside the window around 5:43-5:48
+        assert "line at 1800" not in prompt  # far away, not shipped
+        assert "Evidence excerpts" in prompt
+
+    def test_patch_prompt_falls_back_to_full_transcript_without_stamps(self):
+        from ytk.enricher import build_patch_prompt
+        from ytk.evidence import EvidenceBundle
+
+        b = EvidenceBundle(
+            source="web",
+            url="u",
+            title="T",
+            transcript=[{"start": 0, "duration": 1, "text": "only line"}],
+            transcript_origin="none",
+            transcript_language=None,
+            transcript_status="none",
+        )
+        prev = self._prev().model_copy(update={"key_moments": []})
+        prompt = build_patch_prompt(b, prev, ["[Thesis] too generic"], None, None)
+        assert "Transcript" in prompt and "only line" in prompt

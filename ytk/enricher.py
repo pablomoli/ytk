@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,8 @@ from . import ledger
 from .enrich import (
     SOURCE_BIAS,
     Enrichment,
+    KeyMoment,
+    Recommendation,
     build_system,
     description_block,
     fmt_ts,
@@ -93,6 +96,96 @@ A previous draft was returned. Fix exactly what is named, keep what was not:
 PROMPT_VERSION = hashlib.sha256(
     (_V2_ADDENDUM + _TAKE_BLOCK + _FEEDBACK_BLOCK).encode()
 ).hexdigest()[:12]
+
+
+class EnrichmentPatch(BaseModel):
+    """What a retry returns: only the fields it changed. Everything absent
+    is copied from the previous draft in code, so an unnamed field cannot
+    regress on a retry (2026-09-06: blind full rewrites traded one error
+    for a fresh one every round, 0 of 6 grades passed)."""
+
+    thesis: str | None = None
+    summary: str | None = None
+    key_concepts: list[str] | None = None
+    insights: list[str] | None = None
+    interest_tags: list[str] | None = None
+    key_moments: list[KeyMoment] | None = None
+    recommendations: list[Recommendation] | None = None
+    evidence_gaps: list[str] | None = None
+    take_response: str | None = None
+    new_tags: list[NewTag] | None = None
+    title: str | None = None
+
+
+SCHEMA_PATCH = EnrichmentPatch.model_json_schema()
+
+_PATCH_ADDENDUM = """\
+
+This is a RETRY. Below is your previous draft and the grader's findings. Return \
+ONLY the fields you change, each complete as it should now read; omit every field \
+you keep. Fix exactly what the findings name. The evidence excerpts are the parts \
+of the transcript around the timestamps in play; treat them as the record.\
+"""
+
+PATCH_PROMPT_VERSION = hashlib.sha256(
+    (_V2_ADDENDUM + _PATCH_ADDENDUM + _TAKE_BLOCK).encode()
+).hexdigest()[:12]
+
+# Seconds of transcript shown either side of every timestamp a retry is about.
+PATCH_WINDOW_S = 120.0
+_TS_IN_TEXT = re.compile(r"\b(\d{1,2}:\d{2}(?::\d{2})?)\b")
+
+
+def _cited_seconds(texts: list[str]) -> set[float]:
+    out: set[float] = set()
+    for t in texts:
+        for m in _TS_IN_TEXT.findall(t):
+            parts = [int(x) for x in m.split(":")]
+            out.add(float(sum(n * 60**i for i, n in enumerate(reversed(parts)))))
+    return out
+
+
+def merge_patch(previous: EnrichmentV2, patch: EnrichmentPatch) -> EnrichmentV2:
+    changes = patch.model_dump(exclude_none=True)
+    return EnrichmentV2.model_validate({**previous.model_dump(), **changes})
+
+
+def build_patch_prompt(
+    bundle: EvidenceBundle,
+    previous: EnrichmentV2,
+    feedback: list[str],
+    take_kind: str | None,
+    take_text: str | None,
+) -> str:
+    """Previous draft + findings + transcript windows around every cited
+    timestamp (the findings' and the draft's own moments). The whole
+    transcript only when nothing is cited."""
+    cited = _cited_seconds(feedback + [m.timestamp for m in previous.key_moments])
+    parts: list[str] = [f"Title: {bundle.title or ''}"]
+    if bundle.duration:
+        parts.append(f"Duration: {int(bundle.duration)}s")
+    if bundle.description:
+        parts.append(description_block(bundle.description).strip())
+    if bundle.caption:
+        parts.append(f"Caption:\n{bundle.caption}")
+    if bundle.transcript and cited:
+        keep = [
+            s
+            for s in bundle.transcript
+            if any(abs(float(s.get("start", 0)) - c) <= PATCH_WINDOW_S for c in cited)
+        ]
+        lines = "\n".join(f"[{fmt_ts(float(s.get('start', 0)))}] {s.get('text', '')}" for s in keep)
+        parts.append(
+            f"Evidence excerpts (transcript, {len(keep)} of {len(bundle.transcript)} lines):\n{lines}"
+        )
+    else:
+        parts.append(_transcript_block(bundle))
+    if take_text:
+        parts.append(_TAKE_BLOCK.format(kind=take_kind or "intent", text=take_text).strip())
+    parts.append("Previous draft:\n" + previous.model_dump_json(indent=1))
+    parts.append("Grader findings:\n" + "\n".join(f"- {f}" for f in feedback))
+    parts.append(vocab_block().strip())
+    return "\n\n".join(parts)
 
 
 @dataclass
@@ -171,31 +264,44 @@ def enrich_item(
     *,
     attempt: int,
     feedback: list[str] | None = None,
+    previous: EnrichmentV2 | None = None,
     actor: str = "enricher",
 ) -> EnrichResult:
     """Run one enrichment attempt and record it. The draft lands on disk
-    before the activity row references it."""
+    before the activity row references it. With `previous` and `feedback`
+    the call is a patch: the model returns only what it changes."""
     from . import sdk  # deferred: claude_agent_sdk costs ~120ms (#146)
+    from .moments import snap_key_moments
 
     row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
     bundle_path = Path(row["payload_ref"])
     bundle = load_bundle(bundle_path)
     take = _latest_take(conn, item_id)
+    take_kind = take["kind"] if take else None
+    take_text = take["text"] if take else None
 
-    system = build_system(_bias_source(bundle)) + _V2_ADDENDUM
-    user = build_user_prompt(
-        bundle,
-        take["kind"] if take else None,
-        take["text"] if take else None,
-        feedback,
-    )
+    patching = previous is not None and bool(feedback)
+    if patching:
+        assert previous is not None and feedback is not None
+        system = build_system(_bias_source(bundle)) + _V2_ADDENDUM + _PATCH_ADDENDUM
+        user = build_patch_prompt(bundle, previous, feedback, take_kind, take_text)
+        schema = SCHEMA_PATCH
+    else:
+        system = build_system(_bias_source(bundle)) + _V2_ADDENDUM
+        user = build_user_prompt(bundle, take_kind, take_text, feedback)
+        schema = SCHEMA_V2
     frame_paths = [p for p in bundle.frames if Path(p).exists()][:ENRICH_MAX_FRAMES]
     if frame_paths:
         user += "\n\nExtracted frames:\n" + "\n".join(f"  {p}" for p in frame_paths)
     add_dirs = sorted({str(Path(p).parent) for p in frame_paths})
 
-    res = sdk.call_structured(system, user, SCHEMA_V2, add_dirs=add_dirs, model=ENRICHER_MODEL)
-    draft = EnrichmentV2.model_validate(res.data)
+    res = sdk.call_structured(system, user, schema, add_dirs=add_dirs, model=ENRICHER_MODEL)
+    if patching:
+        assert previous is not None
+        draft = merge_patch(previous, EnrichmentPatch.model_validate(res.data))
+    else:
+        draft = EnrichmentV2.model_validate(res.data)
+    draft, moves = snap_key_moments(draft, bundle.transcript)
 
     out = draft_path(item_id, attempt)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -204,7 +310,9 @@ def enrich_item(
     inputs: dict[str, Any] = {
         "evidence_hash": hashlib.sha256(bundle_path.read_bytes()).hexdigest()[:12],
         "take_id": take["id"] if take else None,
-        "prompt_version": PROMPT_VERSION,
+        "prompt_version": PATCH_PROMPT_VERSION if patching else PROMPT_VERSION,
+        "mode": "patch" if patching else "draft",
+        "snapped": [f"{m.before}->{m.after}" for m in moves],
     }
     ledger.insert_activity(
         conn,
@@ -218,7 +326,9 @@ def enrich_item(
         model=res.model,
         tokens=res.tokens,
         duration_ms=res.duration_ms,
-        reason=f"attempt {attempt}" + (" (after bounce)" if feedback else ""),
+        reason=f"attempt {attempt}"
+        + (" (patch)" if patching else " (after bounce)" if feedback else "")
+        + (f", snapped {len(moves)}" if moves else ""),
         detail=json.dumps({"usage": res.usage}) if res.usage else None,
     )
     return EnrichResult(draft=draft, draft_path=out)

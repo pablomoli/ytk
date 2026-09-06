@@ -186,6 +186,7 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
     bundle = load_bundle(Path(item["payload_ref"]))
 
     feedback: list[str] | None = None
+    previous: EnrichmentV2 | None = None
     answered = _last_answered_ask(conn, item_id)
     if answered is not None and answered["kind"] == "grader bounce, twice":
         if answered["choice"] == "accept as is":
@@ -196,14 +197,16 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
             return AdvanceResult(item_id, "kept", note_path=note)
         if answered["text"]:
             feedback = [f"the owner says: {answered['text']}"]
+            previous = _last_draft(conn, item_id)
 
     rub = rubric.load()
     vocab = _vocab()
     for _ in range(MAX_ROUNDS):
         attempt = _next_attempt(conn, item_id)
         loop.stamp_stage("enrich", f"attempt {attempt}")
-        enriched = enrich_item(conn, item_id, attempt=attempt, feedback=feedback)
+        enriched = enrich_item(conn, item_id, attempt=attempt, feedback=feedback, previous=previous)
         draft = enriched.draft
+        previous = draft
 
         loop.stamp_stage("checks")
         bounces = grader.deterministic_checks(

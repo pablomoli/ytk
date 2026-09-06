@@ -146,6 +146,29 @@ def test_landing_renames_a_handle_titled_item(conn, monkeypatch, brain):
     assert row["title"] == "Ink-wash Gaussian splats"
 
 
+def test_retry_is_a_patch_carrying_the_previous_draft(conn, monkeypatch):
+    """After a bounce the second enrich call sees its own previous draft and
+    returns only what it changes; the untouched fields ride through."""
+    bad = dict(DRAFT, key_concepts=["Jawed Karim: uploaded the first video"])
+    patch = {"key_concepts": ["three-file loop: work script, grader, rules markdown"]}
+    calls = _stub_sdk(monkeypatch, [bad, patch], [dict(PASS_VERDICT)])
+    item_id = _seed(conn)
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "kept"
+    enrich_calls = [c for c in calls if c["model"] == "claude-sonnet-5"]
+    assert len(enrich_calls) == 2
+    assert "Previous draft:" in enrich_calls[1]["user"]
+    assert "Jawed Karim" in enrich_calls[1]["user"]
+    rows = conn.execute(
+        "SELECT reason, inputs FROM activity WHERE item_id = ? AND action = 'enrich' ORDER BY id",
+        (item_id,),
+    ).fetchall()
+    assert "(patch)" in rows[1]["reason"]
+    assert json.loads(rows[1]["inputs"])["mode"] == "patch"
+    text = res.note_path.read_text()
+    assert "three-file loop" in text and DRAFT["thesis"] in text
+
+
 def test_deterministic_bounce_feeds_retry_and_spends_no_opus(conn, monkeypatch):
     calls = _stub_sdk(monkeypatch, [dict(BAD_DRAFT), dict(DRAFT)], [dict(PASS_VERDICT)])
     item_id = _seed(conn)

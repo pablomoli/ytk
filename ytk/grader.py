@@ -98,6 +98,10 @@ def _tokens(text: str) -> set[str]:
     return {w for w in _WORD.findall(_fold(text).lower().replace("-", " ")) if w not in _STOP}
 
 
+# Public name for cross-module callers (the moment snap in moments.py).
+content_tokens = _tokens
+
+
 def _parse_ts(ts: str) -> float | None:
     parts = ts.strip().split(":")
     if not all(p.strip().isdigit() for p in parts) or not 2 <= len(parts) <= 3:
