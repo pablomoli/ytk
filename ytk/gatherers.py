@@ -27,7 +27,10 @@ def _save_frames(url: str, frame_bytes: list[bytes]) -> list[str]:
     if not frame_bytes:
         return []
     key = hashlib.sha1(url.encode(), usedforsecurity=False).hexdigest()[:12]
-    frames_dir = evidence_dir() / "frames" / key
+    # Its own directory: the model prompts mount the parent of the frames
+    # they list, and the dense tier plus the sheet must stay out of reach
+    # (2026-09-06: two reels failed structured output with 46 files mounted).
+    frames_dir = evidence_dir() / "frames" / key / "shown"
     frames_dir.mkdir(parents=True, exist_ok=True)
     paths: list[str] = []
     for i, data in enumerate(frame_bytes):

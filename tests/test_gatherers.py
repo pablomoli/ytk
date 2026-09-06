@@ -103,9 +103,12 @@ def test_instagram_reel_bundle_carries_dense_tier_and_sheet(tmp_path):
     assert b.sheet and Path(b.sheet).name == "sheet.jpg"
     assert Path(b.sheet).read_bytes() == b"sheet"
     assert b.frame_ruler == "time"
-    # the sparse frames the enricher sees stay separate from the dense tier
-    assert len(b.frames) == 1 and "dense" not in b.frames[0]
-    assert "/dense/" in b.dense_frames[0]["path"]
+    # the sparse frames the enricher sees live in their own directory: the
+    # model mounts that directory and must not reach the tier or the sheet
+    assert len(b.frames) == 1 and "/shown/" in b.frames[0]
+    shown_dir = Path(b.frames[0]).parent
+    assert not Path(b.dense_frames[0]["path"]).is_relative_to(shown_dir)
+    assert not Path(b.sheet).is_relative_to(shown_dir)
     # the timed transcript rides in the bundle next to the frames
     assert b.transcript[0]["start"] == 0
 

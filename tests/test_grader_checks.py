@@ -304,3 +304,17 @@ class TestGraderEvidence:
         monkeypatch.setattr(sdk, "call_structured", fake)
         grader.grade_model(_draft(), _bundle(), "rubric text", take_text=None)
         assert not seen["add_dirs"]
+
+
+def test_long_evidence_is_kept_whole_and_a_cut_is_announced():
+    """Item 215: an 80k cap silently dropped the back half of a lecture and
+    the judge bounced it as ungrounded."""
+    from ytk import grader
+
+    seg = [{"start": i, "duration": 1, "text": "word " * 20} for i in range(3000)]
+    b = _bundle(transcript=seg)
+    text = grader._render_evidence(b)
+    assert len(text) > 80_000 and "[Evidence cut" not in text
+    huge = _bundle(transcript=seg * 3)
+    cut = grader._render_evidence(huge)
+    assert cut.endswith("skip them in spot-checks.]")

@@ -277,9 +277,15 @@ The owner's rubric:
 
 GRADER_PROMPT_VERSION = hashlib.sha256(_GRADE_SYSTEM.encode()).hexdigest()[:12]
 
-# Evidence cap for the grading prompt: enough for spot-checks on long talks
-# without shipping a 500k-char transcript into every grade call.
-_EVIDENCE_CAP = 80_000
+# Evidence cap for the grading prompt. 80k cut a two-hour lecture at 1:08
+# and the grader bounced the whole back half as ungrounded (item 215,
+# 2026-09-06); the enricher had read all of it. 400k chars is about 100k
+# tokens, inside the judge's window; past it the cut is announced.
+_EVIDENCE_CAP = 400_000
+_TRUNCATION_NOTE = (
+    "\n\n[Evidence cut at {cap} characters. Claims about content after this point cannot be "
+    "checked here: do not bounce them as ungrounded, and skip them in spot-checks.]"
+)
 
 
 def _render_evidence(bundle: EvidenceBundle) -> str:
@@ -299,7 +305,10 @@ def _render_evidence(bundle: EvidenceBundle) -> str:
         parts.append(f"Transcript:\n{lines}")
     if bundle.gaps:
         parts.append("Not seen at capture:\n" + "\n".join(f"- {g}" for g in bundle.gaps))
-    return "\n\n".join(parts)[:_EVIDENCE_CAP]
+    text = "\n\n".join(parts)
+    if len(text) > _EVIDENCE_CAP:
+        return text[:_EVIDENCE_CAP] + _TRUNCATION_NOTE.format(cap=_EVIDENCE_CAP)
+    return text
 
 
 def grade_model(
