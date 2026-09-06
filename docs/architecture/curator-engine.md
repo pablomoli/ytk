@@ -410,8 +410,10 @@ the sparse set and the dense tier, `sheet`. `not_shown` says in sentences
 what the packet left out, and the same sentences ship inside `rendered`:
 not shown is unverifiable, never ungrounded. The budget (frames shown,
 evidence cap, sheet placement) is data on the view; the two caps that used
-to live in the readers are gone. The sheet default is `none`, production's
-behaviour before this step, until the sheet measurement moves it.
+to live in the readers are gone. The sheet default is `shown`: measured the
+same night (`scripts/measure_sheet_placement.py`, 2 bundles x 3 placements
+x 3 reps, 18 of 18 writer calls succeeded, shown drew the most frame
+cites). The judge's call with the sheet mounted was not measured.
 
 **The attempt.** `ytk/attempt.py`, `evidence/attempts/<item>-<n>.json`:
 view hash, the take, the previous draft, the findings requested, the draft
@@ -436,9 +438,10 @@ asymmetry that stays.
 logic. Every "grader bounce, twice" and "budget spent" card carries
 `view_hash` and `attempt`.
 
-**Owed.** Sheet in `shown` or `openable`: count structured-output failures
-against `none` on the bundles that carry a sheet (e501375 protocol). The
-only number the model does not settle.
+**Measured.** Sheet placement, 2026-09-06, two bundles (489, 534), three
+placements, three reps: 0 structured-output failures in 18 writer calls;
+frame cites 20 (none), 21 (openable), 27 (shown). Re-run when more bundles
+carry a sheet; the grader side is unmeasured.
 
 ## Native kernels
 

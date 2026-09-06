@@ -24,9 +24,10 @@ from .enrich import description_block, fmt_ts
 from .evidence import EvidenceBundle, evidence_dir, load_bundle
 
 # Names the word rule behind "findable": grader.content_tokens (ASCII words of
-# four letters and up, accents folded, hyphens split). A grade row that says
-# which tokenizer judged it can be re-run when the rule changes.
-TOKENIZER = "ascii-words-folded-v1"
+# four letters and up, accents folded, hyphens split, common suffixes
+# stripped). A grade row that says which tokenizer judged it can be re-run
+# when the rule changes.
+TOKENIZER = "ascii-words-folded-stemmed-v2"
 
 
 @dataclass(frozen=True)
@@ -40,9 +41,12 @@ class Budget:
     # Item 215: an 80k cap cut a lecture at 1:08 and the judge bounced the
     # back half as ungrounded. 400k chars is about 100k tokens.
     evidence_cap_chars: int = 400_000
-    # none | openable | shown. The dense tier lives beside the sheet, so
-    # opening the box for the sheet opens it for the dense frames too.
-    sheet: str = "none"
+    # none | openable | shown. Measured 2026-09-06 (scripts/measure_sheet_placement.py,
+    # 2 bundles x 3 placements x 3 reps): 18 of 18 writer calls succeeded under
+    # every placement; shown drew the most frame cites (27 vs 20). The dense
+    # tier lives beside the sheet, so opening the box for the sheet opens it
+    # for the dense frames too.
+    sheet: str = "shown"
 
 
 DEFAULT_BUDGET = Budget()

@@ -91,7 +91,7 @@ def test_frames_one_numbering_shown_then_the_box(tmp_path):
     b = _bundle(frames=sparse, dense_frames=dense, sheet=str(sheet))
     p = _write(b)
 
-    v = V.build_view(7, p)
+    v = V.build_view(7, p, budget=V.Budget(sheet="none"))
     assert [u["id"] for u in v.shown if u["kind"] == "frame"] == ["frame:001", "frame:002"]
     assert v.openable == []
     assert v.mounts == [str(key / "shown")]
@@ -107,9 +107,11 @@ def test_frames_one_numbering_shown_then_the_box(tmp_path):
     assert vo.view_hash != v.view_hash
     assert "In the box" in vo.rendered and str(sheet) in vo.rendered
 
-    vs = V.build_view(7, p, budget=V.Budget(sheet="shown"))
+    vs = V.build_view(7, p)  # the measured default: shown
+    assert V.DEFAULT_BUDGET.sheet == "shown"
     assert "sheet" in {u["id"] for u in vs.shown}
     assert "sheet" not in {u["id"] for u in vs.openable}
+    assert str(sheet) in vs.rendered and "Frames shown" in vs.rendered
 
 
 def test_missing_frames_on_disk_are_not_units(tmp_path):
