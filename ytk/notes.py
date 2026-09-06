@@ -51,9 +51,15 @@ def _save_media(bundle: EvidenceBundle, note_dir: Path) -> list[Path]:
         if got:
             saved.append(got)
     local_frames = [Path(p) for p in bundle.frames if Path(p).is_file()]
-    if local_frames:
+    sheet = Path(bundle.sheet) if bundle.sheet and Path(bundle.sheet).is_file() else None
+    if local_frames or sheet:
         frame_dir = note_dir / "frames" / key
         frame_dir.mkdir(parents=True, exist_ok=True)
+        if sheet:
+            # The whole item in one look; embedded before any single frame.
+            dst = frame_dir / f"{key}-sheet{sheet.suffix or '.jpg'}"
+            shutil.copyfile(sheet, dst)
+            saved.append(dst)
         for i, src in enumerate(local_frames, start=1):
             dst = frame_dir / f"{key}-frame-{i}{src.suffix or '.jpg'}"
             shutil.copyfile(src, dst)

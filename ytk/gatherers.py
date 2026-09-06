@@ -16,7 +16,7 @@ from typing import Any
 
 from .evidence import GATHERERS, EvidenceBundle, evidence_dir, strip_boilerplate
 from .ingest import fetch_web
-from .instagram import capture_reel_media, fetch_instagram
+from .instagram import ReelCapture, capture_reel_media, fetch_instagram
 from .metadata import fetch_metadata
 from .tiktok import fetch_tiktok, transcribe_tiktok
 from .transcript import fetch_transcript_evidence
@@ -35,6 +35,28 @@ def _save_frames(url: str, frame_bytes: list[bytes]) -> list[str]:
         p.write_bytes(data)
         paths.append(str(p))
     return paths
+
+
+def _save_tier(url: str, cap: ReelCapture) -> tuple[list[dict[str, Any]], str | None]:
+    """The dense tier under frames/<key>/dense/ and the sheet beside it, so
+    the sparse frames the model prompts list stay a short, separate set."""
+    key = hashlib.sha1(url.encode(), usedforsecurity=False).hexdigest()[:12]
+    base = evidence_dir() / "frames" / key
+    dense: list[dict[str, Any]] = []
+    if cap.dense_frames:
+        dense_dir = base / "dense"
+        dense_dir.mkdir(parents=True, exist_ok=True)
+        for i, f in enumerate(cap.dense_frames):
+            p = dense_dir / f"f-{i:03d}.jpg"
+            p.write_bytes(f.data)
+            dense.append({"t": f.t, "path": str(p)})
+    sheet: str | None = None
+    if cap.sheet_bytes:
+        base.mkdir(parents=True, exist_ok=True)
+        p = base / "sheet.jpg"
+        p.write_bytes(cap.sheet_bytes)
+        sheet = str(p)
+    return dense, sheet
 
 
 def gather_youtube(url: str, title: str | None) -> EvidenceBundle:
@@ -122,9 +144,14 @@ def gather_instagram(url: str, title: str | None) -> EvidenceBundle:
     status = "none"
     origin = "none"
     gaps: list[str] = []
+    dense: list[dict[str, Any]] = []
+    sheet: str | None = None
+    ruler: str | None = None
     if post.video_path is not None:
         cap = capture_reel_media(post)
         frames = _save_frames(url, cap.frame_bytes)
+        dense, sheet = _save_tier(url, cap)
+        ruler = cap.ruler
         segments = cap.transcript_segments
         status = cap.transcript_status
         origin = "whisper" if segments else "none"
@@ -145,6 +172,9 @@ def gather_instagram(url: str, title: str | None) -> EvidenceBundle:
         frames=frames,
         thumbnail=thumbnail,
         gaps=gaps,
+        dense_frames=dense,
+        sheet=sheet,
+        frame_ruler=ruler,
     )
 
 

@@ -3,11 +3,21 @@ hard lifecycle guarantee — the temp video is always deleted."""
 
 from __future__ import annotations
 
+import io
+
 import pytest
+from PIL import Image
 
 import ytk.instagram as instagram_mod
 from ytk.instagram import InstagramPost, capture_reel_media
 from ytk.transcript import TranscriptionResult
+from ytk.vision import TimedFrame, nearest_frames
+
+
+def _jpeg(seed: int) -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (32, 18), (seed * 11 % 256, 40, 40)).save(buf, format="JPEG")
+    return buf.getvalue()
 
 
 def _reel(video_path):
@@ -41,9 +51,8 @@ def test_success_path_transcribes_local_file_and_unlinks(monkeypatch, mp4):
         )
 
     monkeypatch.setattr(instagram_mod, "transcribe_file", fake_transcribe)
-    monkeypatch.setattr(
-        instagram_mod, "extract_frames", lambda p, timestamps, baseline_n=4: [b"f1", b"f2"]
-    )
+    tier = [TimedFrame(t=2.0 * i, data=_jpeg(i)) for i in range(21)]  # 42 s at 2 s
+    monkeypatch.setattr(instagram_mod, "extract_frame_tier", lambda p, plan, duration: tier)
     monkeypatch.setattr(instagram_mod, "probe_duration", lambda p: 42.0)
 
     cap = capture_reel_media(_reel(mp4), whisper_model="small")
@@ -51,7 +60,12 @@ def test_success_path_transcribes_local_file_and_unlinks(monkeypatch, mp4):
     assert seen["path"] == mp4
     assert seen["exists_at_transcribe_time"]
     assert seen["model"] == "small"
-    assert cap.frame_bytes == [b"f1", b"f2"]
+    # one ffmpeg pass: the four baseline frames are picked from the tier
+    assert cap.dense_frames == tier
+    assert cap.ruler == "time"
+    assert [f.t for f in nearest_frames(tier, [8.4, 16.8, 25.2, 33.6])] == [8.0, 16.0, 26.0, 34.0]
+    assert cap.frame_bytes == [_jpeg(4), _jpeg(8), _jpeg(13), _jpeg(17)]
+    assert cap.sheet_bytes and cap.sheet_bytes[:2] == b"\xff\xd8"
     assert cap.transcript_status == "ok"
     assert cap.transcript_segments[0]["text"] == "hi"
     assert cap.duration == 42.0
@@ -64,6 +78,33 @@ def test_no_video_path_is_skipped_with_warning():
     assert cap.transcript_status == "skipped"
     assert cap.frame_bytes == []
     assert any("video" in w.lower() for w in cap.warnings)
+
+
+@pytest.fixture(autouse=True)
+def tier_unavailable(request, monkeypatch):
+    """Every test below the success path exercises the fallback: the dense
+    tier raises, and the sparse extract_frames path must still run."""
+    if "success_path" in request.node.name:
+        return
+
+    def no_tier(p, plan, duration):
+        raise RuntimeError("tier exploded")
+
+    monkeypatch.setattr(instagram_mod, "extract_frame_tier", no_tier)
+
+
+def test_tier_failure_falls_back_to_sparse_frames_with_a_warning(monkeypatch, mp4):
+    monkeypatch.setattr(instagram_mod, "extract_frames", lambda p, timestamps, baseline_n=4: [b"f"])
+    monkeypatch.setattr(instagram_mod, "probe_duration", lambda p: 10.0)
+    monkeypatch.setattr(
+        instagram_mod,
+        "transcribe_file",
+        lambda p, whisper_model="base": TranscriptionResult(segments=[], status="no_speech"),
+    )
+    cap = capture_reel_media(_reel(mp4))
+    assert cap.frame_bytes == [b"f"]
+    assert cap.dense_frames == [] and cap.sheet_bytes is None
+    assert any("tier exploded" in w for w in cap.warnings)
 
 
 def test_frame_extraction_failure_still_transcribes_and_unlinks(monkeypatch, mp4):

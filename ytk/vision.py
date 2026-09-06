@@ -6,11 +6,14 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
+import re
 import shutil
 import subprocess
 import tempfile
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 
 from .sdk import run_structured
@@ -262,3 +265,174 @@ def download_video_temp(url: str) -> Path:
         tmp_path.unlink(missing_ok=True)
         raise
     return tmp_path
+
+
+# ---------------------------------------------------------------------------
+# The dense frame tier and the contact sheet (#202)
+# ---------------------------------------------------------------------------
+
+# One ruler per medium (footage-first method, section 11): time for reels,
+# picture change for anything the time ruler would overrun.
+DENSE_EVERY_S = 2.0
+FRAME_CAP = 60
+# ffmpeg scene score above which a frame counts as a cut.
+SCENE_THRESHOLD = 0.3
+# Fewer cuts than this on a long item means a talk, not a screencast.
+TALK_MIN_CUTS = 8
+TALK_FRAMES = 12
+TIER_WIDTH = 720
+
+
+@dataclass(frozen=True)
+class FramePlan:
+    ruler: str  # time | scene
+    every_s: float
+    cap: int
+
+
+@dataclass(frozen=True)
+class TimedFrame:
+    t: float
+    data: bytes
+
+
+def frame_plan(duration: float | None) -> FramePlan:
+    """Time ruler while it fits under the cap; past that the picture decides."""
+    if duration is None or duration <= DENSE_EVERY_S * FRAME_CAP:
+        return FramePlan(ruler="time", every_s=DENSE_EVERY_S, cap=FRAME_CAP)
+    return FramePlan(ruler="scene", every_s=DENSE_EVERY_S, cap=FRAME_CAP)
+
+
+def nearest_frames(frames: list[TimedFrame], timestamps: list[float]) -> list[TimedFrame]:
+    """One tier frame per timestamp, closest wins, duplicates dropped in order."""
+    if not frames:
+        return []
+    picked: list[TimedFrame] = []
+    for ts in timestamps:
+        best = min(frames, key=lambda f: abs(f.t - ts))
+        if best not in picked:
+            picked.append(best)
+    return picked
+
+
+def _frames_from_dir(out_dir: Path, times: list[float]) -> list[TimedFrame]:
+    files = sorted(out_dir.glob("f-*.jpg"))
+    return [TimedFrame(t=t, data=f.read_bytes()) for f, t in zip(files, times, strict=False)]
+
+
+def _time_pass(video_path: Path, every_s: float, width: int) -> list[TimedFrame]:
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp)
+        subprocess.run(
+            [
+                _tool("ffmpeg"),
+                "-v",
+                "error",
+                "-i",
+                str(video_path),
+                "-vf",
+                f"fps=1/{every_s},scale='min({width},iw)':-2",
+                "-q:v",
+                "3",
+                str(out / "f-%03d.jpg"),
+            ],
+            capture_output=True,
+            check=True,
+        )
+        n = len(list(out.glob("f-*.jpg")))
+        return _frames_from_dir(out, [i * every_s for i in range(n)])
+
+
+_PTS = re.compile(r"pts_time:\s*([0-9.]+)")
+
+
+def _scene_pass(video_path: Path, width: int) -> list[TimedFrame]:
+    """Frame 0 plus every frame whose scene score crosses the threshold;
+    showinfo on stderr carries the timestamps in output order."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp)
+        proc = subprocess.run(
+            [
+                _tool("ffmpeg"),
+                "-v",
+                "info",
+                "-nostats",
+                "-i",
+                str(video_path),
+                "-vf",
+                f"select='eq(n,0)+gt(scene,{SCENE_THRESHOLD})',showinfo,scale='min({width},iw)':-2",
+                "-fps_mode",
+                "vfr",
+                "-q:v",
+                "3",
+                str(out / "f-%03d.jpg"),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        times = [float(m) for m in _PTS.findall(proc.stderr)]
+        return _frames_from_dir(out, times)
+
+
+def _thin(frames: list[TimedFrame], cap: int) -> list[TimedFrame]:
+    if len(frames) <= cap:
+        return frames
+    last = len(frames) - 1
+    idx = sorted({round(i * last / (cap - 1)) for i in range(cap)})
+    return [frames[i] for i in idx]
+
+
+def extract_frame_tier(
+    video_path: Path, plan: FramePlan, duration: float | None
+) -> list[TimedFrame]:
+    """One ffmpeg pass under the plan's ruler. Raises on ffmpeg failure so
+    the caller can fall back to the sparse path and say so."""
+    if plan.ruler == "time":
+        return _thin(_time_pass(video_path, plan.every_s, TIER_WIDTH), plan.cap)
+    cuts = _scene_pass(video_path, TIER_WIDTH)
+    if len(cuts) - 1 >= TALK_MIN_CUTS:
+        return _thin(cuts, plan.cap)
+    # A talk: two faces and a room. A dozen frames spaced over the length.
+    span = duration or (cuts[-1].t if cuts else 0.0)
+    if span <= 0:
+        return cuts
+    return _time_pass(video_path, span / TALK_FRAMES, TIER_WIDTH)[:TALK_FRAMES]
+
+
+def contact_sheet(
+    frames: list[TimedFrame],
+    label: str,
+    *,
+    across: int = 6,
+    tile_w: int = 320,
+    label_h: int = 18,
+    quality: int = 80,
+) -> bytes | None:
+    """Tile the tier six across with a stamped strip above each frame, so a
+    whole item reads in one look and only the sharp frames get opened."""
+    if not frames:
+        return None
+    from PIL import Image, ImageDraw, ImageFont
+
+    tiles: list[Image.Image] = []
+    for f in frames:
+        im = Image.open(io.BytesIO(f.data)).convert("RGB")
+        h = max(1, round(im.height * tile_w / im.width))
+        tiles.append(im.resize((tile_w, h)))
+    tile_h = max(t.height for t in tiles)
+    rows = (len(tiles) + across - 1) // across
+    sheet = Image.new("RGB", (across * tile_w, rows * (tile_h + label_h)), (0, 0, 0))
+    draw = ImageDraw.Draw(sheet)
+    try:
+        font = ImageFont.load_default(size=max(8, label_h - 6))
+    except TypeError:  # Pillow < 10.1 has no sized default
+        font = ImageFont.load_default()
+    for i, (tile, f) in enumerate(zip(tiles, frames, strict=True)):
+        x = (i % across) * tile_w
+        y = (i // across) * (tile_h + label_h)
+        draw.text((x + 4, y + 2), f"{label} t={int(f.t)}s", fill=(255, 255, 255), font=font)
+        sheet.paste(tile, (x, y + label_h))
+    buf = io.BytesIO()
+    sheet.save(buf, format="JPEG", quality=quality)
+    return buf.getvalue()

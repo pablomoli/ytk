@@ -15,7 +15,17 @@ from pathlib import Path
 import instaloader
 
 from .transcript import TranscriptionResult, transcribe_file
-from .vision import extract_frames, probe_duration
+from .vision import (
+    TimedFrame,
+    contact_sheet,
+    extract_frame_tier,
+    extract_frames,
+    frame_plan,
+    nearest_frames,
+    probe_duration,
+)
+
+BASELINE_FRAMES = 4
 
 
 @dataclass
@@ -35,11 +45,50 @@ class InstagramPost:
 class ReelCapture:
     """What was actually recovered from a reel's video, plus every failure."""
 
-    frame_bytes: list[bytes] = field(default_factory=list)
+    frame_bytes: list[bytes] = field(default_factory=list)  # sparse: what the enricher sees
+    dense_frames: list[TimedFrame] = field(default_factory=list)  # the tier (#202)
+    sheet_bytes: bytes | None = None
+    ruler: str | None = None  # time | scene
     transcript_segments: list[dict] = field(default_factory=list)
     transcript_status: str = "skipped"  # ok | no_speech | failed | skipped
     duration: float | None = None
     warnings: list[str] = field(default_factory=list)
+
+
+def _baseline_timestamps(duration: float, n: int = BASELINE_FRAMES) -> list[float]:
+    return [duration * i / (n + 1) for i in range(1, n + 1)]
+
+
+def _capture_frames(post: InstagramPost, cap: ReelCapture) -> None:
+    """One ffmpeg pass: the dense tier, the sparse baseline picked from it,
+    and the contact sheet. The pre-tier path stays as the fallback."""
+    assert post.video_path is not None
+    plan = frame_plan(cap.duration)
+    try:
+        tier = extract_frame_tier(post.video_path, plan, cap.duration)
+    except Exception as exc:
+        cap.warnings.append(f"dense frame tier failed: {exc}")
+        tier = []
+    if tier:
+        cap.dense_frames = tier
+        cap.ruler = plan.ruler
+        span = cap.duration or tier[-1].t
+        cap.frame_bytes = [f.data for f in nearest_frames(tier, _baseline_timestamps(span))]
+        try:
+            label = _extract_shortcode(post.url)
+        except ValueError:
+            label = "reel"
+        try:
+            cap.sheet_bytes = contact_sheet(tier, label=label)
+        except Exception as exc:
+            cap.warnings.append(f"contact sheet failed: {exc}")
+        return
+    try:
+        cap.frame_bytes = (
+            extract_frames(post.video_path, timestamps=[], baseline_n=BASELINE_FRAMES) or []
+        )
+    except Exception as exc:
+        cap.warnings.append(f"frame extraction failed: {exc}")
 
 
 def capture_reel_media(post: InstagramPost, whisper_model: str = "base") -> ReelCapture:
@@ -58,10 +107,7 @@ def capture_reel_media(post: InstagramPost, whisper_model: str = "base") -> Reel
             cap.duration = probe_duration(post.video_path)
         except Exception as exc:
             cap.warnings.append(f"ffprobe failed: {exc}")
-        try:
-            cap.frame_bytes = extract_frames(post.video_path, timestamps=[], baseline_n=4) or []
-        except Exception as exc:
-            cap.warnings.append(f"frame extraction failed: {exc}")
+        _capture_frames(post, cap)
         if not cap.frame_bytes and not any("frame" in w for w in cap.warnings):
             cap.warnings.append(
                 "frame extraction produced 0 frames (ffmpeg/ffprobe missing or failed)"

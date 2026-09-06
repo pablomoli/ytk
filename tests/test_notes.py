@@ -67,6 +67,21 @@ def test_spine_order_and_frontmatter(brain):
     assert "  - ai-agents" in text
 
 
+def test_sheet_is_saved_beside_frames_and_embedded_first(brain, tmp_path):
+    sheet = tmp_path / "sheet.jpg"
+    sheet.write_bytes(b"sheet")
+    frame = tmp_path / "frame-0.jpg"
+    frame.write_bytes(b"frame")
+    b = _bundle(source="instagram", media_id=None, sheet=str(sheet), frames=[str(frame)])
+    path = notes.write_curator_note(b, "intent", "the look", _draft())
+    text = path.read_text()
+    key = notes._media_key(b)
+    saved = brain / "sources" / "instagram" / "frames" / key / f"{key}-sheet.jpg"
+    assert saved.read_bytes() == b"sheet"
+    assert text.index(f"![[{key}-sheet.jpg]]") < text.index(f"![[{key}-frame-1.jpg]]")
+    assert f"  - sources/instagram/frames/{key}/{key}-sheet.jpg" in text
+
+
 def test_rewrite_is_idempotent_by_url(brain):
     p1 = notes.write_curator_note(_bundle(), "intent", "t", _draft())
     p2 = notes.write_curator_note(

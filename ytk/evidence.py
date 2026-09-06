@@ -57,6 +57,11 @@ class EvidenceBundle:
     duration: float | None = None  # seconds
     thumbnail: str | None = None
     chapters: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
+    # #202: the dense tier ([{t, path}]) and the contact sheet the readers
+    # open first; `frames` stays the sparse set the enricher is shown.
+    dense_frames: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
+    sheet: str | None = None
+    frame_ruler: str | None = None  # time | scene
 
 
 def load_bundle(path: Path) -> EvidenceBundle:

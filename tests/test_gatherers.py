@@ -72,6 +72,43 @@ def test_instagram_carries_caption_and_frames(tmp_path):
     assert Path(b.frames[0]).read_bytes() == b"jpegbytes"
 
 
+def test_instagram_reel_bundle_carries_dense_tier_and_sheet(tmp_path):
+    from ytk.vision import TimedFrame
+
+    post = InstagramPost(
+        url="https://www.instagram.com/reel/x/",
+        username="u",
+        timestamp="2026-01-01",
+        caption="c",
+        video_path=Path("/tmp/fake.mp4"),
+        media_kind="video",
+    )
+    cap = ReelCapture(
+        frame_bytes=[b"base"],
+        dense_frames=[TimedFrame(t=0.0, data=b"d0"), TimedFrame(t=2.0, data=b"d1")],
+        sheet_bytes=b"sheet",
+        ruler="time",
+        transcript_segments=[{"start": 0, "duration": 1, "text": "fala"}],
+        transcript_status="ok",
+    )
+    with (
+        patch("ytk.gatherers.fetch_instagram", return_value=post),
+        patch("ytk.gatherers.capture_reel_media", return_value=cap),
+    ):
+        b = gatherers.gather_instagram(post.url, None)
+    assert [d["t"] for d in b.dense_frames] == [0.0, 2.0]
+    assert Path(b.dense_frames[1]["path"]).read_bytes() == b"d1"
+    assert Path(b.dense_frames[1]["path"]).name == "f-001.jpg"
+    assert b.sheet and Path(b.sheet).name == "sheet.jpg"
+    assert Path(b.sheet).read_bytes() == b"sheet"
+    assert b.frame_ruler == "time"
+    # the sparse frames the enricher sees stay separate from the dense tier
+    assert len(b.frames) == 1 and "dense" not in b.frames[0]
+    assert "/dense/" in b.dense_frames[0]["path"]
+    # the timed transcript rides in the bundle next to the frames
+    assert b.transcript[0]["start"] == 0
+
+
 def test_web_strips_boilerplate():
     content = WebContent(
         url="https://w/1",
