@@ -320,14 +320,21 @@ def test_landing_triggers_connect_propose(conn, monkeypatch):
     calls = []
     monkeypatch.setattr(
         "ytk.connect.propose",
-        lambda conn2, item_id, thesis, summary, *, exclude_media_id, actor="connect": calls.append(
-            {"item_id": item_id, "thesis": thesis, "exclude": exclude_media_id}
+        lambda conn2, item_id, thesis, summary, **kw: calls.append(
+            {"item_id": item_id, "thesis": thesis, **kw}
         ),
     )
     item_id = _seed(conn)
     res = curator.advance_item(conn, item_id)
     assert res.outcome == "kept"
-    assert calls == [{"item_id": item_id, "thesis": DRAFT["thesis"], "exclude": "abc123xyz00"}]
+    assert len(calls) == 1
+    call = calls[0]
+    assert call["item_id"] == item_id
+    assert call["thesis"] == DRAFT["thesis"]
+    # Self-exclusion travels on every handle the store can return the note by.
+    assert call["exclude_media_id"] == "abc123xyz00"
+    assert call["exclude_url"] == "https://www.youtube.com/watch?v=abc123xyz00"
+    assert call["note_path"].exists()
 
 
 def test_accept_as_is_also_triggers_connect(conn, monkeypatch):

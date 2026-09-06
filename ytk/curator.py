@@ -227,6 +227,8 @@ def _land(
             draft.thesis,
             draft.summary,
             exclude_media_id=bundle.media_id,
+            exclude_url=bundle.url,
+            note_path=note,
         )
     except Exception as exc:
         ledger.insert_activity(

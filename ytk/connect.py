@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
+from pathlib import Path
 from typing import Any, cast
 
 from pydantic import BaseModel
@@ -49,34 +51,114 @@ class ProposedLink(BaseModel):
     argument: str
 
 
-def find_candidates(query: str, *, exclude_media_id: str | None) -> list[Candidate]:
-    """Neighbors in the band [CANDIDATE_FLOOR, NEAR_DUP_BASELINE), resolved
-    to vault notes, capped. The one transport seam kernel 1 replaces in P7;
-    None-tolerant when the store is down (no candidates, never a failure)."""
+# Indexed for search, never a link target: the identity layer, listings,
+# digests, session records and the claude-mem summaries all describe the
+# vault instead of belonging to it. A link is a note the owner would open
+# next; the atom that carries the same fact still qualifies.
+_UNLINKABLE_PREFIXES = ("wiki/", "me/", "hub/", "inbox/memories/claude-mem/")
+_UNLINKABLE_PATTERNS = (
+    re.compile(r"^inbox/(review-[^/]+|dashboard)\.md$"),
+    re.compile(r"^projects/.+/session-[^/]+-brief\.md$"),
+)
+
+
+def _linkable(note: Path, brain: Path) -> bool:
+    try:
+        rel = note.relative_to(brain).as_posix()
+    except ValueError:
+        return False
+    if rel.startswith(_UNLINKABLE_PREFIXES):
+        return False
+    return not any(p.match(rel) for p in _UNLINKABLE_PATTERNS)
+
+
+def _note_identity(note: Path, fallback_title: str, fallback_thesis: str) -> tuple[str, str]:
+    """title from frontmatter and the first paragraph under Thesis (or the
+    legacy Summary) — the two lines the argue prompt names a candidate by.
+    Memory hits carry neither; the note on disk is the one source."""
+    try:
+        head = note.read_text(encoding="utf-8")[:6000]
+    except OSError:
+        return fallback_title, fallback_thesis
+    title = fallback_title
+    for pat in (r"^title:\s*(.+)$", r"^# (.+)$"):
+        m = re.search(pat, head, re.MULTILINE)
+        if m and m.group(1).strip():
+            title = m.group(1).strip().strip("\"'")
+            break
+    thesis = fallback_thesis
+    for heading in ("## Thesis", "## Summary"):
+        m = re.search(
+            rf"^{re.escape(heading)}\s*\n+(.+?)(?:\n\s*\n|\n## |\Z)", head, re.MULTILINE | re.DOTALL
+        )
+        if m and m.group(1).strip():
+            thesis = " ".join(m.group(1).split())
+            break
+    return title, thesis
+
+
+def _note_url(note: Path) -> str | None:
+    try:
+        head = note.read_text(encoding="utf-8")[:2000]
+    except OSError:
+        return None
+    m = re.search(r"^url:\s*(\S+)\s*$", head, re.MULTILINE)
+    return m.group(1) if m else None
+
+
+def find_candidates(
+    query: str,
+    *,
+    exclude_media_id: str | None,
+    exclude_url: str | None = None,
+    exclude_path: Path | None = None,
+) -> list[Candidate]:
+    """Neighbors across both collections in the band [CANDIDATE_FLOOR,
+    NEAR_DUP_BASELINE), resolved to vault notes, capped. Video hits resolve
+    by url, memory hits by their indexed source_path; the item's own note
+    is excluded by media id, url or path. The one transport seam kernel 1
+    replaces in P7; None-tolerant when the store is down (no candidates,
+    never a failure)."""
     from .grader import NEAR_DUP_BASELINE
 
     try:
         from . import store, vault
 
-        results = store.search_videos(query, n=_FETCH_N, rerank=False, actor="connect")
+        results = store.search_all(query, n=_FETCH_N, rerank=False, actor="connect")
+        brain = vault.get_brain_path()
     except Exception:
         return []
+    own = exclude_path.resolve() if exclude_path else None
     out: list[Candidate] = []
     for r in results:
-        if exclude_media_id and r.video_id == exclude_media_id:
-            continue
         cosine = 1.0 - r.distance
         if cosine >= NEAR_DUP_BASELINE or cosine < CANDIDATE_FLOOR:
             continue
+        note: Path | None
         try:
-            note = vault.find_note_by_url(r.url, 0.0)
+            if r.type == "video":
+                if exclude_media_id and r.doc_id == exclude_media_id:
+                    continue
+                if exclude_url and r.source == exclude_url:
+                    continue
+                note = vault.find_note_by_url(r.source, 0.0)
+            else:
+                note = Path(r.source) if r.source else None
+                if note is not None and not note.exists():
+                    note = None
         except Exception:
             continue
-        if note is None:
+        if note is None or not _linkable(note, brain):
             continue
-        out.append(
-            Candidate(target=note.stem, target_title=r.title, thesis=r.thesis, cosine=cosine)
-        )
+        if own is not None and note.resolve() == own:
+            continue
+        if exclude_url and r.type != "video" and _note_url(note) == exclude_url:
+            continue
+        # A memory hit's title is its doc id; the stem reads better when the
+        # note itself names nothing.
+        fallback_title = r.title if r.type == "video" else note.stem
+        title, thesis = _note_identity(note, fallback_title, r.excerpt)
+        out.append(Candidate(target=note.stem, target_title=title, thesis=thesis, cosine=cosine))
         if len(out) >= MAX_CANDIDATES:
             break
     return out
@@ -151,6 +233,8 @@ def propose(
     summary: str,
     *,
     exclude_media_id: str | None,
+    exclude_url: str | None = None,
+    note_path: Path | None = None,
     actor: str = "connect",
 ) -> int | None:
     """Find candidates, argue them, raise the connections ask. Returns the
@@ -159,7 +243,12 @@ def propose(
     from . import loop
 
     loop.stamp_stage("connect", "finding candidates")
-    candidates = find_candidates(f"{thesis}\n\n{summary}", exclude_media_id=exclude_media_id)
+    candidates = find_candidates(
+        f"{thesis}\n\n{summary}",
+        exclude_media_id=exclude_media_id,
+        exclude_url=exclude_url,
+        exclude_path=note_path,
+    )
     if not candidates:
         ledger.insert_activity(
             conn, item_id, actor=actor, action="connect", reason="no candidates in band"

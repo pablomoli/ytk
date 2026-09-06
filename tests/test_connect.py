@@ -27,21 +27,54 @@ def _item(conn, url="https://www.youtube.com/watch?v=abc123xyz00") -> int:
 
 
 def _result(video_id, title, distance, url=None):
+    """A video hit as store.search_all serves it: url in `source`, thesis
+    truncated into `excerpt`."""
     return SimpleNamespace(
-        video_id=video_id,
+        type="video",
+        doc_id=video_id,
         title=title,
-        url=url or f"https://y/{video_id}",
-        uploader="u",
-        date="",
-        tags=[],
-        thesis=f"thesis of {title}",
-        summary="",
+        excerpt=f"thesis of {title}"[:200],
+        source=url or f"https://y/{video_id}",
         distance=distance,
     )
 
 
+def _memory(path, distance, doc_id=None):
+    """A memory hit: the indexed note path in `source`, the doc id as title."""
+    return SimpleNamespace(
+        type="memory",
+        doc_id=doc_id or path.stem,
+        title=doc_id or path.stem,
+        excerpt="excerpt of " + path.stem,
+        source=str(path),
+        distance=distance,
+    )
+
+
+@pytest.fixture(autouse=True)
+def brain(tmp_path, monkeypatch):
+    b = tmp_path / "brain"
+    (b / "sources" / "instagram").mkdir(parents=True)
+    monkeypatch.setattr("ytk.vault._get_brain_path", lambda: b)
+    return b
+
+
+def _note(brain, rel, url=None, thesis=None, title=None):
+    path = brain / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fm = (
+        ["---"]
+        + ([f"url: {url}"] if url else [])
+        + ([f"title: {title}"] if title else [])
+        + ["---"]
+    )
+    body = f"\n## Thesis\n{thesis}\n\n## Commentary\nProse.\n" if thesis else "\nbody\n"
+    path.write_text("\n".join(fm) + "\n" + body)
+    return path
+
+
 def _stub_store(monkeypatch, results):
-    monkeypatch.setattr("ytk.store.search_videos", lambda *a, **k: results)
+    monkeypatch.setattr("ytk.store.search_all", lambda *a, **k: results)
 
 
 def _stub_vault(monkeypatch, mapping):
@@ -49,7 +82,7 @@ def _stub_vault(monkeypatch, mapping):
 
 
 class TestFindCandidates:
-    def test_band_filter_dedup_line_floor_and_cap(self, monkeypatch, tmp_path):
+    def test_band_filter_dedup_line_floor_and_cap(self, monkeypatch, brain):
         results = [
             _result("dup", "same item again", distance=0.05),  # cosine 0.95 >= dup line
             _result("good1", "close neighbor", distance=0.25),  # 0.75
@@ -57,20 +90,20 @@ class TestFindCandidates:
             _result("floor", "background noise", distance=0.50),  # 0.50 < floor
         ]
         _stub_store(monkeypatch, results)
-        notes = {r.url: tmp_path / f"{r.video_id}-note.md" for r in results}
+        notes = {r.source: _note(brain, f"sources/youtube/{r.doc_id}-note.md") for r in results}
         _stub_vault(monkeypatch, notes)
         got = connect.find_candidates("q", exclude_media_id=None)
         assert [c.target for c in got] == ["good1-note", "good2-note"]
         assert got[0].cosine == pytest.approx(0.75)
 
-    def test_excludes_self_and_unresolvable_notes(self, monkeypatch, tmp_path):
+    def test_excludes_self_and_unresolvable_notes(self, monkeypatch, brain):
         results = [
             _result("me", "the note itself", distance=0.2),
             _result("orphan", "no note on disk", distance=0.25),
             _result("good", "resolvable", distance=0.3),
         ]
         _stub_store(monkeypatch, results)
-        _stub_vault(monkeypatch, {"https://y/good": tmp_path / "good-note.md"})
+        _stub_vault(monkeypatch, {"https://y/good": _note(brain, "sources/youtube/good-note.md")})
         got = connect.find_candidates("q", exclude_media_id="me")
         assert [c.target for c in got] == ["good-note"]
 
@@ -78,15 +111,66 @@ class TestFindCandidates:
         def boom(*a, **k):
             raise RuntimeError("chroma down")
 
-        monkeypatch.setattr("ytk.store.search_videos", boom)
+        monkeypatch.setattr("ytk.store.search_all", boom)
         assert connect.find_candidates("q", exclude_media_id=None) == []
 
-    def test_cap_is_respected(self, monkeypatch, tmp_path):
+    def test_cap_is_respected(self, monkeypatch, brain):
         results = [_result(f"v{i}", f"t{i}", distance=0.2 + i * 0.01) for i in range(9)]
         _stub_store(monkeypatch, results)
-        _stub_vault(monkeypatch, {r.url: tmp_path / f"{r.video_id}.md" for r in results})
+        _stub_vault(
+            monkeypatch,
+            {r.source: _note(brain, f"sources/youtube/{r.doc_id}.md") for r in results},
+        )
         got = connect.find_candidates("q", exclude_media_id=None)
         assert len(got) == connect.MAX_CANDIDATES
+
+    def test_memory_hits_resolve_by_source_path(self, monkeypatch, brain):
+        """#210: every non-YouTube note lives in the memories collection; a
+        reel links to a reel through its indexed path, and the candidate's
+        title and thesis come off the note on disk, not the excerpt."""
+        reel = _note(
+            brain,
+            "sources/instagram/leo-xi25-DY_Ode.md",
+            url="https://www.instagram.com/reel/DY_Ode/",
+            title="Particle dissolve on a koi",
+            thesis="A koi dissolves into particles under hand tracking.",
+        )
+        gone = brain / "sources/instagram/deleted.md"
+        _stub_store(monkeypatch, [_memory(reel, 0.3), _memory(gone, 0.3)])
+        _stub_vault(monkeypatch, {})
+        got = connect.find_candidates("q", exclude_media_id=None)
+        assert [c.target for c in got] == ["leo-xi25-DY_Ode"]
+        assert got[0].target_title == "Particle dissolve on a koi"
+        assert got[0].thesis == "A koi dissolves into particles under hand tracking."
+        assert got[0].cosine == pytest.approx(0.7)
+
+    def test_own_note_is_excluded_by_path_and_by_url(self, monkeypatch, brain):
+        own = _note(brain, "sources/instagram/luchen-xi.md", url="https://ig/DbyN")
+        twin = _note(brain, "sources/instagram/luchen-xi-copy.md", url="https://ig/DbyN")
+        other = _note(brain, "sources/instagram/other.md", url="https://ig/other")
+        _stub_store(monkeypatch, [_memory(own, 0.1), _memory(twin, 0.3), _memory(other, 0.3)])
+        _stub_vault(monkeypatch, {})
+        got = connect.find_candidates(
+            "q", exclude_media_id=None, exclude_url="https://ig/DbyN", exclude_path=own
+        )
+        assert [c.target for c in got] == ["other"]
+
+    def test_scaffolding_notes_are_never_targets(self, monkeypatch, brain):
+        hits = [
+            _memory(_note(brain, "me/profile.md"), 0.3),
+            _memory(_note(brain, "wiki/hot.md"), 0.3),
+            _memory(_note(brain, "projects/ytk/session-035-brief.md"), 0.3),
+            _memory(_note(brain, "inbox/review-2026-07-04.md"), 0.3),
+            _memory(_note(brain, "inbox/memories/claude-mem/summaries/s-1.md"), 0.3),
+            _memory(_note(brain, "inbox/memories/2026-07-23-fog-splats.md"), 0.3),
+            _memory(_note(brain, "study/rndyrbrts-visual-language.md"), 0.3),
+        ]
+        _stub_store(monkeypatch, hits)
+        _stub_vault(monkeypatch, {})
+        got = connect.find_candidates("q", exclude_media_id=None)
+        assert [c.target for c in got] == ["2026-07-23-fog-splats", "rndyrbrts-visual-language"]
+        # No frontmatter title and no heading: the stem, never the store's doc id.
+        assert got[0].target_title == "2026-07-23-fog-splats"
 
 
 def _argue_stub(monkeypatch, links, tokens=500):
@@ -108,9 +192,16 @@ def _argue_stub(monkeypatch, links, tokens=500):
 
 class TestPropose:
     def _candidates(self, monkeypatch, tmp_path, n=2):
+        brain = tmp_path / "brain"
         results = [_result(f"v{i}", f"t{i}", distance=0.25) for i in range(n)]
         _stub_store(monkeypatch, results)
-        _stub_vault(monkeypatch, {r.url: tmp_path / f"v{i}-note.md" for i, r in enumerate(results)})
+        _stub_vault(
+            monkeypatch,
+            {
+                r.source: _note(brain, f"sources/youtube/v{i}-note.md")
+                for i, r in enumerate(results)
+            },
+        )
 
     def test_no_candidates_records_activity_and_no_ask(self, conn, monkeypatch):
         _stub_store(monkeypatch, [])
