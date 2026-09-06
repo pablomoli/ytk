@@ -151,12 +151,18 @@ def item(conn: sqlite3.Connection, item_id: int) -> str:
 
 def ask_list(conn: sqlite3.Connection) -> str:
     """Every unanswered ask, oldest first."""
+    # Unanswered, and the item is still asking: an ask the loop superseded
+    # (item 756 carried a September 1 bounce ask after it had landed) is
+    # not answerable, and answering it would poke a kept item.
     rows = conn.execute(
         """
         SELECT asks.*, items.title, items.url, items.payload_ref FROM asks
         JOIN items ON items.id = asks.item_id
         LEFT JOIN answers ON answers.ask_id = asks.id
-        WHERE answers.id IS NULL ORDER BY asks.id
+        WHERE answers.id IS NULL
+          AND (SELECT to_state FROM activity WHERE item_id = asks.item_id
+               AND to_state IS NOT NULL ORDER BY id DESC LIMIT 1) = 'asking'
+        ORDER BY asks.id
         """
     ).fetchall()
     if not rows:

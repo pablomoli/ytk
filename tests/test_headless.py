@@ -171,3 +171,13 @@ def test_cli_wrappers(conn, monkeypatch):
     assert r.exit_code == 0 and "answered 'say what is wrong'" in r.output
     row = conn.execute("SELECT text FROM answers WHERE ask_id = ?", (ask_id,)).fetchone()
     assert row["text"] == "tighten"
+
+
+def test_ask_list_hides_asks_the_loop_superseded(conn, monkeypatch):
+    """An unanswered ask on an item that has since moved on is not answerable."""
+    item_id, ask_id = _asked(conn, monkeypatch)
+    assert f"ask {ask_id}" in headless.ask_list(conn)
+    ledger.insert_activity(
+        conn, item_id, actor="loop", action="keep", from_state="asking", to_state="kept"
+    )
+    assert headless.ask_list(conn) == "no open asks"
