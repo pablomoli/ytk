@@ -2884,3 +2884,81 @@ def enrich_eval_cmd(tone):
         f"faith_delta={r['faith_delta']:+.3f}"
     )
     click.echo("Smoke gate only (n small); not a ship decision.")
+
+
+# --- headless verbs (#212): the CLI carries no logic, ytk/headless.py does -
+
+
+@cli.command(name="item")
+@click.argument("item_id", type=int)
+def item_cmd(item_id: int):
+    """One item: state, packet, attempts, open ask, spend, trail."""
+    from . import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        click.echo(headless.item(conn, item_id))
+    finally:
+        conn.close()
+
+
+@cli.group(name="ask")
+def ask_group():
+    """Asks, headless: list and answer from a terminal or a chat."""
+
+
+@ask_group.command(name="list")
+def ask_list_cmd():
+    """Every unanswered ask, oldest first."""
+    from . import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        click.echo(headless.ask_list(conn))
+    finally:
+        conn.close()
+
+
+@ask_group.command(name="answer")
+@click.argument("ask_id", type=int)
+@click.argument("choice")
+@click.option("--text", default=None, help="The owner's line, for 'say what is wrong' and takes.")
+def ask_answer_cmd(ask_id: int, choice: str, text: str | None):
+    """Answer one ask and wake the loop."""
+    from . import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        click.echo(headless.ask_answer(conn, ask_id, choice, text, surface="cli"))
+    finally:
+        conn.close()
+
+
+@cli.command(name="view")
+@click.argument("item_id", type=int)
+@click.option("--attempt", type=int, default=None, help="The packet that attempt read.")
+@click.option("--full", is_flag=True, help="Print the rendered packet itself.")
+def view_cmd(item_id: int, attempt: int | None, full: bool):
+    """The packet an item's readers received."""
+    from . import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        click.echo(headless.view_show(conn, item_id, attempt, full=full))
+    finally:
+        conn.close()
+
+
+@cli.command(name="grade")
+@click.argument("item_id", type=int)
+@click.option("--attempt", type=int, default=None, help="Default: the latest attempt.")
+@click.option("--model", is_flag=True, help="Also run the model layer (one Opus call).")
+def grade_cmd(item_id: int, attempt: int | None, model: bool):
+    """Re-grade a draft without writing a ledger row."""
+    from . import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        click.echo(headless.grade(conn, item_id, attempt, model=model))
+    finally:
+        conn.close()

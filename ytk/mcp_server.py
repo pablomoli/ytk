@@ -278,3 +278,57 @@ def work_set_fields(
 
 def main() -> None:
     app.run()
+
+
+# --- headless verbs (#212): wrappers only, the logic is ytk/headless.py ----
+
+
+@app.tool()
+def item_show(item_id: int) -> str:
+    """One curator item: state, packet (view hash, budget, units), attempts,
+    open ask, model calls spent, and the ledger trail."""
+    from . import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        return headless.item(conn, item_id)
+    finally:
+        conn.close()
+
+
+@app.tool()
+def ask_list() -> str:
+    """Every unanswered curator ask, oldest first, with its options."""
+    from . import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        return headless.ask_list(conn)
+    finally:
+        conn.close()
+
+
+@app.tool()
+def ask_answer(ask_id: int, choice: str, text: str | None = None) -> str:
+    """Answer one curator ask as the owner and wake the loop. `text` carries
+    the owner's line for 'say what is wrong' and for intent takes."""
+    from . import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        return headless.ask_answer(conn, ask_id, choice, text, surface="mcp")
+    finally:
+        conn.close()
+
+
+@app.tool()
+def view_show(item_id: int, attempt: int | None = None, full: bool = False) -> str:
+    """The evidence packet an item's enricher and grader both read; `full`
+    returns the rendered bytes."""
+    from . import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        return headless.view_show(conn, item_id, attempt, full=full)
+    finally:
+        conn.close()

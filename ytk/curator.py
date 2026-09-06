@@ -78,6 +78,15 @@ def _latest_take(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
     ).fetchone()
 
 
+def latest_take(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
+    """Public door for the headless verbs; tests patch the private names."""
+    return _latest_take(conn, item_id)
+
+
+def tag_vocab() -> list[str]:
+    return _vocab()
+
+
 def _last_answered_ask(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
     return conn.execute(
         """
@@ -121,7 +130,9 @@ def model_calls(conn: sqlite3.Connection, item_id: int) -> int:
     return int(row["n"])
 
 
-def _raise_budget_ask(conn: sqlite3.Connection, item_id: int, calls: int) -> int | None:
+def _raise_budget_ask(
+    conn: sqlite3.Connection, item_id: int, calls: int, *, view: View, attempt_n: int
+) -> int | None:
     return asks.raise_ask(
         conn,
         item_id,
@@ -130,6 +141,8 @@ def _raise_budget_ask(conn: sqlite3.Connection, item_id: int, calls: int) -> int
             "why": f"{calls} model calls spent on this item; the loop stops here",
             "options": ["accept as is", "drop"],
             "bounces": [],
+            "view_hash": view.view_hash,
+            "attempt": attempt_n,
         },
         actor="loop",
     )
@@ -287,12 +300,13 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
 
     rub = rubric.load()
     vocab = _vocab()
+    n = 0
     for _ in range(MAX_ROUNDS):
         spent = model_calls(conn, item_id)
-        if spent >= ITEM_CALL_CAP:
-            ask_id = _raise_budget_ask(conn, item_id, spent)
-            return AdvanceResult(item_id, "asked", ask_id=ask_id)
         n = _next_attempt(conn, item_id)
+        if spent >= ITEM_CALL_CAP:
+            ask_id = _raise_budget_ask(conn, item_id, spent, view=view, attempt_n=n - 1)
+            return AdvanceResult(item_id, "asked", ask_id=ask_id)
         att = attempt_mod.open_attempt(
             item_id, n, view, take=take_rec, previous=previous, findings_in=findings
         )
@@ -379,6 +393,8 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
             "why": (lines or ["two grader bounces"])[0][:200],
             "options": ["accept as is", "say what is wrong", "drop"],
             "bounces": lines,
+            "view_hash": view.view_hash,
+            "attempt": n,
         },
         actor="grader",
     )
