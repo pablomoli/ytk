@@ -81,6 +81,9 @@ ytk/
     graph.py           — HTML knowledge-graph builder
     vision.py          — frame extraction + Claude vision image blocks
     triage.py          — action-item extraction for `ytk triage`
+    view.py            — the evidence packet (#212): one view per bundle, hashed, both readers get the same bytes
+    attempt.py         — one round's record: findings in, draft out, verdict out
+    headless.py        — `ytk item / ask / view / grade` and the MCP wrappers, no logic in the wrappers
     books_match.py     — stdlib epub fuzzy text-position matcher (audiobook tracker)
     reels.py           — Instagram DM link discovery + source-agnostic pending queue (`ytk reels`)
     memo.py            — voice memo pipeline: record, transcribe, route, notify (`ytk memo`)

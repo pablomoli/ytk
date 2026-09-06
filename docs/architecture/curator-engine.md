@@ -397,6 +397,49 @@ The acceptance thread (cringelords end to end; the kill-it-mid-tick
 test) runs after P5 and again after P8. Open issues absorbed by #197
 are retargeted to their plan now that the spec is locked.
 
+## One packet (step 6, shipped 2026-09-06, #212)
+
+**The view.** The loop cuts one evidence view per bundle (`ytk/view.py`,
+`evidence/views/<item>-<bundle_hash>.json`), immutable, hashed. `rendered`
+is the one prompt block the enricher and the grader both receive; a test
+pins that both prompts contain the identical bytes. `grounding_text` is the
+one string the deterministic checks tokenize. `shown` and `openable` carry
+the unit ids a claim may cite: `t:<seconds>` for a transcript line (the
+second already printed on the line), `frame:NNN` across one numbering of
+the sparse set and the dense tier, `sheet`. `not_shown` says in sentences
+what the packet left out, and the same sentences ship inside `rendered`:
+not shown is unverifiable, never ungrounded. The budget (frames shown,
+evidence cap, sheet placement) is data on the view; the two caps that used
+to live in the readers are gone. The sheet default is `none`, production's
+behaviour before this step, until the sheet measurement moves it.
+
+**The attempt.** `ytk/attempt.py`, `evidence/attempts/<item>-<n>.json`:
+view hash, the take, the previous draft, the findings requested, the draft
+out, the verdict out. `rendered()` is the header both roles receive after
+the packet; it tells the teacher a change it asked for is not a new
+objection.
+
+**Invariants.** Student prompt = role text + `view.rendered` +
+`attempt.rendered()` + vocabulary. Teacher prompt = role text + rubric +
+`view.rendered` + `attempt.rendered()` + draft. `add_dirs` is `view.mounts`
+in both calls. Enrich and grade rows carry `view_hash` and `attempt`; a
+grade row whose view differs from its draft's is refused, not written. A
+concept read off a frame ends with its unit (`[frame:002]`): a listed unit
+skips transcript grounding and the teacher opens the frame; an unlisted one
+bounces at zero cost. A key moment past the transcript cut bounces as
+"cites outside the packet". The writer never sees the rubric: the one
+asymmetry that stays.
+
+**Headless surface** (P8 pulled forward): `ytk item`, `ytk ask list`,
+`ytk ask answer`, `ytk view`, `ytk grade`; MCP `item_show`, `ask_list`,
+`ask_answer`, `view_show`. One module (`ytk/headless.py`), wrappers with no
+logic. Every "grader bounce, twice" and "budget spent" card carries
+`view_hash` and `attempt`.
+
+**Owed.** Sheet in `shown` or `openable`: count structured-output failures
+against `none` on the bundles that carry a sheet (e501375 protocol). The
+only number the model does not settle.
+
 ## Native kernels
 
 Admission rule, from the Muratori note (`sources/youtube/why-performant-code-matters...`,
@@ -539,7 +582,7 @@ things: the packet a reader can hold at once (context window; a two-hour
 lecture fits) and ink (counted output; the per-item pad is eight calls,
 `curator.ITEM_CALL_CAP`, and the daily school-wide ceiling is gone).
 
-**What each one holds and lacks, before #212.**
+**What each one holds and lacks, before #212** (shipped the same night, see One packet above; the table stands as the record of why).
 
 | who | holds | missing |
 |---|---|---|
