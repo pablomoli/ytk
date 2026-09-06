@@ -129,7 +129,7 @@ def _land(
 ) -> Path:
     """Write and index the note, record kept. Idempotent via the writer's
     url lookup."""
-    from .notes import index_note, write_curator_note
+    from .notes import effective_title, index_note, write_curator_note
 
     loop.stamp_stage("land", "writing the note")
     item = conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item_id,)).fetchone()
@@ -139,6 +139,10 @@ def _land(
         bundle, take["kind"] if take else None, take["text"] if take else None, draft
     )
     index_note(note, bundle, draft)
+    # The card and the ledger row stop reading as the author's handle.
+    conn.execute(
+        "UPDATE items SET title = ? WHERE id = ?", (effective_title(bundle, draft), item_id)
+    )
     ledger.insert_activity(
         conn,
         item_id,

@@ -196,3 +196,10 @@ def test_enricher_sees_at_most_two_frames(conn, monkeypatch, tmp_path):
     listed = [ln for ln in seen["user"].splitlines() if "frame-" in ln]
     assert len(listed) == 2
     assert "frame-0" in listed[0] and "frame-1" in listed[1]
+
+
+def test_v2_schema_asks_for_a_title():
+    from ytk.enricher import _V2_ADDENDUM, SCHEMA_V2
+
+    assert "title" in SCHEMA_V2["properties"]
+    assert "title" in _V2_ADDENDUM

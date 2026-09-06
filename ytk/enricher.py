@@ -50,11 +50,18 @@ class EnrichmentV2(Enrichment):
     evidence_gaps: list[str] = []
     take_response: str | None = None
     new_tags: list[NewTag] = []
+    # Handle-titled sources (Instagram, TikTok, Pinterest) need a title the
+    # thesis already implies; drafted here so it costs no extra call.
+    title: str | None = None
 
 
 SCHEMA_V2 = EnrichmentV2.model_json_schema()
 
 _V2_ADDENDUM = """\
+
+title
+  At most 8 words naming the concrete subject: the tool, technique, artwork or \
+claim. Keep proper nouns. No trailing period, no quotes. Never the author's handle.
 
 evidence_gaps
   What could not be seen, copied or refined from the capture status: failed frames, \

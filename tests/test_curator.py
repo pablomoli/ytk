@@ -128,6 +128,24 @@ def test_happy_path_lands_the_note(conn, monkeypatch, brain):
     assert json.loads(grade["inputs"])["rubric_hash"]
 
 
+def test_landing_renames_a_handle_titled_item(conn, monkeypatch, brain):
+    """The digest card and the ledger row carry the drafted title once the
+    note lands, so an Instagram item stops reading as its author's handle."""
+    item_id = _seed(conn)
+    bundle_path = conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item_id,)).fetchone()[
+        0
+    ]
+    raw = json.loads(open(bundle_path).read())
+    raw.update(source="instagram", title="luchen_xi", uploader="luchen_xi", media_id=None)
+    open(bundle_path, "w").write(json.dumps(raw))
+    conn.execute("UPDATE items SET title = 'luchen_xi' WHERE id = ?", (item_id,))
+    _stub_sdk(monkeypatch, [dict(DRAFT, title="Ink-wash Gaussian splats")], [dict(PASS_VERDICT)])
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "kept"
+    row = conn.execute("SELECT title FROM items WHERE id = ?", (item_id,)).fetchone()
+    assert row["title"] == "Ink-wash Gaussian splats"
+
+
 def test_deterministic_bounce_feeds_retry_and_spends_no_opus(conn, monkeypatch):
     calls = _stub_sdk(monkeypatch, [dict(BAD_DRAFT), dict(DRAFT)], [dict(PASS_VERDICT)])
     item_id = _seed(conn)

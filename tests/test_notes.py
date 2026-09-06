@@ -82,6 +82,24 @@ def test_sheet_is_saved_beside_frames_and_embedded_first(brain, tmp_path):
     assert f"  - sources/instagram/frames/{key}/{key}-sheet.jpg" in text
 
 
+def test_handle_titled_sources_take_the_drafted_title(brain):
+    """An Instagram bundle is titled by the handle; the note must not be."""
+    b = _bundle(source="instagram", media_id=None, title="luchen_xi", uploader="luchen_xi")
+    path = notes.write_curator_note(
+        b, "intent", "splats", _draft(title="Ink-wash Gaussian splats in TouchDesigner")
+    )
+    text = path.read_text()
+    assert path.name == "ink-wash-gaussian-splats-in-touchdesigner.md"
+    assert "title: Ink-wash Gaussian splats in TouchDesigner" in text
+    assert "uploader: luchen_xi" in text
+
+
+def test_youtube_keeps_the_video_title_over_the_drafted_one(brain):
+    path = notes.write_curator_note(_bundle(), "intent", "x", _draft(title="Three-file loop"))
+    assert "title: Loop Engineering" in path.read_text()
+    assert notes.effective_title(_bundle(), _draft(title="Three-file loop")) == "Loop Engineering"
+
+
 def test_rewrite_is_idempotent_by_url(brain):
     p1 = notes.write_curator_note(_bundle(), "intent", "t", _draft())
     p2 = notes.write_curator_note(

@@ -97,6 +97,19 @@ def _spine(
     return "\n\n".join(sections) + "\n"
 
 
+# Sources whose gatherer can only offer the author's handle as a title.
+HANDLE_TITLED_SOURCES = {"instagram", "tiktok", "pinterest"}
+
+
+def effective_title(bundle: EvidenceBundle, draft: EnrichmentV2) -> str:
+    """The drafted title for handle-titled sources; the platform's title
+    everywhere it exists (a YouTube title is the owner's memory hook)."""
+    drafted = " ".join((draft.title or "").split())
+    if bundle.source in HANDLE_TITLED_SOURCES and drafted:
+        return drafted
+    return bundle.title or drafted or _media_key(bundle)
+
+
 def write_curator_note(
     bundle: EvidenceBundle,
     take_kind: str | None,
@@ -109,7 +122,8 @@ def write_curator_note(
     note_dir = brain / "sources" / bundle.source
     note_dir.mkdir(parents=True, exist_ok=True)
     existing = vault.find_note_by_url(bundle.url, 0.0)
-    path = existing or note_dir / f"{vault._slug(bundle.title or _media_key(bundle))}.md"
+    title = effective_title(bundle, draft)
+    path = existing or note_dir / f"{vault._slug(title)}.md"
 
     saved = _save_media(bundle, note_dir)
     tags_yaml = "\n".join(f"  - {vault._normalize_tag(t)}" for t in draft.interest_tags)
@@ -120,7 +134,7 @@ def write_curator_note(
     lines = [
         "---",
         f"url: {bundle.url}",
-        f"title: {bundle.title or ''}",
+        f"title: {title}",
     ]
     if bundle.uploader:
         lines.append(f"uploader: {bundle.uploader}")
@@ -139,7 +153,7 @@ def write_curator_note(
     path.write_text(content, encoding="utf-8")
 
     if bundle.source == "youtube" and existing is None:
-        vault._update_index(brain, path.stem, bundle.title or "", date)
+        vault._update_index(brain, path.stem, title, date)
     return path
 
 
@@ -153,7 +167,7 @@ def index_note(note_path: Path, bundle: EvidenceBundle, draft: EnrichmentV2) -> 
         meta = {
             "id": _media_key(bundle),
             "url": bundle.url,
-            "title": bundle.title or "",
+            "title": effective_title(bundle, draft),
             "uploader": bundle.uploader or "",
             "upload_date": bundle.upload_date or "",
             "description": bundle.description or "",

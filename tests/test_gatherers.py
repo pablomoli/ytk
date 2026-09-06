@@ -67,6 +67,7 @@ def test_instagram_carries_caption_and_frames(tmp_path):
     ):
         b = gatherers.gather_instagram("https://www.instagram.com/reel/x/", None)
     assert b.caption == "the caption"
+    assert b.uploader == "u"  # the handle is the author, never the note's title
     assert b.transcript_status == "ok"
     assert len(b.frames) == 1
     assert Path(b.frames[0]).read_bytes() == b"jpegbytes"

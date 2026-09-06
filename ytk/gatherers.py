@@ -164,6 +164,7 @@ def gather_instagram(url: str, title: str | None) -> EvidenceBundle:
         source="instagram",
         url=url,
         title=title or post.username,
+        uploader=post.username,
         transcript=segments,
         transcript_origin=origin,
         transcript_language=None,
