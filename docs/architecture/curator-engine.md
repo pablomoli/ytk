@@ -474,3 +474,88 @@ Event mechanism and host (step 3); ledger concurrency across parallel
 sessions and iCloud (step 5); ask taxonomy (step 1); in-loop deterministic
 grader for `enriched` (step 2); how owner answers become standing rules so
 future asks shrink (step 2); the watch surface beyond logs (step 4).
+
+## Appendix A: the cast, in plain words (added 2026-09-06, session 079)
+
+Glossary by analogy, written after a night in which the enricher and the
+grader were found reading different evidence three times over (accent
+fold, evidence cap, frames mount; items 758, 215, 489, 534) and the grader
+contradicted its own previous round (item 759). The contract amendment
+that follows from it is gh #212; the progress view is #213.
+
+**The runner, the read verb.** Goes out to the source and comes back with
+a backpack. Never writes a word in the notebook. If the recording is blank
+or garbled, the runner raises a hand before anyone starts working.
+
+**The backpack, the bundle.** Everything the runner brought back: the
+recording (transcript), the photos (frames, the whole roll, and the
+contact sheet), the flyer (caption, description, chapters), and a receipt
+listing what could not be fetched (gaps). Nobody works from the backpack
+directly.
+
+**The exam packet, the view.** The proctor takes things out of the
+backpack and photocopies them, page numbered, one packet, two copies,
+same bytes. The cover sheet says what was left in the backpack: "pages 41
+to 80 not copied", "photos 3 to 41 in the box, ask to see them". Before
+#212 there is no packet; each reader photocopies its own pages with its
+own copier settings.
+
+**The proctor, the curator and loop.** Runs one exam at a time. Hands out
+the packet, collects the homework, gives it to the grader, records every
+hand-off in the class register (the ledger). Decides how thick the packet
+is (the budget). Never writes homework, never marks it. The only writer.
+
+**The student, the enricher.** Writes the note from the packet and the
+owner's sticky note. Never sees the answer key, on purpose. A new student
+every round, with no memory: it is handed the previous homework and the
+marks and changes only what was marked (b144705).
+
+**The grader.** Two people. The spell-checker (deterministic layer):
+mechanical, no judgment. The teacher (Opus): reads the answer key and
+marks against it, every failing section in one pass (7805024). Under #212
+the teacher also gets last round's own marks and reads the same packet as
+the student.
+
+**The answer key, the rubric.** The owner's handwriting, `~/.ytk/rubric.md`.
+The teacher quotes it in every mark. The student never sees it. This is
+the one asymmetry that stays.
+
+**The sticky note, the take.** "Why I saved this." On the cover of the
+packet. The homework has to answer it.
+
+**The librarian, connect.** After the homework is filed, suggests which
+shelves it belongs beside; the owner approves each cross-reference. Before
+a page is written on, the librarian photocopies the old page (snapshot).
+
+**The register, the ledger.** Every hand-off: who, when, how much ink,
+what came back.
+
+**Red marks, rounds, asks, ink.** A bounce is homework handed back with
+marks. A round is one submission plus one marking. Two rounds, then the
+proctor asks the owner. An ask is the proctor's raised hand, the only way
+anything lands without passing: intent missing, transcript junk, blind
+item, grader bounce twice, budget spent, connections. Tokens are two
+things: the packet a reader can hold at once (context window; a two-hour
+lecture fits) and ink (counted output; the per-item pad is eight calls,
+`curator.ITEM_CALL_CAP`, and the daily school-wide ceiling is gone).
+
+**What each one holds and lacks, before #212.**
+
+| who | holds | missing |
+|---|---|---|
+| runner | the source, the backpack | nothing else, by design |
+| proctor | the register, the budget, the health line | the packet contents: never stored, so it cannot prove both copies matched |
+| student | its own photocopy, the sticky note, the marks, the previous homework | the answer key (by design); the teacher's photocopy; photos beyond two |
+| spell-checker | the homework, its own text extraction, its own dictionary | the photos entirely |
+| teacher | the answer key, the homework, its own photocopy, two photos, the sticky note | the student's photocopy; last round's own marks; what the student read off the photos |
+| librarian | the homework's thesis and summary | the sticky note (until #210) |
+| owner | the ask card | what was shown, the trail, without SQL |
+
+**Ownership.** State is owned by the proctor and lives on disk plus the
+ledger. Nothing is passed between the student and the teacher: each is a
+fresh process handed a read-only copy of the current attempt and view,
+returns one result, exits. The proctor appends the result and, if there
+is a next round, opens the next attempt from what is on disk. Views never
+change for a bundle; attempts close when the verdict is written; history
+is append-only. Every node (hub, CLI, MCP, a chat session) reads the same
+files.
