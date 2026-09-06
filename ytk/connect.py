@@ -18,16 +18,18 @@ from pydantic import BaseModel
 
 from . import asks, ledger
 
-# Candidate band, re-sized from strike/approve answers over time. Floor:
-# measured 2026-08-31 on the production path (thesis+summary through the
-# instruction-aware QUERY embedding, 12 sampled notes vs the 442-vector
-# corpus): top-1 neighbor cosine median 0.468, max 0.688; background tops
-# out ~0.53 while clearly related pairs read 0.63+. The doc-doc scale
-# (NN p50 0.560) does NOT transfer to this path — 0.60 here would mute
-# connect for most notes. Ceiling: NEAR_DUP_BASELINE, which on this path
-# never binds (max observed 0.688 between distinct videos); kept as the
-# formal dup boundary.
-CANDIDATE_FLOOR = 0.55
+# Candidate band. Floor: p25 of the top-1 non-self cosine on the query path
+# that ships (thesis + one query per key concept, both collections, union),
+# 30 random content notes, 2026-09-06: min 0.413, p25 0.507, median 0.579,
+# p75 0.632, max 0.791. Re-measure with scripts/measure_connect_floor.py
+# whenever the query path or the encoder changes; the old blob path read
+# median 0.518 on the same notes, and 0.55 there muted two landings in
+# three. A relative rule (top 5 within 0.08 of the item's own best) was
+# rejected: it admitted five candidates for 22 of 30 notes and can never
+# say "no relatives", which is the one free outcome worth keeping.
+# Ceiling: NEAR_DUP_BASELINE, the formal dup boundary; on this path it
+# only ever catches the item's own note.
+CANDIDATE_FLOOR = 0.50
 MAX_CANDIDATES = 5
 # Over-fetch before the band cut; a video can match on parts that collapse.
 _FETCH_N = 12

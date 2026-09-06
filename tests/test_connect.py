@@ -87,7 +87,7 @@ class TestFindCandidates:
             _result("dup", "same item again", distance=0.05),  # cosine 0.95 >= dup line
             _result("good1", "close neighbor", distance=0.25),  # 0.75
             _result("good2", "second neighbor", distance=0.35),  # 0.65
-            _result("floor", "background noise", distance=0.50),  # 0.50 < floor
+            _result("floor", "background noise", distance=0.55),  # 0.45 < floor
         ]
         _stub_store(monkeypatch, results)
         notes = {r.source: _note(brain, f"sources/youtube/{r.doc_id}-note.md") for r in results}
@@ -174,6 +174,12 @@ class TestFindCandidates:
         assert [c.target for c in got] == ["2026-07-23-fog-splats", "rndyrbrts-visual-language"]
         # No frontmatter title and no heading: the stem, never the store's doc id.
         assert got[0].target_title == "2026-07-23-fog-splats"
+
+
+def test_floor_is_p25_of_the_measured_union_path():
+    """Pinned to the 2026-09-06 measurement (scripts/measure_connect_floor.py);
+    a change here must come with a new run, never with a re-stamp."""
+    assert connect.CANDIDATE_FLOOR == 0.50
 
 
 class TestPerConceptQueries:
