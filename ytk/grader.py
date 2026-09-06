@@ -91,12 +91,45 @@ def _fold(text: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
 
 
+# Longest first; a stem keeps at least four characters so short words are
+# left whole. Item 212 (2026-09-06): "inheritance" in the draft bounced
+# against "inherits" in the transcript, two Sonnet calls for a suffix.
+_SUFFIXES = (
+    "ations",
+    "ation",
+    "ances",
+    "ance",
+    "ences",
+    "ence",
+    "ments",
+    "ment",
+    "ings",
+    "ing",
+    "ers",
+    "ies",
+    "ed",
+    "er",
+    "es",
+    "ly",
+    "s",
+)
+
+
+def _stem(word: str) -> str:
+    for suf in _SUFFIXES:
+        if word.endswith(suf) and len(word) - len(suf) >= 4:
+            return word[: -len(suf)]
+    return word
+
+
 def _tokens(text: str) -> set[str]:
     # Hyphens split before matching (#201): "Empirical-field framing" must
     # meet the transcript's "empirical field" — a near-verbatim coinage is
     # not a hallucination. Applies to both sides, so evidence hyphens also
-    # ground unhyphenated draft phrasing.
-    return {w for w in _WORD.findall(_fold(text).lower().replace("-", " ")) if w not in _STOP}
+    # ground unhyphenated draft phrasing. Suffixes come off both sides too.
+    return {
+        _stem(w) for w in _WORD.findall(_fold(text).lower().replace("-", " ")) if w not in _STOP
+    }
 
 
 # Public name for cross-module callers (the moment snap in moments.py).

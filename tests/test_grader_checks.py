@@ -248,6 +248,20 @@ class TestGroundingNormalization:
         d = _draft(key_concepts=["omerta: the agents' collective silence"], key_moments=[])
         assert [x for x in _check(d, b) if x.check == "concept grounding"] == []
 
+    def test_suffixes_come_off_both_sides(self):
+        """Item 212: 'row-gap inheritance' against 'inherits the row gap'.
+        Three-letter words are below the floor, so the match rode on one
+        word that differed only by suffix."""
+        b = _bundle(
+            transcript=[{"start": 0, "duration": 4, "text": "the child inherits the row gap"}]
+        )
+        d = _draft(
+            key_concepts=["row-gap inheritance: tracks come from the parent"], key_moments=[]
+        )
+        assert [x for x in _check(d, b) if x.check == "concept grounding"] == []
+        assert grader._stem("inheritance") == grader._stem("inherits") == "inherit"
+        assert grader._stem("loop") == "loop" and grader._stem("uses") == "uses"
+
     def test_smuggled_world_knowledge_still_bounces(self):
         d = _draft(
             key_concepts=["Jawed Karim: uploaded the first video"],
