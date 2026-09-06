@@ -233,6 +233,24 @@ class TestPatchRetry:
         assert out.key_concepts == ["keep me: as is"]
         assert out.key_moments[0].timestamp == "5:48"
 
+    def test_json_blob_in_a_prose_field_is_unwrapped(self):
+        """Item 761: the patch returned {"summary": ..., "insights": [...]} as
+        the summary string. The inner summary lands; nothing else leaks."""
+        import json
+
+        from ytk.enricher import EnrichmentPatch, merge_patch
+
+        blob = json.dumps({"summary": "the real prose", "insights": ["smuggled"]})
+        out = merge_patch(self._prev(), EnrichmentPatch(summary=blob))
+        assert out.summary == "the real prose"
+        assert out.insights == ["insight stays"]
+
+    def test_json_blob_without_its_key_keeps_the_previous_prose(self):
+        from ytk.enricher import EnrichmentPatch, merge_patch
+
+        out = merge_patch(self._prev(), EnrichmentPatch(thesis='{"insights": ["x"]}'))
+        assert out.thesis == "old thesis"
+
     def test_patch_prompt_windows_the_transcript_around_cited_stamps(self):
         from ytk.enricher import build_patch_prompt
         from ytk.evidence import EvidenceBundle

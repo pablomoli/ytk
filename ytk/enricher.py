@@ -16,7 +16,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 
@@ -145,9 +145,38 @@ def _cited_seconds(texts: list[str]) -> set[float]:
     return out
 
 
+_PROSE_FIELDS = ("thesis", "summary", "take_response", "title")
+
+
+def _unwrap_prose(field: str, value: str, fallback: str | None) -> str | None:
+    """A prose field that arrives as a JSON object (item 761: the patch put
+    {"summary": ..., "insights": [...]} into `summary`) yields its own key
+    when present, else the previous value. Never a blob in the note."""
+    text = value.strip()
+    if not text.startswith("{"):
+        return value
+    try:
+        parsed: object = json.loads(text)
+    except ValueError:
+        return fallback
+    if isinstance(parsed, dict):
+        inner = cast("dict[str, object]", parsed).get(field)
+        if isinstance(inner, str) and inner.strip() and not inner.strip().startswith("{"):
+            return inner
+    return fallback
+
+
 def merge_patch(previous: EnrichmentV2, patch: EnrichmentPatch) -> EnrichmentV2:
     changes = patch.model_dump(exclude_none=True)
-    return EnrichmentV2.model_validate({**previous.model_dump(), **changes})
+    prev = previous.model_dump()
+    for field in _PROSE_FIELDS:
+        if field in changes and isinstance(changes[field], str):
+            fixed = _unwrap_prose(field, changes[field], prev.get(field))
+            if fixed is None:
+                del changes[field]
+            else:
+                changes[field] = fixed
+    return EnrichmentV2.model_validate({**prev, **changes})
 
 
 def build_patch_prompt(
