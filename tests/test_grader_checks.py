@@ -191,6 +191,7 @@ def test_grader_and_enricher_share_no_prompt():
 
     assert grader.GRADER_PROMPT_VERSION != e.PROMPT_VERSION
     assert "research assistant" not in grader._GRADE_SYSTEM
+    assert "EVERY section that" in grader._GRADE_SYSTEM
 
 
 class TestGroundingNormalization:

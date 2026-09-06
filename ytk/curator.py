@@ -14,6 +14,7 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from . import asks, grader, ledger, loop, rubric
 from .enricher import EnrichmentV2, draft_path, enrich_item
@@ -76,6 +77,31 @@ def _last_answered_ask(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | 
         """,
         (item_id,),
     ).fetchone()
+
+
+def _last_findings(conn: sqlite3.Connection, item_id: int) -> list[str]:
+    """The bounces of the latest grade, as feedback lines."""
+    row = conn.execute(
+        "SELECT detail FROM activity WHERE item_id = ? AND action = 'grade' ORDER BY id DESC LIMIT 1",
+        (item_id,),
+    ).fetchone()
+    if row is None or not row["detail"]:
+        return []
+    try:
+        detail: object = json.loads(row["detail"])
+    except ValueError:
+        return []
+    if not isinstance(detail, dict):
+        return []
+    bounces = cast("dict[str, object]", detail).get("bounces")
+    if not isinstance(bounces, list):
+        return []
+    out: list[str] = []
+    for b in cast("list[object]", bounces):
+        if isinstance(b, dict):
+            bd = cast("dict[str, object]", b)
+            out.append(f"{bd.get('check', '')}: {bd.get('detail', '')}")
+    return out
 
 
 def _next_attempt(conn: sqlite3.Connection, item_id: int) -> int:
@@ -196,7 +222,9 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
             note = _land(conn, item_id, draft, actor=actor, reason="owner accepted as is")
             return AdvanceResult(item_id, "kept", note_path=note)
         if answered["text"]:
-            feedback = [f"the owner says: {answered['text']}"]
+            # The owner's line plus the findings that raised the ask: a
+            # one-word answer must not drop the grader's own list.
+            feedback = [f"the owner says: {answered['text']}", *_last_findings(conn, item_id)]
             previous = _last_draft(conn, item_id)
 
     rub = rubric.load()

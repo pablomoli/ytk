@@ -257,10 +257,13 @@ the note below from the evidence; you judge the draft against the owner's
 rubric and nothing else. You never rewrite the draft.
 
 Return passed=true only when the draft holds up against every rubric section.
-For each failure return a bounce: check = the rubric section name, detail =
-what fell short, where = the place in the draft. Quote the rubric section
-exactly; a wrong bounce is fixed by the owner editing the rubric, so the
-bounce must point at the words that produced it.
+Walk every rubric section in order and return a bounce for EVERY section that
+fails, all in this one verdict: check = the rubric section name, detail = what
+fell short, where = the place in the draft. A verdict that names one failing
+section while another also fails is a wrong verdict; the writer fixes what is
+named and nothing else, so an unnamed failure costs a whole extra round. Quote
+the rubric section exactly; a wrong bounce is fixed by the owner editing the
+rubric, so the bounce must point at the words that produced it.
 
 Always spot-check three claims from the summary against the evidence
 (fewer only if the summary has fewer claims). A claim you cannot locate in

@@ -208,12 +208,15 @@ class InstructionAwareEF(embedding_functions.EmbeddingFunction):
         return self._model
 
     def __call__(self, input) -> list[list[float]]:
-        embs = self._load().encode(
-            list(input),
-            batch_size=self._encode_batch,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        )
+        from .gpu import GPU_LOCK
+
+        with GPU_LOCK:  # one Metal user at a time in this process
+            embs = self._load().encode(
+                list(input),
+                batch_size=self._encode_batch,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
         return [[float(x) for x in e] for e in embs]
 
     def embed_user_query(self, text: str) -> list[float]:

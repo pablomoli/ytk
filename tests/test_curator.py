@@ -235,6 +235,24 @@ def test_accept_as_is_lands_last_draft_without_model_calls(conn, monkeypatch):
     assert res2.note_path.exists()
 
 
+def test_say_what_is_wrong_also_carries_the_last_verdict(conn, monkeypatch):
+    """A one-line owner answer must not drop the grader's findings: the retry
+    prompt carries both."""
+    calls = _stub_sdk(
+        monkeypatch,
+        [dict(DRAFT), dict(DRAFT), {"summary": "fixed"}],
+        [dict(BOUNCE_VERDICT), dict(BOUNCE_VERDICT), dict(PASS_VERDICT)],
+    )
+    item_id = _seed(conn)
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "asked"
+    _answer(conn, res.ask_id, choice="say what is wrong", text="tighten it")
+    curator.advance_item(conn, item_id)
+    retry = [c for c in calls if c["model"] == "claude-sonnet-5"][-1]["user"]
+    assert "the owner says: tighten it" in retry
+    assert "Thesis: could attach to any video" in retry
+
+
 def test_say_what_is_wrong_feeds_owner_text(conn, monkeypatch):
     calls = _stub_sdk(
         monkeypatch,

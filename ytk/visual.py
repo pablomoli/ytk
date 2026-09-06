@@ -86,6 +86,14 @@ def _download_weights():
 
 def _load():
     global _model, _processor, _device
+    from .gpu import GPU_LOCK
+
+    with GPU_LOCK:
+        return _load_locked()
+
+
+def _load_locked():
+    global _model, _processor, _device
     if _model is not None and _processor is not None and _device is not None:
         return _model, _processor, _device
 
@@ -127,8 +135,10 @@ def embed_images(paths: list[Path], batch_size: int = 8) -> list[list[float]]:
     out: list[list[float]] = []
     for i in range(0, len(paths), batch_size):
         pil = [Image.open(p).convert("RGB") for p in paths[i : i + batch_size]]
-        inputs = processor(images=pil, return_tensors="pt").to(device)
-        with torch.no_grad():
+        from .gpu import GPU_LOCK
+
+        with GPU_LOCK, torch.no_grad():
+            inputs = processor(images=pil, return_tensors="pt").to(device)
             feats = model.get_image_features(**inputs)
         feats = getattr(feats, "pooler_output", feats)
         out.extend(feats.float().cpu().numpy().tolist())
@@ -151,8 +161,11 @@ def embed_texts(queries: list[str]) -> list[list[float]]:
         truncation=True,
         max_length=64,
         return_tensors="pt",
-    ).to(device)
-    with torch.no_grad():
+    )
+    from .gpu import GPU_LOCK
+
+    with GPU_LOCK, torch.no_grad():
+        inputs = inputs.to(device)
         feats = model.get_text_features(**inputs)
     feats = getattr(feats, "pooler_output", feats)
     return feats.float().cpu().numpy().tolist()
