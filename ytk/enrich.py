@@ -115,8 +115,10 @@ key_concepts
   Prioritize what someone might ask about later.
 
 insights
-  2-3 specific things worth remembering: a surprising technique, a non-obvious tradeoff, a gotcha, an \
-  approach that differed from convention. Each a complete, actionable sentence. Not trivia.
+  2-3 things the reader could act on that follow from what was shown: a consequence, a tradeoff, a \
+  gotcha, an approach that differed from convention. An insight may share a topic with a key concept \
+  but must not restate one: the concept names the fact, the insight says what to do about it. Test \
+  each: with the concepts list covered, does it still tell the reader what to do? Not trivia.
 
 interest_tags
   Flat list of topic labels. Lowercase, hyphenated. 3-8 tags.

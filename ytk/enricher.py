@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from . import ledger
 from .attempt import Attempt
 from .enrich import (
+    BASE_SKELETON,
     SOURCE_BIAS,
     Enrichment,
     KeyMoment,
@@ -84,7 +85,9 @@ new_tags
 one sentence on why no existing tag fits. Tags in the vocabulary need no entry.\
 """
 
-PROMPT_VERSION = hashlib.sha256(_V2_ADDENDUM.encode()).hexdigest()[:12]
+# The version names the whole role text the writer reads: the field guide in
+# enrich.py as well as the addendum, so an edit to either shows on the row.
+PROMPT_VERSION = hashlib.sha256((BASE_SKELETON + _V2_ADDENDUM).encode()).hexdigest()[:12]
 
 
 class EnrichmentPatch(BaseModel):
@@ -115,7 +118,9 @@ requested. Return ONLY the fields you change, each complete as it should now rea
 omit every field you keep. Fix exactly what the findings name, against the packet.\
 """
 
-PATCH_PROMPT_VERSION = hashlib.sha256((_V2_ADDENDUM + _PATCH_ADDENDUM).encode()).hexdigest()[:12]
+PATCH_PROMPT_VERSION = hashlib.sha256(
+    (BASE_SKELETON + _V2_ADDENDUM + _PATCH_ADDENDUM).encode()
+).hexdigest()[:12]
 
 _PROSE_FIELDS = ("thesis", "summary", "take_response", "title")
 
