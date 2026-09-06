@@ -14,11 +14,13 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from . import asks, grader, ledger, loop, rubric
+from . import attempt as attempt_mod
 from .enricher import EnrichmentV2, draft_path, enrich_item
 from .evidence import load_bundle
+from .view import View, ensure_view
 
 # Rounds per advance call. "Grader bounce, twice" (spec, Asks) is the ask
 # trigger; the owner's "say what is wrong" buys exactly one more round.
@@ -87,8 +89,8 @@ def _last_answered_ask(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | 
     ).fetchone()
 
 
-def _last_findings(conn: sqlite3.Connection, item_id: int) -> list[str]:
-    """The bounces of the latest grade, as feedback lines."""
+def _last_findings(conn: sqlite3.Connection, item_id: int) -> list[dict[str, Any]]:
+    """The bounces of the latest grade, as findings for the next attempt."""
     row = conn.execute(
         "SELECT detail FROM activity WHERE item_id = ? AND action = 'grade' ORDER BY id DESC LIMIT 1",
         (item_id,),
@@ -104,12 +106,11 @@ def _last_findings(conn: sqlite3.Connection, item_id: int) -> list[str]:
     bounces = cast("dict[str, object]", detail).get("bounces")
     if not isinstance(bounces, list):
         return []
-    out: list[str] = []
-    for b in cast("list[object]", bounces):
-        if isinstance(b, dict):
-            bd = cast("dict[str, object]", b)
-            out.append(f"{bd.get('check', '')}: {bd.get('detail', '')}")
-    return out
+    return [cast("dict[str, Any]", b) for b in cast("list[object]", bounces) if isinstance(b, dict)]
+
+
+def _finding_lines(findings: list[dict[str, Any]]) -> list[str]:
+    return [f"{f.get('check', '')}: {f.get('detail', '')}" for f in findings]
 
 
 def model_calls(conn: sqlite3.Connection, item_id: int) -> int:
@@ -156,18 +157,30 @@ def _last_draft(conn: sqlite3.Connection, item_id: int) -> EnrichmentV2 | None:
 
 
 def _grade_inputs(
-    conn: sqlite3.Connection, item_id: int, *, rubric_hash: str | None, prompt_version: str | None
+    conn: sqlite3.Connection,
+    item_id: int,
+    *,
+    view: View,
+    attempt_n: int,
+    rubric_hash: str | None,
+    prompt_version: str | None,
 ) -> str:
+    """The grade row names the packet it read. A grade over a different
+    packet than its draft is the fault #212 exists for, so it is refused
+    here rather than recorded."""
+    row = conn.execute(
+        "SELECT inputs FROM activity WHERE item_id = ? AND action = 'enrich' ORDER BY id DESC LIMIT 1",
+        (item_id,),
+    ).fetchone()
+    drafted = json.loads(row["inputs"]).get("view_hash") if row and row["inputs"] else None
+    if drafted is not None and drafted != view.view_hash:
+        raise RuntimeError(f"grade would read packet {view.view_hash} but the draft read {drafted}")
     take = _latest_take(conn, item_id)
-    item = conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item_id,)).fetchone()
-    evidence_hash = None
-    if item["payload_ref"] and Path(item["payload_ref"]).exists():
-        import hashlib
-
-        evidence_hash = hashlib.sha256(Path(item["payload_ref"]).read_bytes()).hexdigest()[:12]
     return json.dumps(
         {
-            "evidence_hash": evidence_hash,
+            "evidence_hash": view.bundle_hash,
+            "view_hash": view.view_hash,
+            "attempt": attempt_n,
             "take_id": take["id"] if take else None,
             "rubric_hash": rubric_hash,
             "prompt_version": prompt_version,
@@ -249,10 +262,11 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
     item = conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item_id,)).fetchone()
     if not item["payload_ref"] or not Path(item["payload_ref"]).exists():
         return AdvanceResult(item_id, "error", detail="no evidence bundle on disk")
-    bundle = load_bundle(Path(item["payload_ref"]))
+    view = ensure_view(item_id, Path(item["payload_ref"]))
+    take_rec = {"id": take["id"], "kind": take["kind"], "text": take["text"]} if take else None
 
-    feedback: list[str] | None = None
-    previous: EnrichmentV2 | None = None
+    findings: list[dict[str, Any]] = []
+    previous: dict[str, Any] | None = None
     answered = _last_answered_ask(conn, item_id)
     if answered is not None and answered["kind"] in _ACCEPT_KINDS:
         if answered["choice"] == "accept as is":
@@ -264,8 +278,12 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
         if answered["text"]:
             # The owner's line plus the findings that raised the ask: a
             # one-word answer must not drop the grader's own list.
-            feedback = [f"the owner says: {answered['text']}", *_last_findings(conn, item_id)]
-            previous = _last_draft(conn, item_id)
+            findings = [
+                {"check": "the owner says", "detail": answered["text"]},
+                *_last_findings(conn, item_id),
+            ]
+            last = _last_draft(conn, item_id)
+            previous = last.model_dump() if last is not None else None
 
     rub = rubric.load()
     vocab = _vocab()
@@ -274,22 +292,27 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
         if spent >= ITEM_CALL_CAP:
             ask_id = _raise_budget_ask(conn, item_id, spent)
             return AdvanceResult(item_id, "asked", ask_id=ask_id)
-        attempt = _next_attempt(conn, item_id)
-        loop.stamp_stage("enrich", f"attempt {attempt}")
-        enriched = enrich_item(conn, item_id, attempt=attempt, feedback=feedback, previous=previous)
+        n = _next_attempt(conn, item_id)
+        att = attempt_mod.open_attempt(
+            item_id, n, view, take=take_rec, previous=previous, findings_in=findings
+        )
+        loop.stamp_stage("enrich", f"attempt {n}")
+        enriched = enrich_item(conn, item_id, view=view, attempt=att)
         draft = enriched.draft
-        previous = draft
+        att.record_draft(enriched.draft_path)
+        previous = draft.model_dump()
 
         loop.stamp_stage("checks")
         bounces = grader.deterministic_checks(
             draft,
-            bundle,
+            view,
             vocab=vocab,
             take_kind=take["kind"] if take else None,
             take_text=take["text"] if take else None,
-            neighbor_cosine=neighbor_cosine(draft, bundle.media_id),
+            neighbor_cosine=neighbor_cosine(draft, load_bundle(Path(view.bundle_path)).media_id),
         )
         if bounces:
+            findings = [b.model_dump() for b in bounces]
             ledger.insert_activity(
                 conn,
                 item_id,
@@ -297,20 +320,24 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
                 action="grade",
                 from_state=ledger.item_state(conn, item_id),
                 to_state=None,
-                inputs=_grade_inputs(conn, item_id, rubric_hash=None, prompt_version=None),
-                reason=f"bounce: {bounces[0].check}",
-                detail=json.dumps(
-                    {"layer": "deterministic", "bounces": [b.model_dump() for b in bounces]}
+                inputs=_grade_inputs(
+                    conn, item_id, view=view, attempt_n=n, rubric_hash=None, prompt_version=None
                 ),
+                reason=f"bounce: {bounces[0].check}",
+                detail=json.dumps({"layer": "deterministic", "bounces": findings}),
             )
-            feedback = [f"{b.check}: {b.detail}" for b in bounces]
+            att.close({"layer": "deterministic", "passed": False, "bounces": findings})
             continue
 
         loop.stamp_stage("grade", "against the rubric")
-        verdict, res = grader.grade_model(
-            draft, bundle, rub.text, take_text=take["text"] if take else None
-        )
+        verdict, res = grader.grade_model(draft, view, att, rub.text)
         passed = verdict.passed and not any(not s.grounded for s in verdict.spot_checks)
+        outcome = {
+            "layer": "model",
+            "passed": passed,
+            "bounces": [b.model_dump() for b in verdict.bounces],
+            "spot_checks": [s.model_dump() for s in verdict.spot_checks],
+        }
         ledger.insert_activity(
             conn,
             item_id,
@@ -319,36 +346,39 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
             from_state=ledger.item_state(conn, item_id),
             to_state="enriched" if passed else None,
             inputs=_grade_inputs(
-                conn, item_id, rubric_hash=rub.hash, prompt_version=grader.GRADER_PROMPT_VERSION
+                conn,
+                item_id,
+                view=view,
+                attempt_n=n,
+                rubric_hash=rub.hash,
+                prompt_version=grader.GRADER_PROMPT_VERSION,
             ),
-            output_ref=str(draft_path(item_id, attempt)),
+            output_ref=str(draft_path(item_id, n)),
             model=res.model,
             tokens=res.tokens,
             duration_ms=res.duration_ms,
             reason="pass"
             if passed
             else f"bounce: {verdict.bounces[0].check if verdict.bounces else 'ungrounded claim'}",
-            detail=json.dumps(
-                {
-                    "layer": "model",
-                    "bounces": [b.model_dump() for b in verdict.bounces],
-                    "spot_checks": [s.model_dump() for s in verdict.spot_checks],
-                }
-            ),
+            detail=json.dumps(outcome),
         )
+        att.close(outcome)
         if passed:
             note = _land(conn, item_id, draft, actor=actor, reason="grader pass")
             return AdvanceResult(item_id, "kept", note_path=note)
-        feedback = [f"{b.check}: {b.detail}" for b in verdict.bounces] or ["ungrounded claim"]
+        findings = [b.model_dump() for b in verdict.bounces] or [
+            {"check": "grounding", "detail": "ungrounded claim"}
+        ]
 
+    lines = _finding_lines(findings)
     ask_id = asks.raise_ask(
         conn,
         item_id,
         proposal={
             "kind": "grader bounce, twice",
-            "why": (feedback or ["two grader bounces"])[0][:200],
+            "why": (lines or ["two grader bounces"])[0][:200],
             "options": ["accept as is", "say what is wrong", "drop"],
-            "bounces": feedback,
+            "bounces": lines,
         },
         actor="grader",
     )

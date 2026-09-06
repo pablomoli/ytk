@@ -61,6 +61,21 @@ def _seed(conn, *, take: str | None = "why loops beat cron") -> int:
     return res.item_id
 
 
+def _packet(conn, item_id, n=1, *, findings=None, previous=None, take=True):
+    """The proctor's job in miniature: one view per bundle, one attempt."""
+    from ytk import attempt as A
+    from ytk import view as V
+
+    payload = conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item_id,)).fetchone()
+    v = V.ensure_view(item_id, payload["payload_ref"])
+    row = conn.execute(
+        "SELECT * FROM takes WHERE item_id = ? ORDER BY id DESC LIMIT 1", (item_id,)
+    ).fetchone()
+    take_rec = {"id": row["id"], "kind": row["kind"], "text": row["text"]} if row and take else None
+    a = A.open_attempt(item_id, n, v, take=take_rec, previous=previous, findings_in=findings or [])
+    return v, a
+
+
 DRAFT = {
     "thesis": "He builds a three-file agent loop with an uneditable grader.",
     "summary": "Work script, grader, rules markdown; the agent edits only the first.",
@@ -91,7 +106,8 @@ def stub_call(monkeypatch):
 
 def test_enrich_item_writes_draft_and_activity(conn, stub_call):
     item_id = _seed(conn)
-    res = enricher.enrich_item(conn, item_id, attempt=1)
+    v, a = _packet(conn, item_id)
+    res = enricher.enrich_item(conn, item_id, view=v, attempt=a)
     assert res.draft.take_response is not None
     assert res.draft_path.name == f"{item_id}-1.json"
     assert res.draft_path.exists()
@@ -107,13 +123,16 @@ def test_enrich_item_writes_draft_and_activity(conn, stub_call):
     assert len(inputs["evidence_hash"]) == 12
     assert inputs["take_id"] is not None
     assert inputs["prompt_version"] == enricher.PROMPT_VERSION
+    assert inputs["view_hash"] == v.view_hash and inputs["attempt"] == 1
     assert row["output_ref"] == str(res.draft_path)
 
 
 def test_prompt_carries_take_and_never_the_rubric(conn, stub_call):
     item_id = _seed(conn, take="why loops beat cron")
-    enricher.enrich_item(conn, item_id, attempt=1)
+    v, a = _packet(conn, item_id)
+    enricher.enrich_item(conn, item_id, view=v, attempt=a)
     user = stub_call[0]["user"]
+    assert v.rendered in user
     assert "why loops beat cron" in user
     # The conftest stub rubric says "Be specific. No filler." — the wall
     # holds only if none of it reaches the enricher's prompts.
@@ -124,9 +143,13 @@ def test_prompt_carries_take_and_never_the_rubric(conn, stub_call):
 
 def test_bounce_feedback_reaches_the_retry_prompt(conn, stub_call):
     item_id = _seed(conn)
-    enricher.enrich_item(
-        conn, item_id, attempt=2, feedback=["thesis: could attach to any video on the topic"]
+    v, a = _packet(
+        conn,
+        item_id,
+        2,
+        findings=[{"check": "thesis", "detail": "could attach to any video on the topic"}],
     )
+    enricher.enrich_item(conn, item_id, view=v, attempt=a)
     assert "could attach to any video" in stub_call[0]["user"]
     row = conn.execute(
         "SELECT reason FROM activity WHERE item_id = ? AND action = 'enrich'", (item_id,)
@@ -144,7 +167,8 @@ def test_take_less_item_enriches_without_response_section(conn, stub_call, monke
         ),
     )
     item_id = _seed(conn, take=None)
-    res = enricher.enrich_item(conn, item_id, attempt=1)
+    v, a = _packet(conn, item_id, take=False)
+    res = enricher.enrich_item(conn, item_id, view=v, attempt=a)
     assert res.draft.take_response is None
     row = conn.execute(
         "SELECT * FROM activity WHERE item_id = ? AND action = 'enrich'", (item_id,)
@@ -153,10 +177,10 @@ def test_take_less_item_enriches_without_response_section(conn, stub_call, monke
     assert json.loads(row["inputs"])["take_id"] is None
 
 
-def test_enricher_sees_at_most_two_frames(conn, monkeypatch, tmp_path):
-    """Measured 2026-08-31 on item 756 (four ~60KB reel frames): 4 frames
-    fail structured output 3/3, 2 and 1 succeed. The cap protects the model
-    call; the bundle keeps every frame for the note embed."""
+def test_enricher_lists_the_packets_shown_frames_and_mounts_only_them(conn, monkeypatch, tmp_path):
+    """e501375: four reel frames fail structured output 3/3, two pass. The
+    cap is the view's budget now; the enricher lists what the view shows and
+    mounts what the view mounts, nothing of its own."""
     import json as _json
 
     from ytk import sdk
@@ -168,19 +192,14 @@ def test_enricher_sees_at_most_two_frames(conn, monkeypatch, tmp_path):
         f.write_bytes(b"jpeg")
         frames.append(str(f))
     item = _seed(conn)
-    bundle = _json.loads(
-        Path(
-            conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item,)).fetchone()[
-                "payload_ref"
-            ]
-        ).read_text()
-    )
-    bundle["frames"] = frames
-    Path(
+    payload = Path(
         conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item,)).fetchone()[
             "payload_ref"
         ]
-    ).write_text(_json.dumps(bundle))
+    )
+    bundle = _json.loads(payload.read_text())
+    bundle["frames"] = frames
+    payload.write_text(_json.dumps(bundle))
 
     seen = {}
 
@@ -192,10 +211,13 @@ def test_enricher_sees_at_most_two_frames(conn, monkeypatch, tmp_path):
         )
 
     monkeypatch.setattr(sdk, "call_structured", fake)
-    enrich_item(conn, item, attempt=1)
+    v, a = _packet(conn, item)
+    enrich_item(conn, item, view=v, attempt=a)
     listed = [ln for ln in seen["user"].splitlines() if "frame-" in ln]
     assert len(listed) == 2
-    assert "frame-0" in listed[0] and "frame-1" in listed[1]
+    assert "frame:001" in listed[0] and "frame-0" in listed[0] and "frame-1" in listed[1]
+    assert seen["add_dirs"] == v.mounts == [str(tmp_path)]
+    assert "frames 3 to 4" in seen["user"]
 
 
 def test_v2_schema_asks_for_a_title():
@@ -207,8 +229,7 @@ def test_v2_schema_asks_for_a_title():
 
 class TestPatchRetry:
     """A retry is a patch: previous draft + findings in, changed fields out,
-    unchanged fields copied in code; the prompt carries transcript windows
-    around the cited timestamps, not the whole transcript."""
+    unchanged fields copied in code; the packet is the same on every round."""
 
     def _prev(self):
         from ytk.enricher import EnrichmentV2
@@ -251,45 +272,42 @@ class TestPatchRetry:
         out = merge_patch(self._prev(), EnrichmentPatch(thesis='{"insights": ["x"]}'))
         assert out.thesis == "old thesis"
 
-    def test_patch_prompt_windows_the_transcript_around_cited_stamps(self):
-        from ytk.enricher import build_patch_prompt
-        from ytk.evidence import EvidenceBundle
+    def test_patch_reads_the_whole_packet_and_the_attempt_header(self, conn, monkeypatch):
+        """The retry windows (b144705) are gone: the packet is the record on
+        every round, and the previous draft and findings ride in the attempt
+        header, not in a private rendering."""
+        from ytk import sdk
+        from ytk.enricher import SCHEMA_PATCH, enrich_item
 
-        transcript = [
-            {"start": t, "duration": 1, "text": f"line at {t}"} for t in range(0, 3600, 30)
-        ]
-        b = EvidenceBundle(
-            source="youtube",
-            url="u",
-            title="T",
-            transcript=transcript,
-            transcript_origin="api-manual",
-            transcript_language="en",
-            transcript_status="ok",
-            duration=3600,
-        )
-        prompt = build_patch_prompt(
-            b, self._prev(), ["[Key moments] 5:48 is wrong, the reveal is at 5:43"], "intent", "why"
-        )
-        assert "Previous draft:" in prompt and "old thesis" in prompt
-        assert "Grader findings:" in prompt
-        assert "line at 330" in prompt  # inside the window around 5:43-5:48
-        assert "line at 1800" not in prompt  # far away, not shipped
-        assert "Evidence excerpts" in prompt
+        item = _seed(conn)
+        seen = {}
 
-    def test_patch_prompt_falls_back_to_full_transcript_without_stamps(self):
-        from ytk.enricher import build_patch_prompt
-        from ytk.evidence import EvidenceBundle
+        def fake(system, user, schema, *, add_dirs=None, max_turns=20, model=None):
+            seen["user"] = user
+            seen["schema"] = schema
+            seen["system"] = system
+            return sdk.StructuredResult(
+                data={"summary": "new summary"}, model=model, tokens=10, duration_ms=5, usage=None
+            )
 
-        b = EvidenceBundle(
-            source="web",
-            url="u",
-            title="T",
-            transcript=[{"start": 0, "duration": 1, "text": "only line"}],
-            transcript_origin="none",
-            transcript_language=None,
-            transcript_status="none",
+        monkeypatch.setattr(sdk, "call_structured", fake)
+        prev = self._prev().model_dump()
+        v, a = _packet(
+            conn,
+            item,
+            2,
+            previous=prev,
+            findings=[{"check": "Key moments", "detail": "5:48 is wrong", "where": "5:48"}],
         )
-        prev = self._prev().model_copy(update={"key_moments": []})
-        prompt = build_patch_prompt(b, prev, ["[Thesis] too generic"], None, None)
-        assert "Transcript" in prompt and "only line" in prompt
+        res = enrich_item(conn, item, view=v, attempt=a)
+        assert seen["schema"] == SCHEMA_PATCH and "RETRY" in seen["system"]
+        assert v.rendered in seen["user"]
+        assert "Previous draft:" in seen["user"] and "old thesis" in seen["user"]
+        assert "Key moments: 5:48 is wrong (where: 5:48)" in seen["user"]
+        assert "the grader cannot edit the work script" in seen["user"]
+        assert res.draft.summary == "new summary" and res.draft.thesis == "old thesis"
+        row = conn.execute(
+            "SELECT reason, inputs FROM activity WHERE item_id = ? AND action = 'enrich'", (item,)
+        ).fetchone()
+        assert "attempt 2 (patch)" in row["reason"]
+        assert json.loads(row["inputs"])["mode"] == "patch"

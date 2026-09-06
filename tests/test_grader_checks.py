@@ -1,11 +1,16 @@
 """The grader's deterministic layer (#197 P4): code only, every draft,
 spends no model call, bounces with the failing check named."""
 
+import json
+from dataclasses import asdict
+
 import pytest
 
+from ytk import attempt as A
 from ytk import grader
+from ytk import view as V
 from ytk.enricher import EnrichmentV2, NewTag
-from ytk.evidence import EvidenceBundle
+from ytk.evidence import EvidenceBundle, evidence_dir
 
 
 def _bundle(**overrides) -> EvidenceBundle:
@@ -54,11 +59,23 @@ def _draft(**overrides) -> EnrichmentV2:
 VOCAB = ["ai-agents", "creative-coding"]
 
 
+def _view(bundle=None, budget=V.DEFAULT_BUDGET) -> V.View:
+    out = evidence_dir() / "7.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(asdict(bundle or _bundle())))
+    return V.build_view(7, out, budget)
+
+
+def _attempt(view, take_text="why loops beat cron", n=1, findings=None, previous=None):
+    take = {"id": 1, "kind": "intent", "text": take_text} if take_text else None
+    return A.open_attempt(7, n, view, take=take, previous=previous, findings_in=findings or [])
+
+
 def _check(draft, bundle=None, **kw):
     kw.setdefault("vocab", VOCAB)
     kw.setdefault("take_kind", "intent")
     kw.setdefault("take_text", "why loops beat cron")
-    return grader.deterministic_checks(draft, bundle or _bundle(), **kw)
+    return grader.deterministic_checks(draft, _view(bundle), **kw)
 
 
 def test_clean_draft_passes():
@@ -174,15 +191,15 @@ def test_grade_model_reads_rubric_and_returns_verdict(monkeypatch):
         )
 
     monkeypatch.setattr(sdk, "call_structured", fake)
-    verdict, res = grader.grade_model(
-        _draft(), _bundle(), rubric_mod.load().text, take_text="why loops beat cron"
-    )
+    v = _view()
+    verdict, res = grader.grade_model(_draft(), v, _attempt(v), rubric_mod.load().text)
     assert not verdict.passed
     assert verdict.bounces[0].check == "Thesis"
     assert res.tokens == 900
     # the conftest stub rubric reaches the grader's prompt — and only the grader's
     assert "No filler" in calls[0]["system"]
     assert "why loops beat cron" in calls[0]["user"]
+    assert v.rendered in calls[0]["user"]
     assert calls[0]["model"] == grader.GRADER_MODEL
 
 
@@ -242,31 +259,31 @@ class TestGroundingNormalization:
 
 
 class TestGraderEvidence:
-    """The judge sees what the writer saw: timestamped transcript lines and
-    the same capped frames. Half of item 756's objections were the grader's
-    own blindness quoting the rubric (2026-08-31)."""
+    """The judge reads the packet the writer read: same rendered bytes, same
+    shown frames, same mounts. Half of item 756's objections were the
+    grader's own blindness quoting the rubric (2026-08-31)."""
 
     def test_rendered_transcript_carries_timestamps(self):
-        b = _bundle(
-            transcript=[
-                {"start": 0, "duration": 3, "text": "we built a three-file loop for agents"},
-                {"start": 400, "duration": 3, "text": "ripgrep scans the rules markdown fast"},
-            ]
+        v = _view(
+            _bundle(
+                transcript=[
+                    {"start": 0, "duration": 3, "text": "we built a three-file loop for agents"},
+                    {"start": 400, "duration": 3, "text": "ripgrep scans the rules markdown fast"},
+                ]
+            )
         )
-        rendered = grader._render_evidence(b)
-        assert "[0:00] we built a three-file loop for agents" in rendered
-        assert "[6:40] ripgrep scans the rules markdown fast" in rendered
+        assert "[0:00] we built a three-file loop for agents" in v.rendered
+        assert "[6:40] ripgrep scans the rules markdown fast" in v.rendered
 
-    def test_grade_model_shows_capped_frames(self, tmp_path, monkeypatch):
+    def test_grade_model_shows_the_views_frames_and_mounts(self, tmp_path, monkeypatch):
         from ytk import sdk
-        from ytk.enricher import ENRICH_MAX_FRAMES
 
         frames = []
         for i in range(4):
             f = tmp_path / f"frame-{i}.jpg"
             f.write_bytes(b"jpeg")
             frames.append(str(f))
-        b = _bundle(frames=frames)
+        v = _view(_bundle(frames=frames))
         seen = {}
 
         def fake(system, user, schema, *, add_dirs=None, max_turns=20, model=None):
@@ -281,10 +298,10 @@ class TestGraderEvidence:
             )
 
         monkeypatch.setattr(sdk, "call_structured", fake)
-        grader.grade_model(_draft(), b, "rubric text", take_text=None)
+        grader.grade_model(_draft(), v, _attempt(v), "rubric text")
         listed = [ln for ln in seen["user"].splitlines() if "frame-" in ln]
-        assert len(listed) == ENRICH_MAX_FRAMES
-        assert seen["add_dirs"] == [str(tmp_path)]
+        assert len(listed) == v.budget["frames_shown"] == 2
+        assert seen["add_dirs"] == v.mounts == [str(tmp_path)]
 
     def test_grade_model_without_frames_grants_no_dirs(self, monkeypatch):
         from ytk import sdk
@@ -302,19 +319,71 @@ class TestGraderEvidence:
             )
 
         monkeypatch.setattr(sdk, "call_structured", fake)
-        grader.grade_model(_draft(), _bundle(), "rubric text", take_text=None)
+        v = _view()
+        grader.grade_model(_draft(), v, _attempt(v), "rubric text")
         assert not seen["add_dirs"]
+
+    def test_teacher_is_told_what_it_asked_for_last_round(self, monkeypatch):
+        """Item 759: the teacher asked for an insight, then bounced it as a
+        duplicate. The attempt header carries its own findings back."""
+        from ytk import sdk
+
+        seen = {}
+
+        def fake(system, user, schema, *, add_dirs=None, max_turns=20, model=None):
+            seen["system"] = system
+            seen["user"] = user
+            return sdk.StructuredResult(
+                data={"passed": True, "bounces": [], "spot_checks": []},
+                model=model,
+                tokens=10,
+                duration_ms=5,
+                usage=None,
+            )
+
+        monkeypatch.setattr(sdk, "call_structured", fake)
+        v = _view()
+        a = _attempt(
+            v, n=2, findings=[{"check": "Insights", "detail": "add the service-worker gotcha"}]
+        )
+        grader.grade_model(_draft(), v, a, "rubric text")
+        assert "not a new objection" in seen["system"]
+        assert "Insights: add the service-worker gotcha" in seen["user"]
+
+
+class TestPacketUnits:
+    """Claims cite packet units; the spell-checker reads the id set and the
+    grounding text, nothing else (#212)."""
+
+    def test_concept_read_off_a_shown_frame_is_not_ungrounded(self, tmp_path):
+        """Items 489 and 534 (2026-09-06): names read off the screen bounced
+        at the deterministic layer because it only had the transcript."""
+        f = tmp_path / "frame-0.jpg"
+        f.write_bytes(b"jpeg")
+        d = _draft(key_concepts=["Armature rigging: bones drawn over the puppet [frame:001]"])
+        assert [x for x in _check(d, _bundle(frames=[str(f)])) if "concept" in x.check] == []
+
+    def test_concept_citing_a_unit_outside_the_packet_bounces(self, tmp_path):
+        d = _draft(key_concepts=["Armature rigging: bones drawn over the puppet [frame:009]"])
+        bounces = [x for x in _check(d) if x.check == "cites unknown unit"]
+        assert len(bounces) == 1 and "frame:009" in bounces[0].detail
+
+    def test_moment_past_the_cut_bounces_as_outside_the_packet(self):
+        seg = [{"start": i, "duration": 1, "text": "word " * 20} for i in range(9000)]
+        d = _draft(
+            key_moments=[{"timestamp": "2:20:00", "description": "word word"}],
+            key_concepts=["word: said a lot"],
+        )
+        bounces = _check(d, _bundle(transcript=seg, duration=9000))
+        assert any(x.check == "cites outside the packet" for x in bounces)
+        assert not any(x.check == "key moment adjacency" for x in bounces)
 
 
 def test_long_evidence_is_kept_whole_and_a_cut_is_announced():
     """Item 215: an 80k cap silently dropped the back half of a lecture and
-    the judge bounced it as ungrounded."""
-    from ytk import grader
-
+    the judge bounced it as ungrounded. The cut now lives in the packet."""
     seg = [{"start": i, "duration": 1, "text": "word " * 20} for i in range(3000)]
-    b = _bundle(transcript=seg)
-    text = grader._render_evidence(b)
-    assert len(text) > 80_000 and "[Evidence cut" not in text
-    huge = _bundle(transcript=seg * 3)
-    cut = grader._render_evidence(huge)
-    assert cut.endswith("skip them in spot-checks.]")
+    v = _view(_bundle(transcript=seg))
+    assert len(v.rendered) > 80_000 and "not in this packet" not in v.rendered
+    huge = _view(_bundle(transcript=seg * 3))
+    assert "neither cite nor bounce them" in huge.rendered

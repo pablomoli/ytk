@@ -22,6 +22,7 @@ from pathlib import Path
 from . import vault
 from .enricher import EnrichmentV2
 from .evidence import EvidenceBundle
+from .view import strip_cites
 
 
 def _media_key(bundle: EvidenceBundle) -> str:
@@ -81,7 +82,8 @@ def _spine(
     sections.append(f"## Thesis\n{draft.thesis}")
     sections.append(f"## Commentary\n{draft.summary}")
     if draft.key_concepts:
-        sections.append("## Key Concepts\n" + "\n".join(f"- {c}" for c in draft.key_concepts))
+        rows = "\n".join(f"- {strip_cites(c)}" for c in draft.key_concepts)
+        sections.append("## Key Concepts\n" + rows)
     if draft.insights:
         sections.append("## Insights\n" + "\n".join(f"- {i}" for i in draft.insights))
     if draft.key_moments:

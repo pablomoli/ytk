@@ -385,3 +385,56 @@ def test_advance_narrates_stages_into_health(conn, monkeypatch):
     item_id = _seed(conn)
     curator.advance_item(conn, item_id)
     assert stages == ["enrich", "checks", "grade", "land"]
+
+
+def test_student_and_teacher_read_the_same_packet(conn, monkeypatch):
+    """#212's invariant: identical rendered bytes in both prompts, the same
+    attempt header, and every enrich and grade row naming the view."""
+    from ytk import attempt as A
+    from ytk import view as V
+
+    calls = _stub_sdk(monkeypatch, [dict(BAD_DRAFT), dict(DRAFT)], [dict(PASS_VERDICT)])
+    item_id = _seed(conn)
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "kept"
+    view = V.latest_view(item_id)
+    assert view is not None
+    sonnet = [c["user"] for c in calls if c["model"] == "claude-sonnet-5"]
+    opus = [c["user"] for c in calls if c["model"] == "claude-opus-5"]
+    assert len(sonnet) == 2 and len(opus) == 1
+    for user in (*sonnet, *opus):
+        assert view.rendered in user
+    assert "Attempt 1 for item" in sonnet[0] and "Attempt 2 for item" in sonnet[1]
+    assert "Attempt 2 for item" in opus[0] and "banned phrasing" in opus[0]
+    rows = conn.execute(
+        "SELECT action, inputs FROM activity WHERE item_id = ? AND action IN ('enrich', 'grade')",
+        (item_id,),
+    ).fetchall()
+    assert len(rows) == 4
+    assert {json.loads(r["inputs"])["view_hash"] for r in rows} == {view.view_hash}
+    attempts = A.attempts_for(item_id)
+    assert [a.n for a in attempts] == [1, 2]
+    assert attempts[0].verdict_out["layer"] == "deterministic"
+    assert attempts[1].verdict_out["passed"] is True
+    assert attempts[1].findings_in[0]["check"] == "banned phrasing"
+    assert attempts[1].previous_draft["thesis"] == BAD_DRAFT["thesis"]
+
+
+def test_a_grade_over_a_different_packet_is_refused(conn, monkeypatch):
+    from ytk import view as V
+
+    _stub_sdk(monkeypatch, [dict(DRAFT)], [dict(PASS_VERDICT)])
+    item_id = _seed(conn)
+    payload = conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item_id,)).fetchone()[
+        "payload_ref"
+    ]
+    real = V.ensure_view(item_id, payload)
+    other = V.build_view(item_id, payload, V.Budget(frames_shown=1))
+    conn.execute(
+        "INSERT INTO activity (item_id, at, actor, action, inputs) VALUES (?, ?, 'enricher', 'enrich', ?)",
+        (item_id, ledger.now(), json.dumps({"view_hash": other.view_hash})),
+    )
+    with pytest.raises(RuntimeError, match="different|would read"):
+        curator._grade_inputs(
+            conn, item_id, view=real, attempt_n=1, rubric_hash=None, prompt_version=None
+        )

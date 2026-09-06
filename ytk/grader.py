@@ -2,9 +2,11 @@
 enricher.
 
 Layer one, this file's deterministic_checks: code only, runs on every
-draft, spends no model call, bounces with the failing check named. Layer
-two (grade_model, below) runs only after layer one passes: Opus reads the
-rubric, the draft and the evidence, and spot-checks summary claims.
+draft, spends no model call, bounces with the failing check named. It reads
+the view's grounding_text and unit ids and nothing else (#212). Layer two
+(grade_model, below) runs only after layer one passes: Opus reads the
+rubric, the draft, the same packet the writer read, and the attempt header
+that says what it asked for last round.
 """
 
 from __future__ import annotations
@@ -12,7 +14,6 @@ from __future__ import annotations
 import hashlib
 import re
 import unicodedata
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
@@ -20,9 +21,9 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from .sdk import StructuredResult
 
-from .enrich import fmt_ts
-from .enricher import ENRICH_MAX_FRAMES, EnrichmentV2
-from .evidence import EvidenceBundle
+from .attempt import Attempt
+from .enricher import EnrichmentV2
+from .view import View, split_cites
 
 # From the rubric's "What I do not want", frozen into code so the check is
 # deterministic; the model layer reads the live rubric for everything else.
@@ -123,24 +124,36 @@ def _banned_phrasing(draft: EnrichmentV2) -> list[Bounce]:
     return out
 
 
-def _moment_checks(draft: EnrichmentV2, bundle: EvidenceBundle) -> list[Bounce]:
-    if not bundle.transcript or not bundle.duration:
+def _moment_checks(draft: EnrichmentV2, view: View) -> list[Bounce]:
+    if not view.transcript or not view.duration:
         return []
+    span = view.transcript_span()
     out: list[Bounce] = []
     for km in draft.key_moments:
         secs = _parse_ts(km.timestamp)
-        if secs is None or secs > bundle.duration:
+        if secs is None or secs > view.duration:
             out.append(
                 Bounce(
                     check="key moment timestamp",
-                    detail=f"{km.timestamp} outside 0..{int(bundle.duration)}s",
+                    detail=f"{km.timestamp} outside 0..{int(view.duration)}s",
+                    where=km.description[:80],
+                )
+            )
+            continue
+        if span is not None and secs > span[1] + ADJACENCY_WINDOW_S:
+            # Past the cut: not in the packet, so unverifiable here, and the
+            # writer was told not to cite it.
+            out.append(
+                Bounce(
+                    check="cites outside the packet",
+                    detail=f"t:{int(secs)} is past the shown transcript (ends t:{int(span[1])})",
                     where=km.description[:80],
                 )
             )
             continue
         window = " ".join(
             str(s.get("text", ""))
-            for s in bundle.transcript
+            for s in view.transcript
             if abs(float(s.get("start", 0)) - secs) <= ADJACENCY_WINDOW_S
         )
         if not (_tokens(km.description) & _tokens(window)):
@@ -154,14 +167,7 @@ def _moment_checks(draft: EnrichmentV2, bundle: EvidenceBundle) -> list[Bounce]:
     return out
 
 
-def _evidence_text(bundle: EvidenceBundle) -> str:
-    transcript = " ".join(str(s.get("text", "")) for s in bundle.transcript)
-    return " ".join(
-        t for t in (transcript, bundle.description, bundle.caption, bundle.text, bundle.title) if t
-    )
-
-
-def _concept_checks(draft: EnrichmentV2, bundle: EvidenceBundle) -> list[Bounce]:
+def _concept_checks(draft: EnrichmentV2, view: View) -> list[Bounce]:
     out: list[Bounce] = []
     if len(draft.key_concepts) < MIN_CONCEPTS:
         out.append(
@@ -170,15 +176,29 @@ def _concept_checks(draft: EnrichmentV2, bundle: EvidenceBundle) -> list[Bounce]
                 detail=f"{len(draft.key_concepts)} concepts; floor is {MIN_CONCEPTS}",
             )
         )
-    evidence_tokens = _tokens(_evidence_text(bundle))
+    evidence_tokens = _tokens(view.grounding_text)
     for concept in draft.key_concepts:
-        name = concept.split(":", 1)[0]
+        text, cites = split_cites(concept)
+        name = text.split(":", 1)[0]
+        unknown = [c for c in cites if not view.has_unit(c)]
+        if unknown:
+            out.append(
+                Bounce(
+                    check="cites unknown unit",
+                    detail=f"'{name.strip()}' cites {', '.join(unknown)}, not in the packet",
+                )
+            )
+            continue
+        if any(c.startswith("frame:") or c == "sheet" for c in cites):
+            # Read off a frame: the spell-checker cannot see it, the teacher
+            # opens it. Never ungrounded here.
+            continue
         name_tokens = _tokens(name)
         if name_tokens and not (name_tokens & evidence_tokens):
             out.append(
                 Bounce(
                     check="concept grounding",
-                    detail=f"'{name.strip()}' not findable in transcript or description",
+                    detail=f"'{name.strip()}' not findable in the packet",
                 )
             )
     return out
@@ -205,7 +225,7 @@ def _tag_checks(draft: EnrichmentV2, vocab: list[str]) -> list[Bounce]:
 
 def deterministic_checks(
     draft: EnrichmentV2,
-    bundle: EvidenceBundle,
+    view: View,
     *,
     vocab: list[str],
     take_kind: str | None,
@@ -217,8 +237,8 @@ def deterministic_checks(
     document (None skips the check — e.g. Chroma unavailable)."""
     out: list[Bounce] = []
     out += _banned_phrasing(draft)
-    out += _moment_checks(draft, bundle)
-    out += _concept_checks(draft, bundle)
+    out += _moment_checks(draft, view)
+    out += _concept_checks(draft, view)
     out += _tag_checks(draft, vocab)
     if neighbor_cosine is not None and neighbor_cosine > NEAR_DUP_BASELINE:
         out.append(
@@ -265,6 +285,17 @@ named and nothing else, so an unnamed failure costs a whole extra round. Quote
 the rubric section exactly; a wrong bounce is fixed by the owner editing the
 rubric, so the bounce must point at the words that produced it.
 
+The packet is the whole record, and it is the same packet the writer read. It
+names its units (t:<seconds>, frame:NNN, sheet) and says what is not in it.
+Open every frame the packet shows before judging a claim about what is on
+screen; a concept that cites a frame is checked against that frame. What the
+packet says is not in it cannot be checked here: never bounce it as
+ungrounded. When a finding rests on evidence, name the unit in `where`.
+
+The attempt header lists the findings requested last round. Judge whether each
+one was addressed. A change you asked for is not a new objection: do not
+bounce this round for doing what last round's findings demanded.
+
 Always spot-check three claims from the summary against the evidence
 (fewer only if the summary has fewer claims). A claim you cannot locate in
 the evidence is grounded=false and MUST also produce a bounce with
@@ -277,68 +308,29 @@ The owner's rubric:
 
 GRADER_PROMPT_VERSION = hashlib.sha256(_GRADE_SYSTEM.encode()).hexdigest()[:12]
 
-# Evidence cap for the grading prompt. 80k cut a two-hour lecture at 1:08
-# and the grader bounced the whole back half as ungrounded (item 215,
-# 2026-09-06); the enricher had read all of it. 400k chars is about 100k
-# tokens, inside the judge's window; past it the cut is announced.
-_EVIDENCE_CAP = 400_000
-_TRUNCATION_NOTE = (
-    "\n\n[Evidence cut at {cap} characters. Claims about content after this point cannot be "
-    "checked here: do not bounce them as ungrounded, and skip them in spot-checks.]"
-)
 
-
-def _render_evidence(bundle: EvidenceBundle) -> str:
-    parts: list[str] = [f"Title: {bundle.title or ''}"]
-    if bundle.description:
-        parts.append(f"Description:\n{bundle.description}")
-    if bundle.caption:
-        parts.append(f"Caption:\n{bundle.caption}")
-    if bundle.text:
-        parts.append(f"Body:\n{bundle.text}")
-    if bundle.transcript:
-        # Timestamped like the enricher's view: the rubric's key-moment rule
-        # ("sit next to matching transcript text") is unjudgeable without them.
-        lines = "\n".join(
-            f"[{fmt_ts(float(s.get('start', 0)))}] {s.get('text', '')}" for s in bundle.transcript
-        )
-        parts.append(f"Transcript:\n{lines}")
-    if bundle.gaps:
-        parts.append("Not seen at capture:\n" + "\n".join(f"- {g}" for g in bundle.gaps))
-    text = "\n\n".join(parts)
-    if len(text) > _EVIDENCE_CAP:
-        return text[:_EVIDENCE_CAP] + _TRUNCATION_NOTE.format(cap=_EVIDENCE_CAP)
-    return text
+def build_prompt(draft: EnrichmentV2, view: View, attempt: Attempt) -> str:
+    """Packet, attempt header, then the draft. The packet bytes are the ones
+    the writer received (pinned by test)."""
+    return "\n\n".join(
+        (view.rendered, attempt.rendered(), "The draft note:\n" + draft.model_dump_json(indent=1))
+    )
 
 
 def grade_model(
     draft: EnrichmentV2,
-    bundle: EvidenceBundle,
+    view: View,
+    attempt: Attempt,
     rubric_text: str,
-    *,
-    take_text: str | None,
 ) -> tuple[ModelVerdict, StructuredResult]:
-    """One Opus call: rubric + draft + evidence in, verdict out. Returns the
-    verdict and the StructuredResult so the caller's activity row carries
-    the usage fields."""
+    """One Opus call: rubric + packet + attempt + draft in, verdict out.
+    Returns the verdict and the StructuredResult so the caller's activity
+    row carries the usage fields."""
     from . import sdk  # deferred: claude_agent_sdk costs ~120ms (#146)
 
     system = _GRADE_SYSTEM.format(rubric=rubric_text)
-    take_block = (
-        f"The owner's take, which the draft must answer:\n{take_text}\n\n" if take_text else ""
-    )
-    user = (
-        f"{take_block}The draft note:\n{draft.model_dump_json(indent=1)}\n\n"
-        f"The evidence it was written from:\n{_render_evidence(bundle)}"
-    )
-    # The judge sees the same capped frames the writer saw (item 756: the
-    # grader bounced visually-grounded claims it was never shown).
-    frame_paths = [f for f in bundle.frames if Path(f).exists()][:ENRICH_MAX_FRAMES]
-    add_dirs: list[str] = []
-    if frame_paths:
-        user += "\n\nExtracted frames:\n" + "\n".join(f"  {f}" for f in frame_paths)
-        add_dirs = sorted({str(Path(f).parent) for f in frame_paths})
+    user = build_prompt(draft, view, attempt)
     res = sdk.call_structured(
-        system, user, ModelVerdict.model_json_schema(), add_dirs=add_dirs, model=GRADER_MODEL
+        system, user, ModelVerdict.model_json_schema(), add_dirs=view.mounts, model=GRADER_MODEL
     )
     return ModelVerdict.model_validate(res.data), res
