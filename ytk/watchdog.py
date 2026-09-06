@@ -18,7 +18,9 @@ from . import loop
 # Stated guesses (spec, The loop), re-sized from the activity table.
 RATE_LIMIT_TRIP = 3  # rate-limit errors in the trailing hour
 ERROR_TRIP = 5  # loop errors in the trailing hour
-TOKEN_CEILING = 300_000  # tokens since UTC midnight (~8 items/day measures ~100k)
+# No daily token ceiling: it tripped at 300k on 2026-09-06 with four items
+# touched, froze the queue, and never stopped the one runaway item. The
+# per-item cap in curator.ITEM_CALL_CAP is the runaway guard.
 
 
 def evaluate(conn: sqlite3.Connection, health: dict[str, Any]) -> str | None:
@@ -35,8 +37,6 @@ def evaluate(conn: sqlite3.Connection, health: dict[str, Any]) -> str | None:
     ).fetchone()
     if stuck:
         return f"item {stuck['id']} stuck past the loop's own park rule"
-    if int(health.get("tokens_today", 0) or 0) >= TOKEN_CEILING:
-        return f"daily token ceiling reached ({health.get('tokens_today')})"
     return None
 
 

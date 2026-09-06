@@ -23,6 +23,14 @@ from .evidence import load_bundle
 # Rounds per advance call. "Grader bounce, twice" (spec, Asks) is the ask
 # trigger; the owner's "say what is wrong" buys exactly one more round.
 MAX_ROUNDS = 2
+# Lifetime model calls (enrich + grade + connect rows with tokens) an item
+# may spend before the loop stops and asks. Measured 2026-09-06: three
+# items ran 18 to 22 calls because every "say what is wrong" reset the
+# two-round budget; the daily token ceiling then froze the whole queue
+# instead of the one runaway item. Eight is four full rounds.
+ITEM_CALL_CAP = 8
+# Kinds whose "accept as is" lands the last draft without a model call.
+_ACCEPT_KINDS = ("grader bounce, twice", "budget spent")
 
 
 @dataclass
@@ -104,6 +112,28 @@ def _last_findings(conn: sqlite3.Connection, item_id: int) -> list[str]:
     return out
 
 
+def model_calls(conn: sqlite3.Connection, item_id: int) -> int:
+    """Lifetime model calls on the item: every activity row that reports tokens."""
+    row = conn.execute(
+        "SELECT count(*) AS n FROM activity WHERE item_id = ? AND tokens IS NOT NULL", (item_id,)
+    ).fetchone()
+    return int(row["n"])
+
+
+def _raise_budget_ask(conn: sqlite3.Connection, item_id: int, calls: int) -> int | None:
+    return asks.raise_ask(
+        conn,
+        item_id,
+        proposal={
+            "kind": "budget spent",
+            "why": f"{calls} model calls spent on this item; the loop stops here",
+            "options": ["accept as is", "drop"],
+            "bounces": [],
+        },
+        actor="loop",
+    )
+
+
 def _next_attempt(conn: sqlite3.Connection, item_id: int) -> int:
     row = conn.execute(
         "SELECT count(*) AS n FROM activity WHERE item_id = ? AND action = 'enrich'", (item_id,)
@@ -155,12 +185,18 @@ def _land(
 ) -> Path:
     """Write and index the note, record kept. Idempotent via the writer's
     url lookup."""
-    from .notes import effective_title, index_note, write_curator_note
+    from . import vault
+    from .notes import effective_title, index_note, snapshot_note, write_curator_note
 
     loop.stamp_stage("land", "writing the note")
     item = conn.execute("SELECT payload_ref FROM items WHERE id = ?", (item_id,)).fetchone()
     bundle = load_bundle(Path(item["payload_ref"]))
     take = _latest_take(conn, item_id)
+    # A re-intake lands over the note it replaces; the vault is iCloud, not
+    # git, so the snapshots row is the only undo.
+    existing = vault.find_note_by_url(bundle.url, 0.0)
+    if existing is not None and existing.exists():
+        snapshot_note(conn, item_id, existing)
     note = write_curator_note(
         bundle, take["kind"] if take else None, take["text"] if take else None, draft
     )
@@ -214,7 +250,7 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
     feedback: list[str] | None = None
     previous: EnrichmentV2 | None = None
     answered = _last_answered_ask(conn, item_id)
-    if answered is not None and answered["kind"] == "grader bounce, twice":
+    if answered is not None and answered["kind"] in _ACCEPT_KINDS:
         if answered["choice"] == "accept as is":
             draft = _last_draft(conn, item_id)
             if draft is None:
@@ -230,6 +266,10 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
     rub = rubric.load()
     vocab = _vocab()
     for _ in range(MAX_ROUNDS):
+        spent = model_calls(conn, item_id)
+        if spent >= ITEM_CALL_CAP:
+            ask_id = _raise_budget_ask(conn, item_id, spent)
+            return AdvanceResult(item_id, "asked", ask_id=ask_id)
         attempt = _next_attempt(conn, item_id)
         loop.stamp_stage("enrich", f"attempt {attempt}")
         enriched = enrich_item(conn, item_id, attempt=attempt, feedback=feedback, previous=previous)

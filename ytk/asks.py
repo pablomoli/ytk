@@ -22,6 +22,7 @@ DIGEST_ORDER = (
     "blind item",
     "duplicate",
     "grader bounce, twice",
+    "budget spent",
     "intent missing",
     "connections",
     "stance tension",
@@ -250,7 +251,7 @@ def ask_context(conn: sqlite3.Connection, item_id: int | None, kind: str | None)
     from .evidence import resolve_thumbnail
 
     ctx["thumbnail"] = resolve_thumbnail(item_id, bundle.get("thumbnail"))
-    if kind != "grader bounce, twice":
+    if kind not in ("grader bounce, twice", "budget spent"):
         return ctx
     draft_row = conn.execute(
         """

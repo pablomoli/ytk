@@ -48,9 +48,10 @@ class TestEvaluate:
         reason = watchdog.evaluate(conn, dict(HEALTHY, errors_last_hour=5))
         assert reason is not None and "error" in reason
 
-    def test_token_ceiling_trips(self, conn):
-        reason = watchdog.evaluate(conn, dict(HEALTHY, tokens_today=watchdog.TOKEN_CEILING))
-        assert reason is not None and "token" in reason
+    def test_no_daily_token_ceiling(self, conn):
+        """2026-09-06: the ceiling froze the queue on three honest items; the
+        runaway guard is per item (curator.ITEM_CALL_CAP)."""
+        assert watchdog.evaluate(conn, dict(HEALTHY, tokens_today=10_000_000)) is None
 
     def test_unparked_stuck_item_trips(self, conn):
         item_id = _item(conn)

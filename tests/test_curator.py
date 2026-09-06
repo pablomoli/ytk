@@ -169,6 +169,45 @@ def test_retry_is_a_patch_carrying_the_previous_draft(conn, monkeypatch):
     assert "three-file loop" in text and DRAFT["thesis"] in text
 
 
+def test_landing_over_an_existing_note_snapshots_it_first(conn, monkeypatch, brain):
+    _stub_sdk(monkeypatch, [dict(DRAFT), dict(DRAFT)], [dict(PASS_VERDICT), dict(PASS_VERDICT)])
+    item_id = _seed(conn)
+    first = curator.advance_item(conn, item_id)
+    assert first.outcome == "kept"
+    assert conn.execute("SELECT count(*) FROM snapshots").fetchone()[0] == 0
+    ledger.insert_activity(conn, item_id, actor="operator", action="read", to_state="read")
+    second = curator.advance_item(conn, item_id)
+    assert second.outcome == "kept" and second.note_path == first.note_path
+    snap = conn.execute("SELECT before_ref FROM snapshots WHERE item_id = ?", (item_id,)).fetchone()
+    assert snap is not None and DRAFT["thesis"] in open(snap["before_ref"]).read()
+
+
+def test_item_call_cap_stops_the_loop_with_a_budget_ask(conn, monkeypatch):
+    """Seven calls already spent: one more round (two calls) crosses the cap,
+    the loop asks instead of starting another round, and accept-as-is lands
+    the last draft for free."""
+    item_id = _seed(conn)
+    for _ in range(curator.ITEM_CALL_CAP - 1):
+        ledger.insert_activity(conn, item_id, actor="enricher", action="enrich", tokens=100)
+    calls = _stub_sdk(
+        monkeypatch, [dict(DRAFT), dict(DRAFT)], [dict(BOUNCE_VERDICT), dict(PASS_VERDICT)]
+    )
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "asked"
+    ask = conn.execute("SELECT kind, proposal FROM asks WHERE id = ?", (res.ask_id,)).fetchone()
+    assert ask["kind"] == "budget spent"
+    assert "accept as is" in ask["proposal"]
+    assert len(calls) == 2  # one enrich, one grade, then the cap
+    _answer(conn, res.ask_id, choice="accept as is")
+
+    def explode(*a, **k):
+        raise AssertionError("accept as is must not spend a model call")
+
+    monkeypatch.setattr(sdk, "call_structured", explode)
+    res2 = curator.advance_item(conn, item_id)
+    assert res2.outcome == "kept" and res2.note_path.exists()
+
+
 def test_deterministic_bounce_feeds_retry_and_spends_no_opus(conn, monkeypatch):
     calls = _stub_sdk(monkeypatch, [dict(BAD_DRAFT), dict(DRAFT)], [dict(PASS_VERDICT)])
     item_id = _seed(conn)
