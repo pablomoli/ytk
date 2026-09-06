@@ -420,8 +420,31 @@ class TestPropose:
             (item,),
         ).fetchone()
         assert row["actor"] == "connect"
-        assert "no candidates" in row["reason"]
+        assert "no candidates" in row["reason"] and "no hits at all" in row["reason"]
         assert asks._open_ask_id(conn, item) is None
+
+    def test_empty_result_says_how_close_the_nearest_relative_sat(self, conn, monkeypatch):
+        """#214: a true absence is measured, not hidden. The best hit under
+        the floor and the concept that found it ride in the reason."""
+
+        def fake(q, *a, **k):
+            near = 0.41 if q.startswith("Gaussian") else 0.30
+            return [_result("far", "Far note", 1 - near)]
+
+        monkeypatch.setattr("ytk.store.search_all", fake)
+        item = _item(conn)
+        connect.propose(
+            conn,
+            item,
+            "thesis",
+            "summary",
+            exclude_media_id=None,
+            key_concepts=["Gaussian splats: rendered from a photo"],
+        )
+        row = conn.execute(
+            "SELECT reason FROM activity WHERE item_id = ? AND action = 'connect'", (item,)
+        ).fetchone()
+        assert "best below floor 0.410 via Gaussian splats" in row["reason"]
 
     def test_argued_links_raise_the_connections_ask(self, conn, monkeypatch, tmp_path):
         self._candidates(monkeypatch, tmp_path)

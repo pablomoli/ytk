@@ -265,6 +265,7 @@ def find_candidates(
     exclude_url: str | None = None,
     exclude_path: Path | None = None,
     promote: dict[Path, str] | None = None,
+    report: dict[str, Any] | None = None,
 ) -> list[Candidate]:
     """Neighbors across both collections for every (label, query) pair,
     unioned by note with the best cosine kept and the label that earned it,
@@ -274,7 +275,9 @@ def find_candidates(
     A hit on a note in `promote` (named by the owner's take) skips the floor
     and comes back first at cosine 1.0. The one transport seam kernel 1
     replaces in P7; None-tolerant when the store is down (no candidates,
-    never a failure)."""
+    never a failure). `report`, when given, receives the best hit under the
+    floor as (cosine, label), so an empty result says how far from the band
+    the nearest relative sat instead of hiding a true absence (#214)."""
     from .grader import NEAR_DUP_BASELINE
 
     promote_paths = {p.resolve() for p in (promote or {})}
@@ -301,6 +304,9 @@ def find_candidates(
                     continue
                 promoted = promotable(r)
                 if not promoted and cosine < CANDIDATE_FLOOR:
+                    if report is not None and cosine > report.get("best_below_floor", -1.0):
+                        report["best_below_floor"] = cosine
+                        report["label"] = label
                     continue
                 key = (r.type, r.doc_id)
                 if key not in best or cosine > best[key][0]:
@@ -443,18 +449,23 @@ def propose(
 
     loop.stamp_stage("connect", "finding candidates")
     reading = read_take(take, exclude_path=note_path)
+    report: dict[str, Any] = {}
     found = find_candidates(
         build_queries(thesis, key_concepts, take),
         exclude_media_id=exclude_media_id,
         exclude_url=exclude_url,
         exclude_path=note_path,
         promote=reading.promote,
+        report=report,
     )
     candidates = merge_candidates(reading.named, found)
     if not candidates:
-        ledger.insert_activity(
-            conn, item_id, actor=actor, action="connect", reason="no candidates in band"
-        )
+        reason = "no candidates in band"
+        if "best_below_floor" in report:
+            reason += f"; best below floor {report['best_below_floor']:.3f} via {report['label']}"
+        else:
+            reason += "; no hits at all"
+        ledger.insert_activity(conn, item_id, actor=actor, action="connect", reason=reason)
         return None
     loop.stamp_stage("connect", f"arguing {len(candidates)} candidates")
     links, res = _argue(thesis, summary, candidates, take)
