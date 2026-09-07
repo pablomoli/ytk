@@ -1,0 +1,448 @@
+<title>The Packet on Its Way</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&display=swap">
+<style>
+:root{color-scheme:dark;--bg0:#0e0e10;--bg1:#161618;--bg2:#1c1c1f;--bg3:#26262a;--ink:#f0eee7;--ink2:#b7b5aa;--mute:#83817a;--line:rgba(255,255,255,.08);--accent:#e2b04a;--live:#4ade80;--alarm:#e05a6a;--r:10px;--ease:cubic-bezier(.25,.1,.25,1)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg0);color:var(--ink);font-family:"Newsreader",Georgia,serif;font-size:16px;letter-spacing:-.01em;line-height:1.4}
+a{color:var(--accent);text-decoration:none} a:hover{color:var(--ink)}
+.d{font-size:12.5px;letter-spacing:.04em;font-variant-numeric:tabular-nums;text-transform:lowercase;color:var(--ink2)}
+.m{color:var(--mute)}
+.n{font-variant-numeric:tabular-nums}
+h1{font-weight:500;letter-spacing:-.02em;font-size:30px;margin:0;line-height:1.1}
+h2{font-weight:500;letter-spacing:-.02em;font-size:18px;margin:0}
+.nav{background:var(--bg1);border-bottom:1px solid var(--line);font-size:14px;letter-spacing:.03em;text-transform:lowercase;display:flex;gap:22px;padding:12px 28px;color:var(--ink2)}
+.nav span.here{color:var(--live)}
+.page{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;min-height:100vh}
+.big{font-size:28px;font-weight:400;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink)}
+.stat{display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+.hair{border-top:1px solid var(--line)}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:12px;padding:5px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.g2>*:last-child,.g3>*:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g2:last-child{border-bottom:0}
+.g3{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:12px;padding:5px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.g3:last-child{border-bottom:0}
+.right{text-align:right}
+.unit{color:var(--accent);font-size:12.5px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.live{color:var(--live)}
+.alarm{color:var(--alarm)}
+.plate{position:relative}
+.plate:before,.plate:after{content:"";position:absolute;width:12px;height:12px;border-color:var(--ink2);border-style:solid;opacity:.8;pointer-events:none;z-index:2}
+.plate:before{top:-1px;left:-1px;border-width:1px 0 0 1px}
+.plate:after{bottom:-1px;right:-1px;border-width:0 1px 1px 0}
+.key{border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--ink2);font-size:12px}
+/* laws, in the house register */
+.law{display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid var(--line)}
+.law:last-child{border-bottom:0}
+.law .poles{display:flex;justify-content:space-between}
+.law .poles span{font-size:11.5px;letter-spacing:.04em;color:var(--mute);text-transform:lowercase}
+.law .name{display:flex;justify-content:space-between;align-items:baseline}
+.law .name b{font-weight:500;font-size:14px}
+.law .name span{font-size:12px;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+input[type=range]{width:100%;margin:4px 0 0;appearance:none;background:transparent;height:14px}
+input[type=range]::-webkit-slider-runnable-track{height:1px;background:rgba(255,255,255,.16)}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:10px;height:10px;border-radius:50%;background:var(--ink);margin-top:-4.5px;border:1px solid var(--bg0)}
+input[type=range]:focus-visible{outline:1.5px solid var(--accent);outline-offset:3px}
+.sw{display:flex;gap:6px}
+.sw button{border:1px solid var(--line);background:var(--bg2);color:var(--ink2);padding:5px 11px;cursor:pointer;font-family:inherit;font-size:12.5px;letter-spacing:.04em;text-transform:lowercase;border-radius:6px}
+.sw button[aria-pressed=true]{border-color:var(--accent);color:var(--ink)}
+.btn{font-family:inherit;font-size:12.5px;letter-spacing:.04em;text-transform:lowercase;color:var(--ink2);background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:5px 11px;cursor:pointer}
+.btn:hover{color:var(--ink);border-color:rgba(255,255,255,.22)}
+.btn.on{background:var(--accent);border-color:var(--accent);color:#241a05}
+/* the stage */
+.stage{position:relative;height:520px;border:1px solid var(--line);background:#0b0b0d;overflow:hidden}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage .ro{position:absolute;font-size:12.5px;letter-spacing:.04em;text-transform:lowercase;color:var(--mute);font-variant-numeric:tabular-nums;pointer-events:none;white-space:nowrap;text-shadow:0 0 4px #000}
+.stage .ro.tl{top:10px;left:14px}.stage .ro.tr{top:10px;right:14px}.stage .ro.bl{bottom:10px;left:14px}.stage .ro.br{bottom:10px;right:14px;color:var(--accent)}
+.lbl{position:absolute;transform:translate(-50%,-50%);font-size:12.5px;letter-spacing:.04em;text-transform:lowercase;color:var(--ink2);pointer-events:none;white-space:nowrap;text-shadow:0 0 6px #000,0 0 2px #000;font-variant-numeric:tabular-nums}
+.lbl.pk{font-size:11.5px;color:var(--mute);transform:translate(10px,-50%)}
+.lbl.pk b{font-weight:400;color:var(--ink)}
+.lbl.arc{font-size:13.5px;font-style:italic;letter-spacing:.02em;text-transform:none;text-shadow:0 0 8px #000,0 0 2px #000}
+.tip{position:absolute;pointer-events:none;background:var(--bg2);border:1px solid rgba(255,255,255,.16);border-radius:6px;padding:6px 10px;font-size:13px;display:none;z-index:5;white-space:nowrap}
+.tip .d{display:block}
+.scrub{position:relative;height:14px;flex:1}
+.scrub input{position:absolute;inset:0;margin:0}
+.scrub .mk{position:absolute;top:-4px;width:1px;height:22px;background:rgba(255,255,255,.22);pointer-events:none}
+.scrub .mk i{position:absolute;top:22px;left:0;transform:translateX(-50%);font-style:normal;font-size:11px;letter-spacing:.04em;color:var(--mute);white-space:nowrap;text-transform:lowercase}
+.scrub .mk:nth-child(even) i{top:36px}
+.att{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.line{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;font-size:14px;line-height:1.45;padding:1px 6px;border-radius:3px}
+.line .s{color:var(--mute);font-size:12px;text-align:right;font-variant-numeric:tabular-nums;padding-top:2px}
+.line.hit{background:rgba(226,176,74,.16)}
+.line.fold{color:var(--mute);font-size:12.5px}
+.ask{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.opt{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 9px;margin:2px 4px 2px 0;font-size:12px;color:var(--ink2)}
+.opt.on{border-color:var(--accent);color:var(--ink);background:rgba(226,176,74,.12)}
+button.opt{cursor:pointer;font-family:inherit;background:transparent}
+button.opt:hover{border-color:rgba(255,255,255,.3);color:var(--ink)}
+.unit[data-unit]{cursor:pointer;border-bottom:1px dotted rgba(226,176,74,.5)}
+.unit[data-unit]:hover{color:var(--ink);border-bottom-color:var(--ink)}
+.line.flash{background:rgba(74,222,128,.22)}
+.rh{cursor:pointer}
+.att.folded>*:not(.rh){display:none!important}
+#lightbox:not([hidden]){display:flex}
+.toast{position:fixed;right:22px;bottom:22px;background:var(--bg2);border:1px solid var(--accent);color:var(--ink);padding:8px 12px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30}
+.toast.on{opacity:1}
+textarea.say{width:100%;min-height:64px;background:var(--bg1);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:inherit;font-size:13.5px;padding:8px;resize:vertical}
+.att.open{border-color:var(--live)}
+.bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="page">
+  <div class="nav"><span>digest</span><span>inbox</span><span>library</span><span>map</span><span>recs</span><span>creators</span><span>profile</span><span>orb</span><span>galaxy</span><span>atlas</span><span>garden</span><span>growth</span><span class="here">packet</span><span>docs</span><span>settings</span></div>
+
+  <div style="padding:14px 28px 0 28px;display:flex;justify-content:flex-end;align-items:flex-end;gap:28px">
+    <div class="stat"><span class="big" id="inkToday" style="font-size:22px">0</span><span class="d m">ink today, tokens</span></div>
+    <div class="stat"><svg id="spark" width="168" height="28" viewBox="0 0 168 28" style="display:block" aria-label="ink by hour today"></svg><span class="d m">by hour</span></div>
+  </div>
+
+  <!-- the track: rose on the left, field on the right, one instant -->
+  <div style="padding:12px 28px 0 28px;display:flex;flex-direction:column;gap:12px">
+    <div class="stage plate" id="stage" style="height:400px">
+      <canvas id="gl"></canvas>
+      <div id="labels" style="position:absolute;inset:0;pointer-events:none"></div>
+      <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line);pointer-events:none"></div>
+      <div class="ro tl" id="rtl">rose</div><div class="ro tr" id="rtr"></div><div class="ro bl" id="rbl"></div><div class="ro br" id="rbr"></div>
+      <div class="ro" id="rml" style="top:10px;left:calc(50% + 14px)">field</div>
+      <div class="tip" id="tip"></div>
+    </div>
+  </div>
+
+  <!-- the packet page -->
+  <div style="padding:16px 28px 0 28px" id="panelWrap" hidden>
+    <div class="plate" style="background:var(--bg2);border:1px solid var(--line);padding:20px 22px;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;border-bottom:1px solid var(--line);padding-bottom:14px">
+        <div style="display:flex;align-items:baseline;gap:14px;min-width:0">
+          <span class="big" style="font-size:40px" id="pId"></span>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+            <span style="font-size:17px" id="pTitle"></span>
+            <span class="d" id="pMeta"></span>
+            <span id="pTake" style="font-style:italic;font-size:13.5px;color:var(--ink2)"></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:30px;align-items:flex-end;flex:none">
+          <div class="stat"><span class="big" id="pStation" style="color:var(--live)"></span><span class="d m" id="pSince"></span></div>
+          <div class="stat"><svg width="176" height="8" viewBox="0 0 176 8" style="display:block" id="pPad" aria-label="calls of eight"></svg><span class="d m" id="pCalls"></span></div>
+          <div class="stat"><span class="d" id="pHash" style="font-size:14px"></span><span class="d m" id="pHashNote"></span></div>
+          <div style="display:flex;gap:6px" id="pActions"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.45fr) minmax(0,1fr);gap:26px">
+        <div style="display:flex;flex-direction:column;gap:12px" id="pPacket"></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>rounds</h2><span class="d m" id="pRoundsN"></span></div>
+          <div style="display:flex;flex-direction:column;gap:12px" id="pRounds"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;flex-direction:column;gap:10px" id="pAsks"></div>
+          <div style="display:flex;flex-direction:column;gap:10px" id="pLinks"></div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>trail</h2><span class="d m" id="pTrailN"></span></div>
+            <div style="display:flex;flex-direction:column" id="pTrail"></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--line);padding-top:14px">
+        <div style="display:flex;align-items:baseline;gap:12px">
+          <span class="big" style="font-size:36px" id="pAttempt"></span>
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:15px" id="pFoot"></span><span class="d m" id="pFoot2"></span></div>
+        </div>
+        <div class="d m" id="pUrl"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div id="lightbox" hidden style="position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:20;align-items:center;justify-content:center;flex-direction:column;gap:10px;cursor:zoom-out"><img id="lbImg" alt="" style="max-width:min(90vw,1100px);max-height:80vh;border:1px solid rgba(255,255,255,.16);border-radius:4px"><span class="d" id="lbCap"></span></div>
+  <div style="padding:18px 28px 24px 28px;display:flex;justify-content:space-between;align-items:center;gap:24px;margin-top:auto" class="d">
+    <div style="display:flex;gap:28px;align-items:center">
+      <span><span class="m">packet</span> <span class="key">k</span> <span class="key">j</span></span>
+      <span><span class="m">answer</span> <span class="key">1</span> <span class="key">2</span> <span class="key">3</span> <span class="key">4</span></span>
+      <span><span class="key">esc</span> <span class="m">close</span></span>
+    </div>
+    <div class="m" id="urlLine"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+<script>
+const DATA=__DATA__;const VIEWS=__VIEWS__;const IMGS=__IMGS__;
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,fmt=(v,d=2)=>Number(v).toFixed(d),pad2=n=>String(n).padStart(2,'0');
+function ago(s){s=Math.max(0,Math.floor(s));if(s<60)return s+' s';if(s<3600)return Math.floor(s/60)+' m '+pad2(s%60)+' s';if(s<86400)return Math.floor(s/3600)+' h '+pad2(Math.floor(s%3600/60))+' m';return Math.floor(s/86400)+' d '+pad2(Math.floor(s%86400/3600))+' h'}
+let LOGMAX=Math.log10(10*86400);const logp=s=>Math.min(1,Math.max(0,Math.log10(1+Math.max(0,s)))/LOGMAX);
+function ceilingFor(scale){return Math.log10(1+60*Math.pow(14400,scale))}
+function scaleT(sec,curve){const ceil=Math.pow(10,LOGMAX)-1;const g=lerp(.08,1,curve);const pw=Math.pow(Math.min(1,Math.max(0,sec)/ceil),g);return curve<=0?logp(sec):lerp(logp(sec),pw,Math.min(1,curve*1.6))}
+const ACC={brass:'#e2b04a',lime:'#b4f42f',cyan:'#5fc8d8'};
+const LIVE='#4ade80',ALARM='#e05a6a';
+const MODEL=new Set([2,3,4,5]);
+const STATION_HUES=['#9085e9','#d95926','#199e70','#c98500','#d55181','#3987e5','#e66767'];
+const t0=new Date(DATA.t0);const clockText=t=>{const d=new Date(t0.getTime()+t*1000);return pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes())+':'+pad2(d.getUTCSeconds())};
+
+// ---------- state, every field in the url
+const LAWS=[
+  {key:'tilt',poles:['flat','standing'],label:'tilt',def:.45},
+  {key:'scale',poles:['a minute','ten days'],label:'scale',def:1},
+  {key:'history',poles:['none','an hour of ghosts'],label:'wake',def:0},
+  {key:'weight',poles:['even','by ink'],label:'weight',def:0},
+  {key:'heat',poles:['one hue','hotter each round'],label:'rounds',def:0},
+  {key:'spot',poles:['everyone','the one under the cursor'],label:'focus',def:0},
+];
+const LOCKED={rose:{tilt:.5,scale:1,history:0,weight:1,heat:1,spot:1},rail:{tilt:.75,scale:1,history:0,weight:1,heat:1,spot:1},nest:{tilt:0,scale:1,history:0,weight:0,heat:0,spot:1}};
+const LOCKED_LAY={rose:{gap:0,hub:0,taper:1,stack:0,curve:.4,ticks:.5,rings:.5,spokes:1},rail:{tail:.5,spacing:.3,reach:.4,lift:1,grain:1},nest:{size:1,fill:1,spread:0,anchor:.25,curve:0}};
+const law=k=>(LOCKED[S.layout]&&k in LOCKED[S.layout])?LOCKED[S.layout][k]:S.laws[k];
+const LAYOUTS=['rose','rail'];const LAYOUT_NAMES={rose:'rose',rail:'field',nest:'nest'};
+const LAYOUT_LAWS={
+  rose:[{key:'gap',poles:['tight','airy'],label:'gap',def:.4,lo:.02,hi:.32},{key:'hub',poles:['small','wide'],label:'hub',def:.3,lo:.4,hi:3.2},{key:'taper',poles:['bar','wedge'],label:'taper',def:1,lo:0,hi:1},{key:'stack',poles:['side by side','stacked'],label:'stack',def:0,lo:0,hi:1},
+    {key:'curve',poles:['log','linear'],label:'curve',def:0,lo:0,hi:1},{key:'rings',poles:['none','dense'],label:'rings',def:.5,lo:0,hi:8},{key:'ticks',poles:['none','fine'],label:'ticks',def:.5,lo:0,hi:168},{key:'spokes',poles:['hidden','drawn'],label:'spokes',def:.3,lo:0,hi:.4}],
+  rail:[{key:'spacing',poles:['close','far'],label:'spacing',def:.5,lo:1.8,hi:3.4},{key:'reach',poles:['peaks','plains'],label:'reach',def:.45,lo:.6,hi:2.4},{key:'lift',poles:['low','tall'],label:'lift',def:.5,lo:.6,hi:3.2},{key:'grain',poles:['still water','wind'],label:'grain',def:.35,lo:0,hi:1},{key:'tail',poles:['short','long'],label:'tail',def:.5,lo:4,hi:40}],
+  nest:[{key:'size',poles:['small','large'],label:'size',def:.4,lo:.9,hi:3.4},{key:'anchor',poles:['0','2π'],label:'anchor · rad',def:.25,lo:0,hi:Math.PI*2},{key:'fill',poles:['hollow','solid'],label:'fill',def:.6,lo:0,hi:.55},{key:'spread',poles:['one nest','by station'],label:'spread',def:0,lo:0,hi:2.4},{key:'curve',poles:['log','linear'],label:'curve',def:.35,lo:0,hi:1},
+    {key:'edge',poles:['hairline','heavy'],label:'edge',def:.4,lo:.2,hi:1},{key:'tint',poles:['by station','one accent'],label:'tint',def:0,lo:0,hi:1},{key:'orbit',poles:['fixed','walking'],label:'orbit',def:0,lo:0,hi:1},{key:'breath',poles:['still','swelling'],label:'breath',def:.4,lo:0,hi:.18},{key:'petals',poles:['three','twelve'],label:'petals',def:.3,lo:3,hi:12},{key:'scallop',poles:['round','cut'],label:'scallop',def:.45,lo:0,hi:.22}],
+};
+const lv=(lay,key)=>{const l=LAYOUT_LAWS[lay].find(x=>x.key===key);const v=(key in LOCKED_LAY[lay])?LOCKED_LAY[lay][key]:S.lay[lay][key];return l.lo+(l.hi-l.lo)*v};
+const LOCK={distance:0,glow:1,motion:.7,names:0};
+const S={laws:{},lay:{rose:{},rail:{},nest:{}},layout:'rose',accent:'brass',t:0,sel:null,playing:false,speed:20,answers:{},open:{},trailAll:false,say:null};
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),1600)}
+async function copyCmd(cmd){try{await navigator.clipboard.writeText(cmd);toast('copied · '+cmd)}catch{toast(cmd)}}const SPEEDS=[1,5,20,60];
+(function init(){const q=new URLSearchParams(location.search);for(const l of LAWS)S.laws[l.key]=clamp(parseFloat(q.get(l.key)??l.def),0,1);for(const lay of LAYOUTS)for(const l of LAYOUT_LAWS[lay])S.lay[lay][l.key]=clamp(parseFloat(q.get(lay+'_'+l.key)??l.def),0,1);S.layout=LAYOUTS.includes(q.get('layout'))?q.get('layout'):'rose';S.accent=ACC[q.get('accent')]?q.get('accent'):'brass';S.t=clamp(parseInt(q.get('t')??DATA.instants[0][1])||0,0,DATA.seconds);S.sel=q.get('sel')?parseInt(q.get('sel')):534;S.speed=SPEEDS.includes(+q.get('speed'))?+q.get('speed'):20})();
+function writeURL(){const q=new URLSearchParams();q.set('t',S.t);if(S.sel!=null)q.set('sel',S.sel);history.replaceState(null,'',location.pathname+'?'+q);$('#urlLine').textContent='/packet?'+q.toString().replace(/&/g,' · ')}
+const acc=()=>ACC[S.accent];
+
+applyAccent();
+function applyAccent(){document.documentElement.style.setProperty('--accent',acc());document.querySelectorAll('#palettes button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.p===S.accent)))}
+
+// ---------- the instant, from the url; no clock on this page
+function setPlaying(){}
+
+// ---------- model
+function stateAt(item,t){let cur=null;for(const tr of item.trans){if(tr[0]<=t)cur=tr;else break}if(!cur||cur[1]<0)return null;return{st:cur[1],note:cur[2],since:t-cur[3]}}
+function callsAt(item,t){let n=0,ink=0;for(const r of item.trail){if(r[1]<=t&&r[5]){n++;ink+=r[6]}}return{n,ink}}
+const INK_MEAN=(()=>{const v=DATA.items.map(it=>it.trail.filter(r=>r[5]).reduce((a,r)=>a+r[6],0)).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:1})();
+function mixHex(a,b,t){const A=hex(a),B=hex(b);return A.lerp(B,t)}
+function roundsAt(item,t){let n=0;for(const r of item.trail){if(r[1]<=t&&r[2].startsWith('student'))n++}const s=stateAt(item,t);if(s&&s.st===2)n++;return n}
+
+// ---------- three: one scene, three views
+const stage=$('#stage'),canvas=$('#gl');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});renderer.setClearColor(0x0b0b0d,1);
+const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(38,1,.1,100);
+let R0=1.4,NEST_R=1.9;const R1=6.0,N=DATA.stations.length;
+const hex=h=>new THREE.Color(h);
+function circleGeo(r,n=128,y=0){const p=[];for(let i=0;i<=n;i++){const a=i/n*Math.PI*2;p.push(Math.cos(a)*r,y,Math.sin(a)*r)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));return g}
+const lineMat=(c,o)=>new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o});
+// ring chrome
+const ringGroup=new THREE.Group();scene.add(ringGroup);
+const rings=[];{const l=new THREE.Line(circleGeo(R1),lineMat(0xffffff,.22));l.userData.o=.22;l.userData.k=1;ringGroup.add(l);rings.push(l)}
+const inner=new THREE.Line(circleGeo(R0*.7,64),lineMat(0xffffff,.18));inner.userData.o=.18;ringGroup.add(inner);rings.push(inner);
+const spokes=(()=>{const p=[];for(let i=0;i<N;i++){const a=-Math.PI/2+i/N*Math.PI*2;p.push(Math.cos(a)*R0*.7,0,Math.sin(a)*R0*.7,Math.cos(a)*(R1+.5),0,Math.sin(a)*(R1+.5))}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));return new THREE.LineSegments(g,lineMat(0xffffff,.12))})();ringGroup.add(spokes);
+let hubBuilt=-1,ringsBuilt=-1,ticksBuilt=-1;const midRings=[];
+function rebuildHub(){const nr=Math.round(lv('rose','rings')),nt=Math.round(lv('rose','ticks'));
+  if(Math.abs(hubBuilt-R0)>1e-4||ringsBuilt!==nr){hubBuilt=R0;ringsBuilt=nr;for(const m of midRings){ringGroup.remove(m);m.geometry.dispose()}midRings.length=0;for(let i=1;i<=nr;i++){const l=new THREE.Line(circleGeo(R0+i/(nr+1)*(R1-R0)),lineMat(0xffffff,.08));l.userData.o=.08;ringGroup.add(l);midRings.push(l)}inner.geometry.dispose();inner.geometry=circleGeo(R0*.7,64);const p=[];for(let i=0;i<N;i++){const a=-Math.PI/2+i/N*Math.PI*2;p.push(Math.cos(a)*R0*.7,0,Math.sin(a)*R0*.7,Math.cos(a)*(R1+.5),0,Math.sin(a)*(R1+.5))}spokes.geometry.setAttribute('position',new THREE.Float32BufferAttribute(p,3))}
+  if(ticksBuilt!==nt){ticksBuilt=nt;const p=[];for(let i=0;i<nt;i++){const a=i/Math.max(1,nt)*Math.PI*2,long=nt>=12&&i%Math.round(nt/7)===0;p.push(Math.cos(a)*(R1+.6),0,Math.sin(a)*(R1+.6),Math.cos(a)*(R1+(long?1:.8)),0,Math.sin(a)*(R1+(long?1:.8)))}ticks.geometry.setAttribute('position',new THREE.Float32BufferAttribute(p,3));ticks.geometry.setDrawRange(0,nt*2)}}
+const ticks=(()=>{const p=[];for(let i=0;i<84;i++){const a=i/84*Math.PI*2,long=i%12===0;p.push(Math.cos(a)*(R1+.6),0,Math.sin(a)*(R1+.6),Math.cos(a)*(R1+(long?1:.8)),0,Math.sin(a)*(R1+(long?1:.8)))}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));return new THREE.LineSegments(g,lineMat(0xffffff,.25))})();ringGroup.add(ticks);
+// the field: seven stations on a plane, one surface over them; wake is memory
+const GRID=[[-1.5,-1],[-.5,-1],[.5,-1],[1.5,-1],[-1,1],[0,1],[1,1]];
+function fieldPos(st){const sp=lv('rail','spacing');return[GRID[st][0]*sp,-2.6,GRID[st][1]*sp*.9]}
+const WR=44,WC=64;
+// value noise with three octaves, for the field's grain
+function nhash(x,y){let h=Math.sin(x*127.1+y*311.7)*43758.5453;return h-Math.floor(h)}
+function vnoise(x,y){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);const a=nhash(xi,yi),b=nhash(xi+1,yi),c=nhash(xi,yi+1),d=nhash(xi+1,yi+1);return lerp(lerp(a,b,u),lerp(c,d,u),v)*2-1}
+function fbm(x,y){return vnoise(x,y)*.55+vnoise(x*2.1+7.3,y*2.1-3.1)*.3+vnoise(x*4.3-2.2,y*4.3+9.7)*.15}
+const fieldLoad=new Array(DATA.stations.length).fill(0),fieldLive=new Array(DATA.stations.length).fill(0);
+function fieldHeightAt(x,z,sig){let h=0,g=0;for(let i=0;i<N;i++){const[px,py,pz]=fieldPos(i);const d2=(x-px)*(x-px)+(z-pz)*(z-pz);const w=Math.exp(-d2/(2*sig*sig));h+=fieldLoad[i]*w;g+=fieldLive[i]*w}return[h,g]}
+const wakeGeo=new THREE.PlaneGeometry(1,1,WC-1,WR-1);const wakeWire=new THREE.Mesh(wakeGeo,new THREE.MeshBasicMaterial({color:0xffffff,wireframe:true,transparent:true,opacity:.22,blending:THREE.AdditiveBlending,depthWrite:false}));const wakeFill=new THREE.Mesh(wakeGeo,new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.22,side:THREE.DoubleSide,depthWrite:false}));wakeGeo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(WC*WR*3),3));scene.add(wakeFill);scene.add(wakeWire);wakeWire.visible=wakeFill.visible=false;wakeWire.material.opacity=.28;
+let wakeKey='';
+let noiseT=0;
+function updateWake(t,span,accCol,dt){const sp=lv('rail','spacing'),sig=lv('rail','reach'),lift=lv('rail','lift'),grain=lv('rail','grain');noiseT+=dt*LOCK.motion*.8;const key=t+':'+span.toFixed(0)+':'+sp.toFixed(2)+':'+sig.toFixed(2)+':'+lift.toFixed(2)+':'+accCol+(grain>0?':'+noiseT.toFixed(2):'');if(key===wakeKey)return;wakeKey=key;
+  fieldLoad.fill(0);fieldLive.fill(0);const K=span>0?9:1;let wsum=0;for(let k=0;k<K;k++){const tk=t-(span>0?span*k/(K-1):0);const w=Math.exp(-k/3);wsum+=w;for(const it of DATA.items){const st=stateAt(it,tk);if(!st)continue;fieldLoad[st.st]+=w*logp(st.since);if(MODEL.has(st.st))fieldLive[st.st]+=w}}for(let i=0;i<N;i++){fieldLoad[i]/=wsum;fieldLive[i]/=wsum}
+  const pa=wakeGeo.attributes.position.array,ca=wakeGeo.attributes.color.array;const A=hex(accCol);const G=hex(LIVE);const X=2.1*sp,Z=1.7*sp;
+  for(let j=0;j<WR;j++)for(let i=0;i<WC;i++){const x=-X+2*X*i/(WC-1),z=-Z+2*Z*j/(WR-1);
+    // domain warp and a slow swell: the hills stay where the data puts them, the ground between them moves
+    const wx=grain*.9*fbm(x*.35+noiseT,z*.35-noiseT*.7),wz=grain*.9*fbm(x*.35-13+noiseT*.6,z*.35+5+noiseT);const[h,g]=fieldHeightAt(x+wx,z+wz,sig);const swell=grain*.5*fbm(x*.5+noiseT*.8,z*.5+noiseT*.5)*(1+h)+grain*.12*Math.sin(x*1.4+noiseT*2.2)*Math.cos(z*1.1-noiseT*1.7);
+    const k=j*WC+i;pa[k*3]=x;pa[k*3+1]=-2.6+lift*h/(h+.9)*2+swell;pa[k*3+2]=z;const c=g>.35?G:A;const m=.12+.88*Math.min(1,h/1.2)+grain*.08*fbm(x*1.3-noiseT,z*1.3);ca[k*3]=c.r*m;ca[k*3+1]=c.g*m;ca[k*3+2]=c.b*m}
+  wakeGeo.attributes.position.needsUpdate=true;wakeGeo.attributes.color.needsUpdate=true;wakeGeo.computeBoundingSphere()}
+function fieldTop(st){const[px,py,pz]=fieldPos(st);const[h]=fieldHeightAt(px,pz,lv('rail','reach'));return -2.6+lv('rail','lift')*h/(h+.9)*2}
+const railLine=(()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute([-9,-2.6,0,9,-2.6,0],3));return new THREE.Line(g,lineMat(0xffffff,0))})();scene.add(railLine);
+// station reticles
+const reticles=[];for(let i=0;i<N;i++){const g=new THREE.Group();const c=new THREE.Line(circleGeo(.28,32),lineMat(0xffffff,.8));g.add(c);const p=[-.5,0,0,-.36,0,0,.36,0,0,.5,0,0,0,0,-.5,0,0,-.36,0,0,.36,0,0,.5];const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.Float32BufferAttribute(p,3));const t=new THREE.LineSegments(tg,lineMat(0xffffff,.8));g.add(t);scene.add(g);reticles.push({g,c,t})}
+// rail: points with a soft sprite
+const MAXP=512;const pGeo=new THREE.BufferGeometry();const pPos=new Float32Array(MAXP*3),pCol=new Float32Array(MAXP*3),pSize=new Float32Array(MAXP),pLive=new Float32Array(MAXP);
+pGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));pGeo.setAttribute('color',new THREE.BufferAttribute(pCol,3));pGeo.setAttribute('size',new THREE.BufferAttribute(pSize,1));pGeo.setAttribute('live',new THREE.BufferAttribute(pLive,1));pGeo.setDrawRange(0,0);
+const pMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{uTime:{value:0},uGlow:{value:1},uPx:{value:1}},
+  vertexShader:`attribute float size;attribute float live;attribute vec3 color;varying vec3 vC;varying float vL;uniform float uTime;uniform float uGlow;uniform float uPx;void main(){vC=color;vL=live;vec4 mv=modelViewMatrix*vec4(position,1.);float pulse=1.+live*.25*sin(uTime*5.);gl_PointSize=size*(1.+uGlow*2.)*pulse*uPx*(30./-mv.z);gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`varying vec3 vC;varying float vL;uniform float uGlow;void main(){vec2 d=gl_PointCoord-.5;float r=length(d)*2.;if(r>1.)discard;float core=smoothstep(.30,.14,r);float halo=pow(1.-r,3.)*(.25+uGlow*.45);gl_FragColor=vec4(vC*(core*1.2+halo),core+halo*.9);}`});
+const points=new THREE.Points(pGeo,pMat);scene.add(points);
+const TAIL=40;const trails=new Map();
+function trailFor(id){let t=trails.get(id);if(!t){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(TAIL*3),3));g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(TAIL*3),3));const l=new THREE.Line(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false}));scene.add(l);t={l,g,pts:[]};trails.set(id,t)}return t}
+// rose bars and nest discs: one mesh pair per packet, additive fill plus a crisp edge
+const bars=new Map();
+function barFor(id){let b=bars.get(id);if(!b){const g=new THREE.BufferGeometry();const fill=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.55,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));const hg=new THREE.BufferGeometry();const halo=new THREE.Mesh(hg,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.18,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));const edge=new THREE.LineLoop(new THREE.BufferGeometry(),lineMat(0xffffff,.9));scene.add(fill);scene.add(halo);scene.add(edge);b={g,hg,fill,halo,edge,len:0,r:0,scratch:new THREE.BufferGeometry()};bars.set(id,b)}return b}
+function sectorGeo(g,eg,a0,a1,r0,r1,n=10){const p=[];const idx=[];for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;p.push(Math.cos(a)*r0,0,Math.sin(a)*r0,Math.cos(a)*r1,0,Math.sin(a)*r1)}for(let i=0;i<n;i++){const k=i*2;idx.push(k,k+1,k+2,k+1,k+3,k+2)}g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setIndex(idx);g.computeBoundingSphere();const e=[];for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;e.push(Math.cos(a)*r0,0,Math.sin(a)*r0)}for(let i=n;i>=0;i--){const a=a0+(a1-a0)*i/n;e.push(Math.cos(a)*r1,0,Math.sin(a)*r1)}eg.setAttribute('position',new THREE.Float32BufferAttribute(e,3))}
+function flowerGeo(g,eg,cx,cz,r,k,amp,ph,n=96){const p=[cx,0,cz];const idx=[];for(let i=0;i<=n;i++){const a=i/n*Math.PI*2;const rr=r*(1+amp*Math.cos(k*a+ph));p.push(cx+Math.cos(a)*rr,0,cz+Math.sin(a)*rr)}for(let i=1;i<=n;i++)idx.push(0,i,i+1);g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setIndex(idx);g.computeBoundingSphere();const e=[];for(let i=0;i<n;i++){const a=i/n*Math.PI*2;const rr=r*(1+amp*Math.cos(k*a+ph));e.push(cx+Math.cos(a)*rr,0,cz+Math.sin(a)*rr)}eg.setAttribute('position',new THREE.Float32BufferAttribute(e,3))}
+function discGeo(g,eg,cx,cz,r,n=48){const p=[cx,0,cz];const idx=[];for(let i=0;i<=n;i++){const a=i/n*Math.PI*2;p.push(cx+Math.cos(a)*r,0,cz+Math.sin(a)*r)}for(let i=1;i<=n;i++)idx.push(0,i,i+1);g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setIndex(idx);g.computeBoundingSphere();const e=[];for(let i=0;i<n;i++){const a=i/n*Math.PI*2;e.push(cx+Math.cos(a)*r,0,cz+Math.sin(a)*r)}eg.setAttribute('position',new THREE.Float32BufferAttribute(e,3))}
+// selected reticle
+const selRet=new THREE.Group();{const c=new THREE.Line(circleGeo(.42,48),lineMat(0xf0eee7,.9));selRet.add(c);const p=[];for(const[sx,sz]of[[-1,-1],[1,-1],[1,1],[-1,1]]){p.push(sx*.7,0,sz*.45,sx*.7,0,sz*.7,sx*.7,0,sz*.7,sx*.45,0,sz*.7)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));selRet.add(new THREE.LineSegments(g,lineMat(0xf0eee7,.9)))}selRet.visible=false;scene.add(selRet);
+
+const posMaps={rose:new Map(),rail:new Map()};let pos=posMaps.rose;let rot=0,W=0,H=0,VX=0,VW=0;
+function placeCamera(){const rail=isRail(),nest=S.layout==='nest';const el=rail?lerp(1.2,.22,law('tilt')):lerp(1.45,.28,law('tilt')),az=rail?Math.PI/2+rot*.4:nest?Math.PI/2+rot*.15:rot*.35+Math.PI*.15;const dist=rail?18.5:nest?17:23;camera.position.set(Math.cos(az)*Math.cos(el)*dist,Math.sin(el)*dist,Math.sin(az)*Math.cos(el)*dist);camera.lookAt(0,rail?-1.6:0,0);camera.updateMatrixWorld(true)}
+function setHalf(h){S.layout=h===0?'rose':'rail';pos=posMaps[S.layout];VX=h===0?0:Math.floor(W/2)+1;VW=Math.floor(W/2)-1;camera.aspect=VW/H;camera.updateProjectionMatrix();placeCamera()}
+function size(){const r=stage.getBoundingClientRect();const w=Math.round(r.width),h=Math.round(r.height);if(w!==W||h!==H){W=w;H=h;renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));renderer.setSize(w,h,false);pMat.uniforms.uPx.value=Math.min(2,devicePixelRatio||1)}}
+const isRail=()=>S.layout==='rail';
+function stationPos(st){if(isRail()){const[x,y,z]=fieldPos(st);return[x,y,z,0]}const a=-Math.PI/2+(st+.5)/N*Math.PI*2+rot;return[Math.cos(a)*(R1+1.3),0,Math.sin(a)*(R1+1.3),a]}
+const labelsHost=$('#labels');const labelEls=new Map();
+function label(key,cls){let e=labelEls.get(key);if(!e){e=document.createElement('div');e.className='lbl '+cls;labelsHost.appendChild(e);labelEls.set(key,e)}e.dataset.used='1';return e}
+const v3=new THREE.Vector3();function project(x,y,z){v3.set(x,y,z).project(camera);return[(v3.x*.5+.5)*VW+VX,(-v3.y*.5+.5)*H,v3.z<1]}
+let hover=null,lastMarks=[],marksBy={rose:[],rail:[]};
+function draw(dt,half){size();setHalf(half);const L=S.laws;const A=hex(acc());const M=LOCK.motion;const rail=isRail(),rose=S.layout==='rose',nest=S.layout==='nest';
+  LOGMAX=ceilingFor(law('scale'));
+  if(rose){R0=lv('rose','hub')}else{R0=1.4}rebuildHub();NEST_R=lv('nest','size');
+  const RT=rail?Math.round(lv('rail','tail')):TAIL;
+  if(half===0)rot+=dt*M*.06;
+  const GH=6;const span=law('history')*3600;const ghosts=[];if(span>0&&!rail)for(let g=1;g<=GH;g++)ghosts.push({dt:span*g/GH,alpha:Math.pow(1-g/(GH+1),1.6)});
+  wakeWire.visible=wakeFill.visible=rail;if(rail)updateWake(S.t,span,acc(),dt);railLine.visible=false;
+  placeCamera();
+  const k=(rail||nest)?0:1;ringGroup.visible=k>0;for(const r of rings)r.material.opacity=r.userData.o*k;for(const r of midRings)r.material.opacity=.08*k;spokes.material.opacity=lv('rose','spokes')*k;ticks.material.opacity=.25*k;railLine.material.opacity=rail?.25:0;ringGroup.rotation.y=-rot;
+  if(half===0)pMat.uniforms.uTime.value+=dt;pMat.uniforms.uGlow.value=LOCK.glow;
+  const t=S.t;const bySt=Array.from({length:N},()=>[]);for(const it of DATA.items){const s=stateAt(it,t);if(!s)continue;bySt[s.st].push({it,s})}for(const a of bySt)a.sort((a,b)=>b.s.since-a.s.since);
+  let held=0,wait=0,ask=0;const marks=[];let n=0;const seen=new Set();const e=1-Math.pow(.002,dt);
+  const focusId=hover!=null?hover:S.sel;const spotOn=focusId!=null&&law('spot')>0;
+  const nestR=new Map();if(nest){const all=[];bySt.forEach((arr,st)=>arr.forEach(({it,s})=>all.push({id:it.id,st,r:scaleT(s.since,lv('nest','curve'))})));all.sort((a,b)=>a.r-b.r);for(let i=1;i<all.length;i++){const d=all[i].st===all[i-1].st?.035:.09;if(all[i].r<all[i-1].r+d)all[i].r=all[i-1].r+d}const mx=all.length?all[all.length-1].r:1;for(const a of all)nestR.set(a.id,mx>1?a.r/mx:a.r)}
+  bySt.forEach((arr,st)=>arr.forEach(({it,s},rank)=>{const isModel=MODEL.has(st);if(isModel)held++;else if(st===6)ask++;else wait++;seen.add(it.id);
+    const rounds=roundsAt(it,t);const cA=mixHex(acc(),'#ff6a3d',law('heat')*Math.min(1,rounds/5));const c=isModel?hex(LIVE):cA;
+    const inkShare=callsAt(it,t).ink/INK_MEAN;const wgt=lerp(1,Math.max(.25,Math.min(3,inkShare)),law('weight'));
+    const dim=spotOn&&it.id!==focusId?1-law('spot')*.85:1;
+    const count=arr.length;const sec=Math.PI*2/N;const a0=-Math.PI/2+st*sec+rot;const len=rose?scaleT(s.since,lv('rose','curve')):nest?scaleT(s.since,lv('nest','curve')):logp(s.since);
+    let p=pos.get(it.id);if(!p){p={x:0,y:0,z:0,len:0,r:0};pos.set(it.id,p)}p.len+=(len-p.len)*e;
+    let anchor;
+    if(rail){const[fx,fy,fz]=fieldPos(st);const ra=rank/Math.max(1,count)*Math.PI*2,rr=count>1?.34:0;const tx=fx+Math.cos(ra)*rr,tz=fz+Math.sin(ra)*rr,ty=fieldTop(st)+.22;if(p.first==null){p.x=tx;p.y=ty;p.z=tz;p.first=1}p.x+=(tx-p.x)*e;p.y+=(ty-p.y)*e;p.z+=(tz-p.z)*e;
+      p.hit={kind:'point'};pPos.set([p.x,p.y,p.z],n*3);pCol.set([c.r*dim,c.g*dim,c.b*dim],n*3);pSize[n]=(it.id===S.sel?10:7)*Math.sqrt(wgt);pLive[n]=isModel?1:0;n++;
+      const tr=trailFor(it.id);tr.pts.push([p.x,p.y,p.z]);while(tr.pts.length>RT)tr.pts.shift();const pa=tr.g.attributes.position.array,ca=tr.g.attributes.color.array;for(let i=0;i<TAIL;i++){const q=tr.pts[Math.max(0,i-(TAIL-tr.pts.length))]||tr.pts[0];pa[i*3]=q[0];pa[i*3+1]=q[1];pa[i*3+2]=q[2];const f=Math.pow(Math.max(0,i-(TAIL-RT))/Math.max(1,RT-1),2.2)*.55*M*dim;ca[i*3]=c.r*f;ca[i*3+1]=c.g*f;ca[i*3+2]=c.b*f}tr.g.attributes.position.needsUpdate=true;tr.g.attributes.color.needsUpdate=true;tr.l.visible=true;
+      anchor=[p.x,p.y,p.z];const b=bars.get(it.id);if(b){b.fill.visible=b.halo.visible=b.edge.visible=false}
+      }
+    else{const b=barFor(it.id);b.fill.visible=b.halo.visible=b.edge.visible=true;b.fill.material.color=c;b.halo.material.color=c;b.edge.material.color=it.id===S.sel?hex('#f0eee7'):c;b.edge.material.opacity=it.id===S.sel?1:.5;
+      const pulse=isModel?1+(nest?lv('nest','breath'):.06)*Math.sin(performance.now()/180):1;
+      if(rose){const gap=sec*lv('rose','gap'),taper=lv('rose','taper'),stack=lv('rose','stack');const ws=arr.map(({it:j})=>lerp(1,Math.max(.25,Math.min(3,callsAt(j,t).ink/INK_MEAN)),law('weight')));const tot=ws.reduce((a,b)=>a+b,0);let off=0;for(let q=0;q<rank;q++)off+=ws[q];const w=(sec-2*gap)/tot;
+        const sideA0=a0+gap+off*w+w*ws[rank]*.08,sideA1=a0+gap+(off+ws[rank])*w-w*ws[rank]*.08;const sideR0=R0,sideR1=R0+p.len*(R1-R0)*pulse;
+        const th=(R1-R0)/count;let base=R0;for(let q=0;q<rank;q++)base+=logp(arr[q].s.since)*th;const stR0=base,stR1=base+Math.max(.06,p.len*th)*pulse;const stA0=a0+gap,stA1=a0+sec-gap;
+        let ba0=lerp(sideA0,stA0,stack),ba1=lerp(sideA1,stA1,stack);const r0=lerp(sideR0,stR0,stack),r1=lerp(sideR1,stR1,stack);
+        const mid=(ba0+ba1)/2,half=(ba1-ba0)/2*lerp(.35,1,taper);ba0=mid-half;ba1=mid+half;
+        sectorGeo(b.g,b.edge.geometry,ba0,ba1,r0,Math.max(r0+.06,r1));anchor=[Math.cos(mid)*r1,0,Math.sin(mid)*r1];p.x=anchor[0];p.y=0;p.z=anchor[2];p.hit={kind:'wedge',a0:ba0,a1:ba1,r0,r1}}
+      else{const th=lv('nest','anchor')+lv('nest','orbit')*rot*2.5,spread=lv('nest','spread');const r=Math.max(.08,(nestR.get(it.id)||p.len)*NEST_R*pulse);const Rm=NEST_R;const cx=(st-(N-1)/2)*spread+Math.cos(th)*(Rm-r),cz=Math.sin(th)*(Rm-r);const lobes=Math.round(lv('nest','petals')),amp=lv('nest','scallop');flowerGeo(b.g,b.edge.geometry,cx,cz,r,lobes,amp,rot*1.5+rank*.7);p.hit={kind:'disc',cx,cz,r};const sc=hex(STATION_HUES[st]).lerp(A,lv('nest','tint'));b.fill.material.color=sc;b.edge.material.color=it.id===S.sel?hex('#f0eee7'):sc;b.fill.material.blending=THREE.NormalBlending;b.fill.material.opacity=lv('nest','fill')*Math.min(2,wgt)*dim;const ew=lv('nest','edge');b.halo.geometry=b.hg;{const k=lobes,ph=rot*1.5+rank*.7,n=96,w=.015+.09*ew;const pp=[],ii=[];for(let i=0;i<=n;i++){const a=i/n*Math.PI*2;const rr=r*(1+amp*Math.cos(k*a+ph));pp.push(cx+Math.cos(a)*rr*(1-w),0,cz+Math.sin(a)*rr*(1-w),cx+Math.cos(a)*rr,0,cz+Math.sin(a)*rr)}for(let i=0;i<n;i++){const q=i*2;ii.push(q,q+1,q+2,q+1,q+3,q+2)}b.hg.setAttribute('position',new THREE.Float32BufferAttribute(pp,3));b.hg.setIndex(ii);b.hg.computeBoundingSphere()}b.halo.visible=true;b.halo.material.blending=THREE.NormalBlending;b.halo.material.color=sc;b.halo.material.opacity=(.35+.6*ew)*dim;b.edge.material.opacity=(it.id===S.sel?1:.4+.5*ew)*dim;b.fill.renderOrder=b.edge.renderOrder=Math.round((1-p.len)*100);anchor=[cx,0,cz-r];p.x=cx;p.y=0;p.z=cz-r}
+      if(rose){b.halo.geometry=b.g;b.fill.material.blending=THREE.AdditiveBlending;b.fill.material.opacity=.5*dim;b.halo.material.opacity=.16*dim;b.edge.material.opacity=(it.id===S.sel?1:.5)*dim}
+      // ghosts: where this packet was, fading back through the replay
+      for(let g=0;g<ghosts.length;g++){const gs=stateAt(it,t-ghosts[g].dt);const gb=barFor(it.id+':g'+g);if(!gs){gb.fill.visible=gb.halo.visible=gb.edge.visible=false;continue}gb.fill.visible=gb.edge.visible=true;gb.halo.visible=false;const gc=MODEL.has(gs.st)?hex(LIVE):cA;gb.fill.material.color=gc;gb.edge.material.color=gc;const ga=ghosts[g].alpha*dim;const glen=logp(gs.since);const ga0=-Math.PI/2+gs.st*sec+rot;
+        if(rose){const gw=(sec-2*sec*.12)/Math.max(1,bySt[gs.st].length);const gi=bySt[gs.st].findIndex(x=>x.it.id===it.id);const gk=gi>=0?gi:0;const b0=ga0+sec*.12+gk*gw+gw*.2,b1=ga0+sec*.12+(gk+1)*gw-gw*.2;sectorGeo(gb.g,gb.edge.geometry,b0,b1,R0,Math.max(R0+.05,R0+glen*(R1-R0)));gb.fill.material.blending=THREE.AdditiveBlending;gb.fill.material.opacity=.18*ga;gb.edge.material.opacity=.35*ga}
+        else{const gr=Math.max(.05,scaleT(gs.since,lv('nest','curve'))*NEST_R);const gth=lv('nest','anchor'),gsp=lv('nest','spread');flowerGeo(gb.g,gb.edge.geometry,(gs.st-(N-1)/2)*gsp+Math.cos(gth)*(NEST_R-gr),Math.sin(gth)*(NEST_R-gr),gr,Math.round(lv('nest','petals')),lv('nest','scallop'),rot*1.5);const gsc=hex(STATION_HUES[gs.st]);gb.fill.material.color=gsc;gb.edge.material.color=gsc;gb.fill.material.blending=THREE.NormalBlending;gb.fill.material.opacity=.03*ga;gb.edge.material.opacity=.3*ga}}
+      const tr=trails.get(it.id);if(tr){tr.l.visible=false;tr.pts.length=0}}
+    marks.push({it,s,st,p:{x:anchor[0],y:anchor[1],z:anchor[2]},hit:p.hit,isModel})}));
+  for(const[id,b]of bars){const base=String(id).split(':')[0];const isGhost=String(id).includes(':g');const gi=isGhost?+String(id).split(':g')[1]:-1;if(!seen.has(+base)||rail||(isGhost&&gi>=ghosts.length)){b.fill.visible=b.halo.visible=b.edge.visible=false}}
+  for(const[id,tr]of trails)if(!seen.has(id)||!rail){tr.l.visible=false;tr.pts.length=0}
+  pGeo.setDrawRange(0,n);pGeo.attributes.position.needsUpdate=true;pGeo.attributes.color.needsUpdate=true;pGeo.attributes.size.needsUpdate=true;pGeo.attributes.live.needsUpdate=true;points.visible=rail;
+  if(half===0)for(const el2 of labelEls.values())el2.dataset.used='';
+  if(nest){for(let i=0;i<N;i++){const arr=bySt[i];if(!arr.length)continue;const top=arr[0];const tp=pos.get(top.it.id);if(!tp||!tp.hit)continue;const r=tp.hit.r,cx=tp.hit.cx,cz=tp.hit.cz;const[sx,sy,ok]=project(cx,0,cz-r);const e2=label('nest'+i,'arc');e2.style.left=sx+'px';e2.style.top=(sy-9)+'px';e2.style.color='#'+hex(STATION_HUES[i]).lerp(A,lv('nest','tint')).getHexString();e2.innerHTML=`${DATA.stations[i]} <span style="opacity:.75">${arr.length} · ${ago(top.s.since)}</span>`;e2.style.display=ok?'block':'none'}}
+  for(let i=0;i<N;i++){const[x,y,z,ang]=stationPos(i);const r=reticles[i];r.g.visible=false;if(nest){const e2=label(S.layout+'st'+i,'');e2.style.display='none';continue}const ly=rail?fieldTop(i)+.6:y;r.g.rotation.y=rail?0:-ang;const cnt=bySt[i].length;const model=MODEL.has(i)&&cnt>0;const col=model?hex(LIVE):cnt?A:hex('#83817a');r.c.material.color=col;r.t.material.color=col;r.c.material.opacity=cnt?.95:.5;r.t.material.opacity=cnt?.95:.5;
+    const[sx,sy,ok]=project(x,ly,z);const e2=label(S.layout+'st'+i,'');e2.style.left=sx+'px';e2.style.top=(sy-(rail?4:6))+'px';e2.style.color=model?LIVE:cnt?'#f0eee7':'#83817a';e2.textContent=DATA.stations[i]+(cnt?'  '+cnt:'');e2.style.display=ok?'block':'none'}
+  for(const m of marks){const sel=S.sel===m.it.id,hov=hover===m.it.id;if(!(sel||hov))continue;const[sx,sy,ok]=project(m.p.x,m.p.y,m.p.z);const e2=label(S.layout+'pk'+m.it.id,'pk');e2.style.left=sx+'px';e2.style.top=sy+'px';e2.innerHTML=`<b>${short(m.it.title,26)}</b> · ${ago(m.s.since)}`;e2.style.display=ok?'block':'none'}
+  if(half===1)for(const[kk,e2]of labelEls)if(!e2.dataset.used)e2.style.display='none';
+  const sm=marks.find(m=>m.it.id===S.sel);if(sm){selRet.visible=true;selRet.position.set(sm.p.x,sm.p.y,sm.p.z);selRet.rotation.x=0}else selRet.visible=false;
+  renderer.setViewport(VX,0,VW,H);renderer.setScissor(VX,0,VW,H);renderer.setScissorTest(true);renderer.render(scene,camera);
+  return{held,wait,ask,marks}}
+function short(s,n){return s.length<=n?s:s.slice(0,n-1).trimEnd()+'…'}
+
+// ---------- hit test
+const rayc=new THREE.Raycaster(),floor=new THREE.Plane(new THREE.Vector3(0,1,0),0),fpt=new THREE.Vector3();
+function hit(ev){const r=stage.getBoundingClientRect();const x=ev.clientX-r.left,y=ev.clientY-r.top;const half=x<W/2?0:1;setHalf(half);
+  rayc.setFromCamera(new THREE.Vector2((x-VX)/VW*2-1,-(y/H)*2+1),camera);const onFloor=rayc.ray.intersectPlane(floor,fpt);
+  let best=null,bd=16;
+  for(const m of marksBy[S.layout]){if(m.hit&&m.hit.kind==='wedge'&&onFloor){const ang=Math.atan2(fpt.z,fpt.x),rad=Math.hypot(fpt.x,fpt.z);let a=ang-m.hit.a0;a=((a%(Math.PI*2))+Math.PI*2)%(Math.PI*2);const w=((m.hit.a1-m.hit.a0)%(Math.PI*2)+Math.PI*2)%(Math.PI*2);if(a<=w&&rad>=m.hit.r0-.1&&rad<=m.hit.r1+.1)return m}
+    else if(m.hit&&m.hit.kind==='disc'&&onFloor){const d=Math.hypot(fpt.x-m.hit.cx,fpt.z-m.hit.cz);if(d<=m.hit.r){if(!best||m.hit.r<best.hit.r)best=m}}
+    else{const[sx,sy]=project(m.p.x,m.p.y,m.p.z);const d=Math.hypot(sx-x,sy-y);if(d<bd){bd=d;best=m}}}
+  return best}
+stage.addEventListener('mousemove',ev=>{const m=hit(ev);hover=m?m.it.id:null;const tip=$('#tip');if(m){const r=stage.getBoundingClientRect();tip.style.display='block';tip.style.left=(ev.clientX-r.left+14)+'px';tip.style.top=(ev.clientY-r.top+14)+'px';const cc=callsAt(m.it,S.t);tip.innerHTML=`<span style="color:var(--accent)" class="n">${m.it.id}</span> ${m.it.title}<span class="d">${DATA.stations[m.st]} · ${m.s.note} · ${ago(m.s.since)}</span><span class="d m">${roundsAt(m.it,S.t)} rounds · ${cc.ink.toLocaleString()} tokens · ${cc.n} of 8 calls</span>`;stage.style.cursor='pointer'}else{tip.style.display='none';stage.style.cursor='default'}});
+stage.addEventListener('mouseleave',()=>{hover=null;$('#tip').style.display='none'});
+stage.addEventListener('click',ev=>{const m=hit(ev);if(m){S.sel=m.it.id;writeURL();renderPanel(true)}});
+function walk(dir){const ids=lastMarks.map(m=>m.it.id);if(!ids.length)return;const i=ids.indexOf(S.sel);S.sel=ids[(i+dir+ids.length)%ids.length];writeURL();renderPanel(true)}
+
+// ---------- panel: the design from the canvas, filled from the same data
+const wrap=$('#panelWrap');let panelKey='';
+function padSvg(n,run){const m=Math.min(8,n);return Array.from({length:8},(_,i)=>`<rect x="${i*22}" y="0" width="18" height="8" rx="2" fill="${i<m?(n>8?ALARM:'var(--accent)'):(i===m&&run?LIVE:'#3a3a42')}"></rect>`).join('')}
+function stripSvg(v,att,w=330){if(!v||!v.dur)return `<div class="d m">no transcript in this packet · ${v?v.nframes:0} frames</div>`;const dur=v.dur;let s=`<rect x="0" y="14" width="${w}" height="6" fill="var(--accent)" fill-opacity=".85"></rect>`;if(att)for(const[g,wh]of att.spots){for(const m of wh.matchAll(/t:(\d+)(?:-(\d+))?/g)){const a=+m[1],b=+(m[2]||m[1]);const xa=a/dur*w,xb=Math.max(a+1,b)/dur*w;s+=`<rect x="${xa.toFixed(1)}" y="4" width="${Math.max(2,xb-xa).toFixed(1)}" height="6" rx="1" fill="${g?'var(--accent)':ALARM}"></rect>`}}
+  const nf=v.nframes||0;if(nf){const fw=w/nf;const shownF=v.shown.filter(u=>u.startsWith('frame:')).map(u=>+u.slice(6));const bad=new Set();if(att)for(const[g,wh]of att.spots)if(!g)for(const m of wh.matchAll(/frame:(\d+)/g))bad.add(+m[1]);for(let i=1;i<=nf;i++){const shown=shownF.includes(i);const col=bad.has(i)?ALARM:shown?'var(--accent)':'#3a3a42';const h=shown?10:6;s+=`<rect x="${((i-1)*fw+1).toFixed(1)}" y="${40-h}" width="${Math.max(1.5,fw-2).toFixed(1)}" height="${h}" rx="1" fill="${col}"></rect>`}}
+  for(const[lab,sec]of[['0',0],[String(Math.round(dur/2)),dur/2],[Math.round(dur)+' s',dur]])s+=`<text x="${(sec/dur*w).toFixed(1)}" y="52" font-size="10" fill="#83817a" text-anchor="${sec===dur?'end':sec===0?'start':'middle'}" font-family="Newsreader, Georgia, serif">${lab}</text>`;
+  return `<svg width="${w}" height="56" viewBox="0 0 ${w} 56" style="display:block;overflow:visible">${s}</svg>`}
+function esc(x){return String(x??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function unitLinks(w){return esc(w).replace(/t:\d+(?:-\d+)?|frame:\d+/g,u=>`<span class="unit" data-unit="${u}">${u}</span>`)}
+function modelRow(m){return m?`${(m[0]||'').replace('claude-','')} · ${(m[1]||0).toLocaleString()} tok · ${m[2]} s`:''}
+function renderPanel(force){if(S.sel==null){wrap.hidden=true;return}const it=DATA.items.find(i=>i.id===S.sel);if(!it){wrap.hidden=true;return}const s=stateAt(it,S.t);const key=it.id+':'+S.t+':'+(s?s.st+s.note:'-');if(!force&&key===panelKey)return;panelKey=key;wrap.hidden=false;
+  const v=VIEWS[it.id];const c=callsAt(it,S.t);const run=s&&(s.st===2||s.st===4);const atts=it.attempts.filter(a=>a.open<=S.t);const lastClosed=[...atts].reverse().find(a=>a.close!=null&&a.close<=S.t);const rounds=roundsAt(it,S.t);
+  $('#pId').textContent=it.id;$('#pTitle').textContent=it.title;
+  $('#pMeta').innerHTML=`${it.source}${v?` · ${v.origin||'no transcript'} · packet <span style="color:var(--accent)">${v.hash}</span> · bundle ${v.bundle}`:' · no packet on disk'}`;
+  $('#pTake').textContent=it.take?`the sticky note, ${it.take.kind}: ${it.take.text}`:'no sticky note';
+  $('#pStation').textContent=s?DATA.stations[s.st]:'filed';$('#pStation').style.color=s&&MODEL.has(s.st)?LIVE:'var(--ink)';$('#pSince').textContent=s?`${s.note} · ${ago(s.since)}`:'on the shelf';
+  $('#pPad').innerHTML=padSvg(c.n,run);$('#pCalls').textContent=`${c.n>8?c.n+' calls, '+(c.n-8)+' past the pad of 8':c.n+' of 8 calls'}${run?', one running':''} · ${c.ink.toLocaleString()} tokens`;
+  // the packet hash, draft against grade
+  const graded=[...atts].reverse().find(a=>a.grd&&a.grd[4]<=S.t);
+  if(graded&&graded.grd[3]){const same=graded.grd[3]===graded.hash;$('#pHash').innerHTML=`<span style="color:${same?LIVE:ALARM}">${same?'same packet':'packet mismatch'}</span>`;$('#pHash').style.color='';$('#pHashNote').textContent=`draft ${graded.hash} · grade ${graded.grd[3]}`}
+  else if(graded){$('#pHash').innerHTML=`<span style="color:var(--mute)">no packet hash on the grade</span>`;$('#pHashNote').textContent=`graded before the packet model`}
+  else{$('#pHash').innerHTML=`<span style="color:var(--mute)">not graded yet</span>`;$('#pHashNote').textContent=v?`draft reads ${v.hash}`:''}
+  // the packet
+  const lines=(v&&v.lines)||[];
+  $('#pPacket').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline"><h2>packet</h2><span class="d m">the view, immutable</span></div>
+    <div style="display:flex;flex-direction:column;gap:4px"><div class="d m" style="display:flex;justify-content:space-between"><span>on the source timeline · spot checks above</span><span>${lastClosed?'attempt '+lastClosed.n:''}</span></div>${stripSvg(v,lastClosed)}${v&&v.nframes?`<div class="d m">frames, ${v.shown.filter(u=>u.startsWith('frame:')).length} shown of ${v.nframes}</div>`:''}</div>
+    ${v?`<div style="display:flex;flex-direction:column"><div class="d m" style="padding-bottom:4px;display:flex;justify-content:space-between"><span>units</span><span>weight</span></div>${v.shown.map(u=>`<div class="g2"><span class="unit">${u}</span><span class="d right">${u.startsWith('t:')?(v.nlines||v.lines.length)+' lines · '+v.origin:'frame · sparse'}</span></div>`).join('')}${v.not_shown.map(u=>`<div class="g2"><span class="d" style="color:#83817a">${u}</span><span class="d m right">not shown</span></div>`).join('')}<div class="g2"><span class="d m">budget</span><span class="d right">${v.budget.frames_shown} frames · ${v.budget.evidence_cap_chars.toLocaleString()} chars · sheet ${v.budget.sheet}</span></div><div class="g2"><span class="d m">tokenizer</span><span class="d right">${v.tokenizer}</span></div></div>`:'<div class="d m">this item has no packet on disk: it was graded before #212 or never enriched</div>'}
+    ${lines.length?`<div style="display:flex;flex-direction:column;gap:4px"><div class="d m" style="display:flex;justify-content:space-between"><span>unit t:0-${Math.round((v.dur||0))} · the lines the teacher cited are lit</span><span>${v.nlines||lines.length} lines</span></div><div style="background:var(--bg1);border-radius:6px;padding:8px 4px;display:flex;flex-direction:column;gap:1px;max-height:380px;overflow:auto">${lines.map(l=>l[0]==='…'?`<div class="line fold"><span class="s">…</span><span>${esc(l[1])}</span></div>`:`<div class="line${l[2]?' hit':''}"><span class="s">${l[0]}</span><span>${esc(l[1])}</span></div>`).join('')}</div></div>`:''}
+    ${it.id===534?`<div style="display:flex;gap:10px"><img src="${IMGS['frame-001.jpg']}" alt="frame:001" style="width:50%;border-radius:4px;border:1px solid var(--line)"><img src="${IMGS['frame-002.jpg']}" alt="frame:002" style="width:50%;border-radius:4px;border:1px solid var(--line)"></div><div class="d m" style="display:flex;justify-content:space-between"><span class="unit">frame:001</span><span class="unit">frame:002</span></div>`:''}`;
+  // every round
+  $('#pRoundsN').textContent=atts.length?`${atts.length} on disk · findings in, draft out, verdict out`:'';
+  const lastN=atts.length?atts[atts.length-1].n:0;
+  $('#pRounds').innerHTML=atts.length?atts.map(a=>{const closed=a.close!=null&&a.close<=S.t;const col=closed?(a.passed?'var(--ink)':ALARM):LIVE;const folded=(a.n!==lastN)!==!!S.open[it.id+':'+a.n];return`<div class="att${closed?'':' open'}${folded?' folded':''}" data-round="${a.n}">
+      <div class="rh" style="display:flex;justify-content:space-between;align-items:baseline"><span>attempt ${a.n} <span class="d" style="color:${col}">${closed?(a.passed?'pass':'bounce · '+a.bounces.join(', ')):'writing'}</span></span><span class="d m">${closed?clockText(a.open)+' to '+clockText(a.close):'opened '+clockText(a.open)}${folded?' · open':''}</span></div>
+      <div class="d m">findings in · ${a.findings}${a.fin.length?'':' · a blind first draft'}</div>
+      ${a.fin.length?`<div style="display:flex;flex-direction:column">${a.fin.map(f=>`<div class="g2" title="${esc(f[2])}"><span class="d">${esc(f[0])}</span><span class="d m right">${unitLinks(f[1])}</span></div>`).join('')}</div>`:''}
+      <div class="d m">draft out${a.enr&&a.enr[3]<=S.t?' · '+modelRow(a.enr):' · writing'}${a.take?' · take '+a.take:''}</div>
+      ${a.draft&&a.draft.thesis&&closed?`<div style="font-size:14px;color:var(--ink2);line-height:1.35">${esc(a.draft.thesis)}</div><div class="d m">${a.draft.concepts} concepts · ${a.draft.insights} insights · ${a.draft.moments} moments${a.draft.tags.length?' · '+a.draft.tags.slice(0,5).join(', '):''}</div>`:''}
+      <div class="d m">verdict${a.grd&&a.grd[4]<=S.t?' · '+modelRow(a.grd):''}${closed?` · packet <span class="n" style="color:${a.grd&&a.grd[3]&&a.grd[3]!==a.hash?ALARM:'var(--accent)'}">${a.hash}</span>${a.grd&&a.grd[3]?(a.grd[3]===a.hash?' same':' differs from '+a.grd[3]):''}`:' · not yet'}</div>
+      ${closed?`<div style="display:flex;flex-direction:column">${a.bdet.map(b=>`<div class="g2" title="${esc(b[2])}"><span class="d alarm">bounce · ${esc(b[0])}</span><span class="d m right">${unitLinks(b[1])}</span></div>`).join('')}${a.spots.map(([g,w,cl])=>`<div class="g2" title="${esc(cl)}"><span class="d${g?'':' alarm'}">spot check · ${g?'grounded':'not grounded'}</span><span class="d right">${w?unitLinks(w):'—'}</span></div>`).join('')}</div>`:''}
+    </div>`}).join(''):'<div class="d m">no round yet</div>';
+  // asks and connections
+  const asks=it.asks.filter(k=>k.t<=S.t);const links=asks.filter(k=>k.kind==='connections');const plain=asks.filter(k=>k.kind!=='connections');
+  $('#pAsks').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline"><h2>asks</h2><span class="d m">${plain.length?plain.length+' raised':'none raised'}</span></div>`+plain.map(k=>{const real=k.answer&&k.answer.t<=S.t?k.answer:null;const local=S.answers[k.id];const ans=real||local;const open=!ans;return`<div class="ask${open?' open':''}" data-ask="${k.id}" style="${open?'border-color:var(--accent)':''}"><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14.5px">${esc(k.kind)}${open?' <span class="d" style="color:var(--accent)">open</span>':''}</span><span class="d m">${k.at}${k.attempt?' · attempt '+k.attempt:''}</span></div>${k.why?`<div style="font-size:13px;color:var(--ink2);line-height:1.35">${esc(k.why)}</div>`:''}<div>${k.options.map((o,i)=>open?`<button class="opt" data-choice="${esc(o)}" data-ask="${k.id}">${i<4?'<span class="key" style="margin-right:5px">'+(i+1)+'</span>':''}${esc(o)}</button>`:`<span class="opt${ans&&ans.choice===o?' on':''}">${esc(o)}</span>`).join('')}</div>${open&&S.say===k.id?`<textarea class="say" data-ask="${k.id}" placeholder="what is wrong, in your words · enter to send, esc to cancel"></textarea>`:''}<div class="d m">${real?`answered ${real.at} · ${esc(real.choice)}${real.text?' · “'+esc(real.text.slice(0,80))+'”':''}`:local?`answered here · ${esc(local.choice)}${local.text?' · “'+esc(local.text.slice(0,80))+'”':''} · <span style="color:var(--accent)">ytk ask answer ${k.id} ${esc(local.choice)}${local.text?' --text "…"':''}</span>`:'waiting for the owner · pick an option, or press its number'}</div></div>`}).join('');
+  $('#pLinks').innerHTML=links.length?`<div style="display:flex;justify-content:space-between;align-items:baseline"><h2>connections</h2><span class="d m">the librarian argued ${links.reduce((n,k)=>n+k.links.length,0)}</span></div>`+links.map(k=>{const ans=k.answer&&k.answer.t<=S.t?k.answer:null;return`<div class="ask"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="d">${k.at}</span><span class="d m">${ans?'answered '+ans.at+' · '+esc(ans.choice):'open'}</span></div>${k.links.map(l=>`<div class="g2" title="${esc(l.why)}"><span class="d" style="color:${ans&&ans.choice==='approve'?'var(--ink)':'var(--ink2)'}">${esc(l.title)}</span><span class="d m right">${ans&&ans.choice==='approve'?'approved':ans?esc(ans.choice):'argued'}</span></div>`).join('')}</div>`}).join(''):'';
+  // trail
+  const rows=it.trail.filter(r=>r[1]<=S.t);const shown=S.trailAll?rows:rows.slice(-8);$('#pTrailN').innerHTML=`register · ${rows.length} hand-offs${rows.length>8?` · <span class="unit" data-trail="1">${S.trailAll?'last eight':'show all'}</span>`:''}`;$('#pTrail').innerHTML=shown.map(r=>`<div class="g3"><span class="d m${r[4]?' alarm':''}">${r[0]}</span><span class="d${r[4]?' alarm':''}">${esc(r[2])}</span><span class="d m right">${esc(r[3])}</span></div>`).join('')+(s&&s.st===2?`<div class="g3"><span class="d live">${clockText(S.t)}</span><span class="d live">student · ${esc(s.note)}</span><span class="d live right">writing</span></div>`:'');
+  $('#pActions').innerHTML=[['view',`ytk view ${it.id}${rounds?' --attempt '+rounds:''} --full`],['grade again',`ytk grade ${it.id}${rounds?' --attempt '+rounds:''}`],['item',`ytk item ${it.id}`]].map(([l,c])=>`<button class="btn" data-cmd="${esc(c)}" title="${esc(c)}">${l}</button>`).join('');
+  $('#pAttempt').textContent=rounds||'';$('#pFoot').textContent=rounds?`attempt · at the ${s?DATA.stations[s.st]:'shelf'}`:(s?`at the ${DATA.stations[s.st]}`:'filed');$('#pFoot2').textContent=s?`${s.note} · ${ago(s.since)}`:'';$('#pUrl').textContent=`/packet/${it.id}?at=${clockText(S.t)}z`}
+
+// ---------- keys
+wrap.addEventListener('click',e=>{const u=e.target.closest('[data-unit]');if(u){goUnit(u.dataset.unit);return}
+  const rh=e.target.closest('.rh');if(rh){const n=rh.parentElement.dataset.round;const it=DATA.items.find(i=>i.id===S.sel);const k=it.id+':'+n;S.open[k]=!S.open[k];renderPanel(true);return}
+  const o=e.target.closest('button.opt');if(o){answer(+o.dataset.ask,o.dataset.choice);return}
+  const tr=e.target.closest('[data-trail]');if(tr){S.trailAll=!S.trailAll;renderPanel(true);return}
+  const c=e.target.closest('[data-cmd]');if(c){copyCmd(c.dataset.cmd);return}
+  const img=e.target.closest('#pPacket img');if(img){openFrame(img.alt,img.src)}});
+wrap.addEventListener('keydown',e=>{const ta=e.target.closest('textarea.say');if(!ta)return;if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();const id=+ta.dataset.ask;S.answers[id]={choice:'say what is wrong',text:ta.value.trim()};S.say=null;renderPanel(true);toast(`ytk ask answer ${id} "say what is wrong" --text "…"`)}if(e.key==='Escape'){e.stopPropagation();S.say=null;renderPanel(true)}});
+function answer(id,choice){if(choice==='say what is wrong'){S.say=id;renderPanel(true);setTimeout(()=>{const ta=wrap.querySelector('textarea.say');if(ta)ta.focus()},0);return}S.answers[id]={choice};renderPanel(true);toast(`ytk ask answer ${id} ${choice}`)}
+function goUnit(u){if(u.startsWith('frame:')){const n=+u.slice(6);const src=IMGS['frame-'+String(n).padStart(3,'0')+'.jpg'];if(src&&S.sel===534)openFrame(u,src);else toast(u+' · not embedded in this mockup');return}
+  const sec=+u.slice(2).split('-')[0];const lines=[...wrap.querySelectorAll('.line:not(.fold)')];if(!lines.length){toast(u+' · no transcript in this packet');return}let best=null,bd=1e9;for(const l of lines){const d=Math.abs(+l.querySelector('.s').textContent-sec);if(d<bd){bd=d;best=l}}if(best){best.scrollIntoView({block:'center',behavior:'smooth'});best.classList.add('flash');setTimeout(()=>best.classList.remove('flash'),1400)}}
+function openFrame(cap,src){$('#lbImg').src=src;$('#lbCap').textContent=cap+' · packet '+(VIEWS[S.sel]?VIEWS[S.sel].hash:'');$('#lightbox').hidden=false}
+$('#lightbox').addEventListener('click',()=>{$('#lightbox').hidden=true});
+document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;if(!$('#lightbox').hidden){if(e.key==='Escape')$('#lightbox').hidden=true;return}if(e.key==='j'||e.key==='J')walk(1);if(e.key==='k'||e.key==='K')walk(-1);if(e.key==='Escape'){S.sel=null;writeURL();renderPanel(true)}
+  if(/^[1-4]$/.test(e.key)&&S.sel!=null){const it=DATA.items.find(i=>i.id===S.sel);const open=it.asks.filter(k=>k.kind!=='connections'&&k.t<=S.t&&!(k.answer&&k.answer.t<=S.t)&&!S.answers[k.id]);if(open.length){const k=open[0];const o=k.options[+e.key-1];if(o)answer(k.id,o)}}});
+
+// ---------- sparkline and ink readout
+function inkAt(t){let ink=DATA.inkBefore;const hours=DATA.inkHours.slice();for(const[tt,v]of DATA.ink){if(tt<=t){ink+=v;const h=new Date(t0.getTime()+tt*1000).getUTCHours();hours[h]+=v}}return{ink,hours}}
+let sparkKey=-1;function drawSpark(t){const m=Math.floor(t/60);if(m===sparkKey)return;sparkKey=m;const{ink,hours}=inkAt(t);$('#inkToday').textContent=ink.toLocaleString();const mx=Math.max(1,...hours);const cur=new Date(t0.getTime()+t*1000).getUTCHours();$('#spark').innerHTML=hours.map((v,h)=>v?`<rect x="${h*7}" y="${(28-v/mx*26).toFixed(1)}" width="5" height="${(v/mx*26).toFixed(1)}" rx="1" fill="${h===cur?LIVE:'var(--accent)'}" fill-opacity=".85"></rect>`:'').join('')+`<line x1="0" y1="27.5" x2="168" y2="27.5" stroke="rgba(255,255,255,.08)"></line>`}
+
+// ---------- loop
+let last=performance.now(),fpsAcc=0,fpsN=0,acc_t=0,urlT=0;const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+writeURL();renderPanel(true);
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+
+  const r=draw(dt,0);marksBy.rose=r.marks;const r2=draw(dt,1);marksBy.rail=r2.marks;lastMarks=r.marks;
+  drawSpark(S.t);renderPanel(false);
+  $('#rtr').textContent=`${clockText(S.t)}z`;$('#rbl').textContent=`${r.marks.length} packets · ${r.held} held by a model · ${r.wait} waiting · ${r.ask} with the owner`;
+  fpsAcc+=dt;fpsN++;if(fpsAcc>.5){$('#rbr').textContent=`${Math.round(fpsN/fpsAcc)} fps`;fpsAcc=0;fpsN=0}
+  requestAnimationFrame(frame)}
+requestAnimationFrame(frame);addEventListener('resize',size);
+window.__packet={S,DATA,stateAt,renderer};
+</script>
