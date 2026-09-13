@@ -7,7 +7,6 @@
     "dev": "vp dev",
     "build": "tsc -b && vp build",
     "test": "vitest run",
-    "lint": "vp lint",
     "preview": "vp preview"
   },
   "dependencies": {

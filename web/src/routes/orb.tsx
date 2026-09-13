@@ -10,7 +10,7 @@ import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import { mountOrb } from "../lib/orb/scene";
 import { orbPointToFreshNote } from "../lib/orb/note";
 import { useChromeVisible } from "../lib/chrome";
-import { validateOrbSearch } from "./orbSearch";
+import { validateOrbSearch } from "../lib/orbSearch";
 import "../styles.css";
 
 // same queryKey/queryFn shape as useNote/useSimilarNotes (api/fresh.ts) so the

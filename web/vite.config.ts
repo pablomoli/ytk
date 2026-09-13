@@ -54,7 +54,7 @@ export default defineConfig({
     tailwindcss(),
     tanstackRouter({
       target: "react",
-      routeFileIgnorePattern: String.raw`\.test\.tsx$`,
+      routeFileIgnorePattern: String.raw`\.test\.tsx?$`,
     }),
     react(),
   ],
