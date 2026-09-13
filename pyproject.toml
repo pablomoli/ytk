@@ -38,7 +38,7 @@ dev = [
     "pytest-timeout>=2.3",
     "umap-learn>=0.5.12",
     "ruff>=0.14",
-    "pyright>=1.1.400",
+    "pyright>=1.1.414",
 ]
 # Reactive notebooks for tuning shader constants against a real captured frame
 # before writing GLSL (labs/). Separate from dev so CI never pulls it.
