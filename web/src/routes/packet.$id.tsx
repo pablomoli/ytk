@@ -342,19 +342,24 @@ function PacketColumn({
   );
 }
 
+const OPEN_VERB: Record<string, string> = { "spell-checker": "checking", teacher: "marking" };
+
 function RoundBlock({
   a,
   now,
   folded,
+  station,
   onToggle,
   onUnit,
 }: {
   a: Round;
   now: number;
   folded: boolean;
+  station: string | null;
   onToggle: () => void;
   onUnit: (u: string) => void;
 }) {
+  const verb = (station && OPEN_VERB[station]) ?? "writing";
   const closed = a.closed_at != null && Date.parse(a.closed_at) <= now;
   const col = closed ? (a.passed ? "var(--ink)" : ALARM) : LIVE;
   const mismatch = a.marker?.view_hash && a.marker.view_hash !== a.view_hash;
@@ -380,7 +385,7 @@ function RoundBlock({
               ? a.passed
                 ? "pass"
                 : `bounce · ${a.bounces.map((b) => b.check).join(", ")}`
-              : "writing"}
+              : verb}
           </span>
         </span>
         <span className={DM}>
@@ -408,7 +413,7 @@ function RoundBlock({
           ) : null}
           <div className={DM}>
             draft out
-            {a.writer && Date.parse(a.writer.at) <= now ? ` · ${modelRow(a.writer)}` : " · writing"}
+            {a.writer && Date.parse(a.writer.at) <= now ? ` · ${modelRow(a.writer)}` : ` · ${verb}`}
             {a.take_kind ? ` · take ${a.take_kind}` : ""}
           </div>
           {a.draft?.thesis && closed ? (
@@ -468,6 +473,65 @@ function RoundBlock({
   );
 }
 
+/* Connections: struck targets leave the answer, the rest survive. All kept
+   is approve; some is "strike some" with the survivors as JSON, what
+   apply_links parses; none kept behaves as none. Same rule as the digest. */
+function ConnectionsAnswer({
+  k,
+  onAnswer,
+  pending,
+}: {
+  k: PacketAsk;
+  onAnswer: (choice: string, text?: string) => void;
+  pending: boolean;
+}) {
+  const [struck, setStruck] = useState<Set<string>>(new Set());
+  const links = k.links.filter((l) => l.target);
+  const kept = links.filter((l) => !struck.has(l.target!));
+  const send = () => {
+    if (kept.length === links.length) onAnswer("approve");
+    else if (kept.length === 0) onAnswer("none");
+    else onAnswer("strike some", JSON.stringify(kept.map((l) => l.target)));
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      {links.map((l) => (
+        <label key={l.target} className="flex cursor-pointer items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1 accent-current"
+            checked={!struck.has(l.target!)}
+            aria-label={`link ${l.target}`}
+            onChange={() =>
+              setStruck((prev) => {
+                const next = new Set(prev);
+                if (next.has(l.target!)) next.delete(l.target!);
+                else next.add(l.target!);
+                return next;
+              })
+            }
+          />
+          <span className="text-ink2">
+            <strong className="font-medium text-ink">{l.title}</strong> — {l.why}
+          </span>
+        </label>
+      ))}
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <Button size="sm" variant="secondary" disabled={pending} onClick={send}>
+          {kept.length === links.length
+            ? "approve"
+            : kept.length
+              ? `approve ${kept.length} of ${links.length}`
+              : "none survive"}
+        </Button>
+        <Button size="sm" variant="outline" disabled={pending} onClick={() => onAnswer("none")}>
+          none
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function AskBlock({
   k,
   now,
@@ -485,6 +549,8 @@ function AskBlock({
 }) {
   const [text, setText] = useState("");
   const open = !k.answer;
+  const isConnections = k.kind === "connections" && k.links.length > 0;
+  const wrong = k.options.includes("say what is wrong");
   return (
     <div
       className={cn(
@@ -504,42 +570,77 @@ function AskBlock({
         </span>
       </div>
       {k.why ? <div className="text-[13px] leading-[1.35] text-ink2">{k.why}</div> : null}
-      <div>
-        {k.options.map((o, i) =>
-          open ? (
+      {isConnections && open ? (
+        <ConnectionsAnswer k={k} onAnswer={onAnswer} pending={pending} />
+      ) : null}
+      {isConnections && !open
+        ? k.links.map((l, i) => (
+            <div key={i} className={G2} title={l.why}>
+              <span
+                className={D}
+                style={{ color: k.answer?.choice === "approve" ? "var(--ink)" : undefined }}
+              >
+                {l.title}
+              </span>
+              <span className={`${DM} text-right`}>
+                {k.answer?.choice === "approve" ? "approved" : k.answer?.choice}
+              </span>
+            </div>
+          ))
+        : null}
+      {!isConnections ? (
+        <div>
+          {k.options.map((o, i) =>
+            open ? (
+              <button
+                key={o}
+                type="button"
+                className={`${OPT} cursor-pointer bg-transparent hover:border-white/30 hover:text-ink`}
+                disabled={pending}
+                onClick={() =>
+                  o === "say what is wrong" ? onSay(true) : onAnswer(o, text.trim() || undefined)
+                }
+              >
+                {i < 4 ? (
+                  <span className="mr-1.5 rounded border border-line px-[5px] text-xs">
+                    {i + 1}
+                  </span>
+                ) : null}
+                {o}
+              </button>
+            ) : (
+              <span
+                key={o}
+                className={cn(OPT, k.answer?.choice === o && "border-accent bg-accent/10 text-ink")}
+              >
+                {o}
+              </span>
+            ),
+          )}
+          {open && !saying ? (
             <button
-              key={o}
               type="button"
-              className={`${OPT} cursor-pointer bg-transparent hover:border-white/30 hover:text-ink`}
-              disabled={pending}
-              onClick={() =>
-                o === "say what is wrong" ? onSay(true) : onAnswer(o, text.trim() || undefined)
-              }
+              className={`${OPT} cursor-pointer border-transparent bg-transparent !text-mute hover:!text-ink`}
+              onClick={() => onSay(true)}
             >
-              {i < 4 ? (
-                <span className="mr-1.5 rounded border border-line px-[5px] text-xs">{i + 1}</span>
-              ) : null}
-              {o}
+              say more
             </button>
-          ) : (
-            <span
-              key={o}
-              className={cn(OPT, k.answer?.choice === o && "border-accent bg-accent/10 text-ink")}
-            >
-              {o}
-            </span>
-          ),
-        )}
-      </div>
-      {open && saying ? (
+          ) : null}
+        </div>
+      ) : null}
+      {open && saying && !isConnections ? (
         <textarea
           className="min-h-16 w-full resize-y rounded-md border border-line bg-bg1 p-2 font-serif text-[13.5px] text-ink"
-          placeholder="what is wrong, in your words · enter to send, esc to cancel"
+          placeholder={
+            wrong
+              ? "what is wrong, in your words · enter to send, esc to cancel"
+              : "your words ride the option you pick · esc to cancel"
+          }
           value={text}
           autoFocus
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (e.key === "Enter" && !e.shiftKey && wrong) {
               e.preventDefault();
               onAnswer("say what is wrong", text.trim());
             }
@@ -679,6 +780,7 @@ function PacketPage() {
   const plain = useMemo(() => (p?.asks ?? []).filter((k) => k.kind !== "connections"), [p]);
   const links = useMemo(() => (p?.asks ?? []).filter((k) => k.kind === "connections"), [p]);
   const firstOpen = plain.find((k) => !k.answer);
+  const argued = links.reduce((n, k) => n + k.links.length, 0);
 
   // 1 to 4 answer the oldest open ask; the layout owns j, k and esc.
   useEffect(() => {
@@ -837,6 +939,7 @@ function PacketPage() {
                     a={a}
                     now={now}
                     folded={(a.n !== lastN) !== open.has(a.n)}
+                    station={a.n === lastN ? stationName : null}
                     onToggle={() =>
                       setOpen((prev) => {
                         const next = new Set(prev);
@@ -882,41 +985,18 @@ function PacketPage() {
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-baseline justify-between">
                   <h2 className={H2}>connections</h2>
-                  <span className={DM}>
-                    the librarian argued {links.reduce((n, k) => n + k.links.length, 0)}
-                  </span>
+                  <span className={DM}>the librarian argued {argued}</span>
                 </div>
                 {links.map((k) => (
-                  <div
+                  <AskBlock
                     key={k.id}
-                    className="flex flex-col gap-1.5 rounded-lg border border-line px-3 py-2.5"
-                  >
-                    <div className="flex items-baseline justify-between">
-                      <span className={D}>{hhmm(k.created_at)}</span>
-                      <span className={DM}>
-                        {k.answer ? `answered ${hhmm(k.answer.at)} · ${k.answer.choice}` : "open"}
-                      </span>
-                    </div>
-                    {k.links.map((l, i) => (
-                      <div key={i} className={G2} title={l.why}>
-                        <span
-                          className={D}
-                          style={{
-                            color: k.answer?.choice === "approve" ? "var(--ink)" : undefined,
-                          }}
-                        >
-                          {l.title}
-                        </span>
-                        <span className={`${DM} text-right`}>
-                          {k.answer?.choice === "approve"
-                            ? "approved"
-                            : k.answer
-                              ? k.answer.choice
-                              : "argued"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                    k={k}
+                    now={now}
+                    saying={false}
+                    onSay={() => undefined}
+                    onAnswer={(c, text) => send(k, c, text)}
+                    pending={answer.isPending}
+                  />
                 ))}
               </div>
             ) : null}

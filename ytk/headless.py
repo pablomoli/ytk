@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -326,6 +326,8 @@ class History:
     attempts: list[attempt_mod.Attempt]
     # (asked_at, answered_at, choice) for every answered ask, by ask id
     answers: list[tuple[datetime, datetime, str]]
+    # (asked_at, kind) for every ask, by ask id
+    asks: list[tuple[datetime, str]] = field(default_factory=list[tuple[datetime, str]])
 
 
 def history(conn: sqlite3.Connection, item_id: int) -> History:
@@ -341,7 +343,13 @@ def history(conn: sqlite3.Connection, item_id: int) -> History:
             (item_id,),
         )
     ]
-    return History(item_id, rows, attempt_mod.attempts_for(item_id), answers)
+    asks = [
+        (_ts(r["created_at"]), str(r["kind"]))
+        for r in conn.execute(
+            "SELECT created_at, kind FROM asks WHERE item_id = ? ORDER BY id", (item_id,)
+        )
+    ]
+    return History(item_id, rows, attempt_mod.attempts_for(item_id), answers, asks)
 
 
 def station_at(h: History, t: datetime, *, working: dict[str, Any] | None = None) -> Station | None:
@@ -356,6 +364,9 @@ def station_at(h: History, t: datetime, *, working: dict[str, Any] | None = None
     rows = [r for r in h.rows if _ts(r["at"]) <= t]
     if not rows or all(r["action"] == "grandfather" for r in rows):
         return None
+    live = _working_station(h, rows, working)
+    if live is not None:
+        return live
     last = rows[-1]
     later = [r for r in h.rows if _ts(r["at"]) > t]
     at = _ts(last["at"])
@@ -384,13 +395,14 @@ def station_at(h: History, t: datetime, *, working: dict[str, Any] | None = None
         )
         if ans:
             return Station("proctor", ans[1], "answered, waiting")
-        kind = ""
-        for r in reversed(rows):
-            if r["action"] == "ask":
-                kind = (r["reason"] or "").split(":")[0].strip().lower()
-                break
-        if kind.startswith("why this"):
-            kind = "intent missing"
+        kind = next((k for asked, k in reversed(h.asks) if asked <= t), "")
+        if not kind:
+            for r in reversed(rows):
+                if r["action"] == "ask":
+                    kind = (r["reason"] or "").split(":")[0].strip().lower()
+                    break
+            if kind.startswith("why this"):
+                kind = "intent missing"
         return Station("owner", at, "ask · " + kind[:32])
     if st == "answered":
         return Station("proctor", at, "answered, waiting")
@@ -401,8 +413,6 @@ def station_at(h: History, t: datetime, *, working: dict[str, Any] | None = None
     if last["actor"] == "connect" or last["action"] == "connect-none":
         return Station(FILED, at, "kept, no links")
     if st == "kept":
-        if working and working.get("action") == "connect" and working.get("started_at"):
-            return Station("librarian", _ts(str(working["started_at"])), "arguing links")
         nxt = next((r for r in later if r["actor"] == "connect"), None)
         if nxt and nxt["duration_ms"]:
             start = _ts(nxt["at"]) - timedelta(milliseconds=nxt["duration_ms"])
@@ -418,6 +428,41 @@ def station_at(h: History, t: datetime, *, working: dict[str, Any] | None = None
     if last["actor"] == "grader":
         return Station("student", at, "next round")
     return Station("proctor", at, str(st or ""))
+
+
+# The loop's working_on record names the verb it is inside (loop.py stage
+# keys); the ledger row for that verb lands only when it finishes, so live
+# the stage key is the only witness of the teacher and the librarian.
+_STAGE_STATION = {
+    "enrich": "student",
+    "checks": "spell-checker",
+    "grade": "teacher",
+    "connect": "librarian",
+}
+
+
+def _working_station(
+    h: History, rows: list[dict[str, Any]], working: dict[str, Any] | None
+) -> Station | None:
+    if not working:
+        return None
+    stage = working.get("stage")
+    key = str(cast("dict[str, Any]", stage).get("key")) if isinstance(stage, dict) else ""
+    name = _STAGE_STATION.get(key)
+    if name is None or not working.get("started_at"):
+        return None
+    detail = (
+        str(cast("dict[str, Any]", stage).get("detail") or "") if isinstance(stage, dict) else ""
+    )
+    started = _ts(str(working["started_at"]))
+    if name == "student":
+        a = next((a for a in reversed(h.attempts) if a.closed_at is None and a.opened_at), None)
+        return Station(name, _ts(a.opened_at) if a else started, detail or "writing")
+    if name in ("spell-checker", "teacher"):
+        wrote = next((r for r in reversed(rows) if r["actor"] == "enricher"), None)
+        since = _ts(wrote["at"]) if wrote else started
+        return Station(name, since, "checking" if name == "spell-checker" else "marking")
+    return Station(name, _ts(rows[-1]["at"]), detail or "arguing links")
 
 
 def _station_dict(s: Station | None) -> dict[str, Any] | None:
@@ -504,8 +549,8 @@ def _who(r: dict[str, Any]) -> str:
     reason = r["reason"] or ""
     if r["actor"] == "grader":
         who = "spell-checker" if reason.startswith(_DETERMINISTIC) else "teacher"
-        if r["action"] == "ask":
-            who = "proctor"
+    if r["action"] == "ask":
+        who = "proctor"
     if r["action"] in ("capture", "read"):
         who = "runner"
     return who
@@ -670,7 +715,7 @@ def _view_dict(v: view_mod.View, cited: set[int]) -> dict[str, Any]:
         "bundle": v.bundle_hash,
         "source": v.source,
         "origin": v.transcript_origin,
-        "duration": v.duration or (float(tr[-1]["start"]) + 2 if tr else None),
+        "duration": v.duration or _span_end(v),
         "nlines": len(tr),
         "lines": lines,
         "shown": [u["id"] for u in v.shown],
@@ -690,6 +735,14 @@ def _view_dict(v: view_mod.View, cited: set[int]) -> dict[str, Any]:
             for u in frames
         ],
     }
+
+
+def _span_end(v: view_mod.View) -> float | None:
+    """The transcript unit's end, or None when the span is empty (a music-only
+    reel yields one Whisper line at t:0 and a t:0-0 unit; there is no
+    timeline to draw)."""
+    span = v.transcript_span()
+    return span[1] if span and span[1] > span[0] else None
 
 
 def frame_path(item_id: int, n: int) -> Path | None:
@@ -712,7 +765,8 @@ def packet(conn: sqlite3.Connection, item_id: int, t: datetime | None = None) ->
     row = _item_row(conn, item_id)
     t = t or datetime.now(UTC)
     h = history(conn, item_id)
-    working = _working_on()
+    live = t >= datetime.now(UTC) - timedelta(seconds=5)
+    working = _working_on() if live else None
     wk = working if working and working.get("item_id") == item_id else None
     s = station_at(h, t, working=wk)
     rows = [r for r in h.rows if _ts(r["at"]) <= t]
