@@ -1464,11 +1464,15 @@ _SPA_ROUTES = {
     "recs",
     "docs",
     "transit",
+    "packet",
 }
 
 # /docs/<NN-slug> section pages; /docs/settings never reaches the catch-all
 # (registered earlier), and junk under /docs stays a real 404.
 _DOCS_SECTION_RE = re.compile(r"^docs/\d{2}-[a-z0-9-]+$")
+# /packet/<item id>: the packet page (#213), reachable from an ask card and
+# from `ytk item`; junk under /packet stays a real 404.
+_PACKET_RE = re.compile(r"^packet/\d+$")
 
 
 # Registered last on purpose: FastAPI matches routes in registration order,
@@ -1477,7 +1481,11 @@ _DOCS_SECTION_RE = re.compile(r"^docs/\d{2}-[a-z0-9-]+$")
 @app.get("/{path:path}", response_class=HTMLResponse)
 def _spa(path: str = "") -> HTMLResponse:
     clean = path.rstrip("/")
-    if clean not in _SPA_ROUTES and not _DOCS_SECTION_RE.match(clean):
+    if (
+        clean not in _SPA_ROUTES
+        and not _DOCS_SECTION_RE.match(clean)
+        and not _PACKET_RE.match(clean)
+    ):
         raise HTTPException(status_code=404)
     index = _WEB_DIST / "index.html"
     if not index.exists():

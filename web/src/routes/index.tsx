@@ -97,7 +97,16 @@ function AskCard({ ask, onAnswered }: { ask: OutboxAsk; onAnswered: (line: strin
         >
           {ask.subkind}
         </span>
-        {ask.source ? <span className="sub !text-mute">{ask.source}</span> : null}
+        <span className="flex items-baseline gap-2.5">
+          {ask.source ? <span className="sub !text-mute">{ask.source}</span> : null}
+          <Link
+            to="/packet/$id"
+            params={{ id: String(ask.item_id) }}
+            className="sub !text-ink2 no-underline hover:!text-accent"
+          >
+            packet
+          </Link>
+        </span>
       </div>
       <h3 className="title text-lg leading-snug">
         {ask.url ? (

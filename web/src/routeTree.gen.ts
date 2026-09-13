@@ -14,6 +14,7 @@ import { Route as TagsRouteImport } from './routes/tags'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RecsRouteImport } from './routes/recs'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PacketRouteImport } from './routes/packet'
 import { Route as OrbRouteImport } from './routes/orb'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as LibraryRouteImport } from './routes/library'
@@ -24,7 +25,9 @@ import { Route as GalaxyRouteImport } from './routes/galaxy'
 import { Route as ChannelsRouteImport } from './routes/channels'
 import { Route as AtlasRouteImport } from './routes/atlas'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PacketIndexRouteImport } from './routes/packet.index'
 import { Route as DocsIndexRouteImport } from './routes/docs.index'
+import { Route as PacketIdRouteImport } from './routes/packet.$id'
 import { Route as DocsSectionRouteImport } from './routes/docs.$section'
 
 const TransitRoute = TransitRouteImport.update({
@@ -50,6 +53,11 @@ const RecsRoute = RecsRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PacketRoute = PacketRouteImport.update({
+  id: '/packet',
+  path: '/packet',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrbRoute = OrbRouteImport.update({
@@ -102,10 +110,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PacketIndexRoute = PacketIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PacketRoute,
+} as any)
 const DocsIndexRoute = DocsIndexRouteImport.update({
   id: '/docs/',
   path: '/docs/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PacketIdRoute = PacketIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => PacketRoute,
 } as any)
 const DocsSectionRoute = DocsSectionRouteImport.update({
   id: '/docs/$section',
@@ -124,13 +142,16 @@ export interface FileRoutesByFullPath {
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
   '/orb': typeof OrbRoute
+  '/packet': typeof PacketRouteWithChildren
   '/profile': typeof ProfileRoute
   '/recs': typeof RecsRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
   '/transit': typeof TransitRoute
   '/docs/$section': typeof DocsSectionRoute
+  '/packet/$id': typeof PacketIdRoute
   '/docs/': typeof DocsIndexRoute
+  '/packet/': typeof PacketIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -149,7 +170,9 @@ export interface FileRoutesByTo {
   '/tags': typeof TagsRoute
   '/transit': typeof TransitRoute
   '/docs/$section': typeof DocsSectionRoute
+  '/packet/$id': typeof PacketIdRoute
   '/docs': typeof DocsIndexRoute
+  '/packet': typeof PacketIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -163,13 +186,16 @@ export interface FileRoutesById {
   '/library': typeof LibraryRoute
   '/map': typeof MapRoute
   '/orb': typeof OrbRoute
+  '/packet': typeof PacketRouteWithChildren
   '/profile': typeof ProfileRoute
   '/recs': typeof RecsRoute
   '/settings': typeof SettingsRoute
   '/tags': typeof TagsRoute
   '/transit': typeof TransitRoute
   '/docs/$section': typeof DocsSectionRoute
+  '/packet/$id': typeof PacketIdRoute
   '/docs/': typeof DocsIndexRoute
+  '/packet/': typeof PacketIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -184,13 +210,16 @@ export interface FileRouteTypes {
     | '/library'
     | '/map'
     | '/orb'
+    | '/packet'
     | '/profile'
     | '/recs'
     | '/settings'
     | '/tags'
     | '/transit'
     | '/docs/$section'
+    | '/packet/$id'
     | '/docs/'
+    | '/packet/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -209,7 +238,9 @@ export interface FileRouteTypes {
     | '/tags'
     | '/transit'
     | '/docs/$section'
+    | '/packet/$id'
     | '/docs'
+    | '/packet'
   id:
     | '__root__'
     | '/'
@@ -222,13 +253,16 @@ export interface FileRouteTypes {
     | '/library'
     | '/map'
     | '/orb'
+    | '/packet'
     | '/profile'
     | '/recs'
     | '/settings'
     | '/tags'
     | '/transit'
     | '/docs/$section'
+    | '/packet/$id'
     | '/docs/'
+    | '/packet/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -242,6 +276,7 @@ export interface RootRouteChildren {
   LibraryRoute: typeof LibraryRoute
   MapRoute: typeof MapRoute
   OrbRoute: typeof OrbRoute
+  PacketRoute: typeof PacketRouteWithChildren
   ProfileRoute: typeof ProfileRoute
   RecsRoute: typeof RecsRoute
   SettingsRoute: typeof SettingsRoute
@@ -286,6 +321,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/packet': {
+      id: '/packet'
+      path: '/packet'
+      fullPath: '/packet'
+      preLoaderRoute: typeof PacketRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/orb': {
@@ -358,12 +400,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/packet/': {
+      id: '/packet/'
+      path: '/'
+      fullPath: '/packet/'
+      preLoaderRoute: typeof PacketIndexRouteImport
+      parentRoute: typeof PacketRoute
+    }
     '/docs/': {
       id: '/docs/'
       path: '/docs'
       fullPath: '/docs/'
       preLoaderRoute: typeof DocsIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/packet/$id': {
+      id: '/packet/$id'
+      path: '/$id'
+      fullPath: '/packet/$id'
+      preLoaderRoute: typeof PacketIdRouteImport
+      parentRoute: typeof PacketRoute
     }
     '/docs/$section': {
       id: '/docs/$section'
@@ -374,6 +430,19 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface PacketRouteChildren {
+  PacketIdRoute: typeof PacketIdRoute
+  PacketIndexRoute: typeof PacketIndexRoute
+}
+
+const PacketRouteChildren: PacketRouteChildren = {
+  PacketIdRoute: PacketIdRoute,
+  PacketIndexRoute: PacketIndexRoute,
+}
+
+const PacketRouteWithChildren =
+  PacketRoute._addFileChildren(PacketRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -386,6 +455,7 @@ const rootRouteChildren: RootRouteChildren = {
   LibraryRoute: LibraryRoute,
   MapRoute: MapRoute,
   OrbRoute: OrbRoute,
+  PacketRoute: PacketRouteWithChildren,
   ProfileRoute: ProfileRoute,
   RecsRoute: RecsRoute,
   SettingsRoute: SettingsRoute,
