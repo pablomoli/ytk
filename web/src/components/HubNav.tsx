@@ -8,6 +8,7 @@ type NavDestination = {
   to:
     | "/"
     | "/inbox"
+    | "/packet"
     | "/library"
     | "/map"
     | "/recs"
@@ -27,6 +28,7 @@ type NavDestination = {
 export const HUB_DESTINATIONS = [
   { label: "Digest", to: "/", section: "core" },
   { label: "Inbox", to: "/inbox", section: "core" },
+  { label: "Packet", to: "/packet", section: "core" },
   { label: "Library", to: "/library", section: "core" },
   { label: "Map", to: "/map", section: "core" },
   { label: "Recs", to: "/recs", section: "Learn and curate" },

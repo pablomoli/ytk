@@ -420,3 +420,13 @@ def test_frame_is_served_only_from_the_evidence_dir(client, conn, tmp_path):
     assert client.get(f"/api/evidence/frame/{item_id}/3").status_code == 404
     page = client.get(f"/api/packet/{item_id}").json()
     assert page["view"]["frames"][0]["url"] == f"/api/evidence/frame/{item_id}/1"
+
+
+def test_spa_serves_the_packet_routes(client, monkeypatch, tmp_path):
+    from ytk.ui import server
+
+    (tmp_path / "index.html").write_text("<div id=root></div>")
+    monkeypatch.setattr(server, "_WEB_DIST", tmp_path)
+    assert client.get("/packet").status_code == 200
+    assert client.get("/packet/534").status_code == 200
+    assert client.get("/packet/junk").status_code == 404

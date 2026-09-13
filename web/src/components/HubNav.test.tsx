@@ -30,12 +30,13 @@ afterEach(() => {
   router.pathname = "/";
 });
 
-test("keeps four core destinations primary and every secondary route in More", () => {
+test("keeps five core destinations primary and every secondary route in More", () => {
   render(<HubNav />);
   const nav = screen.getByRole("navigation", { name: "Hub navigation" });
   expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual([
     "Digest",
     "Inbox",
+    "Packet",
     "Library",
     "Map",
   ]);
@@ -52,6 +53,7 @@ test("the registry preserves every existing deep link exactly once", () => {
   expect(HUB_DESTINATIONS.map((item) => item.to)).toEqual([
     "/",
     "/inbox",
+    "/packet",
     "/library",
     "/map",
     "/recs",
@@ -66,7 +68,7 @@ test("the registry preserves every existing deep link exactly once", () => {
     "/tags",
     "/settings",
   ]);
-  expect(new Set(HUB_DESTINATIONS.map((item) => item.to)).size).toBe(15);
+  expect(new Set(HUB_DESTINATIONS.map((item) => item.to)).size).toBe(16);
 });
 
 test("More announces when a nested destination is current", () => {

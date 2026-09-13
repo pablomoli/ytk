@@ -5,6 +5,19 @@ owner brainstormed, picked among mockups, and iterated a live prototype
 fifteen times. Nothing here is hub code. This folder holds what a fresh
 session needs to build the real route without re-deriving any decision.
 
+> **Later (session 082, 2026-09-13):** built. The route is `/packet` (the
+> track) and `/packet/<id>` (the page below it), `web/src/routes/packet*.tsx`,
+> the track in `web/src/lib/packetTrack.ts` with the locked values baked in
+> and the slider, nest and ghost machinery removed. The reconstruction runs
+> server-side in `ytk/headless.py` (`station_at`, `track`, `packet`), served
+> at `/api/packet` and `/api/packet/<id>`; frames at
+> `/api/evidence/frame/<id>/<n>`. Answering goes through the hub's outbox
+> answer route, the same path the digest cards use. `t` is the replay
+> instant on both routes; absent is live. One departure from the generator,
+> measured on 534: the writer's row, not `closed_at`, hands the packet from
+> the student to the checkers. The generator and template below remain the
+> design record; they are not the route's source.
+
 ## What exists
 
 | artifact | where | state |
