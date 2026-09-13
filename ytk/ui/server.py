@@ -51,7 +51,7 @@ async def _lifespan(app: FastAPI):
 
 app = FastAPI(title="ytk ingest hub", docs_url=None, redoc_url=None, lifespan=_lifespan)
 
-from datetime import UTC
+from datetime import UTC, datetime
 
 from fastapi.staticfiles import StaticFiles
 
@@ -446,6 +446,61 @@ def evidence_thumb_api(item_id: int):
     path = Path(thumb).resolve()
     if not path.is_relative_to(evidence.evidence_dir().resolve()) or not path.is_file():
         raise HTTPException(status_code=404, detail="no local thumbnail")
+    return FileResponse(path)
+
+
+def _instant(t: str | None) -> datetime | None:
+    """`t` is an ISO instant for a replay; absent means now, live files."""
+    if t is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(t)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="t must be an ISO 8601 instant")
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+@app.get("/api/packet")
+def packet_track_api(t: str | None = None):
+    """The track (#213): every packet in flight at `t`, which station, since
+    when, how many rounds and calls, whether a model holds it."""
+    from ytk import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        return headless.track(conn, _instant(t))
+    finally:
+        conn.close()
+
+
+@app.get("/api/packet/{item_id}")
+def packet_page_api(item_id: int, t: str | None = None):
+    """The packet page (#213): one item's packet, rounds, asks and trail."""
+    from ytk import headless, ledger
+
+    conn = ledger.connect()
+    try:
+        return headless.packet(conn, item_id, _instant(t))
+    except LookupError:
+        raise HTTPException(status_code=404, detail="no such item")
+    finally:
+        conn.close()
+
+
+@app.get("/api/evidence/frame/{item_id}/{n}")
+def evidence_frame_api(item_id: int, n: int):
+    """One frame of an item's packet, by its unit number. The path comes from
+    the view on disk and must live under the evidence dir."""
+    from fastapi.responses import FileResponse
+
+    from ytk import evidence, headless
+
+    path = headless.frame_path(item_id, n)
+    if path is None:
+        raise HTTPException(status_code=404, detail="no such frame")
+    path = path.resolve()
+    if not path.is_relative_to(evidence.evidence_dir().resolve()) or not path.is_file():
+        raise HTTPException(status_code=404, detail="no such frame")
     return FileResponse(path)
 
 
