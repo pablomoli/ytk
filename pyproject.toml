@@ -145,6 +145,8 @@ quote-style = "double"
 # promoting modules that depend on it.
 include = ["ytk"]
 typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
 
 [tool.pytest.ini_options]
 # eval marks live retrieval-gate runs (loads the encoder, hits the real
