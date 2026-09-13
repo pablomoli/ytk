@@ -430,3 +430,122 @@ def test_spa_serves_the_packet_routes(client, monkeypatch, tmp_path):
     assert client.get("/packet").status_code == 200
     assert client.get("/packet/534").status_code == 200
     assert client.get("/packet/junk").status_code == 404
+
+
+def test_live_stations_come_from_the_loop_stage_key(conn, monkeypatch):
+    """Case 5, found on item 787: the grade and connect rows land when the
+    verb finishes, so live the teacher and the librarian are invisible in
+    the ledger. The loop's working_on stage key names them."""
+    item_id = seed(conn)
+    ledger.insert_activity(
+        conn,
+        item_id,
+        actor="owner",
+        action="answer",
+        from_state="asking",
+        to_state="answered",
+        at=at(20),
+    )
+    a = attempt_mod.Attempt(
+        item_id=item_id, n=1, view_hash="aaaa", take=None, previous_draft=None, opened_at=at(30)
+    )
+    a.save()
+    ledger.insert_activity(
+        conn,
+        item_id,
+        actor="enricher",
+        action="enrich",
+        model="m",
+        tokens=100,
+        duration_ms=1000,
+        reason="attempt 1",
+        at=at(60),
+    )
+
+    def working(key, detail=""):
+        return {
+            "item_id": item_id,
+            "action": "advance",
+            "started_at": at(30),
+            "stage": {"key": key, "detail": detail},
+        }
+
+    h = headless.history(conn, item_id)
+    s = headless.station_at(h, when(70), working=working("grade"))
+    assert s and (s.name, s.note, s.since) == ("teacher", "marking", when(60))
+    s = headless.station_at(h, when(70), working=working("checks"))
+    assert s and s.name == "spell-checker"
+    ledger.insert_activity(
+        conn,
+        item_id,
+        actor="grader",
+        action="grade",
+        to_state="enriched",
+        model="m",
+        tokens=100,
+        duration_ms=1000,
+        reason="pass",
+        at=at(100),
+    )
+    ledger.insert_activity(
+        conn,
+        item_id,
+        actor="loop",
+        action="keep",
+        from_state="enriched",
+        to_state="kept",
+        at=at(101),
+    )
+    h = headless.history(conn, item_id)
+    s = headless.station_at(h, when(110), working=working("connect", "arguing 5 candidates"))
+    assert s and (s.name, s.note, s.since) == ("librarian", "arguing 5 candidates", when(101))
+    assert headless.station_at(h, when(110)).name == headless.FILED
+    # a replay instant never consults the loop
+    monkeypatch.setattr("ytk.loop.health_line", lambda: {"working_on": working("connect")})
+    assert headless.packet(conn, item_id, when(110))["station"]["name"] == headless.FILED
+    assert headless.packet(conn, item_id)["station"]["name"] == "librarian"
+
+
+def test_ask_note_names_the_kind_and_ask_rows_are_the_proctors(conn):
+    item_id = seed(conn)
+    ask(
+        conn,
+        item_id,
+        kind="grader bounce, twice",
+        why="What I do not want: rubric bars openings",
+        options=["accept as is", "say what is wrong", "drop"],
+        seconds=50,
+        actor="grader",
+    )
+    s = station(conn, item_id, 60)
+    assert s and s.note == "ask · grader bounce, twice"
+    page = headless.packet(conn, item_id, when(60))
+    assert page["trail"][-1]["who"] == "proctor"
+
+
+def test_music_only_packet_has_no_timeline(conn):
+    from ytk import view as view_mod
+
+    item_id = seed(conn)
+    v = view_mod.View(
+        item_id=item_id,
+        bundle_path="b",
+        bundle_hash="h",
+        source="instagram",
+        transcript_origin="whisper",
+        duration=None,
+        budget={},
+        shown=[{"id": "t:0-0", "kind": "transcript", "t": 0.0, "t_end": 0.0, "lines": 1}],
+        openable=[],
+        not_shown=[],
+        gaps=[],
+        mounts=[],
+        transcript=[{"start": 0.0, "text": "Music"}],
+        grounding_text="",
+        rendered="",
+        view_hash="vvvv",
+    )
+    v.path.parent.mkdir(parents=True, exist_ok=True)
+    v.path.write_text(v.to_json())
+    page = headless.packet(conn, item_id)
+    assert page["view"]["duration"] is None and page["view"]["nlines"] == 1

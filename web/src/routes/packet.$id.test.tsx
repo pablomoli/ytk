@@ -142,7 +142,12 @@ const mutate = vi.fn();
 vi.mock("../api/outbox", () => ({
   useAnswerAsk: () => ({ mutate, isPending: false, isError: false, error: null }),
 }));
-const packetState = { data: packet, isError: false, error: null, refetch: vi.fn() };
+const packetState: { data: Packet; isError: boolean; error: null; refetch: () => void } = {
+  data: packet,
+  isError: false,
+  error: null,
+  refetch: vi.fn(),
+};
 vi.mock("../api/packet", async () => ({
   ...(await vi.importActual<typeof import("../api/packet")>("../api/packet")),
   usePacket: () => packetState,
@@ -212,4 +217,76 @@ test("the trail shows the last eight until asked for all", async () => {
   expect(screen.queryByText("student · row 0")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "show all" }));
   expect(screen.getByText("student · row 0")).toBeInTheDocument();
+});
+
+test("a connections ask answers with the survivors; an intent ask carries words", async () => {
+  mutate.mockClear();
+  packetState.data = {
+    ...packet,
+    asks: [
+      {
+        id: 70,
+        kind: "intent missing",
+        why: "why this one?",
+        options: ["intent", "reaction", "just want it", "drop"],
+        created_at: "2026-09-06T22:16:40+00:00",
+        attempt: null,
+        view_hash: null,
+        links: [],
+        answer: null,
+      },
+      {
+        id: 71,
+        kind: "connections",
+        why: "2 related notes argued",
+        options: ["approve", "strike some", "none"],
+        created_at: "2026-09-06T22:17:40+00:00",
+        attempt: null,
+        view_hash: null,
+        links: [
+          {
+            target: "footage-first-method",
+            title: "Footage-first method",
+            why: "how visuals get made",
+          },
+          {
+            target: "rndyrbrts-visual-language",
+            title: "Visual language",
+            why: "a spec for the look",
+          },
+        ],
+        answer: null,
+      },
+    ],
+  };
+  await mount();
+  fireEvent.click(screen.getByRole("button", { name: "say more" }));
+  fireEvent.change(screen.getByPlaceholderText(/your words ride/), {
+    target: { value: "for the visuals" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /intent/ }));
+  expect(mutate).toHaveBeenLastCalledWith(
+    { ask_id: 70, choice: "intent", text: "for the visuals" },
+    expect.anything(),
+  );
+  fireEvent.click(screen.getByRole("checkbox", { name: "link rndyrbrts-visual-language" }));
+  fireEvent.click(screen.getByRole("button", { name: "approve 1 of 2" }));
+  expect(mutate).toHaveBeenLastCalledWith(
+    { ask_id: 71, choice: "strike some", text: JSON.stringify(["footage-first-method"]) },
+    expect.anything(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "none" }));
+  expect(mutate).toHaveBeenLastCalledWith({ ask_id: 71, choice: "none" }, expect.anything());
+  packetState.data = packet;
+});
+
+test("the open round follows the station's verb", async () => {
+  packetState.data = {
+    ...packet,
+    station: { name: "teacher", since: "2026-09-06T22:16:40+00:00", note: "marking", model: true },
+    attempts: [{ ...packet.attempts[1]!, closed_at: null, passed: null, marker: null }],
+  };
+  const { container } = await mount();
+  expect(container.querySelector('[data-round="2"]')!.textContent).toMatch(/attempt 2\s*marking/);
+  packetState.data = packet;
 });
