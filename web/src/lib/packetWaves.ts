@@ -127,8 +127,9 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
         lv = smL[i]!;
       const Ls = L / (L + 1.2),
         act = Math.min(1, L * 3);
-      const f = FREQ * (1.1 + 3.2 * Ls + lv * 1.2);
-      const w = (0.9 + i * 0.13) * (1 + 2.2 * Ls + lv * 1.4);
+      // idle channels already carry a few cycles; load and a live model add more
+      const f = FREQ * (2.4 + 2.6 * Ls + lv * 1.2);
+      const w = (1.5 + i * 0.13) * (1 + 1.8 * Ls + lv * 1.4);
       const h2 = HARMONICS * (0.15 + 0.85 * Ls);
       const A = amp * (IDLE + (1 - IDLE) * act);
       const col = lv > 0.5 ? LIVE : c ? BRASS : IDLE_COL;
