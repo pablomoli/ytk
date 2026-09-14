@@ -109,6 +109,17 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
     const pad = H * 0.09,
       rowH = (H - 2 * pad) / N,
       amp = rowH * 0.44;
+    // the ruler: fine ticks along the bottom edge, a long one every fifth
+    cx.strokeStyle = "rgba(240,238,231,0.22)";
+    cx.lineWidth = 1;
+    cx.beginPath();
+    for (let d = 0; d <= 100; d++) {
+      const x = left + (span * d) / 100;
+      const h = d % 10 === 0 ? 7 : d % 5 === 0 ? 4 : 2;
+      cx.moveTo(x, H - 1);
+      cx.lineTo(x, H - 1 - h);
+    }
+    cx.stroke();
     for (let i = 0; i < N; i++) {
       const cy = pad + rowH * (i + 0.5),
         c = cnt[i]!,
@@ -149,11 +160,23 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
       cx.stroke();
       cx.shadowBlur = 0;
       cx.globalAlpha = 1;
+      // a three-tick scale where the trace enters the row: +1, 0, -1
+      cx.strokeStyle = "rgba(240,238,231,0.22)";
+      cx.lineWidth = 1;
+      cx.beginPath();
+      for (const k of [-1, 0, 1]) {
+        const y = Math.round(cy + k * amp) + 0.5;
+        cx.moveTo(left - 6, y);
+        cx.lineTo(left - (k === 0 ? 1 : 3), y);
+      }
+      cx.moveTo(left - 6.5, cy - amp);
+      cx.lineTo(left - 6.5, cy + amp);
+      cx.stroke();
       cx.font = "11.5px Newsreader, Georgia, serif";
       cx.textAlign = "right";
       cx.fillStyle = col;
       cx.globalAlpha = c ? 1 : 0.55;
-      cx.fillText(STATIONS[i]! + (c ? `  ${c}` : ""), left - 12, cy + 4);
+      cx.fillText(STATIONS[i]! + (c ? `  ${c}` : ""), left - 14, cy + 4);
       cx.globalAlpha = 1;
     }
     raf = requestAnimationFrame(frame);
