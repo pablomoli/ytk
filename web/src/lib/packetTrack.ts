@@ -20,6 +20,8 @@ import {
    it. The values below were chosen by the owner from live prototype URLs
    (docs/design/packet-page/README.md) and are not knobs on this page. */
 
+// FIELD.tilt was 0.75 in the record; the owner asked (2026-09-14) for the camera above the
+// surface looking down, and 0.22 puts it there.
 const ROSE = {
   tilt: 0.5,
   gap: 0.02,
@@ -30,7 +32,7 @@ const ROSE = {
   ticks: 84,
   spokes: 0.4,
 };
-const FIELD = { tilt: 0.75, spacing: 2.28, reach: 1.32, lift: 3.2, grain: 1, tail: 22 };
+const FIELD = { tilt: 0.22, spacing: 2.28, reach: 1.32, lift: 3.2, grain: 1, tail: 22 };
 const MOTION = 0.7;
 const GLOW = 1;
 // the focus law: everyone else dims to this when a packet is hovered or selected
@@ -529,11 +531,11 @@ export function mountPacketTrack(
   // The field camera is the owner's: drag orbits, the wheel zooms, and the
   // slow turn resumes a few seconds after the hand lets go. The rose keeps
   // its own slow turn; its wedges are hit-tested against it.
-  const orbit = { az: 0, el: 0, dist: 18.5, idleAt: 0, dragging: false, lx: 0, ly: 0, moved: 0 };
+  const orbit = { az: 0, el: 0, dist: 15, idleAt: 0, dragging: false, lx: 0, ly: 0, moved: 0 };
   function placeCamera() {
     let el = rail ? lerp(1.2, 0.22, FIELD.tilt) : lerp(1.45, 0.28, ROSE.tilt);
     let az = rail ? Math.PI / 2 + rot * 0.4 : rot * 0.35 + Math.PI * 0.15;
-    let dist = rail ? 18.5 : 23;
+    let dist = rail ? 15 : 23;
     if (rail) {
       el = Math.min(1.45, Math.max(0.08, el + orbit.el));
       az += orbit.az;
@@ -544,7 +546,7 @@ export function mountPacketTrack(
       Math.sin(el) * dist,
       Math.sin(az) * Math.cos(el) * dist,
     );
-    camera.lookAt(0, rail ? -1.6 : 0, 0);
+    camera.lookAt(0, rail ? -2.2 : 0, 0);
     camera.updateMatrixWorld(true);
   }
   function setHalf(h: 0 | 1) {
