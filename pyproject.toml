@@ -39,6 +39,9 @@ dev = [
     "umap-learn>=0.5.12",
     "ruff>=0.14",
     "pyright>=1.1.414",
+    "tree-sitter>=0.25",
+    "tree-sitter-python>=0.25",
+    "tree-sitter-typescript>=0.23",
 ]
 # Reactive notebooks for tuning shader constants against a real captured frame
 # before writing GLSL (labs/). Separate from dev so CI never pulls it.
