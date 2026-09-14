@@ -18,6 +18,15 @@ session needs to build the real route without re-deriving any decision.
 > the student to the checkers. The generator and template below remain the
 > design record; they are not the route's source.
 
+> **Later (session 082, evening):** a third element, the waves: seven
+> phosphor channels under rose and field (`web/src/lib/packetWaves.ts`).
+> Every peak normalized; activity is frequency and harmonics; a model at
+> work is green. Tuned on a knob lab and baked. One rule bends here by the
+> owner's choice with the alternatives in view: the channels wear station
+> hues (tint 1.0) over the phosphor ramp (0.57). Temperature by load was
+> tried and dropped as imperceptible under the tint; alarm red was tried
+> and left off.
+
 ## What exists
 
 | artifact | where | state |

@@ -3,8 +3,6 @@ import { Outlet, createFileRoute, useNavigate, useParams } from "@tanstack/react
 import { useTrack } from "../api/packet";
 import { mountPacketTrack } from "../lib/packetTrack";
 import { PacketWaves } from "../components/PacketWaves";
-import { DEFAULT_LOOK } from "../lib/packetWaves";
-import type { WaveLook } from "../lib/packetWaves";
 import type { TrackHover, TrackStats } from "../lib/packetTrack";
 import { ago, clockText, walkOrder } from "../lib/packetModel";
 import "../styles.css";
@@ -13,14 +11,12 @@ import "../styles.css";
    selection is the child route's id, so a click, j/k and a link from an ask
    card or `ytk item` all agree. `t` is a replay instant; absent is live. */
 
-export type PacketSearch = { t?: string; lab?: string };
+export type PacketSearch = { t?: string };
 
 export const Route = createFileRoute("/packet")({
   component: PacketLayout,
-  validateSearch: (s: Record<string, unknown>): PacketSearch => ({
-    ...(typeof s.t === "string" && s.t ? { t: s.t } : {}),
-    ...(typeof s.lab === "string" && s.lab ? { lab: s.lab } : {}),
-  }),
+  validateSearch: (s: Record<string, unknown>): PacketSearch =>
+    typeof s.t === "string" && s.t ? { t: s.t } : {},
 });
 
 const RO =
@@ -29,8 +25,7 @@ const PLATE =
   "relative before:content-[''] before:absolute before:-top-px before:-left-px before:size-3 before:border-t before:border-l before:border-ink2 before:opacity-80 after:content-[''] after:absolute after:-bottom-px after:-right-px after:size-3 after:border-b after:border-r after:border-ink2 after:opacity-80";
 
 function PacketLayout() {
-  const { t, lab } = Route.useSearch();
-  const [look, setLook] = useState<WaveLook>(DEFAULT_LOOK);
+  const { t } = Route.useSearch();
   const params = useParams({ strict: false }) as { id?: string };
   const selected = params.id ? Number(params.id) : null;
   const navigate = useNavigate();
@@ -159,10 +154,8 @@ function PacketLayout() {
           <PacketWaves
             packets={track.data?.packets}
             t={t}
-            look={look}
             className={`${PLATE} h-[260px] overflow-hidden border border-line bg-[#100d0b]`}
           />
-          {lab ? <WaveLab look={look} onChange={setLook} /> : null}
         </div>
       </div>
       <Outlet />
@@ -184,49 +177,6 @@ function PacketLayout() {
           {t ? `?t=${t}` : ""}
         </span>
       </div>
-    </div>
-  );
-}
-
-/* The color lab (branch only, under ?lab=1): every color idea as a knob,
-   so each can be seen alone and in combination before one is chosen. */
-function WaveLab({ look, onChange }: { look: WaveLook; onChange: (l: WaveLook) => void }) {
-  const range = (key: "ramp" | "temperature" | "hues" | "green", label: string) => (
-    <label className="flex items-center gap-2">
-      <span className="w-20 text-right">{label}</span>
-      <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.01"
-        value={look[key]}
-        className="w-24 accent-accent"
-        onChange={(e) => onChange({ ...look, [key]: Number(e.target.value) })}
-        aria-label={label}
-      />
-      <span className="w-8 tabular-nums">{look[key].toFixed(2)}</span>
-    </label>
-  );
-  const flag = (key: "alarm" | "demo", label: string) => (
-    <label className="flex items-center gap-2">
-      <span className="w-20 text-right">{label}</span>
-      <input
-        type="checkbox"
-        checked={look[key]}
-        className="accent-accent"
-        onChange={(e) => onChange({ ...look, [key]: e.target.checked })}
-        aria-label={label}
-      />
-    </label>
-  );
-  return (
-    <div className="absolute top-2 right-3 z-10 flex flex-col gap-1 rounded-md border border-line bg-bg1/85 px-3 py-2 font-data text-[11.5px] tracking-[.04em] text-mute lowercase">
-      {range("ramp", "phosphor")}
-      {range("temperature", "temperature")}
-      {range("hues", "station hues")}
-      {range("green", "green glow")}
-      {flag("alarm", "alarm red")}
-      {flag("demo", "demo states")}
     </div>
   );
 }
