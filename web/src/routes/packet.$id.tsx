@@ -32,7 +32,7 @@ const UNIT_BTN = `${UNIT} appearance-none border-0 bg-transparent p-0 cursor-poi
 const PLATE =
   "relative before:content-[''] before:absolute before:-top-px before:-left-px before:size-3 before:border-t before:border-l before:border-ink2 before:opacity-80 after:content-[''] after:absolute after:-bottom-px after:-right-px after:size-3 after:border-b after:border-r after:border-ink2 after:opacity-80";
 const OPT =
-  "inline-block rounded-full border border-line px-2.5 py-px mr-1 my-0.5 font-data text-xs tracking-[.04em] text-ink2";
+  "inline-block rounded-full border border-line px-2.5 py-px font-data text-xs tracking-[.04em] text-ink2";
 
 const UNIT_RE = /t:\d+(?:-\d+)?|frame:\d+/g;
 
@@ -589,7 +589,7 @@ function AskBlock({
           ))
         : null}
       {!isConnections ? (
-        <div>
+        <div className="flex flex-wrap items-center gap-1.5">
           {k.options.map((o, i) =>
             open ? (
               <button
@@ -617,20 +617,22 @@ function AskBlock({
               </span>
             ),
           )}
-          {open && !saying ? (
+          {open ? (
             <button
               type="button"
               className={`${OPT} cursor-pointer border-transparent bg-transparent !text-mute hover:!text-ink`}
-              onClick={() => onSay(true)}
+              onClick={() => onSay(!saying)}
+              aria-expanded={saying}
             >
-              say more
+              {saying ? "no words" : "say more"}
             </button>
           ) : null}
         </div>
       ) : null}
       {open && saying && !isConnections ? (
         <textarea
-          className="min-h-16 w-full resize-y rounded-md border border-line bg-bg1 p-2 font-serif text-[13.5px] text-ink"
+          className="box-border min-h-16 w-full resize-y rounded-md border border-line bg-bg1 p-2 font-serif text-[13.5px] leading-[1.4] text-ink placeholder:text-mute focus-visible:border-accent/60 focus-visible:outline-none"
+          rows={3}
           placeholder={
             wrong
               ? "what is wrong, in your words · enter to send, esc to cancel"
@@ -654,9 +656,11 @@ function AskBlock({
       <div className={DM}>
         {k.answer
           ? `answered ${hhmm(k.answer.at)} · ${k.answer.choice}${k.answer.text ? ` · “${k.answer.text.slice(0, 80)}”` : ""}`
-          : Date.parse(k.created_at) <= now
-            ? "waiting for the owner · pick an option, or press its number"
-            : ""}
+          : saying
+            ? ""
+            : Date.parse(k.created_at) <= now
+              ? "waiting for the owner · pick an option, or press its number"
+              : ""}
       </div>
     </div>
   );
