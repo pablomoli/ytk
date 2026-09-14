@@ -54,6 +54,7 @@ Never leave anything uncommitted in this repo. Before ending a session, the work
 | 10 | done | Ingest hub — `ytk ui` reborn: / fresh feed, /inbox queue picker with buckets + thoughts (annotations embed into search + daily digest), paste-to-queue Add box; chat at /chat |
 | 11 | done | `ytk memo` — voice memo capture: ffmpeg record, faster-whisper STT, Claude routing, focus-aware notify, hub POST /api/memo |
 | 12 | done | Brain map — `scripts/build_map.py` (UMAP of all text embeddings, fitted params, theme-painted) + hub `/map` canvas page |
+| 13 | parked | Syntax forest (#217) — the repo's code as trees, rules from measured branching laws (`docs/assets/53-syntax-laws`), spike in `labs/syntax_forest_spike/`; parked 2026-09-14 before rung 1 |
 
 ## Project Structure
 

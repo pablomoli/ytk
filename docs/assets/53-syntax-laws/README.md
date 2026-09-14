@@ -98,6 +98,19 @@ Three rules derived, one fitted constant each, none tuned by eye:
   20,951-node `cli.py` is 28 deep. Height cannot carry file size; girth and
   crown volume must. That is the metabolic-scaling question for the next rung.
 
+## Rung 4 spike outcome (parked 2026-09-14)
+
+Drawn under the three rules with nothing else tuned, two files read as trees
+at once; a 66-file stand followed. The owner's read: they look like corals,
+and that became the vision. Eight versions are recorded on #217; the
+regenerable code is `labs/syntax_forest_spike/` and the last page is
+https://claude.ai/code/artifact/945807c6-5ff2-495f-8492-7a3a1611714c.
+Two lessons that bear on the bake: a height-dependent translation field is a
+shear and reads as stretching, so branches must move as rigid links; and the
+area law puts nearly all mass in a short stub at the module node, which is
+rule 3 made visible and the reason height cannot carry size. Parked before
+rung 1; nothing from the spike is a finding.
+
 ## Next
 
 - Genome: the 206-type vocabulary per file, clustering into species without
@@ -108,5 +121,3 @@ Three rules derived, one fitted constant each, none tuned by eye:
   spoken. Rarity from this becomes the palette.
 - A Galton–Watson null for the leaf fraction and the Zipf tail, so prediction
   3 gets a real test.
-- Spike: two trees drawn under the three rules above in a scratch three.js
-  page, judged by eye before any route exists.
