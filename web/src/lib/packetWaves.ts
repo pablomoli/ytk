@@ -105,10 +105,10 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
     const left = 92,
       right = W - 14,
       span = right - left;
-    // rows overlap by design (every peak is normalized) but no trough leaves the strip
+    // channels: a wave never leaves its own row
     const pad = H * 0.09,
       rowH = (H - 2 * pad) / N,
-      amp = Math.min(rowH * 0.78, pad + rowH * 0.5 - 2);
+      amp = rowH * 0.44;
     for (let i = 0; i < N; i++) {
       const cy = pad + rowH * (i + 0.5),
         c = cnt[i]!,
