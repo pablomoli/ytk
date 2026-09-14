@@ -526,10 +526,19 @@ export function mountPacketTrack(
     v3.set(x, y, z).project(camera);
     return [(v3.x * 0.5 + 0.5) * VW + VX, (-v3.y * 0.5 + 0.5) * H, v3.z < 1];
   }
+  // The field camera is the owner's: drag orbits, the wheel zooms, and the
+  // slow turn resumes a few seconds after the hand lets go. The rose keeps
+  // its own slow turn; its wedges are hit-tested against it.
+  const orbit = { az: 0, el: 0, dist: 18.5, idleAt: 0, dragging: false, lx: 0, ly: 0, moved: 0 };
   function placeCamera() {
-    const el = rail ? lerp(1.2, 0.22, FIELD.tilt) : lerp(1.45, 0.28, ROSE.tilt);
-    const az = rail ? Math.PI / 2 + rot * 0.4 : rot * 0.35 + Math.PI * 0.15;
-    const dist = rail ? 18.5 : 23;
+    let el = rail ? lerp(1.2, 0.22, FIELD.tilt) : lerp(1.45, 0.28, ROSE.tilt);
+    let az = rail ? Math.PI / 2 + rot * 0.4 : rot * 0.35 + Math.PI * 0.15;
+    let dist = rail ? 18.5 : 23;
+    if (rail) {
+      el = Math.min(1.45, Math.max(0.08, el + orbit.el));
+      az += orbit.az;
+      dist = orbit.dist;
+    }
     camera.position.set(
       Math.cos(az) * Math.cos(el) * dist,
       Math.sin(el) * dist,
@@ -578,6 +587,10 @@ export function mountPacketTrack(
     const A = hex(ACCENT);
     if (half === 0) {
       rot += dt * MOTION * 0.06;
+      // while the field is held or freshly released, its own turn pauses, then eases back
+      const sinceIdle = orbit.dragging ? 0 : (performance.now() - orbit.idleAt) / 1000;
+      const resume = orbit.idleAt ? Math.min(1, Math.max(0, (sinceIdle - 3) / 4)) : 1;
+      if (resume < 1) orbit.az -= dt * MOTION * 0.06 * 0.4 * (1 - resume);
       pMat.uniforms.uTime!.value += dt;
     }
     ringGroup.visible = !rail;
@@ -817,7 +830,40 @@ export function mountPacketTrack(
     }
     return best;
   }
+  const onField = (ev: MouseEvent) => ev.clientX - stage.getBoundingClientRect().left >= W / 2;
+  const onDown = (ev: MouseEvent) => {
+    if (!onField(ev) || ev.button !== 0) return;
+    orbit.dragging = true;
+    orbit.moved = 0;
+    orbit.lx = ev.clientX;
+    orbit.ly = ev.clientY;
+  };
+  const onUp = () => {
+    if (!orbit.dragging) return;
+    orbit.dragging = false;
+    orbit.idleAt = performance.now();
+  };
+  const onWheel = (ev: WheelEvent) => {
+    if (!onField(ev)) return;
+    ev.preventDefault();
+    const step = ev.deltaMode === 1 ? ev.deltaY * 16 : ev.deltaY;
+    orbit.dist = Math.min(40, Math.max(8, orbit.dist * Math.exp(step * 0.0012)));
+    orbit.idleAt = performance.now();
+  };
   const onMove = (ev: MouseEvent) => {
+    if (orbit.dragging) {
+      const dx = ev.clientX - orbit.lx,
+        dy = ev.clientY - orbit.ly;
+      orbit.lx = ev.clientX;
+      orbit.ly = ev.clientY;
+      orbit.moved += Math.abs(dx) + Math.abs(dy);
+      orbit.az -= dx * 0.006;
+      orbit.el += dy * 0.005;
+      orbit.idleAt = performance.now();
+      stage.style.cursor = "grabbing";
+      cb.onHover(null);
+      return;
+    }
     const m = hit(ev);
     hover = m ? m.p.id : null;
     stage.style.cursor = m ? "pointer" : "default";
@@ -844,11 +890,16 @@ export function mountPacketTrack(
     cb.onHover(null);
   };
   const onClick = (ev: MouseEvent) => {
+    // a drag is not a click
+    if (orbit.moved > 4) return;
     const m = hit(ev);
     if (m) cb.onSelect(m.p.id);
   };
   stage.addEventListener("mousemove", onMove);
   stage.addEventListener("mouseleave", onLeave);
+  stage.addEventListener("mousedown", onDown);
+  window.addEventListener("mouseup", onUp);
+  stage.addEventListener("wheel", onWheel, { passive: false });
   stage.addEventListener("click", onClick);
 
   // ---- loop
@@ -887,6 +938,9 @@ export function mountPacketTrack(
       cancelAnimationFrame(raf);
       stage.removeEventListener("mousemove", onMove);
       stage.removeEventListener("mouseleave", onLeave);
+      stage.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      stage.removeEventListener("wheel", onWheel);
       stage.removeEventListener("click", onClick);
       for (const el of labelEls.values()) el.remove();
       scene.traverse((o) => {
