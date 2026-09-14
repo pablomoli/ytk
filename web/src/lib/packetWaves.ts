@@ -42,8 +42,55 @@ const fbm = (x: number, y: number) =>
   vnoise(x * 2.1 + 7.3, y * 2.1 - 3.1) * 0.3 +
   vnoise(x * 4.3 - 2.2, y * 4.3 + 9.7) * 0.15;
 
+/* The look, each color idea as a strength so the lab can mix them. The
+   page's defaults are the constants below; the knobs exist only under ?lab. */
+export type WaveLook = {
+  ramp: number; // phosphor: white core, amber body, afterglow cooling to brick red
+  temperature: number; // a crowded station warms from brass toward hot orange
+  hues: number; // tint toward a per-station hue (caption-only by the record; here to be seen)
+  green: number; // the model signal's glow strength
+  alarm: boolean; // red where a packet has run past the call cap
+  demo: boolean; // pretend student is live and librarian is alarmed
+};
+export const DEFAULT_LOOK: WaveLook = {
+  ramp: 0,
+  temperature: 0,
+  hues: 0,
+  green: 1,
+  alarm: false,
+  demo: false,
+};
+
+const HOT = "#ff6a3d";
+const ALARM = "#e05a6a";
+const AFTERGLOW = "#7a2a14";
+const CORE = "#fff4d6";
+const STATION_HUES = ["#9085e9", "#d95926", "#199e70", "#c98500", "#d55181", "#3987e5", "#e66767"];
+
+function hex(h: string): [number, number, number] {
+  return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+}
+function mix(a: string, b: string, t: number): string {
+  const A = hex(a),
+    B = hex(b);
+  const c = A.map((v, i) => Math.round(v + (B[i]! - v) * Math.min(1, Math.max(0, t))));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+function mixRgb(a: string, b: string, t: number): string {
+  // a may already be an rgb() string from a previous mix
+  const parse = (s: string): [number, number, number] =>
+    s.startsWith("#")
+      ? hex(s)
+      : (s.match(/\d+/g)!.slice(0, 3).map(Number) as [number, number, number]);
+  const A = parse(a),
+    B = parse(b);
+  const c = A.map((v, i) => Math.round(v + (B[i]! - v) * Math.min(1, Math.max(0, t))));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
 export type PacketWaves = {
   setData(packets: TrackPacket[] | undefined, nowMs: () => number): void;
+  setLook(look: WaveLook): void;
   dispose(): void;
 };
 
@@ -51,6 +98,7 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
   const cx = canvas.getContext("2d");
   if (!cx) throw new Error("2d canvas is unavailable");
   let packets: TrackPacket[] = [];
+  let look: WaveLook = DEFAULT_LOOK;
   let nowMs: () => number = () => Date.now();
   let W = 0,
     H = 0,
@@ -59,7 +107,8 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
     raf = 0;
   const load = new Float32Array(N),
     live = new Float32Array(N),
-    cnt = new Int32Array(N);
+    cnt = new Int32Array(N),
+    over = new Int32Array(N);
   const sm = new Float32Array(N),
     smL = new Float32Array(N);
 
@@ -67,6 +116,7 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
     load.fill(0);
     live.fill(0);
     cnt.fill(0);
+    over.fill(0);
     const t = nowMs();
     for (const p of packets) {
       const i = STATIONS.indexOf(p.station.name as (typeof STATIONS)[number]);
@@ -74,6 +124,15 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
       cnt[i]!++;
       load[i]! += logp(heldFor(p.station, t));
       if (p.station.model) live[i] = 1;
+      if (p.calls > 8) over[i]!++;
+    }
+    if (look.demo) {
+      cnt[2] = Math.max(cnt[2]!, 1);
+      load[2] = Math.max(load[2]!, 0.6);
+      live[2] = 1;
+      cnt[5] = Math.max(cnt[5]!, 2);
+      load[5] = Math.max(load[5]!, 1.2);
+      over[5] = 1;
     }
   };
 
@@ -132,7 +191,11 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
       const w = (1.5 + i * 0.13) * (1 + 1.8 * Ls + lv * 1.4);
       const h2 = HARMONICS * (0.15 + 0.85 * Ls);
       const A = amp * (IDLE + (1 - IDLE) * act);
-      const col = lv > 0.5 ? LIVE : c ? BRASS : IDLE_COL;
+      // the color: brass for a packet, warmed by load, tinted by station, green for a model, red past the cap
+      let col: string = c ? mix(BRASS, HOT, look.temperature * Ls * 1.4) : IDLE_COL;
+      if (look.hues > 0) col = mixRgb(col, STATION_HUES[i]!, look.hues * (c ? 0.85 : 0.5));
+      if (lv > 0.5) col = mixRgb(col, LIVE, Math.min(1, 0.6 + look.green * 0.4));
+      if (look.alarm && over[i]! > 0) col = ALARM;
       // each channel is offset along x: a golden-ratio stagger plus a slow drift of its own
       const xo = ((i * 0.618034) % 1) + fbm(T * 0.07 + i * 3.3, i * 0.7) * 0.35 * OFFSET;
       cx.beginPath();
@@ -153,12 +216,29 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
         if (s === 0) cx.moveTo(left, y);
         else cx.lineTo(left + s, y);
       }
+      const glow = c ? (lv > 0.5 ? 12 + look.green * 10 : 12) : 5;
+      if (look.ramp > 0) {
+        // afterglow first: a wide, cool stroke the persistence keeps
+        cx.shadowBlur = 0;
+        cx.strokeStyle = mixRgb(col, AFTERGLOW, 0.75);
+        cx.globalAlpha = (c ? 0.35 : 0.18) * look.ramp;
+        cx.lineWidth = c ? 7 : 4;
+        cx.stroke();
+      }
       cx.shadowColor = col;
-      cx.shadowBlur = c ? 12 : 5;
+      cx.shadowBlur = glow;
       cx.strokeStyle = col;
       cx.globalAlpha = c ? 0.95 : 0.5;
       cx.lineWidth = c ? 1.3 : 1;
       cx.stroke();
+      if (look.ramp > 0 && c) {
+        // the core: thin and near white
+        cx.shadowBlur = 0;
+        cx.strokeStyle = mixRgb(col, CORE, 0.7 * look.ramp);
+        cx.globalAlpha = 0.9 * look.ramp;
+        cx.lineWidth = 0.6;
+        cx.stroke();
+      }
       cx.shadowBlur = 0;
       cx.globalAlpha = 1;
       // a three-tick scale where the trace enters the row: +1, 0, -1
@@ -187,6 +267,9 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
     setData(next, clock) {
       packets = next ?? [];
       nowMs = clock;
+    },
+    setLook(next) {
+      look = next;
     },
     dispose() {
       cancelAnimationFrame(raf);
