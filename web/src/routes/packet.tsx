@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Outlet, createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useTrack } from "../api/packet";
 import { mountPacketTrack } from "../lib/packetTrack";
+import { PacketWaves } from "../components/PacketWaves";
 import type { TrackHover, TrackStats } from "../lib/packetTrack";
 import { ago, clockText, walkOrder } from "../lib/packetModel";
 import "../styles.css";
@@ -108,7 +109,11 @@ function PacketLayout() {
           className={`${PLATE} h-[400px] overflow-hidden border border-line bg-[#0b0b0d]`}
           data-testid="track"
         >
-          <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" data-testid="track-canvas" />
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 block h-full w-full"
+            data-testid="track-canvas"
+          />
           <div ref={labelsRef} className="pointer-events-none absolute inset-0" />
           <div className="pointer-events-none absolute top-0 bottom-0 left-1/2 w-px bg-line" />
           <span className={`${RO} top-2.5 left-3.5`}>rose</span>
@@ -145,6 +150,11 @@ function PacketLayout() {
             </div>
           ) : null}
         </div>
+        <PacketWaves
+          packets={track.data?.packets}
+          t={t}
+          className={`${PLATE} h-[260px] overflow-hidden border border-line bg-[#100d0b]`}
+        />
       </div>
       <Outlet />
       <div className="mx-auto mt-auto box-border flex w-full max-w-[1440px] items-center justify-between gap-6 px-4 pt-4 pb-6 font-data text-[12.5px] tracking-[.04em] text-ink2 lowercase sm:px-7">
