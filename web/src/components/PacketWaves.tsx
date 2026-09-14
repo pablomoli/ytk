@@ -1,15 +1,18 @@
 import { useEffect, useRef } from "react";
 import type { TrackPacket } from "../api/packet";
-import { mountPacketWaves } from "../lib/packetWaves";
+import { DEFAULT_LOOK, mountPacketWaves } from "../lib/packetWaves";
+import type { WaveLook } from "../lib/packetWaves";
 
 /* The waves under the track: seven phosphor channels, one per station. */
 export function PacketWaves({
   packets,
   t,
+  look = DEFAULT_LOOK,
   className,
 }: {
   packets: TrackPacket[] | undefined;
   t?: string | undefined;
+  look?: WaveLook;
   className?: string;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -26,6 +29,9 @@ export function PacketWaves({
   useEffect(() => {
     mounted.current?.setData(packets, t ? () => Date.parse(t) : () => Date.now());
   }, [packets, t]);
+  useEffect(() => {
+    mounted.current?.setLook(look);
+  }, [look]);
   return (
     <div ref={hostRef} className={className} data-testid="waves">
       <canvas ref={canvasRef} className="absolute inset-0 block h-full w-full" />
