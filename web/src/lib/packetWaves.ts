@@ -129,7 +129,7 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
       sm[i]! += (load[i]! - sm[i]!) * e;
       smL[i]! += (live[i]! - smL[i]!) * e;
     }
-    const left = 92,
+    const left = 132,
       right = W - 14,
       span = right - left;
     // channels: a wave never leaves its own row
@@ -208,8 +208,11 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
       }
       cx.shadowBlur = 0;
       cx.globalAlpha = 1;
-      // a three-tick scale where the trace enters the row: +1, 0, -1
-      cx.strokeStyle = "rgba(240,238,231,0.22)";
+      // the label column: channel number over the name in the data grey, the count in
+      // its own column, the bracket in the station's hue; the trace carries the color
+      const hue = mixRgb(IDLE_COL, STATION_HUES[i]!, c ? 0.9 : 0.55);
+      cx.strokeStyle = hue;
+      cx.globalAlpha = c ? 0.9 : 0.45;
       cx.lineWidth = 1;
       cx.beginPath();
       for (const k of [-1, 0, 1]) {
@@ -220,11 +223,21 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
       cx.moveTo(left - 6.5, cy - amp);
       cx.lineTo(left - 6.5, cy + amp);
       cx.stroke();
-      cx.font = "11.5px Newsreader, Georgia, serif";
+      cx.globalAlpha = 1;
       cx.textAlign = "right";
-      cx.fillStyle = col;
-      cx.globalAlpha = c ? 1 : 0.55;
-      cx.fillText(STATIONS[i]! + (c ? `  ${c}` : ""), left - 14, cy + 4);
+      cx.font = "9.5px Newsreader, Georgia, serif";
+      cx.fillStyle = "#83817a";
+      cx.globalAlpha = c ? 0.9 : 0.5;
+      cx.fillText(`ch ${String(i + 1).padStart(2, "0")}`, left - 36, cy - 4);
+      cx.font = "11.5px Newsreader, Georgia, serif";
+      cx.fillStyle = c ? "#f0eee7" : "#83817a";
+      cx.globalAlpha = c ? 1 : 0.6;
+      cx.fillText(STATIONS[i]!, left - 36, cy + 8);
+      if (c) {
+        cx.fillStyle = BRASS;
+        cx.globalAlpha = 1;
+        cx.fillText(String(c), left - 13, cy + 4);
+      }
       cx.globalAlpha = 1;
     }
     raf = requestAnimationFrame(frame);
