@@ -853,7 +853,7 @@ function PacketPage() {
               </span>
             </div>
           </div>
-          <div className="flex flex-none flex-wrap items-end gap-7">
+          <div className="flex min-w-0 flex-wrap items-end gap-x-7 gap-y-3">
             <div className="flex flex-col items-end gap-[5px]">
               <span
                 className={`${BIG} text-[28px]`}
