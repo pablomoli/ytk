@@ -232,38 +232,42 @@ function PacketColumn({
         <div className="flex flex-col">
           <div className={`${DM} flex justify-between pb-1`}>
             <span>units</span>
-            <span>weight</span>
+            <span>in the packet</span>
           </div>
           {v.shown.map((u) => (
             <div key={u} className={G2}>
               <span className={UNIT}>{u}</span>
               <span className={`${D} text-right`}>
-                {u.startsWith("t:") ? `${v.nlines} lines · ${v.origin}` : "frame · sparse"}
+                {u.startsWith("t:")
+                  ? `${v.nlines} lines · ${v.origin}`
+                  : u === "sheet"
+                    ? "contact sheet"
+                    : "frame · sparse"}
               </span>
             </div>
           ))}
-          {v.openable.map((u) => (
-            <div key={u} className={G2}>
-              <span className={UNIT}>{u}</span>
-              <span className={`${D} text-right`}>in the box</span>
+          {v.openable.length ? (
+            <div className={G2}>
+              <span className={UNIT}>
+                {v.openable.length > 1
+                  ? `${v.openable[0]} to ${v.openable[v.openable.length - 1]}`
+                  : v.openable[0]}
+              </span>
+              <span className={`${D} text-right`}>in the box · {v.openable.length}</span>
             </div>
-          ))}
+          ) : null}
           {v.not_shown.map((u) => (
             <div key={u} className={G2}>
               <span className={`${D} !text-mute`}>{u}</span>
               <span className={`${DM} text-right`}>not shown</span>
             </div>
           ))}
-          <div className={G2}>
-            <span className={DM}>budget</span>
-            <span className={`${D} text-right`}>
-              {v.budget.frames_shown} frames · {(v.budget.evidence_cap_chars ?? 0).toLocaleString()}{" "}
-              chars · sheet {v.budget.sheet}
+          <div className={`${DM} flex flex-wrap justify-between gap-x-3 pt-2`}>
+            <span>
+              budget · {v.budget.frames_shown} frames ·{" "}
+              {(v.budget.evidence_cap_chars ?? 0).toLocaleString()} chars · sheet {v.budget.sheet}
             </span>
-          </div>
-          <div className={G2}>
-            <span className={DM}>tokenizer</span>
-            <span className={`${D} text-right`}>{v.tokenizer}</span>
+            <span>{v.tokenizer}</span>
           </div>
         </div>
       ) : (
@@ -315,25 +319,40 @@ function PacketColumn({
         </div>
       ) : null}
       {v?.frames.length ? (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex gap-2.5">
-            {v.frames.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                className="appearance-none border-0 bg-transparent p-0 cursor-zoom-in min-w-0 flex-1"
-                onClick={() => onFrame(f.id, f.url)}
-                aria-label={`open ${f.id}`}
-              >
-                <img src={f.url} alt={f.id} className="block w-full rounded border border-line" />
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-col gap-2">
           <div className={`${DM} flex justify-between`}>
+            <span>frames · shown first, the box after</span>
+            <span>{v.frames.length}</span>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
             {v.frames.map((f) => (
-              <button key={f.id} type="button" className={UNIT_BTN} onClick={() => onUnit(f.id)}>
-                {f.id}
-              </button>
+              <figure
+                key={f.id}
+                className={cn("m-0 flex min-w-0 flex-col gap-1", f.shown && "col-span-2")}
+              >
+                <button
+                  type="button"
+                  className="appearance-none border-0 bg-transparent p-0 cursor-zoom-in"
+                  onClick={() => onFrame(f.id, f.url)}
+                  aria-label={`open ${f.id}`}
+                >
+                  <img
+                    src={f.url}
+                    alt={f.id}
+                    loading="lazy"
+                    className={cn(
+                      "block w-full rounded border object-cover",
+                      f.shown ? "border-accent/50" : "border-line opacity-70",
+                    )}
+                  />
+                </button>
+                <figcaption className={`${DM} flex justify-between`}>
+                  <button type="button" className={UNIT_BTN} onClick={() => onUnit(f.id)}>
+                    {f.id}
+                  </button>
+                  {f.shown ? <span>shown</span> : null}
+                </figcaption>
+              </figure>
             ))}
           </div>
         </div>
@@ -392,7 +411,7 @@ function RoundBlock({
           {closed && a.closed_at
             ? `${hhmm(a.opened_at)} to ${hhmm(a.closed_at)}`
             : `opened ${hhmm(a.opened_at)}`}
-          {folded ? " · open" : ""}
+          {folded ? " · unfold" : ""}
         </span>
       </button>
       {folded ? null : (
@@ -561,7 +580,7 @@ function AskBlock({
     >
       <div className="flex items-baseline justify-between">
         <span className="text-[14.5px]">
-          {k.kind}
+          {isConnections ? k.why || k.kind : k.kind}
           {open ? <span className={`${D} !text-accent`}> open</span> : null}
         </span>
         <span className={DM}>
@@ -569,20 +588,26 @@ function AskBlock({
           {k.attempt ? ` · attempt ${k.attempt}` : ""}
         </span>
       </div>
-      {k.why ? <div className="text-[13px] leading-[1.35] text-ink2">{k.why}</div> : null}
+      {k.why && !isConnections ? (
+        <div className="text-[13px] leading-[1.35] text-ink2">{k.why}</div>
+      ) : null}
       {isConnections && open ? (
         <ConnectionsAnswer k={k} onAnswer={onAnswer} pending={pending} />
       ) : null}
       {isConnections && !open
         ? k.links.map((l, i) => (
-            <div key={i} className={G2} title={l.why}>
+            <div
+              key={i}
+              className="flex items-baseline justify-between gap-3 border-b border-line py-[5px] last:border-b-0"
+              title={l.why}
+            >
               <span
-                className={D}
+                className={`${D} min-w-0`}
                 style={{ color: k.answer?.choice === "approve" ? "var(--ink)" : undefined }}
               >
                 {l.title}
               </span>
-              <span className={`${DM} text-right`}>
+              <span className={`${DM} shrink-0`}>
                 {k.answer?.choice === "approve" ? "approved" : k.answer?.choice}
               </span>
             </div>
@@ -1018,11 +1043,11 @@ function PacketPage() {
             <span className={`${BIG} text-[36px]`}>{p.rounds || ""}</span>
             <div className="flex flex-col gap-0.5">
               <span className="text-[15px]">
-                {p.rounds
-                  ? `attempt · at the ${stationName === "filed" ? "shelf" : stationName}`
-                  : s
-                    ? `at the ${stationName}`
-                    : "filed"}
+                {stationName === "filed"
+                  ? `${p.rounds} ${p.rounds === 1 ? "round" : "rounds"} · filed`
+                  : p.rounds
+                    ? `attempt ${p.rounds} · at the ${stationName}`
+                    : `at the ${stationName}`}
               </span>
               <span className={DM}>{s ? `${s.note} · ${ago(held)}` : ""}</span>
             </div>
