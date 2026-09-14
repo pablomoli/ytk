@@ -169,8 +169,8 @@ const GRID: [number, number][] = [
   [1, 1],
 ];
 const FLOOR_Y = -2.6;
-const WR = 44,
-  WC = 64;
+const WR = 66,
+  WC = 96;
 
 export function mountPacketTrack(
   stage: HTMLElement,
@@ -258,9 +258,10 @@ export function mountPacketTrack(
   function fieldHeightAt(x: number, z: number): [number, number] {
     let h = 0,
       g = 0;
-    const sig = FIELD.reach;
     for (let i = 0; i < N; i++) {
       const [px, , pz] = fieldPos(i);
+      // a crowded station widens as well as rises: a massif, not a needle
+      const sig = FIELD.reach * (1 + 0.45 * Math.min(1, fieldLoad[i]! / 3));
       const d2 = (x - px) * (x - px) + (z - pz) * (z - pz);
       const w = Math.exp(-d2 / (2 * sig * sig));
       h += fieldLoad[i]! * w;
@@ -274,29 +275,56 @@ export function mountPacketTrack(
     return FLOOR_Y + ((FIELD.lift * h) / (h + 0.9)) * 2;
   };
   const wakeGeo = new THREE.PlaneGeometry(1, 1, WC - 1, WR - 1);
-  wakeGeo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(WC * WR * 3), 3));
-  const wakeWire = new THREE.Mesh(
-    wakeGeo,
-    new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.28,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  );
-  const wakeFill = new THREE.Mesh(
-    wakeGeo,
-    new THREE.MeshBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.22,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    }),
-  );
-  scene.add(wakeFill, wakeWire);
+  wakeGeo.setAttribute("aH", new THREE.BufferAttribute(new Float32Array(WC * WR), 1));
+  wakeGeo.setAttribute("aLive", new THREE.BufferAttribute(new Float32Array(WC * WR), 1));
+  // The surface is one shader: color by height on a ramp, a grid that stays one
+  // pixel wide at any zoom, contour lines at fixed heights, fog with distance.
+  const wakeMat = new THREE.ShaderMaterial({
+    side: THREE.DoubleSide,
+    uniforms: {
+      uGround: { value: hex("#1a1612") },
+      uBrass: { value: hex(ACCENT) },
+      uPeak: { value: hex("#fff1c8") },
+      uLive: { value: hex(LIVE) },
+      uBg: { value: hex("#0b0b0d") },
+      uGrid: { value: new THREE.Vector2(WC - 1, WR - 1) },
+      uContours: { value: 9 },
+      uFogNear: { value: 16 },
+      uFogFar: { value: 42 },
+    },
+    vertexShader: `attribute float aH;attribute float aLive;varying vec2 vUv;varying float vH;varying float vLive;varying float vDepth;
+void main(){vUv=uv;vH=aH;vLive=aLive;vec4 mv=modelViewMatrix*vec4(position,1.);vDepth=-mv.z;gl_Position=projectionMatrix*mv;}`,
+    fragmentShader: `uniform vec3 uGround;uniform vec3 uBrass;uniform vec3 uPeak;uniform vec3 uLive;uniform vec3 uBg;uniform vec2 uGrid;uniform float uContours;uniform float uFogNear;uniform float uFogFar;
+varying vec2 vUv;varying float vH;varying float vLive;varying float vDepth;
+void main(){
+  vec3 col=mix(uGround,uBrass,smoothstep(.12,.7,vH));col=mix(col,uPeak,smoothstep(.72,1.,vH));col=mix(col,uLive,clamp(vLive,0.,1.)*.85);
+  vec2 gq=vUv*uGrid;vec2 gd=abs(fract(gq-.5)-.5)/fwidth(gq);float line=1.-min(min(gd.x,gd.y),1.);
+  float cq=vH*uContours;float cd=abs(fract(cq-.5)-.5)/fwidth(cq);float contour=(1.-min(cd,1.))*smoothstep(.02,.06,vH);
+  vec3 lit=col*(.18+.42*vH)+mix(col,vec3(.8,.75,.65),.35)*line*.4+vec3(1.,.95,.85)*contour*(.2+.4*vH);
+  float fog=smoothstep(uFogNear,uFogFar,vDepth);
+  gl_FragColor=vec4(mix(lit,uBg,fog*.7),1.);}`,
+  });
+  const wake = new THREE.Mesh(wakeGeo, wakeMat);
+  scene.add(wake);
+  // the sonar: a ring that swells from a station's foot while a model holds a packet there
+  const sonar: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>[] = [];
+  for (let i = 0; i < N; i++) {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(0.92, 1, 64),
+      new THREE.MeshBasicMaterial({
+        color: LIVE,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.visible = false;
+    scene.add(m);
+    sonar.push(m);
+  }
   let noiseT = 0;
   let wakeKey = "";
   function updateWake(marks: Mark[], dt: number) {
@@ -314,9 +342,8 @@ export function mountPacketTrack(
       if (m.model) fieldLive[m.st]! += 1;
     }
     const pa = wakeGeo.attributes.position!.array as Float32Array,
-      ca = wakeGeo.attributes.color!.array as Float32Array;
-    const A = hex(ACCENT),
-      G = hex(LIVE);
+      ha = wakeGeo.attributes.aH!.array as Float32Array,
+      la = wakeGeo.attributes.aLive!.array as Float32Array;
     const X = 2.1 * FIELD.spacing,
       Z = 1.7 * FIELD.spacing,
       grain = FIELD.grain;
@@ -335,15 +362,12 @@ export function mountPacketTrack(
         pa[k * 3] = x;
         pa[k * 3 + 1] = FLOOR_Y + ((FIELD.lift * h) / (h + 0.9)) * 2 + swell;
         pa[k * 3 + 2] = z;
-        const c = g > 0.35 ? G : A;
-        const m =
-          0.12 + 0.88 * Math.min(1, h / 1.2) + grain * 0.08 * fbm(x * 1.3 - noiseT, z * 1.3);
-        ca[k * 3] = c.r * m;
-        ca[k * 3 + 1] = c.g * m;
-        ca[k * 3 + 2] = c.b * m;
+        ha[k] = h / (h + 0.9);
+        la[k] = Math.min(1, g / 0.35);
       }
     wakeGeo.attributes.position!.needsUpdate = true;
-    wakeGeo.attributes.color!.needsUpdate = true;
+    wakeGeo.attributes.aH!.needsUpdate = true;
+    wakeGeo.attributes.aLive!.needsUpdate = true;
     wakeGeo.computeBoundingSphere();
   }
 
@@ -626,8 +650,20 @@ export function mountPacketTrack(
         }),
       ),
     );
-    wakeWire.visible = wakeFill.visible = rail;
+    wake.visible = rail;
     if (rail) updateWake(pre, dt);
+    for (let i = 0; i < N; i++) {
+      const r = sonar[i]!;
+      const on = rail && fieldLive[i]! > 0;
+      r.visible = on;
+      if (!on) continue;
+      const phase = (((performance.now() / 2400 + i * 0.37) % 1) + 1) % 1;
+      const [fx, , fz] = fieldPos(i);
+      r.position.set(fx, fieldTop(i) + 0.45, fz);
+      const sc = 0.3 + 2.4 * phase;
+      r.scale.set(sc, sc, 1);
+      r.material.opacity = 0.95 * (1 - phase) * (1 - phase);
+    }
     bySt.forEach((arr, st) =>
       arr.forEach((p, rank) => {
         const isModel = MODEL_STATIONS.has(st);
