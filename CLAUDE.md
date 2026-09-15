@@ -54,6 +54,7 @@ Never leave anything uncommitted in this repo. Before ending a session, the work
 | 10 | done | Ingest hub — `ytk ui` reborn: / fresh feed, /inbox queue picker with buckets + thoughts (annotations embed into search + daily digest), paste-to-queue Add box; chat at /chat |
 | 11 | done | `ytk memo` — voice memo capture: ffmpeg record, faster-whisper STT, Claude routing, focus-aware notify, hub POST /api/memo |
 | 12 | done | Brain map — `scripts/build_map.py` (UMAP of all text embeddings, fitted params, theme-painted) + hub `/map` canvas page |
+| 13 | done | Packet page (#213) — `/packet` track (rose, field, waves) + `/packet/<id>` page; `station_at` reconstruction in `ytk/headless.py`; answering through the outbox path |
 
 ## Project Structure
 
@@ -84,12 +85,18 @@ ytk/
     view.py            — the evidence packet (#212): one view per bundle, hashed, both readers get the same bytes
     attempt.py         — one round's record: findings in, draft out, verdict out
     headless.py        — `ytk item / ask / view / grade` and the MCP wrappers, no logic in the wrappers
+                         also `station_at`, `track`, `packet`: where a packet is at any instant, served at /api/packet (#213)
     books_match.py     — stdlib epub fuzzy text-position matcher (audiobook tracker)
     reels.py           — Instagram DM link discovery + source-agnostic pending queue (`ytk reels`)
     memo.py            — voice memo pipeline: record, transcribe, route, notify (`ytk memo`)
     ui/hub.py          — ingest-hub backend: queue ops, background ingest job, fresh feed
     ui/static/         — hub pages: fresh.html (/), inbox.html (/inbox), index.html (/chat)
+  web/src/routes/packet.tsx, packet.$id.tsx — the packet page (#213): the track above, one item's page below
+  web/src/lib/packetTrack.ts   — rose + field (three.js): locked values as constants, drag orbits the field
+  web/src/lib/packetWaves.ts   — the waves strip: seven phosphor channels, one per station
+  web/src/lib/packetModel.ts   — the track's arithmetic (log hold, walk order), tested without a canvas
   docs/architecture/
+    packet-page.md                — the packet page: data flow, the reconstruction's cases, the three instruments
     cli-decomposition.md          — witness-first extraction map for `ytk/cli.py`
     map-renderer-decomposition.md — resource ownership and extraction map for the WebGL renderer
 ```

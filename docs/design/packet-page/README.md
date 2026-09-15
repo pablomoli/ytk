@@ -27,6 +27,16 @@ session needs to build the real route without re-deriving any decision.
 > tried and dropped as imperceptible under the tint; alarm red was tried
 > and left off.
 
+> **Later (2026-09-14):** merged to master, 13 commits unsquashed, then two
+> more branches. The field camera is the owner's now (drag orbits, wheel
+> zooms, the slow turn resumes after release) and starts above the surface
+> looking down (`FIELD.tilt` 0.22, was 0.75 in the locked values above, by
+> the owner's request). The field is one shader surface: height ramp, a
+> one-pixel grid at any zoom, nine contour lines, fog, a crowded station
+> widening as it rises, and a green sonar ring while a model works. The
+> wire-and-fill pair above is gone. Live at the hub's `/packet`; the running
+> record is `docs/architecture/packet-page.md`.
+
 ## What exists
 
 | artifact | where | state |
