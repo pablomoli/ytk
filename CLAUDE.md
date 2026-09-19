@@ -65,6 +65,7 @@ ytk/
   .env.example         — template
   CLAUDE.md            — this file
   docs/                — tracked project docs; session briefs are vault-only
+  docs/label-inventory.md — every recorded human judgment ytk holds, counted, with who judged; read before proposing anything trained
   docs/experiments.md  — index to the visual-experiment record; reading paths + corrections
   docs/assets/         — the record itself: 26 numbered sections, one README each
   docs/assets/README.md — visualization house style: palette, composition, design intent
