@@ -273,10 +273,33 @@ collections still exist (`ytk_videos` 316, `ytk_segments` 2,996,
   the ytk MCP server and then read some of the results with `vault_read` or
   `vault_fetch`. A query followed by which notes were opened is an implicit
   relevance signal, and the only one that comes from real use rather than
-  from a synthetic query. Not counted: the transcripts live under `~/.claude/`
-  outside this repo and were not read for this inventory. Two caveats before
-  anyone counts them: the searcher is a model acting for you, not you, and an
-  opened note is a click, not a verdict.
+  from a synthetic query. Two caveats: the searcher is a model acting for
+  you, not you, and an opened note is a click, not a verdict.
+
+  > **Later (2026-09-20):** counted, with the owner's go, counts only.
+  > 3,712 transcript files, 27 of them with a ytk vault call. 56
+  > `vault_search` calls (48 distinct queries, median 8.5 words, median 6
+  > results returned), 43 from a main session and 13 from a subagent, on 8
+  > distinct days between 2026-08-23 and 2026-09-20. 13 of the 56 searches
+  > (23 percent) were followed by a read of one of their own results; the
+  > opened result sat at rank 1 ten times, rank 2 seven times, ranks 3 to 7
+  > ten times. 73 of 308 returned sources are URLs, which a later
+  > `vault_read` path cannot be matched against, so 23 percent is a floor.
+  > The oldest transcript on disk is dated 2026-08-17: the transcripts are
+  > pruned on a rolling window, so this source erodes and cannot be mined
+  > later. The server logs `vault_read` (`ytk/mcp_server.py:31`, 204 rows
+  > across 34 sessions since 2026-08-16, 85 of them `hot` or `index`
+  > navigation) but does not log `vault_search`, so the durable copy holds
+  > the click and not the shelf it was picked from.
+- **Hub searches.** `log_search_query` (`ytk/ui/hub.py:434`) appends every
+  query typed into `/api/search`. The log holds 2 rows, both from
+  2026-07-17. Whether other hub search paths bypass the logger was not
+  checked; on the evidence here, the owner's own typed searches are close to
+  nonexistent and the agent is the vault's main searcher.
+- **Brief citations.** 22 of 80 session briefs carry a Sources consulted
+  section, with 77 wikilinks to 50 distinct notes. Of the 65 distinct notes
+  the read log shows opened, 28 were later cited in some brief. Cited is a
+  stronger statement than opened, and it is already being written down.
 - **`## My take` sections and reflection answers in vault notes.** Thoughts
   written at ingest before the ledger existed, and the answers from the
   reflection loop (#98). `ytk/signals.py` already classifies notes by capture
