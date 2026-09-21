@@ -83,7 +83,8 @@ def lenses(
             vision(pixel_values=torch.stack(batch[s : s + 12])).pooler_output.float().cpu()
             for s in range(0, len(batch), 12)
         ]
-        sims = (_unit(torch.cat(pooled)) @ txt.T).numpy()
+        covered = _unit(torch.cat(pooled))
+        sims = (covered @ txt.T).numpy()
 
     grads = []
     for t in range(2):
@@ -97,6 +98,10 @@ def lenses(
         "lens3": (sims[0] - sims[1:]).reshape(G, G, 2),
         "lens4": np.stack(grads, -1),
         "base": sims[0],
+        # The 37 covered embeddings do not depend on the text: kept so any later
+        # query gets an occlusion map for one dot product, not 37 passes.
+        "covered": covered.numpy().astype(np.float16),
+        "tokens": h[0].numpy().astype(np.float16),
     }
 
 

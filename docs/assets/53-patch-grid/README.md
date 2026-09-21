@@ -49,6 +49,27 @@ from every sample below, so nothing seen in them can tune the gate.
 - Lens 4 was added because of what lens 2 looked like. Nothing is concluded
   from n = 3.
 
+> **Later (same day, still before the gate, same three images):** the spike's
+> readings were tested instead of trusted. What held: the occlusion map is
+> not an artifact of the grey fill (rank correlation 0.81 to 0.94 against an
+> image-mean fill), and it follows the question. Asked for an object in the
+> picture and not the title, the hottest block moved off the printed text
+> and onto the object in two of three images, partly in the third (rank
+> correlation between the title map and the object map: 0.22, -0.64, 0.43).
+> What was wrong: "low-detail regions". The ten most-attended tokens sit on
+> patches with *more* pixel contrast than the rest (31 against 21, 34 against
+> 20, 52 against 38). What they do have is length: before the final norm
+> their vectors are about 510 long against about 67 for the other 566, and
+> ten tokens of 576 hold 20 to 24 percent of the probe's attention. Covering
+> the pixels under them, four or five of the ten stay the most-attended
+> tokens anyway and the new top ten hold the same share, so the position
+> matters more than what is under it. Covering them moved the pooled vector
+> more than any of 20 random draws in two images and less than the random
+> mean in the third. The guess that lens 2's speckle is these same tokens was
+> not supported (rank correlation with the probe's attention 0.15, -0.11,
+> -0.11); the speckle is unexplained. The interpretation bullet below that
+> says "low-detail tokens" should be read as "long tokens".
+
 ## Pre-registration (written before any gate measurement)
 
 **Sample.** YouTube rows of the `ytk_visual` collection that carry a title
