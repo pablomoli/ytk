@@ -70,6 +70,28 @@ from every sample below, so nothing seen in them can tune the gate.
 > -0.11); the speckle is unexplained. The interpretation bullet below that
 > says "low-detail tokens" should be read as "long tokens".
 
+> **Later (same day, before the gate, four non-YouTube images that cannot be
+> in the sample):** the owner asked why the spike concluded the encoder
+> looks for text, and what it does with no text. It was not a conclusion
+> the spike could support: all three spike images were thumbnails whose
+> titles repeat words printed on them, so printed words were the only thing
+> there to find. On images with no printed words the referee lands on the
+> named object: one block on the trackball for "a red trackball" (drop 0.051
+> of 0.090), the goat's head and body for "a black goat", the one block
+> holding the figure for "a small person". On an image with both, the
+> printed caption and the woman each light under their own query. Two
+> limits showed. Occlusion measures whether a block is *necessary*, not
+> where a thing is: a subject that fills the frame loses almost nothing to
+> any one block (largest drop 0.008 of 0.160 for the goat, 0.007 of 0.149
+> for the keyboard, none at all for a face filling the frame), while a
+> small, unique region carries 30 to 57 percent of the match. And the maps
+> are min-max scaled per panel, so a drop of 0.002 renders as bright as one
+> of 0.051; the number has to be read with the colour. For the gate this
+> means the referee will be strong on thumbnails with printed words and
+> weak on the rest, which the no-exclusions rule already commits to
+> reporting and not repairing, and that the result will be about
+> thumbnails with titles, not about images in general.
+
 ## Pre-registration (written before any gate measurement)
 
 **Sample.** YouTube rows of the `ytk_visual` collection that carry a title
