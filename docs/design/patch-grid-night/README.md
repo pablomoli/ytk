@@ -39,6 +39,47 @@ Measured costs on the M3, fp16 on MPS: SigLIP-2 forward 0.55 s per image;
 sliding occlusion 2.5 min per image; SAM automatic masks 17 s per image (46
 kept); one SAM crop scored by SigLIP about 0.3 s. Model load 12 s.
 
+## Figures: the owner's standing order
+
+Stated by the owner on 2026-09-21, and it overrides any shortcut below.
+
+- **A figure at every stage.** Not one per section: every step that
+  produces data produces a figure of that data, sent to the owner as it
+  lands. Setup produces a figure (the ten images with their masks and
+  queries). A dead end produces a figure (the picture that shows why).
+- **In the design system.** Every figure imports `scripts/plot_assets.py`
+  and follows `docs/assets/README.md`: the header block, the meta line
+  carrying the measured quantities, `verdict()` where there is a verdict,
+  `frame_panels`, DIM reserved for nulls, one claim per figure. A
+  checkpoint wears the same style as an asset.
+- **The representation must fit the data.** A figure is a picture of the
+  thing measured, in the geometry the thing has, never a generic chart of
+  numbers about it. Concretely:
+  - A map over an image is drawn on the image, at the resolution the method
+    produced it (24 x 24 patches, pixel masks, 441 sliding positions), with
+    the real outline of the winning region, never downsampled to blocks.
+  - Anything measured per layer is drawn along depth, all 27 layers as a
+    row, one line per image, so the shape of emergence is the finding.
+  - Anything measured per patch position is drawn on the 24 x 24 grid.
+  - A comparison between two methods is the two maps side by side on the
+    same image under one colour scale, with the disagreement drawn, not a
+    correlation coefficient in a caption. The coefficient goes in the meta
+    line.
+  - A distribution over images is drawn as the distribution, with the
+    individual images as marks, and the null in DIM when there is one.
+  - Bar charts of summary numbers, unlabelled scatter plots, and any panel
+    that would look the same for a different experiment are not acceptable.
+    If a figure could have been drawn without the images, it is the wrong
+    figure.
+- **Data rich.** Fill the panels. A row per image, a column per query or
+  method; the ten images and their queries are all shown, not a chosen
+  example plus a number for the rest. Where the row count makes a figure
+  tall, it is tall.
+- **All of them delivered.** Every figure rendered during the night is sent
+  to the owner with SendUserFile at the moment it is rendered, checkpoint or
+  asset, kept or superseded. Every asset figure is committed in its section
+  folder. Nothing is summarized in prose that could be shown.
+
 ## Ground rules for the executing session
 
 - Start in the worktree. `cd ~/Developer/ytk.exp-53-patch-grid`. Every run is
@@ -115,6 +156,9 @@ usual README (question, what was done, result, figures) and its row in
   are the record of what was measured. Add the row to `docs/experiments.md`
   with the public one-liner.
 - Copy `/tmp/ytk-checkpoints/*.npz` into `~/.ytk/patch_grid/spikes/`.
+- **Figures.** One: the ten images in a row, each with its SAM masks drawn
+  as coloured regions and its three queries printed beneath, the absent
+  query marked. It is the reference sheet for every later figure.
 
 ### 1. Section 54: the region-masked head (TextRegion) — about 1 hour
 
@@ -149,6 +193,16 @@ The brief's top-ranked experiment, resting on arXiv 2505.23769.
 - **Dead end.** Masked-pool picks the right region less often than
   crop-on-grey on the ten, or every region containing a long token scores
   alike.
+- **Figures, in order.** (1) The woman image, one row per query, four
+  columns: picture, crop-on-grey, masked head, sliding occlusion; the
+  winning region outlined in gold on the real pixel mask; one colour scale
+  per row. (2) The same for all ten images and all thirty queries, one row
+  per image-query pair, a tall figure. (3) The disagreement figure: only the
+  pairs where the two methods pick different winners, both outlines drawn on
+  the image in two colours, with the occlusion map beside them as the
+  tiebreaker. (4) A 24 x 24 grid showing, for one image, the probe's
+  attention inside each region under the mask, so the mechanism is visible
+  and not only its output.
 - **Deliverable for ytk.** A function `region_vectors(tokens, masks)` in
   `experiments/patch_grid/` (not yet in `ytk/`), and a note in the README of
   storage per image (46 x 1152 fp16, about 100 KB) and query cost (one
@@ -177,6 +231,11 @@ head, which no verified source has measured.
   (code at github.com/nickjiang2378/test-time-registers) on this checkpoint.
   If the repo does not support SigLIP-2 out of the box, spend at most 30
   minutes adapting it; otherwise record that as the stopping point.
+- **More figures.** (4) After the fix, the same three pictures again on
+  the same images, laid beside the before, so the effect of relocation is
+  read as a change in shape. (5) The tokens themselves: for the ten images,
+  the high-norm patches ringed on the image, so the owner can see what
+  pixels they sit on.
 - **Readout.** Counts and depths in the README's meta lines. If hiding the
   tokens moves the embedding by more than 0.01 cosine on most images, that
   is a finding about production search and goes into the write-up with its
@@ -198,6 +257,10 @@ head, which no verified source has measured.
 - **The picture.** One row per image: sliding occlusion, whole-object
   occlusion, RISE, for the same query, one colour scale. The claim is
   visible in whether the goat lights up under RISE.
+- **More figures.** (2) All ten images, sliding against whole-object
+  occlusion for the small-object query, one row each. (3) For the goat, the
+  RISE map at 200, 500, 1,000 and 2,000 masks in a row, so convergence is
+  visible and the mask count is justified by the picture and not by habit.
 - **Readout.** Spearman between whole-object occlusion and RISE per image,
   reported as numbers in the README, not as a gate. If they agree above 0.7
   on all three, sliding and whole-object occlusion are adequate referees and
@@ -214,6 +277,12 @@ head, which no verified source has measured.
 - **If it loads:** time one image on MPS, then run the two queries the
   two-model recipe missed on the woman image: "sunglasses" and "the whole
   woman". Picture: SAM 3's mask against the masked-head winner for each.
+- **Figures.** If it loads: the woman image, SAM 3's mask against the
+  section 54 winner for each of the two queries, plus the two queries it
+  handles that section 54 could not (the printed caption, the whole person).
+  If it does not load: no figure is faked; the README carries the error and
+  the section has no lead PNG, which the record's rules already allow for
+  a section that failed at install.
 - **Readout.** Seconds per image on MPS and peak memory. The verdict the
   brief asked for: whether it belongs in ytk at query time, or only in the
   boxing project on the 3070.
@@ -230,6 +299,11 @@ naive gradient.
   per image-query pair, nothing cached.
 - **The picture.** The ten images, the small-object query, gradient lens
   against whole-object occlusion from section 56.
+- **More figures.** (2) One image, the gradient lens accumulated layer by
+  layer, all 27 layers as a strip, so where the map forms is visible. (3)
+  The agreement distribution over the ten images, drawn with each image's
+  mark, against the section 53 lenses on the same axis so the improvement,
+  if any, is a visible shift.
 - **Readout.** Spearman per image against the section 56 referee, as a
   distribution. This is the one place a number is the finding, because the
   question is whether an instant, uncached method can replace the referee
