@@ -34,6 +34,7 @@ from plot_assets import (
     panel_title,
     punch,
     saturated_magma,
+    verdict,
 )
 
 SERIES = [GOLD, BLUE, CYAN, PURPLE, RED]
@@ -146,12 +147,354 @@ def fig_ten(out: Path) -> None:
     print("wrote", out)
 
 
+def softmax(x: np.ndarray, axis: int = 0) -> np.ndarray:
+    e = np.exp(x - x.max(axis=axis, keepdims=True))
+    return e / e.sum(axis=axis, keepdims=True)
+
+
+def vote_share(cos: np.ndarray, scale: float) -> np.ndarray:
+    """Regions compete by softmax(cosine x logit_scale); each region's share
+    of the vote relative to the winner, so the winner is 1."""
+    v = softmax(cos * scale, axis=0)
+    return v / v.max(axis=0, keepdims=True), v.max(axis=0)
+
+
+def absent_ceiling(all54: dict) -> float:
+    """The largest whole-image cosine any absent query reached: below it a
+    query is not answered by the picture and no map is drawn for it."""
+    return max(float(all54[f"{n}/base"][2]) for n in N.IMAGES)
+
+
+def occlusion_winner(heat: np.ndarray, grids: np.ndarray) -> int:
+    """The region whose patches the sliding cover hurt most, on average."""
+    return int(np.argmax([heat[g].mean() if g.any() else -np.inf for g in grids]))
+
+
+def no_map(ax, text: str) -> None:
+    import textwrap
+
+    ax.text(
+        0.5,
+        0.5,
+        textwrap.fill(text, 30),
+        color=TEXT,
+        fontsize=9.5,
+        ha="center",
+        va="center",
+        transform=ax.transAxes,
+    )
+
+
+def fig54_woman(out: Path, all54: dict) -> None:
+    w = dict(np.load(N.CACHE / "54_woman.npz", allow_pickle=True))
+    scale = float(w["scale"])
+    ceiling = absent_ceiling(all54)
+    img = image("woman-river")
+    masks, grids = w["masks"], w["grids"]
+    qs = [str(q) for q in w["qs"]]
+    slide_qs = [str(q) for q in w["slide_qs"]]
+    rows = [qs.index(q) for q in slide_qs]  # the four the sliding cover was run for
+    share_head, top_head = vote_share(w["cos_head"], scale)
+    share_crop, top_crop = vote_share(w["cos_crop"], scale)
+    fig, top = figure(
+        17,
+        4.05 * len(rows) + 1.9,
+        1,
+        "SECTION 54  ONE IMAGE, THREE WAYS TO LOCATE A MATCH",
+        "Crop-on-grey, the region-masked head, and a sliding grey cover, on the same 46 SAM regions",
+        f"46 regions  |  brightness: a region's share of the softmax(cosine x {scale:.0f}) vote relative to the winner; gold outline: the winner  |  "
+        f"occlusion: mean drop in image-text cosine over every 64 px cover touching a patch, 441 positions, own scale per row; gold: region the cover hurt most  |  "
+        f"a whole-image cosine at or under {ceiling:.3f}, the highest any absent query reached, gets no map  |  {w['fixed']} regions too small for a patch given their best one  |  {sha()}",
+    )
+    heads = [
+        "the picture",
+        "crop-on-grey (46 encoder passes)",
+        "region-masked head (one pass)",
+        "sliding occlusion (441 passes)",
+    ]
+    gs = fig.add_gridspec(
+        len(rows), 4, left=0.03, right=0.97, top=top - 0.02, bottom=0.02, wspace=0.04, hspace=0.16
+    )
+    disagreements = 0
+    for r, j in enumerate(rows):
+        base = float(w["base"][j])
+        answered = base > ceiling
+        heat = w["slide_heat"][..., slide_qs.index(qs[j])]
+        winners = {
+            "crop": int(w["cos_crop"][:, j].argmax()),
+            "head": int(w["cos_head"][:, j].argmax()),
+            "occ": occlusion_winner(heat, grids),
+        }
+        for c in range(4):
+            ax = fig.add_subplot(gs[r, c])
+            if c == 0:
+                show(ax, img)
+                ax.text(
+                    0.02,
+                    0.97,
+                    f"“{qs[j]}”",
+                    color=TEXT,
+                    fontsize=11,
+                    va="top",
+                    transform=ax.transAxes,
+                    bbox={"facecolor": BG, "alpha": 0.7, "edgecolor": "none", "pad": 3},
+                )
+                ax.text(
+                    0.02,
+                    0.05,
+                    f"whole image cosine {base:.3f}" + ("" if answered else "  (absent range)"),
+                    color=GOLD if answered else RED,
+                    fontsize=9.5,
+                    va="bottom",
+                    transform=ax.transAxes,
+                    bbox={"facecolor": BG, "alpha": 0.7, "edgecolor": "none", "pad": 3},
+                )
+            elif not answered:
+                show(ax, img, dim=0.25)
+                no_map(
+                    ax,
+                    f"whole-image match {base:.3f} is inside the absent-query range (up to {ceiling:.3f}): nothing to locate",
+                )
+            elif c in (1, 2):
+                sh, tp, key = (
+                    (share_crop, top_crop, "crop") if c == 1 else (share_head, top_head, "head")
+                )
+                show(ax, img, dim=0.5)
+                region_fill(ax, masks, sh[:, j], 1.0)
+                outline(ax, masks[winners[key]], GOLD, lw=2.0)
+                ax.text(
+                    0.02,
+                    0.05,
+                    f"winner takes {tp[j]:.0%} of the vote, {masks[winners[key]].mean():.1%} of the frame",
+                    color=TEXT,
+                    fontsize=9.5,
+                    va="bottom",
+                    transform=ax.transAxes,
+                    bbox={"facecolor": BG, "alpha": 0.7, "edgecolor": "none", "pad": 3},
+                )
+            else:
+                show(ax, img, dim=0.5)
+                grid_map(ax, heat, vmax=float(heat.max()))
+                outline(ax, masks[winners["occ"]], GOLD, lw=2.0)
+                ax.text(
+                    0.02,
+                    0.05,
+                    f"largest drop {heat.max():.3f} of {base:.3f}",
+                    color=TEXT,
+                    fontsize=9.5,
+                    va="bottom",
+                    transform=ax.transAxes,
+                    bbox={"facecolor": BG, "alpha": 0.7, "edgecolor": "none", "pad": 3},
+                )
+            if r == 0:
+                panel_title(ax, heads[c])
+        if answered and winners["crop"] != winners["head"]:
+            disagreements += 1
+    n_ans = sum(float(w["base"][j]) > ceiling for j in rows)
+    verdict(
+        fig,
+        f"{n_ans} of {len(rows)} queries answered by the picture; crop and head pick different winners on {disagreements}",
+    )
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
+def label(ax, text: str, y: float, color: str = TEXT, size: float = 9.5) -> None:
+    ax.text(
+        0.02,
+        y,
+        text,
+        color=color,
+        fontsize=size,
+        va="top" if y > 0.5 else "bottom",
+        transform=ax.transAxes,
+        bbox={"facecolor": BG, "alpha": 0.7, "edgecolor": "none", "pad": 3},
+    )
+
+
+def fig54_all(out: Path, all54: dict) -> None:
+    """All ten images, all thirty queries: crop-on-grey beside the masked head."""
+    scale = float(all54["scale"])
+    ceiling = absent_ceiling(all54)
+    qs = N.queries()
+    names = list(N.IMAGES)
+    agree = answered = 0
+    fig, top = figure(
+        24,
+        3.3 * len(names) + 2.0,
+        2,
+        "SECTION 54  ALL TEN, ALL THIRTY QUESTIONS",
+        "For each question, crop-on-grey (left) beside the region-masked head (right); the absent question last",
+        f"brightness: share of the softmax(cosine x {scale:.0f}) vote relative to the winner; gold outline: the winner  |  "
+        f"whole-image cosine at or under {ceiling:.3f} (the highest an absent query reached) gets no map  |  crop-on-grey costs one encoder pass per region, the head one pass per image  |  {sha()}",
+    )
+    gs = fig.add_gridspec(
+        len(names), 7, left=0.02, right=0.98, top=top - 0.02, bottom=0.015, wspace=0.03, hspace=0.12
+    )
+    for r, n in enumerate(names):
+        d = N.load(n)
+        img = image(n)
+        masks = d["masks"]
+        sh_c, tp_c = vote_share(all54[f"{n}/cos_crop"], scale)
+        sh_h, tp_h = vote_share(all54[f"{n}/cos_head"], scale)
+        ax = fig.add_subplot(gs[r, 0])
+        show(ax, img)
+        label(ax, n, 0.97, size=10.5)
+        if r == 0:
+            panel_title(ax, "the picture")
+        for j in range(3):
+            base = float(all54[f"{n}/base"][j])
+            ok = base > ceiling
+            wc, wh = (
+                int(all54[f"{n}/cos_crop"][:, j].argmax()),
+                int(all54[f"{n}/cos_head"][:, j].argmax()),
+            )
+            if ok:
+                answered += 1
+                agree += int(wc == wh)
+            for k, (sh, tp, win) in enumerate(((sh_c, tp_c, wc), (sh_h, tp_h, wh))):
+                ax = fig.add_subplot(gs[r, 1 + 2 * j + k])
+                if ok:
+                    show(ax, img, dim=0.5)
+                    region_fill(ax, masks, sh[:, j], 1.0)
+                    outline(ax, masks[win], GOLD, lw=1.8)
+                    label(
+                        ax, f"{tp[j]:.0%} of the vote, {masks[win].mean():.1%} of the frame", 0.04
+                    )
+                else:
+                    show(ax, img, dim=0.25)
+                    no_map(ax, f"whole-image match {base:.3f}\nin the absent range")
+                if k == 0:
+                    label(
+                        ax,
+                        f"“{qs[n][j]}”  {base:.3f}",
+                        0.97,
+                        color=RED if j == 2 else TEXT,
+                        size=10,
+                    )
+                if r == 0:
+                    panel_title(
+                        ax,
+                        ["crop-on-grey", "masked head"][k]
+                        + ["  (small object)", "  (fills the frame)", "  (absent)"][j],
+                    )
+    verdict(
+        fig,
+        f"{answered} of 30 questions answered by their picture; crop and head agree on the winner in {agree} of them",
+    )
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
+def fig54_disagree(out: Path, all54: dict) -> None:
+    """Only the pairs where the two methods pick different winners, with the
+    covering tiebreaker: each candidate painted with the drop its cover cost."""
+    t = dict(np.load(N.CACHE / "54_tiebreak.npz", allow_pickle=True))
+    qs = N.queries()
+    n = len(t["name"])
+    sides_head = int((t["drop_head"] > t["drop_crop"]).sum())
+    vmax = float(max(t["drop_head"].max(), t["drop_crop"].max(), 1e-6))
+    cols = 4
+    rows = int(np.ceil(n / cols))
+    fig, top = figure(
+        20,
+        5.4 * rows + 2.0,
+        3,
+        "SECTION 54  WHERE THEY DISAGREE",
+        "Crop-on-grey's winner in blue, the masked head's in gold; each painted with what covering it cost the match",
+        f"{n} of the answered questions have different winners  |  paint: drop in whole-image cosine when that region is greyed and the image re-encoded, one scale 0 to {vmax:.3f}  |  "
+        f"occlusion sides with the head on {sides_head}, with crop-on-grey on {n - sides_head}  |  {sha()}",
+    )
+    gs = fig.add_gridspec(
+        rows, cols, left=0.02, right=0.98, top=top - 0.02, bottom=0.02, wspace=0.04, hspace=0.2
+    )
+    for i in range(n):
+        name, j = str(t["name"][i]), int(t["q"][i])
+        d = N.load(name)
+        img = image(name)
+        wc, wh = int(t["crop"][i]), int(t["head"][i])
+        dc, dh = float(t["drop_crop"][i]), float(t["drop_head"][i])
+        ax = fig.add_subplot(gs[i // cols, i % cols])
+        show(ax, img, dim=0.5)
+        region_fill(ax, d["masks"][[wc, wh]], np.array([dc, dh]), vmax, alpha=0.8)
+        outline(ax, d["masks"][wc], BLUE, lw=2.2)
+        outline(ax, d["masks"][wh], GOLD, lw=2.2)
+        label(ax, f"“{qs[name][j]}”", 0.97, size=10.5)
+        label(
+            ax,
+            f"cover crop's {dc:+.3f}   cover head's {dh:+.3f}   of {float(t['base'][i]):.3f}",
+            0.04,
+            color=GOLD if dh > dc else BLUE,
+        )
+        panel_title(ax, f"{name}: occlusion sides with the {'head' if dh > dc else 'crop'}")
+    verdict(fig, f"occlusion sides with the masked head {sides_head} to {n - sides_head}")
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
+def fig54_attention(out: Path) -> None:
+    """The mechanism: the probe's attention confined to each region of the woman image."""
+    a = dict(np.load(N.CACHE / "54_attention.npz"))
+    w = dict(np.load(N.CACHE / "54_woman.npz", allow_pickle=True))
+    img = image("woman-river")
+    masks, grids = w["masks"], w["grids"]
+    att, full = a["att"], a["full"]
+    n = len(att)
+    tops = att.reshape(n, -1).max(1)
+    cols = 8
+    rows = int(np.ceil((n + 1) / cols))
+    fig, top = figure(
+        22,
+        2.9 * rows + 2.0,
+        4,
+        "SECTION 54  WHAT THE PROBE LOOKS AT INSIDE EACH REGION",
+        "The pooling probe's attention over the 24 x 24 patches, unconfined (first) and confined to each of the 46 regions",
+        f"each tile on its own scale, brightest patch = 1  |  share of a region's attention on its single top patch: median {np.median(tops):.2f}, range {tops.min():.2f} to {tops.max():.2f}  |  "
+        f"unconfined, the top patch takes {full.max():.3f} and the top ten {np.sort(full.ravel())[-10:].sum():.0%}  |  {sha()}",
+    )
+    gs = fig.add_gridspec(
+        rows, cols, left=0.02, right=0.98, top=top - 0.02, bottom=0.015, wspace=0.03, hspace=0.1
+    )
+    ax = fig.add_subplot(gs[0, 0])
+    show(ax, img, dim=0.45)
+    grid_map(ax, full, vmax=float(full.max()), alpha=0.8)
+    label(ax, "unconfined: the long tokens", 0.97, color=GOLD, size=10)
+    for i in range(n):
+        ax = fig.add_subplot(gs[(i + 1) // cols, (i + 1) % cols])
+        show(ax, img, dim=0.45)
+        grid_map(ax, att[i], vmax=float(att[i].max()), alpha=0.8)
+        outline(ax, masks[i], GOLD, lw=1.2)
+        label(ax, f"region {i}: {int(grids[i].sum())} patches, top {tops[i]:.0%}", 0.97, size=9)
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
 def main() -> None:
     what = sys.argv[1] if len(sys.argv) > 1 else "ten"
     if what == "ten":
         d = N.SECTION_ROOT / "54-region-head"
         d.mkdir(exist_ok=True)
         fig_ten(d / "00-the-ten.png")
+    elif what == "54":
+        d = N.SECTION_ROOT / "54-region-head"
+        all54 = dict(np.load(N.CACHE / "54_all.npz", allow_pickle=True))
+        which = sys.argv[2] if len(sys.argv) > 2 else "all"
+        if which in ("woman", "all"):
+            fig54_woman(d / "01-the-woman-three-ways.png", all54)
+        if which in ("sheet", "all"):
+            fig54_all(d / "02-all-ten-all-thirty.png", all54)
+        if which in ("disagree", "all"):
+            fig54_disagree(d / "03-where-they-disagree.png", all54)
+        if which in ("attention", "all"):
+            fig54_attention(d / "04-attention-inside-each-region.png")
     else:
         raise SystemExit(f"unknown figure set {what}")
 
