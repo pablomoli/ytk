@@ -161,3 +161,52 @@ Numbers land in `patch_grid.json`; the runner is
 gate has run.
 
 ---
+
+## Result (written 2026-09-23, after the gate and the blind rating)
+
+**The gate failed, all three lenses.** Mean Spearman against the occlusion
+referee over the 40 thumbnails: probe attention 0.02, patch alone 0.10,
+gradient through the head 0.13, against the registered bar of 0.40. Two of
+the three clear their layout null (patch alone 0.10 against a null 95th
+percentile of 0.08; gradient 0.13 against 0.05), so they carry more than
+thumbnail habit, but nowhere near enough to ship. Figure 01 draws each
+observed mean inside its null.
+
+**Only the gradient lens reads the query.** True title minus wrong title,
+paired over the 40 images: gradient +0.09 with a bootstrap 95 percent
+interval of [0.03, 0.15]; patch alone +0.06 with [-0.00, 0.13], which
+touches zero. The registered rule calls the gradient lens text-reading and
+patch-alone not. Figure 04.
+
+**The owner rated all 60 blind overlays as misses.** Twenty images, three
+lenses each, shuffled and unlabelled. Not one hit, not one "can't tell". The
+reason was not the lenses: at the referee's 6 x 6 resolution every overlay is
+36 grey blocks over a thumbnail, and nothing at that resolution lands "on"
+anything. The rating measured the rendering, not the maps.
+
+**The referee was weak on the material.** On 18 of the 40 thumbnails the
+largest single-block drop was under 5 percent of the image-title match
+(median 6.9 percent). A block that costs nothing cannot rank the others, so
+half the sample scored every lens near zero whatever the lens did. The
+no-exclusions rule commits to reporting that and not repairing it; figure 03
+shows it.
+
+**What the loss says.** More about the material and the resolution than
+about the lenses. YouTube titles name nothing a block can be pointed at;
+64-pixel blocks are too coarse to be read by eye or to give a small object
+its own cell; and the referee only measures necessity, which a frame-filling
+subject never concentrates in one block. The lenses may still be wrong, but
+this section could not have shown them right.
+
+**The pivot.** Section 53 closes here. The follow-up is one night of five
+experiments on ten images with nameable objects and three hand-written
+queries each, at the finest resolution each method allows, with the picture
+first and any gate only after a picture has shown a claim worth defending.
+The plan is `docs/design/patch-grid-night/README.md`; the sources it rests
+on are in `docs/research/patch-grid-literature.md`. The per-image cache of
+576 tokens and 37 covered embeddings for these 40 thumbnails stays under
+`~/.ytk/patch_grid/` and is reused by section 55 for the long-token count.
+
+Figures 01 to 05 and `scripts/plot_patch_grid.py` are committed as they were
+rendered on 2026-09-20 from the gate run at `578f1b6`; they are the record of
+what was measured, including the 6 x 6 overlays that could not be read.
