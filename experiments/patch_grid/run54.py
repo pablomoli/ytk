@@ -207,5 +207,86 @@ def attention() -> None:
     )
 
 
+def addendum() -> None:
+    """After section 55: the masked head with the three register slots removed from
+    every region, and on the register-shifted tokens; same tiebreaker."""
+    model, processor, device, head, scale, bias = load_head()
+    vision = model.vision_model
+    a = dict(np.load(N.CACHE / "54_all.npz", allow_pickle=True))
+    n55 = dict(np.load(N.CACHE / "55_norms.npz", allow_pickle=True))
+    reg = dict(np.load(N.CACHE / "55_registers.npz", allow_pickle=True))
+    slots = np.where(n55["high"].all(0))[0]
+    ceiling = max(float(a[f"{n}/base"][2]) for n in N.IMAGES)
+    qs = N.queries()
+    out: dict[str, np.ndarray] = {"slots": slots, "ceiling": np.array(ceiling)}
+    rows = []
+    for k, name in enumerate(N.IMAGES):
+        d = N.load(name)
+        grids = a[f"{name}/grids"].copy()
+        flat = grids.reshape(len(grids), -1)
+        flat[:, slots] = False
+        empty = flat.sum(1) == 0
+        fixed_grids, _ = ensure_one_patch(grids, d["masks"]) if empty.any() else (grids, 0)
+        txt = unit(np.array(visual.embed_texts(qs[name])))
+        # (a) slots masked out of every region, production tokens
+        Va = unit(region_vectors(head, d["tokens"], fixed_grids))
+        # (b) register-shifted tokens: 577 rows, the register never inside a region
+        tok_b = reg["shift30/tokens"][k].astype(np.float32)
+        g_b = np.concatenate(
+            [fixed_grids.reshape(len(grids), -1), np.zeros((len(grids), 1), bool)], axis=1
+        )
+        Vb = unit(region_vectors(head, tok_b, g_b[:, None, :]))
+        out[f"{name}/cos_slots"] = Va @ txt.T
+        out[f"{name}/cos_register"] = Vb @ txt.T
+        out[f"{name}/empty"] = np.array(int(empty.sum()))
+        pil = Image.open(N.image_path(name)).convert("RGB")
+        for j in range(3):
+            base = float(a[f"{name}/base"][j])
+            if base <= ceiling:
+                continue
+            wc = int(a[f"{name}/cos_crop"][:, j].argmax())
+            wh = int(a[f"{name}/cos_head"][:, j].argmax())
+            ws = int(out[f"{name}/cos_slots"][:, j].argmax())
+            wr = int(out[f"{name}/cos_register"][:, j].argmax())
+            cands = sorted({wc, wh, ws, wr})
+            P = unit(pooled(vision, processor, device, [cover(pil, d["masks"][c]) for c in cands]))
+            drops = dict(zip(cands, (base - P @ txt[j]).tolist()))
+            rows.append((name, j, wc, wh, ws, wr, drops[wc], drops[wh], drops[ws], drops[wr], base))
+            print(
+                f"{name:18} q{j} crop {wc:3d} {drops[wc]:+.3f} | head {wh:3d} {drops[wh]:+.3f} | slots-out {ws:3d} {drops[ws]:+.3f} | register {wr:3d} {drops[wr]:+.3f}",
+                flush=True,
+            )
+    keys = [
+        "name",
+        "q",
+        "w_crop",
+        "w_head",
+        "w_slots",
+        "w_register",
+        "d_crop",
+        "d_head",
+        "d_slots",
+        "d_register",
+        "base",
+    ]
+    for i, kname in enumerate(keys):
+        out[f"rows/{kname}"] = np.array([r[i] for r in rows])
+    np.savez_compressed(N.CACHE / "54_addendum.npz", **out)
+    r = {kname: out[f"rows/{kname}"] for kname in keys}
+    for v in ("head", "slots", "register"):
+        same = int((r[f"w_{v}"] == r["w_crop"]).sum())
+        diff = r[f"w_{v}"] != r["w_crop"]
+        wins = int((r[f"d_{v}"][diff] > r["d_crop"][diff]).sum())
+        print(
+            f"{v:9}: same winner as crop on {same} of {len(rows)}; on the {int(diff.sum())} differences occlusion sides with it {wins} times"
+        )
+
+
 if __name__ == "__main__":
-    {"woman": woman, "all": everything, "tiebreak": tiebreak, "attention": attention}[sys.argv[1]]()
+    {
+        "woman": woman,
+        "all": everything,
+        "tiebreak": tiebreak,
+        "attention": attention,
+        "addendum": addendum,
+    }[sys.argv[1]]()

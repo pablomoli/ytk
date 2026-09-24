@@ -836,6 +836,88 @@ def fig55_registers(out: Path) -> None:
     print("wrote", out)
 
 
+def fig54_addendum(out: Path) -> None:
+    """After section 55: the four winners on every answered query, outlined on
+    the picture, coinciding where the recipes agree."""
+    ad = dict(np.load(N.CACHE / "54_addendum.npz", allow_pickle=True))
+    qs = N.queries()
+    names, q = ad["rows/name"], ad["rows/q"]
+    n = len(names)
+    variants = (
+        ("w_crop", "d_crop", BLUE, "crop-on-grey"),
+        ("w_head", "d_head", GOLD, "masked head"),
+        ("w_slots", "d_slots", CYAN, "head, slots masked out"),
+        ("w_register", "d_register", PURPLE, "head on register-shifted tokens"),
+    )
+    same = {v[0]: int((ad[f"rows/{v[0]}"] == ad["rows/w_crop"]).sum()) for v in variants[1:]}
+    wins = {}
+    for w, dk, _, _ in variants[1:]:
+        diff = ad[f"rows/{w}"] != ad["rows/w_crop"]
+        wins[w] = (int((ad[f"rows/{dk}"][diff] > ad["rows/d_crop"][diff]).sum()), int(diff.sum()))
+    cols = 5
+    rows = int(np.ceil(n / cols))
+    fig, top = figure(
+        22,
+        4.6 * rows + 2.2,
+        6,
+        "SECTION 54, AFTER 55  THE SLOTS WERE NOT THE CAUSE",
+        "The winner under four recipes on every answered query; outlines coincide where they agree",
+        f"{n} answered queries  |  same winner as crop-on-grey: head {same['w_head']}, slots masked out {same['w_slots']}, register-shifted {same['w_register']}  |  "
+        f"where they differ, covering and re-encoding sides with the head {wins['w_head'][0]} of {wins['w_head'][1]}, slots-out {wins['w_slots'][0]} of {wins['w_slots'][1]}, register {wins['w_register'][0]} of {wins['w_register'][1]}  |  "
+        f"slots: patches {', '.join(map(str, ad['slots'].tolist()))} removed from every region  |  {sha()}",
+    )
+    gs = fig.add_gridspec(
+        rows, cols, left=0.02, right=0.98, top=top - 0.02, bottom=0.02, wspace=0.04, hspace=0.22
+    )
+    for i in range(n):
+        name, j = str(names[i]), int(q[i])
+        d = N.load(name)
+        ax = fig.add_subplot(gs[i // cols, i % cols])
+        show(ax, image(name), dim=0.55)
+        for k, (w, dk, col, _) in enumerate(variants):
+            outline(ax, d["masks"][int(ad[f"rows/{w}"][i])], col, lw=3.2 - 0.6 * k)
+        label(ax, f"“{qs[name][j]}”", 0.97, size=10)
+        label(
+            ax,
+            "  ".join(f"{float(ad[f'rows/{dk}'][i]):+.3f}" for _, dk, _, _ in variants),
+            0.04,
+            size=9,
+        )
+        agree = all(
+            int(ad[f"rows/{w}"][i]) == int(ad["rows/w_crop"][i]) for w, _, _, _ in variants[1:]
+        )
+        panel_title(ax, f"{name}: {'all four agree' if agree else 'they differ'}")
+    ax = fig.add_subplot(gs[(n) // cols, (n) % cols]) if n < rows * cols else None
+    if ax is not None:
+        ax.set_axis_off()
+        for k, (_, _, col, nm) in enumerate(variants):
+            ax.text(
+                0.05,
+                0.85 - 0.18 * k,
+                nm,
+                color=col,
+                fontsize=11,
+                transform=ax.transAxes,
+                va="center",
+            )
+        ax.text(
+            0.05,
+            0.1,
+            "corner: drop when each winner is covered, same order",
+            color=MUTED,
+            fontsize=9,
+            transform=ax.transAxes,
+        )
+    verdict(
+        fig,
+        "masking the slots changes no pick; the register makes them worse; crop-on-grey stays the recipe",
+    )
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
 def main() -> None:
     what = sys.argv[1] if len(sys.argv) > 1 else "ten"
     if what == "ten":
@@ -854,6 +936,8 @@ def main() -> None:
             fig54_disagree(d / "03-where-they-disagree.png", all54)
         if which in ("attention", "all"):
             fig54_attention(d / "04-attention-inside-each-region.png")
+        if which == "addendum":
+            fig54_addendum(d / "06-after-55-the-slots-were-not-the-cause.png")
     elif what == "55":
         d = N.SECTION_ROOT / "55-long-tokens"
         d.mkdir(exist_ok=True)

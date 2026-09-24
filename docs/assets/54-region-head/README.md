@@ -128,6 +128,20 @@ that is what buys the right answer. TextRegion's gains were measured on
 segmentation benchmarks with SAM2 masks and a tuned recipe; on ten photos
 with sam-vit-base masks and no tuning, the plain masked head loses.
 
+> **Later (same night, after section 55, owner's go):** section 55 found
+> three register slots at fixed positions, (row 0, col 20), (row 16, col 0),
+> (row 17, col 0), and the reading above guessed the head's wrong-size picks
+> might be the regions that contained them. Tested two ways on the same 19
+> answered queries with the same covering tiebreaker: the head with the three
+> cells removed from every region's mask, and the head on the register-shifted
+> tokens of section 55's figure 04. Slots masked out: the same 11 of 19
+> winners as crop-on-grey, the same 8 disagreements, occlusion siding with it
+> on the same 2. Not one pick changed. Register-shifted tokens: 8 of 19 the
+> same, 11 disagreements, occlusion siding with it on 4. The slots were not
+> the cause; the head's preference for backgrounds and slivers is the head's
+> own. Outcome two of the plan's amendment: crop-on-grey is the recipe and
+> `region_vectors` does not go into `ytk/`. Figure 06.
+
 ## For ytk
 
 `region_vectors(head, tokens, grids)` is in `experiments/patch_grid/`, not
@@ -153,6 +167,10 @@ per image at save time and the same 106 KB; it is the recipe that works.
   blue, the head's in gold, each painted with the drop its cover cost.
 - `04-attention-inside-each-region.png` — the probe's attention unconfined
   and confined to each of the woman image's 46 regions.
+- `06-after-55-the-slots-were-not-the-cause.png` — the addendum: every
+  answered query with the winner under crop-on-grey, the head, the head with
+  the slots masked out, and the head on register-shifted tokens, outlined in
+  four colours that coincide where they agree.
 
 Numbers and caches: `~/.ytk/patch_grid/night/54_*.npz`; runner
 `experiments/patch_grid/run54.py`; figures `scripts/plot_night.py 54`.
