@@ -361,3 +361,50 @@ it, and the owner has not said whether that machine is his to use.
 Training anything. Changing `ytk/` or the hub. The 40-image gate: it is
 closed, not rerun. Sparring footage, unless the owner adds frames to the
 image list before go. Any experiment whose first picture is not readable.
+
+## Closing note (2026-09-24, written by the executing session)
+
+**Ran:** step 0 and all five sections, in order, one commit each on
+`exp/53-patch-grid` (900c6a7, 89717dc, 76cac07 + 4a3c94f, e0f748f, 20bfa12,
+534e471, 0325cbc), a comment per section on #218, every figure sent as it
+rendered. The amendment after section 55 (bdbf01f) added the section 54
+addendum and made section 58 run raw and slot-masked.
+
+**Dead ends fired:** 54 (the masked head picks the right region less often
+than crop-on-grey, 6 to 2 on the disagreements; the addendum showed the
+register slots were not the cause), 57 (weights gated, install stopped at
+the licence), 58 (median Spearman +0.01 and +0.07 against a bar of 0.30).
+**Did not fire:** 55 (a clean emergence at layer 10 and a 0.02 cosine
+effect on every production vector) and 56 (the referees disagree, the
+useful negative being that whole-object occlusion is biased toward area
+while RISE reads right on all three images).
+
+**The finding of the night** is section 55: SigLIP-2 so400m/16-384 has
+three register slots at fixed border positions, (row 0, col 20), (row 16,
+col 0), (row 17, col 0), in every image, written by nine MLP neurons in
+layer 10 at 37 percent depth, carrying about 0.02 of every search vector's
+cosine; a test-time register removes them at cosine 0.977. No verified
+source had measured this on SigLIP-2 or on any attention-pooling head.
+
+**For ytk's "show me where":** the recipe that located named objects on
+all ten images is the spike's, SAM masks scored by crop-on-grey, at about
+25 s of encoder time per image at save time and 106 KB of vectors; every
+cheaper lens tried tonight (masked head, probe attention, whole-encoder
+gradient) lost to it, and the only referee that read right everywhere
+(RISE) costs 9 to 18 minutes an image.
+
+**GPU:** about 80 minutes in all. SAM plus tokens 10 min, section 54 about
+7 min across its stages, section 55 under 2 min, section 56 58 min (RISE
+alone 53, three times the estimate), section 58 about 3 min. Section 57
+used none.
+
+**Left for later sessions:** the retrieval effect of the three slots
+(`ytk eval` on register-shifted embeddings), a linear probe on what the
+slots encode, SAM 3 once the licence is approved, and the probe-weighted
+row aggregation for LeGrad.
+
+**The owner's decision:** whether section 54's region vectors go into
+`ytk/visual.py` behind a flag. The night's answer is no: the masked head
+lost to crop-on-grey and the slots did not explain it. If a cached
+"show me where" ships, it is crop-on-grey's 46 vectors per image, not the
+head's, and that is a different feature than the plan named.
