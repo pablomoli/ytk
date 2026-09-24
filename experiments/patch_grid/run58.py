@@ -35,7 +35,15 @@ def main() -> None:
         w.retain_grad()
         kept.append(w)
 
+    resid: list[torch.Tensor] = []
+
+    def hook_out(_m, _i, out):
+        h = out[0] if isinstance(out, tuple) else out
+        h.retain_grad()
+        resid.append(h)
+
     handles = [layer.self_attn.register_forward_hook(hook) for layer in layers]
+    handles += [layer.register_forward_hook(hook_out) for layer in layers]
     qs = N.queries()
     out: dict[str, np.ndarray] = {}
     t0 = time.time()
@@ -49,8 +57,10 @@ def main() -> None:
         txt = torch.tensor(np.array(visual.embed_texts(qs[name])), dtype=torch.float32)
         txt = txt / txt.norm(dim=-1, keepdim=True)
         maps = np.zeros((3, len(layers), N.SIDE, N.SIDE), dtype=np.float32)
+        gxa = np.zeros_like(maps)  # gradient x activation on each layer's output tokens
         for j in range(3):
             kept.clear()
+            resid.clear()
             vision.zero_grad(set_to_none=True)
             o = vision(pixel_values=px)
             v = o.pooler_output[0].float().cpu()
@@ -61,10 +71,17 @@ def main() -> None:
                 maps[j, li] = (
                     g.mean(dim=(0, 1, 2)).cpu().numpy().reshape(N.SIDE, N.SIDE)
                 )  # per key patch
+            for li, h in enumerate(resid):
+                r = (h.grad.float() * h.detach().float())[0].sum(-1).clamp(min=0)
+                gxa[j, li] = r.cpu().numpy().reshape(N.SIDE, N.SIDE)
         out[f"{name}/layers"] = maps
         out[f"{name}/lens"] = maps.mean(axis=1)
+        out[f"{name}/gxa_layers"] = gxa
+        out[f"{name}/gxa"] = gxa.mean(axis=1)
+        peak_a = [float(m.max() / m.sum()) for m in maps.mean(axis=1)]
+        peak_g = [float(m.max() / max(m.sum(), 1e-12)) for m in gxa.mean(axis=1)]
         print(
-            f"{name:18} {time.time() - t0:.0f}s  peak patch share of the mean map per query {np.round([m.max() / m.sum() for m in maps.mean(axis=1)], 3).tolist()}",
+            f"{name:18} {time.time() - t0:.0f}s  peak share, attention-gradient {np.round(peak_a, 3).tolist()}  grad x activation {np.round(peak_g, 3).tolist()}",
             flush=True,
         )
     for h in handles:
