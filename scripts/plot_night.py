@@ -39,6 +39,9 @@ from plot_assets import (
     style_axes,
     verdict,
 )
+from plot_assets import (
+    FRAME as FRAME_COLOR,
+)
 
 SERIES = [GOLD, BLUE, CYAN, PURPLE, RED]
 
@@ -971,12 +974,7 @@ def fig56_three(out: Path) -> None:
 
     qs = N.queries()
     a = dict(np.load(N.CACHE / "54_all.npz", allow_pickle=True))
-    rows = []
-    for name in R56.RISE_IMAGES:
-        j = (
-            0 if name != "woman-river" else 1
-        )  # the woman's small query has no sliding cover; use the frame-filling one
-        rows.append((name, j))
+    rows = [(name, 1 if name == "woman-river" else 0) for name in R56.RISE_IMAGES]
     rhos = []
     fig, top = figure(
         20,
@@ -984,8 +982,8 @@ def fig56_three(out: Path) -> None:
         1,
         "SECTION 56  THREE REFEREES ON ONE QUESTION",
         "A sliding 64 px cover, covering each whole SAM object, and RISE's random multi-region covers",
-        f"one colour scale per row, 0 to that row's largest drop  |  RISE: {R56.RISE_N} random {R56.RISE_GRID} x {R56.RISE_GRID} covers at p = {R56.RISE_P}, map = expected match under covers that keep the patch, minus its mean  |  "
-        f"corner: Spearman between whole-object and RISE over the 24 x 24 patches  |  {sha()}",
+        f"the two cover columns share one scale per row, 0 to the row's largest drop  |  RISE is a different quantity, the expected match under {R56.RISE_N} random {R56.RISE_GRID} x {R56.RISE_GRID} covers at p = {R56.RISE_P} that keep the patch, minus its mean, on its own scale  |  "
+        f"gold: the region a referee ranks first (RISE: highest mean per patch)  |  corner: Spearman between whole-object and RISE over the 576 patches  |  {sha()}",
     )
     gs = fig.add_gridspec(
         len(rows), 4, left=0.03, right=0.97, top=top - 0.02, bottom=0.02, wspace=0.04, hspace=0.18
@@ -996,30 +994,31 @@ def fig56_three(out: Path) -> None:
         drops, paint, base = object_map(name, j)
         sal, _ = rise_map(name, j)
         slide = slide_map(qs[name][j]) if name == "woman-river" else None
-        obj_grid = patch_of_region_map(paint, a[f"{name}/grids"], drops)
+        grids = a[f"{name}/grids"]
+        obj_grid = patch_of_region_map(paint, grids, drops)
         rho = spearmanr(obj_grid.ravel(), sal.ravel())[0]
         rhos.append(rho)
-        vmax = max(
-            float(drops.max()),
-            float(sal.max()),
-            float(slide.max()) if slide is not None else 0.0,
-            1e-6,
-        )
-        cells = [None, slide, paint, sal]
+        rise_win = int(np.argmax([sal[g].mean() if g.any() else -np.inf for g in grids]))
+        vmax = max(float(drops.max()), float(slide.max()) if slide is not None else 0.0, 1e-6)
         titles = [
             "the picture",
             "sliding cover, 441 positions",
             "each whole object covered",
             f"RISE, {R56.RISE_N} random covers",
         ]
-        for c, cell in enumerate(cells):
+        for c in range(4):
             ax = fig.add_subplot(gs[r, c])
             if c == 0:
                 show(ax, img)
                 label(ax, f"“{qs[name][j]}”  whole-image cosine {base:.3f}", 0.97, size=10)
-            elif cell is None:
-                show(ax, img, dim=0.25)
-                no_map(ax, "the sliding cover was run only on the woman image")
+            elif c == 1:
+                if slide is None:
+                    show(ax, img, dim=0.25)
+                    no_map(ax, "the sliding cover was run only on the woman image")
+                else:
+                    show(ax, img, dim=0.5)
+                    grid_map(ax, slide, vmax=vmax)
+                    label(ax, f"largest drop {slide.max():.3f} of {base:.3f}", 0.04)
             elif c == 2:
                 show(ax, img, dim=0.5)
                 region_fill(ax, d["masks"], drops, vmax, alpha=0.75)
@@ -1031,9 +1030,9 @@ def fig56_three(out: Path) -> None:
                 )
             else:
                 show(ax, img, dim=0.5)
-                grid_map(ax, cell, vmax=vmax)
-                label(ax, f"largest {cell.max():.3f} of {base:.3f}", 0.04)
-            if c == 3:
+                grid_map(ax, sal, vmax=float(sal.max()))
+                outline(ax, d["masks"][rise_win], GOLD, lw=2.0)
+                label(ax, f"range {sal.min():+.4f} to {sal.max():+.4f} around the mean match", 0.04)
                 label(ax, f"rho {rho:+.2f}", 0.97, color=GOLD, size=10)
             if r == 0:
                 panel_title(ax, titles[c])
@@ -1151,6 +1150,175 @@ def fig56_converge(out: Path) -> None:
     print("wrote", out)
 
 
+def referee_grid(name: str, j: int, a: dict) -> np.ndarray:
+    drops, paint, _ = object_map(name, j)
+    return patch_of_region_map(paint, a[f"{name}/grids"], drops)
+
+
+def slot_masked(m: np.ndarray, slots: np.ndarray) -> np.ndarray:
+    out = m.copy().reshape(-1)
+    out[slots] = 0
+    return out.reshape(m.shape)
+
+
+def fig58_ten(out: Path) -> None:
+    from scipy.stats import spearmanr
+
+    g = dict(np.load(N.CACHE / "58_legrad.npz"))
+    a = dict(np.load(N.CACHE / "54_all.npz", allow_pickle=True))
+    slots = np.where(dict(np.load(N.CACHE / "55_norms.npz", allow_pickle=True))["high"].all(0))[0]
+    qs = N.queries()
+    names = list(N.IMAGES)
+    j = 0
+    rhos_raw, rhos_masked = [], []
+    fig, top = figure(
+        22,
+        tall(3.6 * len(names) + 2.0),
+        1,
+        "SECTION 58  THE WHOLE-ENCODER GRADIENT LENS",
+        "For the small-object question: the gradient lens raw, with the three register slots zeroed, and section 56's whole-object referee",
+        f"LeGrad-style: gradient of the image-text cosine with respect to every layer's attention, clamped at zero, averaged over heads, query rows and the 27 layers  |  slots: patches {', '.join(map(str, slots.tolist()))}  |  "
+        f"corner: Spearman with the referee over the 576 patches  |  each map on its own scale  |  {sha()}",
+    )
+    gs = fig.add_gridspec(
+        len(names), 4, left=0.03, right=0.97, top=top - 0.02, bottom=0.015, wspace=0.04, hspace=0.12
+    )
+    for r, name in enumerate(names):
+        img = image(name)
+        lens = g[f"{name}/lens"][j]
+        masked = slot_masked(lens, slots)
+        ref = referee_grid(name, j, a)
+        rr, rm = spearmanr(lens.ravel(), ref.ravel())[0], spearmanr(masked.ravel(), ref.ravel())[0]
+        rhos_raw.append(rr)
+        rhos_masked.append(rm)
+        for c, (cell, title) in enumerate(
+            (
+                (None, "the picture"),
+                (lens, "gradient lens, raw"),
+                (masked, "gradient lens, slots zeroed"),
+                (ref, "each whole object covered (56)"),
+            )
+        ):
+            ax = fig.add_subplot(gs[r, c])
+            if cell is None:
+                show(ax, img)
+                label(ax, f"{name}: “{qs[name][j]}”", 0.97, size=10)
+            else:
+                show(ax, img, dim=0.5)
+                grid_map(ax, cell, vmax=float(cell.max()) if cell.max() > 0 else None)
+                if c == 1:
+                    ring_patches(ax, slots, color=CYAN, lw=1.2)
+                    label(
+                        ax,
+                        f"slots hold {lens.reshape(-1)[slots].sum() / lens.sum():.0%} of the map, rho {rr:+.2f}",
+                        0.04,
+                    )
+                elif c == 2:
+                    label(ax, f"rho {rm:+.2f}", 0.04)
+            if r == 0:
+                panel_title(ax, title)
+    verdict(
+        fig,
+        f"median Spearman with the referee: raw {np.median(rhos_raw):+.2f}, slots zeroed {np.median(rhos_masked):+.2f}",
+    )
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+    return rhos_raw, rhos_masked
+
+
+def fig58_layers(out: Path, name: str = "barn-owl") -> None:
+    g = dict(np.load(N.CACHE / "58_legrad.npz"))
+    slots = np.where(dict(np.load(N.CACHE / "55_norms.npz", allow_pickle=True))["high"].all(0))[0]
+    j = 0
+    layers = g[f"{name}/layers"][j]
+    L = len(layers)
+    img = image(name)
+    cols = 9
+    rows = int(np.ceil((L + 1) / cols))
+    fig, top = figure(
+        22,
+        tall(2.75 * rows + 2.0),
+        2,
+        "SECTION 58  WHERE THE MAP FORMS",
+        f"The gradient lens layer by layer on the {name} image, and the mean of all 27",
+        f"“{N.queries()[name][j]}”  |  each tile on its own scale  |  share of each layer's map on the three slots printed in the corner  |  {sha()}",
+    )
+    gs = fig.add_gridspec(
+        rows, cols, left=0.02, right=0.98, top=top - 0.02, bottom=0.015, wspace=0.03, hspace=0.1
+    )
+    for li in range(L):
+        ax = fig.add_subplot(gs[li // cols, li % cols])
+        m = layers[li]
+        show(ax, img, dim=0.45)
+        grid_map(ax, m, vmax=float(m.max()) if m.max() > 0 else None, alpha=0.8)
+        label(
+            ax,
+            f"layer {li + 1}: slots {m.reshape(-1)[slots].sum() / max(m.sum(), 1e-12):.0%}",
+            0.97,
+            size=9,
+        )
+    ax = fig.add_subplot(gs[L // cols, L % cols])
+    m = layers.mean(0)
+    show(ax, img, dim=0.45)
+    grid_map(ax, m, vmax=float(m.max()), alpha=0.8)
+    label(ax, "mean of 27", 0.97, color=GOLD, size=9)
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
+def fig58_agreement(out: Path, rhos_raw: list[float], rhos_masked: list[float]) -> None:
+    import json
+
+    res = json.loads((N.SECTION_ROOT / "53-patch-grid" / "patch_grid.json").read_text())
+    old = {
+        "probe attention (53)": res["lens1"]["per_image"],
+        "patch alone (53)": res["lens2"]["per_image"],
+        "gradient through the head (53)": res["lens4"]["per_image"],
+    }
+    fig, top = figure(
+        15,
+        7.2,
+        3,
+        "SECTION 58  AGREEMENT WITH THE REFEREE, THIS LENS AGAINST SECTION 53'S",
+        "Spearman per image: the whole-encoder gradient lens on the ten, section 53's three lenses on their forty thumbnails",
+        f"night lenses against whole-object occlusion over 576 patches; section 53 lenses against the 6 x 6 block cover over 36 blocks, a different referee on different material, shown for scale only  |  "
+        f"median: raw {np.median(rhos_raw):+.2f}, slots zeroed {np.median(rhos_masked):+.2f}  |  dead end below 0.30  |  {sha()}",
+    )
+    ax = fig.add_axes([0.06, 0.12, 0.9, top - 0.2])
+    rng = np.random.default_rng(58)
+    rows = [
+        ("gradient lens, slots zeroed", rhos_masked, GOLD),
+        ("gradient lens, raw", rhos_raw, CYAN),
+    ] + [(k, v, MUTED) for k, v in old.items()]
+    for y, (nm, v, col) in enumerate(rows):
+        v = np.asarray(v)
+        ax.scatter(
+            v, np.full(len(v), y) + rng.uniform(-0.15, 0.15, len(v)), color=col, s=36, alpha=0.9
+        )
+        ax.plot([np.median(v)] * 2, [y - 0.32, y + 0.32], color=col, lw=2.4)
+        ax.text(-1.02, y + 0.36, nm, color=col, fontsize=9.5, va="bottom")
+    ax.axvline(0.30, color=RED, lw=1.2, ls=(0, (4, 3)))
+    ax.axvline(0.0, color=FRAME_COLOR, lw=0.8)
+    ax.set_xlim(-1.05, 1.05)
+    ax.set_ylim(-0.6, len(rows) - 0.3)
+    ax.set_yticks([])
+    ax.set_xlabel("Spearman rank correlation with the referee (bar: median)", color=MUTED)
+    style_axes(ax)
+    panel_title(ax, "each mark one image; red: the dead-end line")
+    verdict(
+        fig,
+        f"median {np.median(rhos_masked):+.2f} with the slots zeroed, {'above' if np.median(rhos_masked) >= 0.3 else 'below'} the 0.30 dead end",
+    )
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
 def main() -> None:
     what = sys.argv[1] if len(sys.argv) > 1 else "ten"
     if what == "ten":
@@ -1195,6 +1363,12 @@ def main() -> None:
             fig56_three(d / "01-three-referees.png")
         if which in ("all", "converge"):
             fig56_converge(d / "03-does-rise-converge.png")
+    elif what == "58":
+        d = N.SECTION_ROOT / "58-gradient-lens"
+        d.mkdir(exist_ok=True)
+        raw, masked = fig58_ten(d / "01-the-lens-against-the-referee.png")
+        fig58_layers(d / "02-where-the-map-forms.png")
+        fig58_agreement(d / "03-agreement-against-section-53.png", raw, masked)
     else:
         raise SystemExit(f"unknown figure set {what}")
 
