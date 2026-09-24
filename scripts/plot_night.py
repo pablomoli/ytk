@@ -43,6 +43,12 @@ from plot_assets import (
 SERIES = [GOLD, BLUE, CYAN, PURPLE, RED]
 
 
+def tall(h: float) -> float:
+    """frame_panels draws the figure border at a fraction of the height; between
+    19 and 29 inches that line crosses the kicker text. Skip that band."""
+    return 29.5 if 19.0 < h < 29.0 else h
+
+
 def sha() -> str:
     return subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=N.ROOT
@@ -106,7 +112,7 @@ def fig_ten(out: Path) -> None:
     lost = [int((data[n]["grids"].sum(axis=(1, 2)) == 0).sum()) for n in names]
     fig, top = figure(
         22,
-        13.2,
+        tall(13.2),
         0,
         "THE NIGHT'S TEN IMAGES",
         "Ten pictures with something to point at, cut into regions by SAM, three questions each",
@@ -201,7 +207,7 @@ def fig54_woman(out: Path, all54: dict) -> None:
     share_crop, top_crop = vote_share(w["cos_crop"], scale)
     fig, top = figure(
         17,
-        4.05 * len(rows) + 1.9,
+        tall(4.05 * len(rows) + 1.9),
         1,
         "SECTION 54  ONE IMAGE, THREE WAYS TO LOCATE A MATCH",
         "Crop-on-grey, the region-masked head, and a sliding grey cover, on the same 46 SAM regions",
@@ -326,7 +332,7 @@ def fig54_all(out: Path, all54: dict) -> None:
     agree = answered = 0
     fig, top = figure(
         24,
-        3.3 * len(names) + 2.0,
+        tall(3.3 * len(names) + 2.0),
         2,
         "SECTION 54  ALL TEN, ALL THIRTY QUESTIONS",
         "For each question, crop-on-grey (left) beside the region-masked head (right); the absent question last",
@@ -405,7 +411,7 @@ def fig54_disagree(out: Path, all54: dict) -> None:
     rows = int(np.ceil(n / cols))
     fig, top = figure(
         20,
-        5.4 * rows + 2.0,
+        tall(5.4 * rows + 2.0),
         3,
         "SECTION 54  WHERE THEY DISAGREE",
         "Crop-on-grey's winner in blue, the masked head's in gold; each painted with what covering it cost the match",
@@ -454,7 +460,7 @@ def fig54_attention(out: Path) -> None:
     rows = int(np.ceil((n + 1) / cols))
     fig, top = figure(
         22,
-        2.9 * rows + 2.0,
+        tall(2.9 * rows + 2.0),
         4,
         "SECTION 54  WHAT THE PROBE LOOKS AT INSIDE EACH REGION",
         "The pooling probe's attention over the 24 x 24 patches, unconfined (first) and confined to each of the 46 regions",
@@ -514,7 +520,7 @@ def fig55_depth(out: Path) -> None:
     first = int(np.argmax(count.mean(0) > 0)) + 1
     fig, top = figure(
         16,
-        9.2,
+        tall(9.2),
         1,
         "SECTION 55  WHERE THE LONG TOKENS EMERGE",
         "Token norms along the 27 encoder layers, one line per image, fifty images",
@@ -566,7 +572,7 @@ def fig55_where(out: Path) -> None:
     used = np.where(high.any(0))[0]
     fig, top = figure(
         15,
-        8.6,
+        tall(8.6),
         2,
         "SECTION 55  WHERE THEY SIT",
         "The long tokens' positions on the 24 x 24 grid, accumulated over fifty images",
@@ -615,7 +621,7 @@ def fig55_hide(out: Path) -> None:
     pick = [list(N.IMAGES).index("woman-river"), list(N.IMAGES).index("goat")]
     fig, top = figure(
         17,
-        9.6,
+        tall(9.6),
         3,
         "SECTION 55  WHAT HIDING THEM DOES",
         "The pooled vector with and without the three long tokens, fifty images; the probe's attention before and after on two",
@@ -679,7 +685,7 @@ def fig55_tokens(out: Path) -> None:
     names = list(N.IMAGES)
     fig, top = figure(
         22,
-        11.4,
+        tall(11.4),
         5,
         "SECTION 55  THE TOKENS THEMSELVES",
         "The three long tokens ringed on each of the ten images, with their norms at the last layer",
@@ -725,7 +731,7 @@ def fig55_registers(out: Path) -> None:
     n_l9 = int(sum(1 for t in top[:10] if int(t[0]) == 9))
     fig, top_y = figure(
         22,
-        13.6,
+        tall(13.6),
         4,
         "SECTION 55  A TEST-TIME REGISTER FOR SIGLIP-2",
         "Score every MLP neuron by its activation at the three positions; zero the top ones, or move them onto one appended zero token",
@@ -858,7 +864,7 @@ def fig54_addendum(out: Path) -> None:
     rows = int(np.ceil(n / cols))
     fig, top = figure(
         22,
-        4.6 * rows + 2.2,
+        tall(4.6 * rows + 2.2),
         6,
         "SECTION 54, AFTER 55  THE SLOTS WERE NOT THE CAUSE",
         "The winner under four recipes on every answered query; outlines coincide where they agree",
@@ -918,6 +924,233 @@ def fig54_addendum(out: Path) -> None:
     print("wrote", out)
 
 
+def object_map(name: str, j: int) -> tuple[np.ndarray, np.ndarray, float]:
+    """Whole-object occlusion for query j: per-region drop, painted at pixel
+    resolution by the max over regions covering a pixel. Returns (drops, paint, base)."""
+    o = dict(np.load(N.CACHE / f"56_objects_{name}.npz"))
+    d = N.load(name)
+    base = float(o["base"] @ o["txt"][j])
+    drops = base - o["covered"].astype(np.float32) @ o["txt"][j]
+    h, w = d["masks"].shape[1:]
+    paint = np.zeros((h, w), dtype=np.float32)
+    for m, v in zip(d["masks"], drops):
+        paint = np.where(m & (v > paint), v, paint)
+    return drops, paint, base
+
+
+def rise_map(name: str, j: int, n: int | None = None) -> tuple[np.ndarray, float]:
+    """RISE: the expected score under a random cover, per patch, minus its mean."""
+    r = dict(np.load(N.CACHE / f"56_rise_{name}.npz"))
+    o = dict(np.load(N.CACHE / f"56_objects_{name}.npz"))
+    masks = r["masks"].astype(np.float32)[:n]
+    score = r["pooled"].astype(np.float32)[:n] @ o["txt"][j]
+    sal = np.tensordot(score, masks, axes=(0, 0)) / masks.sum(0).clip(1e-6)
+    return sal - sal.mean(), float(o["base"] @ o["txt"][j])
+
+
+def slide_map(j_name: str) -> np.ndarray | None:
+    """The spike's sliding-cover heat for the woman image, by query text."""
+    sl = np.load(N.SPIKES / "slide.npz", allow_pickle=True)
+    qs = [str(q) for q in sl["qs"]]
+    return sl["heat"][..., qs.index(j_name)] if j_name in qs else None
+
+
+def patch_of_region_map(paint: np.ndarray, grids: np.ndarray, drops: np.ndarray) -> np.ndarray:
+    """Whole-object drops on the 24 x 24 grid: each patch takes the largest drop
+    of any region that owns it, so it can be ranked against a patch map."""
+    g = np.zeros((N.SIDE, N.SIDE), dtype=np.float32)
+    for grid, v in zip(grids, drops):
+        g = np.where(grid & (v > g), v, g)
+    return g
+
+
+def fig56_three(out: Path) -> None:
+    """One row per RISE image: sliding cover (woman only), whole-object occlusion, RISE."""
+    import run56 as R56
+    from scipy.stats import spearmanr
+
+    qs = N.queries()
+    a = dict(np.load(N.CACHE / "54_all.npz", allow_pickle=True))
+    rows = []
+    for name in R56.RISE_IMAGES:
+        j = (
+            0 if name != "woman-river" else 1
+        )  # the woman's small query has no sliding cover; use the frame-filling one
+        rows.append((name, j))
+    rhos = []
+    fig, top = figure(
+        20,
+        tall(4.7 * len(rows) + 2.0),
+        1,
+        "SECTION 56  THREE REFEREES ON ONE QUESTION",
+        "A sliding 64 px cover, covering each whole SAM object, and RISE's random multi-region covers",
+        f"one colour scale per row, 0 to that row's largest drop  |  RISE: {R56.RISE_N} random {R56.RISE_GRID} x {R56.RISE_GRID} covers at p = {R56.RISE_P}, map = expected match under covers that keep the patch, minus its mean  |  "
+        f"corner: Spearman between whole-object and RISE over the 24 x 24 patches  |  {sha()}",
+    )
+    gs = fig.add_gridspec(
+        len(rows), 4, left=0.03, right=0.97, top=top - 0.02, bottom=0.02, wspace=0.04, hspace=0.18
+    )
+    for r, (name, j) in enumerate(rows):
+        img = image(name)
+        d = N.load(name)
+        drops, paint, base = object_map(name, j)
+        sal, _ = rise_map(name, j)
+        slide = slide_map(qs[name][j]) if name == "woman-river" else None
+        obj_grid = patch_of_region_map(paint, a[f"{name}/grids"], drops)
+        rho = spearmanr(obj_grid.ravel(), sal.ravel())[0]
+        rhos.append(rho)
+        vmax = max(
+            float(drops.max()),
+            float(sal.max()),
+            float(slide.max()) if slide is not None else 0.0,
+            1e-6,
+        )
+        cells = [None, slide, paint, sal]
+        titles = [
+            "the picture",
+            "sliding cover, 441 positions",
+            "each whole object covered",
+            f"RISE, {R56.RISE_N} random covers",
+        ]
+        for c, cell in enumerate(cells):
+            ax = fig.add_subplot(gs[r, c])
+            if c == 0:
+                show(ax, img)
+                label(ax, f"“{qs[name][j]}”  whole-image cosine {base:.3f}", 0.97, size=10)
+            elif cell is None:
+                show(ax, img, dim=0.25)
+                no_map(ax, "the sliding cover was run only on the woman image")
+            elif c == 2:
+                show(ax, img, dim=0.5)
+                region_fill(ax, d["masks"], drops, vmax, alpha=0.75)
+                outline(ax, d["masks"][int(drops.argmax())], GOLD, lw=2.0)
+                label(
+                    ax,
+                    f"largest drop {drops.max():.3f} of {base:.3f}, {d['masks'][int(drops.argmax())].mean():.1%} of the frame",
+                    0.04,
+                )
+            else:
+                show(ax, img, dim=0.5)
+                grid_map(ax, cell, vmax=vmax)
+                label(ax, f"largest {cell.max():.3f} of {base:.3f}", 0.04)
+            if c == 3:
+                label(ax, f"rho {rho:+.2f}", 0.97, color=GOLD, size=10)
+            if r == 0:
+                panel_title(ax, titles[c])
+    verdict(fig, "whole-object against RISE: rho " + ", ".join(f"{v:+.2f}" for v in rhos))
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
+def fig56_all(out: Path) -> None:
+    """All ten, the small-object query: the section 53 style 6 x 6 cover is gone; here whole-object occlusion beside the crop-on-grey winner."""
+    qs = N.queries()
+    a = dict(np.load(N.CACHE / "54_all.npz", allow_pickle=True))
+    scale = float(a["scale"])
+    ceiling = absent_ceiling(a)
+    names = list(N.IMAGES)
+    fig, top = figure(
+        22,
+        tall(4.4 * 5 + 2.0),
+        2,
+        "SECTION 56  EVERY WHOLE OBJECT COVERED, THE SMALL-OBJECT QUESTION",
+        "For each image: the picture, the drop when each SAM region is covered, and section 54's crop-on-grey vote for the same question",
+        f"one colour scale per image  |  gold: the region whose cover cost the most; blue: crop-on-grey's winner  |  whole-image cosine at or under {ceiling:.3f} gets no map  |  {sha()}",
+    )
+    gs = fig.add_gridspec(
+        5, 6, left=0.02, right=0.98, top=top - 0.02, bottom=0.02, wspace=0.04, hspace=0.2
+    )
+    agree = 0
+    answered = 0
+    for k, name in enumerate(names):
+        r, c = divmod(k, 2)
+        img = image(name)
+        d = N.load(name)
+        j = 0
+        drops, paint, base = object_map(name, j)
+        ok = base > ceiling
+        wc = int(a[f"{name}/cos_crop"][:, j].argmax())
+        wo = int(drops.argmax())
+        if ok:
+            answered += 1
+            agree += int(wc == wo)
+        sh, tp = vote_share(a[f"{name}/cos_crop"], scale)
+        ax = fig.add_subplot(gs[r, c * 3])
+        show(ax, img)
+        label(ax, f"{name}: “{qs[name][j]}”  {base:.3f}", 0.97, size=10)
+        for col, kind in enumerate(("objects", "crop")):
+            ax = fig.add_subplot(gs[r, c * 3 + 1 + col])
+            if not ok:
+                show(ax, img, dim=0.25)
+                no_map(ax, f"whole-image match {base:.3f} in the absent range")
+                continue
+            show(ax, img, dim=0.5)
+            if kind == "objects":
+                region_fill(ax, d["masks"], drops, float(drops.max()), alpha=0.75)
+                outline(ax, d["masks"][wo], GOLD, lw=2.0)
+                label(
+                    ax,
+                    f"largest drop {drops.max():.3f}, {d['masks'][wo].mean():.1%} of the frame",
+                    0.04,
+                )
+            else:
+                region_fill(ax, d["masks"], sh[:, j], 1.0)
+                outline(ax, d["masks"][wc], BLUE, lw=2.0)
+                outline(ax, d["masks"][wo], GOLD, lw=1.2)
+                label(
+                    ax, f"{tp[j]:.0%} of the vote, {d['masks'][wc].mean():.1%} of the frame", 0.04
+                )
+            if k < 2:
+                panel_title(ax, ["each whole object covered", "crop-on-grey (section 54)"][col])
+    verdict(
+        fig,
+        f"{answered} answered; the object whose cover costs most is crop-on-grey's winner on {agree}",
+    )
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
+def fig56_converge(out: Path) -> None:
+    import run56 as R56
+    from scipy.stats import spearmanr
+
+    name = "goat"
+    j = 0
+    counts = (200, 500, 1000, 2000)
+    maps = [rise_map(name, j, n)[0] for n in counts]
+    rhos = [spearmanr(m.ravel(), maps[-1].ravel())[0] for m in maps[:-1]]
+    vmax = max(float(m.max()) for m in maps)
+    fig, top = figure(
+        20,
+        tall(6.4),
+        3,
+        "SECTION 56  DOES RISE CONVERGE",
+        f"The goat's RISE map at {', '.join(map(str, counts))} random covers, one colour scale",
+        f"“{N.queries()[name][j]}”  |  Spearman with the {counts[-1]}-cover map: {', '.join(f'{v:.2f}' for v in rhos)} at {', '.join(map(str, counts[:-1]))}  |  {R56.RISE_GRID} x {R56.RISE_GRID} grid, p = {R56.RISE_P}  |  {sha()}",
+    )
+    gs = fig.add_gridspec(1, 4, left=0.03, right=0.97, top=top - 0.02, bottom=0.03, wspace=0.04)
+    img = image(name)
+    for c, (n, m) in enumerate(zip(counts, maps)):
+        ax = fig.add_subplot(gs[0, c])
+        show(ax, img, dim=0.5)
+        grid_map(ax, m, vmax=vmax)
+        panel_title(ax, f"{n} covers")
+        if c < 3:
+            label(ax, f"rho {rhos[c]:.2f} with {counts[-1]}", 0.04)
+    verdict(
+        fig,
+        f"rho with the full map: {rhos[0]:.2f} at 200, {rhos[1]:.2f} at 500, {rhos[2]:.2f} at 1,000",
+    )
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
 def main() -> None:
     what = sys.argv[1] if len(sys.argv) > 1 else "ten"
     if what == "ten":
@@ -952,6 +1185,16 @@ def main() -> None:
             fig55_tokens(d / "05-the-tokens-themselves.png")
         if which in ("registers", "all"):
             fig55_registers(d / "04-a-test-time-register.png")
+    elif what == "56":
+        d = N.SECTION_ROOT / "56-referee"
+        d.mkdir(exist_ok=True)
+        which = sys.argv[2] if len(sys.argv) > 2 else "all"
+        if which in ("all", "objects"):
+            fig56_all(d / "02-every-object-covered.png")
+        if which in ("all", "three"):
+            fig56_three(d / "01-three-referees.png")
+        if which in ("all", "converge"):
+            fig56_converge(d / "03-does-rise-converge.png")
     else:
         raise SystemExit(f"unknown figure set {what}")
 
