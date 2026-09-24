@@ -310,6 +310,28 @@ naive gradient.
   for a single-image view.
 - **Dead end.** Median Spearman below 0.3.
 
+## Amendment after section 55 (2026-09-23, owner's go)
+
+Section 55 found three register slots at fixed border positions, (row 0,
+col 20), (row 16, col 0), (row 17, col 0), in every image, written by nine
+neurons in layer 10. That changes two steps and adds one:
+
+- **Section 54 addendum, before 56.** Rerun the masked head on the 19
+  answered queries with the three cells removed from every region's mask,
+  and once more on the register-shifted tokens from section 55's figure 04.
+  Same tiebreaker. One figure and a Later note in section 54's README, no
+  new section. Two outcomes, stated in advance: the head now wins or ties
+  crop-on-grey on the disagreements, and region vectors are a candidate for
+  `ytk/visual.py` behind a flag; or it still loses, and crop-on-grey is the
+  recipe. No tuning beyond those two runs.
+- **Section 58 runs twice.** The gradient lens raw, and with the three
+  cells zeroed from the map, side by side against the section 56 referee.
+- **Sections 56 and 57 unchanged.** Occlusion reads only the model's
+  output, so the slots cannot reach it; SAM 3 is a different model.
+- **Not tonight.** Whether removing the slots' 0.02 of cosine from every
+  stored embedding helps or hurts retrieval is a `ytk eval` question for a
+  later session; the plan's rule against touching `ytk/` stands.
+
 ## What the owner sees in the morning
 
 - One commit per section on `exp/53-patch-grid`, each with figures, a README
