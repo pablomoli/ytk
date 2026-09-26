@@ -1343,6 +1343,76 @@ def fig58_agreement(out: Path, rhos: dict[str, list[float]]) -> None:
     print("wrote", out)
 
 
+def fig57(out: Path) -> None:
+    """SAM 3's masks for each query against section 54's two winners on the woman image."""
+    z = dict(np.load(N.CACHE / "57_sam3.npz", allow_pickle=True))
+    w = dict(np.load(N.CACHE / "54_woman.npz", allow_pickle=True))
+    a = dict(np.load(N.CACHE / "54_all.npz", allow_pickle=True))
+    qs = [str(q) for q in z["queries"]]
+    img = image("woman-river")
+    d = N.load("woman-river")
+    # section 54 winners: the spike-order masks for the spike's queries, the night masks for queries.json
+    spike_qs = [str(q) for q in w["qs"]]
+    night_qs = N.queries()["woman-river"]
+    fig, top = figure(
+        22,
+        tall(5.6 * 2 + 2.0),
+        1,
+        "SECTION 57  SAM 3 AGAINST THE TWO-MODEL RECIPE",
+        "SAM 3's concept-prompted masks on the woman image, with section 54's crop-on-grey winner (blue) and masked-head winner (gold) where the query was asked there",
+        f"facebook/sam3, fp16 on MPS  |  load {float(z['load_seconds']):.0f} s  |  per query after warm-up {np.mean(z['seconds'][1:]):.2f} s, first {z['seconds'][0]:.2f} s  |  peak MPS driver memory {z['peak_gb'].max():.2f} GB  |  "
+        f"masks kept at score > 0.5, painted by score  |  {sha()}",
+    )
+    cols = 3
+    rows = int(np.ceil((len(qs) + 1) / cols))
+    gs = fig.add_gridspec(
+        rows, cols, left=0.03, right=0.97, top=top - 0.02, bottom=0.02, wspace=0.05, hspace=0.2
+    )
+    ax = fig.add_subplot(gs[0, 0])
+    show(ax, img)
+    panel_title(ax, "the picture")
+    for k, q in enumerate(qs):
+        ax = fig.add_subplot(gs[(k + 1) // cols, (k + 1) % cols])
+        show(ax, img, dim=0.5)
+        masks, scores = z[f"q{k}/masks"], z[f"q{k}/scores"]
+        if len(masks):
+            region_fill(ax, masks, scores, 1.0, alpha=0.7)
+            for m in masks:
+                outline(ax, m, CYAN, lw=1.6)
+        else:
+            no_map(ax, "SAM 3 found nothing above 0.5")
+        if q in spike_qs:
+            j = spike_qs.index(q)
+            outline(ax, w["masks"][int(w["cos_crop"][:, j].argmax())], BLUE, lw=2.2)
+            outline(ax, w["masks"][int(w["cos_head"][:, j].argmax())], GOLD, lw=2.2)
+        elif q in night_qs:
+            j = night_qs.index(q)
+            outline(ax, d["masks"][int(a["woman-river/cos_crop"][:, j].argmax())], BLUE, lw=2.2)
+            outline(ax, d["masks"][int(a["woman-river/cos_head"][:, j].argmax())], GOLD, lw=2.2)
+        label(ax, f"“{q}”", 0.97, size=10.5)
+        label(
+            ax,
+            f"{len(masks)} mask{'s' if len(masks) != 1 else ''}"
+            + (
+                f", best {scores.max():.2f}, {masks[scores.argmax()].mean():.1%} of the frame"
+                if len(masks)
+                else ""
+            )
+            + f"  |  {z['seconds'][k]:.2f} s",
+            0.04,
+        )
+        panel_title(
+            ax,
+            "SAM 3 in cyan"
+            + ("; section 54 winners" if q in spike_qs or q in night_qs else "; not asked in 54"),
+        )
+    verdict(fig, f"{np.mean(z['seconds'][1:]):.1f} s per query on MPS, {z['peak_gb'].max():.1f} GB")
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
 def main() -> None:
     what = sys.argv[1] if len(sys.argv) > 1 else "ten"
     if what == "ten":
@@ -1387,6 +1457,9 @@ def main() -> None:
             fig56_three(d / "01-three-referees.png")
         if which in ("all", "converge"):
             fig56_converge(d / "03-does-rise-converge.png")
+    elif what == "57":
+        d = N.SECTION_ROOT / "57-sam3"
+        fig57(d / "01-sam3-against-the-recipe.png")
     elif what == "58":
         d = N.SECTION_ROOT / "58-gradient-lens"
         d.mkdir(exist_ok=True)

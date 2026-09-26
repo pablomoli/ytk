@@ -372,8 +372,8 @@ addendum and made section 58 run raw and slot-masked.
 
 **Dead ends fired:** 54 (the masked head picks the right region less often
 than crop-on-grey, 6 to 2 on the disagreements; the addendum showed the
-register slots were not the cause), 57 (weights gated, install stopped at
-the licence), 58 (median Spearman +0.01 and +0.07 against a bar of 0.30).
+register slots were not the cause), 57 at first (weights gated; the licence cleared on 2026-09-26 and the
+section then ran in full, see below), 58 (median Spearman +0.01 and +0.07 against a bar of 0.30).
 **Did not fire:** 55 (a clean emergence at layer 10 and a 0.02 cosine
 effect on every production vector) and 56 (the referees disagree, the
 useful negative being that whole-object occlusion is biased toward area
@@ -395,13 +395,22 @@ gradient) lost to it, and the only referee that read right everywhere
 
 **GPU:** about 80 minutes in all. SAM plus tokens 10 min, section 54 about
 7 min across its stages, section 55 under 2 min, section 56 58 min (RISE
-alone 53, three times the estimate), section 58 about 3 min. Section 57
-used none.
+alone 53, three times the estimate), section 58 about 3 min. Section 57 used
+about a minute once it ran.
+
+**Section 57, run on 2026-09-26 after the licence cleared:** SAM 3 loads
+fp16 on MPS at 3.0 GB and answers a prompt in 2.6 to 4.9 s. It finds the
+sunglasses (agreeing with section 54's masked head, IoU 0.81, not with
+crop-on-grey) and the whole woman (no SAM-1 region ever had her), and
+nothing for the printed caption. Query-time tool for a single-image view;
+not the engine behind a cached collection-wide one. Caveat recorded for
+the owner's decision: section 54's 6-to-2 tiebreaker was covering, which
+section 56 showed favours large regions, and on the one small object with
+an independent answer the head was right.
 
 **Left for later sessions:** the retrieval effect of the three slots
 (`ytk eval` on register-shifted embeddings), a linear probe on what the
-slots encode, SAM 3 once the licence is approved, and the probe-weighted
-row aggregation for LeGrad.
+slots encode, and the probe-weighted row aggregation for LeGrad.
 
 **The owner's decision:** whether section 54's region vectors go into
 `ytk/visual.py` behind a flag. The night's answer is no: the masked head

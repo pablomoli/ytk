@@ -13,52 +13,76 @@ Section 4 of the patch-grid night, `docs/design/patch-grid-night/README.md`.
 
 ## What was done
 
-- **The install step is already done.** The project environment's
-  `transformers` 5.5.4 exports `Sam3Model` and `Sam3Processor`; no scratch
-  environment and no main-branch checkout were needed, and no Triton
-  import is involved on that path. Checked by importing both classes.
-- **The weights are gated.** `facebook/sam3` on the Hub is marked
-  `gated: manual`. The account on this machine (`hf auth whoami`:
-  `integr8deriv8`) is logged in. Requesting `config.json`:
-
-  ```
-  $ hf download facebook/sam3 config.json --local-dir sam3-probe
-  Error: Access denied. This repository requires approval.
-  ```
-
-  An unauthenticated request for the same file returns HTTP 401. The
-  repository lists `model.safetensors` and `sam3.pt` among 12 files; no
-  size was fetched.
-- Nothing else ran. No timing, no memory figure, no figure: a figure here
-  would have to be faked, and the record's rules allow a section with no
-  lead PNG when it failed at install.
+- **Install.** The project environment's `transformers` 5.5.4 already
+  exports `Sam3Model` and `Sam3Processor`; no scratch environment and no
+  main-branch checkout were needed, and no Triton import sits on that path.
+  The image processor needs torchvision, so the run uses the same
+  `--with torchvision` flag as SAM.
+- **The gate.** `facebook/sam3` is gated `manual`. The first attempt on
+  2026-09-24 was refused ("Access denied. This repository requires
+  approval."); the owner requested access on 2026-09-26 and Meta granted it
+  within about twenty minutes. `hf download facebook/sam3` then fetched 6.4
+  GB (both the safetensors and the `.pt` checkpoint).
+- **The run.** `Sam3Model.from_pretrained(..., dtype=float16)` on MPS, 0.84B
+  parameters, and seven concept prompts on the woman image: the two the
+  plan named ("sunglasses", "the whole woman"), their plain-noun forms
+  ("a woman wearing sunglasses", "woman"), the printed caption two ways
+  ("printed caption text", "text"), and "a stone wall" from the spike.
+  Instances kept at score 0.5. `run57.py`, once with five prompts and once
+  with seven; the second run was slower per prompt with the same masks.
 
 ## Result
 
-**Stopped at the gate, not at the code.** The model class is present in
-the installed transformers; the weights need the owner to accept Meta's
-license on huggingface.co/facebook/sam3 and wait for approval, which only
-the account holder can do. Until then the section's two questions, seconds
-per image on MPS and peak memory beside SigLIP-2, have no answer, and the
-verdict the brief asked for stays as the brief's inference: the detector is
-conditioned on the text, so it runs at query time per image, and it cannot
-replace region vectors cached at save time. That inference is also what
-sections 54 and 56 point at from the other side: the recipe that located
-objects on this material was crop-on-grey with SAM masks, which is
-cacheable, and SAM 3 would only change the cutting step.
+**It loads, it runs, it is a few seconds a query.**
 
-**Dead end by the plan's own clause**, "if it fails to load, record the
-error verbatim and stop; that is the result". The error is recorded above.
+| | |
+|---|---|
+| load, fp16 | 4 to 6 s |
+| per prompt after warm-up | 2.6 s (five-prompt run), 4.9 s (seven-prompt run) |
+| peak MPS driver memory | 3.0 GB |
 
-## Next, if the owner approves the license
+- **"sunglasses"**: one mask, score 0.93, 0.3 percent of the frame, on the
+  sunglasses. Its overlap with the spike's SAM masks: IoU 0.81 with the
+  region section 54's masked head chose, 0.02 with the region crop-on-grey
+  chose (her face). On the one small-object query where SAM 3 supplies a
+  ground truth, the masked head was right and the crops were not.
+- **"a woman wearing sunglasses"** and **"woman"**: one mask each, scores
+  0.95 and 0.96, 26 percent of the frame, the whole person. No SAM-1 region
+  overlaps it above IoU 0.20, so the two-model recipe cannot return this
+  answer at all; both section 54 recipes gave her face. **"the whole
+  woman"**: nothing above 0.5. The prompt wants a noun phrase, not a
+  description of scope.
+- **"printed caption text"** and **"text"**: nothing above 0.5. SAM 3 does
+  not cut the caption either, so the unaddressed failure the brief noted
+  stays unaddressed by this model.
+- **"a stone wall"**: four masks, scores 0.55 to 0.86, 2 to 29 percent of
+  the frame, the wall and the pavement it stands on. IoU 0.28 with the
+  crop's winner.
 
-Two commands, in this order, with no other change to the branch:
+**Verdict for ytk.** The brief's inference holds and now has numbers: the
+detector is conditioned on the text, so it costs a forward pass per image
+per query, about three to five seconds on the M3 at 3 GB. That rules it out
+as the engine behind a cached "show me where" across the whole collection,
+and rules it in for a single-image view where a few seconds is fine, where
+it returns the whole person the SAM-1 masks never had and the small object
+the crops missed. On the 3070 it is a query-time tool for boxing without
+reservation. The night's one dead-end condition for this section, more than
+a few seconds per image or memory pressure beside SigLIP-2, sits on the
+line: 2.6 to 4.9 s, and 3 GB beside SigLIP-2's 1 GB fits on this machine.
 
-```
-hf download facebook/sam3 --local-dir ~/.cache/huggingface/sam3-probe
-HF_HUB_OFFLINE=1 uv run python -c "from transformers import Sam3Model; Sam3Model.from_pretrained('facebook/sam3', dtype='float16').to('mps')"
-```
+**A caveat this section raises for section 54.** Section 54's 6-to-2
+verdict against the masked head rested on the covering tiebreaker, and
+section 56 later showed that covering favours large regions. SAM 3's
+sunglasses mask agrees with the masked head's pick on the only small object
+where an independent answer exists. The 54 verdict is not overturned by one
+query, but it is weaker than it read, and it is recorded here so the
+owner's decision sees it.
 
-Then the woman image with "sunglasses" and "the whole woman", timed, with
-the two-model winners from section 54 beside SAM 3's masks. About 45 minutes
-by the plan's budget; nothing else in the night depends on it.
+## Figures
+
+- `01-sam3-against-the-recipe.png` — the woman image, SAM 3's masks per
+  prompt in cyan painted by score, section 54's crop-on-grey winner in blue
+  and masked-head winner in gold where the prompt was asked there.
+
+Cache `~/.ytk/patch_grid/night/57_sam3.npz`; runner
+`experiments/patch_grid/run57.py`; figure `scripts/plot_night.py 57`.
