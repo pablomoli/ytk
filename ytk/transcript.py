@@ -61,7 +61,7 @@ def prune_audio_cache(
 
 def _video_id(url: str) -> str:
     """Extract the 11-char video ID from a YouTube URL."""
-    match = re.search(r"(?:v=|youtu\.be/|embed/)([A-Za-z0-9_-]{11})", url)
+    match = re.search(r"(?:v=|youtu\.be/|embed/|shorts/|live/)([A-Za-z0-9_-]{11})", url)
     if not match:
         raise ValueError(f"Could not extract video ID from URL: {url}")
     return match.group(1)

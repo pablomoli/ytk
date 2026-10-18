@@ -125,3 +125,17 @@ def test_prune_nonpositive_age_is_noop(tmp_path):
     assert prune_audio_cache(max_age_days=0, cache_dir=tmp_path) == []
     assert prune_audio_cache(max_age_days=-5, cache_dir=tmp_path) == []
     assert old.exists()
+
+
+def test_video_id_accepts_every_youtube_url_shape():
+    from ytk.transcript import _video_id
+
+    for url in (
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "https://www.youtube.com/watch?feature=share&v=dQw4w9WgXcQ",
+        "https://youtu.be/dQw4w9WgXcQ?si=abc",
+        "https://www.youtube.com/embed/dQw4w9WgXcQ",
+        "https://www.youtube.com/shorts/dQw4w9WgXcQ",
+        "https://www.youtube.com/live/dQw4w9WgXcQ",
+    ):
+        assert _video_id(url) == "dQw4w9WgXcQ", url
