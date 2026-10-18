@@ -487,7 +487,8 @@ def _open_asks(conn: sqlite3.Connection, kinds: tuple[str, ...]) -> list[sqlite3
     placeholders = ",".join("?" for _ in kinds)
     return conn.execute(
         f"""
-        SELECT asks.id, asks.item_id, asks.kind, asks.proposal, asks.created_at
+        SELECT asks.id, asks.item_id, asks.kind, asks.proposal, asks.created_at,
+               outbox.presented_at
         FROM asks
         LEFT JOIN answers ON answers.ask_id = asks.id
         LEFT JOIN outbox ON outbox.ask_id = asks.id
@@ -569,7 +570,9 @@ def sweep(conn: sqlite3.Connection) -> SweepStats:
         proposal = cast("dict[str, Any]", json.loads(ask["proposal"]))
         window = int(proposal.get("window_days", 7))
         expire_before = (datetime.now(UTC) - timedelta(days=window)).isoformat()
-        if ask["created_at"] >= expire_before:
+        # The window runs from the ask's first render in the digest; an ask
+        # nobody has seen never expires.
+        if ask["presented_at"] is None or ask["presented_at"] >= expire_before:
             continue
         item_id = ask["item_id"]
         if ledger.item_state(conn, item_id) not in ("asking", "parked"):

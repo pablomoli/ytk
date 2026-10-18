@@ -54,7 +54,10 @@ def harness(monkeypatch, tmp_path):
     monkeypatch.setattr(
         cli_mod,
         "_capture_and_read",
-        lambda url, note, surface, source=None: calls["added"].append(url),
+        lambda url, note, surface, source=None, deliberate=False: (
+            calls["added"].append(url),
+            calls.setdefault("deliberate", []).append(deliberate),
+        ),
     )
     monkeypatch.setattr(cli_mod.time, "sleep", lambda s: None)
     return calls
@@ -65,6 +68,8 @@ def test_reels_all_ingests_everything_and_empties_pending(harness):
     assert result.exit_code == 0, result.output
     assert harness["added"] == LINKS
     assert harness["saved"][-1] == []
+    # a bulk sweep is not a choice: the intent ask stays (step 3)
+    assert harness["deliberate"] == [False, False, False]
 
 
 def test_reels_dry_run_lists_without_ingesting_or_saving(harness):
@@ -87,6 +92,7 @@ def test_reels_interactive_pick_ingests_selection(harness):
     result = CliRunner().invoke(cli_mod.cli, ["reels"], input="2\n")
     assert result.exit_code == 0, result.output
     assert harness["added"] == [LINKS[1]]
+    assert harness["deliberate"] == [True]
     assert harness["saved"][-1] == [LINKS[0], LINKS[2]]
 
 

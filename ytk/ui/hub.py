@@ -936,8 +936,9 @@ def ingest_via_cli(url: str, note: str = "") -> None:
     """Capture one URL into the curator ledger and wake the loop (#197 P5).
 
     The user's thought becomes a take; reads, asks and advances belong to
-    the loop thread (single writer). The drain logs the attempt, so
-    capture() stays quiet here.
+    the loop thread (single writer). Every route here is the owner's pick
+    (queue pick, $$), so the capture is deliberate. The drain logs the
+    attempt, so capture() stays quiet here.
     """
     from ytk import capture as capture_verb
     from ytk.ledger import connect
@@ -953,8 +954,9 @@ def ingest_via_cli(url: str, note: str = "") -> None:
             text=note.strip() or None,
             take_kind="intent",
             log=False,
+            deliberate=True,
         )
-        if res.duplicate:
+        if res.duplicate and res.reclaimed is None:
             return
     finally:
         conn.close()

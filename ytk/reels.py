@@ -54,6 +54,22 @@ def classify_url(url: str) -> str:
     return "web"
 
 
+def canonical_url(url: str) -> str:
+    """One identity for every shape of the same content: the ledger's
+    duplicate check and the fetch cache key both read it."""
+    from .transcript import youtube_id
+
+    source = classify_url(url)
+    if source == "youtube":
+        vid = youtube_id(url)
+        if vid:
+            return f"youtube:{vid}"
+    if source in ("instagram", "tiktok"):
+        # Share links carry tracking params (igsh=, _r=) that name the same post.
+        return url.split("#")[0].split("?")[0].rstrip("/")
+    return url.split("#")[0]
+
+
 def _as_item(entry) -> ReelItem:
     """Normalize a pending entry: legacy bare-URL strings become ReelItems."""
     if isinstance(entry, ReelItem):

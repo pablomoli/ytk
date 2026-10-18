@@ -29,9 +29,13 @@ def _seed(conn, url="https://www.youtube.com/watch?v=abc123xyz00", take=None) ->
 
 
 def _age_ask(conn, ask_id, days):
+    """Raised and first shown `days` ago: the intent window runs from the
+    first render, quality windows from the raise."""
     old = (datetime.now(UTC) - timedelta(days=days)).isoformat()
     conn.execute("UPDATE asks SET created_at = ? WHERE id = ?", (old, ask_id))
-    conn.execute("UPDATE outbox SET created_at = ? WHERE ask_id = ?", (old, ask_id))
+    conn.execute(
+        "UPDATE outbox SET created_at = ?, presented_at = ? WHERE ask_id = ?", (old, old, ask_id)
+    )
     conn.commit()
 
 

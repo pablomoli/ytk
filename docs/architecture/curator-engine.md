@@ -32,6 +32,12 @@ when the engine under them is flaky. Engine first, body later.
 - Every item gets a sentence from the owner before enrichment: intent if
   unwatched, reaction if watched, a one-tap "just want it" for reflex saves.
   Enrichment is built on that sentence, not stamped with it afterward.
+  Amended 2026-10-18 (ingestion step 3, `docs/design/ingestion/README.md`):
+  a deliberate capture is the sentence. `ytk add` and the per-source adds,
+  a hub pick, `$$` and an interactive `ytk reels` pick carry a reflex take
+  when the owner wrote nothing; only items the owner did not choose
+  (playlist sync, `feed`, `reels --all`, an agent's capture without a note)
+  are asked why.
 - The note argues its connections in a section tied to the thesis; links are
   proposed by the agent and approved by the owner, never written silently.
 - The agent speaks on its own when it has something to say: relevance to
@@ -141,7 +147,7 @@ connections. Every answer is a labeled row.
 
 | kind | trigger | proposal | if parked |
 |---|---|---|---|
-| intent missing | item has no `take` | why this one? intent / reaction / just want it / drop | expires to `dropped` as reflex |
+| intent missing | item has no `take` (passive surfaces only since step 3) | why this one? intent / reaction / just want it / drop | expires to `dropped` 7 days after it was first shown |
 | transcript junk | no captions; auto-captions with a garble score; language not en; Whisper `no_speech` | retry with Whisper / keep with the warning / drop | waits; retry sweep may clear it |
 | blind item | visual-heavy source with frames failed or no transcript | retry frames / proceed text-only / drop | waits; retry sweep may clear it |
 | duplicate | same URL, or cosine above the measured near-dup baseline | merge into [[X]] / keep separate / drop | keep separate |
@@ -178,8 +184,13 @@ Unparked by any of four events, never by a plain timer:
 
 Only "intent missing" expires on its own, to `dropped` as a reflex:
 archived with URL, title and the non-answer. Quality kinds never auto-drop.
-`dropped` is not deletion; a re-capture of the same URL raises the
-duplicate ask with "you dropped this on <date>, revive?".
+`dropped` is not deletion. Since step 3 the window runs from the ask's
+first render in the digest (`outbox.presented_at`), so an ask nobody saw
+never expires; a deliberate re-capture of any URL shape of a dropped item
+revives it to `captured` (activity `revive`, actor owner) and it passes
+read, grade and connect again. A passive re-capture leaves it dropped. The
+"revive?" duplicate ask this paragraph used to plan was never built; the
+deliberate re-capture is that answer already.
 
 The intent window starts at 7 days, stated as a guess: step 0 found no
 instrument for answer latency. The `asks` table is that instrument; the

@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from .evidence import EvidenceBundle, evidence_dir, load_bundle
-from .reels import classify_url
+from .reels import canonical_url, classify_url
 
 if TYPE_CHECKING:  # vision imports the Agent SDK; load it only where frames are made
     from .vision import TimedFrame
@@ -60,22 +60,8 @@ def fetch_dir() -> Path:
     return evidence_dir() / "fetch"
 
 
-def _canonical(url: str) -> str:
-    from .transcript import youtube_id
-
-    source = classify_url(url)
-    if source == "youtube":
-        vid = youtube_id(url)
-        if vid:
-            return f"youtube:{vid}"
-    if source in ("instagram", "tiktok"):
-        # Share links carry tracking params (igsh=, _r=) that name the same post.
-        return url.split("#")[0].split("?")[0].rstrip("/")
-    return url.split("#")[0]
-
-
 def cache_key(url: str) -> str:
-    return hashlib.sha1(_canonical(url).encode(), usedforsecurity=False).hexdigest()[:12]
+    return hashlib.sha1(canonical_url(url).encode(), usedforsecurity=False).hexdigest()[:12]
 
 
 @dataclass

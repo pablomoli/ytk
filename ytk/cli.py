@@ -127,12 +127,27 @@ def cli():
 cli.add_command(work_command)
 
 
+def _agent_running() -> bool:
+    """Claude Code sets CLAUDECODE in every shell it starts; AI_AGENT is the
+    cross-tool convention. Neither is set in the owner's own terminal."""
+    return bool(os.environ.get("CLAUDECODE") or os.environ.get("AI_AGENT"))
+
+
 def _capture_and_read(
-    url: str, note: str, surface: str, source: str | None = None, *, err: bool = False
+    url: str,
+    note: str,
+    surface: str,
+    source: str | None = None,
+    *,
+    err: bool = False,
+    deliberate: bool = False,
 ) -> None:
     """P5 (#197, single writer): capture into the ledger and nudge the loop.
     The CLI inserts events only; the loop reads, asks and advances. Owner
-    decision 2026-08-31: return immediately, no poll."""
+    decision 2026-08-31: return immediately, no poll.
+
+    An agent's capture is never the owner's choice: it raises the intent ask
+    unless the agent wrote a note, and it never revives or answers."""
     from . import capture as capture_verb
     from . import wake
     from .ledger import connect, item_state
@@ -142,16 +157,31 @@ def _capture_and_read(
     source = source or classify_url(url)
     conn = connect()
     try:
+        agent = _agent_running()
         res = capture_verb.capture(
-            conn, source=source, url=url, surface=surface, text=note or None, take_kind="intent"
+            conn,
+            source=source,
+            url=url,
+            surface=surface,
+            text=note or None,
+            take_kind="intent",
+            actor="agent" if agent else "owner",
+            deliberate=deliberate and not agent,
         )
-        if res.duplicate:
+        if res.reclaimed == "revived":
+            out.print(f"[bold green]Revived[/] item {res.item_id} from dropped; it is read again")
+        elif res.reclaimed == "answered":
+            out.print(f'[bold green]Answered[/] item {res.item_id}\'s open "why this one?"')
+        elif res.duplicate:
             state = item_state(conn, res.item_id)
             out.print(f"[yellow]Already captured[/] (item {res.item_id}, state {state})")
             if res.take_id is not None:
                 out.print("[dim]take attached to the existing item[/]")
             return
-        out.print(f"[bold green]Captured[/] {source} item {res.item_id}")
+        else:
+            out.print(f"[bold green]Captured[/] {source} item {res.item_id}")
+        if agent and not note and not res.duplicate:
+            out.print("[dim]captured by an agent without a note: the owner is asked why[/]")
     finally:
         conn.close()
     if wake.nudge_loop():
@@ -188,7 +218,7 @@ def add(ctx: click.Context, url: str, force: bool, note: str, no_keep: bool, pri
     enters the corpus only after it passes the owner (#197)."""
     _fetch_and_show(url, full=print_)
     if not no_keep:
-        _capture_and_read(url, note, "cli", err=print_)
+        _capture_and_read(url, note, "cli", err=print_, deliberate=True)
 
 
 def _fetch_and_show(url: str, *, full: bool) -> None:
@@ -381,7 +411,7 @@ def reels(
         console.rule(f"[bold]{i}/{len(selected)}[/] {item.url}")
         succeeded = False
         try:
-            _capture_and_read(item.url, "", "reels")
+            _capture_and_read(item.url, "", "reels", deliberate=not ingest_all)
             succeeded = True
         except Exception as exc:
             console.print(f"[red]failed:[/] {exc}")
@@ -1084,7 +1114,7 @@ def graph_cmd(open_browser: bool, output: str | None, threshold: float):
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 def ingest(url: str, force: bool, note: str):
     """Capture a web article into the curator ledger and read it (#197 P2)."""
-    _capture_and_read(url, note, "cli", source="web")
+    _capture_and_read(url, note, "cli", source="web", deliberate=True)
 
 
 @cli.command(name="add-instagram")
@@ -1103,7 +1133,7 @@ def add_instagram(url: str, note: str = "", refresh: bool = False):
     if refresh:
         _instagram_refresh_pipeline(url, note, refresh)
         return
-    _capture_and_read(url, note, "cli", source="instagram")
+    _capture_and_read(url, note, "cli", source="instagram", deliberate=True)
 
 
 def _instagram_refresh_pipeline(url: str, note: str = "", refresh: bool = True):
@@ -1303,7 +1333,7 @@ def backfill_instagram_reels(dry_run: bool, apply_: bool):
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 def add_pinterest(url: str, note: str = ""):
     """Capture a Pinterest pin into the curator ledger and read it (#197 P2)."""
-    _capture_and_read(url, note, "cli", source="pinterest")
+    _capture_and_read(url, note, "cli", source="pinterest", deliberate=True)
 
 
 @cli.command(name="add-tiktok")
@@ -1311,7 +1341,7 @@ def add_pinterest(url: str, note: str = ""):
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 def add_tiktok(url: str, note: str = ""):
     """Capture a TikTok into the curator ledger and read it (#197 P2)."""
-    _capture_and_read(url, note, "cli", source="tiktok")
+    _capture_and_read(url, note, "cli", source="tiktok", deliberate=True)
 
 
 @cli.command(name="tiktok-sync")
@@ -1447,7 +1477,7 @@ def reddit_discover(topic: str, limit: int):
 @click.option("--note", default="", help="Your thought about this save; steers enrichment.")
 def add_reddit(url: str, note: str = ""):
     """Capture a Reddit post into the curator ledger and read it (#197 P2)."""
-    _capture_and_read(url, note, "cli", source="reddit")
+    _capture_and_read(url, note, "cli", source="reddit", deliberate=True)
 
 
 def _parse_date(value: str) -> str:

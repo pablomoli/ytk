@@ -26,6 +26,14 @@ def _no_real_instagram_session(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _owner_shell(monkeypatch):
+    """The CLI treats a capture as an agent's when these are set, and an
+    agent runs this suite: tests opt into the agent shell explicitly."""
+    monkeypatch.delenv("CLAUDECODE", raising=False)
+    monkeypatch.delenv("AI_AGENT", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _ledger_to_tmp(tmp_path_factory, monkeypatch):
     """Fixture URLs reached ~/.ytk/ledger.db through tests that ran the real
     capture path before pinning their own env (the E5 capture-log incident,
