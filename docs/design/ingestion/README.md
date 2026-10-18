@@ -42,125 +42,163 @@ that blocks a capture before any model runs.
 - Transcript fixes on the curator path: `/shorts/` and `/live/` ids; manual
   `en-US`/`en-GB` tracks no longer fall through to Whisper.
 - yt-dlp locked at the version the installed tool already runs.
+- Instagram image posts and carousels through the fetch layer.
+- Step 3 (below).
 
-## Step 3: the intent ask for deliberate captures
+## Step 3: a deliberate capture is the sentence (built 2026-10-18)
 
-### What the ask does today
+### What the ask did before
 
-- `read_item` raises it whenever quality passes and the item has no take;
+- `read_item` raised it whenever quality passed and the item had no take;
   `next_advanceable` picks a `read` item only when a take exists, so
-  enrichment waits on it.
+  enrichment waited on it.
 - It is the only ask that expires on its own: to `dropped` after 7 days,
-  clock started at `asks.created_at`.
-- Its filtering is silence, not judgment. All 25 drops ever came from the
+  the clock started at `asks.created_at`.
+- Its filtering was silence, not judgment. All 25 drops came from the
   window expiring; "drop" was chosen 0 times. 12 of the 25 were never
-  presented (the last `presented_at` in the outbox is 2026-09-30). One of
-  them was a deliberate `ytk add` (item 806).
+  presented (the last `presented_at` in the outbox is 2026-09-30). One was
+  a deliberate `ytk add` (item 806).
 - On owner captures it fired 5 times and produced one sentence in the
   owner's voice. 15 of 21 owner captures already carried a reason from
   `--note` or the hub thought box.
-- Whether a take improves enrichment is not shown: 10% grader pass without
-  text against 15% with, confounded by source (all takeless items are
-  YouTube) and underpowered.
 
-### The design: deliberate surfaces imply a reflex take
+### What runs now
 
-The spec already holds this shape. `curator-engine.md`, the `$$` decision:
-"The marker becomes capture plus a take of kind reflex (message text as the
-take when present): the intent ask never fires, but the item still passes
-read, grade and connect." It was never implemented.
+The call site says whether the owner chose the URL (`capture(...,
+deliberate=)`), never the actor.
 
-1. `capture(..., silent_is_reflex: bool)`, passed explicitly by each call
-   site. True from `ytk add` and the per-source adds, the hub Add box and
-   queue picks, and `$$` auto-ingest. False from playlist sync, `feed` and
-   `reels --all`. Keyed on the call site, never on the actor: the actor
-   defaults to "owner" for `feed` and `reels --all` too.
-2. A silent capture from a deliberate surface inserts a take
-   `kind='reflex', text=''`. Nothing else in the state machine changes:
-   `raise_intent_ask` is already a no-op with a take, the selector already
-   picks read-with-take, and every take consumer (attempt header, enricher
-   field guide, deterministic grader, rubric, note writer, connect, packet
-   page) already handles empty reflex, because 10 sync items answered
-   "just want it" and took that path.
-3. The quality gate, the grader, the bounce ask and connections all still
-   run.
-4. No implicit take on a duplicate capture.
+| surface | deliberate | silent capture gets |
+|---|---|---|
+| `ytk add`, `add-tiktok`, `add-instagram`, `add-reddit`, `add-pinterest`, `ingest` | yes | reflex take, empty text |
+| hub queue pick, `$$` auto-ingest, iMessage link sessions | yes | reflex take, empty text |
+| interactive `ytk reels` pick | yes | reflex take, empty text |
+| playlist sync, `feed`, `reels --all` | no | no take: the intent ask, as before |
+| any CLI capture from an agent shell (`CLAUDECODE` or `AI_AGENT` set) | no | no take: the intent ask; with `--note`, an intent take whose surface is `agent` |
 
-Two adjacent fixes the data argues for, one commit each:
+A note always becomes an intent take, as before. Downstream nothing
+changed: the read gate (transcript junk, blind item), the deterministic and
+model grader, the bounce ask and connections run on every item.
 
-5. An owner duplicate capture of an item with an open intent ask records an
-   answer to it ("intent" with the note, "just want it" without), so the
-   loop applies it. Today a note added that way never unblocks the item and
-   the sweep still drops it.
-6. The 7-day window starts at `presented_at`; an ask never presented never
-   expires.
+A deliberate capture of an item that already exists:
 
-Rejected: a non-blocking ask (raised, but the loop advances anyway). It
-breaks the one-open-ask invariant (`asks.py:73`: grader, budget and
-connections asks would silently not raise), needs the selector and
-`advance_item` loosened together (or the stuck rule parks the item after
-about 45 min), needs a consumer for answers that arrive after landing (up
-to 8 more model calls each), and leaves the CLI's `ask list` and the hub
-digest disagreeing. All for about one owner sentence per five asks.
+| item is | result |
+|---|---|
+| `dropped` | revived: take written, activity `revive` (actor owner) to `captured`; read, gate, grade and connect run again |
+| waiting on an open "intent missing" ask | the ask is answered (`intent` with the note, `just want it` without); the loop applies it |
+| before enrichment with no take | the missing take is written |
+| anything else (kept, enriched, asking on a quality ask) | the note attaches as before; no reflex take, never a second note |
 
-### Owner decisions before building
+A passive re-capture never revives or answers. An agent capture is never
+deliberate, so an agent can neither revive nor answer the owner's ask.
 
-- Is the YouTube playlist deliberate? It is filled by hand on the phone,
-  it is 38 of 59 captures, and it is the only place the ask removed
-  anything (by expiry).
-- Is an interactive `ytk reels` pick deliberate? (Same logic as a hub
-  pick; never used.)
-- The spec brief says "every item gets a sentence from the owner before
-  enrichment". Step 3 amends it to "every item the owner did not choose
-  gets one; a deliberate capture is the sentence". Say yes to the
-  amendment, or keep the brief.
-- Under step 3 an agent running `ytk add` without `--note` flows in with
-  no reason. Today agents answer the ask within seconds anyway (3 of 3), so
-  the outcome is the same.
+Two adjacent changes:
+
+- **One identity per URL.** `capture` looks an item up by
+  `reels.canonical_url` (the fetch cache's key): every YouTube shape is
+  `youtube:<id>`, Instagram and TikTok drop the query string, the web drops
+  only the fragment. Stored URLs are untouched; the first shape captured
+  stays the item's URL. The ledger held no cross-shape duplicate when this
+  shipped (`duplicate_identities_all_time: 0`), so nothing was migrated.
+- **The intent window runs from presentation.** The sweep expires an
+  intent ask 7 days after its first render in the hub digest
+  (`outbox.presented_at`); an ask nobody has seen never expires.
+
+### Owner decisions (2026-10-18)
+
+- The YouTube playlist is not deliberate: it is a stepping stone. Owner's
+  words.
+- An interactive `ytk reels` pick is deliberate, an agent capture needs a
+  note to skip the ask, and the brief is amended: recommended in the plan,
+  built on the owner's "build step 3".
+
+### Assumptions
+
+- **A deliberate act is a judgment of worth.** The design rests on this:
+  choosing a URL says "this belongs", and the question "why" adds little.
+  Measured support is thin: of 21 owner captures, 15 already carried a
+  reason, and the ask produced one owner sentence in 5 firings.
+- **An empty reflex take does not make enrichment worse.** Not shown
+  either way. The baseline below has 6 enriched items with an empty reflex
+  take (all playlist videos answered "just want it"): 0 passed the grader,
+  all 6 landed by owner override, against 6 of 17 grader passes for items
+  with words. Fisher's exact p = 0.14, and source is confounded (every
+  reflex item is a YouTube video). This is the number to watch.
+- **Agent detection is an environment check.** Claude Code sets
+  `CLAUDECODE=1` in every shell it starts; `AI_AGENT` is a cross-tool
+  convention. Agents that set neither are treated as the owner. The
+  owner's own `! ytk add` typed inside a Claude Code prompt runs in that
+  shell and counts as an agent capture (the CLI says so in one line).
+- **Dropped is terminal, so the CLI may write the revive.** The loop never
+  picks a dropped item, so a surface writing the `captured` transition
+  races nothing, exactly like a first capture. This bends P5 (surfaces
+  insert events, the loop writes transitions) the same way `capture` always
+  has.
+- **The hub is opened.** Presentation-based expiry assumes the digest gets
+  rendered. If it is not, passive items wait forever instead of dropping:
+  the queue grows, nothing enters the corpus unasked.
+
+### Limitations
+
+- **Playlist items stay gated.** The playlist is a stepping stone, so sync
+  stays passive; a playlist video enters without a sentence only when the
+  owner later picks it in the hub or `ytk add`s it.
+- **Takes stop being labels for silent deliberate captures.** The brief's
+  "every owner sentence is a labeled example" loses the rows the ask used
+  to collect on deliberate captures (one sentence per five asks). Empty
+  reflex takes are rows, not sentences.
+- **Identity covers YouTube ids and query strings only.** `http` vs
+  `https`, `www.` vs bare host, trailing slashes on web pages, `m.youtube`
+  shapes `youtube_id` does not parse, and the same content on two
+  platforms are still distinct items.
+- **A revived item re-runs the read.** A video whose captions or CDN links
+  changed since the drop is read fresh; nothing from the dropped attempt is
+  reused except the take.
+- **The grader nag is untouched.** Step 3 unblocks none of the six owner
+  items stuck today: all sit on "grader bounce, twice" or "transcript
+  junk". Image carousels and silent reels still hit "transcript junk: no
+  captions and no transcript", because the gate treats any post without
+  speech that way; a gate change is a separate decision.
+
+### The quality instrument
+
+`scripts/ingest_quality.py` reads the ledger read-only and splits items by
+their first take (words, reflex with no words, none). Baseline on a copy
+of the ledger taken when step 3 shipped (all non-grandfathered items):
+
+| cohort | items | enriched | first-round pass | enrich calls per item | bounce asks per item | landed by grader | landed by owner override |
+|---|---|---|---|---|---|---|---|
+| words | 24 | 23 | 0% | 3.8 | 1.61 | 6 | 11 |
+| reflex, no words | 6 | 6 | 0% | 3.7 | 1.83 | 0 | 6 |
+| no take | 29 | 0 | | | | | |
+
+Top bounce checks: Grounding 51, concept grounding 25, Key moments 24,
+What I do not want 21, Tags 12. Intent asks by surface: sync 38,
+grandfathered 6, cli 4, hub 1. Expiries 25, never presented 12, stuck
+parks 0, duplicate identities 0. Connections answers: approve 19, none 1,
+strike some 1.
+
+After about 15 deliberate silent captures have been enriched:
+
+```
+uv run python scripts/ingest_quality.py --since <ship date>
+```
+
+Regression means any of: the "reflex, no words" cohort's bounce asks per
+item or override share rising above the words cohort's by more than the
+baseline gap; a duplicate identity above 0; a stuck park; an expiry with
+`presented_at` NULL; a revival by an actor other than owner. `ytk eval`
+(retrieval) is untouched by step 3 and must stay green. With cohorts this
+small the instrument catches large regressions only.
 
 ### Tests that pin it
 
-- cli capture without a note: one reflex take with empty text, surface cli;
-  `read_item` returns no ask, state `read`; the tick routes it to advance.
-- hub `ingest_via_cli(url, "")` and a bare `$$` link: the same.
-- sync, `feed` and `reels --all` without a note: no take, intent ask raised
-  (the existing `test_clean_read_without_take_raises_intent_ask` stays green).
-- cli with `--note`: an intent take with the text (existing).
-- duplicate silent owner capture of a kept item: no new take.
-- duplicate owner capture with an open intent ask: an answers row, next
-  tick `answered`, the sweep never expires it.
-- `retry_parked` on an owner item with a reflex take: back to `read`, no
-  intent ask.
-- quality gate still first: an owner capture with a junk transcript gets
-  "transcript junk", not skipped.
-- expiry: an ask with `presented_at` NULL never expires; one presented 8
-  days ago does.
-
-### How to know it held (after shipping)
-
-```sql
--- deliberate surfaces raise no intent asks; passive ones one per capture
-SELECT i.provenance, count(DISTINCT i.id) captured,
-       count(a.id) FILTER (WHERE a.kind = 'intent missing') intent_asks
-FROM items i LEFT JOIN asks a ON a.item_id = i.id
-WHERE i.captured_at >= :ship GROUP BY 1;
-
--- no new stuck parks (selector and verb disagreeing would show here)
-SELECT count(*) FROM activity WHERE reason = 'stuck' AND at >= :ship;
-
--- nothing expires unseen, nothing with a take expires
-SELECT a.item_id FROM activity a
-JOIN asks k ON k.item_id = a.item_id AND k.kind = 'intent missing'
-LEFT JOIN outbox o ON o.ask_id = k.id
-WHERE a.action = 'expire' AND a.at >= :ship
-  AND (o.presented_at IS NULL OR EXISTS (SELECT 1 FROM takes t WHERE t.item_id = a.item_id));
-```
-
-Expected: `cli` and `hub` rows with zero intent asks, zero stuck parks, no
-rows from the third query.
-
-Step 3 alone unblocks none of the six owner items stuck today: all six sit
-on "grader bounce, twice" or "transcript junk".
+`tests/test_capture_deliberate.py` (silent adds, per-source adds, hub
+pick, quality gate first, passive surfaces, agent shell, answer, revive,
+passive never revives, kept item untouched, identity across shapes,
+expiry from presentation), `tests/test_reels_cli.py` (interactive pick
+deliberate, `--all` not), `tests/test_loop_sweep.py` (expiry ages the
+presentation). Mutation check: each of the ten behaviors above, removed
+one at a time, fails at least one test.
 
 ## Step 4: the grader, the larger nag
 
@@ -196,14 +234,12 @@ are in the ledger), then decide between audit and one round on the number.
   daily use for a while.
 - `ytk gc` learns to prune `evidence/fetch/` (kept videos, storyboards,
   close-ups), never an entry a ledger bundle points into.
-- Instagram image carousels through the fetch layer.
 - Measure a larger or MLX Whisper against base int8 on ten reels before
   changing the model.
 
 ## Order
 
-1. Merge the fetch layer (owner's go).
-2. Step 3, after the four decisions above: one change plus two fixes, each
-   with its tests.
+1. Merge the fetch layer and step 3 (owner's go; same branch).
+2. Run the quality instrument after about 15 deliberate silent captures.
 3. Step 4 calibration, then the grader decision.
 4. Step 5 as daily use asks for it.
