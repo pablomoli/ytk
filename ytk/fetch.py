@@ -356,13 +356,21 @@ def _video_post(
         "format": "best[ext=mp4]/best",
         "outtmpl": str(d / "video.%(ext)s"),
     }
-    profile = zen_profile() if source == "instagram" else None
-    if profile is not None:
-        # Browser cookies, never an instagrapi login: repeated logins are what
-        # got the account flagged for automation (2026-08-14).
-        opts["cookiesfrombrowser"] = ("firefox", str(profile), None, None)
+    if source == "instagram":
+        # Image posts and carousels have no video format; without this flag
+        # yt-dlp raises before returning the slides.
+        opts["ignore_no_formats_error"] = True
+        profile = zen_profile()
+        if profile is not None:
+            # Browser cookies, never an instagrapi login: repeated logins are what
+            # got the account flagged for automation (2026-08-14).
+            opts["cookiesfrombrowser"] = ("firefox", str(profile), None, None)
     with _timed(timings, "download"), _ydl(opts) as ydl:
-        info = cast(dict[str, Any], ydl.extract_info(url, download=True))
+        info = cast(dict[str, Any], ydl.extract_info(url, download=False))
+        if not _is_slides(info):
+            info = cast(dict[str, Any], ydl.process_ie_result(info, download=True))
+    if _is_slides(info):
+        return _slides(url, d, info, timings, opts)
     videos = sorted(d.glob("video.*"))
     if not videos:
         raise FetchError("the download produced no video file")
@@ -411,6 +419,8 @@ def _video_post(
         if result.error:
             gaps.append(f"transcription failed: {result.error}")
     text = cast(str | None, info.get("description"))
+    from .gatherers import _save_thumbnail  # pyright: ignore[reportPrivateUsage]
+
     bundle = EvidenceBundle(
         source=source,
         url=url,
@@ -427,12 +437,163 @@ def _video_post(
         uploader=info.get("uploader") or info.get("channel"),
         upload_date=info.get("upload_date"),
         duration=duration,
-        thumbnail=info.get("thumbnail"),
+        # Instagram and TikTok CDN links expire within days.
+        thumbnail=_save_thumbnail(url, cast(str | None, info.get("thumbnail")), gaps),
         dense_frames=dense,
         sheet=sheet,
         frame_ruler=ruler,
     )
     return bundle, {"video": str(video), "needs_whisper": needs_whisper}
+
+
+def _is_slides(info: dict[str, Any]) -> bool:
+    return info.get("_type") == "playlist" or not info.get("formats")
+
+
+def _largest_image(entry: dict[str, Any]) -> str | None:
+    thumbs = cast(list[dict[str, Any]], entry.get("thumbnails") or [])
+    sized = [t for t in thumbs if t.get("url")]
+    if sized:
+        best = max(sized, key=lambda t: int(t.get("width") or 0) * int(t.get("height") or 0))
+        return str(best["url"])
+    return cast(str | None, entry.get("thumbnail"))
+
+
+def _slides(
+    url: str,
+    d: Path,
+    info: dict[str, Any],
+    timings: dict[str, float],
+    opts: dict[str, Any],
+) -> tuple[EvidenceBundle, dict[str, Any]]:
+    """An image post or carousel: each slide at the largest size offered
+    (1080 px on the posts measured), tiled into the sheet. Video slides are
+    downloaded and transcribed end to end, one timeline across the post."""
+    from .vision import TimedFrame, contact_sheet
+
+    entries = cast(list[dict[str, Any]], info.get("entries") or [info])
+    slides_dir = d / "slides"
+    slides_dir.mkdir(parents=True, exist_ok=True)
+    gaps: list[str] = []
+
+    def image(item: tuple[int, dict[str, Any]]) -> Path | str:
+        i, entry = item
+        src = _largest_image(entry)
+        if src is None:
+            return f"slide {i + 1} offered no image"
+        p = slides_dir / f"slide-{i + 1:02d}.jpg"
+        try:
+            p.write_bytes(_get(src))
+        except Exception as exc:
+            return f"slide {i + 1} could not be read: {exc}"
+        return p
+
+    videos = [(i, e) for i, e in enumerate(entries) if e.get("formats")]
+    seconds = sum(float(e.get("duration") or 0) for _, e in videos)
+    transcribe = 0 < seconds <= SYNC_WHISPER_MAX_S
+
+    def clip(item: tuple[int, dict[str, Any]]) -> Path | str:
+        i, entry = item
+        stem = f"slide-{i + 1:02d}"
+        try:
+            with _ydl(opts | {"outtmpl": str(slides_dir / f"{stem}.%(ext)s")}) as ydl:
+                ydl.process_ie_result(entry, download=True)
+        except Exception as exc:
+            return f"slide {i + 1} video could not be downloaded: {exc}"
+        got = [p for p in slides_dir.glob(f"{stem}.*") if p.suffix != ".jpg"]
+        return got[0] if got else f"slide {i + 1} video download produced no file"
+
+    with _timed(timings, "slides"), ThreadPoolExecutor(8) as pool:
+        got = list(pool.map(image, enumerate(entries)))
+        clips = list(pool.map(clip, videos)) if transcribe else []
+    slides: list[Path] = []
+    for r in got:
+        if isinstance(r, str):
+            gaps.append(r)
+        else:
+            slides.append(r)
+    if not slides:
+        raise FetchError("the post offered no readable slide")
+    if videos and not transcribe:
+        gaps.append(f"{len(videos)} video slides ({seconds:.0f} s) not transcribed: covers only")
+    segments, status, complete = _slide_transcripts(videos, clips, gaps, timings)
+    complete = complete and len(slides) == len(entries) and (transcribe or not videos)
+    sheet: str | None = None
+    with _timed(timings, "sheet"):
+        tiles = [TimedFrame(t=float(i), data=p.read_bytes()) for i, p in enumerate(slides)]
+        stamps = [p.stem.replace("-", " ") for p in slides]
+        data = contact_sheet(tiles, label="", across=min(4, len(tiles)), tile_w=480, stamps=stamps)
+        if data:
+            (d / "sheet.jpg").write_bytes(data)
+            sheet = str(d / "sheet.jpg")
+    caption = cast(str | None, info.get("description"))
+    bundle = EvidenceBundle(
+        source="instagram",
+        url=url,
+        title=info.get("title") or info.get("uploader"),
+        transcript=segments,
+        transcript_origin="whisper" if segments else "none",
+        transcript_language=None,
+        transcript_status=status,
+        caption=caption,
+        frames=[str(p) for p in slides],
+        gaps=gaps,
+        media_id=info.get("id"),
+        uploader=info.get("uploader") or info.get("channel"),
+        upload_date=info.get("upload_date"),
+        duration=seconds or None,
+        thumbnail=str(slides[0]),
+        sheet=sheet,
+    )
+    return bundle, {"slides": [str(p) for p in slides], "slides_complete": complete}
+
+
+def _slide_transcripts(
+    videos: list[tuple[int, dict[str, Any]]],
+    clips: list[Path | str],
+    gaps: list[str],
+    timings: dict[str, float],
+) -> tuple[list[dict[str, Any]], str, bool]:
+    """One timeline across the video slides, in slide order; each slide's
+    first line names it, so a timestamp maps back to its slide."""
+    from .transcript import WhisperModel, transcribe_file
+
+    if not clips:
+        return [], "none", True
+    model: Any = None
+    segments: list[dict[str, Any]] = []
+    statuses: list[str] = []
+    complete = True
+    offset = 0.0
+    with _timed(timings, "whisper"):
+        for (i, entry), c in zip(videos, clips, strict=True):
+            if isinstance(c, str):
+                gaps.append(c)
+                complete = False
+            else:
+                if model is None:
+                    try:
+                        model = WhisperModel("base", device="cpu", compute_type="int8")
+                    except Exception as exc:
+                        gaps.append(f"whisper could not load: {exc}")
+                        return [], "failed", False
+                result = transcribe_file(c, model=model)
+                statuses.append(result.status)
+                if result.error:
+                    gaps.append(f"slide {i + 1} transcription failed: {result.error}")
+                    complete = False
+                for k, seg in enumerate(result.segments):
+                    text = str(seg.get("text", ""))
+                    segments.append(
+                        seg
+                        | {
+                            "start": float(seg.get("start") or 0) + offset,
+                            "text": f"[slide {i + 1}] {text}" if k == 0 else text,
+                        }
+                    )
+            offset += float(entry.get("duration") or 0)
+    status = "ok" if segments else ("no_speech" if "no_speech" in statuses else "failed")
+    return segments, status, complete
 
 
 # ---------------------------------------------------------------------------
@@ -660,6 +821,10 @@ def adoptable_bundle(url: str) -> EvidenceBundle | None:
     f = _load(url, fetch_dir() / cache_key(url))
     if f is None:
         return None
+    if f.meta.get("slides"):
+        # A carousel missing a slide or a video's words would hand the
+        # curator less than its own gatherer reads.
+        return f.bundle if f.meta.get("slides_complete") else None
     if f.bundle.source in _VIDEO and f.bundle.transcript_status not in ("ok", "no_speech"):
         return None
     return f.bundle
@@ -896,10 +1061,16 @@ def render(f: Fetched, cap_chars: int | None = None) -> str:
         lines.append(f"Transcript: {b.transcript_origin}{lang}, {len(b.transcript)} lines")
     elif f.pending:
         lines.append(f"Transcript: pending, {f.pending}. Fetch again for it.")
-    elif b.source != "web":
+    elif b.source != "web" and not f.meta.get("slides"):
         lines.append(f"Transcript: none ({b.transcript_status})")
     grid = cast(dict[str, Any] | None, f.meta.get("storyboard"))
-    if b.sheet:
+    slides = cast(list[str], f.meta.get("slides") or [])
+    if slides:
+        lines.append(
+            f"Slides: {len(slides)} at full size in {Path(slides[0]).parent}; "
+            f"sheet {b.sheet} (tile labels are slide numbers)."
+        )
+    elif b.sheet:
         if grid:
             shown = min(SHEET_TILES, int(grid["tiles"]))
             every = float(b.duration or 0) / max(1, shown)

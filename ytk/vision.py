@@ -408,6 +408,7 @@ def contact_sheet(
     tile_w: int = 320,
     label_h: int = 18,
     quality: int = 80,
+    stamps: list[str] | None = None,
 ) -> bytes | None:
     """Tile the tier six across with a stamped strip above each frame, so a
     whole item reads in one look and only the sharp frames get opened."""
@@ -431,7 +432,8 @@ def contact_sheet(
     for i, (tile, f) in enumerate(zip(tiles, frames, strict=True)):
         x = (i % across) * tile_w
         y = (i // across) * (tile_h + label_h)
-        draw.text((x + 4, y + 2), f"{label} t={int(f.t)}s", fill=(255, 255, 255), font=font)
+        stamp = stamps[i] if stamps else f"{label} t={int(f.t)}s"
+        draw.text((x + 4, y + 2), stamp, fill=(255, 255, 255), font=font)
         sheet.paste(tile, (x, y + label_h))
     buf = io.BytesIO()
     sheet.save(buf, format="JPEG", quality=quality)

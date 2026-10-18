@@ -124,7 +124,7 @@ def _download_audio(url: str) -> Path:
     return downloaded
 
 
-def WhisperModel(model_name: str, **kwargs):
+def WhisperModel(model_name: str, **kwargs: Any):
     """Lazy import of faster_whisper.WhisperModel."""
     from faster_whisper import WhisperModel as _WM
 
@@ -161,18 +161,22 @@ class TranscriptionResult:
     error: str | None = None
 
 
-def transcribe_file(media_path: Path, whisper_model: str = "base") -> TranscriptionResult:
+def transcribe_file(
+    media_path: Path, whisper_model: str = "base", *, model: Any = None
+) -> TranscriptionResult:
     """Transcribe an already-downloaded audio/video file with faster-whisper.
 
     Never downloads anything and never raises: media supplied by any ingest
     pipeline (Instagram reel MP4, TikTok audio) is transcribed in place.
+    `model` reuses a loaded model across files; each load costs about 3 s.
     """
     try:
         if not Path(media_path).is_file():
             raise FileNotFoundError(f"media file not found: {media_path}")
         if not _has_audio_stream(media_path):
             return TranscriptionResult(segments=[], status="no_speech")
-        model = WhisperModel(whisper_model, device="cpu", compute_type="int8")
+        if model is None:
+            model = WhisperModel(whisper_model, device="cpu", compute_type="int8")
         raw_segments, _ = model.transcribe(str(media_path), beam_size=5)
         segments = [
             {

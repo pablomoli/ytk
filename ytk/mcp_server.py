@@ -339,20 +339,25 @@ def view_show(item_id: int, attempt: int | None = None, full: bool = False) -> s
 # Claude Code warns past 25k tokens of MCP output; 60k characters is about 15k,
 # leaving room for the sheet. The rest of a long transcript stays on disk.
 FETCH_TEXT_CAP = 60_000
+MAX_SLIDES_SHOWN = 10
 
 
 @app.tool(structured_output=False)
 def fetch_url(url: str, refresh: bool = False) -> list[str | Image]:
     """Get any URL's content into this chat now: transcript, description or
-    caption, chapters, article body, and a contact sheet of the video. Seconds,
-    no model calls, nothing enters the vault or the curator. Cached per URL;
-    `refresh` re-fetches. When captions are missing the transcript is made
+    caption, chapters, article body, and a contact sheet of the video (or the
+    slides of an image post, at full size). Seconds, no model calls, nothing
+    enters the vault or the curator. Cached per URL; `refresh` re-fetches. When captions are missing the transcript is made
     locally in the background: fetch again later to get it."""
     from . import fetch
 
     f = fetch.fetch(url, refresh=refresh)
     out: list[str | Image] = [fetch.render(f, cap_chars=FETCH_TEXT_CAP)]
-    if f.bundle.sheet:
+    slides: list[str] = f.meta.get("slides") or []
+    if slides and len(slides) <= MAX_SLIDES_SHOWN:
+        # A slide's text is the post's content; the sheet would shrink it.
+        out.extend(Image(path=p) for p in slides)
+    elif f.bundle.sheet:
         out.append(Image(path=f.bundle.sheet))
     return out
 

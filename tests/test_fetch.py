@@ -402,12 +402,12 @@ def test_web_keeps_code_and_resolves_image_links():
 
 
 @contextmanager
-def _reel_net(source_url: str, duration: float = 6.0):
+def _reel_net(source_url: str, duration: float = 6.0, thumbnail: str | None = None):
     """yt-dlp 'downloads' a generated test video; Whisper is faked."""
     calls: list[dict[str, Any]] = []
 
     class _YDL(_FakeYDL):
-        def extract_info(self, url: str, download: bool = False) -> dict[str, Any]:
+        def process_ie_result(self, info: dict[str, Any], download: bool = True) -> dict[str, Any]:
             out = Path(self.opts["outtmpl"].replace("%(ext)s", "mp4"))
             subprocess.run(
                 [
@@ -423,7 +423,8 @@ def _reel_net(source_url: str, duration: float = 6.0):
                 ],
                 check=True,
             )
-            return super().extract_info(url, download)
+            self.calls.append({"processed": True, "download": download})
+            return info
 
     info = {
         "id": "Dc6",
@@ -431,6 +432,8 @@ def _reel_net(source_url: str, duration: float = 6.0):
         "uploader": "someone",
         "duration": duration,
         "description": "the caption #tag",
+        "formats": [{"format_id": "mp4"}],
+        "thumbnail": thumbnail,
     }
     said = TranscriptionResult(
         segments=[{"start": 0.0, "duration": 2.0, "text": "said"}], status="ok"
@@ -461,6 +464,22 @@ def test_reel_keeps_its_video_and_reads_caption_frames_and_speech():
         assert im.size == (320, 240)  # the kept video's own resolution
     with Image.open(F.span_sheet(f, 0, 6)) as im:
         assert im.width == 6 * 320
+
+
+@needs_ffmpeg
+def test_a_post_cover_is_kept_locally_because_cdn_links_expire():
+    url = "https://www.instagram.com/reel/Dc6/"
+    cover = "https://scontent.cdninstagram.com/cover.jpg"
+    saved: list[str] = []
+
+    def download(src: str, dest: Path) -> None:
+        saved.append(src)
+        dest.write_bytes(b"jpg")
+
+    with _reel_net(url, thumbnail=cover), patch("ytk.gatherers._download_image", download):
+        f = F.fetch(url)
+    assert saved == [cover]
+    assert f.bundle.thumbnail and Path(f.bundle.thumbnail).is_file()
 
 
 @needs_ffmpeg
@@ -768,3 +787,142 @@ def test_one_failed_closeup_keeps_the_others():
         shots = F.closeups(f, [10, 50])
     assert isinstance(shots[0][1], Path)
     assert shots[1] == (50, "no clip downloaded at 50.0s")
+
+
+# ------------------------------------------------- image posts and carousels
+
+
+def _slide_jpeg(color: tuple[int, int, int]) -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (108, 108), color).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+def _entry(i: int, *, video: float | None = None) -> dict[str, Any]:
+    e: dict[str, Any] = {
+        "id": f"s{i}",
+        "thumbnails": [
+            {"url": f"img://{i}/small", "width": 150, "height": 150},
+            {"url": f"img://{i}/large", "width": 1080, "height": 1080},
+        ],
+    }
+    if video is not None:
+        e |= {"formats": [{"format_id": "mp4"}], "duration": video}
+    return e
+
+
+@contextmanager
+def _carousel_net(entries: list[dict[str, Any]], *, broken: set[int] | None = None):
+    """The post as yt-dlp reports a carousel: a playlist with no formats of
+    its own. Video slides 'download' a stub file; Whisper is faked."""
+    calls: list[dict[str, Any]] = []
+    info = {
+        "_type": "playlist",
+        "id": "DeA",
+        "title": "Post by someone",
+        "uploader": "someone",
+        "description": "the caption",
+        "entries": entries,
+    }
+
+    class _YDL(_FakeYDL):
+        def process_ie_result(self, entry: dict[str, Any], download: bool = True) -> None:
+            Path(self.opts["outtmpl"].replace("%(ext)s", "mp4")).write_bytes(b"v")
+            self.calls.append({"slide": entry["id"]})
+
+    def get(url: str) -> bytes:
+        assert url.endswith("/large"), url  # the largest size offered
+        i = int(url.split("/")[2])
+        if broken and i in broken:
+            raise OSError("cdn said no")
+        return _slide_jpeg((40 * i, 80, 120))
+
+    def said(path: Path, *a: Any, **kw: Any) -> TranscriptionResult:
+        return TranscriptionResult(
+            segments=[
+                {"start": 1.0, "duration": 1.0, "text": f"in {path.stem}"},
+                {"start": 2.0, "duration": 1.0, "text": "more"},
+            ],
+            status="ok",
+        )
+
+    with (
+        patch.object(F, "_ydl", lambda opts: _YDL(info, calls, opts)),
+        patch.object(F, "_get", get),
+        patch.object(F, "zen_profile", return_value=Path("/zen/profile")),
+        patch("ytk.transcript.transcribe_file", said),
+        patch("ytk.transcript.WhisperModel", lambda *a, **kw: object()),
+    ):
+        yield calls
+
+
+POST = "https://www.instagram.com/p/DeA/"
+
+
+def test_a_carousel_is_its_slides_and_caption():
+    with _carousel_net([_entry(1), _entry(2), _entry(3)]) as calls:
+        f = F.fetch(POST)
+    b = f.bundle
+    assert calls[0]["ignore_no_formats_error"] is True
+    assert calls[0]["download"] is False
+    assert [Path(p).name for p in b.frames] == ["slide-01.jpg", "slide-02.jpg", "slide-03.jpg"]
+    assert (b.caption, b.transcript, b.gaps) == ("the caption", [], [])
+    assert b.thumbnail == b.frames[0]  # local: the CDN link would expire
+    with Image.open(b.sheet) as im:
+        assert im.width == 3 * 480
+    assert f.meta["slides_complete"] is True
+    assert F.adoptable_bundle(POST) is not None
+    head = F.render(f).split("\n\n")[0]
+    assert "Slides: 3" in head and "Transcript" not in head
+
+
+def test_a_single_image_post_is_a_one_slide_carousel():
+    single = _entry(1) | {"title": "Post by someone", "description": "solo"}
+    with _carousel_net([]) as _, patch.object(F, "_ydl", lambda opts: _FakeYDL(single, [], opts)):
+        f = F.fetch(POST)
+    assert len(f.bundle.frames) == 1 and f.bundle.caption == "solo"
+
+
+def test_video_slides_share_one_timeline_that_names_each_slide():
+    with _carousel_net([_entry(1), _entry(2, video=10.0), _entry(3, video=5.0)]) as calls:
+        f = F.fetch(POST)
+    b = f.bundle
+    assert {c.get("slide") for c in calls} >= {"s2", "s3"}
+    starts = [round(seg["start"], 1) for seg in b.transcript]
+    assert starts == [1.0, 2.0, 11.0, 12.0]  # slide 3 starts after slide 2's 10 s
+    assert b.transcript[0]["text"] == "[slide 2] in slide-02"
+    assert b.transcript[2]["text"] == "[slide 3] in slide-03"
+    assert (b.transcript_status, b.duration) == ("ok", 15.0)
+    assert len(b.frames) == 3  # every slide's still is on the sheet
+    assert F.adoptable_bundle(POST) is not None
+
+
+def test_too_much_slide_video_keeps_covers_and_is_not_adopted():
+    with (
+        _carousel_net([_entry(1, video=100.0), _entry(2, video=100.0)]) as calls,
+        patch.object(F, "SYNC_WHISPER_MAX_S", 180.0),
+    ):
+        f = F.fetch(POST)
+    assert not any("slide" in c for c in calls)
+    assert any("not transcribed" in g for g in f.bundle.gaps)
+    assert f.meta["slides_complete"] is False
+    assert F.adoptable_bundle(POST) is None  # the curator's own gatherer reads it
+
+
+def test_a_missing_slide_is_a_gap_and_blocks_adoption():
+    with _carousel_net([_entry(1), _entry(2)], broken={2}):
+        f = F.fetch(POST)
+    assert len(f.bundle.frames) == 1
+    assert any("slide 2 could not be read" in g for g in f.bundle.gaps)
+    assert F.adoptable_bundle(POST) is None
+
+
+def test_mcp_fetch_url_shows_slides_at_full_size():
+    import asyncio
+
+    from ytk import mcp_server
+
+    with _carousel_net([_entry(1), _entry(2)]):
+        result = asyncio.run(mcp_server.app.call_tool("fetch_url", {"url": POST}))
+    content = result[0] if isinstance(result, tuple) else result
+    assert [c.type for c in content] == ["text", "image", "image"]

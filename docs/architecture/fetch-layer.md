@@ -19,6 +19,7 @@ directory per URL under `evidence/fetch/<key>/`:
 | `sheet.jpg` | the contact sheet |
 | `storyboard/NNN.jpg` | YouTube's storyboard grids, kept for span sheets |
 | `video.*`, `dense/`, `shown/` | reels and TikToks: the whole video and its frame tier |
+| `slides/slide-NN.jpg`, `slides/slide-NN.mp4` | image posts and carousels: each slide at full size, and video slides |
 | `closeups/`, `span-*.jpg` | what `fetch_frames` made |
 
 One writer per entry: `fetch` holds an `flock` on `<key>/.lock`, so a
@@ -75,8 +76,21 @@ cookies for Instagram, never an instagrapi login; nothing for TikTok). The
 to 180 s of media and detached past that. The video is kept, so close-ups
 are local ffmpeg reads at native resolution. The caption is the bundle's
 `caption` for Instagram and `description` for TikTok, as the gatherers file
-them. If yt-dlp fails on an Instagram post (image carousels), the error
-surfaces; the curator gatherer remains the path for those.
+them. The cover is downloaded to `evidence/thumbs/` (the gatherers' place):
+both CDNs expire their links within days.
+
+**Instagram image posts and carousels.** yt-dlp reports a post with no
+video as having no formats and, by default, raises. With
+`ignore_no_formats_error` the same one call returns the caption and every
+slide with the sizes it is offered in (13 per slide, largest 1080x1080 on
+the posts measured). Each slide is downloaded at the largest size to
+`slides/slide-NN.jpg` and tiled four across at 480 px into the sheet,
+labelled by slide number. Video slides are downloaded with the post's
+cookies and transcribed with one Whisper model, as one timeline across the
+post: the first line of each slide reads `[slide N]`. `fetch_url` returns
+up to ten slides as images at full size instead of the sheet. The curator
+adopts a carousel bundle only when every slide and every video slide's
+transcript arrived (`meta.slides_complete`).
 
 **Web.** trafilatura with formatting, tables and images kept: code fences
 survive, relative image links are resolved against the page. arXiv `/abs/`
@@ -95,6 +109,8 @@ gap says so.
 | whole YouTube fetch, warm | 2.8-5 s | 2 h 20 min video included |
 | close-up, 2 s section at <=1080p | 4-6 s each, 4 in parallel in 6 s | 4/4 including t=6000 s of a 2 h video |
 | reel/TikTok download | 0.7-3.2 s | 0.6-7 MB |
+| image carousel, 1-5 slides | 0.6-2 s | metadata 0.4-0.7 s, slides in parallel 0.14-0.4 s |
+| carousel of 7 video slides (88 s, music only) | 22-24 s | Whisper 20.6 s: about 0.23 s per second on music against 0.1 on speech; result `no_speech` |
 | reel frame tier and sheet | 0.14-0.75 s | |
 | Whisper base int8 | 3-7 s per reel; 31.7-53 s per 6.5-10.5 min video | about 0.1 s per second of media |
 | web | 0.3-2.4 s | GitHub README 128k characters, clean |
@@ -107,6 +123,9 @@ Legibility, checked by eye on the images:
 - a 1080p close-up of the same moment: every line of code reads.
 - reel sheet tiles: captions, QR examples, diagrams read; small tables are
   borderline.
+- carousel sheet tiles (480 px): book-page captions and character names
+  read; body paragraphs on a photographed page are borderline, so
+  `fetch_url` hands over the slides themselves.
 
 ## What is not possible, or not yet
 
@@ -125,7 +144,11 @@ Legibility, checked by eye on the images:
 - **Diagrams on the web.** trafilatura keeps `<img>` links but not inline
   SVG: the Pingora post has 11 `<img>` and 68 `<svg>`, 3 image links
   survive. Images are links, not fetched pixels.
-- **Instagram image carousels** are not handled by the yt-dlp path.
+- **Video slides past 180 s in total.** A carousel whose video slides add
+  up to more than `SYNC_WHISPER_MAX_S` keeps their covers only and says so
+  in the gaps; the curator then reads it with its own gatherer. No
+  background transcription for carousels yet.
+- **TikTok photo posts** are untested.
 - **Whisper quality.** Base int8 mishears names ("election apps" for
   Electron). Larger models or an MLX build would be slower or a new
   dependency; unmeasured.
