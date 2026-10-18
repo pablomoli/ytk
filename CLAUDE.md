@@ -55,6 +55,7 @@ Never leave anything uncommitted in this repo. Before ending a session, the work
 | 11 | done | `ytk memo` — voice memo capture: ffmpeg record, faster-whisper STT, Claude routing, focus-aware notify, hub POST /api/memo |
 | 12 | done | Brain map — `scripts/build_map.py` (UMAP of all text embeddings, fitted params, theme-painted) + hub `/map` canvas page |
 | 13 | done | Packet page (#213) — `/packet` track (rose, field, waves) + `/packet/<id>` page; `station_at` reconstruction in `ytk/headless.py`; answering through the outbox path |
+| 14 | done | Fetch layer — `fetch_url` / `fetch_frames` MCP tools + `ytk add` show a URL's transcript, caption and contact sheet in seconds, no model calls; the curator adopts the cache. Plan for layer two: `docs/design/ingestion/README.md` |
 
 ## Project Structure
 
@@ -83,6 +84,8 @@ ytk/
     graph.py           — HTML knowledge-graph builder
     vision.py          — frame extraction + Claude vision image blocks
     triage.py          — action-item extraction for `ytk triage`
+    fetch.py           — layer one: URL to transcript + caption + sheet in seconds, cached per URL;
+                         storyboard sheets, close-ups, detached Whisper (docs/architecture/fetch-layer.md)
     view.py            — the evidence packet (#212): one view per bundle, hashed, both readers get the same bytes
     attempt.py         — one round's record: findings in, draft out, verdict out
     headless.py        — `ytk item / ask / view / grade` and the MCP wrappers, no logic in the wrappers
@@ -97,6 +100,7 @@ ytk/
   web/src/lib/packetWaves.ts   — the waves strip: seven phosphor channels, one per station
   web/src/lib/packetModel.ts   — the track's arithmetic (log hold, walk order), tested without a canvas
   docs/architecture/
+    fetch-layer.md                — the fetch layer: what runs, measured speeds, what is not possible
     packet-page.md                — the packet page: data flow, the reconstruction's cases, the three instruments
     cli-decomposition.md          — witness-first extraction map for `ytk/cli.py`
     map-renderer-decomposition.md — resource ownership and extraction map for the WebGL renderer
