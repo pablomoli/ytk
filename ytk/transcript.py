@@ -12,6 +12,7 @@ import stat
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from youtube_transcript_api import (
     NoTranscriptFound,
@@ -59,12 +60,17 @@ def prune_audio_cache(
     return pruned
 
 
-def _video_id(url: str) -> str:
-    """Extract the 11-char video ID from a YouTube URL."""
+def youtube_id(url: str) -> str | None:
+    """The 11-char video ID from any YouTube URL shape, or None."""
     match = re.search(r"(?:v=|youtu\.be/|embed/|shorts/|live/)([A-Za-z0-9_-]{11})", url)
-    if not match:
+    return match.group(1) if match else None
+
+
+def _video_id(url: str) -> str:
+    video_id = youtube_id(url)
+    if video_id is None:
         raise ValueError(f"Could not extract video ID from URL: {url}")
-    return match.group(1)
+    return video_id
 
 
 def _fetch_via_api(video_id: str) -> tuple[list[dict], str]:
@@ -150,7 +156,7 @@ class TranscriptionResult:
     broken one ("failed") so callers can report capture health truthfully.
     """
 
-    segments: list[dict]  # [{start, duration, text}]
+    segments: list[dict[str, Any]]  # [{start, duration, text}]
     status: str  # ok | no_speech | failed
     error: str | None = None
 
@@ -205,22 +211,27 @@ class TranscriptEvidence:
     The api path used to decide manual-vs-auto and throw the flag away;
     whisper used to discard its detected language."""
 
-    segments: list[dict]
+    segments: list[dict[str, Any]]
     origin: str
     language: str | None
     status: str
 
 
+def _pick_track(transcript_list: Any) -> Any:
+    """An English track, manual before auto. Prefix match, because
+    find_*(["en"]) misses en-US and en-GB; a non-English track still falls
+    through to Whisper, which hears the audio rather than a translation."""
+    english = [t for t in transcript_list if str(t.language_code).lower().startswith("en")]
+    if not english:
+        raise NoTranscriptFound("", ["en"], transcript_list)
+    return min(english, key=lambda t: bool(t.is_generated))
+
+
 def fetch_transcript_evidence(url: str, whisper_model: str = "base") -> TranscriptEvidence:
     video_id = _video_id(url)
     try:
-        transcript_list = YouTubeTranscriptApi().list(video_id)
-        try:
-            t = transcript_list.find_manually_created_transcript(["en"])
-            origin = "api-manual"
-        except NoTranscriptFound:
-            t = transcript_list.find_generated_transcript(["en"])
-            origin = "api-auto"
+        t = _pick_track(YouTubeTranscriptApi().list(video_id))
+        origin = "api-auto" if t.is_generated else "api-manual"
         segments = [{"start": s.start, "duration": s.duration, "text": s.text} for s in t.fetch()]
         return TranscriptEvidence(
             segments=segments,
