@@ -372,10 +372,13 @@ def fetch_frames(
 
     f = fetch.fetch(url)
     if at:
-        paths = fetch.closeups(f, at)
+        shots = fetch.closeups(f, at)
+        got = [(t, p) for t, p in shots if not isinstance(p, str)]
+        lines = [f"{t}s: {p}" for t, p in shots if isinstance(p, str)]
+        head = f"{len(got)} of {len(shots)} frames: " + ", ".join(f"{t}s" for t, _ in got)
         return [
-            f"{len(paths)} frames: " + ", ".join(f"{t}s" for t in at[: len(paths)]),
-            *(Image(path=str(p)) for p in paths),
+            "\n".join([head, *(f"failed at {line}" for line in lines)]),
+            *(Image(path=str(p)) for _, p in got),
         ]
     lo = start or 0.0
     hi = end if end is not None else float(f.bundle.duration or 0)

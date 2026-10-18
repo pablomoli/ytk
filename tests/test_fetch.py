@@ -289,9 +289,11 @@ def test_a_dead_background_run_is_reported_not_waited_on():
 
 
 def test_the_background_half_writes_the_transcript_back():
+    import os
+
     with (
         _youtube_net(_info(), caption=RuntimeError("HTTP Error 429")),
-        patch.object(F, "_spawn", return_value=4242),
+        patch.object(F, "_spawn", return_value=os.getpid()),
     ):
         f = F.fetch(YT)
     heard = TranscriptionResult(
@@ -454,7 +456,8 @@ def test_reel_keeps_its_video_and_reads_caption_frames_and_speech():
     assert len(b.dense_frames) == 3 and len(b.frames) >= 1
     assert Path(f.meta["video"]).is_file()
     shots = F.closeups(f, [1.0, 4.5])
-    with Image.open(shots[0]) as im:
+    assert [t for t, _ in shots] == [1.0, 4.5]
+    with Image.open(shots[0][1]) as im:
         assert im.size == (320, 240)  # the kept video's own resolution
     with Image.open(F.span_sheet(f, 0, 6)) as im:
         assert im.width == 6 * 320
@@ -606,3 +609,162 @@ def test_mcp_fetch_frames_returns_a_span_sheet():
         )
     content = result[0] if isinstance(result, tuple) else result
     assert [c.type for c in content] == ["text", "image"]
+
+
+# ------------------------------------------- review findings, pinned (2026-10-18)
+
+
+def test_our_own_finished_child_is_not_alive():
+    # A zombie answers kill(pid, 0); the MCP server would say "pending" forever.
+    import time
+
+    pid = F._spawn(["/usr/bin/true"], Path("/dev/null"))
+    deadline = time.monotonic() + 10
+    while F._alive(pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not F._alive(pid)
+
+
+def test_pid_zero_is_never_alive():
+    assert not F._alive(0)
+
+
+def _pending_entry(pid: int):
+    with (
+        _youtube_net(_info(), caption=RuntimeError("HTTP Error 429")),
+        patch.object(F, "_spawn", return_value=pid),
+    ):
+        return F.fetch(YT)
+
+
+def test_a_failing_background_run_records_the_failure():
+    import os
+
+    f = _pending_entry(os.getpid())
+    with patch("ytk.transcript._download_audio", side_effect=RuntimeError("private video")):
+        F.transcribe_into(f.dir)
+    meta = json.loads((f.dir / "meta.json").read_text())
+    assert meta["whisper"]["status"] == "failed" and meta["whisper"]["done_at"]
+    assert (
+        "transcription failed: private video"
+        in json.loads((f.dir / "bundle.json").read_text())["gaps"]
+    )
+
+
+def test_a_result_for_a_refetched_entry_is_dropped():
+    f = _pending_entry(1)  # the entry belongs to another run, not this process
+    heard = TranscriptionResult(
+        segments=[{"start": 0.0, "duration": 1.0, "text": "stale"}], status="ok"
+    )
+    with (
+        patch("ytk.transcript._download_audio", return_value=Path("/tmp/a.m4a")),
+        patch("ytk.transcript.transcribe_file", return_value=heard),
+    ):
+        F.transcribe_into(f.dir)
+    assert json.loads((f.dir / "bundle.json").read_text())["transcript"] == []
+
+
+def test_refresh_keeps_a_running_transcription_instead_of_starting_another():
+    _pending_entry(4242)
+    spawned: list[list[str]] = []
+    with (
+        _youtube_net(_info(), caption=RuntimeError("HTTP Error 429")),
+        patch.object(F, "_spawn", lambda args, log: spawned.append(args) or 5555),
+        patch.object(F, "_alive", return_value=True),
+    ):
+        f = F.fetch(YT, refresh=True)
+    assert spawned == []
+    assert f.meta["whisper"]["pid"] == 4242
+
+
+def test_an_unreadable_entry_is_fetched_again():
+    with _youtube_net(_info()):
+        f = F.fetch(YT)
+    (f.dir / "meta.json").write_text('{"url": ')
+    with _youtube_net(_info(title="Again")):
+        g = F.fetch(YT)
+    assert not g.cached and g.bundle.title == "Again"
+    assert F.adoptable_bundle(YT) is not None
+
+
+def test_writes_leave_no_temp_files():
+    with _youtube_net(_info()):
+        f = F.fetch(YT)
+    assert not list(f.dir.glob(".*.tmp"))
+
+
+def test_refresh_drops_looks_cut_from_the_old_download():
+    with _youtube_net(_info()):
+        f = F.fetch(YT)
+    old = F.span_sheet(f, 10, 30)
+    (f.dir / "closeups").mkdir(exist_ok=True)
+    (f.dir / "closeups" / "t000012.0.jpg").write_bytes(b"x")
+    with _youtube_net(_info()):
+        F.fetch(YT, refresh=True)
+    assert not old.exists() and not (f.dir / "closeups").exists()
+
+
+def test_a_span_inside_one_tile_shows_that_tile():
+    with _youtube_net(_info()):
+        f = F.fetch(YT)
+    picked: list[list[int]] = []
+    real = F._tiles_sheet
+
+    def spy(board_dir, grid, indices, label):
+        picked.append(indices)
+        return real(board_dir, grid, indices, label)
+
+    with patch.object(F, "_tiles_sheet", spy):
+        F.span_sheet(f, 11, 13)  # tiles are 5 s apart: the one at 10 s shows 11-13 s
+    assert picked == [[2]]
+
+
+def test_a_span_must_run_forward():
+    with _youtube_net(_info()):
+        f = F.fetch(YT)
+    with pytest.raises(F.FetchError):
+        F.span_sheet(f, 30, 10)
+
+
+@needs_ffmpeg
+def test_closeups_in_the_same_second_do_not_share_a_download():
+    class _ClipYDL(_FakeYDL):
+        def extract_info(self, url: str, download: bool = False) -> dict[str, Any]:
+            out = Path(self.opts["outtmpl"].replace("%(ext)s", "mp4"))
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "testsrc=duration=1:size=64x48:rate=5",
+                    str(out),
+                ],
+                check=True,
+            )
+            return {}
+
+    with _youtube_net(_info()):
+        f = F.fetch(YT)
+    with patch.object(F, "_ydl", lambda opts: _ClipYDL({}, [], opts)):
+        shots = F.closeups(f, [12.3, 12.7])
+    assert all(not isinstance(p, str) and p.is_file() for _, p in shots)
+
+
+def test_one_failed_closeup_keeps_the_others():
+    with _youtube_net(_info()):
+        f = F.fetch(YT)
+
+    def fake(url: str, t: float, out: Path) -> Path:
+        if t == 50:
+            raise F.FetchError("no clip downloaded at 50.0s")
+        out.write_bytes(_grid_jpeg())
+        return out
+
+    with patch.object(F, "_youtube_closeup", fake):
+        shots = F.closeups(f, [10, 50])
+    assert isinstance(shots[0][1], Path)
+    assert shots[1] == (50, "no clip downloaded at 50.0s")

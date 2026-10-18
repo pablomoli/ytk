@@ -42,10 +42,10 @@ SHEET_TILES = 48
 SPAN_TILES = 60
 MAX_CLOSEUPS = 6
 CLOSEUP_HEIGHT = 1080
-# Reels measured 3-5 s of Whisper (base, int8, M3). Anything longer would
-# hold the caller, so it transcribes in a detached process instead.
+# Media longer than this transcribes in a detached process: in-process it
+# would hold the caller for most of a minute.
 SYNC_WHISPER_MAX_S = 180.0
-# Measured end to end on a 10 min video: 49.8 s including the audio download.
+# Only feeds the "about N s" the reader is shown.
 WHISPER_SECONDS_PER_SECOND = 0.1
 PARAGRAPH_S = 30.0
 HTTP_TIMEOUT = 20
@@ -530,19 +530,53 @@ _GATHER: dict[str, Gatherer] = {
 }
 
 
+def _atomic(path: Path, text: str) -> None:
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
+
+
 def _write(f: Fetched) -> None:
     f.dir.mkdir(parents=True, exist_ok=True)
-    (f.dir / "bundle.json").write_text(json.dumps(asdict(f.bundle), indent=1))
-    (f.dir / "meta.json").write_text(json.dumps(f.meta, indent=1))
-    f.content_path.write_text(render(f))
+    _atomic(f.dir / "bundle.json", json.dumps(asdict(f.bundle), indent=1))
+    _atomic(f.content_path, render(f))
+    # Last: an entry with meta.json is complete.
+    _atomic(f.dir / "meta.json", json.dumps(f.meta, indent=1))
 
 
-def _load(url: str, d: Path) -> Fetched:
-    meta = cast(dict[str, Any], json.loads((d / "meta.json").read_text()))
-    return Fetched(url=url, dir=d, bundle=load_bundle(d / "bundle.json"), meta=meta, cached=True)
+@contextmanager
+def _locked(d: Path) -> Generator[None]:
+    """One writer per entry: a second fetch of the URL waits, then reads."""
+    import fcntl
+
+    d.mkdir(parents=True, exist_ok=True)
+    with open(d / ".lock", "a") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def _load(url: str, d: Path) -> Fetched | None:
+    """None for a missing or unreadable entry, which is then fetched again."""
+    try:
+        meta = cast(dict[str, Any], json.loads((d / "meta.json").read_text()))
+        bundle = load_bundle(d / "bundle.json")
+    except (OSError, ValueError, TypeError):
+        return None
+    return Fetched(url=url, dir=d, bundle=bundle, meta=meta, cached=True)
 
 
 def _alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        # Reaps a finished child of this process: a zombie answers kill(0).
+        done, _ = os.waitpid(pid, os.WNOHANG)
+        return done == 0
+    except ChildProcessError:
+        pass
     try:
         os.kill(pid, 0)
     except OSError:
@@ -550,10 +584,17 @@ def _alive(pid: int) -> bool:
     return True
 
 
+def _whisper_running(f: Fetched | None) -> dict[str, Any] | None:
+    w = cast(dict[str, Any], (f.meta.get("whisper") if f else None) or {})
+    if w and not w.get("done_at") and _alive(int(w.get("pid") or 0)):
+        return w
+    return None
+
+
 def _settle_whisper(f: Fetched) -> None:
     """A background run that died without writing back is said, not waited on."""
     w = cast(dict[str, Any], f.meta.get("whisper") or {})
-    if w and not w.get("done_at") and not _alive(int(w.get("pid") or 0)):
+    if w and not w.get("done_at") and _whisper_running(f) is None:
         w["done_at"] = _now()
         w["status"] = "died"
         f.bundle.gaps.append(
@@ -581,45 +622,58 @@ def _start_whisper(f: Fetched) -> None:
     }
 
 
+def _clear_looks(d: Path) -> None:
+    """Close-ups and span sheets are cut from the old download."""
+    import shutil
+
+    for p in d.glob("span-*.jpg"):
+        p.unlink()
+    shutil.rmtree(d / "closeups", ignore_errors=True)
+
+
 def fetch(url: str, *, refresh: bool = False, whisper: bool = True) -> Fetched:
     url = url.strip()
     d = fetch_dir() / cache_key(url)
-    if not refresh and (d / "bundle.json").exists() and (d / "meta.json").exists():
-        f = _load(url, d)
-        _settle_whisper(f)
-        return f
-    d.mkdir(parents=True, exist_ok=True)
-    source = classify_url(url)
-    timings: dict[str, float] = {}
-    t0 = time.monotonic()
-    gather = _GATHER.get(source)
-    if gather is not None:
-        bundle, meta = gather(url, d, timings)
-    else:
-        from . import gatherers
-        from .evidence import GATHERERS
+    with _locked(d):
+        old = _load(url, d)
+        if old is not None and not refresh:
+            _settle_whisper(old)
+            return old
+        _clear_looks(d)
+        source = classify_url(url)
+        timings: dict[str, float] = {}
+        t0 = time.monotonic()
+        gather = _GATHER.get(source)
+        if gather is not None:
+            bundle, meta = gather(url, d, timings)
+        else:
+            from . import gatherers
+            from .evidence import GATHERERS
 
-        _ = gatherers
-        with _timed(timings, "gather"):
-            bundle = GATHERERS[source](url, None)
-        meta = {}
-    timings["total"] = round(time.monotonic() - t0, 2)
-    meta |= {"url": url, "source": source, "fetched_at": _now(), "timings": timings}
-    f = Fetched(url=url, dir=d, bundle=bundle, meta=meta, cached=False)
-    if meta.get("needs_whisper") and whisper:
-        _start_whisper(f)
-    _write(f)
-    return f
+            _ = gatherers
+            with _timed(timings, "gather"):
+                bundle = GATHERERS[source](url, None)
+            meta = {}
+        timings["total"] = round(time.monotonic() - t0, 2)
+        meta |= {"url": url, "source": source, "fetched_at": _now(), "timings": timings}
+        f = Fetched(url=url, dir=d, bundle=bundle, meta=meta, cached=False)
+        if meta.get("needs_whisper") and whisper:
+            running = _whisper_running(old)
+            if running is not None:
+                f.meta["whisper"] = running
+            else:
+                _start_whisper(f)
+        _write(f)
+        return f
 
 
 def adoptable_bundle(url: str) -> EvidenceBundle | None:
     """The cached bundle for the curator's read step, or None when there is
     none or a video's transcript is missing (pending, or never came): the
     gatherer then gets its own try instead of a junk ask."""
-    d = fetch_dir() / cache_key(url)
-    if not (d / "bundle.json").exists() or not (d / "meta.json").exists():
+    f = _load(url, fetch_dir() / cache_key(url))
+    if f is None:
         return None
-    f = _load(url, d)
     if f.bundle.source in _VIDEO and f.bundle.transcript_status not in ("ok", "no_speech"):
         return None
     return f.bundle
@@ -627,24 +681,32 @@ def adoptable_bundle(url: str) -> EvidenceBundle | None:
 
 def transcribe_into(d: Path) -> None:
     """The detached half of a fetch: Whisper over the kept video, or over the
-    audio track for YouTube, written back into the same cache entry."""
+    audio track for YouTube, written back into the same cache entry. A result
+    whose entry was refetched meanwhile is dropped; the new entry owns it."""
     from .transcript import _download_audio, transcribe_file  # pyright: ignore[reportPrivateUsage]
 
     meta = cast(dict[str, Any], json.loads((d / "meta.json").read_text()))
-    f = _load(str(meta["url"]), d)
-    media = Path(meta["video"]) if meta.get("video") else _download_audio(f.url)
-    result = transcribe_file(media)
-    segments = result.segments
-    f.bundle.transcript = segments
-    f.bundle.transcript_status = result.status
-    f.bundle.transcript_origin = "whisper" if segments else "none"
-    f.bundle.gaps = [g for g in f.bundle.gaps if not g.startswith("captions could not be read")]
-    if result.error:
-        f.bundle.gaps.append(f"transcription failed: {result.error}")
-    w = cast(dict[str, Any], f.meta.get("whisper") or {})
-    w |= {"done_at": _now(), "status": result.status}
-    f.meta["whisper"] = w
-    _write(f)
+    url = str(meta["url"])
+    try:
+        media = Path(meta["video"]) if meta.get("video") else _download_audio(url)
+        result = transcribe_file(media)
+        segments, status, error = result.segments, result.status, result.error
+    except Exception as exc:
+        segments, status, error = [], "failed", str(exc)
+    with _locked(d):
+        f = _load(url, d)
+        w = cast(dict[str, Any], (f.meta.get("whisper") if f else None) or {})
+        if f is None or w.get("pid") != os.getpid():
+            return
+        f.bundle.transcript = segments
+        f.bundle.transcript_status = status
+        f.bundle.transcript_origin = "whisper" if segments else "none"
+        f.bundle.gaps = [g for g in f.bundle.gaps if not g.startswith("captions could not be read")]
+        if error:
+            f.bundle.gaps.append(f"transcription failed: {error}")
+        w |= {"done_at": _now(), "status": status}
+        f.meta["whisper"] = w
+        _write(f)
 
 
 # ---------------------------------------------------------------------------
@@ -682,7 +744,7 @@ def _ffmpeg_frame(video: Path | str, t: float, out: Path) -> Path:
 def _youtube_closeup(url: str, t: float, out: Path) -> Path:
     from yt_dlp.utils import download_range_func
 
-    clip_dir = out.parent / f"clip-{int(t)}"
+    clip_dir = out.parent / f"clip-{t:08.1f}"
     clip_dir.mkdir(parents=True, exist_ok=True)
     opts: dict[str, Any] = {
         "format": f"bestvideo[height<={CLOSEUP_HEIGHT}][ext=mp4]/bestvideo[height<={CLOSEUP_HEIGHT}]",
@@ -701,13 +763,20 @@ def _youtube_closeup(url: str, t: float, out: Path) -> Path:
     return out
 
 
-def closeups(f: Fetched, at: list[float]) -> list[Path]:
-    """Full-resolution frames at the given seconds. YouTube downloads two
-    seconds around each (4-6 s, in parallel); a reel reads its kept video."""
+def closeups(f: Fetched, at: list[float]) -> list[tuple[float, Path | str]]:
+    """Full-resolution frames at the given seconds: a path, or why that one
+    failed. YouTube downloads two seconds at each, in parallel; a reel reads
+    its kept video."""
     out_dir = f.dir / "closeups"
     out_dir.mkdir(exist_ok=True)
 
-    def one(t: float) -> Path:
+    def one(t: float) -> tuple[float, Path | str]:
+        try:
+            return t, frame(t)
+        except Exception as exc:
+            return t, str(exc)
+
+    def frame(t: float) -> Path:
         out = out_dir / f"t{t:08.1f}.jpg"
         if out.exists():
             return out
@@ -761,15 +830,19 @@ def span_sheet(f: Fetched, start: float, end: float) -> Path:
     60 frames spread over the stretch."""
     from .vision import contact_sheet
 
-    out = f.dir / f"span-{int(start)}-{int(end)}.jpg"
+    if end <= start:
+        raise FetchError(f"end ({end:.1f}s) must come after start ({start:.1f}s)")
+    out = f.dir / f"span-{start:.1f}-{end:.1f}.jpg"
     if out.exists():
         return out
     grid = cast(dict[str, Any] | None, f.meta.get("storyboard"))
     label = f.bundle.media_id or f.bundle.source
     data: bytes | None
     if grid:
-        lo = max(0, math.ceil(start / grid["interval"]))
-        hi = min(grid["tiles"] - 1, int(end / grid["interval"]))
+        # The tile showing a moment is the one at or before it.
+        last = int(grid["tiles"]) - 1
+        lo = min(last, max(0, int(start // grid["interval"])))
+        hi = min(last, max(lo, int(end // grid["interval"])))
         idx = list(range(lo, hi + 1))
         picks = [idx[i] for i in _even(len(idx), SPAN_TILES)]
         data = _tiles_sheet(f.dir / "storyboard", grid, picks, label)
