@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Image
 
 load_dotenv(Path.home() / ".ytk" / ".env")
 load_dotenv()
@@ -332,3 +332,52 @@ def view_show(item_id: int, attempt: int | None = None, full: bool = False) -> s
         return headless.view_show(conn, item_id, attempt, full=full)
     finally:
         conn.close()
+
+
+# --- the fetch layer: content now, no curator ---------------------------------
+
+# Claude Code warns past 25k tokens of MCP output; 60k characters is about 15k,
+# leaving room for the sheet. The rest of a long transcript stays on disk.
+FETCH_TEXT_CAP = 60_000
+
+
+@app.tool(structured_output=False)
+def fetch_url(url: str, refresh: bool = False) -> list[str | Image]:
+    """Get any URL's content into this chat now: transcript, description or
+    caption, chapters, article body, and a contact sheet of the video. Seconds,
+    no model calls, nothing enters the vault or the curator. Cached per URL;
+    `refresh` re-fetches. When captions are missing the transcript is made
+    locally in the background: fetch again later to get it."""
+    from . import fetch
+
+    f = fetch.fetch(url, refresh=refresh)
+    out: list[str | Image] = [fetch.render(f, cap_chars=FETCH_TEXT_CAP)]
+    if f.bundle.sheet:
+        out.append(Image(path=f.bundle.sheet))
+    return out
+
+
+@app.tool(structured_output=False)
+def fetch_frames(
+    url: str,
+    at: list[float] | None = None,
+    start: float | None = None,
+    end: float | None = None,
+) -> list[str | Image]:
+    """Look closer at a fetched video. `at` (seconds, up to 6): full-resolution
+    frames, for code, slides and diagrams the sheet is too small to read.
+    `start`/`end` (seconds): a denser sheet of that stretch. Read the times off
+    the sheet's tile labels or the transcript."""
+    from . import fetch
+
+    f = fetch.fetch(url)
+    if at:
+        paths = fetch.closeups(f, at)
+        return [
+            f"{len(paths)} frames: " + ", ".join(f"{t}s" for t in at[: len(paths)]),
+            *(Image(path=str(p)) for p in paths),
+        ]
+    lo = start or 0.0
+    hi = end if end is not None else float(f.bundle.duration or 0)
+    sheet = fetch.span_sheet(f, lo, hi)
+    return [f"Frames from {lo:.0f}s to {hi:.0f}s ({sheet})", Image(path=str(sheet))]

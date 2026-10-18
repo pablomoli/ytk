@@ -127,7 +127,9 @@ def cli():
 cli.add_command(work_command)
 
 
-def _capture_and_read(url: str, note: str, surface: str, source: str | None = None) -> None:
+def _capture_and_read(
+    url: str, note: str, surface: str, source: str | None = None, *, err: bool = False
+) -> None:
     """P5 (#197, single writer): capture into the ledger and nudge the loop.
     The CLI inserts events only; the loop reads, asks and advances. Owner
     decision 2026-08-31: return immediately, no poll."""
@@ -136,6 +138,7 @@ def _capture_and_read(url: str, note: str, surface: str, source: str | None = No
     from .ledger import connect, item_state
     from .reels import classify_url
 
+    out = Console(stderr=True) if err else console
     source = source or classify_url(url)
     conn = connect()
     try:
@@ -144,17 +147,17 @@ def _capture_and_read(url: str, note: str, surface: str, source: str | None = No
         )
         if res.duplicate:
             state = item_state(conn, res.item_id)
-            console.print(f"[yellow]Already captured[/] (item {res.item_id}, state {state})")
+            out.print(f"[yellow]Already captured[/] (item {res.item_id}, state {state})")
             if res.take_id is not None:
-                console.print("[dim]take attached to the existing item[/]")
+                out.print("[dim]take attached to the existing item[/]")
             return
-        console.print(f"[bold green]Captured[/] {source} item {res.item_id}")
+        out.print(f"[bold green]Captured[/] {source} item {res.item_id}")
     finally:
         conn.close()
     if wake.nudge_loop():
-        console.print("[dim]the loop has it — check the digest[/]")
+        out.print("[dim]the loop has it — check the digest[/]")
     else:
-        console.print("[dim]hub not reachable; the loop catches up on start[/]")
+        out.print("[dim]hub not reachable; the loop catches up on start[/]")
 
 
 @cli.command()
@@ -163,13 +166,46 @@ def _capture_and_read(url: str, note: str, surface: str, source: str | None = No
     "--force", is_flag=True, default=False, help="Kept for callers; capture filters nothing."
 )
 @click.option("--note", default="", help="Your take on this save; the enricher builds on it (P4).")
+@click.option(
+    "--no-keep",
+    is_flag=True,
+    default=False,
+    help="Fetch and show only; nothing enters the curator.",
+)
+@click.option(
+    "--print",
+    "print_",
+    is_flag=True,
+    default=False,
+    help="Write the full content (transcript included) to stdout; status goes to stderr.",
+)
 @click.pass_context
-def add(ctx: click.Context, url: str, force: bool, note: str):
-    """Capture a URL into the curator ledger and read its evidence (#197 P2).
+def add(ctx: click.Context, url: str, force: bool, note: str, no_keep: bool, print_: bool):
+    """Fetch a URL's content now, then capture it into the curator ledger.
 
-    No vault note is written here; the item enters the corpus only after it
-    passes the owner."""
-    _capture_and_read(url, note, "cli")
+    The fetch (transcript, caption, contact sheet; no model calls) is cached
+    per URL and shown at once. The capture writes no vault note: the item
+    enters the corpus only after it passes the owner (#197)."""
+    _fetch_and_show(url, full=print_)
+    if not no_keep:
+        _capture_and_read(url, note, "cli", err=print_)
+
+
+def _fetch_and_show(url: str, *, full: bool) -> None:
+    """A failed fetch is reported and never blocks the capture behind it."""
+    from . import fetch as fetch_mod
+
+    err = Console(stderr=True)
+    try:
+        f = fetch_mod.fetch(url)
+    except Exception as exc:
+        err.print(f"[yellow]Fetch failed:[/] {exc}")
+        return
+    if full:
+        click.echo(fetch_mod.render(f))
+        return
+    console.print(fetch_mod.render(f).split("\n\n", 1)[0], markup=False, highlight=False)
+    console.print(f"[dim]full text: {f.content_path}[/]")
 
 
 @cli.command(name="feed")

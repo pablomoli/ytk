@@ -35,6 +35,18 @@ def clean_bundle(source: str, url: str) -> EvidenceBundle:
 
 
 @pytest.fixture(autouse=True)
+def stub_fetch(monkeypatch):
+    """`add` shows a fetch before it captures; these tests are about the
+    capture, so the fetch fails fast and offline (a failed fetch never blocks
+    the capture)."""
+
+    def offline(url, **kw):
+        raise RuntimeError("offline in tests")
+
+    monkeypatch.setattr("ytk.fetch.fetch", offline)
+
+
+@pytest.fixture(autouse=True)
 def stub_nudge(monkeypatch):
     """The CLI inserts and nudges (P5, single writer); tests record the
     nudge instead of POSTing at a hub."""

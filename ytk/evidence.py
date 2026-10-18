@@ -171,6 +171,18 @@ def resolve_thumbnail(item_id: int, raw: object) -> str | None:
 GATHERERS: dict[str, Callable[[str, str | None], EvidenceBundle]] = {}
 
 
+def _fetched_bundle(url: str) -> EvidenceBundle | None:
+    """What the owner already fetched for this URL: no second download, and
+    the same bytes the chat saw. A broken cache entry falls back to the
+    gatherer rather than failing the read."""
+    from .fetch import adoptable_bundle
+
+    try:
+        return adoptable_bundle(url)
+    except Exception:
+        return None
+
+
 def read_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") -> ReadResult:
     """Gather evidence for one captured item. On gate failure the item moves
     to asking with one ask row; on gatherer failure the attempt is recorded
@@ -179,8 +191,9 @@ def read_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") ->
     gatherer = GATHERERS.get(row["source"])
     if gatherer is None:
         return ReadResult(bundle_path=None, ask_id=None, error=f"no gatherer for {row['source']}")
+    adopted = _fetched_bundle(row["url"])
     try:
-        bundle = gatherer(row["url"], row["title"])
+        bundle = adopted or gatherer(row["url"], row["title"])
     except Exception as exc:
         ledger.insert_activity(
             conn,
@@ -206,6 +219,7 @@ def read_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") ->
         action="read",
         from_state=ledger.item_state(conn, item_id),
         to_state="read",
+        inputs=json.dumps({"from": "fetch-cache"}) if adopted else None,
         output_ref=str(out),
     )
     quality = quality_asks(bundle)
