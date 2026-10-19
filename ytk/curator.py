@@ -241,6 +241,15 @@ def _land(
         output_ref=str(note),
         reason=reason,
     )
+    # Hub links follow the reviewed list; a failure never un-lands the note.
+    try:
+        from . import hubs
+
+        hubs.link_landed(conn)
+    except Exception as exc:
+        ledger.insert_activity(
+            conn, item_id, actor="hubs", action="hubs-error", reason=str(exc)[:300]
+        )
     # Connect runs only on fresh landings (owner decision 2026-08-31): the
     # grandfathered kept pile is excluded structurally, no selector needed.
     # A connect failure never un-lands the note.

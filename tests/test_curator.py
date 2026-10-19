@@ -458,3 +458,35 @@ def test_bare_say_what_is_wrong_sends_the_last_verdict_back(conn, monkeypatch):
     assert "Previous draft:" in retry["user"]
     assert "Thesis: could attach to any video" in retry["user"]
     assert "the owner says" not in retry["user"]
+
+
+def test_landing_links_an_approved_creator(conn, monkeypatch, brain):
+    from ytk import hubs
+
+    monkeypatch.setattr("ytk.connect.propose", lambda *a, **k: None)
+    other = brain / "sources" / "youtube" / "other.md"
+    other.parent.mkdir(parents=True, exist_ok=True)
+    other.write_text("---\ntitle: Other\nuploader: Someone\n---\n\nbody\n")
+    hubs.record_verdicts(conn, [("creator", "someone", "approve")], surface="test")
+    _stub_sdk(monkeypatch, [dict(DRAFT)], [dict(PASS_VERDICT)])
+    res = curator.advance_item(conn, _seed(conn))
+    assert res.outcome == "kept" and res.note_path is not None
+    assert 'creator: "[[Someone]]"' in res.note_path.read_text()
+    assert (brain / "links" / "creators" / "Someone.md").exists()
+
+
+def test_hub_link_failure_never_unlands_the_note(conn, monkeypatch):
+    monkeypatch.setattr("ytk.connect.propose", lambda *a, **k: None)
+
+    def boom(conn2):
+        raise RuntimeError("vault unavailable")
+
+    monkeypatch.setattr("ytk.hubs.link_landed", boom)
+    _stub_sdk(monkeypatch, [dict(DRAFT)], [dict(PASS_VERDICT)])
+    item_id = _seed(conn)
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "kept"
+    err = conn.execute(
+        "SELECT reason FROM activity WHERE item_id = ? AND action = 'hubs-error'", (item_id,)
+    ).fetchone()
+    assert "vault unavailable" in err["reason"]
