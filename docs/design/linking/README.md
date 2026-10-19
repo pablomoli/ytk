@@ -1,6 +1,7 @@
 # Linked notes and better enrichment: what the data says, what to build
 
-Plan of record, 2026-10-18. Nothing here is built. Measurements are
+Plan of record, 2026-10-18. Layer 1 is built on `feat/link-hubs`; the rest
+is not. Measurements are
 read-only over the vault, the ledger and the stored embeddings; no model
 calls.
 
@@ -56,26 +57,113 @@ owner's, and opening on the claim instead of the running order.
 
 ## Linking: three layers by how much judgment each needs
 
-### 1. Factual links (no judgment per link)
+### 1. Factual links (as built, 2026-10-18, branch `feat/link-hubs`)
 
-Creator hubs and concept hubs. A hub note per creator with 2+ notes and per
-concept name in 2+ notes; each source note's frontmatter creator and its
-Key Concept names become wikilinks to the hub. Deterministic, no model
-calls, and it backfills every note at once: from 4% of notes linked to
-about half.
+Creator hubs and concept hubs, `ytk/hubs.py`. Deterministic, no model calls.
 
-- The concept list needs one review: exact matching keeps genuine hubs
-  (manim, tmux) and also ambiguous ones (fable, claude). The review is a
-  one-time list of 364 names, or fewer at a 3+ threshold.
-- Aliases are unmeasured: "sparse autoencoder sae" and "sparse
-  autoencoders" are two names today.
-- Linking in the body changes the indexed text of non-YouTube notes
-  (memories embed the body); YouTube vectors embed thesis and summary only.
-  The retrieval gate runs either way.
-- **Owner decision:** the brief says links are "never written silently".
-  Whether a factual link (same creator, same named tool) counts is the
-  owner's call. If it does, layer 1 becomes one batch approval of the hub
-  list, not a per-link ask.
+**Owner decisions.** Factual links are approved once as a list, not per
+link: the owner reviews the candidate names, strikes the ambiguous ones,
+and every approved name is written in one pass. Links are generated from
+the list, so striking a name later removes all of its links. Nothing is
+written for a name still pending. Threshold 2+ notes for both creators and
+concepts; the list is sorted by note count, descending. The review lives in
+the hub, on `/tags` under "Hub links".
+
+**What counts as a name.**
+
+- Creator: the first non-empty of `uploader`, `channel`, `author` in the
+  frontmatter (web notes use `author`), compared case-insensitively.
+- Concept: each `## Key Concepts` bullet, the text before the first `: `,
+  bold markers stripped; normalized to lowercase ASCII letters and digits
+  with everything else collapsed to one space. A name with no ASCII letter
+  falls back to its Unicode word characters.
+- The hub's display name is the most frequent surface form.
+
+Re-derived with this code over the live vault (read-only): 796 source
+notes; 55 creators over 181 notes; 364 concept names over 395 notes; top
+manim 19, fable 11, touchdesigner 11, claude code 10, codex 9. Approving
+everything would link 439 notes with 1,131 links and write 410 hub notes.
+
+**Where links live.** Frontmatter properties appended after the existing
+keys, never in the body:
+
+```yaml
+creator: "[[3Blue1Brown]]"
+concepts:
+  - "[[Manim]]"
+  - "[[Ford circles]]"
+```
+
+Obsidian documents quoted wikilinks in text and list properties, and its
+1.4 release notes say "Properties with links will now properly show in
+backlink entries". The docs do not say whether the graph view or rename
+updates follow property links; that part is unverified. The body, and
+therefore every embedding, is unchanged: `strip_frontmatter` runs before
+every `upsert_doc`, and YouTube vectors embed thesis and summary only, so
+the retrieval gate is not touched.
+
+**Hub notes.** `second-brain/links/creators/` and `links/concepts/`, one
+per approved name, frontmatter `generated_by: ytk-hubs`, body a list of the
+linked notes by vault path. Regeneration rewrites and deletes only files
+carrying that marker. The folder is excluded from `ytk reindex`
+(`scan_exclusion`, reason `generated`): an index of notes would answer
+every query.
+
+**Targets.** Basenames are resolved across the whole vault,
+case-insensitively, because Obsidian resolves `[[name]]` by basename:
+
+- A note of the same name under `second-brain/` outside `sources/` is
+  treated as hand-made: links point at it and it is never written. Nine
+  approved names would land on one today (Dwarkesh Patel, Welch Labs, Artem
+  Kirsanov, Nelson Elhage, Scaling Laws, The Bitter Lesson, Attention Is All
+  You Need, Towards Monosemanticity, Toy Models of Superposition). The
+  Bitter Lesson also exists at the vault root, so Obsidian already has two
+  candidates for that link; the review row names both.
+- A clash with a source note, a note outside `second-brain/`, or another
+  hub gets a kind suffix, as in `Manim (concept)`. Today one: the creator
+  `marimo` becomes `marimo (creator)` because the concept claims the plain
+  name first.
+- The review row shows where each name will link, so a wrong target is
+  struck before anything is written.
+
+**Review state.** `hub_verdicts` in the ledger (migration 2): `kind`,
+`key`, `verdict` (approve or strike), `at`, `judged_by`, `surface`.
+Append-only; the latest row per name is the current verdict. Listed in
+`docs/label-inventory.md`.
+
+**Lifecycle.**
+
+- `POST /api/hubs/apply` records the changed verdicts, then makes the vault
+  match the list. Idempotent: a second run writes nothing.
+- A note the curator lands runs the same apply (`curator._land`, after the
+  note is indexed); a failure is an activity row `hubs-error` and never
+  un-lands the note. Until a name is approved this is a single ledger query.
+- A new name crossing the threshold appears in the list as pending.
+- A rewrite keeps the note's mtime: the daily digest ranks notes by mtime,
+  and a link is not new content.
+- A frontmatter key `creator` or `concepts` holding anything other than
+  quoted wikilinks belongs to a person and is never touched or overwritten
+  (one note today has a hand-typed `creator:`).
+
+**Limitations.**
+
+- Aliases are out of scope: "sparse autoencoder sae" and "sparse
+  autoencoders" are two names; so are a creator and the person behind it
+  (`3Blue1Brown` gets a generated hub although `Grant Sanderson` exists).
+- ASCII folding merges names that differ only in non-ASCII characters
+  ("Measure μ" and "measure", "Diagonal matrix Λ" and "diagonal matrix"),
+  and punctuation-only differences ("C++" and "C").
+- Instagram notes name their creator in `username`, which is not read: 70
+  creators over 237 notes if it were, instead of 55 over 181. Not built
+  because the measured list and the decision were about
+  `uploader`/`channel`/`author`.
+- Only the curator's landing applies the list automatically. Notes written
+  by other paths (`ytk add`, a reflect rewrite of Key Concepts, a note
+  refresh that rewrites frontmatter) catch up at the next apply from the
+  hub.
+- Changed non-YouTube notes are re-embedded once by the next `ytk reindex`
+  (its cache is a file hash); the vectors are identical because the body
+  did not change.
 
 ### 2. Argued links on landing (the existing connect path, fixed)
 
@@ -117,6 +205,6 @@ nag step 3 removed.
 
 ## Open
 
-- Factual links: silent or approved once as a list?
-- Concept hub threshold: 2+ notes (364 names) or 3+?
+- Factual links: approved once as a list (decided, layer 1).
+- Concept hub threshold: 2+ notes (decided, layer 1).
 - Where the "nearby" panel goes first: the packet page or the note view.

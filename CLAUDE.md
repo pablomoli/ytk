@@ -84,6 +84,7 @@ ytk/
     graph.py           — HTML knowledge-graph builder
     vision.py          — frame extraction + Claude vision image blocks
     triage.py          — action-item extraction for `ytk triage`
+    hubs.py            — linking layer 1: creator and concept hubs, frontmatter links written from the list reviewed on /tags
     fetch.py           — layer one: URL to transcript + caption + sheet in seconds, cached per URL;
                          storyboard sheets, close-ups, detached Whisper (docs/architecture/fetch-layer.md)
     view.py            — the evidence packet (#212): one view per bundle, hashed, both readers get the same bytes

@@ -45,6 +45,7 @@ This file holds counts, column names and category names only. The contents of
 | Graded query-document pairs (`qrels.json`) | 4,681 over the same 156 queries | `claude-haiku-4-5`; 20 pairs spot-checked |
 | Current-state queries | 16 | derived from dated note pairs, no judgment |
 | Map buckets (`grove_buckets.yaml`) | 10 buckets, 28 matchers (14 themes, 12 projects, 2 path prefixes) | you |
+| Hub verdicts (`hub_verdicts`, added 2026-10-18) | 0 at creation; 419 candidate names (55 creators, 364 concepts) waiting | you |
 
 Asks by kind: 52 grader bounce twice, 30 intent missing, 21 connections,
 2 transcript junk, 1 budget spent. Fourteen asks have no answer (12 intent
@@ -240,6 +241,31 @@ that pulls your groupings together. The expansion was not run here, so the
 number of notes each bucket reaches is not counted. The label is only as fine
 as its matchers: a bucket with one theme says nothing about which notes
 inside that theme are central.
+
+### Hub verdicts
+
+**What you do.** Linking layer 1 (`ytk/hubs.py`,
+`docs/design/linking/README.md`) proposes every creator and Key Concept
+name found in two or more source notes. On `/tags`, under "Hub links", you
+approve or strike each name; apply records the verdicts and rewrites the
+links (`POST /api/hubs/apply`, `ytk/ui/server.py`).
+
+**Where it lives.** `hub_verdicts` in the ledger (`ytk/ledger.py`, the
+second migration): `kind` (creator or concept), `key` (the normalized
+name), `verdict` (approve or strike), `at`, `judged_by` (owner), `surface`.
+Append-only: a changed mind is a new row, and the latest row per name is
+the current verdict. A name with no row is pending.
+
+**Shape.** A binary judgment per name, made once for the whole corpus,
+with the list ordered by note count. The struck names are the useful
+half: they are the names exact matching gets wrong ("fable" the model
+against Fable the game, "claude" the model against the product), which is
+the alias and disambiguation problem in its smallest form.
+
+**What it could teach.** At most a few hundred binary labels on short
+strings, with the note titles that share each name as context. Enough to
+test a rule ("strike any name that is also a common English word"), not
+to train anything.
 
 ## Pairs the corpus holds without anyone labelling them
 
