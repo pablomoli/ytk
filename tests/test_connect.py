@@ -60,6 +60,13 @@ def brain(tmp_path, monkeypatch):
     return b
 
 
+@pytest.fixture(autouse=True)
+def no_doc_vectors(monkeypatch):
+    """Doc-to-doc stays off unless a test gives the note a position."""
+    monkeypatch.setattr("ytk.store.note_vector", lambda **k: None)
+    monkeypatch.setattr("ytk.store.search_vector", lambda *a, **k: [])
+
+
 def _note(brain, rel, url=None, thesis=None, title=None):
     path = brain / rel
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -165,6 +172,9 @@ class TestFindCandidates:
             _memory(_note(brain, "wiki/hot.md"), 0.3),
             _memory(_note(brain, "projects/ytk/session-035-brief.md"), 0.3),
             _memory(_note(brain, "inbox/review-2026-07-04.md"), 0.3),
+            _memory(_note(brain, "inbox/review.md"), 0.3),
+            _memory(_note(brain, "inbox/ideas.md"), 0.3),
+            _memory(_note(brain, "inbox/inbox/ideas.md"), 0.3),
             _memory(_note(brain, "inbox/memories/claude-mem/summaries/s-1.md"), 0.3),
             _memory(_note(brain, "inbox/memories/2026-07-23-fog-splats.md"), 0.3),
             _memory(_note(brain, "study/rndyrbrts-visual-language.md"), 0.3),
@@ -764,3 +774,96 @@ class TestReindexAfterLinks:
             "SELECT detail FROM activity WHERE item_id = ? AND action = 'connect-apply'", (item,)
         ).fetchone()
         assert json.loads(row["detail"])["reindex"].startswith("re-index failed")
+
+
+class TestDocToDoc:
+    """Layer 2: the note's nearest notes by its own stored vectors join the
+    query hits as one more source, same band, same cap, deduped by note."""
+
+    def test_doc_neighbours_merge_with_query_hits(self, monkeypatch, brain):
+        query_hits = [_result("q1", "query only", distance=0.30)]  # 0.70
+        doc_hits = [
+            _result("self", "the note itself", distance=0.0),  # 1.00, over the dup line
+            _result("q1", "query only", distance=0.20),  # 0.80, same note, better
+            _result("d1", "doc only", distance=0.40),  # 0.60
+            _result("low", "under the floor", distance=0.55),  # 0.45
+        ]
+        _stub_store(monkeypatch, query_hits)
+        seen = {}
+
+        def fake_vector(vec, n=5):
+            seen["vec"], seen["n"] = vec, n
+            return doc_hits
+
+        monkeypatch.setattr("ytk.store.search_vector", fake_vector)
+        notes = {
+            r.source: _note(brain, f"sources/youtube/{r.doc_id}-note.md")
+            for r in query_hits + doc_hits
+        }
+        _stub_vault(monkeypatch, notes)
+        got = connect.find_candidates([("thesis", "q")], exclude_media_id="self", vector=[0.1, 0.2])
+        assert [(c.target, c.via) for c in got] == [
+            ("q1-note", connect.NOTE_LABEL),
+            ("d1-note", connect.NOTE_LABEL),
+        ]
+        assert got[0].cosine == pytest.approx(0.80)
+        assert seen == {"vec": [0.1, 0.2], "n": connect._FETCH_N}
+
+    def test_no_vector_means_query_path_only(self, monkeypatch, brain):
+        def boom(*a, **k):
+            raise AssertionError("searched without a vector")
+
+        monkeypatch.setattr("ytk.store.search_vector", boom)
+        _stub_store(monkeypatch, [])
+        assert connect.find_candidates([("thesis", "q")], exclude_media_id=None) == []
+
+    def test_propose_reads_the_landed_notes_own_vector(self, conn, monkeypatch, brain):
+        own = _note(brain, "sources/instagram/own.md", thesis="own")
+        other = _note(brain, "sources/instagram/neighbour.md", thesis="a neighbour")
+        asked = {}
+
+        def fake_note_vector(**k):
+            asked.update(k)
+            return [1.0, 0.0]
+
+        monkeypatch.setattr("ytk.store.note_vector", fake_note_vector)
+        monkeypatch.setattr(
+            "ytk.store.search_vector", lambda vec, n=5: [_memory(own, 0.0), _memory(other, 0.3)]
+        )
+        _stub_store(monkeypatch, [])
+        calls = _argue_stub(monkeypatch, [{"target": "neighbour", "argument": "same fly"}])
+        item = _item(conn)
+        ask_id = connect.propose(
+            conn, item, "thesis", "summary", exclude_media_id="abc", note_path=own
+        )
+        assert asked == {"source_path": str(own), "video_id": "abc"}
+        assert ask_id is not None
+        assert "target=neighbour" in calls[0]["user"]
+        assert f"matched on: {connect.NOTE_LABEL}" in calls[0]["user"]
+        assert "target=own" not in calls[0]["user"]
+
+    def test_store_down_for_the_vector_keeps_the_query_path(self, monkeypatch):
+        def boom(**k):
+            raise RuntimeError("chroma down")
+
+        monkeypatch.setattr("ytk.store.note_vector", boom)
+        assert connect.own_vector(Path("/v/x.md"), None) is None
+
+
+def test_connect_row_records_where_each_candidate_came_from(conn, monkeypatch, brain):
+    """Which source earned a candidate is what decides later whether the
+    doc-to-doc source pays: approvals per source need it on the row."""
+    own = _note(brain, "sources/instagram/own.md", thesis="own")
+    other = _note(brain, "sources/instagram/neighbour.md", thesis="a neighbour")
+    monkeypatch.setattr("ytk.store.note_vector", lambda **k: [1.0])
+    monkeypatch.setattr("ytk.store.search_vector", lambda vec, n=5: [_memory(other, 0.3)])
+    _stub_store(monkeypatch, [])
+    _argue_stub(monkeypatch, [{"target": "neighbour", "argument": "same fly"}])
+    item = _item(conn)
+    connect.propose(conn, item, "thesis", "summary", exclude_media_id=None, note_path=own)
+    row = conn.execute(
+        "SELECT detail FROM activity WHERE item_id = ? AND action = 'connect'", (item,)
+    ).fetchone()
+    assert json.loads(row["detail"])["candidates"] == [
+        {"target": "neighbour", "via": connect.NOTE_LABEL, "cosine": 0.7}
+    ]

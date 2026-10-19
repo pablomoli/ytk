@@ -60,7 +60,7 @@ class ProposedLink(BaseModel):
 # next; the atom that carries the same fact still qualifies.
 _UNLINKABLE_PREFIXES = ("wiki/", "me/", "hub/", "inbox/memories/claude-mem/")
 _UNLINKABLE_PATTERNS = (
-    re.compile(r"^inbox/(review-[^/]+|dashboard)\.md$"),
+    re.compile(r"^inbox/(review(-[^/]+)?|dashboard|(inbox/)?ideas)\.md$"),
     re.compile(r"^projects/.+/session-[^/]+-brief\.md$"),
 )
 
@@ -118,6 +118,7 @@ def concept_label(concept: str) -> str:
 
 
 TAKE_LABEL = "the owner's take"
+NOTE_LABEL = "the whole note"
 
 
 def build_queries(
@@ -258,6 +259,18 @@ def merge_candidates(named: list[Candidate], found: list[Candidate]) -> list[Can
     return out
 
 
+def own_vector(note_path: Path | None, media_id: str | None) -> list[float] | None:
+    """The landed note's stored position, or None (store down, not indexed)."""
+    try:
+        from . import store
+
+        return store.note_vector(
+            source_path=str(note_path) if note_path else None, video_id=media_id
+        )
+    except Exception:
+        return None
+
+
 def find_candidates(
     queries: list[tuple[str, str]],
     *,
@@ -266,6 +279,7 @@ def find_candidates(
     exclude_path: Path | None = None,
     promote: dict[Path, str] | None = None,
     report: dict[str, Any] | None = None,
+    vector: list[float] | None = None,
 ) -> list[Candidate]:
     """Neighbors across both collections for every (label, query) pair,
     unioned by note with the best cosine kept and the label that earned it,
@@ -277,7 +291,9 @@ def find_candidates(
     replaces in P7; None-tolerant when the store is down (no candidates,
     never a failure). `report`, when given, receives the best hit under the
     floor as (cosine, label), so an empty result says how far from the band
-    the nearest relative sat instead of hiding a true absence (#214)."""
+    the nearest relative sat instead of hiding a true absence (#214).
+    `vector`, the note's own stored position, adds its doc-to-doc
+    neighbours as one more source under NOTE_LABEL, same band and cap."""
     from .grader import NEAR_DUP_BASELINE
 
     promote_paths = {p.resolve() for p in (promote or {})}
@@ -297,8 +313,14 @@ def find_candidates(
         # (type, doc id) -> best (cosine, label, hit, promoted); the band
         # cut runs on raw hits so only survivors pay for a note lookup.
         best: dict[tuple[str, str], tuple[float, str, Any, bool]] = {}
-        for label, text in queries:
-            for r in store.search_all(text, n=_FETCH_N, rerank=False, actor="connect"):
+        sources: list[tuple[str, list[Any]]] = [
+            (label, store.search_all(text, n=_FETCH_N, rerank=False, actor="connect"))
+            for label, text in queries
+        ]
+        if vector is not None:
+            sources.append((NOTE_LABEL, store.search_vector(vector, n=_FETCH_N)))
+        for label, hits in sources:
+            for r in hits:
                 cosine = 1.0 - r.distance
                 if cosine >= NEAR_DUP_BASELINE:
                     continue
@@ -457,6 +479,7 @@ def propose(
         exclude_path=note_path,
         promote=reading.promote,
         report=report,
+        vector=own_vector(note_path, exclude_media_id),
     )
     candidates = merge_candidates(reading.named, found)
     if not candidates:
@@ -479,7 +502,15 @@ def propose(
         tokens=res.tokens,
         duration_ms=res.duration_ms,
         reason=f"{len(links)} of {len(candidates)} candidates argued",
-        detail=json.dumps({"links": [link.model_dump() for link in links]}),
+        detail=json.dumps(
+            {
+                "links": [link.model_dump() for link in links],
+                "candidates": [
+                    {"target": c.target, "via": c.via, "cosine": round(c.cosine, 3)}
+                    for c in candidates
+                ],
+            }
+        ),
     )
     if not links:
         return None

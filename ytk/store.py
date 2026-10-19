@@ -1492,6 +1492,80 @@ def search_all(
     return served
 
 
+def note_vector(
+    *, source_path: str | None = None, video_id: str | None = None
+) -> list[float] | None:
+    """A note's own position in the current epoch: the unit mean of its
+    stored vectors (memories by source_path, else videos by video_id, parts
+    included). None when the note has no vectors."""
+    import numpy as np
+
+    lookups: list[tuple[chromadb.Collection, Where]] = []
+    if source_path:
+        lookups.append((_memories_collection(), {"source_path": source_path}))
+    if video_id:
+        lookups.append((_videos_collection(), {"video_id": video_id}))
+    for col, where in lookups:
+        got = col.get(where=where, include=["embeddings"])
+        embs = got.get("embeddings")
+        if embs is None or len(embs) == 0:
+            continue
+        mean = np.asarray(embs, dtype=float).mean(axis=0)
+        norm = float(np.linalg.norm(mean))
+        if norm > 0:
+            return [float(x) for x in mean / norm]
+    return None
+
+
+def search_vector(vector: list[float], n: int = 5) -> list[UnifiedResult]:
+    """Doc-to-doc neighbours of a stored vector across videos and memories,
+    one hit per note at its best part, by raw cosine distance. No reflected
+    boost, decay, rerank or retrieval log: this is geometry, not a search."""
+    pairs: list[UnifiedResult] = []
+    vcol = _videos_collection()
+    if vcol.count() > 0:
+        vr = vcol.query(query_embeddings=[vector], n_results=min(n * 3, vcol.count()))
+        for meta, dist in _collapse_by_video(
+            chroma_field(vr["metadatas"], "metadatas")[0],
+            chroma_field(vr["distances"], "distances")[0],
+        )[:n]:
+            pairs.append(
+                UnifiedResult(
+                    type="video",
+                    doc_id=meta_str(meta, "video_id"),
+                    title=meta_str(meta, "title"),
+                    excerpt=meta_str(meta, "thesis", meta_str(meta, "summary"))[:200],
+                    source=meta_str(meta, "url"),
+                    distance=dist,
+                )
+            )
+    mcol = _memories_collection()
+    if mcol.count() > 0:
+        mr = mcol.query(query_embeddings=[vector], n_results=min(n * 3, mcol.count()))
+        seen: set[str] = set()
+        for meta, doc, dist in zip(
+            chroma_field(mr["metadatas"], "metadatas")[0],
+            chroma_field(mr["documents"], "documents")[0],
+            chroma_field(mr["distances"], "distances")[0],
+        ):
+            doc_id = meta_str(meta, "doc_id")
+            if doc_id in seen:
+                continue
+            seen.add(doc_id)
+            pairs.append(
+                UnifiedResult(
+                    type="memory",
+                    doc_id=doc_id,
+                    title=doc_id,
+                    excerpt=doc[:200],
+                    source=meta_str(meta, "source_path"),
+                    distance=dist,
+                )
+            )
+    pairs.sort(key=lambda r: r.distance)
+    return pairs[:n]
+
+
 def top_tags(n: int = 40) -> list[str]:
     """Existing tag vocabulary, most-used first, from indexed metadata.
 
