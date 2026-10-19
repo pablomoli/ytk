@@ -255,3 +255,24 @@ def apply_connections(path: Path, links: Iterable[tuple[str, str]]) -> None:
                 lines = lines[:-1]
             lines += ["", *block.split("\n")]
     path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def reindex_connected(path: Path) -> str:
+    """Re-embed a note whose `## Connections` was just written, where the
+    section is part of what is embedded. Never raises: the links are already
+    on disk, and the next reindex pass sees the changed hash."""
+    try:
+        brain = vault.get_brain_path()
+        rel = path.relative_to(brain)
+    except (ValueError, OSError):
+        return "not re-indexed: outside the vault"
+    reason = vault.scan_exclusion(rel)
+    if reason == "owned-elsewhere":
+        # sources/youtube: store.upsert embeds thesis + summary, never the body.
+        return "not re-indexed: vector is thesis and summary only"
+    if reason:
+        return f"not re-indexed: {reason}"
+    try:
+        return "re-indexed" if vault.index_vault_note(path, brain) else "not re-indexed: empty"
+    except Exception as exc:
+        return f"re-index failed: {type(exc).__name__}: {exc}"[:200]

@@ -1430,11 +1430,6 @@ def reindex_vault_report(force: bool = False) -> ReindexReport:
     Skips files whose SHA256 matches the cache unless force=True.
     """
     from .cache import file_hash, load_index_cache, save_index_cache, update_cache_entry
-    from .store import (  # deferred: chromadb costs ~330ms (#146)
-        live_slice,
-        strip_frontmatter,
-        upsert_doc,
-    )
 
     brain = _get_brain_path()
     report = ReindexReport()
@@ -1454,24 +1449,10 @@ def reindex_vault_report(force: bool = False) -> ReindexReport:
             report.unchanged += 1
             continue
 
-        content = md_file.read_text(encoding="utf-8")
-        body = live_slice(strip_frontmatter(content))
-        if not body.strip():
+        if not index_vault_note(md_file, brain):
             update_cache_entry(md_file, cache)
             report.empty += 1
             continue
-
-        doc_id = vault_note_doc_id(md_file, brain, content)
-        meta = {
-            "doc_id": doc_id,
-            "tags": ", ".join(str(rel).split("/")[:-1]),
-            "source_path": str_path,
-        }
-        # Frontmatter identity travels with the vector (#169): consumers like
-        # build_map and /api/path otherwise re-derive titles from body text
-        # and get embed markup for image-first notes.
-        meta.update(note_identity_fields(content))
-        upsert_doc(doc_id, body, meta)
         update_cache_entry(md_file, cache)
         report.indexed += 1
 
@@ -1482,6 +1463,31 @@ def reindex_vault_report(force: bool = False) -> ReindexReport:
 
     save_index_cache(cache)
     return report
+
+
+def index_vault_note(md_file: Path, brain: Path) -> bool:
+    """Embed one scanned vault note exactly as reindex_vault does; False when
+    its live body is empty and nothing was written. The caller checks
+    scan_exclusion first and owns the index cache."""
+    from .store import live_slice, strip_frontmatter, upsert_doc  # deferred: chromadb (#146)
+
+    content = md_file.read_text(encoding="utf-8")
+    body = live_slice(strip_frontmatter(content))
+    if not body.strip():
+        return False
+    rel = md_file.relative_to(brain)
+    doc_id = vault_note_doc_id(md_file, brain, content)
+    meta = {
+        "doc_id": doc_id,
+        "tags": ", ".join(str(rel).split("/")[:-1]),
+        "source_path": str(md_file),
+    }
+    # Frontmatter identity travels with the vector (#169): consumers like
+    # build_map and /api/path otherwise re-derive titles from body text
+    # and get embed markup for image-first notes.
+    meta.update(note_identity_fields(content))
+    upsert_doc(doc_id, body, meta)
+    return True
 
 
 def reindex_vault(force: bool = False) -> int:

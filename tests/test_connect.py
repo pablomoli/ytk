@@ -692,3 +692,75 @@ class TestStrikeSomeAnswer:
             "SELECT reason FROM activity WHERE item_id = ? AND action = 'connect-none'", (item,)
         ).fetchone()
         assert "unreadable" in row["reason"]
+
+
+class TestReindexAfterLinks:
+    """Approved links change what a body-embedded note's vector should say;
+    a YouTube note's vector is thesis + summary and does not move."""
+
+    def _landed_in(self, conn, brain, rel):
+        item = _item(conn)
+        note = brain / rel
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text(
+            "---\ntitle: Fly brain\nurl: https://y/x\n---\n\n## Thesis\nA thesis.\n\n"
+            "## Commentary\nProse long enough to clear the embed floor.\n"
+        )
+        ledger.insert_activity(
+            conn,
+            item,
+            actor="loop",
+            action="keep",
+            from_state="enriched",
+            to_state="kept",
+            output_ref=str(note),
+        )
+        ask_id = asks.raise_ask(
+            conn,
+            item,
+            proposal={"kind": "connections", "why": "x", "options": ["approve"], "links": LINKS},
+        )
+        asks.answer_ask(conn, ask_id, choice="approve")
+        return item, note
+
+    def test_body_embedded_note_is_reindexed_with_its_connections(
+        self, conn, brain, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("YTK_SNAPSHOTS", str(tmp_path / "snaps"))
+        calls = []
+        monkeypatch.setattr("ytk.store.upsert_doc", lambda *a: calls.append(a))
+        item, note = self._landed_in(conn, brain, "sources/instagram/fly-brain.md")
+        connect.apply_links(conn, item)
+        assert len(calls) == 1
+        doc_id, body, meta = calls[0]
+        assert doc_id == "note_sources_instagram_fly-brain"
+        assert "[[a-note]]" in body and meta["source_path"] == str(note)
+        row = conn.execute(
+            "SELECT detail FROM activity WHERE item_id = ? AND action = 'connect-apply'", (item,)
+        ).fetchone()
+        assert json.loads(row["detail"])["reindex"] == "re-indexed"
+
+    def test_youtube_note_is_not_reindexed(self, conn, brain, tmp_path, monkeypatch):
+        monkeypatch.setenv("YTK_SNAPSHOTS", str(tmp_path / "snaps"))
+        calls = []
+        monkeypatch.setattr("ytk.store.upsert_doc", lambda *a: calls.append(a))
+        monkeypatch.setattr("ytk.store.upsert", lambda *a: calls.append(a))
+        item, note = self._landed_in(conn, brain, "sources/youtube/fly-brain.md")
+        connect.apply_links(conn, item)
+        assert calls == []
+        assert "[[a-note]]" in note.read_text()
+
+    def test_store_down_still_lands_the_links(self, conn, brain, tmp_path, monkeypatch):
+        monkeypatch.setenv("YTK_SNAPSHOTS", str(tmp_path / "snaps"))
+
+        def down(*a):
+            raise ConnectionError("chroma down")
+
+        monkeypatch.setattr("ytk.store.upsert_doc", down)
+        item, note = self._landed_in(conn, brain, "sources/instagram/fly-brain.md")
+        connect.apply_links(conn, item)
+        assert ledger.item_state(conn, item) == "connected"
+        row = conn.execute(
+            "SELECT detail FROM activity WHERE item_id = ? AND action = 'connect-apply'", (item,)
+        ).fetchone()
+        assert json.loads(row["detail"])["reindex"].startswith("re-index failed")

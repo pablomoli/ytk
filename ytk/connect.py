@@ -562,6 +562,7 @@ def apply_links(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") 
 
     notes.snapshot_note(conn, item_id, path)
     notes.apply_connections(path, [(link.target, link.argument) for link in survivors])
+    reindexed = notes.reindex_connected(path)
     ledger.insert_activity(
         conn,
         item_id,
@@ -571,5 +572,7 @@ def apply_links(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") 
         to_state="connected",
         output_ref=str(path),
         reason=f"owner approved {len(survivors)} of {len(links)} links",
-        detail=json.dumps({"links": [link.model_dump() for link in survivors]}),
+        detail=json.dumps(
+            {"links": [link.model_dump() for link in survivors], "reindex": reindexed}
+        ),
     )
