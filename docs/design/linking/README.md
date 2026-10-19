@@ -285,13 +285,59 @@ Assumptions and limits:
 
 ## Enrichment: in order of expected yield
 
-1. **A deterministic anchor check before the grader.** Code checks each
-   transcript citation against the cited span (token overlap within the
-   ±90 s the adjacency check already uses) and moves it to the best span
-   or flags it, before a model round is spent. First, replay it over the
-   stored drafts against the anchors the owner corrected by hand: if it
-   finds the owner's corrections, it earns its place. Frame citations
-   cannot be checked from text.
+1. **A deterministic anchor check before the grader. Built, replayed, not
+   wired.** `moments.check_anchors` reads every transcript citation (key
+   moment stamps and `[t:N]` cites) against the span it cites, with the
+   grader's tokenizer and its ±90 s window: *moved* when the cited span
+   shares no content word with the claim and a span in the window shares
+   two or more (IDF-weighted pick, landing on the strongest line);
+   *unsupported* when no span in the window shares two; frame and sheet
+   cites are counted and skipped. `scripts/replay_anchor_check.py` replays
+   it read-only over the 137 stored drafts against 49 anchor errors read
+   by hand from the ledger: the owner's own answers, grader findings the
+   owner pasted into "say what is wrong", and grader-only findings.
+
+   | labels | where the right anchor is | n | moved | to the right place (±5 s) | unsupported | left ok |
+   |---|---|---|---|---|---|---|
+   | owner's own | inside ±90 s | 3 | 1 | 0 | 0 | 2 |
+   | owner's own | beyond ±90 s | 1 | 0 | 0 | 1 | 0 |
+   | owner-endorsed | inside ±90 s | 5 | 3 | 2 | 0 | 2 |
+   | owner-endorsed | not in the record | 2 | 0 | 0 | 2 | 0 |
+   | grader only | inside ±90 s | 14 | 7 | 6 | 0 | 7 |
+   | grader only | beyond ±90 s | 11 | 3 | 1 | 1 | 7 |
+   | grader only | not in the record | 13 | 0 | 0 | 13 | 0 |
+
+   False alarms: of 227 anchors on landed drafts that neither the owner
+   nor the grader objected to, it moves 21 (9%) and calls 7 unsupported.
+   Read by eye (not the owner's judgment), about 12 of the 21 moves look
+   like real improvements and about 7 break an anchor that was right:
+   claims whose key word is under four letters (`pwd`), misspelled
+   transcript words (Pythogus, Dmenico), or a claim read off the screen.
+   Against the grader: of 62 anchors it named across model-layer grades
+   the check flags 29; of 121 the check flags the grader named 29.
+
+   **Why it is not wired.** The owner's own anchor corrections are not
+   what it finds. Nine of the owner's anchor answers (asks 70-86) are
+   frame or on-screen re-anchors, which text cannot see; the three
+   transcript ones inside the window (items 770, 774) are also on-screen
+   claims, and it moved none to the right place. The one far one (34:53
+   to 54:06) is the existing snap's case. Its hits are the grader's
+   transcript findings on long videos (8 of 19 inside the window moved to
+   the right place), at a cost of roughly one wrong silent move for every
+   two right ones: too many to auto-move, and the unsupported verdicts
+   mostly duplicate the grader's existing code checks (13 of 15 are past
+   the packet's transcript, which "cites outside the packet" already
+   bounces).
+
+   **Assumptions and limits.** 49 labels and 227 negatives is a small
+   sample; the 22 inside-window labels decide the verdict. "Let stand" is
+   weak: the owner did not check every anchor. Labels were read by hand
+   from prose, and targets are the grader's or owner's stated spans.
+   Drafts graded before packets existed (#212) are replayed against an
+   in-memory packet at the 80k cap they were read under, rebuilt from the
+   bundle on disk today. What would move the needle for the owner's
+   corrections is a frame check (the frame's time against the claim), not
+   a better text match.
 2. **House rules from the owner's corrections in the field guide**: open
    on the claim, never the running order; label inference from frames as
    inference; label knowledge from outside the record as the owner's; say
