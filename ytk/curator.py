@@ -14,13 +14,16 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from . import asks, grader, ledger, loop, rubric
 from . import attempt as attempt_mod
 from .enricher import EnrichmentV2, draft_path, enrich_item
 from .evidence import load_bundle
 from .view import View, ensure_view
+
+if TYPE_CHECKING:
+    from .connect import Neighbour
 
 # Rounds per advance call. "Grader bounce, twice" (spec, Asks) is the ask
 # trigger; the owner's "say what is wrong" buys exactly one more round.
@@ -61,6 +64,27 @@ def neighbor_cosine(draft: EnrichmentV2, exclude_media_id: str | None) -> float 
     except Exception:
         return None
     return None
+
+
+def enricher_neighbours(
+    view: View, take: str | None, previous: dict[str, Any] | None
+) -> list[Neighbour]:
+    """Nearby notes for the writer's prompt: the previous draft's thesis and
+    concepts on a retry, the source's title and text before the first. An
+    unavailable store gives none, never a failed round."""
+    from . import connect
+
+    try:
+        bundle = load_bundle(Path(view.bundle_path))
+    except Exception:
+        return []
+    text = bundle.caption or bundle.description or bundle.text
+    queries = connect.neighbour_queries(
+        title=bundle.title, source_text=text, take=take, previous=previous
+    )
+    return connect.vault_neighbours(
+        queries, take=take, exclude_media_id=bundle.media_id, exclude_url=bundle.url
+    )
 
 
 def _vocab() -> list[str]:
@@ -321,7 +345,8 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
             item_id, n, view, take=take_rec, previous=previous, findings_in=findings
         )
         loop.stamp_stage("enrich", f"attempt {n}")
-        enriched = enrich_item(conn, item_id, view=view, attempt=att)
+        nearby = enricher_neighbours(view, take["text"] if take else None, previous)
+        enriched = enrich_item(conn, item_id, view=view, attempt=att, neighbours=nearby)
         draft = enriched.draft
         att.record_draft(enriched.draft_path)
         previous = draft.model_dump()

@@ -46,6 +46,7 @@ class Candidate(BaseModel):
     thesis: str
     cosine: float
     via: str = "thesis"  # the query label that earned the cosine: thesis or a concept name
+    path: str | None = None  # the resolved note, for readers that need more than its name
 
 
 class ProposedLink(BaseModel):
@@ -62,6 +63,7 @@ _UNLINKABLE_PREFIXES = ("wiki/", "me/", "hub/", "inbox/memories/claude-mem/")
 _UNLINKABLE_PATTERNS = (
     re.compile(r"^inbox/(review(-[^/]+)?|dashboard|(inbox/)?ideas)\.md$"),
     re.compile(r"^projects/.+/session-[^/]+-brief\.md$"),
+    re.compile(r"^(.+/)?_?templates/"),
 )
 
 
@@ -208,7 +210,12 @@ def read_take(take: str | None, *, exclude_path: Path | None = None) -> TakeRead
                 continue
             title, thesis = _note_identity(note, note.stem, "")
             named[resolved] = Candidate(
-                target=note.stem, target_title=title, thesis=thesis, cosine=1.0, via=TAKE_LABEL
+                target=note.stem,
+                target_title=title,
+                thesis=thesis,
+                cosine=1.0,
+                via=TAKE_LABEL,
+                path=str(resolved),
             )
 
     handles = [h.lower().rstrip(".") for h in _HANDLE.findall(take)]
@@ -373,11 +380,92 @@ def find_candidates(
                 thesis=thesis,
                 cosine=1.0 if promoted else cosine,
                 via=TAKE_LABEL if promoted else label,
+                path=str(resolved),
             )
         )
         if len(out) >= MAX_CANDIDATES:
             break
     return out
+
+
+class Neighbour(BaseModel):
+    """A nearby note as the enricher reads it: name, thesis, the owner's take."""
+
+    target: str
+    title: str
+    thesis: str
+    take: str | None = None
+    cosine: float
+
+
+SOURCE_LABEL = "the source"
+# A first attempt has no thesis yet: title and the head of the caption,
+# description or article stand in for it.
+_SEED_CHARS = 600
+_NEIGHBOUR_FIELD_CHARS = 400
+
+
+def neighbour_queries(
+    *,
+    title: str | None,
+    source_text: str | None,
+    take: str | None,
+    previous: dict[str, Any] | None,
+) -> list[tuple[str, str]]:
+    """The connect queries when a draft exists (retry: its thesis and
+    concepts); otherwise the take and a seed cut from the source."""
+    if previous and str(previous.get("thesis") or "").strip():
+        concepts = cast("list[str]", previous.get("key_concepts") or [])
+        return build_queries(str(previous["thesis"]), concepts, take)
+    out: list[tuple[str, str]] = []
+    if take and take.strip():
+        out.append((TAKE_LABEL, take.strip()))
+    seed = " ".join(x.strip() for x in (title, source_text) if x and x.strip())[:_SEED_CHARS]
+    if seed:
+        out.append((SOURCE_LABEL, seed))
+    return out
+
+
+def _note_take(note: Path) -> str | None:
+    try:
+        text = note.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = re.search(r"^## My take\s*\n+(.+?)(?:\n## |\Z)", text, re.MULTILINE | re.DOTALL)
+    return " ".join(m.group(1).split())[:_NEIGHBOUR_FIELD_CHARS] if m else None
+
+
+def vault_neighbours(
+    queries: list[tuple[str, str]],
+    *,
+    take: str | None,
+    exclude_media_id: str | None,
+    exclude_url: str | None,
+) -> list[Neighbour]:
+    """Up to MAX_CANDIDATES notes for the enricher to argue with: the
+    take's named notes first, then the store's, through connect's band,
+    exclusions and linkable rules. Reads only; never raises."""
+    try:
+        reading = read_take(take)
+        found = find_candidates(
+            queries,
+            exclude_media_id=exclude_media_id,
+            exclude_url=exclude_url,
+            promote=reading.promote,
+        )
+        cands = merge_candidates(reading.named, found)
+    except Exception:
+        return []
+    return [
+        Neighbour(
+            target=c.target,
+            title=c.target_title,
+            thesis=" ".join(c.thesis.split())[:_NEIGHBOUR_FIELD_CHARS],
+            take=_note_take(Path(c.path)) if c.path else None,
+            cosine=round(c.cosine, 3),
+        )
+        for c in cands
+    ]
 
 
 _ARGUE_SYSTEM = """You connect notes in a personal knowledge vault.

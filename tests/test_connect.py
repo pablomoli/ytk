@@ -175,6 +175,7 @@ class TestFindCandidates:
             _memory(_note(brain, "inbox/review.md"), 0.3),
             _memory(_note(brain, "inbox/ideas.md"), 0.3),
             _memory(_note(brain, "inbox/inbox/ideas.md"), 0.3),
+            _memory(_note(brain, "notes/ai/_templates/AI Concept Template.md"), 0.3),
             _memory(_note(brain, "inbox/memories/claude-mem/summaries/s-1.md"), 0.3),
             _memory(_note(brain, "inbox/memories/2026-07-23-fog-splats.md"), 0.3),
             _memory(_note(brain, "study/rndyrbrts-visual-language.md"), 0.3),
@@ -848,6 +849,63 @@ class TestDocToDoc:
 
         monkeypatch.setattr("ytk.store.note_vector", boom)
         assert connect.own_vector(Path("/v/x.md"), None) is None
+
+
+class TestEnricherNeighbours:
+    """Layer 2: what the writer is shown about the vault before it drafts."""
+
+    def test_first_attempt_queries_are_take_then_source_seed(self):
+        qs = connect.neighbour_queries(
+            title="Celia's techniques", source_text="x" * 2000, take="like QR?", previous=None
+        )
+        assert [label for label, _ in qs] == [connect.TAKE_LABEL, connect.SOURCE_LABEL]
+        assert qs[1][1].startswith("Celia's techniques x") and len(qs[1][1]) == 600
+
+    def test_retry_queries_are_the_previous_drafts(self):
+        qs = connect.neighbour_queries(
+            title="t",
+            source_text="s",
+            take=None,
+            previous={"thesis": "Th", "key_concepts": ["Why method: chain of whys"]},
+        )
+        assert qs == [("thesis", "Th"), ("Why method", "Why method: chain of whys")]
+
+    def test_neighbours_carry_thesis_and_the_owners_take(self, monkeypatch, brain):
+        hit = _note(brain, "sources/instagram/qr.md", thesis="Torn QR codes still scan.")
+        hit.write_text(
+            hit.read_text().replace("## Thesis", "## My take\nsame trick as memory?\n\n## Thesis")
+        )
+        plain = _note(brain, "sources/instagram/plain.md", thesis="No take here.")
+        _stub_store(monkeypatch, [_memory(hit, 0.3), _memory(plain, 0.35)])
+        got = connect.vault_neighbours(
+            [("thesis", "q")], take=None, exclude_media_id=None, exclude_url=None
+        )
+        assert [(n.target, n.take) for n in got] == [
+            ("qr", "same trick as memory?"),
+            ("plain", None),
+        ]
+        assert got[0].thesis == "Torn QR codes still scan." and got[0].cosine == 0.7
+
+    def test_a_note_the_take_names_comes_first(self, monkeypatch, brain):
+        _note(brain, "sources/instagram/qr-reel.md", thesis="Torn QR codes still scan.")
+        _stub_store(monkeypatch, [])
+        got = connect.vault_neighbours(
+            [("thesis", "q")],
+            take="the same property as [[qr-reel]]",
+            exclude_media_id=None,
+            exclude_url=None,
+        )
+        assert [n.target for n in got] == ["qr-reel"] and got[0].cosine == 1.0
+
+    def test_store_down_gives_no_neighbours(self, monkeypatch):
+        def boom(*a, **k):
+            raise RuntimeError("chroma down")
+
+        monkeypatch.setattr("ytk.store.search_all", boom)
+        got = connect.vault_neighbours(
+            [("thesis", "q")], take=None, exclude_media_id=None, exclude_url=None
+        )
+        assert got == []
 
 
 def test_connect_row_records_where_each_candidate_came_from(conn, monkeypatch, brain):

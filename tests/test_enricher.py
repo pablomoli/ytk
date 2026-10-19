@@ -311,3 +311,88 @@ class TestPatchRetry:
         ).fetchone()
         assert "attempt 2 (patch)" in row["reason"]
         assert json.loads(row["inputs"])["mode"] == "patch"
+
+
+NEAR = [
+    {
+        "target": "qr-codes-heal",
+        "title": "QR codes heal themselves",
+        "thesis": "Reed-Solomon redundancy lets a torn QR code still scan.",
+        "take": "same trick as memory palaces?",
+        "cosine": 1.0,
+    },
+    {"target": "spaced-rep", "title": "Spaced repetition", "thesis": "T2.", "cosine": 0.61},
+]
+
+
+def _near():
+    from ytk.connect import Neighbour
+
+    return [Neighbour(**n) for n in NEAR]
+
+
+def test_neighbours_reach_the_writer_after_the_packet_and_on_the_row(conn, stub_call):
+    item_id = _seed(conn)
+    v, a = _packet(conn, item_id)
+    enricher.enrich_item(conn, item_id, view=v, attempt=a, neighbours=_near())
+    user = stub_call[0]["user"]
+    assert user.index(v.rendered) < user.index(enricher.NEIGHBOURS_HEADER)
+    assert user.index(a.rendered()) < user.index(enricher.NEIGHBOURS_HEADER)
+    assert "1. QR codes heal themselves\n   thesis: Reed-Solomon" in user
+    assert "the owner's take on it: same trick as memory palaces?" in user
+    assert "2. Spaced repetition\n   thesis: T2." in user
+    assert "Spaced repetition\n   thesis: T2.\n   the owner's" not in user
+    row = conn.execute(
+        "SELECT inputs FROM activity WHERE item_id = ? AND action = 'enrich'", (item_id,)
+    ).fetchone()
+    inputs = json.loads(row["inputs"])
+    assert inputs["neighbours"] == [
+        {"target": "qr-codes-heal", "cosine": 1.0},
+        {"target": "spaced-rep", "cosine": 0.61},
+    ]
+
+
+def test_no_neighbours_no_block(conn, stub_call):
+    item_id = _seed(conn)
+    v, a = _packet(conn, item_id)
+    enricher.enrich_item(conn, item_id, view=v, attempt=a, neighbours=[])
+    assert enricher.NEIGHBOURS_HEADER not in stub_call[0]["user"]
+
+
+def test_the_view_never_carries_neighbours(conn, stub_call):
+    """Both readers get the packet's bytes; the neighbours are the writer's
+    alone and must not change the view or its hash."""
+    from ytk import view as V
+
+    item_id = _seed(conn)
+    v, a = _packet(conn, item_id)
+    before = v.view_hash
+    enricher.enrich_item(conn, item_id, view=v, attempt=a, neighbours=_near())
+    again = V.latest_view(item_id)
+    assert again is not None and again.view_hash == before
+    assert "QR codes" not in again.rendered and "QR codes" not in a.rendered()
+
+
+def test_wikilinks_in_a_draft_are_unlinked(conn, monkeypatch):
+    linked = dict(
+        DRAFT,
+        take_response="Same move as [[qr-codes-heal|the QR reel]], in memory.",
+        insights=["Pair it with [[spaced-rep]]."],
+    )
+    monkeypatch.setattr(
+        sdk,
+        "call_structured",
+        lambda *a, **k: sdk.StructuredResult(
+            data=linked, model="m", tokens=1, duration_ms=1, usage=None
+        ),
+    )
+    item_id = _seed(conn)
+    v, a = _packet(conn, item_id)
+    res = enricher.enrich_item(conn, item_id, view=v, attempt=a)
+    assert res.draft.take_response == "Same move as the QR reel, in memory."
+    assert res.draft.insights == ["Pair it with spaced-rep."]
+    assert "[[" not in res.draft_path.read_text()
+    row = conn.execute(
+        "SELECT inputs FROM activity WHERE item_id = ? AND action = 'enrich'", (item_id,)
+    ).fetchone()
+    assert json.loads(row["inputs"])["unlinked"] == 2

@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import BaseModel
 
@@ -33,6 +34,9 @@ from .enrich import (
 )
 from .evidence import evidence_dir
 from .view import View
+
+if TYPE_CHECKING:
+    from .connect import Neighbour  # connect imports ENRICHER_MODEL from here
 
 ENRICHER_MODEL = "claude-sonnet-5"
 
@@ -85,9 +89,20 @@ new_tags
 one sentence on why no existing tag fits. Tags in the vocabulary need no entry.\
 """
 
+NEIGHBOURS_HEADER = """\
+Other notes in the owner's library, nearest to this item. They are context, not \
+the source: none of this is in the packet, so nothing here can be cited or used as \
+evidence about the item. Use them only to name tension or kinship with what the \
+owner already saved, by title, in take_response or insights. Never write [[wikilinks]] \
+and never list these notes in recommendations: links are proposed to the owner \
+separately once the note lands.\
+"""
+
 # The version names the whole role text the writer reads: the field guide in
-# enrich.py as well as the addendum, so an edit to either shows on the row.
-PROMPT_VERSION = hashlib.sha256((BASE_SKELETON + _V2_ADDENDUM).encode()).hexdigest()[:12]
+# enrich.py, the addendum and the neighbours header, so an edit to any shows on the row.
+PROMPT_VERSION = hashlib.sha256(
+    (BASE_SKELETON + _V2_ADDENDUM + NEIGHBOURS_HEADER).encode()
+).hexdigest()[:12]
 
 
 class EnrichmentPatch(BaseModel):
@@ -119,7 +134,7 @@ omit every field you keep. Fix exactly what the findings name, against the packe
 """
 
 PATCH_PROMPT_VERSION = hashlib.sha256(
-    (BASE_SKELETON + _V2_ADDENDUM + _PATCH_ADDENDUM).encode()
+    (BASE_SKELETON + _V2_ADDENDUM + NEIGHBOURS_HEADER + _PATCH_ADDENDUM).encode()
 ).hexdigest()[:12]
 
 _PROSE_FIELDS = ("thesis", "summary", "take_response", "title")
@@ -177,10 +192,50 @@ def _bias_source(view: View) -> str:
     return view.source if view.source in SOURCE_BIAS else "web"
 
 
-def build_prompt(view: View, attempt: Attempt) -> str:
-    """Packet, then the attempt header, then the vocabulary. The packet bytes
-    are the same ones the grader receives (pinned by test)."""
-    return "\n\n".join(p for p in (view.rendered, attempt.rendered(), vocab_block().strip()) if p)
+def neighbours_block(neighbours: list[Neighbour] | None) -> str:
+    if not neighbours:
+        return ""
+    rows: list[str] = []
+    for i, nb in enumerate(neighbours, start=1):
+        row = f"{i}. {nb.title}\n   thesis: {nb.thesis}"
+        if nb.take:
+            row += f"\n   the owner's take on it: {nb.take}"
+        rows.append(row)
+    return NEIGHBOURS_HEADER + "\n\n" + "\n".join(rows)
+
+
+def build_prompt(view: View, attempt: Attempt, neighbours: list[Neighbour] | None = None) -> str:
+    """Packet, then the attempt header, then the nearby notes, then the
+    vocabulary. The packet bytes are the same ones the grader receives
+    (pinned by test); the neighbours are the writer's alone, like the vocabulary."""
+    parts = (view.rendered, attempt.rendered(), neighbours_block(neighbours), vocab_block().strip())
+    return "\n\n".join(p for p in parts if p)
+
+
+_WIKILINK = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]*))?\]\]")
+
+
+def unlink(draft: EnrichmentV2) -> tuple[EnrichmentV2, int]:
+    """[[target|alias]] -> alias (or target) in every string of the draft:
+    links enter a note only through the connections ask."""
+    count = 0
+
+    def sub(m: re.Match[str]) -> str:
+        nonlocal count
+        count += 1
+        return (m.group(2) or m.group(1)).strip()
+
+    def walk(value: Any) -> Any:
+        if isinstance(value, str):
+            return _WIKILINK.sub(sub, value)
+        if isinstance(value, list):
+            return [walk(v) for v in cast("list[Any]", value)]
+        if isinstance(value, dict):
+            return {k: walk(v) for k, v in cast("dict[str, Any]", value).items()}
+        return value
+
+    data = walk(draft.model_dump())
+    return (EnrichmentV2.model_validate(data), count) if count else (draft, 0)
 
 
 def enrich_item(
@@ -189,12 +244,13 @@ def enrich_item(
     *,
     view: View,
     attempt: Attempt,
+    neighbours: list[Neighbour] | None = None,
     actor: str = "enricher",
 ) -> EnrichResult:
     """Run one enrichment attempt and record it. The draft lands on disk
     before the activity row references it. With a previous draft and
     findings on the attempt the call is a patch: the model returns only what
-    it changes."""
+    it changes. `neighbours` are nearby notes shown to the writer only."""
     from . import sdk  # deferred: claude_agent_sdk costs ~120ms (#146)
     from .moments import snap_key_moments
 
@@ -202,7 +258,7 @@ def enrich_item(
     system = build_system(_bias_source(view)) + _V2_ADDENDUM
     if patching:
         system += _PATCH_ADDENDUM
-    user = build_prompt(view, attempt)
+    user = build_prompt(view, attempt, neighbours)
     schema = SCHEMA_PATCH if patching else SCHEMA_V2
 
     res = sdk.call_structured(system, user, schema, add_dirs=view.mounts, model=ENRICHER_MODEL)
@@ -213,6 +269,7 @@ def enrich_item(
     else:
         draft = EnrichmentV2.model_validate(res.data)
     draft, moves = snap_key_moments(draft, view.transcript)
+    draft, unlinked = unlink(draft)
 
     out = draft_path(item_id, attempt.n)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -226,6 +283,8 @@ def enrich_item(
         "prompt_version": PATCH_PROMPT_VERSION if patching else PROMPT_VERSION,
         "mode": "patch" if patching else "draft",
         "snapped": [f"{m.before}->{m.after}" for m in moves],
+        "neighbours": [{"target": nb.target, "cosine": nb.cosine} for nb in neighbours or []],
+        "unlinked": unlinked,
     }
     ledger.insert_activity(
         conn,

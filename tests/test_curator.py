@@ -490,3 +490,31 @@ def test_hub_link_failure_never_unlands_the_note(conn, monkeypatch):
         "SELECT reason FROM activity WHERE item_id = ? AND action = 'hubs-error'", (item_id,)
     ).fetchone()
     assert "vault unavailable" in err["reason"]
+
+
+def test_neighbours_reach_the_writer_and_never_the_grader(conn, monkeypatch):
+    """Layer 2: the writer sees nearby notes each round, seeded by the
+    source before the first draft and by the previous draft after; the
+    grader's prompt stays the packet, the header and the draft."""
+    from ytk import enricher
+    from ytk.connect import Neighbour
+
+    seen: list[list[tuple[str, str]]] = []
+
+    def fake_neighbours(queries, **kw):
+        seen.append(queries)
+        return [
+            Neighbour(target="qr", title="QR codes heal", thesis="Torn codes scan.", cosine=0.7)
+        ]
+
+    monkeypatch.setattr("ytk.connect.vault_neighbours", fake_neighbours)
+    monkeypatch.setattr("ytk.connect.propose", lambda *a, **k: None)
+    calls = _stub_sdk(monkeypatch, [dict(BAD_DRAFT), dict(DRAFT)], [dict(PASS_VERDICT)])
+    item_id = _seed(conn)
+    assert curator.advance_item(conn, item_id).outcome == "kept"
+    sonnet = [c["user"] for c in calls if c["model"] == "claude-sonnet-5"]
+    opus = [c["user"] for c in calls if c["model"] == "claude-opus-5"]
+    assert all(enricher.NEIGHBOURS_HEADER in u and "QR codes heal" in u for u in sonnet)
+    assert all("QR codes heal" not in u for u in opus)
+    assert [label for label, _ in seen[0]] == ["the owner's take", "the source"]
+    assert seen[1][1] == ("thesis", BAD_DRAFT["thesis"])
