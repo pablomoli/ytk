@@ -38,6 +38,7 @@ This file holds counts, column names and category names only. The contents of
 | Answers of "drop" | 0 | you |
 | Items dropped by an expired intent ask | 8 | nobody; a week of silence |
 | Connection asks (the linker's decisions) | 21, proposing 42 links; 38 links approved, 4 not written | you |
+| Nearby taps (added 2026-10-18) | 0 at ship | you |
 | Takes | 31 (22 intent, 8 reflex, 1 reaction); 21 carry text | you |
 | Distinct items with at least one answer | 31 | |
 | Distinct items with a take | 31 (the same 31) | |
@@ -150,6 +151,19 @@ candidates; the 42 it declined are the model's call, not yours.
 decisions. 21 decisions is not a dataset, and a 90 percent approval rate
 means a model that always says yes already scores 90. The strike some option
 is where a per-link label would come from, and it has been used once.
+
+### Nearby taps
+
+> **Later (2026-10-18):** a new capture shape, counted at 0 when it
+> shipped. The note viewer lists a note's doc-to-doc neighbours; a tap
+> on one is a per-link positive judgment, the shape the connections ask
+> rarely yields (strike some, used once). Each tap is an `activity` row,
+> `actor = 'owner'`, `action = 'nearby-link'`, `at` the click, `detail`
+> JSON with `target`, `cosine`, `surface` (hub), the argued `argument`
+> and the outcome; the model's clause sits in the paired `connect` row
+> with `trigger = 'nearby'`. Not a negative: rows shown and not tapped
+> are not recorded. Count with
+> `select count(*) from activity where action = 'nearby-link'`.
 
 ### Takes
 

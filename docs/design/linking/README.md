@@ -228,12 +228,60 @@ Assumptions and limits:
 
 ### 3. Argued links for the 766 older notes (exposure, not writing)
 
-A neighbour table per note (doc-to-doc, top 5, cosine), refreshed on each
-index, shown where the owner works: the hub's note and packet pages,
-"nearby" with the cosine. One tap writes the link through the same apply
-path, the argued clause generated at that moment. No daily ask stream: a
-backfill that raised connections asks for 565 notes would bring back the
-nag step 3 removed.
+As built, 2026-10-18, branch `feat/nearby-notes` (on `feat/connect-fixes`).
+Two commits; the messages carry the measurements.
+
+- **Nearby, on demand.** `GET /api/nearby?note=` returns up to 5
+  doc-to-doc neighbours: the note's stored vector (`store.note_vector`)
+  through `store.search_vector` and connect's `find_candidates` with no
+  text queries, so the band [0.50, 0.90), unlinkable paths, self
+  exclusion and cap are connect's. Targets the note already links
+  (`[[...]]` by basename, embeds excluded) drop before the cap. No
+  neighbour table: on the live store, one request per source note, p50
+  41 ms, p90 89 ms, p99 123 ms, max 655 ms. A table would save ~40 ms per
+  open and go stale between a link and the next index.
+- **Coverage.** 590 of 796 source notes (74%) get at least one nearby
+  note, 350 the full five; 3 have no stored vector, 203 nothing in band.
+  2,237 neighbours, cosine median 0.579.
+- **Where.** The hub note viewer (`NoteViewer.tsx`, `/library` and the
+  other routes that open it), as a "nearby" list above the "visually
+  similar" strip: cosine, title, a "link" button. Not yet on the packet
+  page.
+- **The tap.** `POST /api/nearby/link` re-checks that the target is still
+  nearby, runs connect's argue prompt once with that one candidate, and
+  writes through `connect.write_links`, the same write the connections
+  ask now uses: snapshot, merge into `## Connections`, re-index. The
+  section merges instead of being replaced, so a tap and an ask answered
+  later both survive. The viewer shows the clause; the neighbour leaves
+  the list.
+- **The record.** An activity row `actor owner, action nearby-link` at
+  the click time, detail target, cosine, surface, clause, re-index
+  outcome, error; the model's part is its own `connect` row (trigger
+  nearby). No ask, no answer, no state transition. 778 of 796 source
+  notes resolve to a ledger item (747 grandfathered, 30 curator landings,
+  1 by url); the 18 that do not (journal, screenshots, 6 others) list
+  their neighbours with no button. No item is minted at click time.
+- **Concurrency.** The tap takes the loop's lease by compare-and-set
+  (no tick counted) and refuses an item the loop holds.
+
+Assumptions and limits:
+
+- Doc-to-doc only. A note whose vector sits far from everything (203
+  today) shows nothing, and the take, thesis and concept queries that
+  connect runs on landing are not run here.
+- YouTube vectors are thesis and summary; body-embedded notes move after
+  a link lands (re-index) and their nearby list can shift with it.
+- Titles come from frontmatter or the first heading; memory atoms and
+  session records without either show their slug. Handoffs and session
+  memories still qualify as targets (the open question from layer 2).
+- The clause is argued from the note's thesis and its Commentary or
+  Summary, and the model may decline; then nothing is written and the
+  owner row says so. Whether a tap should be allowed to override a
+  declined clause is open.
+- The tap is a positive per-link judgment only. Rows not tapped are not
+  negatives: the list does not record what was seen.
+- The tap writes the vault from the hub process, outside the loop's
+  single-writer path; the lease is the guard, and it only covers items.
 
 ## Enrichment: in order of expected yield
 
