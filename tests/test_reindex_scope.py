@@ -51,6 +51,8 @@ def test_in_scope(rel: str) -> None:
         ("inbox/memories/ytk/archived/stale-atom.md", "not-searchable"),
         # Indexing an index makes it the answer to everything.
         ("wiki/index.md", "generated"),
+        ("links/concepts/manim.md", "generated"),
+        ("links/creators/3Blue1Brown.md", "generated"),
     ],
 )
 def test_excluded_with_reason(rel: str, reason: str) -> None:
@@ -72,6 +74,7 @@ def test_prefix_match_does_not_leak_to_sibling_dirs() -> None:
     """`inbox/memos` must not swallow `inbox/memos-archive` or `notes/memos`."""
     assert scan_exclusion(Path("inbox/memos-archive/x.md")) is None
     assert scan_exclusion(Path("notes/memos/x.md")) is None
+    assert scan_exclusion(Path("links-notes/x.md")) is None
 
 
 def test_report_accounts_for_every_file() -> None:

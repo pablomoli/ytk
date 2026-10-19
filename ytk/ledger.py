@@ -95,6 +95,20 @@ MIGRATIONS: list[str] = [
         after_ref  TEXT
     );
     """,
+    # Linking layer 1: the owner's verdict on each candidate hub name. Append
+    # only; the latest row per (kind, key) is the current verdict.
+    """
+    CREATE TABLE hub_verdicts (
+        id        INTEGER PRIMARY KEY,
+        kind      TEXT NOT NULL,
+        key       TEXT NOT NULL,
+        verdict   TEXT NOT NULL,
+        at        TEXT NOT NULL,
+        judged_by TEXT NOT NULL,
+        surface   TEXT
+    );
+    CREATE INDEX hub_verdicts_key ON hub_verdicts(kind, key, id);
+    """,
 ]
 
 

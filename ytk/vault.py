@@ -1361,6 +1361,8 @@ _NOT_SEARCHABLE = ("inbox/archived",)
 
 # Generated listings. Indexing an index makes it the answer to every query.
 _GENERATED = ("wiki/index.md",)
+# Hub notes (ytk/hubs.py) list their source notes and nothing else.
+_GENERATED_TREES = ("links",)
 
 
 def scan_exclusion(rel: Path) -> str | None:
@@ -1377,7 +1379,7 @@ def scan_exclusion(rel: Path) -> str | None:
     for prefix in _NOT_SEARCHABLE:
         if posix == prefix or posix.startswith(prefix + "/"):
             return "not-searchable"
-    if posix in _GENERATED:
+    if posix in _GENERATED or any(posix.startswith(t + "/") for t in _GENERATED_TREES):
         return "generated"
     parts = rel.parts
     if parts[:2] == ("inbox", "memories") and (rel.name == "index.md" or "archived" in parts[2:-1]):
