@@ -851,6 +851,71 @@ def similar_api(q: str = "", note: str = "", n: int = 8):
     ]
 
 
+def _vault_note_path(rel_path: str) -> Path:
+    """A viewer's note path (relative to the vault root) as the path the
+    ledger and the store recorded: unresolved, but refused outside the brain."""
+    from ytk import vault
+
+    brain = vault.get_brain_path()
+    note = brain.parent / rel_path
+    if not note.resolve().is_relative_to(brain.resolve()) or note.suffix != ".md":
+        raise HTTPException(status_code=400, detail="not a vault note")
+    if not note.is_file():
+        raise HTTPException(status_code=404, detail="Note not found")
+    return note
+
+
+@app.get("/api/nearby")
+def nearby_api(note: str):
+    """Doc-to-doc neighbours of one note, computed per request (p50 41 ms
+    on the live store), and whether a tap can link from it."""
+    from ytk import connect, ledger, vault
+
+    path = _vault_note_path(note)
+    brain = vault.get_brain_path()
+    conn = ledger.connect()
+    try:
+        linkable = ledger.item_for_note(conn, path, brain) is not None
+    finally:
+        conn.close()
+    return {
+        "linkable": linkable,
+        "nearby": [
+            {
+                "target": c.target,
+                "title": c.target_title,
+                "cosine": round(c.cosine, 3),
+                "path": str(Path(c.path).relative_to(brain.parent.resolve())) if c.path else None,
+            }
+            for c in connect.nearby(path)
+        ],
+    }
+
+
+class NearbyLinkRequest(BaseModel):
+    note: str
+    target: str
+
+
+@app.post("/api/nearby/link")
+def nearby_link_api(req: NearbyLinkRequest):
+    """The owner's tap: one argued clause, written through the connections
+    apply path. 409 when the tap cannot apply; 502 when the argue call fails."""
+    from ytk import connect, ledger
+
+    path = _vault_note_path(req.note)
+    conn = ledger.connect()
+    try:
+        linked = connect.link_nearby(conn, path, req.target, surface="hub")
+    except connect.NearbyRefused as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}") from exc
+    finally:
+        conn.close()
+    return linked.model_dump()
+
+
 _pending_sync_lock = __import__("threading").Lock()
 
 

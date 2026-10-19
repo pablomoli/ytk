@@ -13,6 +13,7 @@ everything else lands via upsert_doc under the reindex doc-id scheme.
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import sqlite3
 from collections.abc import Iterable
@@ -254,6 +255,41 @@ def apply_connections(path: Path, links: Iterable[tuple[str, str]]) -> None:
             if lines and lines[-1] == "":
                 lines = lines[:-1]
             lines += ["", *block.split("\n")]
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+_CONNECTION_TARGET = re.compile(r"^- \[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]")
+
+
+def add_connections(path: Path, links: Iterable[tuple[str, str]]) -> None:
+    """Merge links into `## Connections`: a target already listed gets the
+    new argument in place, the rest append, every other line stays as it
+    was. Two writers share the section (the connections ask and the nearby
+    tap), so neither may replace what the other wrote."""
+    new = list(links)
+    text = path.read_text(encoding="utf-8")
+    lines = text.split("\n")
+    heads = [i for i, ln in enumerate(lines) if ln.strip() == "## Connections"]
+    if not heads:
+        apply_connections(path, new)
+        return
+    start = heads[0]
+    later = [i for i, ln in enumerate(lines) if i > start and ln.startswith("## ")]
+    end = later[0] if later else len(lines)
+    body = lines[start + 1 : end]
+    while body and not body[-1].strip():
+        body.pop()
+    by_target = dict(new)
+    kept: list[str] = []
+    for ln in body:
+        m = _CONNECTION_TARGET.match(ln)
+        target = m.group(1).strip() if m else None
+        if target in by_target:
+            kept.append(f"- [[{target}]] — {by_target.pop(target)}")
+        else:
+            kept.append(ln)
+    kept += [f"- [[{t}]] — {arg}" for t, arg in new if t in by_target]
+    lines[start:end] = ["## Connections", *kept, ""]
     path.write_text("\n".join(lines), encoding="utf-8")
 
 

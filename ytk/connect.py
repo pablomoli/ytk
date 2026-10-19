@@ -287,6 +287,7 @@ def find_candidates(
     promote: dict[Path, str] | None = None,
     report: dict[str, Any] | None = None,
     vector: list[float] | None = None,
+    exclude_targets: set[str] | None = None,
 ) -> list[Candidate]:
     """Neighbors across both collections for every (label, query) pair,
     unioned by note with the best cosine kept and the label that earned it,
@@ -300,7 +301,8 @@ def find_candidates(
     floor as (cosine, label), so an empty result says how far from the band
     the nearest relative sat instead of hiding a true absence (#214).
     `vector`, the note's own stored position, adds its doc-to-doc
-    neighbours as one more source under NOTE_LABEL, same band and cap."""
+    neighbours as one more source under NOTE_LABEL, same band and cap.
+    `exclude_targets`, note basenames already linked, drop before the cap."""
     from .grader import NEAR_DUP_BASELINE
 
     promote_paths = {p.resolve() for p in (promote or {})}
@@ -362,6 +364,8 @@ def find_candidates(
         except Exception:
             continue
         if note is None or not _linkable(note, brain):
+            continue
+        if exclude_targets and note.stem in exclude_targets:
             continue
         resolved = note.resolve()
         if resolved == own or resolved in seen_notes:
@@ -466,6 +470,41 @@ def vault_neighbours(
         )
         for c in cands
     ]
+
+
+def linked_targets(text: str) -> set[str]:
+    """Basenames the note already links to; Obsidian resolves [[a/b]] by b.
+    Embeds (![[image.jpg]]) are media, not links."""
+    return {
+        m.group(1).strip().rsplit("/", 1)[-1]
+        for m in _WIKILINK.finditer(text)
+        if m.start() == 0 or text[m.start() - 1] != "!"
+    }
+
+
+def nearby(note: Path) -> list[Candidate]:
+    """Layer 3 (the older notes): the note's doc-to-doc neighbours alone,
+    through connect's band, unlinkable rules and cap, minus what it already
+    links. Reads only; empty when the note has no stored vector."""
+    try:
+        text = note.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    from .hydrate import youtube_video_id
+
+    url = _note_url(note)
+    media_id = youtube_video_id(url) if url else None
+    vector = own_vector(note, media_id)
+    if vector is None:
+        return []
+    return find_candidates(
+        [],
+        exclude_media_id=media_id,
+        exclude_url=url,
+        exclude_path=note,
+        vector=vector,
+        exclude_targets=linked_targets(text),
+    )
 
 
 _ARGUE_SYSTEM = """You connect notes in a personal knowledge vault.
@@ -615,6 +654,144 @@ def propose(
     )
 
 
+def write_links(
+    conn: sqlite3.Connection, item_id: int, path: Path, links: list[ProposedLink]
+) -> str:
+    """The one vault write for approved links, from the ask or the nearby
+    tap: snapshot, merge into `## Connections`, re-index. Returns the
+    re-index outcome."""
+    from . import notes
+
+    notes.snapshot_note(conn, item_id, path)
+    notes.add_connections(path, [(link.target, link.argument) for link in links])
+    return notes.reindex_connected(path)
+
+
+class NearbyRefused(ValueError):
+    """A tap that cannot be applied as asked; nothing was written."""
+
+
+class NearbyLink(BaseModel):
+    target: str
+    target_title: str
+    cosine: float
+    argument: str | None  # None: the clause could not be argued; nothing written
+    reindex: str | None = None
+
+
+def _note_section(text: str, heading: str) -> str:
+    m = re.search(
+        rf"^## {re.escape(heading)}\s*\n+(.+?)(?:\n## |\Z)", text, re.MULTILINE | re.DOTALL
+    )
+    return m.group(1).strip() if m else ""
+
+
+def _hold(conn: sqlite3.Connection, item_id: int) -> str | None:
+    """The loop's lease, taken without counting a tick: the loop and a tap
+    never write one note at once. A crashed holder's lease expires."""
+    from datetime import UTC, datetime, timedelta
+
+    from .loop import LEASE_MINUTES
+
+    now = datetime.now(UTC)
+    until = (now + timedelta(minutes=LEASE_MINUTES)).isoformat()
+    cur = conn.execute(
+        "UPDATE items SET lease_until = ? WHERE id = ? AND (lease_until IS NULL OR lease_until < ?)",
+        (until, item_id, now.isoformat()),
+    )
+    conn.commit()
+    return until if cur.rowcount else None
+
+
+def link_nearby(conn: sqlite3.Connection, note: Path, target: str, *, surface: str) -> NearbyLink:
+    """The owner tapped a nearby note: argue the one link now (one model
+    call), write it through write_links, and record the tap as the owner's
+    judgment. Refuses a note the ledger never took in and a target that is
+    no longer nearby."""
+    from . import vault
+
+    clicked_at = ledger.now()
+    item_id = ledger.item_for_note(conn, note, vault.get_brain_path())
+    if item_id is None:
+        raise NearbyRefused("this note has no ledger item, so a link here has no record to live in")
+    cand = next((c for c in nearby(note) if c.target == target), None)
+    if cand is None:
+        raise NearbyRefused(f"[[{target}]] is not among this note's nearby notes any more")
+    held = _hold(conn, item_id)
+    if held is None:
+        raise NearbyRefused("the curator loop is working on this note; try again in a minute")
+    link: ProposedLink | None = None
+    reindexed: str | None = None
+    failure: str | None = None
+    try:
+        text = note.read_text(encoding="utf-8")
+        _, thesis = _note_identity(note, note.stem, "")
+        summary = _note_section(text, "Commentary") or _note_section(text, "Summary")
+        links, res = _argue(thesis, summary, [cand], _note_take(note))
+        ledger.insert_activity(
+            conn,
+            item_id,
+            actor="connect",
+            action="connect",
+            inputs=json.dumps({"prompt_version": ARGUE_PROMPT_VERSION}),
+            model=res.model,
+            tokens=res.tokens,
+            duration_ms=res.duration_ms,
+            reason=f"{len(links)} of 1 candidates argued (nearby tap)",
+            detail=json.dumps(
+                {
+                    "links": [argued.model_dump() for argued in links],
+                    "candidates": [
+                        {"target": cand.target, "via": cand.via, "cosine": round(cand.cosine, 3)}
+                    ],
+                    "trigger": "nearby",
+                }
+            ),
+        )
+        link = links[0] if links else None
+        reindexed = write_links(conn, item_id, note, [link]) if link else None
+    except Exception as exc:
+        failure = f"{type(exc).__name__}: {exc}"[:200]
+        raise
+    finally:
+        conn.execute(
+            "UPDATE items SET lease_until = NULL WHERE id = ? AND lease_until = ?", (item_id, held)
+        )
+        conn.commit()
+        if link and not failure:
+            reason = f"owner linked [[{target}]] from nearby"
+        elif failure:
+            reason = f"owner picked [[{target}]] from nearby; failed before the write landed"
+        else:
+            reason = f"owner picked [[{target}]] from nearby; no clause argued, nothing written"
+        ledger.insert_activity(
+            conn,
+            item_id,
+            actor="owner",
+            action="nearby-link",
+            output_ref=str(note) if link and not failure else None,
+            reason=reason,
+            detail=json.dumps(
+                {
+                    "target": target,
+                    "cosine": round(cand.cosine, 3),
+                    "surface": surface,
+                    "argument": link.argument if link else None,
+                    "reindex": reindexed,
+                    "error": failure,
+                }
+            ),
+            at=clicked_at,
+        )
+    return NearbyLink(
+        target=target,
+        target_title=cand.target_title,
+        cosine=round(cand.cosine, 3),
+        argument=link.argument if link else None,
+        reindex=reindexed,
+    )
+
+
 def apply_links(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") -> None:
     """Apply the owner's connections answer (loop-dispatched, single writer):
     none returns the item to kept and writes nothing; approve / strike-some
@@ -676,12 +853,7 @@ def apply_links(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") 
     if note_row is None or not Path(note_row["output_ref"]).exists():
         raise RuntimeError("no landed note on disk to connect")
     path = Path(note_row["output_ref"])
-
-    from . import notes
-
-    notes.snapshot_note(conn, item_id, path)
-    notes.apply_connections(path, [(link.target, link.argument) for link in survivors])
-    reindexed = notes.reindex_connected(path)
+    reindexed = write_links(conn, item_id, path, survivors)
     ledger.insert_activity(
         conn,
         item_id,

@@ -307,6 +307,38 @@ def grandfather(conn: sqlite3.Connection, brain_root: Path) -> GrandfatherResult
     return GrandfatherResult(imported=imported, skipped=skipped)
 
 
+def item_for_note(conn: sqlite3.Connection, note: Path, brain_root: Path) -> int | None:
+    """The item a vault note belongs to: the curator's landing (keep
+    output_ref), the grandfather import (payload_ref, brain-relative), else
+    the frontmatter url. None for notes the ledger never took in."""
+    row = conn.execute(
+        """
+        SELECT item_id FROM activity
+        WHERE action = 'keep' AND output_ref = ? ORDER BY id DESC LIMIT 1
+        """,
+        (str(note),),
+    ).fetchone()
+    if row:
+        return int(row["item_id"])
+    try:
+        rel = str(note.relative_to(brain_root))
+    except ValueError:
+        return None
+    row = conn.execute(
+        "SELECT id FROM items WHERE payload_ref = ? ORDER BY id LIMIT 1", (rel,)
+    ).fetchone()
+    if row:
+        return int(row["id"])
+    try:
+        url = _note_frontmatter_value(note, "url")
+    except OSError:
+        return None
+    if not url:
+        return None
+    row = conn.execute("SELECT id FROM items WHERE url = ? ORDER BY id LIMIT 1", (url,)).fetchone()
+    return int(row["id"]) if row else None
+
+
 def ledger_path() -> Path:
     env = os.environ.get("YTK_LEDGER")
     return Path(env) if env else Path.home() / ".ytk" / "ledger.db"
