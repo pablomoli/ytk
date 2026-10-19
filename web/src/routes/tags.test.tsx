@@ -19,6 +19,7 @@ vi.mock("../api/tagMerge", () => ({
 vi.mock("../components/HubControls", () => ({
   HubControls: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
+vi.mock("../components/HubReview", () => ({ HubReview: () => null }));
 vi.mock("../lib/useHoverDecode", () => ({
   useHoverDecode: () => ({ onMouseEnter: () => {} }),
 }));

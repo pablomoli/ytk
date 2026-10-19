@@ -7,6 +7,7 @@ import { editableProposals, mappingFromProposals } from "../lib/tagMerge";
 import { useHoverDecode } from "../lib/useHoverDecode";
 import { HubControls } from "../components/HubControls";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { HubReview } from "../components/HubReview";
 import { Button } from "../components/ui/button";
 import { IconButton } from "../components/ui/icon-button";
 import "../styles.css";
@@ -212,6 +213,7 @@ function TagsPage() {
             </section>
           ))}
         </div>
+        <HubReview />
       </main>
       {groups.length ? (
         <div className="tag-apply-bar sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-line bg-bg1 px-4 py-3">

@@ -14,6 +14,7 @@ import json
 import os
 import re
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
@@ -228,6 +229,48 @@ def tag_merge_apply_api(req: TagMergeRequest):
     from ytk.ui import hub
 
     return hub.apply_tag_merges(req.mapping)
+
+
+@app.get("/api/hubs")
+def hubs_api():
+    from ytk import hubs, ledger
+
+    conn = ledger.connect()
+    try:
+        cands = hubs.candidates(conn)
+    finally:
+        conn.close()
+    return {
+        "threshold": hubs.THRESHOLD,
+        "summary": hubs.summary(cands),
+        "candidates": [c.as_dict() for c in cands],
+    }
+
+
+class HubVerdict(BaseModel):
+    kind: Literal["creator", "concept"]
+    key: str
+    verdict: Literal["approve", "strike"]
+
+
+class HubApplyRequest(BaseModel):
+    verdicts: list[HubVerdict]
+
+
+@app.post("/api/hubs/apply")
+def hubs_apply_api(req: HubApplyRequest):
+    # sync def on purpose: the vault scan and note rewrites run in the threadpool
+    from ytk import hubs, ledger
+
+    conn = ledger.connect()
+    try:
+        recorded = hubs.record_verdicts(
+            conn, [(v.kind, v.key, v.verdict) for v in req.verdicts], surface="hub"
+        )
+        report = hubs.apply(conn)
+    finally:
+        conn.close()
+    return {"recorded": recorded, **report.as_dict()}
 
 
 @app.get("/api/queue")
