@@ -311,7 +311,8 @@ def ask_list() -> str:
 @app.tool()
 def ask_answer(ask_id: int, choice: str, text: str | None = None) -> str:
     """Answer one curator ask as the owner and wake the loop. `text` carries
-    the owner's line for 'say what is wrong' and for intent takes."""
+    the owner's line for 'say what is wrong' and for intent takes; for
+    'strike some' it is the links to KEEP as a JSON list of targets."""
     from . import headless, ledger
 
     conn = ledger.connect()

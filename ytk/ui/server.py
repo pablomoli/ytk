@@ -447,9 +447,12 @@ def outbox_answer_api(req: OutboxAnswerRequest):
         known = conn.execute("SELECT item_id FROM asks WHERE id = ?", (req.ask_id,)).fetchone()
         if known is None:
             raise HTTPException(status_code=404, detail="no such ask")
-        answer_id = asks.answer_ask(
-            conn, req.ask_id, choice=req.choice, text=req.text, surface="hub"
-        )
+        try:
+            answer_id = asks.answer_ask(
+                conn, req.ask_id, choice=req.choice, text=req.text, surface="hub"
+            )
+        except asks.AnswerRefused as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
         state = ledger.item_state(conn, known["item_id"])
         advancing = answer_id is not None and req.choice != "drop"
         if answer_id is not None:

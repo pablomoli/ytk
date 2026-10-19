@@ -619,3 +619,76 @@ class TestApplyLinks:
         self._answer(conn, item, ask_id, "approve")
         with pytest.raises(RuntimeError):
             connect.apply_links(conn, item)
+
+
+# Ask 87, 2026-09-07: three links, strike-some answered in prose over MCP.
+PROSE_87 = (
+    'Keep "We\'re Not Ready for Biocomputing". Strike the LinkedIn draft "the map" '
+    "and the 2026-07-24 grouping-flaw memory: both are about ytk's own brain map."
+)
+LINKS_87 = [
+    {"target": "we-re-not-ready-for-biocomputing", "target_title": "Biocomputing", "argument": "a"},
+    {"target": "LinkedIn Draft - The Map", "target_title": "the map", "argument": "b"},
+    {"target": "2026-07-24-grouping-flaw", "target_title": "grouping", "argument": "c"},
+]
+
+
+class TestStrikeSomeAnswer:
+    """#215: a strike-some answer that names no survivors in the one form
+    apply_links reads is refused at the answer, never recorded and then
+    silently applied as none."""
+
+    def test_prose_is_refused_with_the_targets_to_keep(self, conn, tmp_path, monkeypatch):
+        from ytk import headless, wake
+
+        monkeypatch.setattr(wake, "nudge_loop", lambda: True)
+        item, note, ask_id = _landed_item(conn, tmp_path, LINKS_87)
+        out = headless.ask_answer(conn, ask_id, "strike some", PROSE_87, surface="mcp")
+        assert "not recorded" in out
+        assert '"we-re-not-ready-for-biocomputing"' in out and "LinkedIn Draft - The Map" in out
+        assert conn.execute("SELECT count(*) AS n FROM answers").fetchone()["n"] == 0
+
+    def test_json_survivors_through_headless_land(self, conn, tmp_path, monkeypatch):
+        from ytk import headless, wake
+
+        monkeypatch.setattr(wake, "nudge_loop", lambda: True)
+        monkeypatch.setenv("YTK_SNAPSHOTS", str(tmp_path / "snaps"))
+        item, note, ask_id = _landed_item(conn, tmp_path, LINKS_87)
+        survivors = json.dumps(["we-re-not-ready-for-biocomputing"])
+        out = headless.ask_answer(conn, ask_id, "strike some", survivors, surface="mcp")
+        assert "answered 'strike some'" in out
+        connect.apply_links(conn, item)
+        text = note.read_text()
+        assert "[[we-re-not-ready-for-biocomputing]]" in text
+        assert "LinkedIn" not in text and "grouping-flaw" not in text
+        assert ledger.item_state(conn, item) == "connected"
+
+    def test_unknown_target_is_refused(self, conn, tmp_path):
+        item, note, ask_id = _landed_item(conn, tmp_path, LINKS)
+        with pytest.raises(asks.AnswerRefused, match="c-note"):
+            asks.answer_ask(conn, ask_id, choice="strike some", text=json.dumps(["c-note"]))
+
+    def test_hub_refuses_prose_with_422(self, conn, tmp_path, monkeypatch):
+        from fastapi.testclient import TestClient
+
+        from ytk.ui.server import app
+
+        monkeypatch.setattr("ytk.ui.hub.wake_loop", lambda: None)
+        item, note, ask_id = _landed_item(conn, tmp_path, LINKS)
+        resp = TestClient(app).post(
+            "/api/outbox/answer",
+            json={"ask_id": ask_id, "choice": "strike some", "text": "strike a"},
+        )
+        assert resp.status_code == 422
+        assert "a-note" in resp.json()["detail"]
+
+    def test_legacy_prose_row_says_why_nothing_landed(self, conn, tmp_path):
+        """Rows recorded before the refusal existed (ask 87) still apply as
+        none, but the activity row names the unreadable answer."""
+        item, note, ask_id = _landed_item(conn, tmp_path, LINKS_87)
+        ledger.insert_answer(conn, ask_id, choice="strike some", text=PROSE_87, at=ledger.now())
+        connect.apply_links(conn, item)
+        row = conn.execute(
+            "SELECT reason FROM activity WHERE item_id = ? AND action = 'connect-none'", (item,)
+        ).fetchone()
+        assert "unreadable" in row["reason"]

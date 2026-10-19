@@ -194,7 +194,10 @@ def ask_answer(
     options = [str(o) for o in cast("list[object]", _proposal(row).get("options") or [])]
     if options and choice not in options:
         return f"ask {ask_id} offers {' | '.join(options)}; '{choice}' is not one of them"
-    answer_id = asks.answer_ask(conn, ask_id, choice=choice, text=text, surface=surface)
+    try:
+        answer_id = asks.answer_ask(conn, ask_id, choice=choice, text=text, surface=surface)
+    except asks.AnswerRefused as e:
+        return f"ask {ask_id}: {e}"
     if answer_id is None:
         return f"ask {ask_id} was already answered"
     woke = wake.nudge_loop()

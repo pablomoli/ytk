@@ -2988,7 +2988,12 @@ def ask_list_cmd():
 @ask_group.command(name="answer")
 @click.argument("ask_id", type=int)
 @click.argument("choice")
-@click.option("--text", default=None, help="The owner's line, for 'say what is wrong' and takes.")
+@click.option(
+    "--text",
+    default=None,
+    help="The owner's line, for 'say what is wrong' and takes; for 'strike some', "
+    "the links to KEEP as a JSON list of targets, e.g. '[\"a-note\"]'.",
+)
 def ask_answer_cmd(ask_id: int, choice: str, text: str | None):
     """Answer one ask and wake the loop."""
     from . import headless, ledger

@@ -521,17 +521,16 @@ def apply_links(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") 
     choice = str(row["choice"])
 
     survivors = links
+    reason = f"owner: {choice}"
     if choice == "none":
         survivors = []
     elif choice == "strike some":
         keep: set[str] = set()
-        if row["text"]:
-            try:
-                parsed: object = json.loads(row["text"])
-            except ValueError:
-                parsed = None
-            if isinstance(parsed, list):
-                keep = {str(t) for t in cast("list[object]", parsed)}
+        try:
+            keep = set(asks.strike_some_survivors(raw_links, row["text"]))
+        except asks.AnswerRefused:
+            # Recorded before answers were checked (ask 87); applies as none.
+            reason = "owner: strike some, answer unreadable (not a JSON list of targets)"
         survivors = [link for link in links if link.target in keep]
 
     from_state = ledger.item_state(conn, item_id)
@@ -543,7 +542,7 @@ def apply_links(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop") 
             action="connect-none",
             from_state=from_state,
             to_state="kept",
-            reason=f"owner: {choice}",
+            reason=reason,
         )
         return
 

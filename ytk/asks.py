@@ -114,6 +114,45 @@ def raise_intent_ask(conn: sqlite3.Connection, item_id: int, *, actor: str = "lo
     return raise_ask(conn, item_id, proposal=proposal, actor=actor)
 
 
+class AnswerRefused(ValueError):
+    """An answer the loop could not apply as meant; nothing was recorded."""
+
+
+def strike_some_survivors(links: list[Any], text: str | None) -> list[str]:
+    """The targets a strike-some answer keeps: a JSON list naming proposed
+    targets, the form the hub sends. Anything else raises AnswerRefused
+    with the targets to choose from (#215: prose read as zero survivors)."""
+    targets = [str(cast("dict[str, Any]", link).get("target", "")) for link in links]
+    parsed: object = None
+    if text:
+        try:
+            parsed = json.loads(text)
+        except ValueError:
+            parsed = None
+    unknown: list[str] = []
+    if isinstance(parsed, list):
+        keep = [str(t) for t in cast("list[object]", parsed)]
+        unknown = [t for t in keep if t not in targets]
+        if not unknown:
+            return keep
+    named = ", ".join(json.dumps(t) for t in targets)
+    head = f"unknown targets {', '.join(json.dumps(t) for t in unknown)}; " if unknown else ""
+    raise AnswerRefused(
+        f"{head}'strike some' takes the links to KEEP as a JSON list of targets, "
+        f"e.g. {json.dumps(targets[:1])}; this ask's targets: {named}. Answer not recorded."
+    )
+
+
+def _check_answer(conn: sqlite3.Connection, ask_id: int, choice: str, text: str | None) -> None:
+    if choice != "strike some":
+        return
+    row = conn.execute("SELECT kind, proposal FROM asks WHERE id = ?", (ask_id,)).fetchone()
+    if row is None or row["kind"] != "connections":
+        return
+    proposal = cast("dict[str, Any]", json.loads(row["proposal"]))
+    strike_some_survivors(cast("list[Any]", proposal.get("links") or []), text)
+
+
 def answer_ask(
     conn: sqlite3.Connection,
     ask_id: int,
@@ -125,7 +164,9 @@ def answer_ask(
     """Record an answer: event inserts only. Insert-only on answers (UNIQUE
     ask_id); a second answer is a no-op returning None. The transition is the
     loop's to write (loop.apply_answer) — surfaces nudge, never advance (P5,
-    single writer)."""
+    single writer). A strike-some answer the loop cannot read raises
+    AnswerRefused before anything is written."""
+    _check_answer(conn, ask_id, choice, text)
     at = ledger.now()
     answer_id = ledger.insert_answer(conn, ask_id, choice=choice, text=text, surface=surface, at=at)
     if answer_id is None:
