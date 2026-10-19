@@ -221,3 +221,153 @@ test("StrictMode double-mount with an originRect kills the stale morph tween, no
   // in-flight tween before the second mount starts a new one.
   expect(gsap.getTweensOf(dialog).length).toBeLessThanOrEqual(1);
 });
+
+/* Routes the viewer's fetches: the nearby list (which drops a target once
+   linked), the tap's POST, and an empty answer for everything else. */
+function nearbyRoutes(opts: {
+  linkable: boolean;
+  link?: (target: string) => { status: number; body: unknown };
+}) {
+  const linked = new Set<string>();
+  const all = [
+    { target: "coral-note", title: "Coral growth rules", cosine: 0.712, path: null },
+    { target: "reef-note", title: "Reef shapes", cosine: 0.534, path: null },
+  ];
+  return (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : "";
+    if (url.startsWith("/api/nearby?")) {
+      const nearby = all.filter((n) => !linked.has(n.target));
+      return Promise.resolve(new Response(JSON.stringify({ linkable: opts.linkable, nearby })));
+    }
+    if (url === "/api/nearby/link") {
+      const { target } = JSON.parse(init!.body as string) as { target: string };
+      const out = opts.link!(target);
+      if (out.status === 200 && (out.body as { argument: string | null }).argument) {
+        linked.add(target);
+      }
+      return Promise.resolve(new Response(JSON.stringify(out.body), { status: out.status }));
+    }
+    return Promise.resolve(
+      new Response(
+        JSON.stringify(url.startsWith("/api/note") ? { path: note.path, content: "" } : []),
+      ),
+    );
+  };
+}
+
+async function settle() {
+  await act(async () => {
+    for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0));
+  });
+}
+
+test("nearby lists text neighbours with cosine; a tap writes the link and shows its clause", async () => {
+  const previous = vi.mocked(fetch).getMockImplementation();
+  vi.mocked(fetch).mockClear();
+  vi.mocked(fetch).mockImplementation(
+    nearbyRoutes({
+      linkable: true,
+      link: (target) => ({
+        status: 200,
+        body: {
+          target,
+          target_title: "Coral growth rules",
+          cosine: 0.712,
+          argument: "both grow by local rules",
+          reindex: "re-indexed",
+        },
+      }),
+    }),
+  );
+  try {
+    wrap(<NoteViewer note={note} onClose={() => {}} />);
+    await settle();
+    const panel = screen.getByRole("region", { name: "nearby notes", hidden: true });
+    expect(panel.textContent).toContain("Coral growth rules");
+    expect(panel.textContent).toContain("0.71");
+    expect(panel.textContent).toContain("0.53");
+
+    await act(async () => {
+      await userEvent.click(screen.getByRole("button", { name: "link Coral growth rules" }));
+    });
+    await settle();
+
+    const post = vi.mocked(fetch).mock.calls.find(([url]) => url === "/api/nearby/link");
+    expect(JSON.parse((post![1] as RequestInit).body as string)).toEqual({
+      note: "sources/youtube/x.md",
+      target: "coral-note",
+    });
+    const linked = screen.getByRole("list", { name: "linked", hidden: true });
+    expect(linked.textContent).toContain("Coral growth rules");
+    expect(linked.textContent).toContain("both grow by local rules");
+    // the written neighbour leaves the tap list; the other stays tappable
+    expect(screen.queryByRole("button", { name: "link Coral growth rules" })).toBeNull();
+    expect(screen.getByRole("button", { name: "link Reef shapes" })).toBeInTheDocument();
+  } finally {
+    vi.mocked(fetch).mockImplementation(previous!);
+  }
+});
+
+test("a note with no ledger item shows its neighbours without a link button", async () => {
+  const previous = vi.mocked(fetch).getMockImplementation();
+  vi.mocked(fetch).mockImplementation(nearbyRoutes({ linkable: false }));
+  try {
+    wrap(<NoteViewer note={note} onClose={() => {}} />);
+    await settle();
+    const panel = screen.getByRole("region", { name: "nearby notes", hidden: true });
+    expect(panel.textContent).toContain("Reef shapes");
+    expect(panel.textContent).toContain("no ledger item");
+    expect(screen.queryByRole("button", { name: /^link / })).toBeNull();
+  } finally {
+    vi.mocked(fetch).mockImplementation(previous!);
+  }
+});
+
+test("a refused tap shows the server's reason and keeps the neighbour", async () => {
+  const previous = vi.mocked(fetch).getMockImplementation();
+  vi.mocked(fetch).mockImplementation(
+    nearbyRoutes({
+      linkable: true,
+      link: () => ({ status: 409, body: { detail: "the curator loop is working on this note" } }),
+    }),
+  );
+  try {
+    wrap(<NoteViewer note={note} onClose={() => {}} />);
+    await settle();
+    await act(async () => {
+      await userEvent.click(screen.getByRole("button", { name: "link Reef shapes" }));
+    });
+    await settle();
+    const panel = screen.getByRole("region", { name: "nearby notes", hidden: true });
+    expect(panel.textContent).toContain("the curator loop is working on this note");
+    expect(screen.getByRole("button", { name: "link Reef shapes" })).toBeInTheDocument();
+  } finally {
+    vi.mocked(fetch).mockImplementation(previous!);
+  }
+});
+
+test("a tap the model could not argue says nothing was written", async () => {
+  const previous = vi.mocked(fetch).getMockImplementation();
+  vi.mocked(fetch).mockImplementation(
+    nearbyRoutes({
+      linkable: true,
+      link: (target) => ({
+        status: 200,
+        body: { target, target_title: "Reef shapes", cosine: 0.534, argument: null, reindex: null },
+      }),
+    }),
+  );
+  try {
+    wrap(<NoteViewer note={note} onClose={() => {}} />);
+    await settle();
+    await act(async () => {
+      await userEvent.click(screen.getByRole("button", { name: "link Reef shapes" }));
+    });
+    await settle();
+    const panel = screen.getByRole("region", { name: "nearby notes", hidden: true });
+    expect(panel.textContent).toContain("no clause could be argued for Reef shapes");
+    expect(screen.queryByRole("list", { name: "linked", hidden: true })).toBeNull();
+  } finally {
+    vi.mocked(fetch).mockImplementation(previous!);
+  }
+});

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiSend, queryClient } from "./client";
 
 export type FreshNote = {
@@ -38,6 +38,45 @@ export function useSimilarNotes(path?: string) {
     queryKey: ["similar", path],
     queryFn: () => apiGet<SimilarItem[]>(`/api/similar?note=${encodeURIComponent(path!)}&n=8`),
     enabled: Boolean(path),
+  });
+}
+
+export type NearbyNote = {
+  target: string;
+  title: string;
+  cosine: number;
+  path: string | null;
+};
+
+export type NearbyNotes = { linkable: boolean; nearby: NearbyNote[] };
+
+export type NearbyLink = {
+  target: string;
+  target_title: string;
+  cosine: number;
+  argument: string | null;
+  reindex: string | null;
+};
+
+export function useNearbyNotes(path?: string) {
+  return useQuery({
+    queryKey: ["nearby", path],
+    queryFn: () => apiGet<NearbyNotes>(`/api/nearby?note=${encodeURIComponent(path!)}`),
+    enabled: Boolean(path),
+  });
+}
+
+/* A written link leaves the nearby list and lands in the note body, so both refetch. */
+export function useLinkNearby(path: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (target: string) =>
+      apiSend<NearbyLink>("/api/nearby/link", "POST", { note: path, target }),
+    onSuccess: (link) => {
+      if (!link.argument) return;
+      void client.invalidateQueries({ queryKey: ["nearby", path] });
+      void client.invalidateQueries({ queryKey: ["note", path] });
+    },
   });
 }
 

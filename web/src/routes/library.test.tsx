@@ -19,6 +19,8 @@ vi.mock("../api/fresh", () => ({
   useDeleteNote: () => ({ mutate: vi.fn(), isError: false }),
   useNote: () => ({ isLoading: false, isError: false }),
   useSimilarNotes: () => ({ isLoading: false, isError: false }),
+  useNearbyNotes: () => ({ isLoading: false, isError: false }),
+  useLinkNearby: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }));
 
 import { Route } from "./library";

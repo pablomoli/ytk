@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import type { FreshNote } from "../api/fresh";
-import { useNote, useSimilarNotes } from "../api/fresh";
+import type { FreshNote, NearbyLink } from "../api/fresh";
+import { useLinkNearby, useNearbyNotes, useNote, useSimilarNotes } from "../api/fresh";
 import { ApiError, apiGet, apiSend } from "../api/client";
 import { copyAskPrompt } from "../lib/askPrompt";
 import { sourceIcon } from "./icons";
@@ -8,6 +8,7 @@ import { parseNote } from "../lib/parseNote";
 import type { NoteFrontmatter, NoteSection } from "../lib/parseNote";
 import { renderInline } from "../lib/inlineMarkdown";
 import { DUR, gsap, reducedMotion } from "../lib/motion";
+import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import { PixelDissolve } from "./PixelDissolve";
 
@@ -230,6 +231,95 @@ function NoteBody({ raw, note }: { raw: string; note: FreshNote }) {
   );
 }
 
+function errorDetail(error: unknown): string {
+  if (error instanceof ApiError && typeof error.body === "object" && error.body !== null) {
+    const detail = (error.body as { detail?: unknown }).detail;
+    if (typeof detail === "string") return detail;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+/* Text neighbours by the note's own vector; one tap argues and writes the
+   link through the connections apply path. Links written this session stay
+   listed with their clause, since the neighbour itself leaves the list. */
+function NearbyNotes({ path }: { path: string }) {
+  const nearby = useNearbyNotes(path);
+  const link = useLinkNearby(path);
+  const [written, setWritten] = useState<NearbyLink[]>([]);
+  const items = nearby.data?.nearby ?? [];
+  if (!items.length && !written.length) return null;
+  const linkable = nearby.data?.linkable ?? false;
+  const pendingTarget = link.isPending ? link.variables : undefined;
+  const declined = link.data && !link.data.argument ? link.data : undefined;
+
+  return (
+    <section
+      aria-label="nearby notes"
+      className="clear-both mt-[1.2rem] border-t border-line pt-[0.8rem]"
+    >
+      <h3 className="m-0 mb-[0.4rem] font-data text-[0.8rem] text-mute lowercase">nearby</h3>
+      {items.length ? (
+        <ul className="m-0 flex list-none flex-col p-0">
+          {items.map((item) => (
+            <li key={item.target} className="flex items-center gap-[0.6rem] py-[0.15rem]">
+              <span className="w-[2.6rem] shrink-0 font-data text-[0.78rem] text-mute tabular-nums">
+                {item.cosine.toFixed(2)}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[0.88rem] text-ink2" title={item.title}>
+                {item.title}
+              </span>
+              {linkable ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="min-h-8"
+                  aria-label={`link ${item.title}`}
+                  disabled={link.isPending}
+                  onClick={() =>
+                    link.mutate(item.target, {
+                      onSuccess: (made) => {
+                        if (made.argument) setWritten((prev) => [...prev, made]);
+                      },
+                    })
+                  }
+                >
+                  {pendingTarget === item.target ? "arguing" : "link"}
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {!linkable && items.length ? (
+        <p className="my-[0.3rem] text-[0.78rem] text-mute">
+          this note has no ledger item, so links from it are not offered here
+        </p>
+      ) : null}
+      {declined ? (
+        <p className="my-[0.3rem] text-[0.78rem] text-mute">
+          no clause could be argued for {declined.target_title}; nothing written
+        </p>
+      ) : null}
+      {link.isError ? (
+        <p className="my-[0.3rem] text-[0.78rem] text-mute">{errorDetail(link.error)}</p>
+      ) : null}
+      {written.length ? (
+        <ul
+          aria-label="linked"
+          className="m-0 mt-[0.4rem] flex list-none flex-col gap-[0.2rem] p-0"
+        >
+          {written.map((made) => (
+            <li key={made.target} className="text-[0.85rem] text-ink">
+              <span className="font-data text-[0.78rem] text-accent">linked</span>{" "}
+              {made.target_title} <span className="text-ink2">— {made.argument}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
 const REFLECT_QUESTION = "why did you save this?";
 
 type ReflectStatus = {
@@ -357,7 +447,8 @@ export function NoteViewer({
         // give up silently rather than fight the portal's own timing.
         const tryFadeOverlay = () => {
           const overlay = document.querySelector('[data-slot="dialog-overlay"]');
-          if (overlay) overlayTweenRef.current = gsap.from(overlay, { opacity: 0, duration: DUR.reveal });
+          if (overlay)
+            overlayTweenRef.current = gsap.from(overlay, { opacity: 0, duration: DUR.reveal });
           return Boolean(overlay);
         };
         overlayRafRef.current[0] = requestAnimationFrame(() => {
@@ -415,7 +506,9 @@ export function NoteViewer({
               <button
                 className="btn"
                 type="submit"
-                disabled={!reflectAnswer.trim() || reflectPhase === "sending" || reflectPhase === "running"}
+                disabled={
+                  !reflectAnswer.trim() || reflectPhase === "sending" || reflectPhase === "running"
+                }
               >
                 {reflectPhase === "sending" || reflectPhase === "running" ? "reflecting" : "submit"}
               </button>
@@ -442,6 +535,7 @@ export function NoteViewer({
           {content.isLoading ? <p>loading note...</p> : null}
           {content.isError ? <p>failed to load note: {String(content.error)}</p> : null}
           {content.data ? <NoteBody raw={content.data.content} note={note} /> : null}
+          <NearbyNotes path={note.path} />
           {similar.data?.length ? (
             <div className="similar-items">
               <span>visually similar</span>
