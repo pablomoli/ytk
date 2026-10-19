@@ -152,7 +152,7 @@ connections. Every answer is a labeled row.
 | blind item | visual-heavy source with frames failed or no transcript | retry frames / proceed text-only / drop | waits; retry sweep may clear it |
 | duplicate | same URL, or cosine above the measured near-dup baseline | merge into [[X]] / keep separate / drop | keep separate |
 | grader bounce, twice | enricher failed the rubric two rounds | accept as is / say what is wrong (edit) / drop | waits |
-| connections | connect has candidates with an argument each | approve these links / strike some / none | none written |
+| connections | connect has candidates with an argument each | approve these links / strike some (text: JSON list of the targets to keep; anything else is refused at the answer, #215) / none | none written |
 | stance tension | item contradicts a take, decision record or journal line | does this change your stance on X? yes (say how) / no / later | no |
 | routing | a brain-dump piece fits two destinations | file under A / B | held in the dump |
 | reflex sweep | 20+ items landed from one source with nothing from the owner | archive all / pick some / keep waiting | archive all |
@@ -433,7 +433,7 @@ the packet; it tells the teacher a change it asked for is not a new
 objection.
 
 **Invariants.** Student prompt = role text + `view.rendered` +
-`attempt.rendered()` + vocabulary. Teacher prompt = role text + rubric +
+`attempt.rendered()` + nearby notes + vocabulary. Teacher prompt = role text + rubric +
 `view.rendered` + `attempt.rendered()` + draft. `add_dirs` is `view.mounts`
 in both calls. Enrich and grade rows carry `view_hash` and `attempt`; a
 grade row whose view differs from its draft's is refused, not written. A
@@ -442,6 +442,20 @@ skips transcript grounding and the teacher opens the frame; an unlisted one
 bounces at zero cost. A key moment past the transcript cut bounces as
 "cites outside the packet". The writer never sees the rubric: the one
 asymmetry that stays.
+
+**Nearby notes (linking layer 2, 2026-10-18).** Each round the writer is
+also shown up to five notes already in the vault (title, thesis, the
+owner's `## My take` on that note), found by connect's machinery
+read-only: the take's named notes first, then the store through connect's
+band and linkable rules, queried by the previous draft's thesis and
+concepts on a retry and by the take plus a seed of the source's title and
+caption, description or article before the first draft. They sit outside
+the view on purpose: the view is the evidence packet, hash-addressed per
+bundle, and neighbours are neither evidence nor stable. The teacher never
+sees them, like the vocabulary. The writer may name them by title in
+`take_response` or insights and never links them: a draft's `[[...]]` is
+unlinked in code, and links enter only through the connections ask. The
+enrich row records the neighbours shown and the unlinked count.
 
 **Headless surface** (P8 pulled forward): `ytk item`, `ytk ask list`,
 `ytk ask answer`, `ytk view`, `ytk grade`; MCP `item_show`, `ask_list`,
@@ -583,6 +597,12 @@ packet. The homework has to answer it.
 **The librarian, connect.** After the homework is filed, suggests which
 shelves it belongs beside; the owner approves each cross-reference. Before
 a page is written on, the librarian photocopies the old page (snapshot).
+Since linking layer 2 the librarian also looks at what already sits next
+to the filed page (doc-to-doc neighbours of its stored vector, merged with
+the query hits on cosine), and after writing the cross-references
+re-files the page's index card where the body is what is indexed (not
+YouTube, whose card is thesis and summary). The student is now shown the
+nearest shelves too, as a list of titles, not as sources.
 
 **The register, the ledger.** Every hand-off: who, when, how much ink,
 what came back.

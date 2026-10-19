@@ -167,12 +167,64 @@ Append-only; the latest row per name is the current verdict. Listed in
 
 ### 2. Argued links on landing (the existing connect path, fixed)
 
-- Fix strike some (#215) and re-index after links are written.
-- Doc-to-doc neighbours next to the query path as a candidate source.
-- Give the enricher the top 5 neighbours (title, thesis, owner take) so
-  the draft can argue tension and connections from the whole draft, not
-  only the thesis. Links still go through the connections ask; the
-  rubric's demand becomes meetable.
+As built, 2026-10-18, branch `feat/connect-fixes`. Four changes, one
+commit each; the commit messages carry the measurements.
+
+- **Strike some (#215).** Root cause: `apply_links` reads strike-some
+  text as a JSON list of the targets to keep, the form the hub sends; the
+  MCP answer to ask 87 was prose, parsed as zero survivors, and applied as
+  none. Every surface now goes through one check in `asks.answer_ask`: a
+  strike-some answer on a connections ask must be a JSON list of proposed
+  targets, or it is refused with the targets named and nothing recorded
+  (CLI and MCP reply with the guidance, the hub answers 422). Rows
+  recorded before the check apply as none with a reason that says the
+  answer was unreadable. Ask 87's surviving link was not re-applied.
+- **Re-index after links land.** Body-embedded notes (everything outside
+  `sources/youtube`) are re-embedded through reindex's own single-note
+  path (`vault.index_vault_note`) right after `## Connections` is
+  written; YouTube notes are not, because their vector is the draft's
+  thesis and summary. Of 19 past applies, 12 were body-embedded. A failed
+  re-index never fails the apply; the next reindex pass sees the hash.
+- **Doc-to-doc candidates.** The landed note's unit-mean stored vector
+  (`store.note_vector`) queries both collections (`store.search_vector`,
+  raw cosine, no boost, no log) as one more source next to the take,
+  thesis and concept queries; union by note, best cosine kept, same band
+  [0.50, 0.90) and cap 5. Argue, ask and apply are unchanged. Measured on
+  the 30 landed notes: 19 candidate lists change, 27 doc-to-doc
+  candidates enter, the 4 empty runs stay empty, and 32 of 38 approved
+  links survive the merged cap (37 on the query path alone, which
+  proposed them).
+- **Neighbours in the enricher prompt.** Up to 5 nearby notes (title,
+  thesis, the owner's take on that note) after the attempt header, writer
+  only, never in the view. Seeded by the take plus the source's title and
+  caption/description/article on the first attempt and by the previous
+  draft on a retry. `[[...]]` in a draft is unlinked in code. Item 777's
+  real prompt (built, not sent): 4 neighbours, including the QR note the
+  grader asked for, 2.2k characters, +31% on a reel's prompt.
+
+Assumptions and limits:
+
+- Raw cosine from the two sources is merged as one scale. Top-1 medians
+  agree (doc-to-doc 0.608, query 0.598) but the two are different
+  measurements: a document against documents, a query against documents.
+- The approved-link comparison is circular in the query path's favour; the
+  connect row now records each candidate's source (`via`, cosine), so
+  approval rate per source is countable after a few weeks of answers.
+- Neighbours come from search, so they inherit its blind spots: the 4
+  notes with nothing in band get no neighbours either. Before the first
+  draft there is no thesis; the seed is title and caption, weak for
+  handle-titled reels with short captions.
+- The grader cannot check a tension claim against a neighbour it never
+  saw. Mentions are steered to `take_response` and insights, outside the
+  grounding spot-checks.
+- The rubric's Connections section still asks the draft for links the
+  draft has no field for, so a "no links returned" bounce stays possible.
+  The fix is a rubric edit (links come from the connect step), which is
+  the owner's.
+- Doc-to-doc surfaced listings and templates; `inbox/review.md`,
+  `inbox/ideas.md` and any `_templates/` folder are now unlinkable.
+  Session memories and project handoffs still qualify as targets; whether
+  they should is open.
 
 ### 3. Argued links for the 766 older notes (exposure, not writing)
 
