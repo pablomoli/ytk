@@ -23,7 +23,7 @@ DRAFT = {
     "new_tags": [],
 }
 
-BAD_DRAFT = dict(DRAFT, thesis="This talk delves into the landscape of agent loops.")
+BAD_DRAFT = dict(DRAFT, thesis="He delves into the landscape of agent loops.")
 
 PASS_VERDICT = {"passed": True, "bounces": [], "spot_checks": []}
 BOUNCE_VERDICT = {
@@ -518,3 +518,48 @@ def test_neighbours_reach_the_writer_and_never_the_grader(conn, monkeypatch):
     assert all("QR codes heal" not in u for u in opus)
     assert [label for label, _ in seen[0]] == ["the owner's take", "the source"]
     assert seen[1][1] == ("thesis", BAD_DRAFT["thesis"])
+
+
+MEDIUM_DRAFT = dict(DRAFT, summary="The reel is a build log for a three-file agent loop.")
+
+
+def test_house_rule_miss_is_patched_before_the_grader_reads_it(conn, monkeypatch):
+    calls = _stub_sdk(monkeypatch, [dict(MEDIUM_DRAFT), dict(DRAFT)], [dict(PASS_VERDICT)])
+    item_id = _seed(conn)
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "kept"
+    models = [c["model"] for c in calls]
+    assert models == ["claude-sonnet-5", "claude-sonnet-5", "claude-opus-5"]
+    assert "house rule: open on the claim" in calls[1]["user"]
+    lint = conn.execute(
+        "SELECT actor, reason, detail FROM activity WHERE item_id = ? AND action = 'lint'",
+        (item_id,),
+    ).fetchall()
+    assert [r["actor"] for r in lint] == ["grader"]
+    assert lint[0]["reason"] == "bounce: house rule: open on the claim"
+    assert json.loads(lint[0]["detail"])["bounces"][0]["where"] == "summary"
+    # The grade reads the patched draft, and only grade rows feed the next round.
+    grades = conn.execute(
+        "SELECT output_ref FROM activity WHERE item_id = ? AND action = 'grade'", (item_id,)
+    ).fetchall()
+    assert len(grades) == 1 and grades[0]["output_ref"].endswith(f"{item_id}-2.json")
+
+
+def test_house_rule_fix_runs_once_per_round_then_the_grader_decides(conn, monkeypatch):
+    calls = _stub_sdk(monkeypatch, [dict(MEDIUM_DRAFT), dict(MEDIUM_DRAFT)], [dict(PASS_VERDICT)])
+    item_id = _seed(conn)
+    res = curator.advance_item(conn, item_id)
+    assert res.outcome == "kept"
+    assert [c["model"] for c in calls].count("claude-sonnet-5") == 2
+    n = conn.execute(
+        "SELECT count(*) FROM activity WHERE item_id = ? AND action = 'lint'", (item_id,)
+    ).fetchone()[0]
+    assert n == 1
+
+
+def test_house_rule_fix_respects_the_item_call_cap(conn, monkeypatch):
+    monkeypatch.setattr(curator, "ITEM_CALL_CAP", 1)
+    calls = _stub_sdk(monkeypatch, [dict(MEDIUM_DRAFT)], [dict(PASS_VERDICT)])
+    item_id = _seed(conn)
+    curator.advance_item(conn, item_id)
+    assert [c["model"] for c in calls] == ["claude-sonnet-5", "claude-opus-5"]

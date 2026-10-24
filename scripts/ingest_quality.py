@@ -7,6 +7,7 @@ reaction), reflex with no words, none.
 
     uv run python scripts/ingest_quality.py
     uv run python scripts/ingest_quality.py --since 2026-10-19
+    uv run python scripts/ingest_quality.py --prompt-version <enricher.PROMPT_VERSION>
 """
 
 from __future__ import annotations
@@ -30,7 +31,19 @@ def _cohort(take: sqlite3.Row | None) -> str:
     return "words"
 
 
-def measure(conn: sqlite3.Connection, since: str) -> dict[str, Any]:
+def _first_prompt_version(conn: sqlite3.Connection, item_id: int) -> str | None:
+    row = conn.execute(
+        "SELECT inputs FROM activity WHERE item_id = ? AND action = 'enrich' ORDER BY id LIMIT 1",
+        (item_id,),
+    ).fetchone()
+    if row is None or not row["inputs"]:
+        return None
+    return json.loads(row["inputs"]).get("prompt_version")
+
+
+def measure(
+    conn: sqlite3.Connection, since: str, prompt_version: str | None = None
+) -> dict[str, Any]:
     items = conn.execute(
         "SELECT id, source, url, provenance FROM items WHERE captured_at >= ? "
         "AND provenance != 'grandfathered'",
@@ -40,6 +53,9 @@ def measure(conn: sqlite3.Connection, since: str) -> dict[str, Any]:
     cohorts: dict[str, dict[str, Any]] = {}
     checks: Counter[str] = Counter()
     for item_id in ids:
+        # The first draft names the writer's instructions the item started under.
+        if prompt_version and _first_prompt_version(conn, item_id) != prompt_version:
+            continue
         take = conn.execute(
             "SELECT kind, text FROM takes WHERE item_id = ? ORDER BY id LIMIT 1", (item_id,)
         ).fetchone()
@@ -113,6 +129,7 @@ def measure(conn: sqlite3.Connection, since: str) -> dict[str, Any]:
     ).fetchall()
     return {
         "since": since,
+        "prompt_version": prompt_version,
         "cohorts": cohorts,
         "top_bounce_checks": checks.most_common(8),
         "intent_asks_by_surface": asks_by_surface,
@@ -167,13 +184,16 @@ def _print(report: dict[str, Any]) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--since", default="0000", help="ISO date; items captured from then on")
+    ap.add_argument(
+        "--prompt-version", default=None, help="only items whose first draft ran this version"
+    )
     ap.add_argument("--db", type=Path, default=None, help="ledger path (default: the live one)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
     path = args.db or ledger_path()
     conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
-    report = measure(conn, args.since)
+    report = measure(conn, args.since, args.prompt_version)
     if args.json:
         print(json.dumps(report, indent=1))
     else:

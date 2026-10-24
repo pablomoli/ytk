@@ -3,7 +3,9 @@
 One function the P5 loop can absorb whole; until then the acting surface
 calls it (CLI synchronously, hub from its background job). Per advance:
 up to two enrich+grade rounds; the second bounce raises the "grader
-bounce, twice" ask through asks.raise_ask and the item waits. A pass
+bounce, twice" ask through asks.raise_ask and the item waits. A draft
+that misses a wired house rule (writer_rules.WIRED) gets one patch before
+its grade. A pass
 transitions to enriched (the grader alone suffices, per the lifecycle),
 lands the note, and records kept.
 """
@@ -16,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from . import asks, grader, ledger, loop, rubric
+from . import asks, grader, ledger, loop, rubric, writer_rules
 from . import attempt as attempt_mod
 from .enricher import EnrichmentV2, draft_path, enrich_item
 from .evidence import load_bundle
@@ -144,6 +146,12 @@ def _last_findings(conn: sqlite3.Connection, item_id: int) -> list[dict[str, Any
 
 def _finding_lines(findings: list[dict[str, Any]]) -> list[str]:
     return [f"{f.get('check', '')}: {f.get('detail', '')}" for f in findings]
+
+
+def house_rule_findings(draft: EnrichmentV2) -> list[dict[str, Any]]:
+    """The wired house-rule misses, shaped as findings for one patch before
+    the grader reads the draft. A second miss goes to the grader as is."""
+    return [dict(h.finding()) for h in writer_rules.lint(draft) if h.rule in writer_rules.WIRED]
 
 
 def model_calls(conn: sqlite3.Connection, item_id: int) -> int:
@@ -350,6 +358,30 @@ def advance_item(conn: sqlite3.Connection, item_id: int, *, actor: str = "loop")
         draft = enriched.draft
         att.record_draft(enriched.draft_path)
         previous = draft.model_dump()
+
+        fixes = house_rule_findings(draft)
+        if fixes and model_calls(conn, item_id) < ITEM_CALL_CAP:
+            loop.stamp_stage("checks", "house rules")
+            ledger.insert_activity(
+                conn,
+                item_id,
+                actor="grader",
+                action="lint",
+                from_state=ledger.item_state(conn, item_id),
+                to_state=None,
+                reason=f"bounce: {fixes[0]['check']}",
+                detail=json.dumps({"layer": "lint", "bounces": fixes}),
+            )
+            att.close({"layer": "lint", "passed": False, "bounces": fixes})
+            n = _next_attempt(conn, item_id)
+            att = attempt_mod.open_attempt(
+                item_id, n, view, take=take_rec, previous=previous, findings_in=fixes
+            )
+            loop.stamp_stage("enrich", f"attempt {n}, house rules")
+            enriched = enrich_item(conn, item_id, view=view, attempt=att, neighbours=nearby)
+            draft = enriched.draft
+            att.record_draft(enriched.draft_path)
+            previous = draft.model_dump()
 
         loop.stamp_stage("checks")
         bounces = grader.deterministic_checks(

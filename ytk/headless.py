@@ -299,6 +299,7 @@ _DETERMINISTIC = (
     "bounce: key moment",
     "bounce: tag",
     "bounce: banned",
+    "bounce: house rule",
 )
 _TERMINAL = frozenset({"kept", "connected", "kept-unlabeled"})
 _UNIT = re.compile(r"t:\d+(?:-\d+)?|frame:\d+")

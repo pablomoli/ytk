@@ -89,6 +89,7 @@ ytk/
                          storyboard sheets, close-ups, detached Whisper (docs/architecture/fetch-layer.md)
     view.py            — the evidence packet (#212): one view per bundle, hashed, both readers get the same bytes
     attempt.py         — one round's record: findings in, draft out, verdict out
+    writer_rules.py    — house rules in the writer's instructions + the lint the curator runs before the grade
     headless.py        — `ytk item / ask / view / grade` and the MCP wrappers, no logic in the wrappers
                          also `station_at`, `track`, `packet`: where a packet is at any instant, served at /api/packet (#213)
     books_match.py     — stdlib epub fuzzy text-position matcher (audiobook tracker)
