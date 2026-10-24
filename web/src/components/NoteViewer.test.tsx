@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { userEvent } from "@vitest/browser/context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeAll, expect, test, vi } from "vitest";
@@ -346,14 +346,20 @@ test("a refused tap shows the server's reason and keeps the neighbour", async ()
   }
 });
 
-test("a tap the model could not argue says nothing was written", async () => {
+test("a tap the model could not argue is listed as linked by hand", async () => {
   const previous = vi.mocked(fetch).getMockImplementation();
   vi.mocked(fetch).mockImplementation(
     nearbyRoutes({
       linkable: true,
       link: (target) => ({
         status: 200,
-        body: { target, target_title: "Reef shapes", cosine: 0.534, argument: null, reindex: null },
+        body: {
+          target,
+          target_title: "Reef shapes",
+          cosine: 0.534,
+          argument: "linked by hand",
+          reindex: "re-indexed",
+        },
       }),
     }),
   );
@@ -365,8 +371,8 @@ test("a tap the model could not argue says nothing was written", async () => {
     });
     await settle();
     const panel = screen.getByRole("region", { name: "nearby notes", hidden: true });
-    expect(panel.textContent).toContain("no clause could be argued for Reef shapes");
-    expect(screen.queryByRole("list", { name: "linked", hidden: true })).toBeNull();
+    const linked = within(panel).getByRole("list", { name: "linked", hidden: true });
+    expect(linked.textContent).toContain("Reef shapes — linked by hand");
   } finally {
     vi.mocked(fetch).mockImplementation(previous!);
   }

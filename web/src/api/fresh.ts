@@ -54,7 +54,7 @@ export type NearbyLink = {
   target: string;
   target_title: string;
   cosine: number;
-  argument: string | null;
+  argument: string;
   reindex: string | null;
 };
 
@@ -72,8 +72,7 @@ export function useLinkNearby(path: string) {
   return useMutation({
     mutationFn: (target: string) =>
       apiSend<NearbyLink>("/api/nearby/link", "POST", { note: path, target }),
-    onSuccess: (link) => {
-      if (!link.argument) return;
+    onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["nearby", path] });
       void client.invalidateQueries({ queryKey: ["note", path] });
     },

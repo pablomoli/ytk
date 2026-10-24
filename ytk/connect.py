@@ -675,8 +675,12 @@ class NearbyLink(BaseModel):
     target: str
     target_title: str
     cosine: float
-    argument: str | None  # None: the clause could not be argued; nothing written
+    argument: str  # BY_HAND when no clause was argued
     reindex: str | None = None
+
+
+# The owner's tap is the judgment; this clause stands in when the model argues none.
+BY_HAND = "linked by hand"
 
 
 def _note_section(text: str, heading: str) -> str:
@@ -704,10 +708,11 @@ def _hold(conn: sqlite3.Connection, item_id: int) -> str | None:
 
 
 def link_nearby(conn: sqlite3.Connection, note: Path, target: str, *, surface: str) -> NearbyLink:
-    """The owner tapped a nearby note: argue the one link now (one model
-    call), write it through write_links, and record the tap as the owner's
-    judgment. Refuses a note the ledger never took in and a target that is
-    no longer nearby."""
+    """The owner tapped a nearby note: argue the clause (one model call),
+    write the link through write_links, and record the tap as the owner's
+    judgment. The tap always writes: a declined or failed argue writes the
+    link with BY_HAND. Refuses a note the ledger never took in and a target
+    that is no longer nearby."""
     from . import vault
 
     clicked_at = ledger.now()
@@ -720,36 +725,46 @@ def link_nearby(conn: sqlite3.Connection, note: Path, target: str, *, surface: s
     held = _hold(conn, item_id)
     if held is None:
         raise NearbyRefused("the curator loop is working on this note; try again in a minute")
-    link: ProposedLink | None = None
+    link = ProposedLink(target=cand.target, target_title=cand.target_title, argument=BY_HAND)
     reindexed: str | None = None
+    argue_error: str | None = None
     failure: str | None = None
     try:
-        text = note.read_text(encoding="utf-8")
-        _, thesis = _note_identity(note, note.stem, "")
-        summary = _note_section(text, "Commentary") or _note_section(text, "Summary")
-        links, res = _argue(thesis, summary, [cand], _note_take(note))
-        ledger.insert_activity(
-            conn,
-            item_id,
-            actor="connect",
-            action="connect",
-            inputs=json.dumps({"prompt_version": ARGUE_PROMPT_VERSION}),
-            model=res.model,
-            tokens=res.tokens,
-            duration_ms=res.duration_ms,
-            reason=f"{len(links)} of 1 candidates argued (nearby tap)",
-            detail=json.dumps(
-                {
-                    "links": [argued.model_dump() for argued in links],
-                    "candidates": [
-                        {"target": cand.target, "via": cand.via, "cosine": round(cand.cosine, 3)}
-                    ],
-                    "trigger": "nearby",
-                }
-            ),
-        )
-        link = links[0] if links else None
-        reindexed = write_links(conn, item_id, note, [link]) if link else None
+        try:
+            text = note.read_text(encoding="utf-8")
+            _, thesis = _note_identity(note, note.stem, "")
+            summary = _note_section(text, "Commentary") or _note_section(text, "Summary")
+            links, res = _argue(thesis, summary, [cand], _note_take(note))
+        except Exception as exc:
+            argue_error = f"{type(exc).__name__}: {exc}"[:200]
+        else:
+            ledger.insert_activity(
+                conn,
+                item_id,
+                actor="connect",
+                action="connect",
+                inputs=json.dumps({"prompt_version": ARGUE_PROMPT_VERSION}),
+                model=res.model,
+                tokens=res.tokens,
+                duration_ms=res.duration_ms,
+                reason=f"{len(links)} of 1 candidates argued (nearby tap)",
+                detail=json.dumps(
+                    {
+                        "links": [argued.model_dump() for argued in links],
+                        "candidates": [
+                            {
+                                "target": cand.target,
+                                "via": cand.via,
+                                "cosine": round(cand.cosine, 3),
+                            }
+                        ],
+                        "trigger": "nearby",
+                    }
+                ),
+            )
+            if links:
+                link = links[0]
+        reindexed = write_links(conn, item_id, note, [link])
     except Exception as exc:
         failure = f"{type(exc).__name__}: {exc}"[:200]
         raise
@@ -758,27 +773,29 @@ def link_nearby(conn: sqlite3.Connection, note: Path, target: str, *, surface: s
             "UPDATE items SET lease_until = NULL WHERE id = ? AND lease_until = ?", (item_id, held)
         )
         conn.commit()
-        if link and not failure:
-            reason = f"owner linked [[{target}]] from nearby"
-        elif failure:
+        if failure:
             reason = f"owner picked [[{target}]] from nearby; failed before the write landed"
+        elif argue_error:
+            reason = f"owner linked [[{target}]] from nearby by hand; the argue call failed"
+        elif link.argument == BY_HAND:
+            reason = f"owner linked [[{target}]] from nearby by hand; no clause argued"
         else:
-            reason = f"owner picked [[{target}]] from nearby; no clause argued, nothing written"
+            reason = f"owner linked [[{target}]] from nearby"
         ledger.insert_activity(
             conn,
             item_id,
             actor="owner",
             action="nearby-link",
-            output_ref=str(note) if link and not failure else None,
+            output_ref=None if failure else str(note),
             reason=reason,
             detail=json.dumps(
                 {
                     "target": target,
                     "cosine": round(cand.cosine, 3),
                     "surface": surface,
-                    "argument": link.argument if link else None,
+                    "argument": None if failure else link.argument,
                     "reindex": reindexed,
-                    "error": failure,
+                    "error": failure or argue_error,
                 }
             ),
             at=clicked_at,
@@ -787,7 +804,7 @@ def link_nearby(conn: sqlite3.Connection, note: Path, target: str, *, surface: s
         target=target,
         target_title=cand.target_title,
         cosine=round(cand.cosine, 3),
-        argument=link.argument if link else None,
+        argument=link.argument,
         reindex=reindexed,
     )
 

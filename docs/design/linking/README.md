@@ -252,12 +252,16 @@ Two commits; the messages carry the measurements.
   writes through `connect.write_links`, the same write the connections
   ask now uses: snapshot, merge into `## Connections`, re-index. The
   section merges instead of being replaced, so a tap and an ask answered
-  later both survive. The viewer shows the clause; the neighbour leaves
-  the list.
+  later both survive. The tap always writes: the click is the owner's
+  judgment and wins. When the model declines to argue a clause, or the
+  argue call fails, the link is written with the clause "linked by hand"
+  (owner decision, 2026-10-24). The viewer shows the clause; the
+  neighbour leaves the list.
 - **The record.** An activity row `actor owner, action nearby-link` at
   the click time, detail target, cosine, surface, clause, re-index
-  outcome, error; the model's part is its own `connect` row (trigger
-  nearby). No ask, no answer, no state transition. 778 of 796 source
+  outcome, error (an argue failure is recorded here and the link still
+  lands; a failed write leaves no clause and no output); the model's part
+  is its own `connect` row (trigger nearby), absent when the call failed. No ask, no answer, no state transition. 778 of 796 source
   notes resolve to a ledger item (747 grandfathered, 30 curator landings,
   1 by url); the 18 that do not (journal, screenshots, 6 others) list
   their neighbours with no button. No item is minted at click time.
@@ -275,9 +279,9 @@ Assumptions and limits:
   session records without either show their slug. Handoffs and session
   memories still qualify as targets (the open question from layer 2).
 - The clause is argued from the note's thesis and its Commentary or
-  Summary, and the model may decline; then nothing is written and the
-  owner row says so. Whether a tap should be allowed to override a
-  declined clause is open.
+  Summary, and the model may decline; the link is then written by hand
+  and the owner row says so. A "linked by hand" line carries no reason a
+  later reader can check; the tap itself is the evidence.
 - The tap is a positive per-link judgment only. Rows not tapped are not
   negatives: the list does not record what was seen.
 - The tap writes the vault from the hub process, outside the loop's

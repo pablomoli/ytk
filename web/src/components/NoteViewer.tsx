@@ -250,7 +250,6 @@ function NearbyNotes({ path }: { path: string }) {
   if (!items.length && !written.length) return null;
   const linkable = nearby.data?.linkable ?? false;
   const pendingTarget = link.isPending ? link.variables : undefined;
-  const declined = link.data && !link.data.argument ? link.data : undefined;
 
   return (
     <section
@@ -278,7 +277,7 @@ function NearbyNotes({ path }: { path: string }) {
                   onClick={() =>
                     link.mutate(item.target, {
                       onSuccess: (made) => {
-                        if (made.argument) setWritten((prev) => [...prev, made]);
+                        setWritten((prev) => [...prev, made]);
                       },
                     })
                   }
@@ -293,11 +292,6 @@ function NearbyNotes({ path }: { path: string }) {
       {!linkable && items.length ? (
         <p className="my-[0.3rem] text-[0.78rem] text-mute">
           this note has no ledger item, so links from it are not offered here
-        </p>
-      ) : null}
-      {declined ? (
-        <p className="my-[0.3rem] text-[0.78rem] text-mute">
-          no clause could be argued for {declined.target_title}; nothing written
         </p>
       ) : null}
       {link.isError ? (

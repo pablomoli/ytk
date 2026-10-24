@@ -276,32 +276,68 @@ class TestLinkNearby:
         with pytest.raises(connect.NearbyRefused, match="not among"):
             connect.link_nearby(conn, own, "somewhere-else", surface="hub")
 
-    def test_unargued_tap_writes_nothing_but_records_the_judgment(self, conn, monkeypatch, brain):
+    def test_unargued_tap_writes_the_link_by_hand(self, conn, monkeypatch, brain):
         own, item = self._setup(conn, monkeypatch, brain)
-        before = own.read_text()
         _argue(monkeypatch, [])
         out = connect.link_nearby(conn, own, "near", surface="hub")
-        assert out.argument is None
-        assert own.read_text() == before
+        assert out.argument == connect.BY_HAND
+        assert f"- [[near]] — {connect.BY_HAND}" in own.read_text()
         row = conn.execute(
-            "SELECT reason, output_ref FROM activity WHERE item_id = ? AND action = 'nearby-link'",
+            "SELECT reason, output_ref, detail FROM activity"
+            " WHERE item_id = ? AND action = 'nearby-link'",
             (item,),
         ).fetchone()
-        assert "nothing written" in row["reason"] and row["output_ref"] is None
+        assert "by hand" in row["reason"] and row["output_ref"] == str(own)
+        detail = json.loads(row["detail"])
+        assert detail["argument"] == connect.BY_HAND and detail["error"] is None
+        assert connect.nearby(own) == []
 
-    def test_failed_argue_releases_the_lease_and_records_the_error(self, conn, monkeypatch, brain):
+    def test_failed_argue_still_writes_by_hand_and_records_the_error(
+        self, conn, monkeypatch, brain
+    ):
         own, item = self._setup(conn, monkeypatch, brain)
 
         def boom(*a, **k):
             raise RuntimeError("sdk down")
 
         monkeypatch.setattr("ytk.sdk.call_structured", boom)
-        with pytest.raises(RuntimeError):
+        out = connect.link_nearby(conn, own, "near", surface="hub")
+        assert out.argument == connect.BY_HAND
+        assert f"- [[near]] — {connect.BY_HAND}" in own.read_text()
+        actions = [
+            r["action"]
+            for r in conn.execute(
+                "SELECT action FROM activity WHERE item_id = ? ORDER BY id", (item,)
+            )
+        ]
+        assert actions == ["grandfather", "nearby-link"]
+        row = conn.execute(
+            "SELECT reason, output_ref, detail FROM activity"
+            " WHERE item_id = ? AND action = 'nearby-link'",
+            (item,),
+        ).fetchone()
+        assert "argue call failed" in row["reason"] and row["output_ref"] == str(own)
+        assert "sdk down" in json.loads(row["detail"])["error"]
+        lease = conn.execute("SELECT lease_until FROM items WHERE id = ?", (item,)).fetchone()
+        assert lease["lease_until"] is None
+
+    def test_failed_write_releases_the_lease_and_records_the_error(self, conn, monkeypatch, brain):
+        own, item = self._setup(conn, monkeypatch, brain)
+        _argue(monkeypatch, [{"target": "near", "argument": "x"}])
+
+        def boom(*a, **k):
+            raise OSError("vault offline")
+
+        monkeypatch.setattr("ytk.notes.add_connections", boom)
+        with pytest.raises(OSError):
             connect.link_nearby(conn, own, "near", surface="hub")
         row = conn.execute(
-            "SELECT detail FROM activity WHERE item_id = ? AND action = 'nearby-link'", (item,)
+            "SELECT reason, output_ref, detail FROM activity"
+            " WHERE item_id = ? AND action = 'nearby-link'",
+            (item,),
         ).fetchone()
-        assert "sdk down" in json.loads(row["detail"])["error"]
+        assert "failed before the write landed" in row["reason"] and row["output_ref"] is None
+        assert "vault offline" in json.loads(row["detail"])["error"]
         lease = conn.execute("SELECT lease_until FROM items WHERE id = ?", (item,)).fetchone()
         assert lease["lease_until"] is None
 
