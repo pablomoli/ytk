@@ -56,7 +56,8 @@ Section 3 of the patch-grid night, `docs/design/patch-grid-night/README.md`.
   behind her (9.6 percent of the frame, drop 0.010 of 0.131); her face,
   which both section 54 recipes chose, costs 0.006. On the sewing cabinet
   RISE's hill sits on the machine and the wall above it; the object cover
-  says the floor. RISE's values are small in absolute terms (a range of
+  says the floor. *(Corrected 2026-10-24: the object cover's winner is the
+  upper wall carrying the printed caption, region 2, not the floor.)* RISE's values are small in absolute terms (a range of
   0.005 around the mean match on the woman) because they are expected
   scores under half-covered images, not drops, which is why figure 01 gives
   the column its own scale; the shape is sharp. Two of three times, the
@@ -66,13 +67,13 @@ Section 3 of the patch-grid night, `docs/design/patch-grid-night/README.md`.
   3 of 10 (goat, owl's mouse, selfie's sunglasses). In 6 of the 7
   disagreements its winner is the larger region: a keyboard half instead of
   the trackball, the anime woman instead of the rose, the sewing room's
-  floor instead of the machine, the keyboard photo's whole background
+  floor *(corrected: the captioned wall)* instead of the machine, the keyboard photo's whole background
   instead of the cable. Covering more pixels costs more match whatever they
   show. On the frame-filling question it agrees on 4 of 9. This is
   section 53's "occlusion measures necessity" limit at object resolution:
   necessity scales with area.
 - **Drop sizes.** The largest single-object drop is 6 to 78 percent of the
-  match (median 19 percent on the small-object question). Four of the ten
+  match (median 19 percent on the small-object question). Five of the ten
   small-object queries lose under 0.015 of cosine to their best cover, the
   same range as covering a random region.
 
@@ -87,6 +88,47 @@ all three, RISE is not needed again" has the answer no, and the useful
 negative is the other one: covering whole objects is not a referee for
 small things.
 
+> **Later (review, 2026-10-24, `run56.py area` and the saved caches):** the
+> area claim had no control, and the control changes its reading.
+>
+> - **Area alone does not explain the object cover's picks.** Each
+>   contested region was compared with its own pixel mask slid to 16 other
+>   places in the frame (figure 04). Against that same-shape null the
+>   whole-object winner still beats crop-on-grey's pick on 6 of the 7
+>   small-object disagreements, and across all regions drop and area are
+>   barely related (median Spearman +0.05 per image and query, range -0.43
+>   to +0.80). "Covering more pixels costs more match whatever they show"
+>   is not what the data says. What holds: the winner is usually among the
+>   largest regions of its image.
+> - **Why it still is not a referee for small things.** In two of the six
+>   the winning region contains the small object (the trackball lies wholly
+>   inside the keyboard half, 87 percent of the rose inside the anime
+>   woman): SAM's masks nest, and covering the outer one covers the object.
+>   In two the region that matters is context or print (the buildings
+>   behind the woman, the captioned wall over the sewing machine). The
+>   keyboard photo's winner covers 68 percent of the frame and its null
+>   cannot leave it (56 percent overlap), so that one is not judged. The
+>   conclusion stands, on a different mechanism: necessity is not location.
+> - **One exception the text missed:** on the skull-moon the object cover's
+>   winner (3 percent of the frame) is smaller than crop-on-grey's (25
+>   percent, the landscape).
+> - **"The same range as covering a random region"** had no data when it
+>   was written. The same-shape nulls for regions under a tenth of the
+>   frame now supply it: 90 percent of their drops fall between -0.007 and
+>   +0.013.
+> - **RISE's convergence was overstated.** Figure 03 compares nested
+>   subsets of one mask set with the full set, which shares masks. Two
+>   disjoint sets of 1,000 masks agree at rank 0.85 on the goat, 0.90 on
+>   the sewing cabinet and 0.62 on the woman for "a woman wearing
+>   sunglasses", the query behind the -0.28 headline: her map is the least
+>   stable of the three.
+> - **"RISE reads right on all three"** is the author's eye on three
+>   images. RISE's winner rule (highest mean per patch) picks a one-patch
+>   region on the woman and on the sewing cabinet, while the object cover's
+>   rule (total drop) leans the other way, so the two winner rules are not
+>   comparable. For "a woman wearing sunglasses" SAM 3 (section 57) returns
+>   the whole person; RISE's top region, the sunglasses, is a part of her.
+
 ## Figures
 
 - `01-three-referees.png` — the woman, the goat and the sewing cabinet: the
@@ -96,6 +138,9 @@ small things.
   whole-object occlusion beside section 54's crop-on-grey vote.
 - `03-does-rise-converge.png` — the goat's RISE map at 200, 500, 1,000 and
   2,000 masks on one scale.
+- `04-the-area-control.png` — the review's control: every contested
+  region's drop against the same mask slid to 16 other places, for section
+  54's eight disagreements and this section's seven.
 
 Caches `~/.ytk/patch_grid/night/56_*.npz`; runner
 `experiments/patch_grid/run56.py`; figures `scripts/plot_night.py 56`.

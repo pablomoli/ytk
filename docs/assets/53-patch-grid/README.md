@@ -198,6 +198,57 @@ its own cell; and the referee only measures necessity, which a frame-filling
 subject never concentrates in one block. The lenses may still be wrong, but
 this section could not have shown them right.
 
+> **Later (review, 2026-10-24, from `patch_grid.json` and one new
+> measurement):** the reading above does not survive the committed numbers.
+>
+> - **The lenses agree least where the referee is strongest.** Split at the
+>   5 percent line the paragraph above uses (figure 06): on the 18 weak
+>   thumbnails the means are probe attention +0.09, patch alone +0.15,
+>   gradient +0.14; on the 22 strong ones -0.03, +0.05, +0.11; on the 10
+>   strongest -0.09, -0.07, +0.03. Rank correlation of a lens's agreement
+>   with the referee's strength is negative for all three (-0.34, -0.31,
+>   -0.20). The gradient lens's best image (+0.55) is one where no block
+>   costs anything. A weak referee did not drag good lenses to zero; where
+>   the referee had something to rank, the lenses ranked it worse. The loss
+>   is the lenses'.
+> - **The registered conclusion, applied as written.** The interpretation
+>   fixed in advance says that if both cheap lenses fail, the section records
+>   that the probe's mixing makes per-patch readings of this head unfaithful
+>   and a feature would be on demand only. Both failed; that is the
+>   conclusion. The material caveat (578f1b6, written before the gate) stands
+>   as a caveat, not as a replacement.
+> - **The referee is signal, not fp16 noise, but barely title-specific.**
+>   Re-encoding each uncovered thumbnail alone, instead of in its batch of
+>   12, moves its title cosine by a median 0.00001 (max 0.00003) against a
+>   median largest drop of 0.0045 (`run.py --noise`, `noise_floor.json`);
+>   only the one thumbnail whose largest drop is zero sits under three times
+>   that. But the largest true-title drop beats the largest wrong-title drop
+>   on 23 of 40 (one-sided binomial p = 0.21; 25 of 40 as shares of each
+>   match, figure 03): near a coin flip, which the result never said.
+> - **The 60 misses were not shown to be the rendering.** Lenses 2 and 4
+>   are native 24 x 24; drawing them at 6 x 6 for the rating was a choice
+>   made at rating time, and "the rating measured the rendering" is a
+>   hypothesis nobody tested. The rating sheet and answers are not in the
+>   repository or the cache, so the 60 cannot be audited. `run.py` printed
+>   the gate's means to the terminal before the rating; whether they were
+>   relayed is not recorded.
+> - **Smaller corrections.** Patch alone's text-specificity interval is
+>   [-0.0001, 0.130]: it misses by a hair, and its true-minus-wrong is +0.12
+>   on the strong half and 0.00 on the weak half, so where the referee is
+>   strong it may read the query after all; the gradient lens holds in both
+>   halves (+0.09, +0.08). Spearman over 36 blocks mostly ranks blocks the
+>   referee scores near zero, so it can score a lens badly that lands on the
+>   one hot block (figure 05, the ARK row: same block, -0.23); a
+>   top-block reading was not registered and is not substituted. The
+>   overlays draw negative values as zero while Spearman ranks them.
+>   Figures 01 to 05 were re-rendered from the same numbers: 01, 03 and 05 for layout
+>   (a title over a tick label, an axis stretched by one clipped point, the
+>   kicker "the panel that kills it"); figure 06 is new.
+> - **Later sections bear on this one.** Section 55: the long tokens lens 1
+>   kept landing on are three fixed register slots, not content. Section 56:
+>   covering a region measures necessity, which grows with the region's
+>   area, the same limit the 6 x 6 cover showed for frame-filling subjects.
+
 **The pivot.** Section 53 closes here. The follow-up is one night of five
 experiments on ten images with nameable objects and three hand-written
 queries each, at the finest resolution each method allows, with the picture
@@ -210,3 +261,6 @@ on are in `docs/research/patch-grid-literature.md`. The per-image cache of
 Figures 01 to 05 and `scripts/plot_patch_grid.py` are committed as they were
 rendered on 2026-09-20 from the gate run at `578f1b6`; they are the record of
 what was measured, including the 6 x 6 overlays that could not be read.
+Figures 01 to 05 were re-rendered on 2026-10-24 from the same
+numbers; figure 06, `06-where-the-referee-was-strong.png`, is the review's
+split.

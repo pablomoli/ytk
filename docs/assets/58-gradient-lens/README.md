@@ -49,7 +49,7 @@ Section 5 of the patch-grid night, `docs/design/patch-grid-night/README.md`.
 - **Gradient x activation is speckle.** Peak patch 2 to 10 percent of the
   map, scattered single patches at every layer, no hill forming anywhere
   along depth (figure 02, all 27 layers on the goat). Spearman with the
-  object referee: median +0.01, range -0.11 to +0.17; with RISE on the
+  object referee: median +0.01, range -0.11 to +0.16; with RISE on the
   three images +0.17, -0.13, +0.17. Zeroing the slots changes nothing that
   matters: they hold 0 to 2 percent of the averaged map (25 percent at the
   last layer alone), and the median stays +0.01. Figure 03 puts these
@@ -70,6 +70,36 @@ on the residual tokens is not uniform, but on this checkpoint it is noise
 with the register slots on top. The instant single-image lens this section
 was for does not exist in this form; the lenses that located objects in
 this record all paid for encoder passes (crop-on-grey, occlusion, RISE).
+
+> **Later (review, 2026-10-24, `run58.py fp32` and the saved caches):** the
+> dead end holds; two explanations above do not.
+>
+> - **Not fp16.** The backward pass ran in half precision, with averaged
+>   attention gradients near half precision's smallest normal value. Rerun
+>   in float32 on all ten: the attention map is the same map (rank 0.99
+>   with the fp16 one on every image), gradient x activation agrees at
+>   median rank 0.88, and the medians against the object referee are +0.07
+>   and +0.01, as before.
+> - **The large attention-variant correlations are unexplained.** Spearman
+>   ignores scale, so a near-flat map can still rank strongly, and the
+>   -0.61 and -0.62 come from the keyboard photo and the sewing cabinet,
+>   where the referee is zero on only a quarter of the patches, not "zero
+>   on most". They hold in float32 (-0.66, -0.61). "Flat by construction"
+>   is too strong as well: averaging the clamped gradient over rows gives a
+>   near-uniform map only if the value vectors are similar in size; it is
+>   what was observed, with a plausible mechanism.
+> - **Lead with RISE.** Section 56 had just shown the object cover is not a
+>   location referee for small things, and this section still scored
+>   against it, as the plan registered. The verdict holds against RISE on
+>   its three images (+0.17, -0.13, +0.17) and, against the object cover,
+>   when only patches the referee scores above zero are ranked (median
+>   +0.14).
+> - **Figure 03** now draws a null: the median over the ten of each lens map
+>   with its patches shuffled, against the same heavily tied referee; its
+>   95 percent band is [-0.03, +0.03], and the slots-zeroed median (+0.01)
+>   sits inside it. "No
+>   better than the old ones" compares different referees on different
+>   material; the figure says "for scale only" and so should the sentence.
 
 ## Not done
 

@@ -366,7 +366,7 @@ image list before go. Any experiment whose first picture is not readable.
 
 **Ran:** step 0 and all five sections, in order, one commit each on
 `exp/53-patch-grid` (900c6a7, 89717dc, 76cac07 + 4a3c94f, e0f748f, 20bfa12,
-534e471, 0325cbc), a comment per section on #218, every figure sent as it
+534e471, 0325cbc, and 1f158cb for section 57 once the licence cleared), a comment per section on #218, every figure sent as it
 rendered. The amendment after section 55 (bdbf01f) added the section 54
 addendum and made section 58 run raw and slot-masked.
 
@@ -386,7 +386,9 @@ layer 10 at 37 percent depth, carrying about 0.02 of every search vector's
 cosine; a test-time register removes them at cosine 0.977. No verified
 source had measured this on SigLIP-2 or on any attention-pooling head.
 
-**For ytk's "show me where":** the recipe that located named objects on
+**For ytk's "show me where":** *(see the review below: not all ten; it
+chose the woman's face for "sunglasses" and the landscape for the
+skull-moon's small person)* the recipe that located named objects on
 all ten images is the spike's, SAM masks scored by crop-on-grey, at about
 25 s of encoder time per image at save time and 106 KB of vectors; every
 cheaper lens tried tonight (masked head, probe attention, whole-encoder
@@ -417,3 +419,54 @@ slots encode, and the probe-weighted row aggregation for LeGrad.
 lost to crop-on-grey and the slots did not explain it. If a cached
 "show me where" ships, it is crop-on-grey's 46 vectors per image, not the
 head's, and that is a different feature than the plan named.
+
+## Review (2026-10-24, before merge)
+
+Three independent reads of the branch, each recomputing the sections'
+numbers from the caches, then four reruns: the section 53 referee's fp16
+floor (`run.py --noise`), section 55's nine neurons alone and a null that
+carries attention (`run55.py review`), an area control for every contested
+region (`run56.py area`), and section 58 in float32 (`run58.py fp32`).
+Every section README now carries a dated **Later (review)** block; numbers
+that never matched the data were corrected in place and marked.
+
+- **53.** The closing reading, a weak referee on the wrong material, is
+  contradicted by its own file: the lenses agree least where the referee is
+  strongest. The registered conclusion is restored: per-patch readings of
+  this head are unfaithful, and a feature would be on demand only. The
+  referee is well above fp16 noise but barely title-specific (23 of 40).
+- **54.** "Not one pick changed" was false: two did. The 6-to-2 tiebreak
+  survives the area concern and strengthens under the area control (7 to
+  1), but covering measures necessity, not location, and on the one query
+  with an independent location answer (SAM 3's sunglasses) the head was
+  right.
+- **55.** The finding stands with narrower words: two slots written at layer
+  10 by the nine neurons (now ablated alone), a third only at the last
+  layer; 0.02 of cosine is about 12 degrees; a null that hides the three
+  most-attended other tokens moves the vector 43 percent as far, so much of
+  the effect is attention mass.
+- **56.** Area alone does not explain the object cover's picks; nested masks
+  and context do. RISE's stability on the woman is 0.62 between disjoint
+  mask sets, not 0.97.
+- **57.** Its dead-end condition (more than a few seconds per image, or
+  memory pressure beside SigLIP-2) sits on the line at 2.6 to 4.9 s and
+  3 GB: not fired, not cleanly passed. Labels: the memory figure is an
+  allocation, and the 2.6 s timing lives only in a commit message.
+- **58.** The dead end holds in float32 and against RISE; the explanation
+  for its large attention-variant correlations was wrong and is withdrawn.
+
+**For ytk's "show me where", revised:** crop-on-grey is still the recipe
+that wins against covering, at about 25 s per image at save time, but no
+referee in this record measures *where* except SAM 3, and SAM 3 is
+query-time at a few seconds. A cached view built on crop-on-grey would
+answer "what does the match need", which is not always "where is it".
+
+**The owner's decision, revised:** whether section 54's region vectors go
+into `ytk/visual.py` behind a flag. The answer stays no on the evidence:
+not shown better, 1 to 7 against covering controlled for shape. Open, and
+cheap: judge the eight disagreements and the eleven agreements against
+SAM 3 masks for each query, or by eye. That is the location referee the
+night lacked, and it is the next experiment if this feature comes back.
+
+**Left for later, added:** the location re-judging above; a rating sheet
+committed with any future blind rating, so the record can be audited.

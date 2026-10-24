@@ -44,7 +44,7 @@ query names its thinnest structure. The owner may swap any image by editing
   frame), largest first. 28 to 110 per image; the woman image reproduced the
   spike's 46. Each pixel mask maps to the 24 x 24 patch grid after the
   processor's squash to 384 x 384: a patch belongs to a region if at least
-  half of it is covered. 45 of 553 regions were too small to own a patch
+  half of it is covered. 55 of 553 regions were too small to own a patch
   that way and were given their single best-covered patch (ruling; the plan
   said half coverage and nothing about the remainder).
 - **The head.** `experiments/patch_grid/region_head.py::region_vectors`, a
@@ -82,14 +82,17 @@ query names its thinnest structure. The owner may swap any image by editing
 region less often than crop-on-grey.**
 
 - 19 of the 30 queries are answered by their picture under the absent-query
-  rule; all 10 absent controls fall below it, as they should, and none is
-  drawn.
+  rule; the threshold is the highest absent control, so all 10 sit at or
+  below it by construction, and none is drawn.
 - On those 19, crop-on-grey and the masked head pick the **same winner on
   11**, and in every one of those the winner is the named object: the
   goat, the trackball, the small figure and the moon, the woman's face,
   the coiled cable, the rose, the sewing machine and the cabinet's side, the
   mouse and the owl. Both recipes work when they agree, and figure 02 shows
-  what the agreement looks like at pixel resolution.
+  what the agreement looks like at pixel resolution. *(Corrected 2026-10-24:
+  not every one. For "a small person standing alone" both chose a region of
+  147 patches, a quarter of the frame, whose cover costs the match nothing
+  (-0.002); the small figure is not what they agreed on.)*
 - On the **8 disagreements** the covering tiebreaker sides with
   **crop-on-grey 6 to 2**. The head's two wins are the keyboard photo's
   background (68 percent of the frame, whose cover cost 0.022 against 0.007
@@ -101,9 +104,9 @@ region less often than crop-on-grey.**
   48-patch line, the KASAI petals on 11 patches); for "sunglasses" it picks
   a single patch on the woman and an 83-patch strip of wall on the selfie.
   Covering those cost the match nothing (drops of -0.002 to +0.008), while
-  covering the crop's picks cost 0.014 to 0.039.
+  covering the crop's picks cost 0.006 to 0.039.
 - On the woman image with the spike's six queries the two recipes differed
-  on four of six, agreeing only on the face for "a woman wearing sunglasses"
+  on five of six, agreeing only on the face for "a woman wearing sunglasses"
   and on the crop's method being sharper for the caption: the sliding cover
   puts the printed caption's drop at 0.054 of 0.182 exactly on the text,
   which no SAM region covers, so both recipes choose a neighbour (the shirt,
@@ -113,8 +116,8 @@ region less often than crop-on-grey.**
   region's vector is largely one or two tokens' worth of value, whichever
   the probe already liked. Unconfined, the top patch takes 5 percent and the
   top ten 25 percent, the long-token pattern from section 53. The cached
-  tokens sit after the encoder's final layernorm (norms 38 to 42, none above
-  150), so whether the head's bad picks are the regions holding long tokens
+  tokens sit after the encoder's final layernorm (norms 11 to 50, median 38,
+  none above 150), so whether the head's bad picks are the regions holding long tokens
   cannot be read from this cache; section 55 hooks the layers where the
   norms are measured and can revisit it.
 
@@ -136,11 +139,51 @@ with sam-vit-base masks and no tuning, the plain masked head loses.
 > cells removed from every region's mask, and the head on the register-shifted
 > tokens of section 55's figure 04. Slots masked out: the same 11 of 19
 > winners as crop-on-grey, the same 8 disagreements, occlusion siding with it
-> on the same 2. Not one pick changed. Register-shifted tokens: 8 of 19 the
+> on the same 2. Not one pick changed. *(Corrected 2026-10-24: two picks
+> changed. On the skull-moon's "a small person standing alone" the slots-out
+> head moves from the region crop-on-grey also chose, 147 patches whose cover
+> costs -0.002, to a 2-patch region whose cover costs +0.002, and wins; on the
+> KASAI art's "red blood vessels" it moves to crop-on-grey's region and loses
+> the head's win there. The counts, 11 the same and 2 won of 8, came out
+> equal over a different set of disagreements.)* Register-shifted tokens: 8 of 19 the
 > same, 11 disagreements, occlusion siding with it on 4. The slots were not
 > the cause; the head's preference for backgrounds and slivers is the head's
 > own. Outcome two of the plan's amendment: crop-on-grey is the recipe and
 > `region_vectors` does not go into `ytk/`. Figure 06.
+
+> **Later (review, 2026-10-24, sections 56 and 57 and section 56's area
+> control):** the 6-to-2 verdict was weaker than written, and a control
+> run in review makes it stronger again on what it measures.
+>
+> - **The judge was a ruling, not the plan's.** The plan named the spike's
+>   sliding-occlusion map as the tiebreaker; it exists only for the woman
+>   image, so covering each candidate region was used instead, without
+>   being flagged. The owner's look at the sheet the next morning, which
+>   the plan called for, did not happen; no human judged the eight.
+> - **Area.** In 5 of the 8 the larger region won, and section 56 then
+>   suspected covering of favouring large regions. Section 56's area
+>   control (its figure 04) compares each region with its own mask slid
+>   elsewhere in the frame. By drop above that same-shape null, crop-on-grey
+>   wins 7 of 8 (one-sided sign test p = 0.035): the head's keyboard-photo
+>   win was the background's size (it falls 0.069 below its null, whose
+>   draws overlap it by 56 percent), and the KASAI "red blood vessels" coin
+>   flip goes to the head. The verdict survives the area concern.
+> - **Necessity is not location.** On the woman's "sunglasses" every
+>   covering referee, raw or area-controlled, sides with crop-on-grey's
+>   region (her face; excess +0.004 against +0.001), and SAM 3 (section 57)
+>   puts the sunglasses on the head's region (IoU 0.81, 0.02 with the
+>   crop's). On the one query with an independent answer about *where*, the
+>   head was right and the referees were not. One query; it is recorded,
+>   not generalised.
+> - **The skull-moon.** Neither recipe found the small person: both chose
+>   the landscape. The slots-out head did (the correction in the addendum
+>   above).
+> - **The outcome, restated.** The masked head is not shown better than
+>   crop-on-grey; against covering, controlled for shape, it loses 7 to 1.
+>   Covering measures what the match needs, not where the named thing is,
+>   and the one location check favours the head. `region_vectors` stays out
+>   of `ytk/`; a location referee (SAM 3 masks, or the owner's eye) is what
+>   would settle it.
 
 ## For ytk
 
@@ -167,7 +210,7 @@ per image at save time and the same 106 KB; it is the recipe that works.
   blue, the head's in gold, each painted with the drop its cover cost.
 - `04-attention-inside-each-region.png` — the probe's attention unconfined
   and confined to each of the woman image's 46 regions.
-- `06-after-55-the-slots-were-not-the-cause.png` — the addendum: every
+- `06-after-55-what-the-slots-change.png` — the addendum: every
   answered query with the winner under crop-on-grey, the head, the head with
   the slots masked out, and the head on register-shifted tokens, outlined in
   four colours that coincide where they agree.

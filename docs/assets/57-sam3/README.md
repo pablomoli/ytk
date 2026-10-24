@@ -39,7 +39,14 @@ Section 4 of the patch-grid night, `docs/design/patch-grid-night/README.md`.
 |---|---|
 | load, fp16 | 4 to 6 s |
 | per prompt after warm-up | 2.6 s (five-prompt run), 4.9 s (seven-prompt run) |
-| peak MPS driver memory | 3.0 GB |
+| MPS driver allocation, every snapshot | 3.0 GB |
+
+*(Corrected 2026-10-24: the row read "peak MPS driver memory", but the
+runner records `driver_allocated_memory()`, the allocation at each
+snapshot, and every snapshot reads 2.99 GB. The 2.6 s figure comes from the
+five-prompt run, whose cache the seven-prompt run overwrote; it survives
+only in commit 1f158cb's message. The cache on disk holds the seven-prompt
+run, mean 4.92 s.)*
 
 - **"sunglasses"**: one mask, score 0.93, 0.3 percent of the frame, on the
   sunglasses. Its overlap with the spike's SAM masks: IoU 0.81 with the

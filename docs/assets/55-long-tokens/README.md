@@ -91,6 +91,45 @@ clean emergence, or cosine above 0.999 everywhere) did not fire; the plan's
 hope that hiding them would make the probe map legible did not come true
 either.
 
+> **Later (review, 2026-10-24, `run55.py review` and the saved caches):**
+> four sentences above say more than the data.
+>
+> - **Two slots are written at layer 10, not three.** (row 16, col 0) and
+>   (row 17, col 0) jump to about 2,100 at layer 10. (row 0, col 20) is at
+>   norm 10 at layer 10 and 40 at layer 26, and crosses 150 only at the last
+>   layer (median 245, minimum 162). The result bullet says so; the reading
+>   and the plan's closing note do not.
+> - **The nine, ablated alone.** The first pass only intervened on the top
+>   3, 10 and 30. Zeroing just the nine layer-10 neurons leaves 0.2 tokens
+>   above 150 per image (the slots peak at 153, 109 and 96) at cosine 0.856
+>   with production (minimum 0.767): the nine make the two layer-10 slots,
+>   causally. Shifting the nine onto a register removes those two (peaks 101
+>   and 78) and leaves the third (281, one per image) at cosine 0.977. The
+>   first pass's top-10 shift, not reported above, left 0.8 long tokens per
+>   image (largest 188), which is why the reported shift used the top 30.
+> - **"2 percent of the vector's direction"** is 0.02 of cosine. Cosine
+>   0.979 is an angle of about 12 degrees, and the part of a unit vector
+>   that changes is about 0.20 of its length.
+> - **The null was weak.** Three random tokens hold about 0.5 percent of
+>   the probe's attention; the slots hold a median 12.7 percent. Hiding the
+>   three most-attended tokens that are not slots instead (median 7.3
+>   percent of the attention) moves the vector to a median cosine 0.991
+>   (minimum 0.960): 43 percent of the slots' effect for a little over half
+>   their attention. Plotted against the attention hidden, the two sets lie
+>   on one rising trend where their shares overlap (figure 06): much of what
+>   hiding the slots does is what hiding any heavily attended tokens does,
+>   and the slots are where most of that attention sits.
+> - **"Every production vector"** is the 50 measured, recomputed through the
+>   CPU head from fp16 tokens, not read from the stored production vectors.
+>   With the positions fixed in 50 of 50 the effect plausibly holds for
+>   every image; it was not measured on every image.
+> - **Novelty is scoped to the sources the brief verified.** Work on
+>   position-fixed artifacts in ViTs (for example "Denoising Vision
+>   Transformers") was not checked against this result before the claim was
+>   written.
+> - The second "Not done" item below was done the same night: section 54's
+>   addendum masked the slots out of every region. It moved two of 19 picks.
+
 ## Not done
 
 - The register variant was not evaluated on retrieval or the gate. Whether a
@@ -113,6 +152,9 @@ either.
   the attention maps under each.
 - `05-the-tokens-themselves.png` — the three patches ringed on the ten
   images with their norms.
+- `06-a-null-that-carries-attention.png` — the review's null: the slots
+  hidden against the three most-attended other tokens hidden, and how far
+  each moves the vector against the attention it took away.
 
 Caches `~/.ytk/patch_grid/night/55_*.npz`; runner
 `experiments/patch_grid/run55.py`; figures `scripts/plot_night.py 55`.
