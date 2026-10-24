@@ -34,6 +34,7 @@ from .enrich import (
 )
 from .evidence import evidence_dir
 from .view import View
+from .writer_rules import HOUSE_RULES
 
 if TYPE_CHECKING:
     from .connect import Neighbour  # connect imports ENRICHER_MODEL from here
@@ -99,9 +100,10 @@ separately once the note lands.\
 """
 
 # The version names the whole role text the writer reads: the field guide in
-# enrich.py, the addendum and the neighbours header, so an edit to any shows on the row.
+# enrich.py, the addendum, the house rules and the neighbours header, so an
+# edit to any shows on the row.
 PROMPT_VERSION = hashlib.sha256(
-    (BASE_SKELETON + _V2_ADDENDUM + NEIGHBOURS_HEADER).encode()
+    (BASE_SKELETON + _V2_ADDENDUM + HOUSE_RULES + NEIGHBOURS_HEADER).encode()
 ).hexdigest()[:12]
 
 
@@ -134,7 +136,7 @@ omit every field you keep. Fix exactly what the findings name, against the packe
 """
 
 PATCH_PROMPT_VERSION = hashlib.sha256(
-    (BASE_SKELETON + _V2_ADDENDUM + NEIGHBOURS_HEADER + _PATCH_ADDENDUM).encode()
+    (BASE_SKELETON + _V2_ADDENDUM + HOUSE_RULES + NEIGHBOURS_HEADER + _PATCH_ADDENDUM).encode()
 ).hexdigest()[:12]
 
 _PROSE_FIELDS = ("thesis", "summary", "take_response", "title")
@@ -255,7 +257,7 @@ def enrich_item(
     from .moments import snap_key_moments
 
     patching = attempt.previous_draft is not None and bool(attempt.findings_in)
-    system = build_system(_bias_source(view)) + _V2_ADDENDUM
+    system = build_system(_bias_source(view)) + _V2_ADDENDUM + HOUSE_RULES
     if patching:
         system += _PATCH_ADDENDUM
     user = build_prompt(view, attempt, neighbours)

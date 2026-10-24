@@ -141,6 +141,17 @@ def test_prompt_carries_take_and_never_the_rubric(conn, stub_call):
     assert stub_call[0]["model"] == enricher.ENRICHER_MODEL
 
 
+def test_house_rules_reach_the_writer_and_never_the_grader(conn, stub_call):
+    from ytk import grader
+    from ytk.writer_rules import HOUSE_RULES
+
+    item_id = _seed(conn)
+    v, a = _packet(conn, item_id)
+    enricher.enrich_item(conn, item_id, view=v, attempt=a)
+    assert HOUSE_RULES in stub_call[0]["system"]
+    assert "House rules" not in grader._GRADE_SYSTEM  # pyright: ignore[reportPrivateUsage]
+
+
 def test_bounce_feedback_reaches_the_retry_prompt(conn, stub_call):
     item_id = _seed(conn)
     v, a = _packet(
