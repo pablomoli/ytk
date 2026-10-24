@@ -338,11 +338,116 @@ Assumptions and limits:
    bundle on disk today. What would move the needle for the owner's
    corrections is a frame check (the frame's time against the claim), not
    a better text match.
-2. **House rules from the owner's corrections in the field guide**: open
-   on the claim, never the running order; label inference from frames as
-   inference; label knowledge from outside the record as the owner's; say
-   evidence gaps in the gaps field, not between the lines. Measured by the
-   same bounce checks afterwards.
+2. **House rules in the writer's instructions. Built; two mechanical rules
+   wired before the grader.** `ytk/writer_rules.py` holds `HOUSE_RULES`,
+   thirteen rules appended to the enricher's role text (never the
+   grader's, which keeps judging against the rubric). Each pairs a
+   sentence that was rejected on a real draft with what was asked for
+   instead. `PROMPT_VERSION` hashes them, so every enrich row says which
+   instructions it ran under.
+
+   Mined read-only from a ledger copy: 18 bounce answers in the owner's own
+   words, 6 that paste grader findings, and 253 bounce findings (59
+   grounding and 38 concept-grounding among them). A count is the number
+   of owner answers making that correction, then the grader findings.
+
+   | rule | owner | grader | one example (owner's words unless marked) | field guide before |
+   |---|---|---|---|---|
+   | 1 open on the claim, not the medium | 4 | ~18 | "Open the summary on the claim, not 'The reel is a build log'" | "Never start with 'The video' or 'In this'", summary only |
+   | 2 the argument, not the running order | 1 | ~12 | "Rewrite the summary as the argument, not the running order" | absent |
+   | 3 cite the unit that shows it; key moments on the line, not the chapter marker | 10 | ~40 | "Content is right, pointers are wrong. Remap the citations exactly" | "cite only units the packet lists" |
+   | 4 say only what the frame shows; mark the rest as inference | 7 | ~12 | "Cut every venue claim ...; the evidence shows a crowd, string lights and a lighting truss, nothing more" | reels only: "separate captured evidence from inference" |
+   | 5 a visual piece gets its look described | 3 | 11 | "Add the visual layer the rubric asks for, marked as inference from frames" | absent |
+   | 6 no outside knowledge; the owner's is labelled as the owner's | 2 | ~10 | "That identification is mine, from outside the record ... label them as owner-supplied" | "Nothing outside the packet can be cited" |
+   | 7 who said it (host versus guest) | 0 | ~6 | grader: "The claim ... is Dwarkesh's, not Cotra's" | absent |
+   | 8 name a gap exactly; no claims from an unseen stretch | 2 | ~12 | "there is no voiceover, the argument is in the caption, say so plainly" | "Never paper over a gap" |
+   | 9 concepts in the packet's words | 1 | 38 code | "She never says 'binary encoding' ... Rename the concept" | absent |
+   | 10 insights are what to do, not the concepts again | 0 | 14 | grader: "All three insights restate entries already in key_concepts" | stated, with the cover test |
+   | 11 answer the whole take; correct a wrong premise plainly; no praise | 3 | 11 | "say plainly in take_response that my take guessed wrong" | "answer it directly", "if they asked a question, answer it" |
+   | 12 tags: no near-synonyms, nothing unsupported | 2 | 17 + 4 code | "drop movie-rec and trim to the vocabulary" | "3-8 tags" |
+   | 13 voice: no emojis, no programming analogies, no process talk, prose only | 0 | 4 | grader: the tag reason "which the grader flagged as needed for retrieval" | absent |
+
+   Where the guide already stated a rule and drafts kept breaking it (1,
+   8, 10, 11), the house rule sharpens the wording and carries a rejected
+   sentence; nothing is restated twice.
+
+   **The lint and its replay.** `writer_rules.lint` checks the mechanical
+   subset with no model call. `scripts/replay_writer_lint.py` replays it
+   over all 137 stored drafts against the first grade after each draft and
+   any bounce answer on it. "Observed" means a model grade or an owner
+   answer read the draft (96); a code-layer bounce alone stops before the
+   prose is judged. Precision and recall are against what was said on
+   observed drafts.
+
+   | lint rule | flagged | on first drafts | observed | said | precision | recall |
+   |---|---|---|---|---|---|---|
+   | open on the claim | 44 | 18 of 29 | 25 | 12 | 10/25 | 10/12 |
+   | the argument, not the running order | 16 | 5 | 9 | 10 | 3/9 | 3/10 |
+   | banned words outside thesis and summary | 5 | 2 | 3 | 2 | 0/3 | 0/2 |
+   | summary longer than five sentences | 6 | 0 | 2 | 4 | 1/2 | 1/4 |
+   | frame-only claim past the visible, unmarked | 21 | 5 | 21 | 11 | 4/21 | 4/11 |
+   | near-synonym tags | 25 | 8 | 17 | 10 | 9/17 | 9/10 |
+   | process talk or markup in prose | 4 | 0 | 4 | 4 | 4/4 | 4/4 |
+
+   Read by eye, all 15 opening "false alarms" are the construction the
+   rubric bans ("The reel is", "The episode traces", "The creator
+   explains", "The video visually distinguishes"): the grader named it on
+   10 drafts and let it through on 15, sometimes on the next attempt of
+   the same item, and the owner hand-fixed "The piece is" after accepting
+   one of them. The label is what is imprecise there, not the check. The
+   process check first matched the bare word "grader" and fired on a note
+   about OpenAI's grader; it now matches only "grader flagged/asked",
+   "rubric", "previous round/draft" and field markup.
+
+   **Wired: open on the claim and process talk.** In `curator.advance_item`,
+   after each draft, a hit on either is recorded as a `lint` row (actor
+   grader, layer lint, shown as the spell-checker) and sent back as
+   findings through the attempt header, the channel grader findings use,
+   for one patch call; the grader then reads the patched draft. One fix
+   per round, inside the item call cap, never an ask: a second miss goes
+   to the grader as is. Historically this would have fired on 18 of 29
+   first drafts, one Sonnet call each, before an Opus call that bounced
+   them all.
+
+   **Not wired, and why.** Running order (3/9: "walks through" and "closes
+   with" are ordinary prose in a summary that does argue), frame inference
+   (4/21: a word list cannot tell "technique" read off a title card from a
+   technique guessed), summary length (n of 4) and banned words outside
+   the two fields the grader's code checks (0/3) are too imprecise or too
+   rare. Near-synonym tags (9/17, the rest by eye the same pairs the grader
+   named elsewhere) is not wired because its general form, a bare tag
+   beside a longer tag containing it, flags "ai" beside "ai-agents", and
+   "ai" is one of the owner's own configured interest tags; the specific
+   pair list is one pair, learned from the same sample it would be scored
+   on. They stay in `lint` for the replay.
+
+   **Assumptions and limits.** No model call was made: whether the house
+   rules change drafts is a prediction until new drafts exist. Counts were
+   read and clustered by hand from prose; "~" marks grader counts that
+   depend on how a mixed finding is split. The lint's labels are
+   keyword matches over findings and answers, hand-written from reading
+   them, and the grader is an inconsistent labeller (above). The patch can
+   fix an opening and regress nothing else only because a patch returns
+   just the fields it changes. The rules carry real rejected sentences
+   from this corpus; a rule worded around one item can over-steer the
+   writer on unlike items, which only new drafts will show.
+
+   **How to measure it.** Every enrich row records `prompt_version`
+   (`b5f650421dfd` for first drafts, `2056c2a8a37a` for patches, at this
+   commit). After twenty or so new items:
+
+   ```bash
+   sqlite3 ~/.ytk/ledger.db ".backup /tmp/ledger-copy.db"
+   uv run python scripts/ingest_quality.py --db /tmp/ledger-copy.db --prompt-version b5f650421dfd
+   uv run python scripts/replay_writer_lint.py --ledger /tmp/ledger-copy.db
+   ```
+
+   The first reads first-round pass rate and the bounce mix for items whose
+   first draft ran the new instructions, against 0 of 29 before and a mix
+   led by grounding (about 39%), "what I do not want" (26), key moments
+   (25), tags (17) and insights (14). The second shows whether the
+   wired lint still fires on new first drafts; if the rules work it
+   should fire rarely, and its `lint` rows count the patch calls spent.
 3. **Neighbours in the enricher prompt** (layer 2 above).
 4. **The grader calibration** (ingestion step 4): first drafts never pass,
    and 18 of 30 landings were the owner overruling it.
