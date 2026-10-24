@@ -21,6 +21,8 @@ function TagsPage() {
   const decode = useHoverDecode();
   const [groups, setGroups] = useState<EditableTagProposal[]>([]);
   const [message, setMessage] = useState("");
+  const [failed, setFailed] = useState(false);
+  const [applying, setApplying] = useState(0);
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
@@ -58,38 +60,53 @@ function TagsPage() {
       return { ...group, excluded };
     });
 
+  const report = (text: string, isError = false) => {
+    setMessage(text);
+    setFailed(isError);
+  };
+
   const start = () => {
-    setMessage("");
+    report("");
     setGroups([]);
     propose.mutate(undefined, {
-      onError: (error) => setMessage(`failed to start: ${String(error)}`),
+      onError: (error) => report(`failed to start: ${String(error)}`, true),
     });
   };
 
   const submit = () => {
     setConfirming(false);
+    report("");
+    setApplying(retired);
     apply.mutate(mapping, {
       onSuccess: (result) => {
         setGroups([]);
-        setMessage(
-          `applied: ${result.aliases} aliases saved, ${result.notes} notes rewritten, ${result.videos} index entries updated`,
+        report(
+          `Applied: ${result.aliases} aliases saved, ${result.notes} notes rewritten, ${result.videos} index entries updated.`,
         );
       },
-      onError: (error) => setMessage(`apply failed: ${String(error)}`),
+      onError: (error) => report(`Apply failed: ${String(error)}`, true),
     });
   };
 
-  const stateMessage =
-    status.data?.state === "running"
+  // The apply resets the job to idle on success, so the result must outrank the idle text.
+  const stateMessage = apply.isPending
+    ? `Applying ${applying} merges: rewriting every matching note and the search index.`
+    : status.data?.state === "running"
       ? "Finding duplicate tag vocabulary with the configured model."
       : status.data?.state === "error"
         ? status.data.detail || "proposal generation failed"
-        : status.data?.state === "done" && !status.data.proposals.length
-          ? "No merge candidates found. The vocabulary is clean."
-          : status.data?.state === "idle"
-            ? "No cleanup is running."
-            : message;
-  const statusRole = status.data?.state === "error" ? "alert" : "status";
+        : message
+          ? message
+          : status.data?.state === "done" && !status.data.proposals.length
+            ? "No merge candidates found. The vocabulary is clean."
+            : status.data?.state === "idle"
+              ? "No cleanup is running."
+              : "";
+  const statusRole =
+    !apply.isPending &&
+    (status.data?.state === "error" || (failed && status.data?.state !== "running"))
+      ? "alert"
+      : "status";
 
   return (
     <div className="tags-page min-h-full bg-bg0 text-ink">
@@ -185,7 +202,11 @@ function TagsPage() {
                     );
                   })}
                 </div>
-                <div className="flex gap-2" role="group" aria-label={`Decision for group ${index + 1}`}>
+                <div
+                  className="flex gap-2"
+                  role="group"
+                  aria-label={`Decision for group ${index + 1}`}
+                >
                   <Button
                     variant={group.accepted ? "default" : "secondary"}
                     type="button"
@@ -225,9 +246,11 @@ function TagsPage() {
             Apply selected merges
           </Button>
           <span className="text-sm text-mute">
-            {retired
-              ? `${retired} tags will become ${new Set(Object.values(mapping)).size} canonical tags`
-              : "No merges selected"}
+            {apply.isPending
+              ? `Applying ${applying} merges`
+              : retired
+                ? `${retired} tags will become ${new Set(Object.values(mapping)).size} canonical tags`
+                : "No merges selected"}
           </span>
         </div>
       ) : null}

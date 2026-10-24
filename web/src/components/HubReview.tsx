@@ -35,6 +35,8 @@ export function HubReview() {
   const [draft, setDraft] = useState<HubDraft>({});
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState("");
+  const [failed, setFailed] = useState(false);
+  const [applying, setApplying] = useState(0);
 
   const candidates = useMemo(() => list.data?.candidates ?? [], [list.data]);
   const shown = useMemo(() => filterCandidates(candidates, filter), [candidates, filter]);
@@ -45,14 +47,20 @@ export function HubReview() {
 
   const submit = () => {
     setConfirming(false);
+    setMessage("");
+    setFailed(false);
+    setApplying(changes.length);
     apply.mutate(changes, {
       onSuccess: (result) => {
         setDraft({});
         setMessage(
-          `applied: ${result.recorded} verdicts recorded, ${result.notes_changed} notes rewritten, ${result.hubs_written} hubs written, ${result.hubs_removed} removed`,
+          `Applied: ${result.recorded} verdicts recorded, ${result.notes_changed} notes rewritten, ${result.hubs_written} hubs written, ${result.hubs_removed} removed.`,
         );
       },
-      onError: (error) => setMessage(`apply failed: ${String(error)}`),
+      onError: (error) => {
+        setFailed(true);
+        setMessage(`Apply failed: ${String(error)}`);
+      },
     });
   };
 
@@ -105,8 +113,15 @@ export function HubReview() {
           {String(list.error)}
         </p>
       ) : null}
-      {message ? (
+      {apply.isPending ? (
         <p role="status" className="m-0 text-sm text-mute">
+          Applying {applying} verdicts: rewriting hub links in every matching note.
+        </p>
+      ) : message ? (
+        <p
+          role={failed ? "alert" : "status"}
+          className={`m-0 text-sm ${failed ? "text-live" : "text-mute"}`}
+        >
           {message}
         </p>
       ) : null}

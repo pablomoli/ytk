@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { HubCandidate, HubList } from "../api/hubs";
 
@@ -54,6 +54,7 @@ beforeEach(() => {
     ],
   };
   api.apply.mutate.mockReset();
+  api.apply.isPending = false;
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -100,4 +101,34 @@ test("an approved name can be struck later from the approved view", () => {
   );
   fireEvent.click(within(syntax).getByRole("radio", { name: "strike" }));
   expect(screen.getByText("0 to approve, 1 to strike")).toBeInTheDocument();
+});
+
+test("shows the verdict count while applying and keeps the result afterwards", async () => {
+  const view = render(<HubReview />);
+  const fable = screen.getByRole("listitem", { name: "concept Fable" });
+  fireEvent.click(within(fable).getByRole("radio", { name: "strike" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply hub list" }));
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", { name: "Apply hub list" }),
+  );
+  await waitFor(() => expect(api.apply.mutate).toHaveBeenCalledTimes(1));
+  const callbacks = api.apply.mutate.mock.calls[0][1] as {
+    onSuccess: (r: Record<string, number>) => void;
+    onError: (e: unknown) => void;
+  };
+
+  api.apply.isPending = true;
+  view.rerender(<HubReview />);
+  expect(screen.getByRole("status")).toHaveTextContent(/applying 1 verdicts/i);
+
+  api.apply.isPending = false;
+  act(() =>
+    callbacks.onSuccess({ recorded: 1, notes_changed: 11, hubs_written: 0, hubs_removed: 1 }),
+  );
+  view.rerender(<HubReview />);
+  expect(screen.getByRole("status")).toHaveTextContent("1 verdicts recorded, 11 notes rewritten");
+
+  act(() => callbacks.onError(new Error("vault offline")));
+  view.rerender(<HubReview />);
+  expect(screen.getByRole("alert")).toHaveTextContent(/apply failed.*vault offline/i);
 });

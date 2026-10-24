@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 vi.mock("@tanstack/react-router", () => ({
@@ -115,4 +115,52 @@ test("requires confirmation before applying the selected alias mapping", async (
   fireEvent.click(screen.getByRole("button", { name: "Apply merges" }));
   await waitFor(() => expect(api.apply.mutate).toHaveBeenCalledTimes(1));
   expect(api.apply.mutate.mock.calls[0][0]).toEqual({ ui: "user-interface", ux: "user-interface" });
+});
+
+function rerenderPage(view: ReturnType<typeof render>) {
+  view.rerender(
+    <TooltipProvider delayDuration={0}>
+      <Page />
+    </TooltipProvider>,
+  );
+}
+
+type ApplyCallbacks = {
+  onSuccess: (result: { aliases: number; notes: number; videos: number }) => void;
+  onError: (error: unknown) => void;
+};
+
+async function confirmApply(): Promise<ApplyCallbacks> {
+  await screen.findByRole("button", { name: /user-interface.*canonical/i });
+  fireEvent.click(screen.getByRole("button", { name: "Apply selected merges" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply merges" }));
+  await waitFor(() => expect(api.apply.mutate).toHaveBeenCalledTimes(1));
+  return api.apply.mutate.mock.calls[0][1] as ApplyCallbacks;
+}
+
+test("shows the merge count while the apply runs, then keeps the result after the job goes idle", async () => {
+  api.status.data = { state: "done", proposals };
+  const view = renderPage();
+  const callbacks = await confirmApply();
+
+  api.apply.isPending = true;
+  rerenderPage(view);
+  expect(screen.getByRole("status")).toHaveTextContent(/applying 2 merges/i);
+
+  api.apply.isPending = false;
+  act(() => callbacks.onSuccess({ aliases: 2, notes: 14, videos: 11 }));
+  api.status.data = { state: "idle", proposals: [] };
+  rerenderPage(view);
+  const result = screen.getByRole("status");
+  expect(result).toHaveTextContent("2 aliases saved, 14 notes rewritten, 11 index entries updated");
+  expect(screen.queryByText(/No cleanup is running/i)).toBeNull();
+});
+
+test("an apply failure is announced as an alert", async () => {
+  api.status.data = { state: "done", proposals };
+  const view = renderPage();
+  const callbacks = await confirmApply();
+  act(() => callbacks.onError(new Error("vault offline")));
+  rerenderPage(view);
+  expect(screen.getByRole("alert")).toHaveTextContent(/apply failed.*vault offline/i);
 });
