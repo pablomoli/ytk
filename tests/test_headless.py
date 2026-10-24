@@ -24,7 +24,7 @@ DRAFT = {
     "take_response": "Agreed; cron cannot carry blame.",
     "new_tags": [],
 }
-BAD_DRAFT = dict(DRAFT, thesis="This talk delves into the landscape of agent loops.")
+BAD_DRAFT = dict(DRAFT, thesis="He delves into the landscape of agent loops.")
 BOUNCE = {
     "passed": False,
     "bounces": [{"check": "Thesis", "detail": "could attach to any video", "where": "thesis"}],
