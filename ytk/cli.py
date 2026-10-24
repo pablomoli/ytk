@@ -169,17 +169,17 @@ def _capture_and_read(
             deliberate=deliberate and not agent,
         )
         if res.reclaimed == "revived":
-            out.print(f"[bold green]Revived[/] item {res.item_id} from dropped; it is read again")
+            out.print(f"[bold green]Revived[/] {url} from dropped; it is read again")
         elif res.reclaimed == "answered":
-            out.print(f'[bold green]Answered[/] item {res.item_id}\'s open "why this one?"')
+            out.print(f'[bold green]Answered[/] the open "why this one?" on {url}')
         elif res.duplicate:
             state = item_state(conn, res.item_id)
-            out.print(f"[yellow]Already captured[/] (item {res.item_id}, state {state})")
+            out.print(f"[yellow]Already captured[/] {url} (state {state}, ytk item {res.item_id})")
             if res.take_id is not None:
                 out.print("[dim]take attached to the existing item[/]")
             return
         else:
-            out.print(f"[bold green]Captured[/] {source} item {res.item_id}")
+            out.print(f"[bold green]Captured[/] {source} {url} (ytk item {res.item_id})")
         if agent and not note and not res.duplicate:
             out.print("[dim]captured by an agent without a note: the owner is asked why[/]")
     finally:

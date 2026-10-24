@@ -47,10 +47,10 @@ function ConnectionsAnswer({
               checked={!struck.has(l.target)}
               onChange={() => onToggle(l.target)}
               className="mt-1 accent-current"
-              aria-label={`link ${l.target}`}
+              aria-label={`link ${l.target_title || l.target}`}
             />
             <span className="text-ink2">
-              <strong className="text-ink">[[{l.target}]]</strong> — {l.argument}
+              <strong className="text-ink">{l.target_title || l.target}</strong> — {l.argument}
             </span>
           </label>
         ))}

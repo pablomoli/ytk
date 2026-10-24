@@ -68,13 +68,20 @@ def _proposal(row: sqlite3.Row) -> dict[str, Any]:
     return dict(cast("dict[str, Any]", loaded)) if isinstance(loaded, dict) else {}
 
 
-def _ask_line(row: sqlite3.Row, proposal: dict[str, Any]) -> str:
+def _question(kind: object, title: str) -> str:
+    return f"the {kind} question on {title}"
+
+
+def _ask_line(row: sqlite3.Row, proposal: dict[str, Any], title: str) -> str:
+    """The owner reads the kind and title; the trailing command is the one
+    place the ask's number appears, because `ytk ask answer` needs it."""
     opts = " | ".join(str(o) for o in cast("list[object]", proposal.get("options") or []))
     packet = ""
     if proposal.get("view_hash"):
         packet = f" · packet {proposal['view_hash']} attempt {proposal.get('attempt')}"
     return (
-        f"ask {row['id']} · {row['kind']} · options {opts}{packet} · since {row['created_at'][:16]}"
+        f"{_question(row['kind'], title)} · options {opts}{packet}"
+        f" · since {row['created_at'][:16]} · answer with: ytk ask answer {row['id']} <choice>"
     )
 
 
@@ -134,9 +141,10 @@ def item(conn: sqlite3.Connection, item_id: int) -> str:
     from .curator import ITEM_CALL_CAP, model_calls
 
     row = _item_row(conn, item_id)
+    title = _title(row)
     state = ledger.item_state(conn, item_id) or "captured"
     lines = [
-        f"item {item_id}: {_title(row)}",
+        f"{title} (ytk item {item_id})",
         f"source {row['source']} · state {state} · {row['url']}",
     ]
     v = view_mod.latest_view(item_id)
@@ -145,7 +153,7 @@ def item(conn: sqlite3.Connection, item_id: int) -> str:
         lines.append(_attempt_line(a))
     ask = _open_ask(conn, item_id)
     if ask is not None:
-        lines.append(_ask_line(ask, _proposal(ask)))
+        lines.append(_ask_line(ask, _proposal(ask), title))
     lines.append(f"calls {model_calls(conn, item_id)} of {ITEM_CALL_CAP}")
     lines.append(f"page /packet/{item_id}")
     lines.append("trail:")
@@ -173,7 +181,7 @@ def ask_list(conn: sqlite3.Connection) -> str:
         return "no open asks"
     out: list[str] = []
     for r in rows:
-        out.append(f"{_ask_line(r, _proposal(r))} · item {r['item_id']} {_title(r)}")
+        out.append(_ask_line(r, _proposal(r), _title(r)))
     return "\n".join(out)
 
 
@@ -190,19 +198,20 @@ def ask_answer(
 
     row = conn.execute("SELECT * FROM asks WHERE id = ?", (ask_id,)).fetchone()
     if row is None:
-        raise LookupError(f"no ask {ask_id}")
+        raise LookupError(f"no open or answered question has ask number {ask_id}")
+    question = _question(row["kind"], _title(_item_row(conn, row["item_id"])))
     options = [str(o) for o in cast("list[object]", _proposal(row).get("options") or [])]
     if options and choice not in options:
-        return f"ask {ask_id} offers {' | '.join(options)}; '{choice}' is not one of them"
+        return f"{question} offers {' | '.join(options)}; '{choice}' is not one of them"
     try:
         answer_id = asks.answer_ask(conn, ask_id, choice=choice, text=text, surface=surface)
     except asks.AnswerRefused as e:
-        return f"ask {ask_id}: {e}"
+        return f"{question}: {e}"
     if answer_id is None:
-        return f"ask {ask_id} was already answered"
+        return f"{question} was already answered"
     woke = wake.nudge_loop()
     tail = "loop woken" if woke else "hub not reachable; the 60 s poll picks it up"
-    return f"ask {ask_id} answered '{choice}' for item {row['item_id']} · {tail}"
+    return f"answered '{choice}' to {question} · {tail}"
 
 
 def _view_for(item_id: int, attempt: int | None) -> view_mod.View | None:
@@ -219,10 +228,10 @@ def view_show(
 ) -> str:
     """The packet an attempt read (or the latest one): budget, units, and
     with `full` the rendered bytes themselves."""
-    _item_row(conn, item_id)
+    title = _title(_item_row(conn, item_id))
     v = _view_for(item_id, attempt)
     if v is None:
-        return f"item {item_id}: no packet" + (f" for attempt {attempt}" if attempt else "")
+        return f"{title}: no packet" + (f" for attempt {attempt}" if attempt else "")
     lines = [_budget_line(v), f"bundle {v.bundle_path} ({v.bundle_hash}) · tokenizer {v.tokenizer}"]
     if v.gaps:
         lines.append("gaps: " + "; ".join(v.gaps))
@@ -242,7 +251,7 @@ def grade(
     from .curator import latest_take, tag_vocab
     from .enricher import EnrichmentV2, draft_path
 
-    _item_row(conn, item_id)
+    title = _title(_item_row(conn, item_id))
     n = attempt
     if n is None:
         row = conn.execute(
@@ -253,7 +262,7 @@ def grade(
     v = view_mod.view_by_hash(item_id, a.view_hash) if a else view_mod.latest_view(item_id)
     path = draft_path(item_id, n)
     if v is None or not path.exists():
-        return f"item {item_id}: no draft or packet for attempt {n}"
+        return f"{title}: no draft or packet for attempt {n}"
     draft = EnrichmentV2.model_validate_json(Path(path).read_text())
     take = latest_take(conn, item_id)
     bounces = grader.deterministic_checks(

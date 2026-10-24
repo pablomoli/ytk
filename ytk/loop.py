@@ -286,9 +286,9 @@ _INITIAL_STAGE = {"read": "read", "answer": "answer", "advance": "enrich"}
 
 def _stamp_working(conn: sqlite3.Connection, pick: Pick) -> None:
     row = conn.execute(
-        "SELECT title, payload_ref FROM items WHERE id = ?", (pick.item_id,)
+        "SELECT title, url, payload_ref FROM items WHERE id = ?", (pick.item_id,)
     ).fetchone()
-    title = (row["title"] if row and row["title"] else None) or f"item {pick.item_id}"
+    title = (row["title"] if row and row["title"] else None) or (row["url"] if row else "an item")
     thumbnail = None
     if row and row["payload_ref"]:
         from .evidence import resolve_thumbnail

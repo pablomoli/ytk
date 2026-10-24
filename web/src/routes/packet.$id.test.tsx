@@ -269,7 +269,7 @@ test("a connections ask answers with the survivors; an intent ask carries words"
     { ask_id: 70, choice: "intent", text: "for the visuals" },
     expect.anything(),
   );
-  fireEvent.click(screen.getByRole("checkbox", { name: "link rndyrbrts-visual-language" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "link Visual language" }));
   fireEvent.click(screen.getByRole("button", { name: "approve 1 of 2" }));
   expect(mutate).toHaveBeenLastCalledWith(
     { ask_id: 71, choice: "strike some", text: JSON.stringify(["footage-first-method"]) },

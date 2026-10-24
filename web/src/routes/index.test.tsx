@@ -336,7 +336,7 @@ test("connections card renders each link checked with its argument (#197 P6)", (
   expect(boxes).toHaveLength(2);
   boxes.forEach((b) => expect(b).toBeChecked());
   expect(screen.getByText(/same margin-question triage/)).toBeInTheDocument();
-  expect(screen.getByText(/\[\[paper-notes\]\]/)).toBeInTheDocument();
+  expect(screen.getByText("Paper Notes")).toBeInTheDocument();
 });
 
 test("all links kept answers approve without text", () => {
@@ -352,7 +352,7 @@ test("all links kept answers approve without text", () => {
 test("striking one link answers strike some with the survivors as JSON", () => {
   mutate.mockClear();
   renderConnections();
-  fireEvent.click(screen.getByRole("checkbox", { name: "link paper-notes" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "link Paper Notes" }));
   fireEvent.click(screen.getByRole("button", { name: "approve 1 of 2" }));
   expect(mutate).toHaveBeenCalledWith(
     { ask_id: 41, choice: "strike some", text: JSON.stringify(["loop-video"]) },

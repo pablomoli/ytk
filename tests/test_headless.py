@@ -110,13 +110,13 @@ def test_item_shows_packet_attempts_ask_spend_and_trail(conn, monkeypatch):
     item_id, ask_id = _asked(conn, monkeypatch)
     out = headless.item(conn, item_id)
     v = V.latest_view(item_id)
-    assert f"item {item_id}: Loop Engineering" in out and "state asking" in out
+    assert out.startswith(f"Loop Engineering (ytk item {item_id})") and "state asking" in out
     assert f"packet {v.view_hash}" in out and "shown t:0-40" in out
     assert "attempt 1 · findings in 0 · deterministic bounce: banned phrasing" in out
     assert "attempt 2 · findings in 1 · model bounce: Thesis" in out
-    assert (
-        f"ask {ask_id} · grader bounce, twice" in out and f"packet {v.view_hash} attempt 2" in out
-    )
+    assert "the grader bounce, twice question on Loop Engineering" in out
+    assert f"packet {v.view_hash} attempt 2" in out
+    assert f"ytk ask answer {ask_id} <choice>" in out
     assert "calls 3 of 8" in out
     assert "enricher · enrich" in out and "grader · grade" in out
 
@@ -124,12 +124,16 @@ def test_item_shows_packet_attempts_ask_spend_and_trail(conn, monkeypatch):
 def test_ask_list_then_answer_wakes_the_loop_once(conn, monkeypatch):
     item_id, ask_id = _asked(conn, monkeypatch)
     listing = headless.ask_list(conn)
-    assert f"ask {ask_id} · grader bounce, twice" in listing and "Loop Engineering" in listing
+    question = "the grader bounce, twice question on Loop Engineering"
+    assert listing.startswith(question)
+    assert f"answer with: ytk ask answer {ask_id} <choice>" in listing
     refused = headless.ask_answer(conn, ask_id, "nope")
-    assert "is not one of them" in refused
+    assert refused.startswith(question) and "is not one of them" in refused
     done = headless.ask_answer(conn, ask_id, "accept as is")
-    assert f"ask {ask_id} answered 'accept as is'" in done and "loop woken" in done
-    assert headless.ask_answer(conn, ask_id, "accept as is") == f"ask {ask_id} was already answered"
+    assert done.startswith(f"answered 'accept as is' to {question}") and "loop woken" in done
+    assert headless.ask_answer(conn, ask_id, "accept as is") == f"{question} was already answered"
+    for line in (refused, done):
+        assert f"ask {ask_id}" not in line and f"item {item_id}" not in line
     assert headless.ask_list(conn) == "no open asks"
     row = conn.execute("SELECT surface FROM answers WHERE ask_id = ?", (ask_id,)).fetchone()
     assert row["surface"] == "cli"
@@ -162,7 +166,7 @@ def test_cli_wrappers(conn, monkeypatch):
     assert r.exit_code == 0, r.output
     assert "state asking" in r.output
     r = runner.invoke(cli, ["ask", "list"])
-    assert r.exit_code == 0 and f"ask {ask_id}" in r.output
+    assert r.exit_code == 0 and f"ytk ask answer {ask_id}" in r.output
     r = runner.invoke(cli, ["view", str(item_id), "--full"])
     assert r.exit_code == 0 and "[0:00]" in r.output
     r = runner.invoke(cli, ["grade", str(item_id), "--attempt", "1"])
@@ -176,7 +180,7 @@ def test_cli_wrappers(conn, monkeypatch):
 def test_ask_list_hides_asks_the_loop_superseded(conn, monkeypatch):
     """An unanswered ask on an item that has since moved on is not answerable."""
     item_id, ask_id = _asked(conn, monkeypatch)
-    assert f"ask {ask_id}" in headless.ask_list(conn)
+    assert f"ytk ask answer {ask_id}" in headless.ask_list(conn)
     ledger.insert_activity(
         conn, item_id, actor="loop", action="keep", from_state="asking", to_state="kept"
     )

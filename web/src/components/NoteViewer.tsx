@@ -539,7 +539,7 @@ export function NoteViewer({
                   href={item.url || "#"}
                   target="_blank"
                   rel="noreferrer"
-                  title={item.title || item.item_id}
+                  title={item.title || item.url || "untitled"}
                 >
                   <img
                     src={`/api/visual-image?id=${encodeURIComponent(item.item_id)}`}

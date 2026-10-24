@@ -568,7 +568,7 @@ def test_add_shows_the_fetch_then_captures(no_nudge):
     assert result.exit_code == 0, result.output
     assert "# Simulating Galaxies" in result.output
     assert "full text:" in result.output
-    assert "Captured youtube item" in result.output
+    assert "Captured youtube" in result.output and "ytk item" in result.output
     assert ledger.connect().execute("SELECT count(*) FROM items").fetchone()[0] == 1
 
 

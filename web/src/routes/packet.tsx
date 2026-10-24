@@ -139,7 +139,7 @@ function PacketLayout() {
               style={{ left: hover.x + 14, top: hover.y + 14 }}
               role="tooltip"
             >
-              <span className="text-accent tabular-nums">{hover.id}</span> {hover.title}
+              <span className="text-ink">{hover.title}</span>
               <span className="block font-data text-[12.5px] tracking-[.04em] lowercase text-ink2 tabular-nums">
                 {hover.station} · {hover.note} · {ago(hover.held)}
               </span>

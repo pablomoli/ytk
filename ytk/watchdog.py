@@ -33,10 +33,10 @@ def evaluate(conn: sqlite3.Connection, health: dict[str, Any]) -> str | None:
     if int(health.get("errors_last_hour", 0) or 0) >= ERROR_TRIP:
         return f"{health.get('errors_last_hour')} errors in the last hour"
     stuck = conn.execute(
-        "SELECT id FROM items WHERE tick_count > ? LIMIT 1", (loop.STUCK_TICKS,)
+        "SELECT title, url FROM items WHERE tick_count > ? LIMIT 1", (loop.STUCK_TICKS,)
     ).fetchone()
     if stuck:
-        return f"item {stuck['id']} stuck past the loop's own park rule"
+        return f"{stuck['title'] or stuck['url']} stuck past the loop's own park rule"
     return None
 
 

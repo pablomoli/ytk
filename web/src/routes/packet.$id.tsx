@@ -520,7 +520,7 @@ function ConnectionsAnswer({
             type="checkbox"
             className="mt-1 accent-current"
             checked={!struck.has(l.target!)}
-            aria-label={`link ${l.target}`}
+            aria-label={`link ${l.title || l.target}`}
             onChange={() =>
               setStruck((prev) => {
                 const next = new Set(prev);
@@ -800,7 +800,7 @@ function PacketPage() {
     answer.mutate(text ? { ask_id: k.id, choice, text } : { ask_id: k.id, choice }, {
       onSuccess: () => {
         setSaying(null);
-        setToast(`ask ${k.id} · ${choice}`);
+        setToast(`${k.kind} · ${choice}`);
         void queryClient.invalidateQueries({ queryKey: ["packet"] });
       },
     });
@@ -842,7 +842,7 @@ function PacketPage() {
         <ErrorState error={q.error} onRetry={() => void q.refetch()} />
       </div>
     );
-  if (!p) return <p className={`${DM} px-7 pt-4`}>loading {itemId}</p>;
+  if (!p) return <p className={`${DM} px-7 pt-4`}>loading the packet</p>;
 
   const s = p.station;
   const stationName = s ? s.name : "filed";
@@ -858,7 +858,6 @@ function PacketPage() {
       >
         <div className="flex flex-wrap items-end justify-between gap-6 border-b border-line pb-3.5">
           <div className="flex min-w-0 items-baseline gap-3.5">
-            <span className={`${BIG} text-[40px]`}>{p.id}</span>
             <div className="flex min-w-0 flex-col gap-[3px]">
               <span className="text-[17px]">{p.title}</span>
               <span className={D}>
