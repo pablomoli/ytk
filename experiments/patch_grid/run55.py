@@ -2,6 +2,7 @@
 
 HF_HUB_OFFLINE=1 uv run python experiments/patch_grid/run55.py norms   # 50 images, one forward each, hooks on all 27 layers
 HF_HUB_OFFLINE=1 uv run python experiments/patch_grid/run55.py hide    # CPU: the head with and without the long tokens
+HF_HUB_OFFLINE=1 uv run python experiments/patch_grid/run55.py review  # the nine alone, and an attention-matched null
 """
 
 from __future__ import annotations
@@ -338,7 +339,124 @@ def attention_after() -> None:
     np.savez_compressed(N.CACHE / "55_attention.npz", **out)
 
 
+def review() -> None:
+    """Two checks the first pass skipped. (a) Hiding the three slots against
+    hiding the three most-attended other tokens, so the null carries as much
+    of the probe's attention as the slots do. (b) The nine layer-10 neurons
+    alone, zeroed and shifted, where the first pass only ran the top 3/10/30."""
+    model, processor, device = visual._load()
+    head = copy.deepcopy(model.vision_model.head).float().cpu()
+    d = dict(np.load(OUT, allow_pickle=True))
+    full = np.ones((1, N.SIDE, N.SIDE), dtype=bool)
+    n = len(d["names"])
+    cos_slots, cos_matched, share_slots, share_matched = (np.zeros(n) for _ in range(4))
+    for k in range(n):
+        tok = d["tokens"][k].astype(np.float32)
+        hi = d["high"][k]
+        att = region_attention(head, tok, full[0]).ravel()
+        others = np.where(~hi)[0]
+        pick = others[np.argsort(-att[others])[: int(hi.sum())]]
+        a = region_vectors(head, tok, full)[0]
+        for idx, cos_out, share_out in (
+            (np.where(hi)[0], cos_slots, share_slots),
+            (pick, cos_matched, share_matched),
+        ):
+            keep = np.ones(N.SIDE * N.SIDE, dtype=bool)
+            keep[idx] = False
+            b = region_vectors(head, tok, keep.reshape(1, N.SIDE, N.SIDE))[0]
+            cos_out[k] = a @ b / (np.linalg.norm(a) * np.linalg.norm(b))
+            share_out[k] = att[idx].sum()
+    print(
+        f"hide the slots: median cosine {np.median(cos_slots):.4f}, attention share median {np.median(share_slots):.1%}"
+    )
+    print(
+        f"hide the three most-attended others: median cosine {np.median(cos_matched):.4f} min {cos_matched.min():.4f}, attention share median {np.median(share_matched):.1%}"
+    )
+
+    r = dict(np.load(N.CACHE / "55_registers.npz", allow_pickle=True))
+    top = [(int(a), int(b)) for a, b, _ in r["top"][:9]]
+    assert {layer for layer, _ in top} == {9}, top  # 0-based layer 9 is layer 10
+    idx = [b for _, b in top]
+    vision = model.vision_model
+    layers = vision.encoder.layers
+    px_all = [
+        processor(images=[Image.open(N.image_path(nm)).convert("RGB")], return_tensors="pt")[
+            "pixel_values"
+        ]
+        .to(device)
+        .to(torch.float16)
+        for nm in N.IMAGES
+    ]
+    pos = r["positions"]
+    out: dict[str, np.ndarray] = {}
+
+    def run(pre, append: bool) -> tuple[np.ndarray, np.ndarray]:
+        grabbed: list[torch.Tensor] = []
+        hl = layers[-1].register_forward_hook(
+            lambda m, i, o: grabbed.append((o[0] if isinstance(o, tuple) else o).detach())
+        )
+        hp = layers[9].mlp.fc2.register_forward_pre_hook(pre)
+        he = (
+            vision.embeddings.register_forward_hook(
+                lambda m, i, o: torch.cat([o, torch.zeros_like(o[:, :1])], dim=1)
+            )
+            if append
+            else None
+        )
+        norms_, cos_ = [], []
+        with torch.no_grad():
+            for k, px in enumerate(px_all):
+                grabbed.clear()
+                v = vision(pixel_values=px).pooler_output[0].float().cpu().numpy()
+                norms_.append(grabbed[0][0].float().norm(dim=-1).cpu().numpy())
+                ref = d["pooled"][k]
+                cos_.append(float(v @ ref / (np.linalg.norm(v) * np.linalg.norm(ref))))
+        for h in (hl, hp, he):
+            if h:
+                h.remove()
+        return np.stack(norms_), np.array(cos_)
+
+    def ablate(_m, inp):
+        x = inp[0].clone()
+        x[..., idx] = 0
+        return (x,)
+
+    def shift(_m, inp):
+        x = inp[0].clone()
+        v = x[:, :-1, idx]
+        sign = torch.where(v.abs().amax(dim=1) == v.amax(dim=1), 1.0, -1.0)
+        x[:, -1, idx] = (v.abs().amax(dim=1) * sign).to(x.dtype)
+        x[:, :-1, idx] = 0
+        return (x,)
+
+    for key, pre, append in (("ablate9", ablate, False), ("shift9", shift, True)):
+        nm, c = run(pre, append)
+        img = nm[:, : N.SIDE * N.SIDE]
+        out[f"{key}/last_norms"], out[f"{key}/cos"] = nm, c
+        print(
+            f"{key}: last-layer image tokens >150 per image {(img > NORM_THRESHOLD).sum(1).mean():.1f}, "
+            f"at the slots {np.round(img[:, pos].max(0), 0).tolist()}, max elsewhere {np.delete(img, pos, axis=1).max():.0f}, "
+            f"cosine median {np.median(c):.4f} min {c.min():.4f}"
+        )
+    s10 = r["shift10/norms"][:, -1, :-1]
+    print(
+        f"shift10 (first pass, undisclosed): image tokens >150 per image {(s10 > NORM_THRESHOLD).sum(1).mean():.1f}, max {s10.max():.0f}, cosine median {np.median(r['shift10/cos']):.4f}"
+    )
+    np.savez_compressed(
+        N.CACHE / "55_review.npz",
+        cos_slots=cos_slots,
+        cos_matched=cos_matched,
+        share_slots=share_slots,
+        share_matched=share_matched,
+        **out,
+    )
+
+
 if __name__ == "__main__":
-    {"norms": norms, "hide": hide, "registers": registers, "attention": attention_after}[
-        sys.argv[1]
-    ]()
+    {
+        "norms": norms,
+        "hide": hide,
+        "registers": registers,
+        "attention": attention_after,
+        "review": review,
+    }[sys.argv[1]]()

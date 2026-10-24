@@ -5,6 +5,7 @@ dot product at plot time.
 
     HF_HUB_OFFLINE=1 uv run python experiments/patch_grid/run56.py objects   # ~5 min GPU
     HF_HUB_OFFLINE=1 uv run python experiments/patch_grid/run56.py rise      # ~35 min GPU, three images
+    HF_HUB_OFFLINE=1 uv run python experiments/patch_grid/run56.py area      # ~5 min GPU, the area control
 """
 
 from __future__ import annotations
@@ -115,5 +116,89 @@ def rise() -> None:
         print(f"{name}: {RISE_N} masks in {time.time() - t0:.0f}s", flush=True)
 
 
+AREA_DRAWS = 16
+AREA_CANDIDATES = 200  # the null keeps the AREA_DRAWS shifts that overlap the original least
+
+
+def area() -> None:
+    """The control section 56 lacked: each contested region against the same
+    mask slid to AREA_DRAWS random places in the frame (wrapping at the edges),
+    so shape and area are held and only the place moves. A region larger than
+    half the frame cannot be slid off itself; its overlap is recorded. Contested regions are
+    section 54's eight disagreements, both sides, and on all ten images the
+    small-object query's whole-object winner and crop-on-grey's pick."""
+    model, processor, device = visual._load()
+    vision = model.vision_model
+    a = dict(np.load(N.CACHE / "54_all.npz", allow_pickle=True))
+    t = dict(np.load(N.CACHE / "54_tiebreak.npz", allow_pickle=True))
+    pairs: set[tuple[str, int, int]] = set()
+    for name, q, c, h in zip(t["name"], t["q"], t["crop"], t["head"]):
+        pairs |= {(str(name), int(q), int(c)), (str(name), int(q), int(h))}
+    for name in N.IMAGES:
+        o = dict(np.load(N.CACHE / f"56_objects_{name}.npz"))
+        drops = float(o["base"] @ o["txt"][0]) - o["covered"].astype(np.float32) @ o["txt"][0]
+        pairs |= {
+            (name, 0, int(drops.argmax())),
+            (name, 0, int(a[f"{name}/cos_crop"][:, 0].argmax())),
+        }
+    rng = np.random.default_rng(56)
+    rows = []
+    t0 = time.time()
+    for name in N.IMAGES:
+        todo = sorted(p for p in pairs if p[0] == name)
+        if not todo:
+            continue
+        d = N.load(name)
+        o = dict(np.load(N.CACHE / f"56_objects_{name}.npz"))
+        pil = Image.open(N.image_path(name)).convert("RGB")
+        h, w = d["masks"].shape[1:]
+        imgs, index, overlap = [], [], {}
+        for _, q, r in todo:
+            m = d["masks"][r]
+            cands = [
+                np.roll(m, (int(rng.integers(h)), int(rng.integers(w))), axis=(0, 1))
+                for _ in range(AREA_CANDIDATES)
+            ]
+            ov = np.array([(c & m).sum() / m.sum() for c in cands])
+            keep = np.argsort(ov)[:AREA_DRAWS]
+            overlap[(q, r)] = float(ov[keep].mean())
+            for k in keep:
+                imgs.append(cover(pil, cands[k]))
+                index.append((q, r))
+        P = unit(pooled(vision, processor, device, imgs))
+        for q, r in sorted({(q, r) for _, q, r in todo}):
+            base = float(o["base"] @ o["txt"][q])
+            drop = base - float(o["covered"][r].astype(np.float32) @ o["txt"][q])
+            sel = [i for i, k in enumerate(index) if k == (q, r)]
+            null = base - P[sel] @ o["txt"][q]
+            rows.append(
+                {
+                    "name": name,
+                    "q": q,
+                    "region": r,
+                    "area": float(d["masks"][r].mean()),
+                    "drop": drop,
+                    "null": null.astype(np.float32),
+                    "overlap": overlap[(q, r)],
+                }
+            )
+            print(
+                f"{name:18} q{q} region {r:3d}  area {d['masks'][r].mean():5.1%}  drop {drop:+.4f}"
+                f"  same shape elsewhere {np.median(null):+.4f} [{null.min():+.4f}, {null.max():+.4f}]"
+                f"  above {int((drop > null).sum())}/{AREA_DRAWS}  overlap {overlap[(q, r)]:.0%}  {time.time() - t0:.0f}s",
+                flush=True,
+            )
+    np.savez_compressed(
+        N.CACHE / "56_area.npz",
+        name=np.array([r["name"] for r in rows]),
+        q=np.array([r["q"] for r in rows]),
+        region=np.array([r["region"] for r in rows]),
+        area=np.array([r["area"] for r in rows]),
+        drop=np.array([r["drop"] for r in rows]),
+        null=np.stack([r["null"] for r in rows]),
+        overlap=np.array([r["overlap"] for r in rows]),
+    )
+
+
 if __name__ == "__main__":
-    {"objects": objects, "rise": rise}[sys.argv[1]]()
+    {"objects": objects, "rise": rise, "area": area}[sys.argv[1]]()

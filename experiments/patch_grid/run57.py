@@ -85,7 +85,7 @@ def main() -> None:
     out["peak_gb"] = np.array(peaks)
     np.savez_compressed(N.CACHE / "57_sam3.npz", **out)
     print(
-        f"per image after warm-up: {np.mean(times[1:]):.2f}s  peak driver memory {max(peaks):.2f} GB"
+        f"per image after warm-up: {np.mean(times[1:]):.2f}s  driver allocation, largest snapshot {max(peaks):.2f} GB"
     )
 
 

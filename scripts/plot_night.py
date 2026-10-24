@@ -682,6 +682,49 @@ def fig55_hide(out: Path) -> None:
     print("wrote", out)
 
 
+def fig55_review(out: Path) -> None:
+    """The review's null: hide the three most-attended non-slot tokens, so the
+    null carries attention the way the slots do."""
+    h = dict(np.load(N.CACHE / "55_hide.npz"))
+    r = dict(np.load(N.CACHE / "55_review.npz"))
+    cs, cm, cr = r["cos_slots"], r["cos_matched"], h["cos_random"]
+    fig, top = figure(
+        15,
+        8.4,
+        6,
+        "SECTION 55, REVIEWED  A NULL THAT CARRIES ATTENTION",
+        "Hiding the three slots against hiding the three most-attended other tokens, fifty images",
+        f"slots hidden: median cosine {np.median(cs):.4f}, min {cs.min():.4f}, median attention share {np.median(r['share_slots']):.1%}  |  "
+        f"three most-attended others hidden: median {np.median(cm):.4f}, min {cm.min():.4f}, share {np.median(r['share_matched']):.1%}  |  "
+        f"three random hidden (figure 03's null): median {np.median(cr):.4f}  |  {sha()}",
+    )
+    gs = fig.add_gridspec(1, 2, left=0.06, right=0.97, top=top - 0.06, bottom=0.11, wspace=0.18)
+    ax = fig.add_subplot(gs[0, 0])
+    bins = np.linspace(min(cs.min(), cm.min()) - 0.003, 1.0005, 44)
+    ax.hist(cr, bins=bins, color=DIM)
+    ax.hist(cm, bins=bins, color=BLUE, alpha=0.85)
+    ax.hist(cs, bins=bins, color=GOLD, alpha=0.85)
+    ax.set_xlabel("cosine with the production vector", color=MUTED)
+    ax.set_yticks([])
+    style_axes(ax)
+    panel_title(ax, "gold: slots hidden; blue: most-attended others; grey: random three")
+    ax = fig.add_subplot(gs[0, 1])
+    ax.scatter(r["share_matched"], 1 - cm, s=46, color=BLUE, edgecolor="none", alpha=0.9)
+    ax.scatter(r["share_slots"], 1 - cs, s=46, color=GOLD, edgecolor="none", alpha=0.9)
+    ax.set_xlabel("share of the probe's attention on the three hidden tokens", color=MUTED)
+    ax.set_ylabel("1 - cosine with production", color=MUTED)
+    style_axes(ax)
+    panel_title(ax, "how far the vector moves against how much attention was hidden")
+    verdict(
+        fig,
+        f"most-attended others move it {np.median(1 - cm) / np.median(1 - cs):.0%} as far as the slots do",
+    )
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
 def fig55_tokens(out: Path) -> None:
     d = dict(np.load(N.CACHE / "55_norms.npz", allow_pickle=True))
     high, pl = d["high"], d["per_layer"]
@@ -863,13 +906,18 @@ def fig54_addendum(out: Path) -> None:
     for w, dk, _, _ in variants[1:]:
         diff = ad[f"rows/{w}"] != ad["rows/w_crop"]
         wins[w] = (int((ad[f"rows/{dk}"][diff] > ad["rows/d_crop"][diff]).sum()), int(diff.sum()))
+    moved = [
+        f"{names[i]} q{int(q[i])}"
+        for i in range(n)
+        if ad["rows/w_slots"][i] != ad["rows/w_head"][i]
+    ]
     cols = 5
     rows = int(np.ceil(n / cols))
     fig, top = figure(
         22,
         tall(4.6 * rows + 2.2),
         6,
-        "SECTION 54, AFTER 55  THE SLOTS WERE NOT THE CAUSE",
+        "SECTION 54, AFTER 55  WHAT MASKING THE SLOTS CHANGES",
         "The winner under four recipes on every answered query; outlines coincide where they agree",
         f"{n} answered queries  |  same winner as crop-on-grey: head {same['w_head']}, slots masked out {same['w_slots']}, register-shifted {same['w_register']}  |  "
         f"where they differ, covering and re-encoding sides with the head {wins['w_head'][0]} of {wins['w_head'][1]}, slots-out {wins['w_slots'][0]} of {wins['w_slots'][1]}, register {wins['w_register'][0]} of {wins['w_register'][1]}  |  "
@@ -919,7 +967,7 @@ def fig54_addendum(out: Path) -> None:
         )
     verdict(
         fig,
-        "masking the slots changes no pick; the register makes them worse; crop-on-grey stays the recipe",
+        f"masking the slots moves {len(moved)} of {n} head picks ({', '.join(moved)}); the counts against crop-on-grey stay {same['w_slots']} same, {wins['w_slots'][0]} of {wins['w_slots'][1]} won",
     )
     frame_panels(fig)
     fig.savefig(out, dpi=DPI, facecolor=BG)
@@ -1150,6 +1198,101 @@ def fig56_converge(out: Path) -> None:
     print("wrote", out)
 
 
+def fig56_area(out: Path) -> None:
+    """The area control: each contested region's drop inside the drops of the
+    same mask slid elsewhere in the frame."""
+    z = dict(np.load(N.CACHE / "56_area.npz"))
+    t = dict(np.load(N.CACHE / "54_tiebreak.npz", allow_pickle=True))
+    a = dict(np.load(N.CACHE / "54_all.npz", allow_pickle=True))
+    qs = N.queries()
+    key = {
+        (str(n), int(q), int(r)): i
+        for i, (n, q, r) in enumerate(zip(z["name"], z["q"], z["region"]))
+    }
+    excess = z["drop"] - np.median(z["null"], axis=1)
+    sets = []
+    rows54 = []
+    for n, q, c, h in zip(t["name"], t["q"], t["crop"], t["head"]):
+        rows54.append(
+            (
+                f"{n}: “{qs[str(n)][int(q)]}”",
+                key[(str(n), int(q), int(c))],
+                key[(str(n), int(q), int(h))],
+            )
+        )
+    sets.append(
+        ("section 54's eight disagreements", "crop-on-grey", "masked head", BLUE, GOLD, rows54)
+    )
+    rows56 = []
+    for n in N.IMAGES:
+        o = dict(np.load(N.CACHE / f"56_objects_{n}.npz"))
+        drops = float(o["base"] @ o["txt"][0]) - o["covered"].astype(np.float32) @ o["txt"][0]
+        ow, cp = int(drops.argmax()), int(a[f"{n}/cos_crop"][:, 0].argmax())
+        if ow != cp:
+            rows56.append((f"{n}: “{qs[n][0]}”", key[(n, 0, cp)], key[(n, 0, ow)]))
+    sets.append(
+        (
+            "section 56's small-object disagreements",
+            "crop-on-grey",
+            "whole-object winner",
+            BLUE,
+            CYAN,
+            rows56,
+        )
+    )
+    won = [sum(excess[b] > excess[c] for _, c, b in rows) for *_, rows in sets]
+    fig, top = figure(
+        20,
+        12.5,
+        4,
+        "SECTION 56, REVIEWED  THE AREA CONTROL",
+        "Each contested region's drop against the same mask slid to sixteen other places in the frame",
+        f"null: the region's own pixel mask rolled to the 16 of 200 random offsets that overlap it least, wrapping at the edges; regions over half the frame cannot leave themselves and their null overlaps them  |  "
+        f"excess = drop minus the null's median  |  54: by excess crop-on-grey {len(rows54) - won[0]}, head {won[0]}  |  56: crop-on-grey {len(rows56) - won[1]}, whole-object winner {won[1]}  |  {sha()}",
+    )
+    gs = fig.add_gridspec(
+        1,
+        2,
+        left=0.25,
+        right=0.98,
+        top=top - 0.06,
+        bottom=0.08,
+        wspace=0.95,
+        width_ratios=[len(rows54), len(rows56)],
+    )
+    for c, (title, la, lb, ca, cb, rows) in enumerate(sets):
+        ax = fig.add_subplot(gs[0, c])
+        for y, (lab, ia, ib) in enumerate(rows):
+            for dy, i, col in ((-0.17, ia, ca), (0.17, ib, cb)):
+                ax.scatter(z["null"][i], np.full(16, y + dy), s=14, color=DIM, edgecolor="none")
+                ax.scatter([z["drop"][i]], [y + dy], s=90, color=col, edgecolor="none", zorder=3)
+                ax.text(
+                    z["drop"][i],
+                    y + dy - 0.09,
+                    f" {z['area'][i]:.0%}",
+                    color=col,
+                    fontsize=8,
+                    va="bottom",
+                )
+        ax.axvline(0, color=FRAME_COLOR, lw=0.8)
+        ax.set_yticks(range(len(rows)), [r[0] for r in rows], fontsize=9)
+        ax.set_ylim(len(rows) - 0.5, -0.5)
+        ax.set_xlabel("drop in image-text cosine when covered", color=MUTED)
+        style_axes(ax)
+        panel_title(
+            ax,
+            f"{title}: {la} in blue, {lb} in {'gold' if cb == GOLD else 'cyan'}; grey: same shape elsewhere; number: share of frame",
+        )
+    verdict(
+        fig,
+        f"against a same-shape null crop-on-grey wins {len(rows54) - won[0]} of {len(rows54)} in 54; the whole-object winner still wins {won[1]} of {len(rows56)} in 56",
+    )
+    frame_panels(fig)
+    fig.savefig(out, dpi=DPI, facecolor=BG)
+    plt.close(fig)
+    print("wrote", out)
+
+
 def referee_grid(name: str, j: int, a: dict) -> np.ndarray:
     drops, paint, _ = object_map(name, j)
     return patch_of_region_map(paint, a[f"{name}/grids"], drops)
@@ -1172,6 +1315,8 @@ def fig58_ten(out: Path) -> dict[str, list[float]]:
     names = list(N.IMAGES)
     j = 0
     rhos: dict[str, list[float]] = {"attn": [], "gxa": [], "gxa_masked": [], "rise_gxa_masked": []}
+    perm: list[np.ndarray] = []
+    rng = np.random.default_rng(58)
     fig, top = figure(
         24,
         tall(3.6 * len(names) + 2.0),
@@ -1204,6 +1349,12 @@ def fig58_ten(out: Path) -> dict[str, list[float]]:
         }
         for k, v in rr.items():
             rhos[k].append(v)
+        # the null: the same map with its patches shuffled, against the same
+        # heavily tied referee, so a median has something to sit inside
+        flat = gxa_m.ravel()
+        perm.append(
+            np.array([spearmanr(rng.permutation(flat), ref.ravel())[0] for _ in range(200)])
+        )
         rise_txt = ""
         if name in R56.RISE_IMAGES:
             sal, _ = rise_map(name, j)
@@ -1250,6 +1401,7 @@ def fig58_ten(out: Path) -> dict[str, list[float]]:
     fig.savefig(out, dpi=DPI, facecolor=BG)
     plt.close(fig)
     print("wrote", out)
+    rhos["null_median"] = list(np.median(np.stack(perm), axis=0))
     return rhos
 
 
@@ -1327,6 +1479,8 @@ def fig58_agreement(out: Path, rhos: dict[str, list[float]]) -> None:
         )
         ax.plot([np.median(v)] * 2, [y - 0.32, y + 0.32], color=col, lw=2.4)
         ax.text(-1.02, y + 0.36, nm, color=col, fontsize=9.5, va="bottom")
+    lo, hi = np.percentile(rhos["null_median"], [2.5, 97.5])
+    ax.axvspan(lo, hi, color=DIM, alpha=0.6, lw=0)
     ax.axvline(0.30, color=RED, lw=1.2, ls=(0, (4, 3)))
     ax.axvline(0.0, color=FRAME_COLOR, lw=0.8)
     ax.set_xlim(-1.05, 1.05)
@@ -1334,7 +1488,10 @@ def fig58_agreement(out: Path, rhos: dict[str, list[float]]) -> None:
     ax.set_yticks([])
     ax.set_xlabel("Spearman rank correlation with the referee (bar: median)", color=MUTED)
     style_axes(ax)
-    panel_title(ax, "each mark one image; red: the dead-end line")
+    panel_title(
+        ax,
+        f"each mark one image; red: the dead-end line; grey band: median of ten shuffled maps, 95% [{lo:+.2f}, {hi:+.2f}]",
+    )
     med = np.median(rhos["gxa_masked"])
     verdict(fig, f"best median {med:+.2f}, {'above' if med >= 0.3 else 'below'} the 0.30 dead end")
     frame_panels(fig)
@@ -1360,7 +1517,7 @@ def fig57(out: Path) -> None:
         1,
         "SECTION 57  SAM 3 AGAINST THE TWO-MODEL RECIPE",
         "SAM 3's concept-prompted masks on the woman image, with section 54's crop-on-grey winner (blue) and masked-head winner (gold) where the query was asked there",
-        f"facebook/sam3, fp16 on MPS  |  load {float(z['load_seconds']):.0f} s  |  per query after warm-up {np.mean(z['seconds'][1:]):.2f} s, first {z['seconds'][0]:.2f} s  |  peak MPS driver memory {z['peak_gb'].max():.2f} GB  |  "
+        f"facebook/sam3, fp16 on MPS  |  load {float(z['load_seconds']):.0f} s  |  per query after warm-up {np.mean(z['seconds'][1:]):.2f} s, first {z['seconds'][0]:.2f} s  |  MPS driver allocation, largest snapshot {z['peak_gb'].max():.2f} GB  |  "
         f"masks kept at score > 0.5, painted by score  |  {sha()}",
     )
     cols = 3
@@ -1432,7 +1589,7 @@ def main() -> None:
         if which in ("attention", "all"):
             fig54_attention(d / "04-attention-inside-each-region.png")
         if which == "addendum":
-            fig54_addendum(d / "06-after-55-the-slots-were-not-the-cause.png")
+            fig54_addendum(d / "06-after-55-what-the-slots-change.png")
     elif what == "55":
         d = N.SECTION_ROOT / "55-long-tokens"
         d.mkdir(exist_ok=True)
@@ -1447,6 +1604,8 @@ def main() -> None:
             fig55_tokens(d / "05-the-tokens-themselves.png")
         if which in ("registers", "all"):
             fig55_registers(d / "04-a-test-time-register.png")
+        if which == "review":
+            fig55_review(d / "06-a-null-that-carries-attention.png")
     elif what == "56":
         d = N.SECTION_ROOT / "56-referee"
         d.mkdir(exist_ok=True)
@@ -1457,6 +1616,8 @@ def main() -> None:
             fig56_three(d / "01-three-referees.png")
         if which in ("all", "converge"):
             fig56_converge(d / "03-does-rise-converge.png")
+        if which == "area":
+            fig56_area(d / "04-the-area-control.png")
     elif what == "57":
         d = N.SECTION_ROOT / "57-sam3"
         fig57(d / "01-sam3-against-the-recipe.png")

@@ -68,7 +68,7 @@ def fig_gate(res) -> None:
     lo = min(min(res[k]["per_image"]) for k in NAMES) - 0.05
     hi = max(max(max(res[k]["per_image"]) for k in NAMES), res["pass_mark"]) + 0.05
     meta = "  |  ".join(
-        f"{NAMES[k]}: mean {res[k]['mean']:.2f}, null p95 {res[k]['null_p95']:.2f}" for k in NAMES
+        f"{NAMES[k]}: mean {res[k]['mean']:.3f}, null p95 {res[k]['null_p95']:.3f}" for k in NAMES
     )
     fig, top = figure(
         15,
@@ -78,7 +78,7 @@ def fig_gate(res) -> None:
         "Do the cheap maps agree with covering a block and looking",
         f"n = {res['n']} thumbnails, Spearman over 36 blocks  |  {meta}  |  {res['commit']}",
     )
-    gs = fig.add_gridspec(3, 1, left=0.05, right=0.965, top=top - 0.03, bottom=0.08, hspace=0.42)
+    gs = fig.add_gridspec(3, 1, left=0.05, right=0.965, top=top - 0.03, bottom=0.08, hspace=0.62)
     for r, k in enumerate(NAMES):
         ax = fig.add_subplot(gs[r, 0])
         ax.hist(res[k]["null_means"], bins=40, color=DIM)
@@ -115,7 +115,7 @@ def fig_lenses(
         kicker,
         title,
         f"all maps at the referee's 6 x 6 blocks  |  occlusion column on one scale, 0 to {vmax:.0%} of the image-title match"
-        f"  |  cheap lenses scaled per panel  |  corner: rank correlation with occlusion  |  {res['commit']}",
+        f"  |  cheap lenses scaled per panel, negatives drawn as zero though Spearman ranks them  |  corner: rank correlation with occlusion  |  {res['commit']}",
     )
     gs = fig.add_gridspec(
         len(order), 4, left=0.035, right=0.965, top=top - 0.03, bottom=0.03, wspace=0.05, hspace=0.1
@@ -168,10 +168,14 @@ def fig_referee(res) -> None:
     ref = res["referee"]
     t = np.array(ref["max_drop_true"]) / np.array(ref["base_true"])
     w = np.array(ref["max_drop_wrong"]) / np.maximum(np.abs(ref["base_wrong"]), 1e-9)
-    w = np.clip(w, -1, 2)
+    # One wrong-title match sits near zero, so its share runs past 2; clipped
+    # and marked, it no longer stretches the axis over the other 39.
+    cap = 0.6
+    over = w > cap
+    w = np.clip(w, -1, cap)
     fig, top = figure(
-        9.5,
-        9.6,
+        12,
+        11,
         3,
         "SECTION 53  THE REFEREE",
         "How much of a match one block carries, right title against wrong",
@@ -180,16 +184,83 @@ def fig_referee(res) -> None:
     ax = fig.add_axes([0.11, 0.09, 0.84, top - 0.14])
     lim = float(max(t.max(), w.max()) * 1.08)
     ax.plot([0, lim], [0, lim], color=DIM, lw=1.4)
-    ax.scatter(w, t, s=70, color=GOLD, alpha=0.85, edgecolor="none")
+    ax.scatter(w[~over], t[~over], s=70, color=GOLD, alpha=0.85, edgecolor="none")
+    ax.scatter(w[over], t[over], s=90, color=GOLD, marker=">", edgecolor="none")
+    if over.any():
+        ax.text(
+            cap - 0.02,
+            float(t[over].max()) + 0.03,
+            f"{int(over.sum())} wrong-title matches near zero, share off the axis",
+            color=MUTED,
+            fontsize=9,
+            ha="right",
+        )
     ax.set_xlim(min(0, w.min()) - 0.01, lim)
-    ax.set_ylim(0, lim)
+    ax.set_ylim(-0.01, lim)
     ax.set_xlabel("largest drop, wrong title (share of that match)", color=MUTED)
     ax.set_ylabel("largest drop, true title (share of that match)", color=MUTED)
     style_axes(ax)
     panel_title(ax, "above the line: covering one block costs the true title more")
-    verdict(fig, f"{int((t > w).sum())} of {len(t)} above the line")
+    verdict(fig, f"{int((t > w).sum())} of {len(t)} above the line, near a coin flip")
     frame_panels(fig)
     fig.savefig(OUT / "03-the-referee.png", dpi=DPI, facecolor=BG)
+
+
+def fig_strength(res) -> None:
+    """Section 53's closing reading blamed a weak referee; this splits the
+    forty by how strong the referee was on each."""
+    from scipy.stats import spearmanr
+
+    ref = res["referee"]
+    s = np.array(ref["max_drop_true"]) / np.array(ref["base_true"])
+    weak = s < 0.05
+    rows = [(k, np.array(res[k]["per_image"])) for k in NAMES]
+    stats = {k: (v[weak].mean(), v[~weak].mean(), spearmanr(v, s)[0]) for k, v in rows}
+    fig, top = figure(
+        16,
+        8.4,
+        6,
+        "SECTION 53, REVIEWED  WHERE THE REFEREE WAS STRONG",
+        "Each lens's agreement per thumbnail against how much of the match one block carried; grey band: weak referee, blue: mean each side",
+        f"n = {res['n']}  |  weak: largest single-block drop under 5% of the image-title match ({int(weak.sum())} thumbnails)  |  "
+        + "  |  ".join(
+            f"{NAMES[k]}: weak {a:+.2f}, strong {b:+.2f}, rank correlation with strength {r:+.2f}"
+            for k, (a, b, r) in stats.items()
+        )
+        + f"  |  {res['commit']}",
+    )
+    gs = fig.add_gridspec(1, 3, left=0.05, right=0.97, top=top - 0.06, bottom=0.11, wspace=0.1)
+    x = np.clip(s, 1e-3, None)
+    for c, (k, v) in enumerate(rows):
+        ax = fig.add_subplot(gs[0, c])
+        ax.axvspan(1e-3 * 0.8, 0.05, color=DIM, alpha=0.35, lw=0)
+        ax.scatter(x, v, s=46, color=GOLD, alpha=0.85, edgecolor="none")
+        a, b, r = stats[k]
+        ax.plot([1e-3, 0.05], [a, a], color=BLUE, lw=2.4)
+        ax.plot([0.05, x.max() * 1.2], [b, b], color=BLUE, lw=2.4)
+        ax.axhline(res["pass_mark"], color=RED, lw=1.2, ls=(0, (4, 3)))
+        ax.axhline(0, color=DIM, lw=0.8)
+        ax.set_xscale("log")
+        ax.set_xlim(1e-3 * 0.8, x.max() * 1.2)
+        ax.set_xticks([1e-3, 1e-2, 0.05, 0.1, 0.3], ["0", "1%", "5%", "10%", "30%"])
+        ax.minorticks_off()
+        ax.set_ylim(-0.75, 0.8)
+        ax.set_xlabel(
+            "largest one-block drop, share of the match (log; 0 drawn at the edge)", color=MUTED
+        )
+        if c == 0:
+            ax.set_ylabel("Spearman with the referee", color=MUTED)
+        else:
+            ax.set_yticklabels([])
+        style_axes(ax)
+        panel_title(ax, NAMES[k])
+    falls = sum(1 for a, b, _ in stats.values() if b < a)
+    verdict(
+        fig,
+        f"agreement is lower where the referee is strong for {falls} of 3 lenses",
+    )
+    frame_panels(fig)
+    fig.savefig(OUT / "06-where-the-referee-was-strong.png", dpi=DPI, facecolor=BG)
 
 
 def fig_text(res) -> None:
@@ -257,10 +328,11 @@ def main() -> None:
         [int(i) for i in by[:4]],
         5,
         "05-where-they-disagree.png",
-        "SECTION 53  THE PANEL THAT KILLS IT",
+        "SECTION 53  WHERE THE GRADIENT LENS DISAGREES MOST",
         "The four thumbnails where the gradient lens and the referee disagree most",
     )
-    print("wrote 5 figures to", OUT)
+    fig_strength(res)
+    print("wrote 6 figures to", OUT)
 
 
 if __name__ == "__main__":

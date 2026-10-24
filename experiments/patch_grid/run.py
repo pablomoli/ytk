@@ -6,6 +6,7 @@ resumes; the score file carries ids and numbers only, never titles.
 
     HF_HUB_OFFLINE=1 uv run python experiments/patch_grid/run.py --limit 2   # smoke
     HF_HUB_OFFLINE=1 uv run python experiments/patch_grid/run.py             # the gate, ~13.5 min
+    HF_HUB_OFFLINE=1 uv run python experiments/patch_grid/run.py --noise     # referee noise floor, ~1 min
 """
 
 from __future__ import annotations
@@ -169,14 +170,47 @@ def score(maps: list[dict[str, np.ndarray]]) -> dict:
     return out
 
 
+def noise(rows: list[tuple[str, dict]]) -> None:
+    """The referee's fp16 floor: each uncovered image re-encoded alone, against
+    its vector from the gate, where it shared a batch of 12. Both vectors meet
+    the same text vector, so text-side jitter cannot enter."""
+    model, processor, device = visual._load()
+    vision = model.vision_model
+    titles = [m["title"] for _, m in rows]
+    txt = _unit(torch.tensor(visual.embed_texts(titles)))
+    jitter, drop = [], []
+    with torch.no_grad():
+        for k, (iid, meta) in enumerate(rows):
+            m = np.load(CACHE / f"{iid.replace(':', '_')}.npz")
+            pil = Image.open(os.path.expanduser(meta["image_path"])).convert("RGB")
+            px = processor(images=[pil], return_tensors="pt")["pixel_values"]
+            v = _unit(
+                vision(pixel_values=px.to(device).to(torch.float16)).pooler_output.float().cpu()
+            )
+            gate = torch.as_tensor(m["covered"][0].astype(np.float32))
+            jitter.append(abs(float((v[0] - gate) @ txt[k])))
+            drop.append(float(m["lens3"][..., 0].max()))
+    out = OUT.parent / "noise_floor.json"
+    out.write_text(json.dumps({"jitter": jitter, "max_drop_true": drop}, indent=1) + "\n")
+    j, d = np.array(jitter), np.array(drop)
+    print(
+        f"jitter median {np.median(j):.5f} max {j.max():.5f}  |  largest drop median {np.median(d):.5f}"
+        f"  |  images whose largest drop is under 3x the max jitter: {(d < 3 * j.max()).sum()} of {len(d)}"
+    )
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--limit", type=int, default=GATE, help="score only the first N gate images (smoke test)"
     )
+    ap.add_argument("--noise", action="store_true", help="measure the referee's fp16 floor")
     args = ap.parse_args()
 
     rows = sample()
+    if args.noise:
+        noise(rows)
+        return
     CACHE.mkdir(parents=True, exist_ok=True)
     model, processor, device = visual._load()
     vision = model.vision_model
