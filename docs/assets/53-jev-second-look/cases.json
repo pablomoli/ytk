@@ -1,0 +1,292 @@
+[
+ {
+  "case": 10,
+  "group": "opened",
+  "query": "ytk weekly audit August 16 23 2026 Atlas causal result invalidation mobile pointer SVG E41 hydrated_at",
+  "session": "70b10860c6ea",
+  "ts": "2026-08-23T20:49:02+00:00",
+  "opened_path": "second-brain/projects/ytk/session-067-brief.md",
+  "opened_doc_id": "note_second-brain_projects_ytk_session-067-brief",
+  "rank_then": 1,
+  "served_then": 12
+ },
+ {
+  "case": 13,
+  "group": "opened",
+  "query": "ytk map terrain fog web 2d controls legend",
+  "session": "1eb4d80d8fc2",
+  "ts": "2026-08-23T20:49:23+00:00",
+  "opened_path": "second-brain/projects/ytk/session-033-brief.md",
+  "opened_doc_id": "note_second-brain_projects_ytk_session-033-brief",
+  "rank_then": 1,
+  "served_then": 8
+ },
+ {
+  "case": 14,
+  "group": "opened",
+  "query": "ytk UI control hierarchy inbox job progress map navigation design decisions",
+  "session": "eb1a2a97e2ba",
+  "ts": "2026-08-23T20:50:03+00:00",
+  "opened_path": "second-brain/inbox/memories/2026-04-20-ytk-ui-phase-6-needs-ux-rethink-before-any-imple.md",
+  "opened_doc_id": "memory_2026-04-20_ytk-ui-phase-6-needs-ux-rethink-before-any-imple",
+  "rank_then": 1,
+  "served_then": 5
+ },
+ {
+  "case": 15,
+  "group": "opened",
+  "query": "ytk map redesign controls user feedback",
+  "session": "eb1a2a97e2ba",
+  "ts": "2026-08-23T20:50:04+00:00",
+  "opened_path": "second-brain/inbox/memories/2026-04-20-ytk-ui-phase-6-needs-ux-rethink-before-any-imple.md",
+  "opened_doc_id": "memory_2026-04-20_ytk-ui-phase-6-needs-ux-rethink-before-any-imple",
+  "rank_then": 5,
+  "served_then": 5
+ },
+ {
+  "case": 16,
+  "group": "opened",
+  "query": "ytk hub UI phase UX rethink",
+  "session": "eb1a2a97e2ba",
+  "ts": "2026-08-23T20:50:04+00:00",
+  "opened_path": "second-brain/inbox/memories/2026-04-20-ytk-ui-phase-6-needs-ux-rethink-before-any-imple.md",
+  "opened_doc_id": "memory_2026-04-20_ytk-ui-phase-6-needs-ux-rethink-before-any-imple",
+  "rank_then": 1,
+  "served_then": 5
+ },
+ {
+  "case": 20,
+  "group": "opened",
+  "query": "ytk session 068 planning brief Wave A fix audit control foundation backend reliability hygiene e41",
+  "session": "e3517a895a2e",
+  "ts": "2026-08-23T21:37:21+00:00",
+  "opened_path": "second-brain/projects/ytk/session-068-planning-brief.md",
+  "opened_doc_id": "note_second-brain_projects_ytk_session-068-planning-brief",
+  "rank_then": 2,
+  "served_then": 10
+ },
+ {
+  "case": 21,
+  "group": "opened",
+  "query": "superposition features interpretability emotions value function LLM",
+  "session": "dfd0c5c2b7e4",
+  "ts": "2026-08-23T23:15:09+00:00",
+  "opened_path": "sources/instagram/bottomlinebydrishti-2026-04-07-DW2DwdUDPyp.md",
+  "opened_doc_id": "note_sources_instagram_bottomlinebydrishti-2026-04-07-DW2DwdUDPyp",
+  "rank_then": 1,
+  "served_then": 6
+ },
+ {
+  "case": 22,
+  "group": "opened",
+  "query": "neuroplasticity myelination growth mindset brain learning mistakes error",
+  "session": "dfd0c5c2b7e4",
+  "ts": "2026-08-23T23:15:10+00:00",
+  "opened_path": "sources/instagram/growthwithneil-2026-08-21-DcTkT_QCiKt.md",
+  "opened_doc_id": "note_sources_instagram_growthwithneil-2026-08-21-DcTkT_QCiKt",
+  "rank_then": 5,
+  "served_then": 6
+ },
+ {
+  "case": 23,
+  "group": "opened",
+  "query": "neurohacks dopamine focus habit sleep memory consolidation technique",
+  "session": "dfd0c5c2b7e4",
+  "ts": "2026-08-23T23:15:10+00:00",
+  "opened_path": "sources/instagram/growthwithneil-2026-08-21-DcTkT_QCiKt.md",
+  "opened_doc_id": "note_sources_instagram_growthwithneil-2026-08-21-DcTkT_QCiKt",
+  "rank_then": 6,
+  "served_then": 6
+ },
+ {
+  "case": 32,
+  "group": "opened",
+  "query": "ytk issue 149 150 memory systems benchmark mem0 Letta Zep cognee LangMem claude-mem",
+  "session": "99548afbc324",
+  "ts": "2026-08-29T22:46:33+00:00",
+  "opened_path": "projects/ytk/session-051-brief.md",
+  "opened_doc_id": "note_projects_ytk_session-051-brief",
+  "rank_then": 7,
+  "served_then": 8
+ },
+ {
+  "case": 33,
+  "group": "opened",
+  "query": "raycfu loop engineering reel",
+  "session": "99548afbc324",
+  "ts": "2026-08-29T22:46:33+00:00",
+  "opened_path": "second-brain/sources/instagram/raycfu-2026-07-29-DbW0FoHI1OO.md",
+  "opened_doc_id": "note_sources_instagram_raycfu-2026-07-29-DbW0FoHI1OO",
+  "rank_then": 1,
+  "served_then": 5
+ },
+ {
+  "case": 42,
+  "group": "opened",
+  "query": "OneEthos client demo prototype QA",
+  "session": "925dc4e32a58",
+  "ts": "2026-08-30T00:33:18+00:00",
+  "opened_path": "second-brain/inbox/memories/claude-mem/summaries/summary-2026-02-23-resume-778.md",
+  "opened_doc_id": "note_inbox_memories_claude-mem_summaries_summary-2026-02-23-resume-778",
+  "rank_then": 5,
+  "served_then": 5
+ },
+ {
+  "case": 43,
+  "group": "opened",
+  "query": "OneEthos resume role internship what was built",
+  "session": "925dc4e32a58",
+  "ts": "2026-08-30T00:33:23+00:00",
+  "opened_path": "second-brain/inbox/memories/claude-mem/summaries/summary-2026-02-23-resume-777.md",
+  "opened_doc_id": "note_inbox_memories_claude-mem_summaries_summary-2026-02-23-resume-777",
+  "rank_then": 2,
+  "served_then": 5
+ },
+ {
+  "case": 44,
+  "group": "opened",
+  "query": "Randy Roberts rndyrbrts parametric design mood board sliders Are.na visual language",
+  "session": "356b8f770036",
+  "ts": "2026-09-06T22:43:09+00:00",
+  "opened_path": "second-brain/study/rndyrbrts-visual-language.md",
+  "opened_doc_id": "note_study_rndyrbrts-visual-language",
+  "rank_then": 3,
+  "served_then": 8
+ },
+ {
+  "case": 45,
+  "group": "opened",
+  "query": "footage-first method investigation creator study design system instrument page rails readouts",
+  "session": "356b8f770036",
+  "ts": "2026-09-06T22:43:10+00:00",
+  "opened_path": "second-brain/projects/ytk/footage-first-method.md",
+  "opened_doc_id": "note_projects_ytk_footage-first-method",
+  "rank_then": 1,
+  "served_then": 6
+ },
+ {
+  "case": 62,
+  "group": "opened",
+  "query": "vision language model CLIP SigLIP LLaVA image encoder projector",
+  "session": "5a89a98ff19b",
+  "ts": "2026-09-19T00:24:17+00:00",
+  "opened_path": "second-brain/projects/ytk/session-015-brief.md",
+  "opened_doc_id": "note_projects_ytk_session-015-brief",
+  "rank_then": 2,
+  "served_then": 6
+ },
+ {
+  "case": 66,
+  "group": "opened",
+  "query": "niloc training Windows gaming laptop GPU CUDA VRAM RTX specs",
+  "session": "b65d73da2350",
+  "ts": "2026-09-19T02:18:46+00:00",
+  "opened_path": "second-brain/inbox/memories/claude-mem/summaries/summary-2026-04-02-niloc-2450.md",
+  "opened_doc_id": "note_inbox_memories_claude-mem_summaries_summary-2026-04-02-niloc-2450",
+  "rank_then": 2,
+  "served_then": 8
+ },
+ {
+  "case": 74,
+  "group": "id-lookup",
+  "query": "geek_updates AI is getting crazier TikTok 7595557417598061844",
+  "session": "0cae8fa93ddf",
+  "ts": "2026-10-04T00:33:08+00:00",
+  "served_then": 5
+ },
+ {
+  "case": 75,
+  "group": "id-lookup",
+  "query": "Aea2DUX4fsQ",
+  "session": "1a39e5c4d9ba",
+  "ts": "2026-10-04T02:58:25+00:00",
+  "served_then": 3
+ },
+ {
+  "case": 80,
+  "group": "opened",
+  "query": "control mac by tapping on the table accelerometer vibration",
+  "session": "f5ad52464e2e",
+  "ts": "2026-10-11T01:34:19+00:00",
+  "opened_path": "second-brain/sources/instagram/aristides.lab-2026-07-15-Daz7mHHMYa5.md",
+  "opened_doc_id": "note_sources_instagram_aristides.lab-2026-07-15-Daz7mHHMYa5",
+  "rank_then": 1,
+  "served_then": 5
+ },
+ {
+  "case": 82,
+  "group": "opened",
+  "query": "DJ controller mixing gestures",
+  "session": "f5ad52464e2e",
+  "ts": "2026-10-11T01:34:19+00:00",
+  "opened_path": "second-brain/sources/instagram/aristides.lab-2026-07-15-Daz7mHHMYa5.md",
+  "opened_doc_id": "note_sources_instagram_aristides.lab-2026-07-15-Daz7mHHMYa5",
+  "rank_then": 2,
+  "served_then": 4
+ },
+ {
+  "case": 84,
+  "group": "opened",
+  "query": "epicmap sidecar",
+  "session": "e20bb9baad39",
+  "ts": "2026-10-11T03:51:08+00:00",
+  "opened_path": "second-brain/projects/epicmap/overview.md",
+  "opened_doc_id": "note_projects_epicmap_overview",
+  "rank_then": 8,
+  "served_then": 8
+ },
+ {
+  "case": 87,
+  "group": "id-lookup",
+  "query": "QGWKCaglSBI",
+  "session": "5be5c94ba92f",
+  "ts": "2026-10-13T19:37:32+00:00",
+  "served_then": 3
+ },
+ {
+  "case": 91,
+  "group": "opened",
+  "query": "epicmap framework language agent linting desktop iOS",
+  "session": "e0a25d18e39b",
+  "ts": "2026-10-18T02:06:22+00:00",
+  "opened_path": "second-brain/projects/epicmap/state-apr-2026.md",
+  "opened_doc_id": "note_projects_epicmap_state-apr-2026",
+  "rank_then": 2,
+  "served_then": 8
+ },
+ {
+  "case": 95,
+  "group": "opened",
+  "query": "tier list developer tools frameworks ranking",
+  "session": "e0a25d18e39b",
+  "ts": "2026-10-18T02:28:23+00:00",
+  "opened_path": "second-brain/notes/Creators.md",
+  "opened_doc_id": "note_notes_Creators",
+  "rank_then": 6,
+  "served_then": 10
+ },
+ {
+  "case": 100,
+  "group": "id-lookup",
+  "query": "TikTok item 814 ZTfupAdqY LG TV webOS debloat improvements",
+  "session": "a45a65389964",
+  "ts": "2026-10-24T16:48:51+00:00",
+  "served_then": 5
+ },
+ {
+  "case": 103,
+  "group": "id-lookup",
+  "query": "svrdRAoIlxM",
+  "session": "a70bd03953e5",
+  "ts": "2026-10-24T23:55:00+00:00",
+  "served_then": 3
+ },
+ {
+  "case": 104,
+  "group": "id-lookup",
+  "query": "Z36LDna4nZg",
+  "session": "a70bd03953e5",
+  "ts": "2026-10-24T23:56:59+00:00",
+  "served_then": 3
+ }
+]
