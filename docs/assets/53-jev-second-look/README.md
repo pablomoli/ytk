@@ -54,6 +54,16 @@ the Choice's abstention as a row-wide gate on the Noul's per-candidate scale.
   strip of any / none / none reversed / same winner.
 - `02-stored-text.png` — stored-text context. Panels: round one's Noul for
   reference; Noul on stored text; Choice on stored text; gated.
+- `03-stability.png` — the same 84 requests run twice (|ΔP| histogram), and
+  every Choice option's probability in served order against reversed order.
+- `04-wetness.png` — per search, how many candidates the Noul admits at 0.5,
+  snippet against stored text; and the opened note's own P(yes) against the
+  median of its 19 neighbours, with its rank inside the row.
+- `05-latency.png` — every call in the ledger, latency against input tokens,
+  with the #86 budget and the local reranker's measured medians.
+
+Figures 03–05 are drawn by `scripts/plot_jev_second_look.py` from the
+sidecars and `~/.ytk/logs/jev_calls.jsonl`; no requests.
 
 ## What was measured
 
@@ -73,6 +83,16 @@ Repeatability (round one run twice, `rung0-run1.json` vs `rung0.json`): median
 Ranks were stable: 20 of the 22 opened notes sit at the same served rank today
 as on the day of the search; two moved from 1 to 2.
 
+Context effect, measured (figure 04): candidates with P(yes) ≥ 0.5 per search,
+median 0 → 1. The opened note's own P(yes), median 0.24 → 0.39; the median of
+its 19 neighbours, 0.07 → 0.08. The opened note's Noul rank inside its row,
+median 2 → 3, first in 9 → 8 rows.
+
+Latency (figure 05): 168 round-one calls median 151 ms, 56 round-two calls
+median 241 ms, slowest call 396 ms, at 2–5k and 8–26k input tokens. The local
+Qwen3 reranker measured in #86 sits at 7.7 s (depth 10, 512 tokens) and 18.6 s
+(depth 30) against a budget of +1 s per search.
+
 ## Reading
 
 **The Noul panel is wet, the Choice panel is dry.** A Noul is answered alone
@@ -80,6 +100,16 @@ and returns P(yes) on its own scale, so twenty of them can all be bright; a
 Choice's probabilities sum to one. Full text made the Nouls wetter, not sharper
 (more topical overlap, more yes), which is the "large state full of irrelevant
 detail" edge TypeSafe's own jaggedness page describes.
+
+> **Later (same day, figure 04):** the sentence above was an eyeball reading
+> of figure 02 and the measurement contradicts it. At a 0.5 threshold the
+> median search admits 0 candidates with snippets and 1 with full text; the
+> opened note gained +0.15 while its neighbours gained +0.01. Full text lifted
+> the right note more than the crowd. What read as "wetter" was the `punch()`
+> gamma lift brightening the 0.2–0.4 band, which the colour bar discloses.
+> What full text did not do is change the opened note's rank among its
+> neighbours (median 2 → 3, first in 9 → 8 rows). The sentence stands as
+> written; the number is the finding.
 
 **Full text changed what Choice believes is there.** With snippets, Choice
 said `none` on about ten of the 22 opened rows and `any` sat at 0.1–0.85. With
@@ -111,7 +141,12 @@ difference of two or three rows at n=22. No bar was set and none is claimed.
 - "Choice picked it" in the first verdict meant the declared winner; the shared
   counter now reports the brightest candidate cell per arm, and the verdict
   says "Choice top candidate". Both numbers are in the table above.
-- The serif face has no glyph for →, − or ×; figure text uses ASCII.
+- The serif face has no glyph for →, − or ×; figure text uses ASCII, and the
+  log axis in figure 05 carries plain tick text for the same reason.
+- Figure 04 was first titled "Full text lifts the crowd, not the note the
+  agent opened", written from the figure 02 impression before the panel was
+  drawn. Its own data said the opposite; the title now follows the data, and
+  the reading above carries the annotation.
 
 ## Next
 
