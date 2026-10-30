@@ -1,0 +1,2802 @@
+{
+ "generated": "2026-10-30T04:32:44+00:00",
+ "commit": "ac38dd8",
+ "model": "jev-1.14.0",
+ "n": 156,
+ "hit": {
+  "served": {
+   "hit@1": 0.7115384615384616,
+   "hit@5": 0.8974358974358975,
+   "hit@10": 0.9358974358974359
+  },
+  "rrf": {
+   "hit@1": 0.75,
+   "hit@5": 0.9358974358974359,
+   "hit@10": 0.9423076923076923
+  },
+  "noul": {
+   "hit@1": 0.7692307692307693,
+   "hit@5": 0.9358974358974359,
+   "hit@10": 0.9551282051282052
+  }
+ },
+ "hit_reference": {
+  "jev54": {
+   "hit@1": 0.7756410256410257,
+   "hit@5": 0.9166666666666666,
+   "hit@10": 0.9423076923076923
+  },
+  "qwen3": {
+   "hit@1": 0.7948717948717948,
+   "hit@5": 0.9358974358974359,
+   "hit@10": 0.9743589743589743
+  }
+ },
+ "per_bucket": {
+  "memories": {
+   "served": {
+    "hit@1": 0.6329113924050633,
+    "hit@5": 0.8607594936708861,
+    "hit@10": 0.9240506329113924
+   },
+   "rrf": {
+    "hit@1": 0.6962025316455697,
+    "hit@5": 0.9240506329113924,
+    "hit@10": 0.9240506329113924
+   },
+   "noul": {
+    "hit@1": 0.6582278481012658,
+    "hit@5": 0.9113924050632911,
+    "hit@10": 0.9493670886075949
+   }
+  },
+  "segments": {
+   "served": {
+    "hit@1": 0.75,
+    "hit@5": 0.9318181818181818,
+    "hit@10": 0.9545454545454546
+   },
+   "rrf": {
+    "hit@1": 0.7727272727272727,
+    "hit@5": 0.9545454545454546,
+    "hit@10": 0.9772727272727273
+   },
+   "noul": {
+    "hit@1": 0.8636363636363636,
+    "hit@5": 0.9772727272727273,
+    "hit@10": 0.9772727272727273
+   }
+  },
+  "videos": {
+   "served": {
+    "hit@1": 0.8484848484848485,
+    "hit@5": 0.9393939393939394,
+    "hit@10": 0.9393939393939394
+   },
+   "rrf": {
+    "hit@1": 0.8484848484848485,
+    "hit@5": 0.9393939393939394,
+    "hit@10": 0.9393939393939394
+   },
+   "noul": {
+    "hit@1": 0.9090909090909091,
+    "hit@5": 0.9393939393939394,
+    "hit@10": 0.9393939393939394
+   }
+  }
+ },
+ "ndcg10": {
+  "served": 0.6575332949578194,
+  "rrf": 0.7297232370358855,
+  "noul": 0.7548012045401225
+ },
+ "null": {
+  "ndcg10_mean": 0.3695164284843638,
+  "ndcg10_sd": 0.011523630519970409,
+  "hit@1_mean": 0.045384615384615384,
+  "hit@5_mean": 0.22781410256410256,
+  "hit@10_mean": 0.4365448717948718
+ },
+ "wall_s": {
+  "median": 0.31795925000915304,
+  "p95": 0.5675039579509757,
+  "max": 0.6428367500193417
+ },
+ "requests": 180,
+ "input_tokens": 2626109,
+ "bars": {
+  "hit@1": 0.79,
+  "hit@5": 0.93,
+  "wall_s": 1.0,
+  "demoted": 3
+ },
+ "rows": [
+  {
+   "query": "note about organizing jobs on a timeline with colored status bars for a dashboard Kanban view",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6480246689193536,
+    "rrf": 0.7068160947150673,
+    "noul": 0.7563754267093599
+   },
+   "wall_s": 0.4396886249887757
+  },
+  {
+   "query": "decision to archive the FieldWork model and use job status entries instead for analytics",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.44667429260911035,
+    "rrf": 0.5725372442620736,
+    "noul": 0.6314690424491316
+   },
+   "wall_s": 0.27437483303947374
+  },
+  {
+   "query": "production lesson about how server-sent events consume thread resources when too many connections stay open",
+   "bucket": "memories",
+   "ranks": {
+    "served": 1,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.3063495897192279,
+    "rrf": 0.5861706634884438,
+    "noul": 0.6430678201624818
+   },
+   "wall_s": 0.3243239999865182
+  },
+  {
+   "query": "bug where a progress section vanished due to flexbox collapsing when overflow wasn't visible",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.0,
+    "rrf": 0.19492650393978508,
+    "noul": 0.3397792713156716
+   },
+   "wall_s": 0.30441670899745077
+  },
+  {
+   "query": "fix splitting video embeddings into multiple vectors for search so longer text won't exceed limits",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.40772423806380187,
+    "rrf": 0.5247261983917901,
+    "noul": 0.571019159098196
+   },
+   "wall_s": 0.29780687496531755
+  },
+  {
+   "query": "planning session that framed the entire system as one unified text encoder generating all visualization layouts",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6456694387196816,
+    "rrf": 0.7154675951009619,
+    "noul": 0.7252268152352145
+   },
+   "wall_s": 0.5101424580207095
+  },
+  {
+   "query": "fix for parcel identification truncation in Brevard County that touched the API and utility functions",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 1,
+    "jev54": 1,
+    "qwen3": 2
+   },
+   "ndcg": {
+    "served": 0.5090562508667129,
+    "rrf": 0.8099720434394158,
+    "noul": 0.8973910404319243
+   },
+   "wall_s": 0.5944478739402257
+  },
+  {
+   "query": "engineer sharing every coding question and system design interview she encountered during job hunting",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7979381929082935,
+    "rrf": 0.7866627916325735,
+    "noul": 0.765334105211559
+   },
+   "wall_s": 0.24212929198984057
+  },
+  {
+   "query": "building a handheld device that generates electromagnetic pulses using capacitors and a Marx voltage multiplier",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8176035833928883,
+    "rrf": 0.8176035833928883,
+    "noul": 0.8627881893129682
+   },
+   "wall_s": 0.2681094579747878
+  },
+  {
+   "query": "fragment about why something always has a good reason despite appearing complicated",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.4135338210856662,
+    "rrf": 0.4206394657523644,
+    "noul": 0.4158142706678083
+   },
+   "wall_s": 0.23664095799904317
+  },
+  {
+   "query": "dialogue where someone defends mysterious items that turned out to be decades-old inventory they kept",
+   "bucket": "segments",
+   "ranks": {
+    "served": 3,
+    "rrf": 1,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5152853876395415,
+    "rrf": 0.7652015464578038,
+    "noul": 0.8946040979738331
+   },
+   "wall_s": 0.28532016603276134
+  },
+  {
+   "query": "explaining how to define simple tools for AI agents through an API by making a basic greeting example",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.4908499062803692,
+    "rrf": 0.5616687127909548,
+    "noul": 0.5642415802921031
+   },
+   "wall_s": 0.21499895898159593
+  },
+  {
+   "query": "Twitter argument where someone claims AI is great at design if you just screenshot the mockup",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6951286085233697,
+    "rrf": 0.7711401500953603,
+    "noul": 0.7263988523026952
+   },
+   "wall_s": 0.29621312499511987
+  },
+  {
+   "query": "stripped out the DaisyUI card styling from that landing page status thing and went with a pink accent color instead",
+   "bucket": "memories",
+   "ranks": {
+    "served": 1,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.34309500018263717,
+    "rrf": 0.4746874171780841,
+    "noul": 0.7399378974922751
+   },
+   "wall_s": 0.2768358339671977
+  },
+  {
+   "query": "note about rearranging parcel ID formats for the county property lookup tool",
+   "bucket": "memories",
+   "ranks": {
+    "served": null,
+    "rrf": 4,
+    "noul": 3,
+    "jev54": 2,
+    "qwen3": 9
+   },
+   "ndcg": {
+    "served": 0.6973311393545834,
+    "rrf": 0.834397710909939,
+    "noul": 0.7038903391632423
+   },
+   "wall_s": 0.5021938750287518
+  },
+  {
+   "query": "fixed the mileage calculation that kept dropping certain waypoints because of how the database joins worked",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9124177969028597,
+    "rrf": 0.9426636030851774,
+    "noul": 0.901774060908223
+   },
+   "wall_s": 0.3222105829627253
+  },
+  {
+   "query": "crew section buttons weren't staying the same size until I added flex-shrink-0",
+   "bucket": "memories",
+   "ranks": {
+    "served": 1,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9506569366168948,
+    "rrf": 0.9986235588447213,
+    "noul": 0.8977048950605638
+   },
+   "wall_s": 0.3380565410479903
+  },
+  {
+   "query": "added support for ad-hoc addresses in the event model using an XOR pattern instead of database constraints",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.953937000703368,
+    "rrf": 0.958969869735386,
+    "noul": 0.9533106775576281
+   },
+   "wall_s": 0.35937775002093986
+  },
+  {
+   "query": "difference between the direct Postgres connection string and Supabase API layer environment setup",
+   "bucket": "memories",
+   "ranks": {
+    "served": 2,
+    "rrf": 1,
+    "noul": 2,
+    "jev54": 2,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.7354612565151668,
+    "rrf": 0.8173777094107859,
+    "noul": 0.8532660078331055
+   },
+   "wall_s": 0.2933599589741789
+  },
+  {
+   "query": "calendar events needed drag-and-drop with percentage-based positioning and requestAnimationFrame for performance",
+   "bucket": "memories",
+   "ranks": {
+    "served": 2,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8984108904004882,
+    "rrf": 0.9200229374779151,
+    "noul": 0.6934491470553855
+   },
+   "wall_s": 0.4921672500204295
+  },
+  {
+   "query": "files browser had a view button passing job number in the URL but map JavaScript never checked for it",
+   "bucket": "memories",
+   "ranks": {
+    "served": 1,
+    "rrf": 1,
+    "noul": 1,
+    "jev54": 1,
+    "qwen3": 2
+   },
+   "ndcg": {
+    "served": 0.9225229786134822,
+    "rrf": 0.9477613673988813,
+    "noul": 0.9491030644276875
+   },
+   "wall_s": 0.25188062503002584
+  },
+  {
+   "query": "that syntax podcast episode where Scott and Wes reviewed various AI developer tools and talked about reducing slop",
+   "bucket": "videos",
+   "ranks": {
+    "served": 1,
+    "rrf": 2,
+    "noul": 3,
+    "jev54": 2,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.4966665654302387,
+    "rrf": 0.5682502962037926,
+    "noul": 0.6688593839505067
+   },
+   "wall_s": 0.2787989160278812
+  },
+  {
+   "query": "watched something about deterministic linters and static analysis tools for constraining agent code generation",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9751410593854092,
+    "rrf": 0.9440978233640236,
+    "noul": 0.8870441908759427
+   },
+   "wall_s": 0.5576002080342732
+  },
+  {
+   "query": "Pi coding agent walkthrough showing minimal system prompt and provider switching via model.json",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7562839903604307,
+    "rrf": 0.7590231532008334,
+    "noul": 0.8010154004438171
+   },
+   "wall_s": 0.27045812498545274
+  },
+  {
+   "query": "segment about how fiction readers show better empathy skills than those who stick only to non-fiction",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7141799478495943,
+    "rrf": 0.7888225716143613,
+    "noul": 0.8446640746127523
+   },
+   "wall_s": 0.1972901250119321
+  },
+  {
+   "query": "Syntax podcast discussion on markdown capability files that describe agent behavior",
+   "bucket": "segments",
+   "ranks": {
+    "served": 1,
+    "rrf": 1,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.40347976641881045,
+    "rrf": 0.48615568129073,
+    "noul": 0.5940628446908314
+   },
+   "wall_s": 0.20233795896638185
+  },
+  {
+   "query": "clip about testing security vulnerabilities in legacy code with AI agents discovering sandbox escapes",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5877316666858318,
+    "rrf": 0.5989597071581092,
+    "noul": 0.5989597071581092
+   },
+   "wall_s": 0.31509833299787715
+  },
+  {
+   "query": "segment about how effort and defending your choices becomes the differentiator once AI makes everything cheap",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.3426724171957832,
+    "rrf": 0.372545536522805,
+    "noul": 0.40868984611940723
+   },
+   "wall_s": 0.22788933297852054
+  },
+  {
+   "query": "why does the frontend keep undoing the correct sort order from the backend when handling route assignments",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6734133395880051,
+    "rrf": 0.8309009512284017,
+    "noul": 0.9811368677478522
+   },
+   "wall_s": 0.3700937920366414
+  },
+  {
+   "query": "the subtle difference between visible and all prefixes when querying esri layers",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6172988792254052,
+    "rrf": 0.7867855552226293,
+    "noul": 0.7308872170494196
+   },
+   "wall_s": 0.492511167016346
+  },
+  {
+   "query": "humanitarian data has roughly 860k records broken down by geography and sector requiring tons of pagination",
+   "bucket": "memories",
+   "ranks": {
+    "served": 3,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.40154960320645156,
+    "rrf": 0.7000957993873369,
+    "noul": 0.8079079354224543
+   },
+   "wall_s": 0.36864791699917987
+  },
+  {
+   "query": "we were triple-counting affected populations by not filtering on admin level and using the right sector totals",
+   "bucket": "memories",
+   "ranks": {
+    "served": 2,
+    "rrf": 2,
+    "noul": 4,
+    "jev54": 5,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.8637110465769486,
+    "rrf": 0.9564961892402555,
+    "noul": 0.9331826924715608
+   },
+   "wall_s": 0.4564611670211889
+  },
+  {
+   "query": "generating RAG documents and setting up vector search on the crisis mismatch results",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 1.0,
+    "rrf": 0.921723022686679,
+    "noul": 0.8608272741656438
+   },
+   "wall_s": 0.2525134169845842
+  },
+  {
+   "query": "project IDs have a leading letter so the ISO code starts at position one not zero",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8194680063320197,
+    "rrf": 0.9501985141742497,
+    "noul": 0.944280132535733
+   },
+   "wall_s": 0.28953637497033924
+  },
+  {
+   "query": "renaming the crisis metrics from average B2B to something cleaner and using weighted calculations",
+   "bucket": "memories",
+   "ranks": {
+    "served": 1,
+    "rrf": 2,
+    "noul": 5,
+    "jev54": 3,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 1.0,
+    "rrf": 1.0,
+    "noul": 0.9603250160361274
+   },
+   "wall_s": 0.34911545796785504
+  },
+  {
+   "query": "that version of markdown-pdf in the requirements file doesn't actually exist in PyPI",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 1,
+    "jev54": 1,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9155545839002747,
+    "rrf": 0.9454137875786922,
+    "noul": 0.9484829640702727
+   },
+   "wall_s": 0.3237862079986371
+  },
+  {
+   "query": "Pocock's skill that dumps the current session into a markdown file for the next agent",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8337041699056729,
+    "rrf": 0.8718120238406407,
+    "noul": 0.8109213674258383
+   },
+   "wall_s": 0.32476554199820384
+  },
+  {
+   "query": "using cursor traces as training material for improving large language models",
+   "bucket": "videos",
+   "ranks": {
+    "served": null,
+    "rrf": null,
+    "noul": null,
+    "jev54": null,
+    "qwen3": null
+   },
+   "ndcg": {
+    "served": 0.36494160787762836,
+    "rrf": 0.32417200310045563,
+    "noul": 0.3522618818918046
+   },
+   "wall_s": 0.32625258300686255
+  },
+  {
+   "query": "asking the agent for multiple competing UI designs in one shot to prevent convergence",
+   "bucket": "videos",
+   "ranks": {
+    "served": null,
+    "rrf": null,
+    "noul": null,
+    "jev54": null,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.30268691184067675,
+    "rrf": 0.6103198119117543,
+    "noul": 0.6226110090125584
+   },
+   "wall_s": 0.3548392909578979
+  },
+  {
+   "query": "clicking directly on a line of dialogue to modify the caption text inline",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8710535196704481,
+    "rrf": 0.8487133075216171,
+    "noul": 0.8735574227283529
+   },
+   "wall_s": 0.2704045829595998
+  },
+  {
+   "query": "writing action beats and emotional cues in parentheses throughout the script",
+   "bucket": "segments",
+   "ranks": {
+    "served": 1,
+    "rrf": 0,
+    "noul": 2,
+    "jev54": 2,
+    "qwen3": 2
+   },
+   "ndcg": {
+    "served": 0.613389881084383,
+    "rrf": 0.8086445490851185,
+    "noul": 0.880543218576842
+   },
+   "wall_s": 0.26034149999031797
+  },
+  {
+   "query": "a language where people use rough size descriptions instead of counting",
+   "bucket": "segments",
+   "ranks": {
+    "served": 1,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7007643554504716,
+    "rrf": 0.9250370126249274,
+    "noul": 0.9611338537844241
+   },
+   "wall_s": 0.2297803339897655
+  },
+  {
+   "query": "animating color palettes by modulating the input with a time parameter",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.3280207107296963,
+    "rrf": 0.27256832848802637,
+    "noul": 0.35853826754584256
+   },
+   "wall_s": 0.24621979100629687
+  },
+  {
+   "query": "performance optimizations for Three.js rendering on high-DPI MacBook displays reducing pixel workload",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7735309970814155,
+    "rrf": 0.7865058755790166,
+    "noul": 0.778037455465759
+   },
+   "wall_s": 0.3346821669838391
+  },
+  {
+   "query": "decorating calendar feed event titles with client reference numbers for iCal subscriptions",
+   "bucket": "memories",
+   "ranks": {
+    "served": 8,
+    "rrf": 3,
+    "noul": 1,
+    "jev54": 0,
+    "qwen3": 6
+   },
+   "ndcg": {
+    "served": 0.7867790562704583,
+    "rrf": 0.860288811577033,
+    "noul": 0.8459725701315878
+   },
+   "wall_s": 0.3124021670082584
+  },
+  {
+   "query": "upgrading Next.js and React while handling ESLint incompatibility requiring version downgrade",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 2,
+    "jev54": 1,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9824854769693107,
+    "rrf": 0.985448281057441,
+    "noul": 0.962223567852133
+   },
+   "wall_s": 0.34829420899040997
+  },
+  {
+   "query": "fixing calendar layout to start on Sunday instead of Monday for week view",
+   "bucket": "memories",
+   "ranks": {
+    "served": 1,
+    "rrf": 1,
+    "noul": 1,
+    "jev54": 1,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.0,
+    "rrf": 0.25348839944813856,
+    "noul": 0.2801737156507438
+   },
+   "wall_s": 0.35584308399120346
+  },
+  {
+   "query": "implementing client-side status filtering for calendar events without modifying API",
+   "bucket": "memories",
+   "ranks": {
+    "served": 3,
+    "rrf": 1,
+    "noul": 1,
+    "jev54": 2,
+    "qwen3": 3
+   },
+   "ndcg": {
+    "served": 0.0,
+    "rrf": 0.1000750363627307,
+    "noul": 0.21442159407785558
+   },
+   "wall_s": 0.4950534169911407
+  },
+  {
+   "query": "creating interactive HTML playground to preview different terminal themes and prompt styles",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.03669091194252073,
+    "rrf": 0.324072578861293,
+    "noul": 0.38802164458927507
+   },
+   "wall_s": 0.2958623750018887
+  },
+  {
+   "query": "optimizing NAS PDF scanning using Synology Search API to replace recursive directory traversal",
+   "bucket": "memories",
+   "ranks": {
+    "served": 7,
+    "rrf": null,
+    "noul": null,
+    "jev54": null,
+    "qwen3": 7
+   },
+   "ndcg": {
+    "served": 0.0,
+    "rrf": 0.14201905717762706,
+    "noul": 0.3468533046962179
+   },
+   "wall_s": 0.34663583303336054
+  },
+  {
+   "query": "redesigning tmux session picker from Neovim editor to fzf with action keybindings",
+   "bucket": "memories",
+   "ranks": {
+    "served": 2,
+    "rrf": 3,
+    "noul": 4,
+    "jev54": 3,
+    "qwen3": 4
+   },
+   "ndcg": {
+    "served": 0.0,
+    "rrf": 0.03524833445498145,
+    "noul": 0.1509759312933791
+   },
+   "wall_s": 0.31230216595577076
+  },
+  {
+   "query": "CSS subgrid technique for aligning buttons and content across variable-height card layouts",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.35895421017163476,
+    "rrf": 0.35895421017163476,
+    "noul": 0.542364015420035
+   },
+   "wall_s": 0.35617341700708494
+  },
+  {
+   "query": "self-hosted workspace bundling chat interface, agents, email client, and model manager locally",
+   "bucket": "videos",
+   "ranks": {
+    "served": 1,
+    "rrf": 1,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.0116340798958293,
+    "rrf": 0.0237497255978923,
+    "noul": 0.03074933824032565
+   },
+   "wall_s": 0.47716729098465294
+  },
+  {
+   "query": "Blender workflow for rendering spherical textures via equirectangular camera into Space Engine",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6826275046483433,
+    "rrf": 0.6826275046483433,
+    "noul": 0.6826275046483433
+   },
+   "wall_s": 0.2765319169848226
+  },
+  {
+   "query": "the complexity and friction of working with separate git worktrees during npm development",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 1,
+    "noul": 4,
+    "jev54": null,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.20783438860922684,
+    "rrf": 0.26201177591955954,
+    "noul": 0.46115803014441037
+   },
+   "wall_s": 0.31223283300641924
+  },
+  {
+   "query": "whether LLM-generated code actually works end-to-end or merely appears functional on surface",
+   "bucket": "segments",
+   "ranks": {
+    "served": 7,
+    "rrf": 1,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.401137061007632,
+    "rrf": 0.49003020350904347,
+    "noul": 0.5276125823021707
+   },
+   "wall_s": 0.2898875829996541
+  },
+  {
+   "query": "fantasy spell system where magic requires drawing complete glyphs to activate programs",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7105470744153064,
+    "rrf": 0.7070844522919124,
+    "noul": 0.7817953732988041
+   },
+   "wall_s": 0.23095208400627598
+  },
+  {
+   "query": "Shannon information theory with fractional bits and language probability distributions beyond powers of 2",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.722016314142876,
+    "rrf": 0.7668153249878333,
+    "noul": 0.8101864508063013
+   },
+   "wall_s": 0.28542575001483783
+  },
+  {
+   "query": "that session where I fixed the OAuth token issue blocking API calls to the calendar endpoint",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.4460380595635137,
+    "rrf": 0.3483339202123438,
+    "noul": 0.49342411357025856
+   },
+   "wall_s": 0.3209058329812251
+  },
+  {
+   "query": "git rebase issue where untracked files conflicted and I had to delete them before replaying commits",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7129743920553148,
+    "rrf": 0.9283653694696429,
+    "noul": 0.8559505083515094
+   },
+   "wall_s": 0.3274449580349028
+  },
+  {
+   "query": "that research comparing icon libraries, Lucide seemed best for our Tailwind and daisyUI stack",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5658997113314636,
+    "rrf": 0.7078932184628736,
+    "noul": 0.913893550873661
+   },
+   "wall_s": 0.2884192910278216
+  },
+  {
+   "query": "my note about the contains_duplicate bug where the loop bound was off by one at the end",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6829177700700544,
+    "rrf": 0.6999476179448032,
+    "noul": 0.7219264081982596
+   },
+   "wall_s": 0.3362274169921875
+  },
+  {
+   "query": "that video about Shannon building information theory from first principles, using coding examples with a robot",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6018113973777509,
+    "rrf": 0.6180299280149257,
+    "noul": 0.6180299280149257
+   },
+   "wall_s": 0.5540901670465246
+  },
+  {
+   "query": "the commentary on how doped athletes actually performed worse than their own personal records at the Enhanced Games",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8865269606777404,
+    "rrf": 0.8882129621821677,
+    "noul": 0.904393371114371
+   },
+   "wall_s": 0.5060563320294023
+  },
+  {
+   "query": "Ben's terminal setup using Tailscale to SSH into a basement server with tmux for agent control",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9376645815993325,
+    "rrf": 0.9021085017341416,
+    "noul": 0.8749177090789633
+   },
+   "wall_s": 0.3199387500062585
+  },
+  {
+   "query": "that segment where someone's critiquing dialogue that felt like it was written by an amateur, too on-the-nose therapy exposition",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5103515512676448,
+    "rrf": 0.7819835854675755,
+    "noul": 0.94546789582947
+   },
+   "wall_s": 0.265169958001934
+  },
+  {
+   "query": "someone explaining that you need a corpus of text when training this kind of model to get output that makes sense",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.35589677956022675,
+    "rrf": 0.35589677956022675,
+    "noul": 0.35589677956022675
+   },
+   "wall_s": 0.23145449999719858
+  },
+  {
+   "query": "why job markers weren't aligned with parcel boundaries in certain cases",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6166674872636699,
+    "rrf": 0.7764937821855296,
+    "noul": 0.8529368957860413
+   },
+   "wall_s": 0.25678383302874863
+  },
+  {
+   "query": "breaking down a huge render file into smaller domain-specific pieces",
+   "bucket": "memories",
+   "ranks": {
+    "served": 4,
+    "rrf": 3,
+    "noul": 1,
+    "jev54": 0,
+    "qwen3": 5
+   },
+   "ndcg": {
+    "served": 0.8887765216409891,
+    "rrf": 1.0,
+    "noul": 1.0
+   },
+   "wall_s": 0.2458647910389118
+  },
+  {
+   "query": "which api endpoints weren't documented in the project guide",
+   "bucket": "memories",
+   "ranks": {
+    "served": null,
+    "rrf": null,
+    "noul": null,
+    "jev54": null,
+    "qwen3": null
+   },
+   "ndcg": {
+    "served": 0.921723022686679,
+    "rrf": 0.9580777588003657,
+    "noul": 0.9371166382005485
+   },
+   "wall_s": 0.4108848739997484
+  },
+  {
+   "query": "creating a readme with project badges after restructuring the package layout",
+   "bucket": "memories",
+   "ranks": {
+    "served": 4,
+    "rrf": 1,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8781380536884327,
+    "rrf": 0.9218586470922709,
+    "noul": 0.9070615360306781
+   },
+   "wall_s": 0.24633658298989758
+  },
+  {
+   "query": "how much we saved on tokens using that optimization tool",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7672289279197159,
+    "rrf": 0.8156872402730719,
+    "noul": 0.8170682681764827
+   },
+   "wall_s": 0.2975237499922514
+  },
+  {
+   "query": "adding color options for different benchmark data layers",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6861346507891954,
+    "rrf": 0.7496632709228472,
+    "noul": 0.7335582163838857
+   },
+   "wall_s": 0.524472082965076
+  },
+  {
+   "query": "making map filters update instantly without an apply button",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8701249883466593,
+    "rrf": 1.0,
+    "noul": 1.0
+   },
+   "wall_s": 0.3530845000059344
+  },
+  {
+   "query": "showing weekly job activity shifts on cards using red and green arrows",
+   "bucket": "memories",
+   "ranks": {
+    "served": 2,
+    "rrf": 1,
+    "noul": 1,
+    "jev54": 4,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.94546789582947,
+    "rrf": 1.0,
+    "noul": 1.0
+   },
+   "wall_s": 0.33445179200498387
+  },
+  {
+   "query": "investigation of whether electrolyte supplement brands cause vitamin toxicity",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 1.0,
+    "rrf": 1.0,
+    "noul": 1.0
+   },
+   "wall_s": 0.3429152090102434
+  },
+  {
+   "query": "github repositories for ai-powered coding that chain architecture design with security checks",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6044662326163027,
+    "rrf": 0.6527557052496995,
+    "noul": 0.5949039416337585
+   },
+   "wall_s": 0.5695012909709476
+  },
+  {
+   "query": "cognitive science studies on how visualization helps people solve problems",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8037028986458519,
+    "rrf": 0.8911887196417148,
+    "noul": 0.8773578284579095
+   },
+   "wall_s": 0.5769298749510199
+  },
+  {
+   "query": "how people choose different charts depending on who they're presenting to",
+   "bucket": "segments",
+   "ranks": {
+    "served": null,
+    "rrf": 5,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": null
+   },
+   "ndcg": {
+    "served": 0.7416392687263853,
+    "rrf": 0.8870179284155111,
+    "noul": 0.6397940273831715
+   },
+   "wall_s": 0.22143099998356774
+  },
+  {
+   "query": "why people retain stories better than abstract information",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7695316976029035,
+    "rrf": 0.9395971404526712,
+    "noul": 0.8933545282801704
+   },
+   "wall_s": 0.22802129201591015
+  },
+  {
+   "query": "philosophical question about how we comprehend images of things that don't exist",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.27246345699710156,
+    "rrf": 0.28389514380382513,
+    "noul": 0.33399739751642915
+   },
+   "wall_s": 0.21023658302146941
+  },
+  {
+   "query": "reducing noise from startup output with npm flags and redirecting to dev null",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 1.0,
+    "rrf": 1.0,
+    "noul": 1.0
+   },
+   "wall_s": 0.31795925000915304
+  },
+  {
+   "query": "that session where i analyzed hundreds of scattered plat folders and found duplicate pdfs",
+   "bucket": "memories",
+   "ranks": {
+    "served": null,
+    "rrf": null,
+    "noul": 7,
+    "jev54": 7,
+    "qwen3": 9
+   },
+   "ndcg": {
+    "served": 0.8886785614399936,
+    "rrf": 1.0,
+    "noul": 1.0
+   },
+   "wall_s": 0.33249166602035984
+  },
+  {
+   "query": "making the command support natural time expressions instead of commit counts",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8607761330035307,
+    "rrf": 0.8607761330035307,
+    "noul": 0.8327733496325309
+   },
+   "wall_s": 0.250737999973353
+  },
+  {
+   "query": "fixing missing notification toasts across the plat processing pipelines",
+   "bucket": "memories",
+   "ranks": {
+    "served": 2,
+    "rrf": 3,
+    "noul": 2,
+    "jev54": 2,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 1.0,
+    "rrf": 0.9959876244549373,
+    "noul": 0.9546143418422794
+   },
+   "wall_s": 0.27241650002542883
+  },
+  {
+   "query": "learning that design skill with searchable databases for colors and typography rules",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7136765651273801,
+    "rrf": 0.844027945100964,
+    "noul": 0.8904171443945462
+   },
+   "wall_s": 0.5563657490420155
+  },
+  {
+   "query": "stopping audio playback by cancelling the command context with sigkill",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.8730652761430676,
+    "rrf": 0.8578587160135098,
+    "noul": 0.8025735945999911
+   },
+   "wall_s": 0.2203555420273915
+  },
+  {
+   "query": "that indie game with the weird fourth dimension where you can shrink to sixteenths of a block",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8513665030829379,
+    "rrf": 0.8627881893129682,
+    "noul": 0.8912965015913477
+   },
+   "wall_s": 0.27586370799690485
+  },
+  {
+   "query": "linguistics iceberg format debunking that famous claim about eskimo snow language words",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8176035833928883,
+    "rrf": 0.8176035833928883,
+    "noul": 0.8176035833928883
+   },
+   "wall_s": 0.262174750037957
+  },
+  {
+   "query": "segment about the biblical command to fill and populate the entire earth",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.071828551169972,
+    "rrf": 0.1124031325729695,
+    "noul": 0.2914641577804768
+   },
+   "wall_s": 0.26909295801306143
+  },
+  {
+   "query": "mma analysis where they talk about the insane spectacle of walkouts and the fight card",
+   "bucket": "segments",
+   "ranks": {
+    "served": 1,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.5287878452110715,
+    "rrf": 0.8899754684923717,
+    "noul": 1.0
+   },
+   "wall_s": 0.32856525003444403
+  },
+  {
+   "query": "using arcs and lines with the css shape function instead of the path function",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8709609941113843,
+    "rrf": 0.8709609941113843,
+    "noul": 0.8709609941113843
+   },
+   "wall_s": 0.21473704098025337
+  },
+  {
+   "query": "when context window limits came up during a prototyping session with sixty thousand tokens",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5104183011334161,
+    "rrf": 0.48647451342992276,
+    "noul": 0.474076746548887
+   },
+   "wall_s": 0.20906008401652798
+  },
+  {
+   "query": "that note where we tested filtering crew by name with case variations and it worked with alphabetical sort in the calendar name",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6614862131517713,
+    "rrf": 0.7507477298714262,
+    "noul": 0.7308106678411991
+   },
+   "wall_s": 0.2667334169964306
+  },
+  {
+   "query": "setting up ngrok to expose our local sandbox service so teammates could call the API endpoints publicly over HTTPS",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9232097101630425,
+    "rrf": 0.9413154380176532,
+    "noul": 0.9091610880784571
+   },
+   "wall_s": 0.2876469999901019
+  },
+  {
+   "query": "the system with EventBus publishing stage events to WebSocket, plus Windows VPS for dynamic analysis that goes beyond what Docker sandbox can do",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 1,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.7762662840816246,
+    "rrf": 0.8954699041269983,
+    "noul": 0.9687065574252721
+   },
+   "wall_s": 0.5562288760556839
+  },
+  {
+   "query": "the Athena delegation bug where sub_agents wasn't registered so the transfer to Hades failed silently even though the prompt said to delegate",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7371355495621394,
+    "rrf": 0.7820234753960358,
+    "noul": 0.7374857824194319
+   },
+   "wall_s": 0.5354538750252686
+  },
+  {
+   "query": "the developer explaining how being a copy-paste programmer at Google didn't hurt his career and arguing that DSA builds mental models even if you never use them",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7890851423366049,
+    "rrf": 0.794760263339917,
+    "noul": 0.7962230535625584
+   },
+   "wall_s": 0.5513948749867268
+  },
+  {
+   "query": "the harsh review of that tower movie where the twist that the other character was hallucinating the whole time retroactively ruins the entire film",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9173194127129571,
+    "rrf": 0.9173194127129571,
+    "noul": 0.9173194127129571
+   },
+   "wall_s": 0.5023428340209648
+  },
+  {
+   "query": "the learning strategy of asking LLMs for step-by-step worked examples instead of finished solutions, backed by cognitive science showing it improves retention",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6477565184459418,
+    "rrf": 0.6477565184459418,
+    "noul": 0.6144589013176082
+   },
+   "wall_s": 0.5641189169837162
+  },
+  {
+   "query": "explaining autoregressive token generation where the model doesn't plan ahead, just appending tokens blind, and how production LLMs prepend system prompts users don't see",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.4692451765791275,
+    "rrf": 0.49731560210519005,
+    "noul": 0.5222988092059103
+   },
+   "wall_s": 0.3045266250264831
+  },
+  {
+   "query": "3D printed lamp using a Philips bulb and a companion phone mount with magnets weighted by washers to keep it stable at angle",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5959141083786741,
+    "rrf": 0.6135064601993611,
+    "noul": 0.7053954858800034
+   },
+   "wall_s": 0.2107634589774534
+  },
+  {
+   "query": "architecture where the gateway is the only external entry point and all servers live behind it on a private network, potentially with load balancing",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5671783428466844,
+    "rrf": 0.6747001918588819,
+    "noul": 0.6826308355629788
+   },
+   "wall_s": 0.20525845797965303
+  },
+  {
+   "query": "how the body runs on 90-minute energy cycles and why poor sleep plus stress completely destroy the quality of your deep work output",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6495089067478378,
+    "rrf": 0.7449972716448822,
+    "noul": 0.8012903475804893
+   },
+   "wall_s": 0.22592570795677602
+  },
+  {
+   "query": "that session fixing tab-wide message relay loops and losing Alpine drag bindings during DOM updates",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6757299228202048,
+    "rrf": 0.7114266066352186,
+    "noul": 0.8483416055502938
+   },
+   "wall_s": 0.34173200000077486
+  },
+  {
+   "query": "when we debated whether EpicMap needed in-browser PDF viewing or geometric overlay on the map",
+   "bucket": "memories",
+   "ranks": {
+    "served": 5,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.11214424263307156,
+    "rrf": 0.40583459257522597,
+    "noul": 0.5270024631115159
+   },
+   "wall_s": 0.3434153330163099
+  },
+  {
+   "query": "how job number search opened detail panels automatically but client search filtering didn't",
+   "bucket": "memories",
+   "ranks": {
+    "served": null,
+    "rrf": null,
+    "noul": null,
+    "jev54": null,
+    "qwen3": null
+   },
+   "ndcg": {
+    "served": 0.7717110882656176,
+    "rrf": 0.7973610425893373,
+    "noul": 0.7620469212722899
+   },
+   "wall_s": 0.3267254999955185
+  },
+  {
+   "query": "using data-section DOM attributes to patch the modal surgically instead of full re-renders",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 1,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6063087096233583,
+    "rrf": 0.7646111377401656,
+    "noul": 0.9862003809309573
+   },
+   "wall_s": 0.3417885420494713
+  },
+  {
+   "query": "when those out-of-bounds drift paths looked wrong but made sense given the universityA noise",
+   "bucket": "memories",
+   "ranks": {
+    "served": 1,
+    "rrf": 1,
+    "noul": 1,
+    "jev54": 1,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6790236262502465,
+    "rrf": 0.7761810937826193,
+    "noul": 0.8069221384832458
+   },
+   "wall_s": 0.2813166250125505
+  },
+  {
+   "query": "staging the full avalon grid config and discovering mixed-rate noise libraries break drift calculations",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7481149789798665,
+    "rrf": 0.8237003219516651,
+    "noul": 0.9317851394519193
+   },
+   "wall_s": 0.2825513749849051
+  },
+  {
+   "query": "switching from conda to uv and pinning Python 3.9 so Ana could run training",
+   "bucket": "memories",
+   "ranks": {
+    "served": null,
+    "rrf": null,
+    "noul": 9,
+    "jev54": null,
+    "qwen3": 3
+   },
+   "ndcg": {
+    "served": 0.8607057265949057,
+    "rrf": 0.9621404437403491,
+    "noul": 1.0
+   },
+   "wall_s": 0.30252395797288045
+  },
+  {
+   "query": "loading Ana's training snapshots and patching PyTorch 2.6 to read old Lightning checkpoint formats",
+   "bucket": "memories",
+   "ranks": {
+    "served": 7,
+    "rrf": 1,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 2
+   },
+   "ndcg": {
+    "served": 0.8609731944884149,
+    "rrf": 0.8299432085842969,
+    "noul": 0.5856096588173262
+   },
+   "wall_s": 0.327338624978438
+  },
+  {
+   "query": "the interview where NeetCode explained DSA persistence and his $200 code execution service with intentional memory leaks",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 1.0,
+    "rrf": 1.0,
+    "noul": 0.95583058934618
+   },
+   "wall_s": 0.31257970799924806
+  },
+  {
+   "query": "where the escaped convict recognizes the fake aristocrat and demands a weekly allowance through threats",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9173194127129571,
+    "rrf": 0.9586597063564786,
+    "noul": 1.0
+   },
+   "wall_s": 0.5974448340130039
+  },
+  {
+   "query": "Crystal's four-quadrant job framework with the farrier joke about wrestling livestock all day",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6241460331853974,
+    "rrf": 0.7014683180481412,
+    "noul": 0.7194283058249406
+   },
+   "wall_s": 0.5705087080132216
+  },
+  {
+   "query": "explaining how excessive inductance slows down magnetic field buildup, then building toward Marx generators",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.76890379420546,
+    "rrf": 0.8246897964715225,
+    "noul": 0.8477020438412136
+   },
+   "wall_s": 0.28696983301779255
+  },
+  {
+   "query": "the embeddable markdown feature that locks reading mode so clicking won't switch to edit",
+   "bucket": "segments",
+   "ranks": {
+    "served": 2,
+    "rrf": 1,
+    "noul": 1,
+    "jev54": 1,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.7860245012443722,
+    "rrf": 0.8801311667454008,
+    "noul": 0.8914661022637719
+   },
+   "wall_s": 0.22055149998050183
+  },
+  {
+   "query": "hunting through Ben Snow's SIGGRAPH paper on Iron Man suit shading and spotting cryptic dual specularity mention",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 1.0,
+    "rrf": 0.9766113048540495,
+    "noul": 0.8809463243710164
+   },
+   "wall_s": 0.22215204098029062
+  },
+  {
+   "query": "childhood scene with Bear and the cat Dutes, then kitchen pills and bathroom mirror practicing a smile",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.592436188703127,
+    "rrf": 0.82130184619255,
+    "noul": 0.8177194205585039
+   },
+   "wall_s": 0.20472162502119318
+  },
+  {
+   "query": "setting up Vite project for 3D animation with either procedural geometry or imported models",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9552009891550427,
+    "rrf": 0.9257857076266625,
+    "noul": 0.9202182025407148
+   },
+   "wall_s": 0.4339647500310093
+  },
+  {
+   "query": "extracting good fixes from a problematic Claude PR and reattributing commits properly",
+   "bucket": "memories",
+   "ranks": {
+    "served": 7,
+    "rrf": 4,
+    "noul": 2,
+    "jev54": 5,
+    "qwen3": 6
+   },
+   "ndcg": {
+    "served": 0.6328245761490693,
+    "rrf": 0.8393525999009942,
+    "noul": 0.9759686051496493
+   },
+   "wall_s": 0.2778724170057103
+  },
+  {
+   "query": "reorganizing page routes so field crews see the map as the primary landing interface",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6474201485048227,
+    "rrf": 0.7342904853035305,
+    "noul": 0.9084462080253929
+   },
+   "wall_s": 0.33940570801496506
+  },
+  {
+   "query": "deciding on unified calendar component for overlap visualization and scheduling capabilities",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 2,
+    "jev54": 1,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7983164810037737,
+    "rrf": 0.880543218576842,
+    "noul": 0.9603250160361274
+   },
+   "wall_s": 0.6301274999859743
+  },
+  {
+   "query": "enhancing minimap with darker borders and fit-bounds control to reset the viewport",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5177391660300772,
+    "rrf": 0.6193826860256544,
+    "noul": 0.7637548910776217
+   },
+   "wall_s": 0.28798108303453773
+  },
+  {
+   "query": "making dashboard job elements clickable so they open detail panels for full context",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5050259588686652,
+    "rrf": 0.609187153814074,
+    "noul": 0.634955483134123
+   },
+   "wall_s": 0.33932291698874906
+  },
+  {
+   "query": "designing URL shortener with read-heavy traffic ratio and picking DynamoDB for scale",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.938506417451168,
+    "rrf": 0.9795021391503893,
+    "noul": 0.9699816683043281
+   },
+   "wall_s": 0.33343070797855034
+  },
+  {
+   "query": "building Google Drive clone starting from single server and adding presigned upload URLs",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7470839517633611,
+    "rrf": 0.8155268384453584,
+    "noul": 0.8236014871773296
+   },
+   "wall_s": 0.350007499975618
+  },
+  {
+   "query": "AWS SaaS architecture using containers with Postgres and comparing to serverless approach",
+   "bucket": "videos",
+   "ranks": {
+    "served": 1,
+    "rrf": 1,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.46716390238500094,
+    "rrf": 0.5300178052144997,
+    "noul": 0.6280702015939446
+   },
+   "wall_s": 0.24592933402163908
+  },
+  {
+   "query": "measuring GitHub activity influx and talking to operations about measurable trends",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.39338060224907645,
+    "rrf": 0.734508361919858,
+    "noul": 0.8893507699635628
+   },
+   "wall_s": 0.20754095900338143
+  },
+  {
+   "query": "understanding worktree commands and using tools to eliminate downtime during development",
+   "bucket": "segments",
+   "ranks": {
+    "served": null,
+    "rrf": null,
+    "noul": null,
+    "jev54": null,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.0731303021926138,
+    "rrf": 0.06570085557010749,
+    "noul": 0.012597213029969093
+   },
+   "wall_s": 0.1871916669770144
+  },
+  {
+   "query": "why markdown files matter for maintaining a proper computer experience today",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 1,
+    "noul": 2,
+    "jev54": 5,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6602769568643873,
+    "rrf": 0.6338967321074609,
+    "noul": 0.7065264645674705
+   },
+   "wall_s": 0.23290558299049735
+  },
+  {
+   "query": "how visibility and exposure prevent talented people from sharing work publicly",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5474576308680738,
+    "rrf": 0.5741793348855139,
+    "noul": 0.5674908734682452
+   },
+   "wall_s": 0.21933895803522319
+  },
+  {
+   "query": "that session about restructuring the dashboard into three columns with a minimap that highlighted today's jobs using pink animated pulses",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.542671599004036,
+    "rrf": 0.8332164359510444,
+    "noul": 0.8986638301594075
+   },
+   "wall_s": 0.338889166014269
+  },
+  {
+   "query": "converting the files route to enable browsing the entire Projects folder instead of just job-specific files through a two-pane redesign",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 1,
+    "noul": 2,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7683529671124467,
+    "rrf": 0.892642302818766,
+    "noul": 0.9065325930181999
+   },
+   "wall_s": 0.5095723330159672
+  },
+  {
+   "query": "ytk project resume with the enrichment pipeline using Haiku and fallback transcript fetching strategy plus ChromaDB storage",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5641354497108765,
+    "rrf": 0.5127263162505186,
+    "noul": 0.5463546192006601
+   },
+   "wall_s": 0.3546330420067534
+  },
+  {
+   "query": "whether neighbor relationships should be stored in files or moved to database JSONB columns with potential GIS auto-population",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6155283522338832,
+    "rrf": 0.6814370129413344,
+    "noul": 0.7352350875385003
+   },
+   "wall_s": 0.5263825000147335
+  },
+  {
+   "query": "designing a parser for extracting control points from descriptions using monument keywords with pyproj coordinate transformation to WGS84",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 1
+   },
+   "ndcg": {
+    "served": 0.8974416542366759,
+    "rrf": 0.9257857076266625,
+    "noul": 0.8902813417869533
+   },
+   "wall_s": 0.6428367500193417
+  },
+  {
+   "query": "the medical student who mastered exams using a single indexed notebook with cross-references and the walk-and-talk recitation technique",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7711750361378131,
+    "rrf": 0.7711750361378131,
+    "noul": 0.7414506918045506
+   },
+   "wall_s": 0.5632323339232244
+  },
+  {
+   "query": "the presentation on running Fable 5 cost-effectively with custom Codex skills that triaged 16 PRs through an autonomous agent workflow",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8488517504820204,
+    "rrf": 0.8057366751668553,
+    "noul": 0.7212149456645348
+   },
+   "wall_s": 0.2561280420050025
+  },
+  {
+   "query": "a conversation between two people about entering an unhealthy coding pace and then consciously slowing down after reading about taking time",
+   "bucket": "segments",
+   "ranks": {
+    "served": 1,
+    "rrf": 1,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9189022477693746,
+    "rrf": 0.966693429463271,
+    "noul": 0.9036046455912057
+   },
+   "wall_s": 0.2652164170285687
+  },
+  {
+   "query": "breaking down the physics of Project Hail Mary using time dilation to explain how you can traverse light years within a human lifetime",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.866947989864271,
+    "rrf": 0.9363792118010483,
+    "noul": 0.94546789582947
+   },
+   "wall_s": 0.29247037501772866
+  },
+  {
+   "query": "exploring language differences in how people react to the bouba and kiki shapes and why some cultures resist the sound-shape mapping",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.9849107095421162,
+    "rrf": 0.9767377976616999,
+    "noul": 0.9111550040816565
+   },
+   "wall_s": 0.35216433397727087
+  },
+  {
+   "query": "that epicmap note about survey markers and avoiding false matches with measurements",
+   "bucket": "memories",
+   "ranks": {
+    "served": null,
+    "rrf": null,
+    "noul": null,
+    "jev54": null,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.3472259388742588,
+    "rrf": 0.5016587008558744,
+    "noul": 0.5864275334587928
+   },
+   "wall_s": 0.3440292080049403
+  },
+  {
+   "query": "how we improved readability for that control points table with better visual hierarchy",
+   "bucket": "memories",
+   "ranks": {
+    "served": 1,
+    "rrf": 1,
+    "noul": 0,
+    "jev54": 1,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6993202867367445,
+    "rrf": 0.7841298066511855,
+    "noul": 0.7799339620941882
+   },
+   "wall_s": 0.34202420903602615
+  },
+  {
+   "query": "that session where we added a progress bar to git validation instead of just dots",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8547658074954666,
+    "rrf": 0.9634762707920159,
+    "noul": 0.9947724744852786
+   },
+   "wall_s": 0.3659521249937825
+  },
+  {
+   "query": "explored whether yt-dlp could handle instagram content for knowledge system",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.4935641421226552,
+    "rrf": 0.5292793336052134,
+    "noul": 0.5292793336052134
+   },
+   "wall_s": 0.32581650000065565
+  },
+  {
+   "query": "decision on hosting accounts and ownership model for that client project",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5552344101096516,
+    "rrf": 0.6298409648929403,
+    "noul": 0.6185032786864046
+   },
+   "wall_s": 0.3557810829952359
+  },
+  {
+   "query": "dotfiles project with terminal efficiency improvements and keyboard setup",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 1,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.443346946919474,
+    "rrf": 0.4684947426001757,
+    "noul": 0.5488321103298803
+   },
+   "wall_s": 0.332866084005218
+  },
+  {
+   "query": "transcript fetching with fallback strategy between two different apis",
+   "bucket": "memories",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 3,
+    "jev54": 2,
+    "qwen3": 3
+   },
+   "ndcg": {
+    "served": 0.6492284790877608,
+    "rrf": 0.7121118166885075,
+    "noul": 0.7158980037656548
+   },
+   "wall_s": 0.3673807500163093
+  },
+  {
+   "query": "matt pocock releasing updated skill names and that github-based planning tool",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.7746453467703545,
+    "rrf": 0.8117718383993777,
+    "noul": 0.9068036554219097
+   },
+   "wall_s": 0.3302396659855731
+  },
+  {
+   "query": "cpu cache ping pong problem where cores fight over same cache line",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.6078312622644163,
+    "rrf": 0.6078312622644163,
+    "noul": 0.6452282159674798
+   },
+   "wall_s": 0.33150604099500924
+  },
+  {
+   "query": "3d printing camera mount fixes including filter holder with magnets",
+   "bucket": "videos",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8609101556836468,
+    "rrf": 0.8609101556836468,
+    "noul": 0.8609101556836468
+   },
+   "wall_s": 0.5675039579509757
+  },
+  {
+   "query": "shader math with aspect ratio and that distance function from geometry",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.5675272919480847,
+    "rrf": 0.593329261103193,
+    "noul": 0.6046499805888895
+   },
+   "wall_s": 0.25613549997797236
+  },
+  {
+   "query": "how hiring changed after companies stopped recruiting from boot camps",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.8715175166614243,
+    "rrf": 0.9562975857620888,
+    "noul": 0.9501268258717639
+   },
+   "wall_s": 0.3079705419950187
+  },
+  {
+   "query": "cinematography tracking shot technique where camera stays close on one character",
+   "bucket": "segments",
+   "ranks": {
+    "served": 0,
+    "rrf": 0,
+    "noul": 0,
+    "jev54": 0,
+    "qwen3": 0
+   },
+   "ndcg": {
+    "served": 0.633056102495564,
+    "rrf": 0.7962610555913205,
+    "noul": 0.8837512402167981
+   },
+   "wall_s": 0.2075801250175573
+  },
+  {
+   "query": "dworkin's argument about using principles when law has gaps or ambiguity",
+   "bucket": "segments",
+   "ranks": {
+    "served": 3,
+    "rrf": 2,
+    "noul": 2,
+    "jev54": 2,
+    "qwen3": 3
+   },
+   "ndcg": {
+    "served": 1.0,
+    "rrf": 1.0,
+    "noul": 1.0
+   },
+   "wall_s": 0.23336229199776426
+  }
+ ],
+ "rrf_paired": {
+  "wins": 119,
+  "ties": 17,
+  "losses": 20,
+  "mean": 0.07218994207806605,
+  "lo": 0.05885833896381887,
+  "hi": 0.08646046124222136,
+  "demoted": 0,
+  "promoted": 6
+ },
+ "noul_paired": {
+  "wins": 115,
+  "ties": 9,
+  "losses": 32,
+  "mean": 0.09726790958230307,
+  "lo": 0.07486962279040235,
+  "hi": 0.11915348019543934,
+  "demoted": 1,
+  "promoted": 7
+ },
+ "verdict": {
+  "B1_gain": false,
+  "B2_speed": true,
+  "B3_damage": true,
+  "S_stability": true,
+  "rung1_pass": false
+ },
+ "stability": {
+  "generated": "2026-10-30T04:32:41+00:00",
+  "n": 20,
+  "same_top1": 20,
+  "same_gold_rank": 19,
+  "bar": 18,
+  "pass": true
+ }
+}
