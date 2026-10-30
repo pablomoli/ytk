@@ -111,3 +111,9 @@ hit@1 for the safe arm, two for the sharp one. Whether the slot should be
 judged on hit@1 at all, when the gate itself gates on hit@5 and hit@10 and
 both now clear, is a question about the gate and the slot, listed in #219,
 and it is the owner's.
+
+**Owner's ruling (2026-10-30): the loss is accepted.** Rung 1 is closed on
+the local model's gain as the bar; sections 54 and 55 stand as written; no
+re-registration on these queries. The remaining #219 items (abstention slot,
+connect slot, rank-space stability as a standing bar, the gate-metric
+question) are separate registrations for another day.
