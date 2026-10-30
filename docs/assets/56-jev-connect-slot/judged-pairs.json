@@ -1,0 +1,1143 @@
+{
+ "readers": [
+  "A",
+  "B",
+  "C"
+ ],
+ "pairs": {
+  "805:topuria-s-finishing-combination-on-holloway": {
+   "pid": "P61",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "same Topuria-Holloway exchange saved as cagescan test footage",
+    "B": "same Topuria-Holloway clip saved for the same cagescan purpose",
+    "C": "same Topuria-Holloway exchange saved for the same cagescan purpose"
+   },
+   "median": 3
+  },
+  "786:2026-09-12-booklab-2026-09-12-session-end-milestone-1-merged-3056f9": {
+   "pid": "P49",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "dataset is input for the booklab Kraken backtest the memory plans",
+    "B": "dataset is for booklab backtest; candidate is booklab milestone state",
+    "C": "booklab milestone context the dataset note explicitly serves"
+   },
+   "median": 2
+  },
+  "814:2026-04-20-instagram-post-by-felixleezd-verified-april-7": {
+   "pid": "P46",
+   "grades": {
+    "A": 0,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "only a Claude hashtag in common; designer workflow unrelated",
+    "B": "only Claude mentioned in both; designer post irrelevant to launcher",
+    "C": "both Claude-assisted making; nothing specific shared"
+   },
+   "median": 1
+  },
+  "825:2026-07-17-ytk-session-025-continued-86-reranker-benchmarke-44e6b7": {
+   "pid": "P78",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "owner's own reranker benchmark contrasts the Jev-vs-Voyage result",
+    "B": "owner's own reranker benchmark contrasts with Jev reranker eval",
+    "C": "owner's own reranker benchmark contrasts the Jev-vs-Voyage eval"
+   },
+   "median": 2
+  },
+  "803:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": {
+   "pid": "P58",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "face-build technique is a reference for the cagescan avatars",
+    "B": "face-reference saved for cagescan; candidate defines the cagescan project",
+    "C": "defines the cagescan project the face reference applies to"
+   },
+   "median": 2
+  },
+  "814:2026-07-25-upgraded-claude-mem-from-the-mixed-13-11-13-3-stat-ab342e": {
+   "pid": "P44",
+   "grades": {
+    "A": 0,
+    "B": 0,
+    "C": 0
+   },
+   "why": {
+    "A": "TV launcher vs claude-mem upgrade; nothing shared",
+    "B": "TV launcher vs claude-mem upgrade; nothing shared",
+    "C": "TV launcher vs claude-mem upgrade; unrelated"
+   },
+   "median": 0
+  },
+  "771:yes-relu-saved-ai": {
+   "pid": "P25",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "same claim: saturating activations kill gradients, ReLU wins",
+    "B": "same claim: saturation kills gradients, ReLU wins",
+    "C": "same saturation-kills-gradients, ReLU-wins claim"
+   },
+   "median": 3
+  },
+  "534:stanford-cs25-v2-i-introduction-to-transformers-w-andrej-karpathy": {
+   "pid": "P05",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "same paper; Karpathy lecture explains the mechanism in depth",
+    "B": "same paper; Karpathy lecture explains attention in depth",
+    "C": "same paper; Karpathy lecture extends the explanation"
+   },
+   "median": 3
+  },
+  "807:2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286": {
+   "pid": "P68",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "cagescan context only; low-poly rig does not address view synthesis",
+    "B": "both cagescan, but rigging memory ignores view synthesis",
+    "C": "same cagescan project; low-poly rig says nothing on novel views"
+   },
+   "median": 1
+  },
+  "777:qr-codes-explained-finder-patterns-and-error-correction": {
+   "pid": "P36",
+   "grades": {
+    "A": 2,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "the QR error-correction reel the take explicitly compares against",
+    "B": "take explicitly names the QR reel as the silicon analog",
+    "C": "owner names the QR reel as the same redundancy property"
+   },
+   "median": 3
+  },
+  "764:In-context Learning and Induction Heads": {
+   "pid": "P20",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "induction heads ground the in-context learning the robot note claims",
+    "B": "induction heads ground the in-context learning the robot shows",
+    "C": "induction heads ground the in-context learning the robot note claims"
+   },
+   "median": 2
+  },
+  "805:ufc-freedom-250-immediate-reactionrecap-gaethje-vs-topuria": {
+   "pid": "P65",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "same fighter, different fight; nothing on reconstruction footage",
+    "B": "same fighter, different fight; nothing on cagescan",
+    "C": "same fighter, different fight; nothing for cagescan"
+   },
+   "median": 1
+  },
+  "734:Scaling Laws": {
+   "pid": "P10",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "Kaplan scaling laws are the essay's cited evidence; Chinchilla extends",
+    "B": "Gwern's argument rests on Kaplan scaling laws",
+    "C": "Kaplan scaling laws are the evidence Gwern's thesis rests on"
+   },
+   "median": 3
+  },
+  "728:alanluuu_-2026-03-27-DWZ1M4VtRdI": {
+   "pid": "P07",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "Blender guess vs anime rig tutorial; no shared specific",
+    "B": "Blender guessed, not shown; tutorial unrelated to web motion",
+    "C": "Blender only as a guess; tutorial says nothing about the site"
+   },
+   "median": 1
+  },
+  "777:erinmerylstudy-2026-07-10-Dan1HwRv5ha": {
+   "pid": "P37",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "Erin's unposted explainers apply Celia's teach-aloud retrieval technique",
+    "B": "Erin's unposted explainers are Celia's teach-aloud technique",
+    "C": "Erin's unposted explainers apply Celia's teach-aloud technique"
+   },
+   "median": 2
+  },
+  "212:the-best-flexbox-grid-tricks-you-need-to-start-using": {
+   "pid": "P14",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "same card-button alignment problem, the non-subgrid fixes",
+    "B": "pattern 8 is the card-alignment problem subgrid solves",
+    "C": "same card-button alignment problem, alternative fixes contrasted"
+   },
+   "median": 2
+  },
+  "804:ufc-freedom-250-immediate-reactionrecap-gaethje-vs-topuria": {
+   "pid": "P54",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "same fighter, different event; no technique or footage overlap",
+    "B": "same fighter, different fight; recap has no cagescan use",
+    "C": "same fighter, different fight; nothing for cagescan"
+   },
+   "median": 1
+  },
+  "766:the-explanation-of-integrals-i-wish-i-had": {
+   "pid": "P22",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "both math explainers; integrals are only a tool here",
+    "B": "Fourier uses integrals, but integral primer adds nothing specific",
+    "C": "both math education; integrals intuition not specific to Fourier"
+   },
+   "median": 1
+  },
+  "812:overview": {
+   "pid": "P73",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "EpicMap stack the take wants the server lessons applied to",
+    "B": "take targets EpicMap; overview gives its Flask/Render stack",
+    "C": "EpicMap stack the owner wants the server lessons applied to"
+   },
+   "median": 2
+  },
+  "825:metr--mts-evaluation-execution": {
+   "pid": "P76",
+   "grades": {
+    "A": 0,
+    "B": 0,
+    "C": 0
+   },
+   "why": {
+    "A": "reranker benchmark vs job posting; only the word eval",
+    "B": "job posting shares only the word eval",
+    "C": "reranker eval vs eval-infra job posting; unrelated"
+   },
+   "median": 0
+  },
+  "812:2026-04-17-epicmap-project-overview-flask-sqlalchemy-pos": {
+   "pid": "P74",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "EpicMap stack the take wants the server lessons applied to",
+    "B": "take targets EpicMap; memory gives its Flask/PostGIS stack",
+    "C": "EpicMap stack the owner wants the server lessons applied to"
+   },
+   "median": 2
+  },
+  "804:nobody-has-an-iron-chin-here-s-what-they-actually-have": {
+   "pid": "P56",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "Holloway's chin praised here; candidate reframes it as defense",
+    "B": "video dissects the Holloway chin the commentators praise",
+    "C": "Holloway's chin praised here; candidate reframes that chin as defense"
+   },
+   "median": 2
+  },
+  "764:Catherine Olsson": {
+   "pid": "P19",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "person stub on in-context learning; nothing specific to robots",
+    "B": "empty person seedling; ICL circuit only named",
+    "C": "stub person note; only in-context learning in common"
+   },
+   "median": 1
+  },
+  "534:attention-is-all-you-need-transformer-model-explanation-including-math-inference": {
+   "pid": "P03",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "same paper; Jamil walks every layer with math",
+    "B": "same paper, full layer-by-layer walkthrough",
+    "C": "same paper; Jamil lecture explains the full architecture"
+   },
+   "median": 3
+  },
+  "805:nobody-has-an-iron-chin-here-s-what-they-actually-have": {
+   "pid": "P63",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "commentary cites Holloway's durable chin; candidate explains it",
+    "B": "video dissects the Holloway chin the commentators praise",
+    "C": "Holloway's durable chin here; candidate explains what it really is"
+   },
+   "median": 2
+  },
+  "763:Scaling Laws for Neural Language Models": {
+   "pid": "P16",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "the 2020 scaling-laws baseline the looped-model video questions",
+    "B": "video questions the scaling-law baseline the paper set",
+    "C": "scaling laws are the baseline the looped-model video questions"
+   },
+   "median": 2
+  },
+  "773:writeup-40-reuse-ladder": {
+   "pid": "P30",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "learning techniques vs vault reuse audit; no shared specific",
+    "B": "both about learning loops; vault audit adds nothing to techniques",
+    "C": "both about owner's learning systems; nothing specific shared"
+   },
+   "median": 1
+  },
+  "764:fei-fei-li-is-solving-the-hardest-problem-in-robotics-world-labs-with-a16z": {
+   "pid": "P21",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "sim-first robot training contrasts Gen-1.5's zero-sim in-context demos",
+    "B": "sim-first robot learning contrasts Gen-1.5's zero-sim in-context path",
+    "C": "sim-first robotics bet contrasts Gen-1.5's zero-sim in-context learning"
+   },
+   "median": 2
+  },
+  "764:inside-the-world-s-smartest-robot-brain-vla": {
+   "pid": "P18",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "VLA architecture dissection grounds what a robot foundation model is",
+    "B": "VLA lineage and pi0 ground the robot foundation model class",
+    "C": "VLA lineage and pi0 architecture ground the robot foundation model"
+   },
+   "median": 2
+  },
+  "772:yannietanmusic-2026-07-19-Da9Ht_4tx_J": {
+   "pid": "P27",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "same pattern: webcam landmark tracking drives a composited visual",
+    "B": "both webcam landmark tracking driving a visual overlay",
+    "C": "same webcam landmark-to-overlay pattern, MediaPipe vs hand-coded"
+   },
+   "median": 2
+  },
+  "787:rndyrbrts-visual-language": {
+   "pid": "P41",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "spec of the same HUD-dashboard aesthetic the owner wants to recreate",
+    "B": "spec dissects the HUD-plus-bloom look the owner wants to reproduce",
+    "C": "HUD dashboard visual spec answers how the saved look is built"
+   },
+   "median": 2
+  },
+  "776:sparkfun-2026-06-22-DZ5TDcpjOF6": {
+   "pid": "P34",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "the barcode-taxonomy reel the take names as its pair",
+    "B": "take pairs them; 1D vs 2D code taxonomy extends QR",
+    "C": "owner pairs them; QR placed among sibling 2D symbologies"
+   },
+   "median": 2
+  },
+  "825:2026-07-17-session-025-shipped-the-retrieval-eval-regression-148236": {
+   "pid": "P77",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "owner's own retrieval gate where a reranker would be judged",
+    "B": "owner's retrieval gate design, names reranker and nDCG",
+    "C": "owner's frozen-query eval gate mirrors the reranker eval design"
+   },
+   "median": 2
+  },
+  "762:the-openaihugging-face-attack-clearly-explained": {
+   "pid": "P00",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "same Hugging Face incident, same host, two tellings",
+    "B": "same Hugging Face incident, same host, two tellings",
+    "C": "same Hugging Face agent incident, same reporter"
+   },
+   "median": 3
+  },
+  "775:prof_conradi-2026-07-04-DaYczhgh8Ua": {
+   "pid": "P23",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "same move: sweep a map parameter to morph a rendered attractor",
+    "B": "another parameter-sweep morph of an iterated map; the knob demo",
+    "C": "same parameter-sweep morph of an iterated map technique"
+   },
+   "median": 2
+  },
+  "774:we-re-not-ready-for-biocomputing": {
+   "pid": "P31",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "both neuroscience; connectome mapping vs neurons in a dish",
+    "B": "both neuroscience; dish neurons unrelated to connectome mapping",
+    "C": "both neuroscience; connectome vs neurons in a dish"
+   },
+   "median": 1
+  },
+  "786:2026-09-07-booklab-milestone-1-planning-kraken-websocket-v2-d9c35a": {
+   "pid": "P51",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "same booklab project; checksum padding irrelevant to the dataset",
+    "B": "same project, but checksum/recording detail irrelevant to backtest dataset",
+    "C": "same booklab project; websocket checksum detail irrelevant to dataset"
+   },
+   "median": 1
+  },
+  "825:2026-07-25-ytk-111-the-retrieval-eval-gate-was-permanently-02eaf9": {
+   "pid": "P80",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "owner's frozen-corpus eval gate mirrors the fixed-pool reranker method",
+    "B": "frozen-candidate eval design parallels the frozen-pool reranker caveat",
+    "C": "frozen-corpus gate parallels the frozen-candidate reranker eval"
+   },
+   "median": 2
+  },
+  "787:randyroberts-DWpSK4uDhIO-tribe-brain-heatmap": {
+   "pid": "P40",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "both visual references, but heatmap ramp vs force graph HUD",
+    "B": "both visual references, but brain heatmap is a different look",
+    "C": "both visual references; heatmap cortex is a different look"
+   },
+   "median": 1
+  },
+  "804:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": {
+   "pid": "P52",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "cagescan's MVP is this very Topuria-Holloway clip",
+    "B": "cagescan MVP is this very Topuria-Holloway clip",
+    "C": "cagescan MVP is this very Topuria-Holloway clip reconstruction"
+   },
+   "median": 3
+  },
+  "786:2026-09-12-booklab-milestone-2-2026-09-12-kraken-pro-tier-e4d65d": {
+   "pid": "P48",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "Kraken fee numbers and replay design the take asks about",
+    "B": "Kraken maker fee numbers answer the take's fee-clearing question",
+    "C": "Kraken fee and queue-imbalance measurements ground the maker question"
+   },
+   "median": 2
+  },
+  "774:2026-07-24-pablo-independently-spotted-the-map-s-grouping-fla-64a840": {
+   "pid": "P33",
+   "grades": {
+    "A": 0,
+    "B": 0,
+    "C": 0
+   },
+   "why": {
+    "A": "connectome reel vs vault map grouping memory",
+    "B": "connectome vs embedding-map labeling; nothing shared",
+    "C": "connectome reel vs owner's map-clustering insight; unrelated"
+   },
+   "median": 0
+  },
+  "786:hugging-face--open-source-machine-learning-engineer": {
+   "pid": "P50",
+   "grades": {
+    "A": 0,
+    "B": 0,
+    "C": 0
+   },
+   "why": {
+    "A": "Hugging Face hosting vs Hugging Face job; word only",
+    "B": "only the words Hugging Face in common",
+    "C": "Hugging Face as host vs Hugging Face job; word only"
+   },
+   "median": 0
+  },
+  "534:let-s-build-gpt-from-scratch-in-code-spelled-out": {
+   "pid": "P04",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "same paper, built from scratch in code",
+    "B": "same paper, built from scratch in code",
+    "C": "builds the paper's architecture from scratch"
+   },
+   "median": 3
+  },
+  "814:how-anthropics-product-team-moves-faster-than-anyone-else-cat-wu-head-of-product": {
+   "pid": "P42",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "Claude Code only via a hashtag; product podcast adds nothing",
+    "B": "shared claude-code tag; podcast adds nothing to the launcher",
+    "C": "Claude Code tag only; podcast says nothing about the launcher"
+   },
+   "median": 1
+  },
+  "807:ilia-topuria-knockdown-clip-as-cagescan-test-source": {
+   "pid": "P70",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "the occluded fight clip is the test case for the view-synthesis ask",
+    "B": "the occlusion test clip the view-synthesis tool would serve",
+    "C": "the occluded fight clip is the test case the NVS question needs"
+   },
+   "median": 2
+  },
+  "803:gilad_amir_-2026-04-26-DXlOn-rCNLX": {
+   "pid": "P57",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "photogrammetry-to-rig pipeline is the other route to a real-person avatar",
+    "B": "another real-person-to-3D-character pipeline with a stylize pass",
+    "C": "photogrammetry pipeline is another real-person-to-3D-character route"
+   },
+   "median": 2
+  },
+  "814:karenxcheng-2026-07-08-DagC4bnAhtj": {
+   "pid": "P45",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "both retro hardware hacks; no shared technique",
+    "B": "retro DIY vibe only; hardware LLM phone is a different build",
+    "C": "both retro DIY gizmo builds; nothing specific shared"
+   },
+   "median": 1
+  },
+  "804:mma-journey": {
+   "pid": "P55",
+   "grades": {
+    "A": 2,
+    "B": 1,
+    "C": 2
+   },
+   "why": {
+    "A": "UFC broadcast footage as CV data, same occlusion problem",
+    "B": "owner's striking-graph idea, not 3D reconstruction of this clip",
+    "C": "owner's fight-footage labeling project consumes clips like this"
+   },
+   "median": 2
+  },
+  "772:kopacreative.lv-2026-07-14-DaxgD2kIUt1": {
+   "pid": "P28",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "same pattern: webcam landmark tracking drives output",
+    "B": "both webcam landmark tracking driving an output in real time",
+    "C": "same webcam landmark tracking driving a visual, hand vs face"
+   },
+   "median": 2
+  },
+  "753:2026-04-19-epicmap-developer-is-a-project-building-an-inter": {
+   "pid": "P13",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "the epicmap design doc the take calls stale",
+    "B": "take doubts epicmap design doc; memory is that doc's gaps",
+    "C": "the stale epicmap design doc the take worries about"
+   },
+   "median": 2
+  },
+  "777:celia-s-three-techniques-for-learning-hard-things-fast": {
+   "pid": "P35",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "same creator, complementary retrieval-practice techniques",
+    "B": "same creator, complementary learning-technique set",
+    "C": "same creator; recall techniques complement the knowledge-web ones"
+   },
+   "median": 2
+  },
+  "812:2026-05-11-epicmap-2026-05-11-prod-cascade-taught-three-durab-86769d": {
+   "pid": "P72",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "the gunicorn pool/thread sizing the take asks about, measured",
+    "B": "take asks pool/thread sizing; memory is EpicMap's measured answer",
+    "C": "the EpicMap pool/thread sizing the take asks to apply"
+   },
+   "median": 3
+  },
+  "787:footage-first-method": {
+   "pid": "P39",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "the frame-forensics method for reverse-engineering a look",
+    "B": "method for reverse-engineering a creator's look from frames",
+    "C": "footage-first method is how to find out how the visuals were made"
+   },
+   "median": 2
+  },
+  "805:2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": {
+   "pid": "P64",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "cagescan calibration state on the same UFC 308 fight footage",
+    "B": "cagescan state on the same Topuria-Holloway fight this clip feeds",
+    "C": "cagescan's reconstruction state on this same fight footage"
+   },
+   "median": 3
+  },
+  "734:scaling-laws-for-neural-language-models": {
+   "pid": "P11",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "the Kaplan paper the essay leans on, worked through",
+    "B": "Gwern's argument rests on this Kaplan paper",
+    "C": "Kaplan scaling laws are the evidence Gwern's thesis rests on"
+   },
+   "median": 3
+  },
+  "489:gilad_amir_-2026-04-26-DXlOn-rCNLX": {
+   "pid": "P15",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "another Blender photo-to-rigged-character route for a rigging learner",
+    "B": "another photo-based Blender character rig, imperfection as style",
+    "C": "Blender rigging pipeline for the rigging the owner wants to learn"
+   },
+   "median": 2
+  },
+  "805:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": {
+   "pid": "P62",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "cagescan's MVP is this very Topuria-Holloway clip",
+    "B": "cagescan MVP is this very Topuria-Holloway clip",
+    "C": "cagescan MVP is this very Topuria-Holloway clip reconstruction"
+   },
+   "median": 3
+  },
+  "734:The Scaling Hypothesis": {
+   "pid": "P09",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "same essay, the reading-list stub for it",
+    "B": "same essay, reading-list entry for it",
+    "C": "same essay, reading-list entry for it"
+   },
+   "median": 3
+  },
+  "803:2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286": {
+   "pid": "P59",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "the cagescan fighter avatar this look is a reference for",
+    "B": "reference look for the cagescan avatar the memory is building",
+    "C": "the cagescan fighter avatar this look is meant for"
+   },
+   "median": 3
+  },
+  "825:2026-07-17-prefix-a-b-experiment-on-ytk-memories-v2-qwen3-em-e7f581": {
+   "pid": "P79",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "embedding-prefix experiment, not reranking; same store only",
+    "B": "query-prefix embedding test, not reranking",
+    "C": "both retrieval over memories; query prefix is not reranking"
+   },
+   "median": 1
+  },
+  "812:2026-10-13-epicmap-api-profiling-started-2026-10-13-on-branch-77ceb9": {
+   "pid": "P75",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "EpicMap profiling started in direct response to this video",
+    "B": "memory is EpicMap's response to this very video",
+    "C": "EpicMap profiling started in response to this very video"
+   },
+   "median": 3
+  },
+  "770:AI Hub": {
+   "pid": "P24",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "AI confessions archive vs AI research study hub; topic only",
+    "B": "study hub shares only the AI topic",
+    "C": "both AI; study hub has nothing on the confession archive"
+   },
+   "median": 1
+  },
+  "763:Miles Turpin": {
+   "pid": "P17",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "CoT only mentioned as analogy; unfaithfulness is a different claim",
+    "B": "CoT mentioned in passing; unfaithfulness is a different question",
+    "C": "CoT mentioned as loop analogue; unfaithfulness is a different claim"
+   },
+   "median": 1
+  },
+  "215:let-s-build-gpt-from-scratch-in-code-spelled-out": {
+   "pid": "P06",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "companion lecture in the same series; model side of the tokenizer",
+    "B": "companion build video; GPT lecture defers tokenization to this",
+    "C": "companion Karpathy build; same teaching method to study"
+   },
+   "median": 2
+  },
+  "807:yannietanmusic-2026-07-19-Da9Ht_4tx_J": {
+   "pid": "P67",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "generative media pipeline, no novel view synthesis",
+    "B": "both AI media tools; hand toy has no view synthesis",
+    "C": "both generative image tools; no novel-view or occlusion content"
+   },
+   "median": 1
+  },
+  "534:transformer-architecture-explained": {
+   "pid": "P02",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "same paper, component-by-component walkthrough",
+    "B": "same paper, component-by-component walkthrough",
+    "C": "same paper, component-by-component walkthrough"
+   },
+   "median": 3
+  },
+  "771:neural-networks-pt-3-relu-in-action": {
+   "pid": "P26",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "one of the ReLU explainers the take says this adds init to",
+    "B": "one of the ReLU explainers the take says this adds to",
+    "C": "one of the ReLU explainers the take says this extends"
+   },
+   "median": 2
+  },
+  "774:LinkedIn Draft - The Map": {
+   "pid": "P32",
+   "grades": {
+    "A": 0,
+    "B": 0,
+    "C": 0
+   },
+   "why": {
+    "A": "connectome reel vs owner's note-map LinkedIn draft",
+    "B": "connectome vs a LinkedIn post about the note map",
+    "C": "fly connectome vs owner's note-map post; unrelated"
+   },
+   "median": 0
+  },
+  "814:How I Use Obsidian + Claude Code to Run My Life": {
+   "pid": "P43",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "Claude Code only via a hashtag; vault workflow unrelated",
+    "B": "shared claude-code tag; vault workflow unrelated to a TV skin",
+    "C": "Claude Code tag only; vault workflow unrelated to launcher"
+   },
+   "median": 1
+  },
+  "728:cabeza_patata-2026-07-14-Daxp5aJM1VA": {
+   "pid": "P08",
+   "grades": {
+    "A": 2,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "both point at Blender-to-glTF-to-three.js for impressive web motion",
+    "B": "Blender only suspected; collage rig unrelated to web animation",
+    "C": "shared Blender aspiration; nothing about the site's animation"
+   },
+   "median": 1
+  },
+  "786:2026-09-07-new-project-started-2026-09-07-booklab-at-devel-5b361c": {
+   "pid": "P47",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "booklab's founding fee-vs-signal framing the take asks about",
+    "B": "booklab origin names maker-only quoting and the fee constraint",
+    "C": "booklab's fee constraint and maker-quoting candidate ground the take"
+   },
+   "median": 2
+  },
+  "734:Scaling Laws for Neural Language Models": {
+   "pid": "P12",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "the Kaplan paper the essay leans on, reading-list stub",
+    "B": "Gwern's argument rests on this Kaplan paper",
+    "C": "Kaplan scaling laws are the evidence Gwern's thesis rests on"
+   },
+   "median": 3
+  },
+  "773:therapy-for-the-vibe-coded-brain": {
+   "pid": "P29",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "metacognitive gap-tracking extends Celia's don't-know-yet log",
+    "B": "metacognitive traps extend the science-of-learning interest",
+    "C": "metacognitive traps extend the gap-logging learning technique"
+   },
+   "median": 2
+  },
+  "804:2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": {
+   "pid": "P53",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "cagescan calibration state on the same UFC 308 fight footage",
+    "B": "cagescan state on the same Topuria-Holloway fight this clip feeds",
+    "C": "cagescan's reconstruction state on this same fight footage"
+   },
+   "median": 3
+  },
+  "807:2026-10-03-cagescan-2026-10-03-the-alternate-angle-clips-wor-966967": {
+   "pid": "P69",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "cagescan's own alternate-angle work is the other-side problem",
+    "B": "owner's alternate-angle clips work is the other-side question itself",
+    "C": "cagescan's own alternate-angle effort, the question the take asks"
+   },
+   "median": 3
+  },
+  "777:AI Concept Template": {
+   "pid": "P38",
+   "grades": {
+    "A": 2,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "the vault's concept template operationalizes her anchor-and-explain steps",
+    "B": "empty concept template; lesson steps only loosely echo hers",
+    "C": "concept template; only loosely about learning method"
+   },
+   "median": 1
+  },
+  "807:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": {
+   "pid": "P66",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "defines the single-feed cagescan the other-side question is for",
+    "B": "defines the cagescan project the tool would serve",
+    "C": "defines the cagescan pipeline the novel-view question targets"
+   },
+   "median": 2
+  },
+  "803:topuria-s-finishing-combination-on-holloway": {
+   "pid": "P60",
+   "grades": {
+    "A": 1,
+    "B": 1,
+    "C": 1
+   },
+   "why": {
+    "A": "both cagescan saves; face reference vs broadcast clip",
+    "B": "both cagescan sources; test clip adds nothing to avatar look",
+    "C": "both cagescan saves; clip says nothing about avatar look"
+   },
+   "median": 1
+  },
+  "761:one-must-imagine-sisyphus-important": {
+   "pid": "P01",
+   "grades": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+   },
+   "why": {
+    "A": "same question, same Chicxulub answer, drafted for this very video",
+    "B": "same question, same creator, companion video",
+    "C": "Hank's own response to the same in-progress video"
+   },
+   "median": 3
+  },
+  "812:epicmap-iceberg": {
+   "pid": "P71",
+   "grades": {
+    "A": 2,
+    "B": 2,
+    "C": 2
+   },
+   "why": {
+    "A": "inventory of what EpicMap already does on pools and caching",
+    "B": "EpicMap's own pool, caching and query-budget facts answer the take",
+    "C": "EpicMap's performance work answers what it already does better"
+   },
+   "median": 2
+  }
+ }
+}

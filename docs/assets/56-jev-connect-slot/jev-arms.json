@@ -1,0 +1,734 @@
+{
+ "J1": [
+  {
+   "item_id": 762,
+   "p": {
+    "762:the-openaihugging-face-attack-clearly-explained": 0.79
+   },
+   "wall_s": 0.229,
+   "input_tokens": 5001,
+   "requests": 1
+  },
+  {
+   "item_id": 761,
+   "p": {
+    "761:one-must-imagine-sisyphus-important": 0.79
+   },
+   "wall_s": 0.157,
+   "input_tokens": 3804,
+   "requests": 1
+  },
+  {
+   "item_id": 534,
+   "p": {
+    "534:transformer-architecture-explained": 0.74,
+    "534:attention-is-all-you-need-transformer-model-explanation-including-math-inference": 0.7,
+    "534:let-s-build-gpt-from-scratch-in-code-spelled-out": 0.62,
+    "534:stanford-cs25-v2-i-introduction-to-transformers-w-andrej-karpathy": 0.7
+   },
+   "wall_s": 0.252,
+   "input_tokens": 13446,
+   "requests": 1
+  },
+  {
+   "item_id": 215,
+   "p": {
+    "215:let-s-build-gpt-from-scratch-in-code-spelled-out": 0.41
+   },
+   "wall_s": 0.251,
+   "input_tokens": 6647,
+   "requests": 1
+  },
+  {
+   "item_id": 728,
+   "p": {
+    "728:alanluuu_-2026-03-27-DWZ1M4VtRdI": 0.11,
+    "728:cabeza_patata-2026-07-14-Daxp5aJM1VA": 0.19
+   },
+   "wall_s": 0.146,
+   "input_tokens": 5172,
+   "requests": 1
+  },
+  {
+   "item_id": 734,
+   "p": {
+    "734:The Scaling Hypothesis": 0.79,
+    "734:Scaling Laws": 0.82,
+    "734:scaling-laws-for-neural-language-models": 0.83,
+    "734:Scaling Laws for Neural Language Models": 0.8
+   },
+   "wall_s": 0.214,
+   "input_tokens": 7144,
+   "requests": 1
+  },
+  {
+   "item_id": 753,
+   "p": {
+    "753:2026-04-19-epicmap-developer-is-a-project-building-an-inter": 0.18
+   },
+   "wall_s": 0.13,
+   "input_tokens": 1312,
+   "requests": 1
+  },
+  {
+   "item_id": 212,
+   "p": {
+    "212:the-best-flexbox-grid-tricks-you-need-to-start-using": 0.53
+   },
+   "wall_s": 0.163,
+   "input_tokens": 4025,
+   "requests": 1
+  },
+  {
+   "item_id": 489,
+   "p": {
+    "489:gilad_amir_-2026-04-26-DXlOn-rCNLX": 0.28
+   },
+   "wall_s": 0.127,
+   "input_tokens": 3404,
+   "requests": 1
+  },
+  {
+   "item_id": 763,
+   "p": {
+    "763:Scaling Laws for Neural Language Models": 0.76,
+    "763:Miles Turpin": 0.26
+   },
+   "wall_s": 0.208,
+   "input_tokens": 2965,
+   "requests": 1
+  },
+  {
+   "item_id": 764,
+   "p": {
+    "764:inside-the-world-s-smartest-robot-brain-vla": 0.3,
+    "764:Catherine Olsson": 0.52,
+    "764:In-context Learning and Induction Heads": 0.71,
+    "764:fei-fei-li-is-solving-the-hardest-problem-in-robotics-world-labs-with-a16z": 0.29
+   },
+   "wall_s": 0.184,
+   "input_tokens": 9704,
+   "requests": 1
+  },
+  {
+   "item_id": 766,
+   "p": {
+    "766:the-explanation-of-integrals-i-wish-i-had": 0.19
+   },
+   "wall_s": 0.215,
+   "input_tokens": 3969,
+   "requests": 1
+  },
+  {
+   "item_id": 775,
+   "p": {
+    "775:prof_conradi-2026-07-04-DaYczhgh8Ua": 0.14
+   },
+   "wall_s": 0.143,
+   "input_tokens": 3978,
+   "requests": 1
+  },
+  {
+   "item_id": 770,
+   "p": {
+    "770:AI Hub": 0.14
+   },
+   "wall_s": 0.138,
+   "input_tokens": 3573,
+   "requests": 1
+  },
+  {
+   "item_id": 771,
+   "p": {
+    "771:yes-relu-saved-ai": 0.54,
+    "771:neural-networks-pt-3-relu-in-action": 0.3
+   },
+   "wall_s": 0.233,
+   "input_tokens": 5945,
+   "requests": 1
+  },
+  {
+   "item_id": 772,
+   "p": {
+    "772:yannietanmusic-2026-07-19-Da9Ht_4tx_J": 0.24,
+    "772:kopacreative.lv-2026-07-14-DaxgD2kIUt1": 0.24
+   },
+   "wall_s": 0.151,
+   "input_tokens": 4764,
+   "requests": 1
+  },
+  {
+   "item_id": 773,
+   "p": {
+    "773:therapy-for-the-vibe-coded-brain": 0.24,
+    "773:writeup-40-reuse-ladder": 0.22
+   },
+   "wall_s": 0.201,
+   "input_tokens": 4728,
+   "requests": 1
+  },
+  {
+   "item_id": 774,
+   "p": {
+    "774:we-re-not-ready-for-biocomputing": 0.09,
+    "774:LinkedIn Draft - The Map": 0.08,
+    "774:2026-07-24-pablo-independently-spotted-the-map-s-grouping-fla-64a840": 0.07
+   },
+   "wall_s": 0.16,
+   "input_tokens": 6120,
+   "requests": 1
+  },
+  {
+   "item_id": 776,
+   "p": {
+    "776:sparkfun-2026-06-22-DZ5TDcpjOF6": 0.72
+   },
+   "wall_s": 0.152,
+   "input_tokens": 2711,
+   "requests": 1
+  },
+  {
+   "item_id": 777,
+   "p": {
+    "777:celia-s-three-techniques-for-learning-hard-things-fast": 0.26,
+    "777:qr-codes-explained-finder-patterns-and-error-correction": 0.76,
+    "777:erinmerylstudy-2026-07-10-Dan1HwRv5ha": 0.23,
+    "777:AI Concept Template": 0.18
+   },
+   "wall_s": 0.177,
+   "input_tokens": 6975,
+   "requests": 1
+  },
+  {
+   "item_id": 787,
+   "p": {
+    "787:footage-first-method": 0.23,
+    "787:randyroberts-DWpSK4uDhIO-tribe-brain-heatmap": 0.14,
+    "787:rndyrbrts-visual-language": 0.18
+   },
+   "wall_s": 0.348,
+   "input_tokens": 21086,
+   "requests": 1
+  },
+  {
+   "item_id": 814,
+   "p": {
+    "814:how-anthropics-product-team-moves-faster-than-anyone-else-cat-wu-head-of-product": 0.17,
+    "814:How I Use Obsidian + Claude Code to Run My Life": 0.15,
+    "814:2026-07-25-upgraded-claude-mem-from-the-mixed-13-11-13-3-stat-ab342e": 0.09,
+    "814:karenxcheng-2026-07-08-DagC4bnAhtj": 0.21,
+    "814:2026-04-20-instagram-post-by-felixleezd-verified-april-7": 0.09
+   },
+   "wall_s": 0.216,
+   "input_tokens": 11699,
+   "requests": 1
+  },
+  {
+   "item_id": 786,
+   "p": {
+    "786:2026-09-07-new-project-started-2026-09-07-booklab-at-devel-5b361c": 0.61,
+    "786:2026-09-12-booklab-milestone-2-2026-09-12-kraken-pro-tier-e4d65d": 0.49,
+    "786:2026-09-12-booklab-2026-09-12-session-end-milestone-1-merged-3056f9": 0.28,
+    "786:hugging-face--open-source-machine-learning-engineer": 0.08,
+    "786:2026-09-07-booklab-milestone-1-planning-kraken-websocket-v2-d9c35a": 0.27
+   },
+   "wall_s": 0.253,
+   "input_tokens": 4042,
+   "requests": 1
+  },
+  {
+   "item_id": 804,
+   "p": {
+    "804:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": 0.75,
+    "804:2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": 0.55,
+    "804:ufc-freedom-250-immediate-reactionrecap-gaethje-vs-topuria": 0.19,
+    "804:mma-journey": 0.17,
+    "804:nobody-has-an-iron-chin-here-s-what-they-actually-have": 0.61
+   },
+   "wall_s": 0.227,
+   "input_tokens": 10180,
+   "requests": 1
+  },
+  {
+   "item_id": 803,
+   "p": {
+    "803:gilad_amir_-2026-04-26-DXlOn-rCNLX": 0.16,
+    "803:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": 0.47,
+    "803:2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286": 0.22,
+    "803:topuria-s-finishing-combination-on-holloway": 0.07
+   },
+   "wall_s": 0.171,
+   "input_tokens": 4716,
+   "requests": 1
+  },
+  {
+   "item_id": 805,
+   "p": {
+    "805:topuria-s-finishing-combination-on-holloway": 0.44,
+    "805:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": 0.82,
+    "805:nobody-has-an-iron-chin-here-s-what-they-actually-have": 0.24,
+    "805:2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": 0.73,
+    "805:ufc-freedom-250-immediate-reactionrecap-gaethje-vs-topuria": 0.09
+   },
+   "wall_s": 0.171,
+   "input_tokens": 8060,
+   "requests": 1
+  },
+  {
+   "item_id": 807,
+   "p": {
+    "807:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": 0.44,
+    "807:yannietanmusic-2026-07-19-Da9Ht_4tx_J": 0.11,
+    "807:2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286": 0.14,
+    "807:2026-10-03-cagescan-2026-10-03-the-alternate-angle-clips-wor-966967": 0.2,
+    "807:ilia-topuria-knockdown-clip-as-cagescan-test-source": 0.27
+   },
+   "wall_s": 0.159,
+   "input_tokens": 4700,
+   "requests": 1
+  },
+  {
+   "item_id": 812,
+   "p": {
+    "812:epicmap-iceberg": 0.34,
+    "812:2026-05-11-epicmap-2026-05-11-prod-cascade-taught-three-durab-86769d": 0.54,
+    "812:overview": 0.46,
+    "812:2026-04-17-epicmap-project-overview-flask-sqlalchemy-pos": 0.34,
+    "812:2026-10-13-epicmap-api-profiling-started-2026-10-13-on-branch-77ceb9": 0.87
+   },
+   "wall_s": 0.179,
+   "input_tokens": 7179,
+   "requests": 1
+  },
+  {
+   "item_id": 825,
+   "p": {
+    "825:metr--mts-evaluation-execution": 0.03,
+    "825:2026-07-17-session-025-shipped-the-retrieval-eval-regression-148236": 0.2,
+    "825:2026-07-17-ytk-session-025-continued-86-reranker-benchmarke-44e6b7": 0.13,
+    "825:2026-07-17-prefix-a-b-experiment-on-ytk-memories-v2-qwen3-em-e7f581": 0.1,
+    "825:2026-07-25-ytk-111-the-retrieval-eval-gate-was-permanently-02eaf9": 0.26
+   },
+   "wall_s": 0.162,
+   "input_tokens": 4855,
+   "requests": 1
+  }
+ ],
+ "J2": [
+  {
+   "item_id": 762,
+   "p": {
+    "762:the-openaihugging-face-attack-clearly-explained": 0.86
+   },
+   "wall_s": 0.129,
+   "input_tokens": 644,
+   "requests": 1
+  },
+  {
+   "item_id": 761,
+   "p": {
+    "761:one-must-imagine-sisyphus-important": 0.72
+   },
+   "wall_s": 0.125,
+   "input_tokens": 562,
+   "requests": 1
+  },
+  {
+   "item_id": 534,
+   "p": {
+    "534:transformer-architecture-explained": 0.46,
+    "534:attention-is-all-you-need-transformer-model-explanation-including-math-inference": 0.5,
+    "534:let-s-build-gpt-from-scratch-in-code-spelled-out": 0.42,
+    "534:stanford-cs25-v2-i-introduction-to-transformers-w-andrej-karpathy": 0.72
+   },
+   "wall_s": 0.209,
+   "input_tokens": 1136,
+   "requests": 1
+  },
+  {
+   "item_id": 215,
+   "p": {
+    "215:let-s-build-gpt-from-scratch-in-code-spelled-out": 0.21
+   },
+   "wall_s": 0.114,
+   "input_tokens": 587,
+   "requests": 1
+  },
+  {
+   "item_id": 728,
+   "p": {
+    "728:alanluuu_-2026-03-27-DWZ1M4VtRdI": 0.01,
+    "728:cabeza_patata-2026-07-14-Daxp5aJM1VA": 0.01
+   },
+   "wall_s": 0.114,
+   "input_tokens": 767,
+   "requests": 1
+  },
+  {
+   "item_id": 734,
+   "p": {
+    "734:The Scaling Hypothesis": 0.75,
+    "734:Scaling Laws": 0.52,
+    "734:scaling-laws-for-neural-language-models": 0.85,
+    "734:Scaling Laws for Neural Language Models": 0.73
+   },
+   "wall_s": 0.187,
+   "input_tokens": 916,
+   "requests": 1
+  },
+  {
+   "item_id": 753,
+   "p": {
+    "753:2026-04-19-epicmap-developer-is-a-project-building-an-inter": 0.06
+   },
+   "wall_s": 0.142,
+   "input_tokens": 496,
+   "requests": 1
+  },
+  {
+   "item_id": 212,
+   "p": {
+    "212:the-best-flexbox-grid-tricks-you-need-to-start-using": 0.21
+   },
+   "wall_s": 0.144,
+   "input_tokens": 581,
+   "requests": 1
+  },
+  {
+   "item_id": 489,
+   "p": {
+    "489:gilad_amir_-2026-04-26-DXlOn-rCNLX": 0.1
+   },
+   "wall_s": 0.233,
+   "input_tokens": 583,
+   "requests": 1
+  },
+  {
+   "item_id": 763,
+   "p": {
+    "763:Scaling Laws for Neural Language Models": 0.34,
+    "763:Miles Turpin": 0.21
+   },
+   "wall_s": 0.117,
+   "input_tokens": 608,
+   "requests": 1
+  },
+  {
+   "item_id": 764,
+   "p": {
+    "764:inside-the-world-s-smartest-robot-brain-vla": 0.42,
+    "764:Catherine Olsson": 0.12,
+    "764:In-context Learning and Induction Heads": 0.33,
+    "764:fei-fei-li-is-solving-the-hardest-problem-in-robotics-world-labs-with-a16z": 0.2
+   },
+   "wall_s": 0.126,
+   "input_tokens": 1059,
+   "requests": 1
+  },
+  {
+   "item_id": 766,
+   "p": {
+    "766:the-explanation-of-integrals-i-wish-i-had": 0.26
+   },
+   "wall_s": 0.124,
+   "input_tokens": 583,
+   "requests": 1
+  },
+  {
+   "item_id": 775,
+   "p": {
+    "775:prof_conradi-2026-07-04-DaYczhgh8Ua": 0.1
+   },
+   "wall_s": 0.153,
+   "input_tokens": 595,
+   "requests": 1
+  },
+  {
+   "item_id": 770,
+   "p": {
+    "770:AI Hub": 0.07
+   },
+   "wall_s": 0.114,
+   "input_tokens": 495,
+   "requests": 1
+  },
+  {
+   "item_id": 771,
+   "p": {
+    "771:yes-relu-saved-ai": 0.51,
+    "771:neural-networks-pt-3-relu-in-action": 0.14
+   },
+   "wall_s": 0.122,
+   "input_tokens": 763,
+   "requests": 1
+  },
+  {
+   "item_id": 772,
+   "p": {
+    "772:yannietanmusic-2026-07-19-Da9Ht_4tx_J": 0.16,
+    "772:kopacreative.lv-2026-07-14-DaxgD2kIUt1": 0.21
+   },
+   "wall_s": 0.118,
+   "input_tokens": 766,
+   "requests": 1
+  },
+  {
+   "item_id": 773,
+   "p": {
+    "773:therapy-for-the-vibe-coded-brain": 0.28,
+    "773:writeup-40-reuse-ladder": 0.15
+   },
+   "wall_s": 0.166,
+   "input_tokens": 680,
+   "requests": 1
+  },
+  {
+   "item_id": 774,
+   "p": {
+    "774:we-re-not-ready-for-biocomputing": 0.08,
+    "774:LinkedIn Draft - The Map": 0.52,
+    "774:2026-07-24-pablo-independently-spotted-the-map-s-grouping-fla-64a840": 0.64
+   },
+   "wall_s": 0.12,
+   "input_tokens": 895,
+   "requests": 1
+  },
+  {
+   "item_id": 776,
+   "p": {
+    "776:sparkfun-2026-06-22-DZ5TDcpjOF6": 0.17
+   },
+   "wall_s": 0.159,
+   "input_tokens": 527,
+   "requests": 1
+  },
+  {
+   "item_id": 777,
+   "p": {
+    "777:celia-s-three-techniques-for-learning-hard-things-fast": 0.18,
+    "777:qr-codes-explained-finder-patterns-and-error-correction": 0.02,
+    "777:erinmerylstudy-2026-07-10-Dan1HwRv5ha": 0.18,
+    "777:AI Concept Template": 0.06
+   },
+   "wall_s": 0.127,
+   "input_tokens": 1028,
+   "requests": 1
+  },
+  {
+   "item_id": 787,
+   "p": {
+    "787:footage-first-method": 0.29,
+    "787:randyroberts-DWpSK4uDhIO-tribe-brain-heatmap": 0.09,
+    "787:rndyrbrts-visual-language": 0.09
+   },
+   "wall_s": 0.182,
+   "input_tokens": 772,
+   "requests": 1
+  },
+  {
+   "item_id": 814,
+   "p": {
+    "814:how-anthropics-product-team-moves-faster-than-anyone-else-cat-wu-head-of-product": 0.02,
+    "814:How I Use Obsidian + Claude Code to Run My Life": 0.04,
+    "814:2026-07-25-upgraded-claude-mem-from-the-mixed-13-11-13-3-stat-ab342e": 0.03,
+    "814:karenxcheng-2026-07-08-DagC4bnAhtj": 0.18,
+    "814:2026-04-20-instagram-post-by-felixleezd-verified-april-7": 0.11
+   },
+   "wall_s": 0.11,
+   "input_tokens": 1307,
+   "requests": 1
+  },
+  {
+   "item_id": 786,
+   "p": {
+    "786:2026-09-07-new-project-started-2026-09-07-booklab-at-devel-5b361c": 0.04,
+    "786:2026-09-12-booklab-milestone-2-2026-09-12-kraken-pro-tier-e4d65d": 0.04,
+    "786:2026-09-12-booklab-2026-09-12-session-end-milestone-1-merged-3056f9": 0.04,
+    "786:hugging-face--open-source-machine-learning-engineer": 0.13,
+    "786:2026-09-07-booklab-milestone-1-planning-kraken-websocket-v2-d9c35a": 0.05
+   },
+   "wall_s": 0.132,
+   "input_tokens": 1109,
+   "requests": 1
+  },
+  {
+   "item_id": 804,
+   "p": {
+    "804:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": 0.05,
+    "804:2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": 0.06,
+    "804:ufc-freedom-250-immediate-reactionrecap-gaethje-vs-topuria": 0.14,
+    "804:mma-journey": 0.1,
+    "804:nobody-has-an-iron-chin-here-s-what-they-actually-have": 0.58
+   },
+   "wall_s": 0.216,
+   "input_tokens": 1162,
+   "requests": 1
+  },
+  {
+   "item_id": 803,
+   "p": {
+    "803:gilad_amir_-2026-04-26-DXlOn-rCNLX": 0.06,
+    "803:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": 0.04,
+    "803:2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286": 0.03,
+    "803:topuria-s-finishing-combination-on-holloway": 0.01
+   },
+   "wall_s": 0.11,
+   "input_tokens": 1030,
+   "requests": 1
+  },
+  {
+   "item_id": 805,
+   "p": {
+    "805:topuria-s-finishing-combination-on-holloway": 0.58,
+    "805:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": 0.38,
+    "805:nobody-has-an-iron-chin-here-s-what-they-actually-have": 0.19,
+    "805:2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": 0.48,
+    "805:ufc-freedom-250-immediate-reactionrecap-gaethje-vs-topuria": 0.09
+   },
+   "wall_s": 0.131,
+   "input_tokens": 1230,
+   "requests": 1
+  },
+  {
+   "item_id": 807,
+   "p": {
+    "807:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": 0.11,
+    "807:yannietanmusic-2026-07-19-Da9Ht_4tx_J": 0.08,
+    "807:2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286": 0.23,
+    "807:2026-10-03-cagescan-2026-10-03-the-alternate-angle-clips-wor-966967": 0.58,
+    "807:ilia-topuria-knockdown-clip-as-cagescan-test-source": 0.06
+   },
+   "wall_s": 0.135,
+   "input_tokens": 1157,
+   "requests": 1
+  },
+  {
+   "item_id": 812,
+   "p": {
+    "812:epicmap-iceberg": 0.27,
+    "812:2026-05-11-epicmap-2026-05-11-prod-cascade-taught-three-durab-86769d": 0.34,
+    "812:overview": 0.3,
+    "812:2026-04-17-epicmap-project-overview-flask-sqlalchemy-pos": 0.24,
+    "812:2026-10-13-epicmap-api-profiling-started-2026-10-13-on-branch-77ceb9": 0.28
+   },
+   "wall_s": 0.144,
+   "input_tokens": 1085,
+   "requests": 1
+  },
+  {
+   "item_id": 825,
+   "p": {
+    "825:metr--mts-evaluation-execution": 0.3,
+    "825:2026-07-17-session-025-shipped-the-retrieval-eval-regression-148236": 0.24,
+    "825:2026-07-17-ytk-session-025-continued-86-reranker-benchmarke-44e6b7": 0.74,
+    "825:2026-07-17-prefix-a-b-experiment-on-ytk-memories-v2-qwen3-em-e7f581": 0.1,
+    "825:2026-07-25-ytk-111-the-retrieval-eval-gate-was-permanently-02eaf9": 0.22
+   },
+   "wall_s": 0.163,
+   "input_tokens": 1147,
+   "requests": 1
+  }
+ ],
+ "stability": [
+  {
+   "key": "761:one-must-imagine-sisyphus-important",
+   "p1": 0.79,
+   "p2": 0.78
+  },
+  {
+   "key": "534:transformer-architecture-explained",
+   "p1": 0.74,
+   "p2": 0.71
+  },
+  {
+   "key": "215:let-s-build-gpt-from-scratch-in-code-spelled-out",
+   "p1": 0.41,
+   "p2": 0.39
+  },
+  {
+   "key": "728:cabeza_patata-2026-07-14-Daxp5aJM1VA",
+   "p1": 0.19,
+   "p2": 0.19
+  },
+  {
+   "key": "734:Scaling Laws for Neural Language Models",
+   "p1": 0.8,
+   "p2": 0.81
+  },
+  {
+   "key": "763:Miles Turpin",
+   "p1": 0.26,
+   "p2": 0.25
+  },
+  {
+   "key": "770:AI Hub",
+   "p1": 0.14,
+   "p2": 0.13
+  },
+  {
+   "key": "771:neural-networks-pt-3-relu-in-action",
+   "p1": 0.3,
+   "p2": 0.28
+  },
+  {
+   "key": "773:therapy-for-the-vibe-coded-brain",
+   "p1": 0.24,
+   "p2": 0.24
+  },
+  {
+   "key": "774:LinkedIn Draft - The Map",
+   "p1": 0.08,
+   "p2": 0.08
+  },
+  {
+   "key": "777:AI Concept Template",
+   "p1": 0.18,
+   "p2": 0.18
+  },
+  {
+   "key": "814:How I Use Obsidian + Claude Code to Run My Life",
+   "p1": 0.15,
+   "p2": 0.15
+  },
+  {
+   "key": "786:2026-09-07-new-project-started-2026-09-07-booklab-at-devel-5b361c",
+   "p1": 0.61,
+   "p2": 0.65
+  },
+  {
+   "key": "804:2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef",
+   "p1": 0.55,
+   "p2": 0.5
+  },
+  {
+   "key": "803:topuria-s-finishing-combination-on-holloway",
+   "p1": 0.07,
+   "p2": 0.06
+  },
+  {
+   "key": "807:2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+   "p1": 0.44,
+   "p2": 0.48
+  },
+  {
+   "key": "807:yannietanmusic-2026-07-19-Da9Ht_4tx_J",
+   "p1": 0.11,
+   "p2": 0.1
+  },
+  {
+   "key": "807:2026-10-03-cagescan-2026-10-03-the-alternate-angle-clips-wor-966967",
+   "p1": 0.2,
+   "p2": 0.2
+  },
+  {
+   "key": "812:epicmap-iceberg",
+   "p1": 0.34,
+   "p2": 0.36
+  },
+  {
+   "key": "812:2026-10-13-epicmap-api-profiling-started-2026-10-13-on-branch-77ceb9",
+   "p1": 0.87,
+   "p2": 0.87
+  }
+ ]
+}

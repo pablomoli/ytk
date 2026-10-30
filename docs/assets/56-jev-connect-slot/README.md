@@ -140,3 +140,95 @@ wanted, and no accuracy number compensates. If B3 fails, Jev is a cosine
 threshold with a price. If B1 fails with B2–B4 passing, the typed decision
 is cheaper and faster and reads the pairs worse than the incumbent, and the
 slot keeps the generated answer.
+
+## Result (run 2026-10-30, `jev-arms.json`, `sonnet-arms.json`, `judged-pairs.json`, `scores.json`)
+
+**Registered loss on B1, B2 and B3. B4 and stability passed.** At the
+registered threshold Jev is a strict linker: it refuses everything the owner
+struck and everything the shipped model declined, and it also refuses most
+of what the owner approved and the readers wanted.
+
+**The ruler.** Three readers (`readers/judge-A.json`, `-B`, `-C`, order in
+`readers/key.json`) graded all 81 pairs: median grades 0: 5, 1: 21, 2: 34,
+3: 21, so 55 of 81 are link-worthy. Agreement is high: exact match 0.94,
+0.95 and 0.99 by reader pair, within one grade 1.00 on all three. That
+clears the registered 70% gate and carries a caveat the registration did
+not anticipate: the three readers were three sessions of the same model
+under the same instructions, so they are correlated, closer to one careful
+reader sampled three times than to three independent judges. Against the
+owner the readers are stricter: 30 of the 39 approved links are link-worthy
+to them, 0 of the 3 struck, 4 of the 15 declined. The nine approved links
+they graded 1 are shared-domain links (two Blender notes behind a Shopify
+release, two math explainers, two neuroscience notes), the kind the owner
+approved in a batch and a reader of the new note would not have asked for.
+
+| arm | yes / 81 | accuracy | precision | recall | F1 | approved kept / 39 | struck dropped / 3 | AUC | median per landed note |
+|---|---|---|---|---|---|---|---|---|---|
+| rate null, 5th–95th at J1's yes-rate | | 0.395–0.519 | | | | | | | |
+| best cosine threshold (0.515, fitted on the answers) | | 0.790 | | | | | | 0.818 | |
+| A0 shipped record (Sept–Oct) | 66 | 0.765 | 0.773 | 0.927 | 0.843 | 39 | 0 | | 16 s (ledger) |
+| A1 Sonnet replay, adaptive thinking | 53 | 0.753 | 0.830 | 0.800 | 0.815 | 30 | 3 | | 11.1 s API, 13.7 s wall |
+| A2 Sonnet, thinking off | 35 | 0.630 | 0.857 | 0.545 | 0.667 | 15 | 3 | | 6.7 s API, 11.0 s wall |
+| A3 Sonnet, thinking forced (16k, effort high) | 56 | **0.790** | 0.839 | 0.855 | **0.847** | 32 | 3 | | 21.0 s API, 23.6 s wall, max 113 s |
+| **J1 Jev Noul, both bodies (primary)** | **25** | **0.605** | **0.960** | **0.436** | 0.600 | **17** | **3** | **0.920** | **0.18 s**, max 0.35 s |
+| J2 Jev Noul, thesis level | 15 | 0.457 | 0.867 | 0.236 | 0.371 | 9 | 1 | 0.721 | 0.13 s |
+
+- **B1, not worse than the incumbent: fail.** J1 0.605 against A1 0.753,
+  twelve pairs apart; paired bootstrap on per-pair correctness
+  [−0.284, 0.000]. J1 is the most precise arm in the table (24 of its 25
+  yeses are link-worthy) and the second worst on recall (24 of 55).
+- **B2, the owner's links survive: fail.** 17 of 39 approved kept against
+  a bar of 37; 3 of 3 struck dropped.
+- **B3, above similarity: fail, narrowly and on one half.** J1's AUC
+  0.920 against the cosine's 0.818, a gain of 0.10 whose bootstrap
+  interval is [−0.005, +0.222]; the lower bound touches zero, so the bar as
+  written is not cleared. The second half passed: accuracy 0.605 against a
+  rate-null 95th percentile of 0.519.
+- **B4, speed: pass.** Median 0.18 s per landed note, slowest 0.35 s, 29
+  requests, 181,904 input tokens, about $0.008. Sixty times faster than the
+  shipped call's API time and ninety times faster than its wall time.
+- **Stability in decision space: pass.** 20 pairs re-sent, 20 of 20
+  decisions unchanged; median |ΔP| 0.010, max 0.05.
+
+**Post hoc, not registered.** The probability ordering is the strongest
+thing measured here. At a threshold of 0.14, J1 would keep 37 of 39
+approved links, drop 2 of 3 struck, and score 0.815 against the readers,
+above every Sonnet arm, including the one that thinks for a thousand
+tokens. That number was read off the answers and moves no bar. It says
+what a re-registration should ask: whether a threshold chosen on *these*
+pairs holds on the next 81. Figure 02's left panel shows the shape: the
+grade-0 and grade-1 pairs sit below 0.3 almost without exception, and the
+grade-3 pairs that J1 missed at 0.5 are the ones whose link runs through
+the owner's project rather than the text (three cagescan references).
+
+**The thinking question (figure 03).** Thinking changes the decision, and
+more than expected. With thinking disabled the model links 35 pairs and
+scores 0.630; the shipped adaptive setting spends a median 369 tokens,
+links 53 and scores 0.753; forced thinking spends a median 1,141 tokens
+(max 5,615), links 56 and scores 0.790, the best arm on the blind ruler.
+Paired accuracy A3 − A2 [+0.037, +0.284], A1 − A2 [+0.012, +0.235], both
+clear of zero on 81 pairs, which the registration said would be unlikely.
+The three settings disagree on 29 of 81 pairs. The price is latency: forced
+thinking doubles the API time to 21 s median and the slowest call took 96
+s. The shipped setting is already the middle of this curve; the ledger's
+16 s per connect call was not thinking's cost, and the model with thinking
+off is a worse linker, not a cheaper equal.
+
+**Reading.** The registration asked the wrong question of the right
+instrument. It asked whether Jev at 0.5 agrees with the readers as often as
+Sonnet does, and it does not: Jev's calibrated "yes" means "the same
+specific thing" where the readers' and the owner's "yes" means "worth a
+link". But the ordering Jev produces separates the grades better than any
+arm here can be measured to, and it does so in a fifth of a second with no
+clause to write. The failure is the threshold, the owner's project context
+that the text does not carry, and the thin reader panel, in that order.
+
+**Decision.** This registration closes as a loss; the connect slot keeps
+the generated answer. Two follow-ups are worth their own registration and
+neither reopens this one: a held-out threshold test (choose on these 81,
+test on the next batch of connect rows as they land, with the owner's
+rulings as they come), and a state that carries the owner's project notes
+beside the two bodies, since the three grade-3 misses all needed a third
+note to see. A third question is the incumbent's: whether the shipped
+connect call should set effort high, which this section measured as a
+four-point gain for ten more seconds a call and did not register.

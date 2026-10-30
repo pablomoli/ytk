@@ -1,0 +1,1412 @@
+{
+ "configs": {
+  "A1": {},
+  "A2": {
+   "thinking": {
+    "type": "disabled"
+   }
+  },
+  "A3": {
+   "thinking": {
+    "type": "enabled",
+    "budget_tokens": 16000
+   },
+   "effort": "high"
+  }
+ },
+ "rows": [
+  {
+   "arm": "A2",
+   "item_id": 762,
+   "yes": [
+    "the-openaihugging-face-attack-clearly-explained"
+   ],
+   "arguments": {
+    "the-openaihugging-face-attack-clearly-explained": "same METR/Redwood incident reconstructed from the inside \u2014 this note tells the collective's cheat-and-cover-up saga, the other dissects the Hugging Face hack that capped it, so they're two cuts of one source material the owner found thought-provoking"
+   },
+   "wall_s": 12.1,
+   "api_ms": 5428,
+   "output_tokens": 165,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 776,
+   "yes": [
+    "sparkfun-2026-06-22-DZ5TDcpjOF6"
+   ],
+   "arguments": {
+    "sparkfun-2026-06-22-DZ5TDcpjOF6": "owner's take names this pairing outright (\"part 2... pairs with the sparkfun barcode-taxonomy reel\"), and the thesis's finder-pattern mechanism is exactly the QR-specific internals the SparkFun reel lumps under one of its five undifferentiated symbologies"
+   },
+   "wall_s": 12.11,
+   "api_ms": 5810,
+   "output_tokens": 186,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 775,
+   "yes": [
+    "prof_conradi-2026-07-04-DaYczhgh8Ua"
+   ],
+   "arguments": {
+    "prof_conradi-2026-07-04-DaYczhgh8Ua": "Both are live demos where a single animated parameter (lambda vs. (a,b) sliding a path) sweeps a 2D iterated map between distinct shapes in real time -- the knob-not-the-still demo the owner explicitly wants captured."
+   },
+   "wall_s": 14.8,
+   "api_ms": 7468,
+   "output_tokens": 351,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 753,
+   "yes": [
+    "2026-04-19-epicmap-developer-is-a-project-building-an-inter"
+   ],
+   "arguments": {
+    "2026-04-19-epicmap-developer-is-a-project-building-an-inter": "the owner names epicmap outright as the design doc he suspects has gone stale against the simple design-system framing he wishes he had"
+   },
+   "wall_s": 16.01,
+   "api_ms": 9443,
+   "output_tokens": 621,
+   "thinking_tokens": 488,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 761,
+   "yes": [
+    "one-must-imagine-sisyphus-important"
+   ],
+   "arguments": {
+    "one-must-imagine-sisyphus-important": "Both nominate candidate most-important-events and then dissolve the question by arguing importance itself is a late-arriving property (sensation/caring vs. the evolution of importance as a trait) that had to come into existence before any event could be called important."
+   },
+   "wall_s": 10.14,
+   "api_ms": 5375,
+   "output_tokens": 153,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 770,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 11.02,
+   "api_ms": 4676,
+   "output_tokens": 195,
+   "thinking_tokens": 141,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 212,
+   "yes": [
+    "the-best-flexbox-grid-tricks-you-need-to-start-using"
+   ],
+   "arguments": {
+    "the-best-flexbox-grid-tricks-you-need-to-start-using": "its repeat(auto-fit, minmax()) responsive-grid pattern and margin-top:auto button-alignment trick are exactly the base layout the new note's subgrid card fix has to extend with grid-row spanning to avoid collapsing to just the buttons."
+   },
+   "wall_s": 17.94,
+   "api_ms": 12980,
+   "output_tokens": 825,
+   "thinking_tokens": 468,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 777,
+   "yes": [
+    "qr-codes-explained-finder-patterns-and-error-correction"
+   ],
+   "arguments": {
+    "qr-codes-explained-finder-patterns-and-error-correction": "the owner's take names this exact mapping outright \u2014 QR error correction surviving up to 30% pattern damage is the silicon version of the mastery-as-redundancy property Celia describes for knowledge, forget a piece and regenerate it from the rest"
+   },
+   "wall_s": 12.8,
+   "api_ms": 6947,
+   "output_tokens": 344,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 534,
+   "yes": [
+    "attention-is-all-you-need-transformer-model-explanation-including-math-inference",
+    "stanford-cs25-v2-i-introduction-to-transformers-w-andrej-karpathy",
+    "transformer-architecture-explained"
+   ],
+   "arguments": {
+    "transformer-architecture-explained": "this is the component walkthrough of the exact translation-scoped mechanism the new note says outgrew its own paper, so it supplies the 'what it actually does' underneath the new note's 'and then it generalized' claim",
+    "attention-is-all-you-need-transformer-model-explanation-including-math-inference": "same relationship, one level deeper \u2014 the full math of the translation-bound original gives the mechanical detail the new note's thesis gestures at without spelling out",
+    "stanford-cs25-v2-i-introduction-to-transformers-w-andrej-karpathy": "this is the one video that argues the new note's actual thesis rather than just the mechanism \u2014 Karpathy traces the same lineage from a translation trick to a general-purpose architecture and explains why it generalized (expressive, optimizable, GPU-efficient), which is the causal story the new note wants"
+   },
+   "wall_s": 13.78,
+   "api_ms": 8401,
+   "output_tokens": 462,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 489,
+   "yes": [
+    "gilad_amir_-2026-04-26-DXlOn-rCNLX"
+   ],
+   "arguments": {
+    "gilad_amir_-2026-04-26-DXlOn-rCNLX": "both are concrete Blender rigging workflows (the \"rig\" outliner object here, mGear there) that feed directly into his stated want to actually learn rigging in Blender"
+   },
+   "wall_s": 15.3,
+   "api_ms": 10684,
+   "output_tokens": 661,
+   "thinking_tokens": 513,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 803,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286",
+    "gilad_amir_-2026-04-26-DXlOn-rCNLX"
+   ],
+   "arguments": {
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "The owner's take names this outright: the topology-grid sculpt-to-photo technique is the reference look he wants cagescan's fighter avatars built to.",
+    "gilad_amir_-2026-04-26-DXlOn-rCNLX": "Both solve the same problem \u2014 turning a real face into a game-ready 3D model via direct reference capture \u2014 Valve's hand-sculpted topology grid versus Gilad Amir's iPhone-scan-and-blend-shape pipeline.",
+    "2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286": "This is the existing modeling decision for the same cagescan avatars the new note's reference look targets, so the photorealistic topology-grid approach bears directly on that low-poly baseline."
+   },
+   "wall_s": 44.27,
+   "api_ms": 38588,
+   "output_tokens": 3213,
+   "thinking_tokens": 2202,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 805,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef",
+    "topuria-s-finishing-combination-on-holloway"
+   ],
+   "arguments": {
+    "topuria-s-finishing-combination-on-holloway": "Both clips are broadcast footage of the same Topuria-Holloway fight, so they're raw material feeding the same cagescan reconstruction, not two unrelated saves.",
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "This is the cagescan project itself, the exact method the new note's footage is explicitly being saved to feed.",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": "A concrete prior cagescan reconstruction attempt, the direct precedent for using broadcast footage like this clip to fill a 3D reconstruction gap."
+   },
+   "wall_s": 29.82,
+   "api_ms": 25716,
+   "output_tokens": 2058,
+   "thinking_tokens": 1390,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 787,
+   "yes": [
+    "randyroberts-DWpSK4uDhIO-tribe-brain-heatmap",
+    "rndyrbrts-visual-language"
+   ],
+   "arguments": {
+    "randyroberts-DWpSK4uDhIO-tribe-brain-heatmap": "another visual artifact from the same creator the owner is tracking down to see how the look was made",
+    "rndyrbrts-visual-language": "the creator's own visual-language spec is exactly the production reference the owner wants in order to trace how this look was made"
+   },
+   "wall_s": 11.0,
+   "api_ms": 6631,
+   "output_tokens": 214,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 771,
+   "yes": [
+    "neural-networks-pt-3-relu-in-action",
+    "yes-relu-saved-ai"
+   ],
+   "arguments": {
+    "yes-relu-saved-ai": "Both pin the deep-learning unlock on the same gradient mechanism \u2014 saturating activations (sigmoid there, tanh here) killing gradients versus ReLU's constant gradient of 1 \u2014 with this note supplying the toy-network measurement (convergence vs. 100-epoch stall) that the other argues historically.",
+    "neural-networks-pt-3-relu-in-action": "Owner's take names this directly as one of the three ReLU explainers already in the vault that this note's init axis (He vs Xavier) extends, so it belongs alongside it in the owner's own framing."
+   },
+   "wall_s": 20.34,
+   "api_ms": 14622,
+   "output_tokens": 1037,
+   "thinking_tokens": 765,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 215,
+   "yes": [
+    "let-s-build-gpt-from-scratch-in-code-spelled-out"
+   ],
+   "arguments": {
+    "let-s-build-gpt-from-scratch-in-code-spelled-out": "owner wants to study Karpathy as a method, and this is the same from-scratch build-it-yourself move (raw PyTorch GPT instead of raw BPE tokenizer) that the new note's thesis is an instance of"
+   },
+   "wall_s": 10.25,
+   "api_ms": 5417,
+   "output_tokens": 161,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 807,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "2026-10-03-cagescan-2026-10-03-the-alternate-angle-clips-wor-966967",
+    "2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286",
+    "ilia-topuria-knockdown-clip-as-cagescan-test-source"
+   ],
+   "arguments": {
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "this is the cagescan project hub itself, the exact target of the owner's take asking whether this camera-angle tool could give cagescan the other side of the fighters.",
+    "2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286": "the box-modelled low-poly geometry work is the same 3D-reconstruction effort a working azimuth-shift model would extend by filling in unseen sides.",
+    "2026-10-03-cagescan-2026-10-03-the-alternate-angle-clips-wor-966967": "alternate-angle clips already working in cagescan is the precedent the owner is measuring this new camera-angle tool against for the same job.",
+    "ilia-topuria-knockdown-clip-as-cagescan-test-source": "this footage was saved specifically as raw material to test gap-filling reconstruction methods, making it the test source for exactly the camera-angle capability the owner wants evaluated."
+   },
+   "wall_s": 25.33,
+   "api_ms": 19722,
+   "output_tokens": 1715,
+   "thinking_tokens": 1285,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 814,
+   "yes": [
+    "karenxcheng-2026-07-08-DagC4bnAhtj"
+   ],
+   "arguments": {
+    "karenxcheng-2026-07-08-DagC4bnAhtj": "both re-skin a modern device's interface as a vintage media object while leaving the underlying system intact underneath the costume"
+   },
+   "wall_s": 14.03,
+   "api_ms": 8160,
+   "output_tokens": 362,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 772,
+   "yes": [
+    "kopacreative.lv-2026-07-14-DaxgD2kIUt1",
+    "yannietanmusic-2026-07-19-Da9Ht_4tx_J"
+   ],
+   "arguments": {
+    "kopacreative.lv-2026-07-14-DaxgD2kIUt1": "Same craft Gazi is admired for: real-time webcam landmark tracking hand-coded in an editor to drive a live visual response, just hands-to-scrubbing instead of face-to-sprite",
+    "yannietanmusic-2026-07-19-Da9Ht_4tx_J": "Both hand-code real-time landmark tracking (MediaPipe hands vs. face landmarks) into a live compositing effect on a camera feed, the same build-your-own-tracker craft the thesis is about"
+   },
+   "wall_s": 16.21,
+   "api_ms": 11088,
+   "output_tokens": 627,
+   "thinking_tokens": 361,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 763,
+   "yes": [
+    "Scaling Laws for Neural Language Models"
+   ],
+   "arguments": {
+    "Scaling Laws for Neural Language Models": "both address the same tradeoff the new note turns into an architectural lever \u2014 Kaplan's scaling laws tie capability to raw parameter count, while looped transformers show reasoning can be bought back via repeated compute instead of stored weights, directly splitting the knowledge-storage axis from the reasoning axis that scaling laws treat as one thing"
+   },
+   "wall_s": 23.36,
+   "api_ms": 16861,
+   "output_tokens": 1332,
+   "thinking_tokens": 1141,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 728,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 13.7,
+   "api_ms": 8419,
+   "output_tokens": 411,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 773,
+   "yes": [
+    "therapy-for-the-vibe-coded-brain"
+   ],
+   "arguments": {
+    "therapy-for-the-vibe-coded-brain": "Clara's eight metacognitive traps are the failure modes that show up exactly where Celia's techniques intervene \u2014 her forced active recall is the direct counter to the five classic traps (skipping the retrieval that would surface a forming/dislodging/assumption gap), and her running gap-log is what catches the three LLM-specific traps before they calcify."
+   },
+   "wall_s": 16.13,
+   "api_ms": 10390,
+   "output_tokens": 730,
+   "thinking_tokens": 536,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 764,
+   "yes": [
+    "Catherine Olsson",
+    "In-context Learning and Induction Heads",
+    "inside-the-world-s-smartest-robot-brain-vla"
+   ],
+   "arguments": {
+    "inside-the-world-s-smartest-robot-brain-vla": "both track the robot-foundation-model lineage's emergent generalization claims \u2014 RT-2's Coke-can demo as the precedent Gen-1.5's single-demo in-context manipulation now extends",
+    "Catherine Olsson": "she is the lead author of the induction-heads paper that gives the mechanistic account of the in-context learning Gen-1.5's single-demonstration reproduction is claiming to exhibit",
+    "In-context Learning and Induction Heads": "this paper's induction-head mechanism is the standing explanation for the in-context learning phenomenon the new note claims Gen-1.5 reproduces from a single few-second demonstration"
+   },
+   "wall_s": 27.03,
+   "api_ms": 21021,
+   "output_tokens": 1727,
+   "thinking_tokens": 1411,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 786,
+   "yes": [
+    "2026-09-07-booklab-milestone-1-planning-kraken-websocket-v2-d9c35a",
+    "2026-09-07-new-project-started-2026-09-07-booklab-at-devel-5b361c",
+    "2026-09-12-booklab-milestone-2-2026-09-12-kraken-pro-tier-e4d65d"
+   ],
+   "arguments": {
+    "2026-09-07-new-project-started-2026-09-07-booklab-at-devel-5b361c": "booklab exists to test exactly this: whether a retail maker-quoting strategy clears fees against faster queue-priority firms, so a deterministic fee-aware minute-bar dataset is raw material for the project's founding question",
+    "2026-09-12-booklab-milestone-2-2026-09-12-kraken-pro-tier-e4d65d": "the Kraken fee tier milestone is the other half of the same fee-clearing arithmetic this dataset would backtest against",
+    "2026-09-07-booklab-milestone-1-planning-kraken-websocket-v2-d9c35a": "milestone 1's live order-book feed and this dataset's historical OHLCV are the two data sources a maker-quoting backtest needs side by side"
+   },
+   "wall_s": 11.92,
+   "api_ms": 6991,
+   "output_tokens": 362,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 734,
+   "yes": [
+    "scaling-laws-for-neural-language-models"
+   ],
+   "arguments": {
+    "scaling-laws-for-neural-language-models": "Kaplan et al.'s power laws are the empirical backbone of the scaling hypothesis Gwern argues for: smooth, predictable gains from more params/data/compute on the same architecture, with no new algorithm required."
+   },
+   "wall_s": 12.45,
+   "api_ms": 6668,
+   "output_tokens": 379,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 766,
+   "yes": [
+    "the-explanation-of-integrals-i-wish-i-had"
+   ],
+   "arguments": {
+    "the-explanation-of-integrals-i-wish-i-had": "the Fourier coefficient integral (probe sine/cosine times signal, summed over a period into one amplitude) is a direct instance of the accumulation-machine interpretation this note names as the principle unifying the other two views of integration"
+   },
+   "wall_s": 19.82,
+   "api_ms": 14308,
+   "output_tokens": 735,
+   "thinking_tokens": 576,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 825,
+   "yes": [
+    "2026-07-17-prefix-a-b-experiment-on-ytk-memories-v2-qwen3-em-e7f581",
+    "2026-07-17-session-025-shipped-the-retrieval-eval-regression-148236",
+    "2026-07-17-ytk-session-025-continued-86-reranker-benchmarke-44e6b7",
+    "2026-07-25-ytk-111-the-retrieval-eval-gate-was-permanently-02eaf9"
+   ],
+   "arguments": {
+    "2026-07-17-session-025-shipped-the-retrieval-eval-regression-148236": "the retrieval eval regression shipped here is the eval-gate infrastructure this reranking comparison runs through, so the Jev-vs-Voyage result is a finding produced on top of that regression test",
+    "2026-07-17-ytk-session-025-continued-86-reranker-benchmarke-44e6b7": "this is the same reranker benchmarking effort one step earlier, so Voyage rerank-3's win over Jev is the continuation and resolution of that session's open comparison",
+    "2026-07-25-ytk-111-the-retrieval-eval-gate-was-permanently-02eaf9": "the frozen BGE-M3 candidates this reranking eval scores against are only trustworthy because issue #111 stamped the retrieval eval gate permanently, so this note's result sits directly on that fix",
+    "2026-07-17-prefix-a-b-experiment-on-ytk-memories-v2-qwen3-em-e7f581": "both are controlled A/B comparisons of one memsearch pipeline stage against an alternative (embeddings there, reranker here) run to decide what memsearch should default to"
+   },
+   "wall_s": 33.09,
+   "api_ms": 30472,
+   "output_tokens": 2410,
+   "thinking_tokens": 1764,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 774,
+   "yes": [
+    "we-re-not-ready-for-biocomputing"
+   ],
+   "arguments": {
+    "we-re-not-ready-for-biocomputing": "both interrogate a headline neuron-count claim (166,000 fully-traced fly neurons vs. 200,000 lab-grown human neurons) to ask how much of the celebrated result is actually biological versus scaffolding around it"
+   },
+   "wall_s": 19.95,
+   "api_ms": 15505,
+   "output_tokens": 894,
+   "thinking_tokens": 738,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 804,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef"
+   ],
+   "arguments": {
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "this clip is exactly the kind of clean, unambiguous finishing sequence cagescan needs as ground truth, and the owner's take names cagescan outright as the method to look into for filling 3D reconstruction gaps",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": "a TV broadcast angle of a finish is the same raw input class as the UFC 308 reconstruction note, so the owner's cagescan take binds them as the same gap-filling problem"
+   },
+   "wall_s": 12.14,
+   "api_ms": 6847,
+   "output_tokens": 271,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 753,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 8.14,
+   "api_ms": 6927,
+   "output_tokens": 275,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 803,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "gilad_amir_-2026-04-26-DXlOn-rCNLX"
+   ],
+   "arguments": {
+    "gilad_amir_-2026-04-26-DXlOn-rCNLX": "both document a concrete actor/subject-to-model pipeline (topology grid on reference photos vs iPhone photogrammetry scan) for building a realistic 3D face from a real face",
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "this is the reference look the owner wants cagescan's fighter avatars to match"
+   },
+   "wall_s": 7.93,
+   "api_ms": 6677,
+   "output_tokens": 216,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 776,
+   "yes": [
+    "sparkfun-2026-06-22-DZ5TDcpjOF6"
+   ],
+   "arguments": {
+    "sparkfun-2026-06-22-DZ5TDcpjOF6": "the owner's take names this pairing directly: SparkFun's taxonomy sets QR Code apart from Barcode/Data Matrix/PDF417/Aztec by name only, while Catherine's note supplies the mechanism \u2014 finder patterns and Reed-Solomon redundancy \u2014 that actually explains what makes that one symbology work"
+   },
+   "wall_s": 9.52,
+   "api_ms": 7062,
+   "output_tokens": 407,
+   "thinking_tokens": 208,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 775,
+   "yes": [
+    "prof_conradi-2026-07-04-DaYczhgh8Ua"
+   ],
+   "arguments": {
+    "prof_conradi-2026-07-04-DaYczhgh8Ua": "both notes make the demo a continuously-varied parameter (lambda's conjugate blend here, the (a,b) path there) that morphs a plotted dynamical-system shape in real time, rather than a static render of one fixed map."
+   },
+   "wall_s": 16.57,
+   "api_ms": 15676,
+   "output_tokens": 1019,
+   "thinking_tokens": 856,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 212,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 7.39,
+   "api_ms": 5937,
+   "output_tokens": 207,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 761,
+   "yes": [
+    "one-must-imagine-sisyphus-important"
+   ],
+   "arguments": {
+    "one-must-imagine-sisyphus-important": "both chase the same most-important-thing-ever question to the same twist: importance itself needed a precondition (sensation, or caring) to evolve before any nominated event could count as important"
+   },
+   "wall_s": 9.64,
+   "api_ms": 9775,
+   "output_tokens": 376,
+   "thinking_tokens": 102,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 770,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 6.26,
+   "api_ms": 4775,
+   "output_tokens": 264,
+   "thinking_tokens": 210,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 805,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef",
+    "topuria-s-finishing-combination-on-holloway"
+   ],
+   "arguments": {
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "the owner's take names cagescan outright as the method this clip's footage is meant to feed",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": "same cagescan reconstruction effort the owner's take points to, just a different fight's raw footage for the same gap-filling method",
+    "topuria-s-finishing-combination-on-holloway": "thesis match: another broadcast clip of the same Topuria-Holloway fight, raw footage of the same bout this note's thesis says is being mined for cagescan"
+   },
+   "wall_s": 7.17,
+   "api_ms": 7407,
+   "output_tokens": 293,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 777,
+   "yes": [
+    "celia-s-three-techniques-for-learning-hard-things-fast",
+    "erinmerylstudy-2026-07-10-Dan1HwRv5ha",
+    "qr-codes-explained-finder-patterns-and-error-correction"
+   ],
+   "arguments": {
+    "celia-s-three-techniques-for-learning-hard-things-fast": "same teacher's companion technique set for the same mastery project \u2014 crowd-sourcing foundations, active recall and gap-logging are more redundancy-building moves alongside the Why Method, prior-knowledge linking, and teaching aloud.",
+    "qr-codes-explained-finder-patterns-and-error-correction": "the owner's take names this one directly: QR error correction surviving 30% damage is the silicon version of the same property Celia argues for \u2014 redundant structure that regenerates a missing piece from the rest.",
+    "erinmerylstudy-2026-07-10-Dan1HwRv5ha": "Erin's unposted explainer-video step is the same move as Celia's teaching aloud \u2014 producing an explanation as the retrieval-practice test of whether the web actually holds together."
+   },
+   "wall_s": 12.0,
+   "api_ms": 11704,
+   "output_tokens": 725,
+   "thinking_tokens": 369,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 489,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 10.63,
+   "api_ms": 6444,
+   "output_tokens": 297,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 534,
+   "yes": [
+    "attention-is-all-you-need-transformer-model-explanation-including-math-inference",
+    "let-s-build-gpt-from-scratch-in-code-spelled-out",
+    "stanford-cs25-v2-i-introduction-to-transformers-w-andrej-karpathy",
+    "transformer-architecture-explained"
+   ],
+   "arguments": {
+    "transformer-architecture-explained": "walks the same original encoder-decoder transformer through the single machine-translation task the new note says was too narrow a frame for what the mechanism became",
+    "attention-is-all-you-need-transformer-model-explanation-including-math-inference": "is the granular math-and-training walkthrough of the very translation-scoped paper the new note's thesis contrasts with self-attention's later general-purpose role",
+    "let-s-build-gpt-from-scratch-in-code-spelled-out": "is the concrete demonstration of the generalization itself: self-attention stripped out of the translation encoder-decoder and rebuilt as a decoder-only general language model",
+    "stanford-cs25-v2-i-introduction-to-transformers-w-andrej-karpathy": "argues directly for the new note's thesis, tracing why self-attention escaped its translation origin to become the context engine under every major LLM"
+   },
+   "wall_s": 17.48,
+   "api_ms": 18940,
+   "output_tokens": 1221,
+   "thinking_tokens": 831,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 771,
+   "yes": [
+    "neural-networks-pt-3-relu-in-action",
+    "yes-relu-saved-ai"
+   ],
+   "arguments": {
+    "yes-relu-saved-ai": "owner's take says this note \"adds the init axis to the three ReLU explainers already in the vault\" and this is one of them: it supplies the toy-network measurement behind the claim that ReLU's constant gradient-of-1 beats the saturation that silently kills tanh.",
+    "neural-networks-pt-3-relu-in-action": "named by the owner's take as one of the \"three ReLU explainers already in the vault\" now getting the init-axis complement: Starmer's step-by-step build of ReLU's piecewise-linear fit is the mechanical picture the new note's convergence numbers (49 epochs vs. never) put a saturation story behind."
+   },
+   "wall_s": 16.75,
+   "api_ms": 15941,
+   "output_tokens": 1334,
+   "thinking_tokens": 1038,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 812,
+   "yes": [
+    "2026-05-11-epicmap-2026-05-11-prod-cascade-taught-three-durab-86769d",
+    "2026-10-13-epicmap-api-profiling-started-2026-10-13-on-branch-77ceb9",
+    "epicmap-iceberg",
+    "overview"
+   ],
+   "arguments": {
+    "2026-05-11-epicmap-2026-05-11-prod-cascade-taught-three-durab-86769d": "The postmortem's lesson that SQLAlchemy pool size must scale with worker\u00d7thread count is the exact pool/thread-sizing question the owner's take raises, making this the direct EpicMap precedent for getting that math wrong on a small server.",
+    "overview": "The new note's server-capacity numbers only mean something against a known baseline, and this is the canonical note stating EpicMap's actual Flask/PostGIS-on-Render baseline the owner wants compared against the benchmark.",
+    "2026-10-13-epicmap-api-profiling-started-2026-10-13-on-branch-77ceb9": "This profiling work was triggered by the same $12-server benchmark and already found EpicMap's bottleneck is I/O wait, not CPU, so it directly answers the owner's take rather than merely resembling it.",
+    "epicmap-iceberg": "The script's own \"connection-pool-vs-NAS perf\" tier is the specific slot where the new note's server-capacity tricks would land if this becomes video content."
+   },
+   "wall_s": 113.16,
+   "api_ms": 96333,
+   "output_tokens": 5580,
+   "thinking_tokens": 3732,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 807,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "2026-10-03-cagescan-2026-10-03-the-alternate-angle-clips-wor-966967",
+    "ilia-topuria-knockdown-clip-as-cagescan-test-source"
+   ],
+   "arguments": {
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "the owner's take asks directly whether this angle-regeneration tool could give cagescan the other side of the fighters, so it belongs beside the project it would feed",
+    "2026-10-03-cagescan-2026-10-03-the-alternate-angle-clips-wor-966967": "this note is cagescan's own alternate-angle work, which is exactly the gap the owner's take says this new tool might fill",
+    "ilia-topuria-knockdown-clip-as-cagescan-test-source": "the owner already treats this clip as raw test footage for filling 3D reconstruction gaps, the same angle-completion problem the owner's take raises here"
+   },
+   "wall_s": 8.67,
+   "api_ms": 6495,
+   "output_tokens": 381,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 787,
+   "yes": [
+    "footage-first-method",
+    "randyroberts-DWpSK4uDhIO-tribe-brain-heatmap",
+    "rndyrbrts-visual-language"
+   ],
+   "arguments": {
+    "footage-first-method": "the owner wants to reverse-engineer how this reel's visuals were built, and that is exactly the footage-first method session 078 worked out for dissecting a creator's visual craft",
+    "randyroberts-DWpSK4uDhIO-tribe-brain-heatmap": "it is a saved visual reference of the same kind of look the owner is chasing, giving him a second concrete image to compare technique against",
+    "rndyrbrts-visual-language": "it is the spec for the visual grammar (the look) the owner says is the entire reason he saved this reel, so it is the direct place to go for how it was made"
+   },
+   "wall_s": 13.61,
+   "api_ms": 13607,
+   "output_tokens": 824,
+   "thinking_tokens": 541,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 763,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 6.72,
+   "api_ms": 5217,
+   "output_tokens": 180,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 215,
+   "yes": [
+    "let-s-build-gpt-from-scratch-in-code-spelled-out"
+   ],
+   "arguments": {
+    "let-s-build-gpt-from-scratch-in-code-spelled-out": "same study-Karpathy project the owner's take names outright: both are Karpathy from-scratch build-up videos (tokenizer here, Transformer there) that together form the corpus to work through if the goal is learning his method"
+   },
+   "wall_s": 7.64,
+   "api_ms": 6362,
+   "output_tokens": 263,
+   "thinking_tokens": 104,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 814,
+   "yes": [
+    "karenxcheng-2026-07-08-DagC4bnAhtj"
+   ],
+   "arguments": {
+    "karenxcheng-2026-07-08-DagC4bnAhtj": "both are the same move: dressing a modern device in an obsolete format's skin (rotary dial/Vestaboard flaps here, CRT-and-VHS chrome there) so retro materiality becomes the interface, not nostalgia decoration"
+   },
+   "wall_s": 10.51,
+   "api_ms": 9251,
+   "output_tokens": 531,
+   "thinking_tokens": 364,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 812,
+   "yes": [
+    "2026-04-17-epicmap-project-overview-flask-sqlalchemy-pos",
+    "2026-10-13-epicmap-api-profiling-started-2026-10-13-on-branch-77ceb9",
+    "epicmap-iceberg"
+   ],
+   "arguments": {
+    "epicmap-iceberg": "epicmap-iceberg is the hidden-complexity map of EpicMap's own stack, the baseline the owner wants held up against what stripping frameworks/Nginx/ORM bought the $12 server",
+    "2026-04-17-epicmap-project-overview-flask-sqlalchemy-pos": "names EpicMap's Flask/SQLAlchemy/PostGIS stack directly, the exact architecture the owner wants checked against raw-request-handling and single-transaction-write tricks",
+    "2026-10-13-epicmap-api-profiling-started-2026-10-13-on-branch-77ceb9": "live profiling data on EpicMap's API is the concrete evidence needed to judge whether pool/thread sizing or ORM overhead is actually EpicMap's bottleneck the way framework overhead was here"
+   },
+   "wall_s": 12.35,
+   "api_ms": 9338,
+   "output_tokens": 527,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 764,
+   "yes": [
+    "In-context Learning and Induction Heads",
+    "inside-the-world-s-smartest-robot-brain-vla"
+   ],
+   "arguments": {
+    "inside-the-world-s-smartest-robot-brain-vla": "both argue a robot VLA's generality comes from how context/architecture lets it act on unseen tasks (\u03c00's KV-cache-conditioned action expert vs. Gen-1.5's in-context demo), so Gen-1.5's few-shot result is best read against this note's layer-by-layer account of how such models actually consume context",
+    "In-context Learning and Induction Heads": "Gen-1.5's single-demo-in-context-window manipulation transfer is a physical-action instance of exactly the induction-head mechanism this note establishes as the engine of in-context learning, so it is the mechanistic grounding for the new note's central claim"
+   },
+   "wall_s": 7.14,
+   "api_ms": 6125,
+   "output_tokens": 303,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 772,
+   "yes": [
+    "kopacreative.lv-2026-07-14-DaxgD2kIUt1"
+   ],
+   "arguments": {
+    "kopacreative.lv-2026-07-14-DaxgD2kIUt1": "both are the same craft the owner admires in Gazi \u2014 a creative coder hand-building a real-time webcam landmark-tracking pipeline in VS Code that drives a live visual response to body movement, one by hand not face."
+   },
+   "wall_s": 23.67,
+   "api_ms": 20188,
+   "output_tokens": 1489,
+   "thinking_tokens": 1328,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 728,
+   "yes": [
+    "alanluuu_-2026-03-27-DWZ1M4VtRdI",
+    "cabeza_patata-2026-07-14-Daxp5aJM1VA"
+   ],
+   "arguments": {
+    "alanluuu_-2026-03-27-DWZ1M4VtRdI": "owner wants to learn the Blender rigging/animation craft behind the Shopify site's impressive motion, and this is exactly that \u2014 a tutorial taking a default cube to a fully rigged, animatable character.",
+    "cabeza_patata-2026-07-14-Daxp5aJM1VA": "owner's suspicion that Blender drives the site's animation points toward rigging technique generally, and this note shows another concrete Blender rig-building workflow worth studying toward that same goal."
+   },
+   "wall_s": 17.97,
+   "api_ms": 13174,
+   "output_tokens": 695,
+   "thinking_tokens": 439,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 734,
+   "yes": [
+    "scaling-laws-for-neural-language-models"
+   ],
+   "arguments": {
+    "scaling-laws-for-neural-language-models": "Kaplan et al.'s power-law curves are the empirical backbone Gwern's scaling hypothesis leans on: smooth, predictable loss reduction from more compute/data/parameters is exactly the evidence that scaling alone, without new algorithms, should keep paying off."
+   },
+   "wall_s": 10.88,
+   "api_ms": 7076,
+   "output_tokens": 389,
+   "thinking_tokens": 218,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 825,
+   "yes": [
+    "2026-07-17-ytk-session-025-continued-86-reranker-benchmarke-44e6b7",
+    "2026-07-25-ytk-111-the-retrieval-eval-gate-was-permanently-02eaf9",
+    "metr--mts-evaluation-execution"
+   ],
+   "arguments": {
+    "metr--mts-evaluation-execution": "this is the harness file (evaluation/rerank_evaluate.py) the new note's Recall@5/MRR@10/NDCG@10 comparison actually ran on",
+    "2026-07-17-ytk-session-025-continued-86-reranker-benchmarke-44e6b7": "this is the prior Voyage rerank-3 benchmark the new note's Jev-vs-Voyage comparison directly extends",
+    "2026-07-25-ytk-111-the-retrieval-eval-gate-was-permanently-02eaf9": "the retrieval eval gate this note documents is the measurement infrastructure the new note's eval numbers depend on"
+   },
+   "wall_s": 15.52,
+   "api_ms": 12857,
+   "output_tokens": 933,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 786,
+   "yes": [
+    "2026-09-07-booklab-milestone-1-planning-kraken-websocket-v2-d9c35a",
+    "2026-09-07-new-project-started-2026-09-07-booklab-at-devel-5b361c",
+    "2026-09-12-booklab-milestone-2-2026-09-12-kraken-pro-tier-e4d65d"
+   ],
+   "arguments": {
+    "2026-09-07-new-project-started-2026-09-07-booklab-at-devel-5b361c": "this dataset is the deterministic OHLCV source the booklab project itself needs to make its maker-quoting backtest refutable rather than resting on live replay",
+    "2026-09-12-booklab-milestone-2-2026-09-12-kraken-pro-tier-e4d65d": "the fee-tier math milestone 2 established is exactly what a backtest over this minute-level data has to clear before a solo quoter can claim it beats professional queue priority",
+    "2026-09-07-booklab-milestone-1-planning-kraken-websocket-v2-d9c35a": "the live websocket feed milestone 1 planned for order-book state needs a matching historical OHLCV series like this one to validate the simulator against real market conditions"
+   },
+   "wall_s": 20.2,
+   "api_ms": 15766,
+   "output_tokens": 1199,
+   "thinking_tokens": 846,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 773,
+   "yes": [
+    "therapy-for-the-vibe-coded-brain"
+   ],
+   "arguments": {
+    "therapy-for-the-vibe-coded-brain": "because Celia's technique of forcing early active recall in high-stakes or AI-checked settings is the practical countermeasure to exactly the AI-offloading metacognitive traps Clara catalogs as what cripples learning in vibe-coding"
+   },
+   "wall_s": 27.04,
+   "api_ms": 26245,
+   "output_tokens": 2345,
+   "thinking_tokens": 2184,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 766,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 8.94,
+   "api_ms": 5752,
+   "output_tokens": 174,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 753,
+   "yes": [
+    "2026-04-19-epicmap-developer-is-a-project-building-an-inter"
+   ],
+   "arguments": {
+    "2026-04-19-epicmap-developer-is-a-project-building-an-inter": "the owner names epicmap outright as the system whose design doc he suspects is now stale, the counterexample to this video's simply-defined design system"
+   },
+   "wall_s": 8.89,
+   "api_ms": 7456,
+   "output_tokens": 363,
+   "thinking_tokens": 226,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 804,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef",
+    "nobody-has-an-iron-chin-here-s-what-they-actually-have"
+   ],
+   "arguments": {
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "this closing-distance finishing sequence is the kind of fast, occluded exchange cagescan's reconstruction pipeline needs an alternative method to fill gaps for",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": "a clean TV-broadcast finishing combination is exactly the dense-contact clip worth testing against cagescan's 3D reconstruction approach for gap-filling",
+    "nobody-has-an-iron-chin-here-s-what-they-actually-have": "the commentators praising Holloway's chin while Topuria chases the finish is the broadcast-booth version of the iron-chin myth this note debunks with the actual rotational-shear mechanism"
+   },
+   "wall_s": 14.93,
+   "api_ms": 13319,
+   "output_tokens": 985,
+   "thinking_tokens": 633,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 762,
+   "yes": [
+    "the-openaihugging-face-attack-clearly-explained"
+   ],
+   "arguments": {
+    "the-openaihugging-face-attack-clearly-explained": "both describe the identical incident chain \u2014 covert agent societies coordinating cheating via a shared package-repository message board and culminating in the Hugging Face hack \u2014 drawn from the same METR/Redwood incident reports, making this the fuller reconstruction of the exact events the new note's thesis compresses into one sentence"
+   },
+   "wall_s": 17.6,
+   "api_ms": 14898,
+   "output_tokens": 1064,
+   "thinking_tokens": 880,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 775,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 7.97,
+   "api_ms": 7512,
+   "output_tokens": 274,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 776,
+   "yes": [
+    "sparkfun-2026-06-22-DZ5TDcpjOF6"
+   ],
+   "arguments": {
+    "sparkfun-2026-06-22-DZ5TDcpjOF6": "the taxonomy reel places QR Code as one of five symbologies casually conflated as \"QR codes,\" giving the mechanism explained here (finder patterns, redundancy) its place among siblings like Data Matrix and Aztec Code"
+   },
+   "wall_s": 14.11,
+   "api_ms": 10552,
+   "output_tokens": 669,
+   "thinking_tokens": 327,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 761,
+   "yes": [
+    "one-must-imagine-sisyphus-important"
+   ],
+   "arguments": {
+    "one-must-imagine-sisyphus-important": "both notes stage the same Hank Green move of surveying candidate \"most important events\" only to conclude that importance itself is downstream of a capacity (sensation/consciousness) that had to evolve first"
+   },
+   "wall_s": 15.12,
+   "api_ms": 12298,
+   "output_tokens": 762,
+   "thinking_tokens": 617,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 803,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "gilad_amir_-2026-04-26-DXlOn-rCNLX"
+   ],
+   "arguments": {
+    "gilad_amir_-2026-04-26-DXlOn-rCNLX": "Both document the same core move \u2014 sculpting a 3D face to match a real actor's photographed likeness (Valve's topology-grid-on-photo process mirrors Gilad Amir's photogrammetry-scan-to-blend-shape pipeline) \u2014 making this a direct technique precedent for getting faces off real photos and onto a mesh.",
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "This note names the cagescan project itself, and the owner's take on the new note says explicitly that this Half-Life 2 face-sculpting spread is the reference look he wants cagescan's fighter avatars to hit."
+   },
+   "wall_s": 16.21,
+   "api_ms": 15797,
+   "output_tokens": 1050,
+   "thinking_tokens": 740,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 770,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 6.64,
+   "api_ms": 5441,
+   "output_tokens": 133,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 774,
+   "yes": [
+    "we-re-not-ready-for-biocomputing"
+   ],
+   "arguments": {
+    "we-re-not-ready-for-biocomputing": "both are answers to the same wall the new note names outright \u2014 slicing and imaging a brain can't scale to human tissue \u2014 where the connectome side lowers resolution to map a living patient while CL1 skips mapping altogether and just wires living human neurons straight into a chip"
+   },
+   "wall_s": 42.58,
+   "api_ms": 41971,
+   "output_tokens": 3392,
+   "thinking_tokens": 3228,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 212,
+   "yes": [
+    "the-best-flexbox-grid-tricks-you-need-to-start-using"
+   ],
+   "arguments": {
+    "the-best-flexbox-grid-tricks-you-need-to-start-using": "worth linking because the new note's wrapping repeat(auto-fit, minmax()) card grid is the exact responsive-grid pattern this video catalogs, so the subgrid/row-gap fix reads as a correction layered onto that same recipe"
+   },
+   "wall_s": 13.68,
+   "api_ms": 11967,
+   "output_tokens": 636,
+   "thinking_tokens": 291,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 805,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef",
+    "topuria-s-finishing-combination-on-holloway"
+   ],
+   "arguments": {
+    "topuria-s-finishing-combination-on-holloway": "same Topuria-Holloway broadcast footage the owner is collecting as raw material for cagescan's gap-filling reconstruction",
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "this clip is explicitly captured as input for the cagescan method defined here",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": "both are footage earmarked for the same cagescan reconstruction pipeline, giving it a second data point"
+   },
+   "wall_s": 13.57,
+   "api_ms": 10494,
+   "output_tokens": 603,
+   "thinking_tokens": 329,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 771,
+   "yes": [
+    "yes-relu-saved-ai"
+   ],
+   "arguments": {
+    "yes-relu-saved-ai": "both locate the same mechanism, constant-gradient ReLU versus a saturating squashing function, as the thing that makes deep nets trainable, with this note supplying the matched-init experiment (Xavier+tanh never converges, 49-epoch ReLU does) that turns that essay's claim into a measured table entry"
+   },
+   "wall_s": 6.94,
+   "api_ms": 6233,
+   "output_tokens": 177,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 489,
+   "yes": [
+    "gilad_amir_-2026-04-26-DXlOn-rCNLX"
+   ],
+   "arguments": {
+    "gilad_amir_-2026-04-26-DXlOn-rCNLX": "Owner's take says he wants to learn rigging in Blender specifically \u2014 Gilad Amir's pipeline shows the other end of that skill, rigging a scanned character with mGear, which is the concrete technique to study toward that goal."
+   },
+   "wall_s": 10.61,
+   "api_ms": 8303,
+   "output_tokens": 384,
+   "thinking_tokens": 218,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 777,
+   "yes": [
+    "celia-s-three-techniques-for-learning-hard-things-fast",
+    "erinmerylstudy-2026-07-10-Dan1HwRv5ha",
+    "qr-codes-explained-finder-patterns-and-error-correction"
+   ],
+   "arguments": {
+    "celia-s-three-techniques-for-learning-hard-things-fast": "Same person, same project of learning hard things fast: that note's three techniques (crowd-sourced foundational material, forced active recall, a running gap log) build the web Celia describes here, while this note's three (Why Method, linking to prior knowledge, teaching aloud) are how you keep that web regenerable once built.",
+    "qr-codes-explained-finder-patterns-and-error-correction": "The owner's take names this one directly: the QR reel's redundancy surviving 30% pattern damage is the silicon version of the exact property Celia claims for mastery, forgetting a piece and regenerating it from the rest.",
+    "erinmerylstudy-2026-07-10-Dan1HwRv5ha": "Erin's closing step, producing an unposted explainer video after each unit, is the same move as Celia's teaching-aloud technique: externalizing the material to force retrieval and expose the gaps in the web."
+   },
+   "wall_s": 29.78,
+   "api_ms": 26957,
+   "output_tokens": 2182,
+   "thinking_tokens": 1232,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 215,
+   "yes": [
+    "let-s-build-gpt-from-scratch-in-code-spelled-out"
+   ],
+   "arguments": {
+    "let-s-build-gpt-from-scratch-in-code-spelled-out": "both are Karpathy from-scratch builds (tokenizer here, Transformer there) that together are exactly the body of method the owner wants to study to learn from him"
+   },
+   "wall_s": 8.83,
+   "api_ms": 8387,
+   "output_tokens": 427,
+   "thinking_tokens": 285,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 534,
+   "yes": [
+    "attention-is-all-you-need-transformer-model-explanation-including-math-inference",
+    "let-s-build-gpt-from-scratch-in-code-spelled-out",
+    "stanford-cs25-v2-i-introduction-to-transformers-w-andrej-karpathy",
+    "transformer-architecture-explained"
+   ],
+   "arguments": {
+    "transformer-architecture-explained": "Documents the exact narrow scope the thesis starts from \u2014 the original encoder-decoder built strictly as a translation machine (SOS/EOS tokens, single MT example) \u2014 the concrete baseline the hosts say the self-attention mechanism later escaped.",
+    "attention-is-all-you-need-transformer-model-explanation-including-math-inference": "Supplies the math underneath the same self-attention layers (multi-head, explicit dimensions, masking) the thesis claims later generalized, i.e. the mechanism's blueprint before the generalization happened.",
+    "let-s-build-gpt-from-scratch-in-code-spelled-out": "Enacts the generalization itself: self-attention is stripped out of the encoder-decoder translation scaffold and rebuilt as a decoder-only autoregressive context engine, literally the move the thesis describes.",
+    "stanford-cs25-v2-i-introduction-to-transformers-w-andrej-karpathy": "Makes the thesis's own argument directly \u2014 traces attention's lineage from translation-era soft-attention to \"Attention Is All You Need\" and argues why the mechanism won generally, not why it won at translation."
+   },
+   "wall_s": 39.4,
+   "api_ms": 36791,
+   "output_tokens": 3232,
+   "thinking_tokens": 2212,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 787,
+   "yes": [
+    "footage-first-method",
+    "randyroberts-DWpSK4uDhIO-tribe-brain-heatmap",
+    "rndyrbrts-visual-language"
+   ],
+   "arguments": {
+    "footage-first-method": "the note studies how a creator's footage actually gets produced, which is the trail to pull on to reverse-engineer this reel's visuals, not its AI-security thesis",
+    "randyroberts-DWpSK4uDhIO-tribe-brain-heatmap": "logged as a visual reference, it gives a comparable rendering technique to check the reel's look against, matching the owner's stated reason for saving it",
+    "rndyrbrts-visual-language": "a visual language spec is the most direct artifact for tracking down how the reel's visuals were made, which is exactly what the owner said they saved it for"
+   },
+   "wall_s": 23.55,
+   "api_ms": 23703,
+   "output_tokens": 1842,
+   "thinking_tokens": 1135,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 807,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "2026-10-03-cagescan-2026-10-03-the-alternate-angle-clips-wor-966967",
+    "2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286",
+    "ilia-topuria-knockdown-clip-as-cagescan-test-source"
+   ],
+   "arguments": {
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "cagescan's whole premise is reconstructing fighters from footage that only ever shows one side, which is exactly the gap an angle-regenerating tool like this one would need to close.",
+    "2026-10-03-cagescan-2026-10-03-the-alternate-angle-clips-wor-966967": "this note is cagescan's own working attempt at producing the alternate-angle clips the owner wonders whether this new unnamed tool could generate instead.",
+    "ilia-topuria-knockdown-clip-as-cagescan-test-source": "a single-camera knockdown clip saved as cagescan test material is precisely the kind of source footage the owner would feed this angle-regenerating tool to see if it can produce the fighters' other side.",
+    "2026-10-03-cagescan-the-owner-box-modelled-a-ps1-style-low-p-890286": "the owner's low-poly box model is a hand-built stand-in for the same missing-side geometry this AI tool claims to regenerate directly from a photo."
+   },
+   "wall_s": 20.59,
+   "api_ms": 19341,
+   "output_tokens": 1649,
+   "thinking_tokens": 1202,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 763,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 9.36,
+   "api_ms": 7819,
+   "output_tokens": 168,
+   "thinking_tokens": 114,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 772,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 12.26,
+   "api_ms": 8966,
+   "output_tokens": 448,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 812,
+   "yes": [
+    "2026-04-17-epicmap-project-overview-flask-sqlalchemy-pos",
+    "2026-05-11-epicmap-2026-05-11-prod-cascade-taught-three-durab-86769d",
+    "2026-10-13-epicmap-api-profiling-started-2026-10-13-on-branch-77ceb9",
+    "epicmap-iceberg",
+    "overview"
+   ],
+   "arguments": {
+    "epicmap-iceberg": "the owner wants to know what's applicable to EpicMap, and this note maps the hidden complexity under EpicMap's current design \u2014 the baseline the stripped-down $12-server numbers would have to beat",
+    "2026-05-11-epicmap-2026-05-11-prod-cascade-taught-three-durab-86769d": "the new note's SQLite group-commit trick is a durability-vs-throughput tradeoff, and this note is EpicMap's own production cascade already teaching three durability lessons the hard way",
+    "overview": "the owner's take is explicitly a comparison against EpicMap's design, so the system overview is the reference point needed to judge which of the four optimizations (framework-stripping, batched writes, in-DB JSON, no reverse proxy) even apply",
+    "2026-04-17-epicmap-project-overview-flask-sqlalchemy-pos": "the owner names Flask/PostGIS on Render directly in their take, and this note is the concrete record of that exact stack (Flask, SQLAlchemy, PostGIS) the new note's techniques would have to be ported onto",
+    "2026-10-13-epicmap-api-profiling-started-2026-10-13-on-branch-77ceb9": "the owner wants to know what EpicMap already does better, and this is the live profiling work that would show whether EpicMap's pool/thread sizing already absorbs what the $12-server rewrite had to solve by brute-force batching"
+   },
+   "wall_s": 16.3,
+   "api_ms": 16296,
+   "output_tokens": 1006,
+   "thinking_tokens": 417,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 814,
+   "yes": [
+    "karenxcheng-2026-07-08-DagC4bnAhtj"
+   ],
+   "arguments": {
+    "karenxcheng-2026-07-08-DagC4bnAhtj": "Both wrap a device everyone already has in an obsolete medium's physical interface (rotary dial/split-flap vs. lime-green CRT/tape counter) rather than hiding the modern guts, making this note a concrete instance of that same retro-skin template."
+   },
+   "wall_s": 23.19,
+   "api_ms": 21912,
+   "output_tokens": 1364,
+   "thinking_tokens": 828,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 764,
+   "yes": [
+    "In-context Learning and Induction Heads",
+    "inside-the-world-s-smartest-robot-brain-vla"
+   ],
+   "arguments": {
+    "inside-the-world-s-smartest-robot-brain-vla": "Gen-1.5's few-shot manipulation transfer and near-zero-weight-change fine-tuning is a direct data point in the same RT-1/RT-2/\u03c00 lineage this note traces of folding more capability into the robot's weights and context rather than its training pipeline.",
+    "In-context Learning and Induction Heads": "Gen-1.5's headline result \u2014 reproducing an untrained manipulation task from a single demo in its context window \u2014 is exactly the in-context learning phenomenon this note's induction-head mechanism was proposed to explain, just instantiated in a robot policy instead of a transformer LM."
+   },
+   "wall_s": 18.12,
+   "api_ms": 13761,
+   "output_tokens": 1078,
+   "thinking_tokens": 787,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 728,
+   "yes": [
+    "alanluuu_-2026-03-27-DWZ1M4VtRdI",
+    "cabeza_patata-2026-07-14-Daxp5aJM1VA"
+   ],
+   "arguments": {
+    "alanluuu_-2026-03-27-DWZ1M4VtRdI": "the owner's take names Blender outright as the suspected engine behind the site's animation and asks to learn it to build something as impressive \u2014 this is a four-hour path from a default cube to a fully rigged, animatable character, the exact skill gap the owner flagged",
+    "cabeza_patata-2026-07-14-Daxp5aJM1VA": "the owner's take calls out Blender specifically as the thing to learn from \u2014 this is a second concrete Blender character-rigging walkthrough (outliner object literally named \"rig\") giving the owner another worked example of the same technique"
+   },
+   "wall_s": 23.16,
+   "api_ms": 22618,
+   "output_tokens": 1646,
+   "thinking_tokens": 1076,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 773,
+   "yes": [],
+   "arguments": {},
+   "wall_s": 13.81,
+   "api_ms": 8891,
+   "output_tokens": 366,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 762,
+   "yes": [
+    "the-openaihugging-face-attack-clearly-explained"
+   ],
+   "arguments": {
+    "the-openaihugging-face-attack-clearly-explained": "both notes reconstruct the same METR/Redwood-documented incident \u2014 the covert agent collective's Artifactory message board, the Hugging Face hack, and the preempted scorer check \u2014 making this the direct companion account of the thesis's own event."
+   },
+   "wall_s": 10.65,
+   "api_ms": 10278,
+   "output_tokens": 443,
+   "thinking_tokens": 282,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 825,
+   "yes": [
+    "2026-07-17-ytk-session-025-continued-86-reranker-benchmarke-44e6b7",
+    "metr--mts-evaluation-execution"
+   ],
+   "arguments": {
+    "metr--mts-evaluation-execution": "this is the evaluation harness (evaluation/rerank_evaluate.py) that actually produced the Recall@5/MRR@10/NDCG@10 numbers the new note's thesis reports",
+    "2026-07-17-ytk-session-025-continued-86-reranker-benchmarke-44e6b7": "this earlier session already benchmarked Voyage rerank-3, the same baseline the new note measures Jev against"
+   },
+   "wall_s": 21.2,
+   "api_ms": 13627,
+   "output_tokens": 1082,
+   "thinking_tokens": 855,
+   "is_error": false
+  },
+  {
+   "arm": "A1",
+   "item_id": 766,
+   "yes": [
+    "the-explanation-of-integrals-i-wish-i-had"
+   ],
+   "arguments": {
+    "the-explanation-of-integrals-i-wish-i-had": "the Fourier coefficient integral is a worked instance of the candidate's 'accumulation machine' level: multiplying by a probe wave and integrating sums infinitesimal local agreement into one global amplitude, exactly the unifying interpretation the candidate elevates integrals to."
+   },
+   "wall_s": 10.69,
+   "api_ms": 10128,
+   "output_tokens": 556,
+   "thinking_tokens": 379,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 734,
+   "yes": [
+    "The Scaling Hypothesis",
+    "scaling-laws-for-neural-language-models"
+   ],
+   "arguments": {
+    "The Scaling Hypothesis": "the Gwern essay this note's thesis is literally restating \u2014 GPT-3 as the qualitative proof point for the hypothesis named in its own title",
+    "scaling-laws-for-neural-language-models": "Kaplan et al.'s power-law loss curves are the empirical backbone that lets Gwern claim scaling alone, with no new algorithm, is sufficient"
+   },
+   "wall_s": 33.04,
+   "api_ms": 30224,
+   "output_tokens": 2597,
+   "thinking_tokens": 2391,
+   "is_error": false
+  },
+  {
+   "arm": "A2",
+   "item_id": 774,
+   "yes": [
+    "we-re-not-ready-for-biocomputing"
+   ],
+   "arguments": {
+    "we-re-not-ready-for-biocomputing": "both sit on the same unresolved boundary the reel's pivot names \u2014 a complete, verifiable wiring diagram is achievable at fly scale (166k neurons, sliced and traced) but at human/lab-grown neuron scale (CL1's 200k) the system can only be partially attributed between machine computation and a biological signal nobody can fully verify or feel out"
+   },
+   "wall_s": 15.42,
+   "api_ms": 10099,
+   "output_tokens": 508,
+   "thinking_tokens": 0,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 804,
+   "yes": [
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef",
+    "nobody-has-an-iron-chin-here-s-what-they-actually-have"
+   ],
+   "arguments": {
+    "2026-09-30-new-standalone-project-cagescan-developer-cages-63a263": "this broadcast clip of Topuria closing distance and landing a finish is exactly the kind of fast, occluded exchange the owner wants cagescan's alternative reconstruction method to handle",
+    "2026-10-02-cagescan-ufc-308-3d-reconstruction-developer-c-90daef": "it's a prior cagescan reconstruction attempt on a comparable finishing sequence, giving a direct precedent to compare this clip's gap-filling approach against",
+    "nobody-has-an-iron-chin-here-s-what-they-actually-have": "the commentators' praise of Holloway's chin in this clip is the exact claim the chin note names Holloway to debunk, attributing his durability to defense rather than jaw toughness"
+   },
+   "wall_s": 26.87,
+   "api_ms": 25706,
+   "output_tokens": 2095,
+   "thinking_tokens": 1740,
+   "is_error": false
+  },
+  {
+   "arm": "A3",
+   "item_id": 786,
+   "yes": [
+    "2026-09-07-new-project-started-2026-09-07-booklab-at-devel-5b361c",
+    "2026-09-12-booklab-milestone-2-2026-09-12-kraken-pro-tier-e4d65d"
+   ],
+   "arguments": {
+    "2026-09-07-new-project-started-2026-09-07-booklab-at-devel-5b361c": "booklab's founding note names maker-only quoting (against a signal-following control) as the live strategy candidate, which is exactly the fee-clearing question the owner's take sends this dataset against",
+    "2026-09-12-booklab-milestone-2-2026-09-12-kraken-pro-tier-e4d65d": "milestone 2 pinned the actual Kraken maker/taker fee schedule (40/80 bps) that sets the fee-clearing bar the owner's take is asking whether a maker-quoting strategy can clear"
+   },
+   "wall_s": 85.27,
+   "api_ms": 72865,
+   "output_tokens": 6782,
+   "thinking_tokens": 5615,
+   "is_error": false
+  }
+ ]
+}
