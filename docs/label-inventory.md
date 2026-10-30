@@ -236,6 +236,17 @@ hit@5 near 0.90 and n=156 the standard error is about 2.4 points, so it sees
 a five-point change and not a one-point change. As a training set for "your
 sense of relevance" it holds, at most, the 20 spot-checked pairs.
 
+> **Later (2026-10-30, section 53):** a second graded set exists beside
+> `qrels.json`: `docs/assets/53-jev-second-look/judged-relevance.json`, 440
+> pairs (22 real agent queries × 20 served candidates), graded 0–3 by three
+> blind Claude readers from the full stored text, with the best candidate(s)
+> named per query. Judged by models, not the owner; unlike the eval set the
+> queries are real searches the agent ran, and unlike `qrels.json` the judge
+> read whole documents. The section also measured the agent's own click as a
+> ranker against those grades: a grade-3 note 7 times in 22, worse than served
+> order (10/22). Clicks are browse labels. `owner-labels.md` in the same folder
+> is a blind sheet for the owner to overrule any row.
+
 ### Map buckets
 
 **What you did.** You wrote `~/.ytk/grove_buckets.yaml` by hand: ten named

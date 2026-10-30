@@ -62,8 +62,56 @@ the Choice's abstention as a row-wide gate on the Noul's per-candidate scale.
 - `05-latency.png` — every call in the ledger, latency against input tokens,
   with the #86 budget and the local reranker's measured medians.
 
+- `06-graded.png` — against graded relevance. Left: the grade of the note each
+  arm ranks first, one row per search, with the clicked note's grade as an
+  arrow. Right: mean nDCG@20 per arm over the shuffle null.
+
 Figures 03–05 are drawn by `scripts/plot_jev_second_look.py` from the
-sidecars and `~/.ytk/logs/jev_calls.jsonl`; no requests.
+sidecars and `~/.ytk/logs/jev_calls.jsonl`; figure 06 by
+`scripts/jev_judge_score.py` from `judged-relevance.json`; no requests.
+
+## The graded ruler
+
+The click label was the open question, so the 22 searches were graded blind.
+Three fresh Claude readers (the session model) each took 7–8 searches, saw the
+query, the request the agent was working on where a transcript held it, and
+the full stored text of all 20 candidates in served order with nothing marked,
+and graded every candidate 0–3 (holds it / part of it or buried / adjacent
+topic / unrelated), naming the best. 440 graded pairs, `judged-relevance.json`,
+`judged_by` recorded. These are model judgments of real agent queries over full
+text; they are not the owner's, and the inventory lists them as such.
+
+Each arm is an ordering of the same 20 candidates: served (cosine), Jev Noul
+and Jev Choice on snippets, both on stored text. Null: 1,000 random orderings
+per search, scored the same way.
+
+| arm | mean nDCG@20 | first note holds it (3) | first note ≥ 2 | vs served, wins/ties/losses | mean gain, bootstrap 95% |
+|---|---|---|---|---|---|
+| shuffle null | 0.604 ± 0.023 | | | | |
+| served (cosine) | 0.816 | 10/22 | 13/22 | | |
+| Noul, snippet | 0.835 | 8/22 | 13/22 | 14/0/8 | +0.019 [−0.057, +0.094] |
+| Choice, snippet | 0.834 | 8/22 | 14/22 | 10/2/10 | +0.018 [−0.039, +0.083] |
+| Noul, stored text | 0.958 | 12/22 | 19/22 | 19/0/3 | +0.142 [+0.067, +0.224] |
+| Choice, stored text | 0.939 | 12/22 | 19/22 | 18/2/2 | +0.123 [+0.051, +0.208] |
+| the agent's click | | 7/22 | 11/22 | | |
+
+Reading. Served order already sits nine null standard deviations above
+shuffle, so the baseline is real. On snippets Jev adds nothing the interval can
+see. On the text the embedder ranked, Jev's Noul lifts the mean from 0.816 to
+0.958, wins 19 of 22 searches, and puts a note graded 2 or better first in 19
+of 22 against served order's 13. The click, the label everything before this
+was scored against, was the worst ranker in the table: it reached a grade-3
+note 7 times in 22. That is the measurement behind the earlier guess that the
+clicks were browse labels.
+
+Caveats, in order of weight. n = 22, and the interval is wide. Three readers
+means three sets of habits; grades are comparable within a reader's searches,
+and two readers flagged the same two kinds of difficulty (bag-of-terms
+queries where no note holds everything; a query where "none" was defensible).
+The readers and the two stored-text arms read the same bytes, so a reader's
+notion of relevance and Jev's could share blind spots that the snippet arms
+and served order do not. And the cost of this arm is the cost of sending the
+full stored text: 10–26k tokens and about 250 ms per search.
 
 ## What was measured
 
@@ -150,10 +198,14 @@ difference of two or three rows at n=22. No bar was set and none is claimed.
 
 ## Next
 
-The 16 disagreements are the finding. The next rung is not more Jev calls; it
-is the owner ruling on the 22 rows blind (`owner-labels.md`, candidates listed
-without marks), which turns click labels into judged relevance and lets the
-same two sidecars be re-read without a single new request.
+The 16 disagreements were the finding of rounds one and two; the graded ruler
+resolved most of them in Jev's favour on full text. `owner-labels.md` stays as
+the blind sheet should the owner want to overrule the readers on any row.
+
+Rung 1 now has a measured shape to register against: on the 156 frozen gate
+queries and the 4,681 graded pairs, served order against Jev Noul on stored
+text, the bar set from this section's gain and #86's latency budget before the
+first request. Rung 2's stability bar tightens to what figure 03 showed.
 
 ## Reproduce
 
