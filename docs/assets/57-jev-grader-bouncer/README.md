@@ -108,6 +108,15 @@ this is the accuracy claim, measured on the only labels the owner wrote, and
 it is reported whether or not the first verdict passes. J-house carries no
 verdict; its numbers are drawn beside J-rubric's.
 
+**Correction before data (2026-10-30, still before any Jev call).** The
+collect step found that 11 of the 59 rulings have no Opus grade before them:
+their second bounce came from the free layer, so the draft the owner saw was
+never graded by Opus and has no verdict to compare. The owner's ruler is
+therefore 48 rulings (16 accept as is, 32 say what is wrong or drop) on 46
+drafts, two drafts carrying two agreeing rulings. Opus blocked all 48, so its
+accuracy on this ruler is 32/48 = 0.667, and B3 reads: accuracy above 0.667
+with the bootstrap interval clear of 0.667. Nothing else moves.
+
 **What a pass or a loss means.** A pass on the first verdict registers a
 change to `ytk/curator.py`: the bouncer runs after the lint and before the
 Opus call, blocks at θ, and the writer receives the section name and the
