@@ -113,6 +113,44 @@ Unjudged qrels pairs count as grade 0, which penalises every arm equally.
 budget, Jev is a clear improvement by every measure here, with the damage
 check passed. Against the bar this section chose, the local model's measured
 gain, it fell 1.4 and 1.3 points short. The slot stays empty on this
-registration. Whether the next registration should keep the local model's
-gain as the bar, when that model cannot run inside the budget, is the owner's
-call and is not made here.
+registration.
+
+## Decision (2026-10-30, the agent's, recorded with its reasons; the owner may overrule)
+
+**Rung 1 closes as a loss. The bars stand. Jev does not enter the reranker
+slot on this evidence, and nothing is re-registered on these 156 queries.**
+
+The question the loss raised was whether a bar borrowed from a model that
+cannot run inside the budget was the right bar. One more measurement answers
+it without touching section 54's bars. The retrieval gate (#85) treats a
+change on its gated metrics, hit@5 and hit@10, as real only above its
+tolerance of 0.02 (`ytk/retrieval_gate.py`, `_GATED_METRICS`,
+`_DEFAULT_TOLERANCE`). Jev's gains on today's lists are hit@5 +0.019 and
+hit@10 +0.006. Both sit inside the gate's own noise floor. The gains that are
+unmistakable, hit@1 +0.064 and nDCG@10 +0.099 with an interval clear of zero,
+are on metrics the gate does not gate on. So the production-facing bar
+("beat served order inside the budget, by at least what the gate calls a
+change") fails as well, and a bar set now that Jev would pass would be a bar
+set with the answer in view. The only instrument guarding search would not
+be able to see the improvement it shipped.
+
+What the program keeps from rungs 0 and 1: the stored document is the right
+context and the snippet is not; the Noul is near-deterministic in rank space
+(18/20) though not in its third decimal; latency is a quarter of the budget;
+abstention on absent items was clean in section 53; Jev reorders the
+production top-30 well short of the local model on known-item hit@k and well
+clear of served order on graded relevance.
+
+Follow-ups, each a new question with its own registration, tracked in #219:
+
+1. A different arm against the *same* bars as section 54: title fields
+   beside the text, MemSearch's stricter wording ("states the specific fact,
+   not a similar topic"), a Noul gated by a Choice's abstention. A new arm may
+   clear the standing bars honestly; the bars do not move to meet it.
+2. A stability bar in rank space (gold rank and frozen top-1 unchanged on
+   re-send), registered before the run, on queries not used here.
+3. The slots section 53 pointed at that are not this one: abstention
+   ("nothing here") on the id-lookup path, and connect's per-candidate
+   judgment, each with its own baseline and null.
+4. Whether the gate should gate on a graded metric at all is a change to the
+   gate, argued in its own section under #85, never as a way to pass this one.
