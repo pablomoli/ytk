@@ -126,3 +126,67 @@ would be measured on the next batch of items, registered first. A loss on
 the first verdict closes the bouncer shape for the grader; the Opus call
 stays as it is. Cost estimate: 118 requests, roughly 1.5 million input
 tokens, under ten cents at the rates the ledger has recorded.
+
+## Result (run 2026-10-30, `pairs.json`, `jev-arms.json`, `scores.json`)
+
+**Both verdicts are registered losses.** *Worth wiring* fails on B1; B2, B4
+and stability pass. *Sides with the owner* fails on B3: Jev's accuracy on
+the owner's rulings is at the rate null.
+
+| | J-rubric (verdict) | J-house (no verdict) | bar |
+|---|---|---|---|
+| B1 false blocks on the 13 Opus passes | **6** | 3 | ≤ 1 |
+| B2 Opus bounces caught, of 85 | 72 (named section agrees 49/72 = 0.68) | 55 | ≥ 28, named ≥ 2/3 |
+| B3 accuracy on the owner's 48 rulings | 0.604 [0.458, 0.750] | 0.542 [0.396, 0.667] | > 0.667, interval clear |
+| B4 median wall per draft, 24 questions | 0.26 s (p95 0.40, max 0.51) | same request | ≤ 2.0 s |
+| stability, 20 re-sent | decision 20/20, named section 17/18 | | ≥ 18, ≥ 16 |
+| rate null (1,000 shuffles of the same blocks) | false blocks 8–12, caught 66–70, owner 0.50–0.69 | | |
+
+Spend: 118 requests, 1,422,111 input tokens, 25 seconds wall for all 98
+drafts. 24 states were cut to the 80k cap (the rubric and house rules take
+12k of it); the cut group's numbers do not differ from the rest.
+
+**Reading.** The bouncer is too strict to stand at this door. At the
+registered 0.8 it turns away 78 of 98 drafts: 72 of the 85 Opus bounced,
+which is more than the null's 66–70 and so a real signal, but also 6 of the
+13 Opus passed, which is fewer than the null's 8–12 and still six wasted
+writer rounds out of thirteen good drafts. Jev's section probabilities sit
+high on nearly every draft (`02-the-bouncer-at-the-door.png`, right panel:
+the median probability that a draft fails Grounding is 0.73 even on drafts
+Opus did not bounce there). Read as a ranker rather than a switch, the
+sections do order drafts the way Opus does, modestly: rank AUC 0.70–0.84 on
+nine sections, Tags 0.95, What I enjoy reading 0.38 on two cases. A rubric
+section is a paragraph of taste, and Jev reads each one as a bar nearly
+every draft fails. The curve (`03-threshold-and-the-bill.png`, left) has no
+operating point that clears B1 and B2 together: the first threshold with at
+most one false block is 0.95, and there the bouncer catches 17 of 85.
+
+On the owner's ruler the bouncer is at chance (0.604 against a null of
+0.50–0.69) and below Opus (0.667), because it blocks 15 of the 16 drafts the
+owner accepted as they were. The owner's "accept as is" is a judgment about
+whether the remaining defects are worth another round; neither Opus nor Jev
+is asked that question, and the owner's 24 overrules stand as the only
+measurement of it.
+
+The replayed bill (`03`, right) shows what a bouncer with these numbers
+would have bought: 72 minutes of the record's 187, every one of them an Opus
+grade that ended in a bounce anyway. That is the performance claim, and it
+is real; the safety bar is what it costs, and six good drafts sent back for
+nothing is above the registered price.
+
+**Post hoc, not registered.** Tags alone (rank AUC 0.95, 18 Opus bounces)
+would be the one section a bouncer could stand on; a tags-only check at a
+threshold fitted here is a different registration on a different universe,
+and the deterministic layer already holds a tag-vocabulary check. The
+house-rule arm is safer (3 false blocks) and catches less (55); it clears no
+bar either.
+
+**Decision.** The grader's door stays as it is: lint, deterministic checks,
+then Opus. The bouncer shape for Jev closes on this record. Across sections
+53–57 the pattern is consistent: Jev orders well (AUC 0.92 on connect, 0.70–
+0.95 per section here, hit@5 at the local model's number) and decides
+poorly at any fixed threshold against a ruler written in the owner's words.
+What Jev is for in ytk, if anything, is a ranking score inside a stronger
+reader's decision, and no slot in ytk today consumes a score that way. The
+program's remaining #219 items are the held-out connect threshold and the
+connect state with project context; nothing from this section is added.
