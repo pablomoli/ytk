@@ -4395,6 +4395,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "av" },
     { name = "chromadb" },
     { name = "claude-agent-sdk" },
     { name = "click" },
@@ -4442,6 +4443,7 @@ lab = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.116.0" },
+    { name = "av", specifier = "<19" },
     { name = "chromadb", specifier = "==1.5.9" },
     { name = "claude-agent-sdk", specifier = ">=0.1.0" },
     { name = "click", specifier = ">=8.1" },
