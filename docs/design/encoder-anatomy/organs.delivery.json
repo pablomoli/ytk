@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "51442e97-7387-4354-accd-c7546183c78c",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/melocoton/Developer/ytk/docs/design/encoder-anatomy/archify/candidate.json",
+  "output": "/Users/melocoton/Developer/ytk/docs/design/encoder-anatomy/organs.html",
+  "specification": {
+    "sha256": "fccc39b7f718a09ee1e7c9f97fc5e4b346261b21766289c6f391147f251667f1",
+    "bytes": 7232
+  },
+  "artifact": {
+    "sha256": "521651a729fbe9d0f25c378efb4a8857ed34d472696dd9922ce3a36f440aac15",
+    "bytes": 860799
+  }
+}

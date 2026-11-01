@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Encoder anatomy: a note's path through Qwen3-Embedding-0.6B into ytk's store",
+    "output": "docs/design/encoder-anatomy/organs.html",
+    "quality_profile": "showcase",
+    "locale": "en",
+    "repository": {
+      "url": "https://github.com/pablomoli/ytk.git",
+      "provider": "github",
+      "revision": "97095ff13dbe0eb42cdb3495956079fc642c6509"
+    }
+  },
+  "components": [
+    { "id": "note", "type": "external", "label": "A note", "sublabel": "markdown in the vault", "pos": [40, 60], "size": [130, 64] },
+    { "id": "embedder", "type": "backend", "label": "Embedder", "sublabel": "sentence-transformers, fp16", "tag": "max_seq 3072", "pos": [240, 60], "size": [130, 64],
+      "sources": [
+        { "path": "ytk/store.py", "line": 69, "end_line": 91, "label": "v2 epoch config" },
+        { "path": "ytk/store.py", "line": 194, "end_line": 208, "label": "model load" }
+      ] },
+    { "id": "tokens", "type": "database", "label": "Token table", "sublabel": "151,669 rows x 1024", "pos": [470, 60], "size": [130, 64] },
+    { "id": "attn", "type": "backend", "label": "Attention", "sublabel": "16 q heads / 8 kv, size 128", "tag": "D3", "pos": [670, 60], "size": [130, 64] },
+    { "id": "ffn", "type": "backend", "label": "Feed-forward", "sublabel": "width 3072", "pos": [870, 60], "size": [130, 64] },
+    { "id": "norm", "type": "backend", "label": "Final RMSNorm", "sublabel": "eps 1e-6", "pos": [1070, 60], "size": [130, 64] },
+    { "id": "residual", "type": "messagebus", "label": "Residual stream", "sublabel": "width 1024, every block adds in", "tag": "D2", "pos": [770, 230], "size": [130, 64] },
+    { "id": "pooling", "type": "backend", "label": "Last-token pooling", "sublabel": "one position is the note", "pos": [1070, 230], "size": [130, 64] },
+    { "id": "vector", "type": "messagebus", "label": "Shipped vector", "sublabel": "1024 floats, unit length", "tag": "D1", "pos": [1070, 400], "size": [130, 64],
+      "sources": [ { "path": "ytk/store.py", "line": 210, "end_line": 215, "label": "encode call" } ] },
+    { "id": "chroma", "type": "database", "label": "Chroma", "sublabel": "3 text collections, cosine", "pos": [870, 400], "size": [130, 64],
+      "sources": [ { "path": "ytk/store.py", "line": 307, "end_line": 312, "label": "hnsw:space cosine" } ] },
+    { "id": "search", "type": "backend", "label": "Search", "sublabel": "raw cosine, over-fetch", "pos": [670, 400], "size": [130, 64],
+      "sources": [
+        { "path": "ytk/store.py", "line": 1161, "end_line": 1170, "label": "search_videos query" },
+        { "path": "ytk/store.py", "line": 273, "label": "_embed_query" }
+      ] },
+    { "id": "agent", "type": "external", "label": "Claude sessions", "sublabel": "vault_search over MCP", "pos": [470, 400], "size": [130, 64],
+      "sources": [ { "path": "ytk/mcp_server.py", "line": 57, "label": "vault_search tool" } ] },
+    { "id": "gate", "type": "security", "label": "The gate", "sublabel": "156 queries, frozen corpus", "pos": [670, 560], "size": [130, 64],
+      "sources": [
+        { "path": "ytk/retrieval_gate.py", "line": 474, "label": "run_live_gate" },
+        { "path": "eval/retrieval/baseline.json", "label": "stamped 2026-07-26" }
+      ] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "The frog: Qwen/Qwen3-Embedding-0.6B, 28 blocks, width 1024", "wraps": ["tokens", "attn", "ffn", "residual", "norm", "pooling"] },
+    { "kind": "security-group", "label": "one block, repeated 28 times", "wraps": ["attn", "ffn", "residual"] }
+  ],
+  "connections": [
+    { "id": "note-encode", "from": "note", "to": "embedder", "label": "encode", "variant": "emphasis" },
+    { "id": "tokenize", "from": "embedder", "to": "tokens", "label": "tokenize", "variant": "emphasis" },
+    { "id": "tokens-attn", "from": "tokens", "to": "attn", "variant": "emphasis" },
+    { "id": "attn-ffn", "from": "attn", "to": "ffn", "variant": "emphasis" },
+    { "id": "ffn-norm", "from": "ffn", "to": "norm", "label": "after block 28", "variant": "emphasis" },
+    { "id": "attn-adds", "from": "attn", "to": "residual", "label": "adds", "fromSide": "bottom", "toSide": "top" },
+    { "id": "ffn-adds", "from": "ffn", "to": "residual", "label": "adds", "fromSide": "bottom", "toSide": "top" },
+    { "id": "norm-pool", "from": "norm", "to": "pooling", "label": "all positions", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "id": "pool-vector", "from": "pooling", "to": "vector", "label": "last position only", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "id": "upsert", "from": "vector", "to": "chroma", "label": "upsert" },
+    { "id": "query", "from": "search", "to": "chroma", "label": "query" },
+    { "id": "mcp", "from": "agent", "to": "search", "label": "vault_search" },
+    { "id": "exam", "from": "gate", "to": "search", "label": "sits the exam", "variant": "security", "fromSide": "top", "toSide": "bottom" }
+  ],
+  "cards": [
+    { "dot": "violet", "title": "The organs (from the model's own config, not the repo)", "items": [
+      "28 blocks; each: RMSNorm, attention, RMSNorm, feed-forward, both adding into the residual stream",
+      "Grouped attention: 16 query heads share 8 key-value heads, head size 128",
+      "Residual width 1024 equals the shipped vector's width, so every layer's state already lives in the map's space",
+      "Pooling keeps the last token only (1_Pooling/config.json: pooling_mode_lasttoken); the final norm reads the residual stream after block 28",
+      "Documents embed plain; queries get the instruction prefix 'Instruct: Given a web search query...'"
+    ] },
+    { "dot": "rose", "title": "The dissections", "items": [
+      "D1, the shipped vector's coordinates: is the shared lean a few loud coordinates or spread over many? Zero model runs",
+      "D2, the residual stream across depth: where is the cone born, where do topics separate, does any layer beat production on the gate",
+      "D3, the summarizing heads: which words the last position draws from in the final blocks, then one head switched off",
+      "Specimen for all three: Welch Labs, The moment we stopped understanding AI [AlexNet], 477 tokens, held since section 42"
+    ] },
+    { "dot": "emerald", "title": "Verified against the live store, 2026-10-31", "items": [
+      "The cone: mean pair cosine 0.259, mean vector length 0.51, every note at cosine 0.51 to one shared direction (811 tagged notes; section 12 said the same on 493)",
+      "A random pair's plane retains about 7.5x the chance length raw, 2.1x centred (section 15's single pair: 8.4x)",
+      "70 of 84 scorable tags cohere raw, all 84 centred (section 10: 58 of 69, 69 of 69)",
+      "The gate passed: hit@1 0.712, hit@5 0.897, hit@10 0.936, within tolerance of the 2026-07-26 stamp"
+    ] },
+    { "dot": "amber", "title": "What the repo never does", "items": [
+      "No centring anywhere on the search path; Chroma compares raw cosine",
+      "Never requests hidden states; output_hidden_states appears nowhere in ytk/ or scripts/",
+      "Section 18's features came from Gemma Scope, another model; this encoder's interior is unopened"
+    ] }
+  ]
+}

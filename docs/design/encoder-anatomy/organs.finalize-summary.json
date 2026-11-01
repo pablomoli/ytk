@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/Users/melocoton/Developer/ytk/docs/design/encoder-anatomy/archify/candidate.json",
+    "sha256": "fccc39b7f718a09ee1e7c9f97fc5e4b346261b21766289c6f391147f251667f1",
+    "bytes": 7232
+  },
+  "artifact": {
+    "path": "/Users/melocoton/Developer/ytk/docs/design/encoder-anatomy/organs.html",
+    "sha256": "521651a729fbe9d0f25c378efb4a8857ed34d472696dd9922ce3a36f440aac15",
+    "bytes": 860799
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/Users/melocoton/Developer/ytk/docs/design/encoder-anatomy/organs.finalize.json",
+    "summaryReceipt": "/Users/melocoton/Developer/ytk/docs/design/encoder-anatomy/organs.finalize-summary.json",
+    "browserCheckReceipt": "/Users/melocoton/Developer/ytk/docs/design/encoder-anatomy/organs.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-01T00:44:12.301Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 7902,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}
