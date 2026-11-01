@@ -127,6 +127,9 @@ stored vectors restricted to the 11,005 frozen ids, through
 `ytk/store.py` and a deliberate re-stamp of the baseline. If rogue, centring
 is zeroing three coordinates and the orb can paint them.
 
+
+> **Later (2026-10-31, section 58):** ran as registered. Spread: top 3 carry 4.3%, top 100 carry 49.9% (isotropic null 3.1% and 43.3%); the prediction held and the mean's profile is nearly the noise profile. The exam: raw reproduces the stamp exactly, centred scores 0.686 / 0.904 / 0.929, hit@1 falls past the tolerance with the paired interval touching zero; not earned, production stays raw cosine. The "if rogue, the orb can paint them" branch is closed. Record: `docs/assets/58-encoder-anatomy-d1/README.md`.
+
 ### D2. The residual stream across depth
 
 **Question.** Where in the 28 blocks is the cone born, where do topics
@@ -225,8 +228,8 @@ the record section.
 
 | Step | Model calls | Wall time | Go needed |
 |---|---|---|---|
-| D1 coordinates | none | minutes | no |
-| D1 centred exam | 156 query embeddings | under 5 min | no |
+| D1 coordinates | none | minutes | ran 2026-10-31, section 58: spread |
+| D1 centred exam | 156 query embeddings | under 5 min | ran 2026-10-31, section 58: not earned |
 | D2 rung A, 811 notes | one pass with hidden states | about 15 min | yes |
 | D3 specimen | 1 + 448 passes, one note | about 5 min | no |
 | D3 population, 20 notes | 20 x 449 passes | about 80 min | yes |
