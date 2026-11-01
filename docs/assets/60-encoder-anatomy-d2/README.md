@@ -154,6 +154,8 @@ One of three holds. The two that failed both imagined the encoder as a
 gradual builder; it is a late one, and nothing before block 25 could
 replace what ships.
 
+> **Later (2026-11-01):** the literature says the opposite about depth, and the disagreement is the readout. Skean et al. (arXiv:2502.02013) and Tang and Yang (arXiv:2409.02727) find intermediate layers beat the final one for downstream representations, but they read the layers by mean pooling or by a trained probe. Rung A's mean-pooling side line agrees with them: it leads the last token until block 20 and peaks before the top. Last-token pooling, which is what ships, is the late reader; the two results are the same encoder read two ways.
+
 ## Files
 
 - `01-the-growth.png` — six frames of the film, the cone across depth against the isotropic null, tag accuracy across depth against shuffled labels

@@ -2,7 +2,7 @@
 
 Third of the encoder dissections registered in
 `docs/design/encoder-anatomy/README.md`, run on the specimen alone (the
-population run, 20 notes, is a separate go). The organism is
+population run, 20 notes, was a separate go and is 59.3). The organism is
 `Qwen/Qwen3-Embedding-0.6B` at the pinned revision; the specimen is the
 Welch Labs note "The moment we stopped understanding AI [AlexNet]", 2,086
 characters, 477 tokens, the last of them `<|endoftext|>`, which is the one
@@ -22,6 +22,8 @@ the production object and not a stand-in.
 ```bash
 uv run --extra lab python scripts/encoder_anatomy_d3.py specimen   # 51 min, see the cost note
 uv run --extra lab python scripts/encoder_anatomy_d3.py figures
+uv run --extra lab python scripts/encoder_anatomy_d3.py population  # 885 min, 20 notes, resumable; 59.3
+uv run --extra lab python scripts/encoder_anatomy_d3.py population_figures
 ```
 
 **Cost note.** The registration estimated 5 minutes for 448 single-head
@@ -104,8 +106,82 @@ are early, read content words, and one of them carries the cone. The
 specimen's hidden states at every layer (last token, raw and through the
 final norm) are in `specimen.npz` for D2's thread.
 
+## 59.3 — The population: twenty notes, one per tag
+
+![02](02-the-population.png)
+
+Twenty notes drawn one per tag, the tags spread evenly over the 84 scorable
+ones, 200 to 800 tokens (median 372), each given the specimen's whole
+treatment: the attention pass, 448 single-head ablations, the registered
+null of 100 draws per block, and one more pass with block 3 head 6 zeroed
+and the attention weights kept. Every note's attention-pass vector matches
+its shipped vector at cosine 1.0000. The run took 885 minutes, 20 notes at
+24 to 95 minutes each by length. The cost note above promised an abort
+above budget; it was not added, because the go for this run was given with
+the full registered null and the 15-hour figure in hand, and the script
+checkpoints after every note so a stop loses at most one.
+
+**The same head, on 17 of 20 notes.** Block 3 head 6 is the top head on 17
+notes. The exceptions are the Witch Hat Atelier spell simulator and the
+gravity-algorithm video, where block 1 head 3 leads and the cone head moves
+the note by only 0.10 and 0.13, and the Instagram learning note, where block
+2 head 5 leads at 0.661 with the cone head at 0.617 just behind. Zeroing the
+cone head moves a note by a median of 0.655 (cosine 0.345 to itself), range
+0.096 to 0.811, and on all 20 notes the move is above that note's own null
+at block 3 (99th percentile).
+
+**It passes the population bar, and it is the only head that does.** The
+registered bar was 3 of the 10 nearest neighbours changed on at least 15 of
+the 20 notes. Block 3 head 6 changes 3 or more on 16. The runner-up is block
+1 head 3 on 14, one short, and no other head reaches 10 (panel C). The
+specimen's four summarising heads are also the population's four most
+frequent top-five movers: block 3 head 6 and block 1 head 3 are in every
+note's top five, block 18 head 12 in 17 of 20, block 1 head 2 in 11. The
+late blocks stay inert on every note: across blocks 21 to 28 the median
+displacement is 0.001 and the largest 0.060. Between 2 and 6 heads per note
+move the vector below cosine 0.95, against the registered bar of 45, and the
+rank correlation of displacement against sink share runs from -0.62 to
+-0.70 per note, median -0.66. Section 59.1's three verdicts hold on every
+note in the sample.
+
+**The cone, population-wide.** With the head zeroed the median cosine to
+the shared direction falls from 0.50 to 0.34 (after: 0.12 to 0.56). Panel E
+draws each note against the corpus histogram: 17 of them move left toward
+the histogram's thin edge, and the three exceptions barely move. The
+specimen's own fall to 0.15 was the extreme of the range, not the typical
+case; the typical note is pushed to the edge of the population, not out of
+it.
+
+**It builds the sink.** With block 3 head 6 zeroed and the attention weights
+kept, the last position's share on token 0 across blocks 4 to 28, median
+head, falls from 0.64 to 0.007. As shipped, 18 of those 25 blocks have a
+median head above 0.5; with the head zeroed, none does (panel F, the dashed
+line on the floor). Per note, the sink drops below 0.1 on 12 of 20 and
+survives in part (0.23 to 0.59) on 8, and those 8 are the notes where the
+cone head moves the note least: the rank correlation between how much the
+head moves a note and how much sink survives its removal is -0.66. On the
+notes where another head leads, that head presumably builds the sink
+instead, which this run did not measure. The question section 59.1 handed
+to the population was whether the head that carries the cone also writes
+the sink. It does. The cone and the sink are one mechanism: something
+written in block 3, which every later head parks on from block 4, and
+without which the note lands at the edge of the population. Whether the head
+writes it at position 0 alone or at every position, and whether the base
+Qwen3-0.6B already has this head doing this job before the contrastive
+tuning, are the next questions and are not in this record.
+
+| bar | registered | measured | holds |
+|---|---|---|---|
+| a head is real when it moves 3 of 10 neighbours on 15 of 20 notes | at least one | block 3 head 6 on 16 of 20; no other head | yes |
+| the same top head across notes | open question | 17 of 20 | |
+| the cone head writes the sink | open question | blocks 4 to 28 median share 0.64 to 0.007 | |
+
 ## Files
 
 - `01-the-heads.png` — sink grid, displacement grid with the four summarising heads boxed, sink against displacement for every head, the sink across depth with the uniform null, block 3's heads inside its matched null, the specimen's cosine to the cone before and after the top head is zeroed
 - `results.json` — predictions and bars, the four summarising heads, the top head's words and neighbours before and after, timings
 - `specimen.npz` — sink and self shares (28 x 16), displacement and neighbours-changed grids, the null (28 x 100), top attended positions per head, the tokens, the shipped and top-ablated vectors, last-token hidden states at all 29 depths raw and normed
+- `02-the-population.png` — the sink and displacement grids over 20 notes, the heads reaching the population bar, the cone head on every note against its null, each note's cosine to the cone before and after on the corpus histogram, the sink across depth with and without the cone head
+- `population.json` — per note: key, tag, tokens, calibration, top head and its displacement, the cone head's displacement and neighbours changed, cosine to the cone before and after, neighbours before, seconds
+- `population.npz` — per note: sink grid, displacement grid, neighbours-changed grid, the null's 99th percentile per block, the sink grid with the cone head zeroed, the shipped and cone-head-ablated vectors
+- `results.json` also carries a `population` block: the bar, the heads passing it, the cone head's statistics, the top-five movers' counts, the late blocks, per-note movers and correlations, and the sink before and after

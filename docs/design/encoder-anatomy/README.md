@@ -1,10 +1,11 @@
 # Encoder anatomy — the frog and its organs
 
-Status: registration in progress (2026-10-31). Nothing here has run. This
-document holds the verified ground the program stands on, the map of the
-organism, and the predictions, nulls and bars for each dissection, written
-before the first call. Each dissection becomes a numbered section in
-`docs/assets/` when it runs; this file is the plan, not the record.
+Status: registered 2026-10-31; all three dissections ran 2026-10-31 to
+2026-11-01 as sections 58, 59 and 60. This document holds the verified
+ground the program stands on, the map of the organism, and the predictions,
+nulls and bars for each dissection, written before the first call; the
+Later notes under each dissection and the ledger at the end say what was
+measured. This file is the plan, not the record.
 
 ## Why
 
@@ -230,6 +231,8 @@ the record section.
 
 > **Later (2026-10-31, section 59):** ran on the specimen. One of three predictions held: the sink is there from block 4 (8 of 9 late blocks' median above 0.5, block 27 at 0.36); only 4 heads move the vector below cosine 0.95, but the five largest movers sit in blocks 3, 1, 18, 14, 14, not the last eight; Spearman of displacement against sink share is -0.67. Block 3 head 6 carries the cone: zeroed, the note falls to cosine 0.22 to itself and 0.15 to the shared direction, outside the population. The population run inherits two questions: is it the same head on every note, and does it write the sink. Cost: 51 min, not 5; a batch of 16 costs 16 single passes on Metal, so the population run must budget 20 x 51 min or drop the per-block null to 10 draws. Record: `docs/assets/59-encoder-anatomy-d3/README.md`.
 
+> **Later (2026-11-01, section 59.3):** the population ran with the full null, 20 notes one per tag, 885 min. Block 3 head 6 is the top head on 17 of 20 and the only head to pass the registered bar (3 of 10 neighbours moved on 16 of 20; runner-up block 1 head 3 on 14). Median displacement 0.655; median cosine to the cone 0.50 to 0.34. Both inherited questions answered: same head, and it writes the sink: with it zeroed the median head's share on token 0 over blocks 4 to 28 falls from 0.64 to 0.007, and the sink survives only on the notes where the head moves the note least (rho -0.66). The cone and the sink are one mechanism. The late blocks are inert on every note (blocks 21 to 28 median displacement 0.001) and the per-note rank correlation of displacement against sink share is -0.62 to -0.70. Open after this: whether the head writes at position 0 alone or everywhere, and whether the base Qwen3-0.6B already carries it.
+
 ## Order, cost, and gos
 
 | Step | Model calls | Wall time | Go needed |
@@ -238,11 +241,40 @@ the record section.
 | D1 centred exam | 156 query embeddings | under 5 min | ran 2026-10-31, section 58: not earned |
 | D2 rung A, 811 notes | one pass with hidden states | about 15 min (ran 21) | ran 2026-11-01, section 60 |
 | D3 specimen | 1 + 448 passes, one note | about 5 min (ran 51: batching scales linearly on Metal) | ran 2026-10-31, section 59 |
-| D3 population, 20 notes | 20 x 449 passes | about 80 min | yes |
+| D3 population, 20 notes | 20 x 3,250 passes with the full null | about 80 min (ran 885: the specimen's lesson, times 20) | ran 2026-11-01, section 59.3 |
 | D2 rung B, the exam per layer | 11,005 docs with hidden states | about 3 h (ran 2 h) | ran 2026-11-01, section 60.2 |
 
 Everything above reads the store and never writes to it. Nothing in
 `docs/assets/` is rewritten; each run gets its own numbered section.
+
+## Ledger (2026-11-01)
+
+Eight predictions were registered; four held as written, and the one
+population bar was met.
+
+| dissection | prediction | holds | what was measured |
+|---|---|---|---|
+| D1 | the cone is spread, not rogue | yes | top 3 coordinates carry 4.3% of the mean's squared length, top 100 carry 49.9%, nearly the isotropic profile (section 58) |
+| D1 | centring moves hit@5 and hit@10 inside the tolerance | yes | hit@5 unchanged, hit@10 down 0.013; but hit@1 falls 0.026, so centring is not earned and production stays raw cosine (section 58) |
+| D2 | the cone rises with depth to a maximum at the top | no | maximum 1.00 at the token table, eroded to 0.51 by the top; block 28 removes as much as the previous 27 (section 60.1) |
+| D2 | tag accuracy saturates by depth 20 | no | 90% of final first at depth 26 (section 60.1) |
+| D2 | no earlier depth ships; last-four mean within tolerance | yes | hit@1 needs the last block; hit@5 and hit@10 do not (section 60.2) |
+| D3 | late blocks' median head on the sink above 0.5 | no, by one block | 8 of 9 blocks; block 27 at 0.36 (section 59.1) |
+| D3 | fewer than 45 heads move the note; the five largest movers in the last eight blocks | no | 4 heads do, but the movers sit in blocks 3, 1, 18, 14, 14 (section 59.1) |
+| D3 | displacement and sink share rank-correlated below -0.3 | yes | -0.67 on the specimen, -0.62 to -0.70 on every population note (sections 59.1, 59.3) |
+| D3 bar | a head moves 3 of 10 neighbours on 15 of 20 notes | met | block 3 head 6, on 16 of 20, the only one; it also builds the sink (section 59.3) |
+
+The frog, as found. The note is written in the last third of the encoder
+and sharpened for search in the last seven blocks, but what every note has
+in common, the cone, is written in block 3 by one head that also builds the
+sink every later head parks on. The late blocks' heads are inert one at a
+time. Centring the cone after the fact buys nothing on the gate; what
+stopping it at the source would do is not measured.
+
+Open after the program: whether block 3 head 6 writes a constant vector
+(a register) or one that depends on the words; whether it writes at
+position 0 alone; whether the base Qwen3-0.6B already carries it; and the
+gate with that head zeroed, about 11,000 passes.
 
 ## Literature (checked 2026-10-31)
 

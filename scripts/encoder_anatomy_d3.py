@@ -752,8 +752,16 @@ def population_figures() -> None:
             f"cosine to the cone from a median {np.median(before):.2f} to {np.median(after):.2f}."
         ),
     )
+    # left margin widened for panel D's tag labels, the longest is 17 characters
     gs = fig.add_gridspec(
-        2, 3, left=pa.MARGIN, right=1 - pa.MARGIN, top=top, bottom=0.06, hspace=0.38, wspace=0.28
+        2,
+        3,
+        left=pa.MARGIN + 0.035,
+        right=1 - pa.MARGIN,
+        top=top,
+        bottom=0.06,
+        hspace=0.38,
+        wspace=0.28,
     )
 
     def grid(ax, M, title, vmax=None, label="", width=48):
@@ -867,6 +875,7 @@ def population_figures() -> None:
         label=f"block {cone_l + 1} head {cone_h} zeroed",
     )
     ax2.set_ylim(-1, N)
+    ax.set_xlim(0.05, 1.0)  # the corpus ends at 0.72; the strip to the right holds the legend
     ax.set_xlabel("cosine to the cone's direction")
     ax.set_ylabel("vectors")
     h1, l1 = ax.get_legend_handles_labels()
@@ -874,7 +883,7 @@ def population_figures() -> None:
     ax.legend(
         h1 + h2,
         l1 + l2,
-        loc="upper left",
+        loc="upper right",
         fontsize=pa.TICK_SIZE,
         facecolor=pa.PANEL,
         edgecolor=pa.FRAME,

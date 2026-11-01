@@ -1,0 +1,584 @@
+{
+ "notes": [
+  {
+   "key": "mem::note_sources_instagram_caits-2026-08-20-DcM75KDjSho#note_sources_instagram_caits-2026-08-20-DcM75KDjSho",
+   "name": "caits.md-2026-08-20-DcM75KDjSho",
+   "tag": "learning",
+   "tokens": 784,
+   "calibration_cos": 0.9999966931199981,
+   "top_head": [
+    1,
+    5
+   ],
+   "top_disp": 0.661189987055689,
+   "cone_head_disp": 0.6165224390781285,
+   "cone_head_changed": 9,
+   "cone_cos_before": 0.45190371507312677,
+   "cone_cos_after": 0.3229337400167827,
+   "neighbours_before": [
+    "mem::note_sources_instagram_diarybyfarii-2026-08-16-DcGVYrukZ6g",
+    "mem::note_sources_instagram_kapirathraina-2026-08-09-DbzxqOiCAN7",
+    "mem::note_me_journal_2026-08-17-mindset-session",
+    "mem::note_sources_instagram_thehellyblog-2026-08-22-DcVyUs0GVav",
+    "mem::note_sources_instagram_yusufhimself-2026-06-18-DZvfAXKpxoT",
+    "mem::note_second-brain_notes_ai__templates_AI_Person_Template",
+    "mem::note_second-brain_me_journal",
+    "mem::memory_2026-08-02_created-personal-skill-distill-claude-skills_8820d1",
+    "mem::note_sources_instagram_max_panko5-2026-07-13-DavMOJuxcCG",
+    "mem::note_sources_instagram_thinkgpt_ai-2026-08-11-Db5zGU3GGuT"
+   ],
+   "seconds": 5563
+  },
+  {
+   "key": "vid::uKhsbQcFVwQ",
+   "name": "We're Not Ready for Biocomputing",
+   "tag": "video-essay",
+   "tokens": 369,
+   "calibration_cos": 0.9999959284830473,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.2394723587621116,
+   "cone_head_disp": 0.2394723587621116,
+   "cone_head_changed": 1,
+   "cone_cos_before": 0.5233145248242814,
+   "cone_cos_after": 0.40577139577463744,
+   "neighbours_before": [
+    "vid::wBtr8iv7onA",
+    "mem::note_me_profile",
+    "mem::note_notes_ai_papers_The_Bitter_Lesson",
+    "mem::note_sources_web_the-bitter-lesson",
+    "vid::oZBGAuANX6I",
+    "mem::note_notes_ai_concepts_The_Bitter_Lesson",
+    "mem::note_projects_frozen-mind_index",
+    "mem::note_notes_ai_AI_People",
+    "vid::6pR_4hP8Ads",
+    "mem::note_sources_web_multimodal-neurons-in-artificial-neural-networks"
+   ],
+   "seconds": 2260
+  },
+  {
+   "key": "vid::O8qFkp0YI2A",
+   "name": "Designing a Body Horror Magic System",
+   "tag": "creator",
+   "tokens": 344,
+   "calibration_cos": 0.9999959222245294,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.8050778143819926,
+   "cone_head_disp": 0.8050778143819926,
+   "cone_head_changed": 10,
+   "cone_cos_before": 0.49282486576641543,
+   "cone_cos_after": 0.3103377658643928,
+   "neighbours_before": [
+    "vid::ODc9oE9ND-0",
+    "vid::zVWYW0K3ikg",
+    "mem::memory_2026-05-30_oracle-sideproject-tarot-webapp-users-melocoton_880ae9",
+    "mem::note_sources_instagram_rndyrbrts-2026-05-18-DYeHzvgCURl",
+    "mem::note_study_rndyrbrts-design-study",
+    "mem::note_study_rndyrbrts-philosophy",
+    "vid::EAvIkQjV3DU",
+    "mem::note_study_rndyrbrts-visual-language",
+    "mem::note_inbox_review-2026-07-12",
+    "vid::r3bkGPobpTw"
+   ],
+   "seconds": 2041
+  },
+  {
+   "key": "vid::kPN564Kol14",
+   "name": "L8 Principal Building a Full Stack App From Scratch",
+   "tag": "productivity",
+   "tokens": 358,
+   "calibration_cos": 0.9999953686703154,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.6538913664502171,
+   "cone_head_disp": 0.6538913664502171,
+   "cone_head_changed": 9,
+   "cone_cos_before": 0.6097748601326134,
+   "cone_cos_after": 0.3410810617796063,
+   "neighbours_before": [
+    "vid::iQyg-KypKAA",
+    "vid::88B6DimMD2g",
+    "vid::7OiJtpeiUNw",
+    "vid::mHG7K7QmQyU",
+    "mem::note_inbox_memories_users-melocoton-developer-usf_tech",
+    "vid::8GRmLR__OGQ",
+    "vid::5Qu2SkSQeBU",
+    "vid::xUnRQ9vLXxo",
+    "vid::ffuxDr_QCAI",
+    "vid::251hsWgoTPM"
+   ],
+   "seconds": 2144
+  },
+  {
+   "key": "mem::note_sources_instagram_creativelyange-2026-07-26-DbPGE1JMuGO#note_sources_instagram_creativelyange-2026-07-26-DbPGE1JMuGO",
+   "name": "creativelyange-2026-07-26-DbPGE1JMuGO",
+   "tag": "ai-agents",
+   "tokens": 681,
+   "calibration_cos": 0.9999970556395504,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.594448256439346,
+   "cone_head_disp": 0.594448256439346,
+   "cone_head_changed": 5,
+   "cone_cos_before": 0.5344042774492977,
+   "cone_cos_after": 0.42430614739858813,
+   "neighbours_before": [
+    "mem::memory_2026-07-25_todo-deferred-by-user-on-2026-07-25-review-the_264134",
+    "mem::memory_2026-07-03_created-a-global-user-scope-claude-code-skill-at_7aa29f",
+    "mem::note_sources_instagram_mathrilled-2026-04-30-DXwpirWqDwV",
+    "vid::7FU98O0JLHs",
+    "mem::memory_2026-08-02_created-personal-skill-distill-claude-skills_8820d1",
+    "mem::note_inbox_memories_claude-mem_summaries_summary-2026-04-01-epicmap-2324",
+    "vid::DNqsMXH6Eog",
+    "mem::note_inbox_memories_users-melocoton-developer-tts_state",
+    "vid::RWH4AIVRgvU",
+    "mem::memory_2026-04-20_instagram-post-by-felixleezd-verified-april-7"
+   ],
+   "seconds": 4700
+  },
+  {
+   "key": "mem::note_sources_instagram_izabellialexandra-2026-08-12-Db8MXC1jpOq#note_sources_instagram_izabellialexandra-2026-08-12-Db8MXC1jpOq",
+   "name": "izabellialexandra-2026-08-12-Db8MXC1jpOq",
+   "tag": "cognitive-science",
+   "tokens": 798,
+   "calibration_cos": 0.9999966297572109,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.6559689505133415,
+   "cone_head_disp": 0.6559689505133415,
+   "cone_head_changed": 8,
+   "cone_cos_before": 0.4610215948614216,
+   "cone_cos_after": 0.4212789238179631,
+   "neighbours_before": [
+    "mem::note_sources_instagram_diarybyfarii-2026-08-16-DcGVYrukZ6g",
+    "vid::BArGVVolhl0",
+    "mem::memory_2026-08-23_frozen-mind-talk-restructured-2026-08-23-approve_db4eb0",
+    "mem::note_projects_youtube-channel_index",
+    "mem::note_sources_tiktok_fortnitegoat438-2026-07-12-7661719586319961375-kind-of-dug-more-into-medieval-fantasy-but-whatevs-history-medieval",
+    "mem::note_sources_instagram_readbymaya-2026-08-13-Db_H_iziBbC",
+    "mem::note_me_profile",
+    "mem::note_sources_instagram_kayleestudytips-2026-07-24-DbLolZGjBtc",
+    "mem::note_second-brain_wiki_index",
+    "mem::note_notes_ai_AI_Hub"
+   ],
+   "seconds": 5752
+  },
+  {
+   "key": "vid::zVWYW0K3ikg",
+   "name": "I Built a Witch Hat Atelier Spell Simulator",
+   "tag": "open-source",
+   "tokens": 376,
+   "calibration_cos": 0.9999967060604178,
+   "top_head": [
+    0,
+    3
+   ],
+   "top_disp": 0.5817563076753294,
+   "cone_head_disp": 0.09587505954938225,
+   "cone_head_changed": 3,
+   "cone_cos_before": 0.5833824304114319,
+   "cone_cos_after": 0.561953302221624,
+   "neighbours_before": [
+    "vid::ODc9oE9ND-0",
+    "mem::memory_2026-05-30_oracle-sideproject-tarot-webapp-users-melocoton_880ae9",
+    "mem::note_study_rndyrbrts-stack-forensics",
+    "vid::_htzQZSIqyE",
+    "mem::note_sources_instagram_shreyeahfied-2026-01-28-DUDpa4aCZ8I",
+    "mem::memory_2026-06-02_oracle-tarot-webapp-plan-4-generative-layer-sh_722cfb",
+    "mem::note_inbox_memories_users-melocoton-developer-tts_state",
+    "mem::note_study_rndyrbrts-visual-language",
+    "vid::7FU98O0JLHs",
+    "mem::memo_2026-07-06-0019-idea-make-rae-an-emulator-game-like-the-f4ba94"
+   ],
+   "seconds": 2249
+  },
+  {
+   "key": "vid::A2B7oI0FYqo",
+   "name": "Intel just matched Apple Silicon. Seriously.",
+   "tag": "gizmo",
+   "tokens": 348,
+   "calibration_cos": 0.9999935246333452,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.7831191330345187,
+   "cone_head_disp": 0.7831191330345187,
+   "cone_head_changed": 9,
+   "cone_cos_before": 0.38199033836781376,
+   "cone_cos_after": 0.25966082483030406,
+   "neighbours_before": [
+    "mem::memo_2026-07-09-0023-we-should-benchmark-my-computer-to-see-i-12bc24",
+    "vid::n8dz2FX0_uY",
+    "vid::oIk3R-sMX5o",
+    "mem::note_inbox_memories_claude-mem_summaries_summary-2026-04-18-config-3305",
+    "vid::RCsBJz4W4bA",
+    "vid::3OqZHYNKc9A",
+    "vid::nq_pxUnrIpU",
+    "vid::mDG_Hx3BSUE",
+    "mem::note_inbox_memories_claude-mem_summaries_summary-2026-04-18-config-3304",
+    "mem::memory_2026-07-05_pablo-suspects-something-may-be-wrong-with-his-m3_a3f5cd"
+   ],
+   "seconds": 2130
+  },
+  {
+   "key": "vid::qFjUgCZbzFQ",
+   "name": "Here's Where Agentic UI Is Actually Going | Wes Bos",
+   "tag": "frontend",
+   "tokens": 433,
+   "calibration_cos": 0.9999971473003132,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.4037674367386168,
+   "cone_head_disp": 0.4037674367386168,
+   "cone_head_changed": 7,
+   "cone_cos_before": 0.5544525893969412,
+   "cone_cos_after": 0.3852007038005636,
+   "neighbours_before": [
+    "vid::tSg3FAdWvzI",
+    "vid::7FU98O0JLHs",
+    "vid::P06RgnUKX_I",
+    "mem::note_inbox_memories_claude-mem_summaries_summary-2026-02-12-epicmap-327",
+    "vid::9O0lQBEPL2U",
+    "vid::xUnRQ9vLXxo",
+    "mem::note_sources_instagram_githubsignals-2026-08-23-DcX_QwDjvH-",
+    "vid::S9EGx6ik-18",
+    "vid::RWH4AIVRgvU",
+    "mem::memory_2026-07-19_component-scout-workflow-verdict-jul-2026-swept_9d7636"
+   ],
+   "seconds": 2684
+  },
+  {
+   "key": "vid::qJvvW9VOMgw",
+   "name": "CAD to Reality: I built this robotic arm part | ROAR forearm",
+   "tag": "3d-printing",
+   "tokens": 416,
+   "calibration_cos": 0.9999953622275073,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.3755350257563459,
+   "cone_head_disp": 0.3755350257563459,
+   "cone_head_changed": 6,
+   "cone_cos_before": 0.3249590648388622,
+   "cone_cos_after": 0.11842841841751371,
+   "neighbours_before": [
+    "mem::note_sources_instagram_cholya91-2026-05-19-DYhscOSiqUu",
+    "vid::JPuDUcfGZ3w",
+    "vid::PCQHSzoPoO8",
+    "vid::ukCxiCR4_Us",
+    "vid::cQOZinliPzo",
+    "mem::note_projects_youtube-channel_ideas_building-my-split-keyboard",
+    "mem::note_sources_instagram_charlesa.xo-2026-07-06-Dabn-nlMUP-",
+    "vid::vR1hF_N6i_c",
+    "mem::note_sources_instagram_nomadic.emerson-2026-08-14-DcBmA2ahgQp",
+    "vid::ZOZSIqsLv9Y"
+   ],
+   "seconds": 2596
+  },
+  {
+   "key": "vid::UTuuTTnjxMQ",
+   "name": "Sholto Douglas & Trenton Bricken \u2014 How LLMs actually think",
+   "tag": "interpretability",
+   "tokens": 430,
+   "calibration_cos": 0.9999960209149058,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.720772997342745,
+   "cone_head_disp": 0.720772997342745,
+   "cone_head_changed": 8,
+   "cone_cos_before": 0.609068311327652,
+   "cone_cos_after": 0.22953120760525758,
+   "neighbours_before": [
+    "mem::note_notes_ai_AI_People",
+    "mem::note_second-brain_notes_ai_people_Sholto_Douglas",
+    "vid::cPu3SecmgUU",
+    "mem::note_notes_ai_AI_Hub",
+    "vid::64lXQP6cs5M",
+    "mem::note_notes_ai_What_the_Dwarkesh_Episodes_Add_Up_To",
+    "vid::6pR_4hP8Ads",
+    "mem::note_notes_ai_Becoming_an_AI_Researcher",
+    "vid::MfMq4sVJSFc",
+    "mem::note_notes_ai_AI_Reading_List"
+   ],
+   "seconds": 2621
+  },
+  {
+   "key": "vid::oQOXY3uVt0E",
+   "name": "Why do fighters struggle with retirement?",
+   "tag": "mma",
+   "tokens": 490,
+   "calibration_cos": 0.9999958738301301,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.18489639226264498,
+   "cone_head_disp": 0.18489639226264498,
+   "cone_head_changed": 2,
+   "cone_cos_before": 0.3723008682638086,
+   "cone_cos_after": 0.34191694036719267,
+   "neighbours_before": [
+    "mem::note_sources_instagram_shaofit-2026-07-14-DayZY2BjpGR",
+    "vid::8b9gvF-9pG4",
+    "vid::mhLzU1kSDd8",
+    "mem::note_projects_youtube-channel_ideas_mma-journey",
+    "mem::note_second-brain_me_journal_2026-06-28",
+    "mem::note_second-brain_vision-board_1_-_MMA_and_Body",
+    "vid::ntxU7so4nCY",
+    "mem::note_second-brain_me_mobility-routine",
+    "mem::note_me_profile",
+    "mem::note_sources_instagram_theathletebrain-2026-05-25-DYwez4fT-Z9"
+   ],
+   "seconds": 3131
+  },
+  {
+   "key": "vid::1eQ8LUj2rEw",
+   "name": "Turn Yourself Into a 3D Puppet - ft. @sotomonte_",
+   "tag": "blender",
+   "tokens": 360,
+   "calibration_cos": 0.99999450036513,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.21177924710670692,
+   "cone_head_disp": 0.21177924710670692,
+   "cone_head_changed": 1,
+   "cone_cos_before": 0.39346889469766044,
+   "cone_cos_after": 0.35046839610626496,
+   "neighbours_before": [
+    "vid::v2QfOkixp4k",
+    "mem::memory_2026-10-03_cagescan-blender-modelling-avatars-now-go-to-blen_7482fe",
+    "vid::EQHdi5rX5fs",
+    "mem::memory_2026-10-03_cagescan-the-owner-box-modelled-a-ps1-style-low-p_890286",
+    "vid::SGr3Kg0OziQ",
+    "mem::note_projects_youtube-channel_ideas_learning-3d-modeling",
+    "mem::note_sources_instagram_cabeza_patata-2026-07-14-Daxp5aJM1VA",
+    "mem::note_sources_instagram_gilad_amir_-2026-04-26-DXlOn-rCNLX",
+    "mem::note_sources_instagram_half-life-2-s-grid-mapped-face-references",
+    "mem::note_sources_instagram_alanluuu_-2026-03-27-DWZ1M4VtRdI"
+   ],
+   "seconds": 2229
+  },
+  {
+   "key": "vid::b00sgRR_Vc0",
+   "name": "The Ridiculous Engineering Of Notion (ft. Notion Team)",
+   "tag": "css",
+   "tokens": 366,
+   "calibration_cos": 0.9999955383619644,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.7456170189935258,
+   "cone_head_disp": 0.7456170189935258,
+   "cone_head_changed": 10,
+   "cone_cos_before": 0.5080186289206932,
+   "cone_cos_after": 0.33954672044718937,
+   "neighbours_before": [
+    "mem::note_projects_youtube-channel_ideas_over-tracking-notion",
+    "vid::xUnRQ9vLXxo",
+    "vid::n0VhIVtviC0",
+    "mem::memory_2026-04-20_ytk-ui-phase-6-needs-ux-rethink-before-any-imple",
+    "mem::note_sources_tiktok_thisguyvibecodes-2026-04-13-7628384442117049613-how-i-vibe-coded-a-warm-hand-drawn-design-superear-pt-2-bu",
+    "mem::note_second-brain_projects_ytk_session-081-brief",
+    "vid::P06RgnUKX_I",
+    "mem::memory_2026-07-27_2026-07-27-named-the-ai-research-ambition-and-bui_c3abf3",
+    "mem::note_inbox_review",
+    "mem::memory_2026-07-25_read-only-ytk-backlog-ui-triage-on-2026-07-25-conc_822ac8"
+   ],
+   "seconds": 2279
+  },
+  {
+   "key": "vid::wciU07gPqUE",
+   "name": "Visualize Different Matrices part2 | SEE Matrix, Chapter 1",
+   "tag": "linear-algebra",
+   "tokens": 275,
+   "calibration_cos": 0.9999942196372197,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.7345697377722464,
+   "cone_head_disp": 0.7345697377722464,
+   "cone_head_changed": 10,
+   "cone_cos_before": 0.49217724338424296,
+   "cone_cos_after": 0.33433709536852607,
+   "neighbours_before": [
+    "vid::7Gtxd-ew4lk",
+    "vid::mhy-ZKSARxI",
+    "vid::vSczTbgc8Rc",
+    "mem::note_me_why-i-save",
+    "mem::note_sources_journal_jul-23-2026-17866123292",
+    "mem::note_notes_ai_people_Grant_Sanderson",
+    "mem::note_second-brain_notes_SoME3_\u2014_25_Math_Explainers",
+    "mem::note_sources_instagram_stsmhood-2026-06-16-DZqF-X5OsMz",
+    "mem::memory_2026-07-05_learning-interest-pablo-2026-07-05-wants-to-go_c213ba",
+    "mem::memory_2026-07-05_session-017-ytk-2026-07-05-shipped-19-docs-l_97b176"
+   ],
+   "seconds": 1606
+  },
+  {
+   "key": "vid::E20aML7vees",
+   "name": "Become the Most WELL-ROUNDED Dev",
+   "tag": "career",
+   "tokens": 324,
+   "calibration_cos": 0.9999947334663403,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.7214469922573647,
+   "cone_head_disp": 0.7214469922573647,
+   "cone_head_changed": 9,
+   "cone_cos_before": 0.5374629585426662,
+   "cone_cos_after": 0.3351604052053231,
+   "neighbours_before": [
+    "vid::xUnRQ9vLXxo",
+    "vid::Mh4v64Nz2t0",
+    "vid::y1QId4-F2I0",
+    "vid::jdJ5jg0XSmU",
+    "vid::3MP8D-mdheA",
+    "vid::uC44zFz7JSM",
+    "vid::xafwfGVBxos",
+    "vid::XLaRfZ4AHn8",
+    "vid::88B6DimMD2g",
+    "vid::tHh0UaL_V4w"
+   ],
+   "seconds": 1986
+  },
+  {
+   "key": "vid::y1QId4-F2I0",
+   "name": "GPT 5.6 is here.. can we stop reading code now?",
+   "tag": "code-review",
+   "tokens": 336,
+   "calibration_cos": 0.9999942463502098,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.7721230972666653,
+   "cone_head_disp": 0.7721230972666653,
+   "cone_head_changed": 8,
+   "cone_cos_before": 0.5956730844193387,
+   "cone_cos_after": 0.20252036605412116,
+   "neighbours_before": [
+    "vid::HC8T1OlgYi0",
+    "vid::k13q6ecZLrw",
+    "vid::jdJ5jg0XSmU",
+    "vid::xgkjtF89-44",
+    "vid::qCpY4K9jtOg",
+    "mem::note_me_profile",
+    "vid::2J3uX8iRNng",
+    "vid::uC44zFz7JSM",
+    "vid::88B6DimMD2g",
+    "vid::S9EGx6ik-18"
+   ],
+   "seconds": 2003
+  },
+  {
+   "key": "vid::wjZofJX0v4M",
+   "name": "Transformers, the tech behind LLMs | Deep Learning Chapter 5",
+   "tag": "transformers",
+   "tokens": 375,
+   "calibration_cos": 0.9999959292426751,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.810604802755489,
+   "cone_head_disp": 0.810604802755489,
+   "cone_head_changed": 7,
+   "cone_cos_before": 0.5459989975598878,
+   "cone_cos_after": 0.15184267637450866,
+   "neighbours_before": [
+    "vid::kCc8FmEb1nY",
+    "mem::note_notes_ai_people_Grant_Sanderson",
+    "mem::note_sources_web_interpreting-gpt-the-logit-lens",
+    "mem::note_sources_instagram_stephen_blum_code-2026-07-04-DaYvHPcFwrk",
+    "vid::zduSFxRajkE",
+    "vid::UZDiGooFs54",
+    "vid::XfpMkf4rD6E",
+    "vid::6vThlsJ_ASE",
+    "mem::note_sources_web_the-scaling-hypothesis",
+    "vid::bCz4OMemCcA"
+   ],
+   "seconds": 1784
+  },
+  {
+   "key": "vid::qrr5EnJQWlY",
+   "name": "The AWS Architecture I Wish I Learned First",
+   "tag": "devops",
+   "tokens": 439,
+   "calibration_cos": 0.9999949702717903,
+   "top_head": [
+    2,
+    6
+   ],
+   "top_disp": 0.7490316586885148,
+   "cone_head_disp": 0.7490316586885148,
+   "cone_head_changed": 9,
+   "cone_cos_before": 0.4482955018497461,
+   "cone_cos_after": 0.2756795156959682,
+   "neighbours_before": [
+    "mem::note_inbox_memories_claude-mem_summaries_summary-2026-04-04-epicmap-2642",
+    "mem::note_inbox_memories_claude-mem_summaries_summary-2026-04-04-epicmap-2646",
+    "mem::note_inbox_memories_claude-mem_summaries_summary-2026-04-04-epicmap-2650",
+    "mem::note_inbox_memories_claude-mem_summaries_summary-2026-04-04-epicmap-2648",
+    "vid::Qa-7iWxDz1A",
+    "mem::note_inbox_memories_claude-mem_summaries_summary-2026-04-05-epicmap-2653",
+    "vid::BAVrwcPDa-k",
+    "mem::note_inbox_memories_claude-mem_summaries_summary-2026-04-05-epicmap-2652",
+    "mem::note_second-brain_wiki_index",
+    "vid::xafwfGVBxos"
+   ],
+   "seconds": 1879
+  },
+  {
+   "key": "vid::FhMftauQZqU",
+   "name": "The Fastest Gravity Algorithm You've Never Heard Of: Fast Multipole Method",
+   "tag": "simulation",
+   "tokens": 370,
+   "calibration_cos": 0.9999947536831499,
+   "top_head": [
+    0,
+    3
+   ],
+   "top_disp": 0.6159582993040612,
+   "cone_head_disp": 0.1273475427777253,
+   "cone_head_changed": 2,
+   "cone_cos_before": 0.4342664580878816,
+   "cone_cos_after": 0.4101837365243976,
+   "neighbours_before": [
+    "vid::lcWiFwRi6zA",
+    "mem::memory_2026-07-23_ytk-session-035-fog-splats-threshold-scrubber-s_11bafb",
+    "mem::memory_2026-10-12_deadreckon-rung-0-follow-ups-closed-2026-10-12_40bc68",
+    "vid::zF6__5PpRvg",
+    "mem::note_second-brain_projects_ytk_session-037-brief",
+    "vid::4OGkiCgdXbQ",
+    "vid::TkwXa7Cvfr8",
+    "vid::ztkh1r1ioZo",
+    "vid::F1W6zVJ7Yow",
+    "mem::memory_2026-07-24_ytk-map-session-041-removed-the-progressive-clust_765325"
+   ],
+   "seconds": 1462
+  }
+ ]
+}
