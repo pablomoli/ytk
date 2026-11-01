@@ -178,6 +178,9 @@ B runs only if rung A shows a candidate layer, and only on a separate go.
 **Ships if it passes.** A pooling change in `ytk/store.py` as a new epoch, a
 65-minute re-embed, a deliberate re-stamp.
 
+
+> **Later (2026-11-01, section 60, rung A):** both predictions failed in the same direction. The cone is at full strength at the token table (every note ends in the same token, mean length 1.00) and is eroded with depth, 0.74 after block 27 and 0.51 after block 28, so its maximum is at depth 0, not the top. Tag accuracy reaches 90% of its final value at depth 26, not by block 20; every depth separates topics beyond z = 24. Mean pooling leads until block 20 and loses at the top. The note is written in the last third of the network and block 28 does the largest single share. Rung B ran on the owner's blanket go of 2026-11-01. Record: `docs/assets/60-encoder-anatomy-d2/README.md`.
+
 ### D3. The summarizing heads
 
 **Question.** With last-token pooling, one position carries the note. In the
@@ -233,7 +236,7 @@ the record section.
 |---|---|---|---|
 | D1 coordinates | none | minutes | ran 2026-10-31, section 58: spread |
 | D1 centred exam | 156 query embeddings | under 5 min | ran 2026-10-31, section 58: not earned |
-| D2 rung A, 811 notes | one pass with hidden states | about 15 min | yes |
+| D2 rung A, 811 notes | one pass with hidden states | about 15 min (ran 21) | ran 2026-11-01, section 60 |
 | D3 specimen | 1 + 448 passes, one note | about 5 min (ran 51: batching scales linearly on Metal) | ran 2026-10-31, section 59 |
 | D3 population, 20 notes | 20 x 449 passes | about 80 min | yes |
 | D2 rung B, the exam per layer | 11,005 docs with hidden states | about 3 h | yes, overnight |

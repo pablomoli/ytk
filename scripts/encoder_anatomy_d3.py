@@ -286,6 +286,201 @@ def specimen() -> dict:
     return out
 
 
+POP_N = 20
+POP_TOKENS = (
+    200,
+    800,
+)  # the specimen is 477; eager attention for all 28 blocks is quadratic in tokens
+CONE_HEAD = (2, 6)  # the specimen's top head, block 3 head 6 one-indexed
+POP_NPZ = SECTION / "population.npz"
+POP_JSON = SECTION / "population.json"
+
+
+def _install_hooks(am) -> dict:
+    """One pre-hook per block on o_proj; rows of a batch zero their own slice
+    of the concatenated heads when the shared state names that block."""
+    active = {"layer": None, "slices": None}
+
+    def make_hook(layer_idx: int):
+        def hook(module, args):
+            if active["slices"] is None or active["layer"] != layer_idx:
+                return None
+            x = args[0].clone()
+            for b, sl in enumerate(active["slices"]):
+                x[b, :, sl] = 0
+            return (x,)
+
+        return hook
+
+    for i, layer in enumerate(am.layers):
+        layer.self_attn.o_proj.register_forward_pre_hook(make_hook(i))
+    return active
+
+
+def _sample_population(m, rows: list[dict], rng) -> list[dict]:
+    """Twenty notes, one per tag, tags spread evenly over the scorable list
+    (count >= 6, ordered by count), inside the token window."""
+    from collections import Counter
+
+    counts = Counter(t for r in rows for t in r["tags"])
+    keep = sorted([t for t, c in counts.items() if c >= 6], key=lambda t: -counts[t])
+    for r in rows:
+        r["n_tok"] = len(m.tokenizer(r["doc"])["input_ids"])
+    eligible = [r for r in rows if POP_TOKENS[0] <= r["n_tok"] <= POP_TOKENS[1]]
+    picks: list[dict] = []
+    used_docs: set[str] = set()
+    for j in np.linspace(0, len(keep) - 1, POP_N).round().astype(int):
+        tag = keep[j]
+        pool = [
+            r
+            for r in eligible
+            if tag in r["tags"]
+            and r["key"].split("#")[0] not in used_docs
+            and r["key"] != f"vid::{SPECIMEN_ID}"
+        ]
+        if not pool:
+            continue
+        r = pool[rng.integers(len(pool))]
+        r["tag"] = tag
+        picks.append(r)
+        used_docs.add(r["key"].split("#")[0])
+    return picks
+
+
+def population() -> None:
+    import encoder_anatomy_d2 as d2
+    import torch
+
+    rng = np.random.default_rng(SEED + 1)
+    m = _model()
+    am = m[0].auto_model
+    cfg = am.config
+    L, H, D = cfg.num_hidden_layers, cfg.num_attention_heads, cfg.head_dim
+    active = _install_hooks(am)
+    picks = _sample_population(m, d2._rows(), rng)
+    print(
+        f"{len(picks)} notes: "
+        + "; ".join(f"{p['tag']}: {p['name'][:40]} ({p['n_tok']} tok)" for p in picks),
+        flush=True,
+    )
+
+    z = np.load(STORE)
+    keys_all, kinds_all = z["keys"], z["kinds"]
+    vm = np.flatnonzero(kinds_all != "seg")
+    Xn = _unit(z["X"][vm].astype(np.float64))
+    uniq, inv = np.unique(keys_all[vm], return_inverse=True)
+    mu = np.load(REPO / "docs/assets/58-encoder-anatomy-d1/coords.npz")["mu"].astype(float)
+    mu /= np.linalg.norm(mu)
+
+    def neighbours(v: np.ndarray, exclude: str) -> list[str]:
+        best = np.full(len(uniq), -np.inf)
+        np.maximum.at(best, inv, Xn @ v)
+        return [str(uniq[j]) for j in np.argsort(best)[::-1] if str(uniq[j]) != exclude][
+            :NEIGHBOURS
+        ]
+
+    done = dict(np.load(POP_NPZ, allow_pickle=True)) if POP_NPZ.exists() else {}
+    done_keys = list(done.get("keys", []))
+    acc = {k: list(done[k]) for k in done if k != "keys"}
+    meta = json.loads(POP_JSON.read_text()) if POP_JSON.exists() else {"notes": []}
+    t_all = time.time()
+    for ni, r in enumerate(picks):
+        if r["key"] in done_keys:
+            continue
+        t0 = time.time()
+        feats = _features(m, r["doc"])
+        exclude = r["key"].split("#")[0]
+        with torch.no_grad():
+            out = am(**feats, output_attentions=True)
+        base = _unit(out.last_hidden_state[0, -1].float().cpu().numpy())
+        sink = torch.stack([a[0, :, -1, 0] for a in out.attentions]).float().cpu().numpy()
+        del out
+        calib = float(base @ _unit(r["emb"].astype(np.float64)))
+        nb0 = neighbours(base, exclude)
+
+        def run(layer: int, slices: list) -> np.ndarray:
+            vecs = []
+            for i in range(0, len(slices), BATCH):
+                active["layer"], active["slices"] = layer, slices[i : i + BATCH]
+                vecs.append(_last_vectors(am, feats, len(active["slices"])))
+            active["slices"] = None
+            return np.vstack(vecs)
+
+        abl = np.zeros((L, H, 1024))
+        for layer in range(L):
+            abl[layer] = run(layer, [slice(h * D, (h + 1) * D) for h in range(H)])
+        disp = 1 - abl @ base
+        changed = np.array(
+            [
+                [NEIGHBOURS - len(set(neighbours(abl[l, h], exclude)) & set(nb0)) for h in range(H)]
+                for l in range(L)
+            ]
+        )
+        null = np.zeros((L, NULL_DRAWS))
+        for layer in range(L):
+            null[layer] = (
+                1
+                - run(
+                    layer,
+                    [np.sort(rng.choice(H * D, size=D, replace=False)) for _ in range(NULL_DRAWS)],
+                )
+                @ base
+            )
+        # the specimen's cone head, zeroed, with attention kept: does the sink survive it
+        active["layer"], active["slices"] = (
+            CONE_HEAD[0],
+            [slice(CONE_HEAD[1] * D, (CONE_HEAD[1] + 1) * D)],
+        )
+        with torch.no_grad():
+            out = am(**feats, output_attentions=True)
+        active["slices"] = None
+        sink_after = torch.stack([a[0, :, -1, 0] for a in out.attentions]).float().cpu().numpy()
+        del out
+
+        rec = {
+            "sink": sink,
+            "disp": disp,
+            "changed": changed,
+            "null99": np.percentile(null, 99, axis=1),
+            "sink_after_cone_head": sink_after,
+            "cone_cos_before": np.array(base @ mu),
+            "cone_cos_after_cone_head": np.array(abl[CONE_HEAD] @ mu),
+            "base": base,
+            "abl_cone_head": abl[CONE_HEAD],
+        }
+        for k, v in rec.items():
+            acc.setdefault(k, []).append(np.asarray(v, np.float32))
+        done_keys.append(r["key"])
+        np.savez_compressed(
+            POP_NPZ, keys=np.array(done_keys), **{k: np.stack(v) for k, v in acc.items()}
+        )
+        top = np.unravel_index(int(np.argmax(disp)), disp.shape)
+        meta["notes"].append(
+            {
+                "key": r["key"],
+                "name": r["name"],
+                "tag": r["tag"],
+                "tokens": int(r["n_tok"]),
+                "calibration_cos": calib,
+                "top_head": [int(top[0]), int(top[1])],
+                "top_disp": float(disp[top]),
+                "cone_head_disp": float(disp[CONE_HEAD]),
+                "cone_head_changed": int(changed[CONE_HEAD]),
+                "cone_cos_before": float(base @ mu),
+                "cone_cos_after": float(abl[CONE_HEAD] @ mu),
+                "neighbours_before": nb0,
+                "seconds": round(time.time() - t0),
+            }
+        )
+        POP_JSON.write_text(json.dumps(meta, indent=1))
+        print(
+            f"[{len(done_keys)}/{len(picks)}] {r['name'][:40]}: {r['n_tok']} tok, calib {calib:.4f}, top head block {top[0] + 1} head {top[1]} "
+            f"disp {disp[top]:.3f}; cone head disp {disp[CONE_HEAD]:.3f} changed {changed[CONE_HEAD]}, cone cos {base @ mu:.2f} -> {abl[CONE_HEAD] @ mu:.2f}; "
+            f"{(time.time() - t0) / 60:.0f} min, {(time.time() - t_all) / 60:.0f} min so far",
+            flush=True,
+        )
+
+
 def figures() -> None:
     import plot_assets as pa
     from matplotlib.patches import Rectangle
@@ -518,6 +713,233 @@ def figures() -> None:
     pa.save(fig, "01-the-heads.png")
 
 
+def population_figures() -> None:
+    import plot_assets as pa
+    from matplotlib.patches import Rectangle
+
+    pa.OUTDIR = SECTION
+    z = np.load(POP_NPZ)
+    meta = json.loads(POP_JSON.read_text())["notes"]
+    sink, disp, changed, null99 = z["sink"], z["disp"], z["changed"], z["null99"]
+    sink_after = z["sink_after_cone_head"]
+    before, after = z["cone_cos_before"], z["cone_cos_after_cone_head"]
+    N, L, H = sink.shape
+    cmap = pa.saturated_magma()
+    bar_notes = int(np.ceil(0.75 * N))  # the registered 15 of 20
+    hits = (changed >= 3).sum(0)  # notes on which each head moves 3 of the 10 neighbours
+    real = hits >= bar_notes
+    cone_l, cone_h = CONE_HEAD
+    mu = np.load(REPO / "docs/assets/58-encoder-anatomy-d1/coords.npz")["mu"].astype(float)
+    mu /= np.linalg.norm(mu)
+    zs = np.load(STORE)
+    cos_all = _unit(zs["X"].astype(np.float64)) @ mu
+    tops = [tuple(m["top_head"]) for m in meta]
+    top_is_cone = sum(t == CONE_HEAD for t in tops)
+
+    fig, top = pa.figure(
+        18,
+        12.5,
+        2,
+        "section 59, D3: the summarizing heads, population",
+        f"The same cuts on {N} notes drawn one per tag: is the sink the same, is the cone head the same head, and does any head pass the population bar",
+        meta=(
+            f"{N} notes, one from each of {N} tags spread over the {84} scorable ones, {POP_TOKENS[0]} to {POP_TOKENS[1]} tokens, "
+            f"median {int(np.median([m['tokens'] for m in meta]))}; calibration cosine min {min(m['calibration_cos'] for m in meta):.4f}. "
+            f"Per note: the attention pass, {L * H} single-head ablations, a matched null of {NULL_DRAWS} draws per block. "
+            f"Population bar: a head counts when it moves at least 3 of the 10 neighbours on at least {bar_notes} of {N} notes; "
+            f"heads passing: {int(real.sum())}. The specimen's cone head (block {cone_l + 1}, head {cone_h}) is the top head on "
+            f"{top_is_cone} of {N} notes; zeroing it moves the note by a median of {np.median(disp[:, cone_l, cone_h]):.3f} and drops its "
+            f"cosine to the cone from a median {np.median(before):.2f} to {np.median(after):.2f}."
+        ),
+    )
+    gs = fig.add_gridspec(
+        2, 3, left=pa.MARGIN, right=1 - pa.MARGIN, top=top, bottom=0.06, hspace=0.38, wspace=0.28
+    )
+
+    def grid(ax, M, title, vmax=None, label="", width=48):
+        pa.style_axes(ax)
+        im = ax.imshow(M, cmap=cmap, aspect="auto", vmin=0, vmax=vmax, interpolation="nearest")
+        ax.set_xlabel("head")
+        ax.set_ylabel("block")
+        ax.set_yticks(range(0, L, 3))
+        ax.set_yticklabels([str(i + 1) for i in range(0, L, 3)])
+        ax.set_xticks(range(0, H, 3))
+        cb = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.02)
+        cb.ax.tick_params(colors=pa.MUTED, labelsize=pa.TICK_SIZE)
+        cb.outline.set_edgecolor(pa.FRAME)
+        cb.set_label(label, color=pa.MUTED, fontsize=pa.TICK_SIZE)
+        cb.ax._is_colorbar = True
+        pa.panel_title(ax, title, width)
+
+    ax = fig.add_subplot(gs[0, 0])
+    grid(
+        ax,
+        sink.mean(0),
+        f"A. Sink share, mean over the {N} notes; the specimen's grid is figure 01's panel A",
+        1.0,
+        "sink share",
+    )
+    ax = fig.add_subplot(gs[0, 1])
+    grid(
+        ax,
+        np.median(disp, 0),
+        "B. Displacement when the head is zeroed, median over notes; gold box is the specimen's cone head",
+        float(np.percentile(np.median(disp, 0), 99.5)),
+        "1 - cosine",
+    )
+    ax.add_patch(
+        Rectangle((cone_h - 0.5, cone_l - 0.5), 1, 1, fill=False, edgecolor=pa.GOLD, lw=2.0)
+    )
+    ax = fig.add_subplot(gs[0, 2])
+    grid(
+        ax,
+        hits,
+        f"C. Notes on which the head moves 3 of 10 neighbours; cyan boxes reach the bar of {bar_notes} of {N}",
+        N,
+        "notes",
+        52,
+    )
+    for l, h in zip(*np.nonzero(real)):
+        ax.add_patch(Rectangle((h - 0.5, l - 0.5), 1, 1, fill=False, edgecolor=pa.CYAN, lw=1.4))
+
+    # D: the cone head on every note, against each note's own null at that block
+    ax = fig.add_subplot(gs[1, 0])
+    pa.style_axes(ax)
+    order = np.argsort(disp[:, cone_l, cone_h])[::-1]
+    y = np.arange(N)
+    ax.barh(
+        y,
+        disp[order, cone_l, cone_h],
+        color=pa.GOLD,
+        height=0.7,
+        label=f"block {cone_l + 1} head {cone_h} zeroed",
+    )
+    ax.scatter(
+        null99[order, cone_l],
+        y,
+        color=pa.DIM,
+        s=30,
+        marker="|",
+        lw=2,
+        label="that note's null, 99th percentile",
+    )
+    ax.scatter(
+        [m["top_disp"] for m in np.array(meta, dtype=object)[order]],
+        y,
+        color=pa.CYAN,
+        s=18,
+        marker="D",
+        label="the note's own top head",
+    )
+    ax.set_yticks(y)
+    ax.set_yticklabels([meta[i]["tag"] for i in order], fontsize=pa.TICK_SIZE - 1)
+    ax.set_xscale("log")
+    ax.set_xlabel("displacement, 1 - cosine (log)")
+    ax.invert_yaxis()
+    ax.legend(
+        loc="lower right",
+        fontsize=pa.TICK_SIZE - 0.5,
+        facecolor=pa.PANEL,
+        edgecolor=pa.FRAME,
+        labelcolor=pa.TEXT,
+    )
+    pa.panel_title(
+        ax,
+        f"D. The specimen's cone head on every note, one row per note (by tag): top head on {top_is_cone} of {N}",
+        50,
+    )
+
+    # E: cosine to the cone, before and after, every note, on the corpus histogram
+    ax = fig.add_subplot(gs[1, 1])
+    pa.style_axes(ax)
+    ax.hist(cos_all, bins=60, color=pa.DIM, label=f"every stored vector ({len(cos_all):,})")
+    ax2 = ax.twinx()
+    ax2.set_yticks([])
+    for i in range(N):
+        ax2.plot([before[i], after[i]], [i, i], color=pa.MUTED, lw=0.8)
+    ax2.scatter(before, np.arange(N), color=pa.GOLD, s=22, zorder=5, label="as shipped")
+    ax2.scatter(
+        after,
+        np.arange(N),
+        color=pa.CYAN,
+        s=22,
+        zorder=5,
+        label=f"block {cone_l + 1} head {cone_h} zeroed",
+    )
+    ax2.set_ylim(-1, N)
+    ax.set_xlabel("cosine to the cone's direction")
+    ax.set_ylabel("vectors")
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(
+        h1 + h2,
+        l1 + l2,
+        loc="upper left",
+        fontsize=pa.TICK_SIZE,
+        facecolor=pa.PANEL,
+        edgecolor=pa.FRAME,
+        labelcolor=pa.TEXT,
+    )
+    pa.panel_title(
+        ax,
+        f"E. Where each note goes when the cone head is zeroed: median cosine to the cone {np.median(before):.2f} to {np.median(after):.2f}",
+        52,
+    )
+
+    # F: the sink with and without the cone head, median head per block, across notes
+    ax = fig.add_subplot(gs[1, 2])
+    pa.style_axes(ax)
+    x = np.arange(1, L + 1)
+    med_b = np.median(np.median(sink, 2), 0)
+    med_a = np.median(np.median(sink_after, 2), 0)
+    q1b, q3b = np.percentile(np.median(sink, 2), [25, 75], axis=0)
+    ax.fill_between(x, q1b, q3b, color=pa.GOLD, alpha=0.25, lw=0)
+    ax.plot(
+        x,
+        med_b,
+        color=pa.GOLD,
+        lw=2.2,
+        label="median head, as shipped (band: middle half of notes)",
+    )
+    ax.plot(
+        x,
+        med_a,
+        color=pa.CYAN,
+        lw=2.2,
+        ls="--",
+        label=f"median head with block {cone_l + 1} head {cone_h} zeroed",
+    )
+    ax.axhline(0.5, color=pa.RED, lw=0.8, ls=":")
+    ax.set_xlim(1, L)
+    ax.set_ylim(0, 1.32)
+    ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.set_xlabel("block")
+    ax.set_ylabel("last position's share on token 0")
+    ax.legend(
+        loc="upper left",
+        fontsize=pa.TICK_SIZE,
+        facecolor=pa.PANEL,
+        edgecolor=pa.FRAME,
+        labelcolor=pa.TEXT,
+    )
+    pa.panel_title(
+        ax,
+        "F. Does the cone head write the sink: the sink across depth with and without it, over all notes",
+        52,
+    )
+    pa.verdict(
+        fig,
+        f"{int(real.sum())} HEADS PASS THE POPULATION BAR; the specimen's cone head is the top head on {top_is_cone} of {N} notes "
+        f"and the sink {'survives' if med_a[8:].mean() > 0.5 * med_b[8:].mean() else 'collapses'} without it",
+    )
+    pa.save(fig, "02-the-population.png")
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "specimen"
-    {"specimen": specimen, "figures": figures}[cmd]()
+    {
+        "specimen": specimen,
+        "population": population,
+        "figures": figures,
+        "population_figures": population_figures,
+    }[cmd]()
