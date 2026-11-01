@@ -410,8 +410,8 @@ def exam_figure() -> None:
         ax.plot(x, [d["overall"][k] for d in e["depths"]], color=cols[k], lw=2.2, label=k)
         ax.scatter([L1 - 0.5], [a4[k]], color=cols[k], s=60, marker="D", zorder=5)
     ax.text(
-        L1 - 0.4,
-        a4["hit@1"] - 0.04,
+        L1 - 0.3,
+        a4["hit@1"] - 0.12,
         "mean of\nlast four",
         color=pa.MUTED,
         fontsize=pa.TICK_SIZE,

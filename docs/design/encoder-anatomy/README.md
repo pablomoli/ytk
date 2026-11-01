@@ -179,7 +179,7 @@ B runs only if rung A shows a candidate layer, and only on a separate go.
 65-minute re-embed, a deliberate re-stamp.
 
 
-> **Later (2026-11-01, section 60, rung A):** both predictions failed in the same direction. The cone is at full strength at the token table (every note ends in the same token, mean length 1.00) and is eroded with depth, 0.74 after block 27 and 0.51 after block 28, so its maximum is at depth 0, not the top. Tag accuracy reaches 90% of its final value at depth 26, not by block 20; every depth separates topics beyond z = 24. Mean pooling leads until block 20 and loses at the top. The note is written in the last third of the network and block 28 does the largest single share. Rung B ran on the owner's blanket go of 2026-11-01. Record: `docs/assets/60-encoder-anatomy-d2/README.md`.
+> **Later (2026-11-01, section 60, rung A):** both predictions failed in the same direction. The cone is at full strength at the token table (every note ends in the same token, mean length 1.00) and is eroded with depth, 0.74 after block 27 and 0.51 after block 28, so its maximum is at depth 0, not the top. Tag accuracy reaches 90% of its final value at depth 26, not by block 20; every depth separates topics beyond z = 24. Mean pooling leads until block 20 and loses at the top. The note is written in the last third of the network and block 28 does the largest single share. Rung B ran on the owner's blanket go of 2026-11-01 (119 min for the frozen corpus): the gate is blind through depth 9, hit@1 is 10% at depth 18, 25% at 21, 71% at the top; no earlier depth ships (best hit@1 before the top is 0.635 at depth 26) and the mean of the last four depths is inside tolerance at 0.699 / 0.917 / 0.949, so prediction 3 holds; the final block is load-bearing for hit@1 and dispensable for hit@5 and hit@10. Record: `docs/assets/60-encoder-anatomy-d2/README.md`.
 
 ### D3. The summarizing heads
 
@@ -239,7 +239,7 @@ the record section.
 | D2 rung A, 811 notes | one pass with hidden states | about 15 min (ran 21) | ran 2026-11-01, section 60 |
 | D3 specimen | 1 + 448 passes, one note | about 5 min (ran 51: batching scales linearly on Metal) | ran 2026-10-31, section 59 |
 | D3 population, 20 notes | 20 x 449 passes | about 80 min | yes |
-| D2 rung B, the exam per layer | 11,005 docs with hidden states | about 3 h | yes, overnight |
+| D2 rung B, the exam per layer | 11,005 docs with hidden states | about 3 h (ran 2 h) | ran 2026-11-01, section 60.2 |
 
 Everything above reads the store and never writes to it. Nothing in
 `docs/assets/` is rewritten; each run gets its own numbered section.

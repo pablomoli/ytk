@@ -21,8 +21,8 @@ vault. The per-depth vectors (811 x 29 x 1024, 86 MB) live at
 HF_HUB_OFFLINE=1 uv run --extra lab python scripts/encoder_anatomy_d2.py harvest    # 21 min, one pass per row
 uv run --extra lab python scripts/encoder_anatomy_d2.py analyze                     # cone and tag accuracy per depth, nulls
 uv run --extra lab python scripts/encoder_anatomy_d2.py figures                     # the contact sheet and the film
-HF_HUB_OFFLINE=1 uv run --extra lab python scripts/encoder_anatomy_d2.py harvest_frozen  # rung B, 11,029 rows + 156 queries
-uv run --extra lab python scripts/encoder_anatomy_d2.py exam && ... exam_figure     # rung B
+HF_HUB_OFFLINE=1 uv run --extra lab python scripts/encoder_anatomy_d2.py harvest_frozen  # rung B, 11,029 rows + 156 queries, 119 min
+uv run --extra lab python scripts/encoder_anatomy_d2.py exam && ... exam_figure     # rung B, the gate at every depth
 ```
 
 Two notes on the run. `HF_HUB_OFFLINE=1` is needed in an interactive shell:
@@ -95,14 +95,68 @@ share of the geometric work.
 
 ## 60.2 — Rung B: the exam at every depth
 
-Running. The frozen corpus (11,029 rows, 156 queries, all at 29 depths)
-harvests in the `d2` tmux window; the exam scores each depth through
+![03](03-the-exam-by-depth.png)
+
+The frozen corpus (11,029 documents and the 156 queries, every one at all
+29 depths, 119 minutes, 3.6 million tokens) scored through
 `retrieval_gate.evaluate` with section 58's numpy twin of the production
-searchers. Prediction 3: no single earlier block beats block 28 on the exam,
-and the mean of the last four blocks lands within tolerance of it.
+searchers. Queries and documents are always taken at the same depth, so
+each depth is a complete encoder stopped early, not a mismatch. Depth 28
+reproduces the baseline stamp exactly (0.712 / 0.904 / 0.942), which is the
+check that the harvest holds the shipped vectors.
+
+**The gate is blind for half the network.** Every hit rate is zero through
+depth 9. The first hit@5 at all is one video at depth 10; hit@1 stays at or
+below 3% through depth 17. Then the climb: hit@1 goes 10% at depth 18, 25%
+at 21, 40% at 22, 56% at 25, 70% at 27, 71% at 28. Block 21 alone adds 13
+points of hit@1 and block 22 another 15. The three buckets climb in the
+same window but not together: memory notes (79 queries) trail videos and
+segments by about two blocks on hit@5 and are the last to reach the band,
+which is the bucket where the gate's live deficit also sits.
+
+**Prediction 3 holds.** No earlier depth ships: the best hit@5 before the
+top is depth 26 at 0.904, equal to the stamp, but its hit@1 is 0.635, eight
+points short. Depths 26 and 27 are inside the tolerance on hit@5 and hit@10
+only. The mean of the last four depths scores 0.699 / 0.917 / 0.949, inside
+the 0.02 band on all three; averaging the last four stops costs one point
+of hit@1 and gains one of hit@5. The registered question was whether the
+final block is load-bearing for the exam or just the last of several
+near-equivalent stops; it is load-bearing for hit@1 and dispensable for
+hit@5 and hit@10.
+
+| depth | hit@1 | hit@5 | hit@10 |
+|---|---|---|---|
+| 9 | 0.000 | 0.000 | 0.000 |
+| 17 | 0.026 | 0.064 | 0.083 |
+| 18 | 0.103 | 0.212 | 0.276 |
+| 21 | 0.250 | 0.423 | 0.500 |
+| 24 | 0.500 | 0.686 | 0.737 |
+| 26 | 0.635 | 0.904 | 0.929 |
+| 27 | 0.699 | 0.904 | 0.949 |
+| 28 | 0.712 | 0.904 | 0.942 |
+| mean 25-28 | 0.699 | 0.917 | 0.949 |
+
+Rung A measured topics arriving late; rung B measures the search arriving
+later still. Tag accuracy was 38% at depth 18 while the exam's hit@1 was
+10%, and 53% at depth 21 against 25%: knowing a note's topic is a coarser
+thing than finding it from a known-item query, and the fine part is written
+in the last seven blocks.
+
+## 60.3 — Verdict against the registration
+
+| prediction | registered | measured | holds |
+|---|---|---|---|
+| 1, cone present at every depth, maximum at or near the top | rising to the top | present everywhere; maximum 1.00 at depth 0, 0.51 at the top | no |
+| 2, tag accuracy saturates by depth 20 | 90% of final by 20 | 90% of final first at depth 26 | no |
+| 3, no earlier depth ships; last-four mean within tolerance | both | best earlier hit@1 0.635; mean 0.699 / 0.917 / 0.949 | yes |
+
+One of three holds. The two that failed both imagined the encoder as a
+gradual builder; it is a late one, and nothing before block 25 could
+replace what ships.
 
 ## Files
 
 - `01-the-growth.png` — six frames of the film, the cone across depth against the isotropic null, tag accuracy across depth against shuffled labels
 - `02-the-growth-film.gif` — all 29 frames, the specimen's thread in cyan
-- `results.json` — per-depth cone length, pair cosine, tag accuracy with the shuffled null's mean and sd and z, for both poolings; saturation and separating depths; the residual norm by depth
+- `03-the-exam-by-depth.png` — the three hit rates at every depth against the baseline's tolerance bands, the last-four mean as diamonds; hit@5 by bucket
+- `results.json` — per-depth cone length, pair cosine, tag accuracy with the shuffled null's mean and sd and z, for both poolings; saturation and separating depths; the residual norm by depth; the exam at every depth with per-bucket scores, the last-four mean and the verdict
