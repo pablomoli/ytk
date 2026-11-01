@@ -24,6 +24,8 @@ uv run --extra lab python scripts/encoder_anatomy_d3.py specimen   # 51 min, see
 uv run --extra lab python scripts/encoder_anatomy_d3.py figures
 uv run --extra lab python scripts/encoder_anatomy_d3.py population  # 885 min, 20 notes, resumable; 59.3
 uv run --extra lab python scripts/encoder_anatomy_d3.py population_figures
+HF_HUB_OFFLINE=1 uv run --extra lab python scripts/encoder_anatomy_d3.py trace  # 23 s, 2 + 20 passes; 59.4
+uv run --extra lab python scripts/encoder_anatomy_d3.py trace_figure
 ```
 
 **Cost note.** The registration estimated 5 minutes for 448 single-head
@@ -176,6 +178,95 @@ tuning, are the next questions and are not in this record.
 | the same top head across notes | open question | 17 of 20 | |
 | the cone head writes the sink | open question | blocks 4 to 28 median share 0.64 to 0.007 | |
 
+## 59.4 — The cone head traced through the whole pass
+
+![03](03-the-trace.png)
+
+The owner's question after 59.3 was whether the head could be watched
+rather than only removed. It can, cheaply: two passes on the specimen with
+every head's output in block 3 and the raw residual at every depth kept,
+with and without the head, then one pass on each of the 20 population
+notes. 23 seconds. The head fires once, in block 3, and writes a vector
+into the residual at every position; everything after is the other 25
+blocks reading what it wrote, so the trace follows that one write
+downstream the way dye is followed down a river.
+
+**At position 0 it writes one fixed vector.** The head's write has norm
+24.1 at position 0 and a median of 0.65 at every other position, the same
+as the block's other fifteen heads (median 0.65; at position 0 they write
+1.3 to 2.5, one of them 7.8). Across the 20 population notes plus the
+specimen the position-0 write is the same vector, median cosine 0.997
+between any two notes, although the first tokens differ ("Wel", "!",
+"Jeff", "Grant", "Web", "Build"). It is a register in the sense of the
+Welch Labs short on vision transformers: a slot that holds the same thing
+for every input, parked on the first token because the model has no spare
+one. At the content positions the write is not a stamp: between notes the
+mean write agrees at cosine 0.75 and the last-position write at 0.75, and
+within the specimen the top direction holds 73% of the write's variance,
+more than the other heads' 29% but far from one vector.
+
+**Block 3's feed-forward turns it into the massive activation.** Position
+0's residual norm is 17 entering block 3 and 6,146 leaving it, against a
+median position's 13 (panel B). Without the head it is 26. The block's
+attention adds at most the sixteen heads' writes, under 50 by norm, so the
+remaining six thousand come from the block's feed-forward, which fires on
+the head's write and not without it. This is the massive activation of Sun
+et al. (COLM 2024), born in an early layer and fixed from then on: the norm
+stays between 6,120 and 6,170 through block 26, is 5,892 after block 27
+and 1,581 after block 28, and the final norm flattens it. On the
+specimen the sink follows it exactly: the median head's share on token 0
+is 0.89 at block 4 as shipped and 0.01 without the head, at every block
+(panel F).
+
+**The direct share is nil.** The head's own write at the last position is
+0.2% of the final residual's norm, at cosine 0.028 to the shipped vector
+and 0.008 to the cone's direction. Nothing the head writes reaches the
+shipped vector directly; everything it does, it does through position 0.
+Both of 59.3's open framings are settled: it is not the direct writer of
+the cone, it is the keystone.
+
+**The cone enters the note in the last seven blocks.** Panel E is the
+finding the trace adds. As shipped, the last position's cosine to the
+shared direction stays at or under 0.06 from the token table through depth
+21, then climbs 0.13, 0.13, 0.16, 0.21, 0.28, 0.40, 0.56 at depths 22 to
+28. Without the head it stays under 0.08 through depth 27 and ends at 0.15.
+The cone is not carried up from block 3; it is deposited into the last
+position late, by the heads that park on position 0 and copy what sits
+there, which is the same window in which rung B's search climbs (section
+60.2, hit@1 from 25% at depth 21 to 71% at 28) and the same heads 59.1
+found inert one at a time. Individually dispensable, together they write
+the shared direction. Rung A's finding that notes grow less alike with
+depth (mean length 0.94 at depth 16, 0.51 at 28) is the same data read
+differently: early states are alike along the end-of-text token's own
+direction, which is not the cone's; that likeness is spent as content
+arrives, and the cone's direction is added at the end.
+
+**The dye.** The two runs' last-position states part at depth 4 (cosine
+0.93), drift to 0.14 at depth 22, and end at 0.31 (panel D). Position 0
+parts at once (0.75 at depth 4) and ends at 0.05. So the note with the
+head zeroed is not the shipped note minus its cone; it is a different
+note, at cosine 0.31 to itself, because every later head lost its parking
+spot and read the words instead, which is Barbero et al.'s over-mixing
+account measured on one specimen.
+
+**What this decides.** The gate run proposed after 59.3, the frozen corpus
+with this head zeroed, would measure an encoder with no sink, which the
+dye says is a different animal rather than a de-coned one. It would answer
+whether the sink is load-bearing for retrieval (almost certainly, at
+cosine 0.31 to itself) and not whether the cone is. The sharper cut is to
+split the head's write by position: zero it at position 0 only, which
+removes the register and the sink while leaving the content writes, and
+zero it at content positions only, which does the reverse. Two passes on
+the specimen each, then the neighbours. That is the next registration,
+not this record.
+
+| question from 59.3 | measured |
+|---|---|
+| does the head write a constant vector | at position 0, yes: cosine 0.997 across 21 notes, 37x its usual norm; at content positions, no: 0.75 across notes |
+| at position 0 alone, or everywhere | everywhere, but only the position-0 write is large and fixed |
+| direct writer or keystone | keystone: direct share 0.2% of norm, cosine 0.028 to the shipped vector; the cone enters the last position at depths 22 to 28 through heads reading position 0 |
+| does the base Qwen3-0.6B already carry it | not measured |
+
 ## Files
 
 - `01-the-heads.png` — sink grid, displacement grid with the four summarising heads boxed, sink against displacement for every head, the sink across depth with the uniform null, block 3's heads inside its matched null, the specimen's cosine to the cone before and after the top head is zeroed
@@ -185,3 +276,6 @@ tuning, are the next questions and are not in this record.
 - `population.json` — per note: key, tag, tokens, calibration, top head and its displacement, the cone head's displacement and neighbours changed, cosine to the cone before and after, neighbours before, seconds
 - `population.npz` — per note: sink grid, displacement grid, neighbours-changed grid, the null's 99th percentile per block, the sink grid with the cone head zeroed, the shipped and cone-head-ablated vectors
 - `results.json` also carries a `population` block: the bar, the heads passing it, the cone head's statistics, the top-five movers' counts, the late blocks, per-note movers and correlations, and the sink before and after
+- `03-the-trace.png` — the head's write at every position against its block, position 0's residual norm by depth with and without the head, the write's agreement across notes at position 0 and at content positions, the two runs' cosine by depth, the last position's cosine to the cone by depth, the sink by block
+- `trace.npz` — per head of block 3: write norm and cosine to the head's mean write at every position, top singular fraction, cosine of the write to the cone; the cone head's writes (477 x 1024, half precision); the direct-share statistics; the two runs' cosines by depth; cosine to the cone by depth; residual norms at every depth and position for both runs; sink grids for both runs; the population notes' unit mean, last and position-0 writes, their top singular fractions and first tokens
+- `results.json` also carries a `trace` block: the cone head's write statistics, the dye by depth, the massive activation by depth, the sink by block for both runs, and the population constancy

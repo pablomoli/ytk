@@ -944,6 +944,420 @@ def population_figures() -> None:
     pa.save(fig, "02-the-population.png")
 
 
+TRACE_NPZ = SECTION / "trace.npz"
+
+
+def _capture_hooks(am, layer_idx: int) -> dict:
+    """Pre-hooks that keep block `layer_idx`'s o_proj input (every head's
+    output at every position) and the raw residual entering the final norm."""
+    got: dict = {}
+
+    def keep_heads(module, args):
+        got["heads"] = args[0][0].detach().float().cpu().numpy()
+
+    def keep_final(module, args):
+        got["final_raw"] = args[0][0].detach().float().cpu().numpy()
+
+    am.layers[layer_idx].self_attn.o_proj.register_forward_pre_hook(keep_heads)
+    am.norm.register_forward_pre_hook(keep_final)
+    return got
+
+
+def trace() -> None:
+    """Follow block 3 head 6's write through the whole forward pass on the
+    specimen: what it writes at every position, how much of the final vector
+    is its own, where the two runs (with and without it) part, and whether
+    position 0's massive activation exists without it. Then the same head's
+    write on the 20 population notes, one pass each, for constancy."""
+    import encoder_anatomy_d2 as d2
+    import torch
+
+    from ytk import store
+
+    t_all = time.time()
+    got = store._videos_collection().get(ids=[SPECIMEN_ID], include=["documents", "embeddings"])
+    doc = got["documents"][0]
+    stored = _unit(np.asarray(got["embeddings"][0], float))
+    m = _model()
+    am = m[0].auto_model
+    cfg = am.config
+    H, D = cfg.num_attention_heads, cfg.head_dim
+    cl, ch = CONE_HEAD
+    W_o = am.layers[cl].self_attn.o_proj.weight.detach().float().cpu().numpy()  # (1024, H*D)
+    w_norm = am.norm.weight.detach().float().cpu().numpy()
+    mu = np.load(REPO / "docs/assets/58-encoder-anatomy-d1/coords.npz")["mu"].astype(float)
+    mu /= np.linalg.norm(mu)
+    active = _install_hooks(am)
+    cap = _capture_hooks(am, cl)
+    feats = _features(m, doc)
+    T = int(feats["input_ids"].shape[1])
+    tokens = m.tokenizer.convert_ids_to_tokens(feats["input_ids"][0].tolist())
+
+    def through_norm(x: np.ndarray) -> np.ndarray:
+        """A residual direction as the final RMSNorm reads it: scaled by its weight."""
+        return _unit(x * w_norm)
+
+    def run(zero: bool):
+        if zero:
+            active["layer"], active["slices"] = cl, [slice(ch * D, (ch + 1) * D)]
+        with torch.no_grad():
+            out = am(**feats, output_attentions=True, output_hidden_states=True)
+        active["slices"] = None
+        # hidden_states[:-1] are the raw residual at depths 0..27; the last entry is
+        # already through the final norm, so depth 28 raw comes from the norm's input
+        raw = np.concatenate(
+            [
+                torch.stack(list(out.hidden_states[:-1])).float().cpu().numpy()[:, 0],
+                cap["final_raw"][None],
+            ]
+        )
+        sink = torch.stack([a[0, :, -1, 0] for a in out.attentions]).float().cpu().numpy()
+        last = _unit(out.last_hidden_state[0, -1].float().cpu().numpy())
+        heads = cap["heads"].copy()
+        del out
+        return raw, sink, last, heads
+
+    rawA, sinkA, lastA, heads = run(False)
+    rawB, sinkB, lastB, _ = run(True)
+    calib = float(lastA @ stored)
+    print(
+        f"specimen: {T} tokens, calibration {calib:.5f}, two passes {time.time() - t_all:.0f} s",
+        flush=True,
+    )
+
+    # every head of block cl, its write at every position, through o_proj
+    writes = np.einsum("thd,ohd->hto", heads.reshape(T, H, D), W_o.reshape(1024, H, D))
+    wnorm = np.linalg.norm(writes, axis=2)  # (H, T)
+    mean_write = writes.mean(1)  # (H, 1024)
+    cos_to_mean = np.einsum("hto,ho->ht", _unit(writes), _unit(mean_write))
+    top_frac = np.zeros(H)
+    for h in range(H):
+        s = np.linalg.svd(writes[h], compute_uv=False)
+        top_frac[h] = s[0] ** 2 / (s**2).sum()
+    cos_write_mu = through_norm(writes) @ mu  # (H, T)
+    final_raw = rawA[-1, -1]
+    direct_cos_final = _unit(writes[:, -1]) @ _unit(final_raw)
+    direct_cos_shipped = through_norm(writes[:, -1]) @ lastA
+    direct_cos_mu = through_norm(writes[:, -1]) @ mu
+    direct_norm_ratio = wnorm[:, -1] / np.linalg.norm(final_raw)
+
+    # the dye: the two runs compared at every depth, last position and position 0
+    cos_last = np.einsum("ko,ko->k", _unit(rawA[:, -1]), _unit(rawB[:, -1]))
+    cos_pos0 = np.einsum("ko,ko->k", _unit(rawA[:, 0]), _unit(rawB[:, 0]))
+    mu_last_A = through_norm(rawA[:, -1]) @ mu
+    mu_last_B = through_norm(rawB[:, -1]) @ mu
+    normA, normB = np.linalg.norm(rawA, axis=2), np.linalg.norm(rawB, axis=2)  # (L+1, T)
+
+    # the same head on the population notes, one pass each
+    rng = np.random.default_rng(SEED + 1)
+    picks = _sample_population(m, d2._rows(), rng)
+    sl = slice(ch * D, (ch + 1) * D)
+    pop = {"mean": [], "last": [], "pos0": [], "top_frac": [], "first_token": [], "name": []}
+    for r in picks:
+        f = _features(m, r["doc"])
+        with torch.no_grad():
+            am(**f)
+        w = cap["heads"][:, sl] @ W_o[:, sl].T
+        s = np.linalg.svd(w, compute_uv=False)
+        pop["mean"].append(_unit(w.mean(0)))
+        pop["last"].append(_unit(w[-1]))
+        pop["pos0"].append(_unit(w[0]))
+        pop["top_frac"].append(float(s[0] ** 2 / (s**2).sum()))
+        pop["first_token"].append(m.tokenizer.convert_ids_to_tokens([int(f["input_ids"][0, 0])])[0])
+        pop["name"].append(r["name"])
+    pop_mean = np.vstack(pop["mean"] + [_unit(mean_write[ch])])
+    pop_last = np.vstack(pop["last"] + [_unit(writes[ch, -1])])
+    pop_pos0 = np.vstack(pop["pos0"] + [_unit(writes[ch, 0])])
+
+    def off_diag_median(X: np.ndarray) -> float:
+        G = X @ X.T
+        return float(np.median(G[~np.eye(len(X), dtype=bool)]))
+
+    np.savez_compressed(
+        TRACE_NPZ,
+        tokens=np.array(tokens),
+        write_norm=wnorm.astype(np.float32),
+        cos_to_mean=cos_to_mean.astype(np.float32),
+        top_frac=top_frac.astype(np.float32),
+        cos_write_mu=cos_write_mu.astype(np.float32),
+        cone_head_writes=writes[ch].astype(np.float16),
+        direct=np.stack(
+            [direct_cos_final, direct_cos_shipped, direct_cos_mu, direct_norm_ratio]
+        ).astype(np.float32),
+        cos_last=cos_last.astype(np.float32),
+        cos_pos0=cos_pos0.astype(np.float32),
+        mu_last_A=mu_last_A.astype(np.float32),
+        mu_last_B=mu_last_B.astype(np.float32),
+        norm_A=normA.astype(np.float32),
+        norm_B=normB.astype(np.float32),
+        sink_A=sinkA.astype(np.float32),
+        sink_B=sinkB.astype(np.float32),
+        pop_mean=pop_mean.astype(np.float32),
+        pop_last=pop_last.astype(np.float32),
+        pop_pos0=pop_pos0.astype(np.float32),
+        pop_top_frac=np.array(pop["top_frac"], np.float32),
+        pop_first_token=np.array(pop["first_token"]),
+        pop_name=np.array(pop["name"]),
+    )
+    others = [h for h in range(H) if h != ch]
+    part = int(np.argmax(cos_last < 0.95)) if (cos_last < 0.95).any() else -1
+    rec = {
+        "tokens": T,
+        "first_token": tokens[0],
+        "calibration_cos": calib,
+        "cone_head": {
+            "write_norm_pos0": float(wnorm[ch, 0]),
+            "write_norm_last": float(wnorm[ch, -1]),
+            "write_norm_median": float(np.median(wnorm[ch])),
+            "other_heads_write_norm_median": float(np.median(wnorm[others])),
+            "cos_to_mean_median": float(np.median(cos_to_mean[ch])),
+            "cos_to_mean_min": float(cos_to_mean[ch].min()),
+            "other_heads_cos_to_mean_median": float(np.median(cos_to_mean[others])),
+            "top_singular_fraction": float(top_frac[ch]),
+            "other_heads_top_singular_fraction_median": float(np.median(top_frac[others])),
+            "cos_write_mu_median": float(np.median(cos_write_mu[ch])),
+            "other_heads_cos_write_mu_median": float(np.median(cos_write_mu[others])),
+            "direct_cos_final_raw": float(direct_cos_final[ch]),
+            "direct_cos_shipped": float(direct_cos_shipped[ch]),
+            "direct_cos_mu": float(direct_cos_mu[ch]),
+            "direct_norm_ratio": float(direct_norm_ratio[ch]),
+            "other_heads_direct_cos_shipped_median": float(np.median(direct_cos_shipped[others])),
+        },
+        "dye": {
+            "cos_last_by_depth": [round(float(x), 4) for x in cos_last],
+            "cos_pos0_by_depth": [round(float(x), 4) for x in cos_pos0],
+            "first_depth_last_below_0_95": part,
+            "mu_last_by_depth_as_shipped": [round(float(x), 3) for x in mu_last_A],
+            "mu_last_by_depth_head_zeroed": [round(float(x), 3) for x in mu_last_B],
+        },
+        "massive": {
+            "pos0_norm_by_depth_as_shipped": [round(float(x), 1) for x in normA[:, 0]],
+            "pos0_norm_by_depth_head_zeroed": [round(float(x), 1) for x in normB[:, 0]],
+            "median_norm_by_depth_as_shipped": [round(float(x), 1) for x in np.median(normA, 1)],
+            "argmax_norm_position_by_depth_as_shipped": [int(x) for x in normA.argmax(1)],
+            "argmax_norm_position_by_depth_head_zeroed": [int(x) for x in normB.argmax(1)],
+        },
+        "sink": {
+            "median_head_by_block_as_shipped": [round(float(x), 3) for x in np.median(sinkA, 1)],
+            "median_head_by_block_head_zeroed": [round(float(x), 3) for x in np.median(sinkB, 1)],
+        },
+        "population": {
+            "notes": len(picks),
+            "mean_write_cos_between_notes_median": off_diag_median(pop_mean),
+            "last_write_cos_between_notes_median": off_diag_median(pop_last),
+            "pos0_write_cos_between_notes_median": off_diag_median(pop_pos0),
+            "top_singular_fraction_median": float(np.median(pop["top_frac"])),
+            "first_tokens": pop["first_token"],
+        },
+        "seconds": round(time.time() - t_all),
+    }
+    d = json.loads(RESULTS.read_text())
+    d["trace"] = rec
+    RESULTS.write_text(json.dumps(d, indent=1))
+    print(
+        json.dumps({k: v for k, v in rec.items() if k not in ("dye", "massive", "sink")}, indent=1)
+    )
+    print("cos(A,B) last by depth", np.round(cos_last, 3))
+    print("cos to mu, last, A", np.round(mu_last_A, 2))
+    print("cos to mu, last, B", np.round(mu_last_B, 2))
+    print("pos0 norm A", np.round(normA[:, 0], 0))
+    print("pos0 norm B", np.round(normB[:, 0], 0))
+    print("median norm A", np.round(np.median(normA, 1), 0))
+    print("argmax pos A", normA.argmax(1), "B", normB.argmax(1))
+    print("sink median A", np.round(np.median(sinkA, 1), 2))
+    print("sink median B", np.round(np.median(sinkB, 1), 2))
+    print(f"{time.time() - t_all:.0f} s", flush=True)
+
+
+def trace_figure() -> None:
+    import plot_assets as pa
+
+    pa.OUTDIR = SECTION
+    z = np.load(TRACE_NPZ)
+    rec = json.loads(RESULTS.read_text())["trace"]
+    cl, ch = CONE_HEAD
+    wn = z["write_norm"]
+    H, T = wn.shape
+    norm_A, norm_B = z["norm_A"], z["norm_B"]
+    depths = np.arange(norm_A.shape[0])
+    cos_last, cos_pos0 = z["cos_last"], z["cos_pos0"]
+    mu_A, mu_B = z["mu_last_A"], z["mu_last_B"]
+    sink_A, sink_B = np.median(z["sink_A"], 1), np.median(z["sink_B"], 1)
+    pop_pos0 = z["pop_pos0"]
+    n_pop = len(pop_pos0)
+    others = [h for h in range(H) if h != ch]
+    c = rec["cone_head"]
+    p = rec["population"]
+    legend = {
+        "facecolor": pa.PANEL,
+        "edgecolor": pa.FRAME,
+        "labelcolor": pa.TEXT,
+        "fontsize": pa.TICK_SIZE,
+    }
+
+    fig, top = pa.figure(
+        18,
+        12.5,
+        3,
+        "section 59, D3: the cone head traced",
+        "What the cone head writes at every position, whether it is the same vector on every note, and what the other 25 blocks do with it",
+        meta=(
+            f"The specimen, {rec['tokens']} tokens, calibration {rec['calibration_cos']:.5f}; two passes with every head's output in block {cl + 1} and the residual at every depth kept, "
+            f"then one pass on each of the {p['notes']} population notes. The head's write has norm {c['write_norm_pos0']:.1f} at position 0 and a median of {c['write_norm_median']:.2f} elsewhere "
+            f"(the other 15 heads of the block: median {c['other_heads_write_norm_median']:.2f}). Its own write at the last position is {c['direct_norm_ratio'] * 100:.1f}% of the final residual's norm, "
+            f"cosine {c['direct_cos_shipped']:.3f} to the shipped vector and {c['direct_cos_mu']:.3f} to the cone: the direct share is nil. Constancy over content positions: top direction holds "
+            f"{c['top_singular_fraction']:.0%} of the write's variance (other heads' median {c['other_heads_top_singular_fraction_median']:.0%}); across notes the mean write agrees at cosine "
+            f"{p['mean_write_cos_between_notes_median']:.2f} and the position-0 write at {p['pos0_write_cos_between_notes_median']:.3f}, with first tokens as different as "
+            f"{', '.join(repr(t) for t in sorted(set(p['first_tokens']))[:6])}."
+        ),
+    )
+    gs = fig.add_gridspec(
+        2, 3, left=pa.MARGIN, right=1 - pa.MARGIN, top=top, bottom=0.06, hspace=0.38, wspace=0.26
+    )
+
+    # A: the head's write, position by position, against its block
+    ax = fig.add_subplot(gs[0, 0])
+    pa.style_axes(ax)
+    x = np.arange(T)
+    for h in others:
+        ax.plot(x, wn[h], color=pa.DIM, lw=0.7)
+    ax.plot(x, wn[ch], color=pa.GOLD, lw=1.4, label=f"block {cl + 1} head {ch}")
+    ax.plot([], [], color=pa.DIM, lw=0.7, label="the block's other 15 heads")
+    ax.scatter([0], [wn[ch, 0]], color=pa.GOLD, s=40, zorder=5)
+    ax.annotate(
+        f"position 0: {wn[ch, 0]:.0f}",
+        (0, wn[ch, 0]),
+        xytext=(40, wn[ch, 0] * 0.9),
+        color=pa.GOLD,
+        fontsize=pa.TICK_SIZE,
+        va="top",
+    )
+    ax.set_yscale("log")
+    ax.set_xlim(-5, T)
+    ax.set_xlabel("position in the note")
+    ax.set_ylabel("norm of the head's write (log)")
+    ax.legend(loc="upper right", **legend)
+    pa.panel_title(
+        ax,
+        f"A. What the head writes at each position: a vector {wn[ch, 0] / np.median(wn[ch]):.0f}x its usual size at position 0, ordinary elsewhere",
+        50,
+    )
+
+    # B: the massive activation at position 0, with and without the head
+    ax = fig.add_subplot(gs[0, 1])
+    pa.style_axes(ax)
+    ax.plot(depths, np.median(norm_A, 1), color=pa.DIM, lw=1.6, label="median position, as shipped")
+    ax.plot(depths, norm_A[:, 0], color=pa.GOLD, lw=2.2, label="position 0, as shipped")
+    ax.plot(
+        depths,
+        norm_B[:, 0],
+        color=pa.CYAN,
+        lw=2.2,
+        ls="--",
+        label=f"position 0, block {cl + 1} head {ch} zeroed",
+    )
+    ax.axvline(cl + 1, color=pa.MUTED, lw=0.8, ls=":")
+    ax.set_yscale("log")
+    ax.set_xlim(0, depths[-1])
+    ax.set_xlabel("depth (0 = token table, k = after block k)")
+    ax.set_ylabel("residual norm at the position (log)")
+    ax.legend(loc="lower right", **legend)
+    pa.panel_title(
+        ax,
+        f"B. The sink's birth: position 0's residual is {norm_A[cl + 1, 0]:,.0f} after block {cl + 1} as shipped and {norm_B[cl + 1, 0]:.0f} without the head",
+        50,
+    )
+
+    # C: the head's write across notes, position 0 against the content positions
+    ax = fig.add_subplot(gs[0, 2])
+    pa.style_axes(ax)
+    off = ~np.eye(n_pop, dtype=bool)
+    bins = np.linspace(-0.2, 1.0, 61)
+    for X, color, label in (
+        (z["pop_mean"], pa.MUTED, "mean write over the note's positions"),
+        (z["pop_last"], pa.CYAN, "write at the last position"),
+        (pop_pos0, pa.GOLD, "write at position 0"),
+    ):
+        ax.hist((X @ X.T)[off], bins=bins, color=color, alpha=0.85, label=label)
+    ax.set_xlabel(f"cosine between two notes' writes ({n_pop} notes, every pair)")
+    ax.set_ylabel("pairs")
+    ax.legend(loc="upper left", **legend)
+    pa.panel_title(
+        ax,
+        f"C. The same vector on every note at position 0 (median cosine {p['pos0_write_cos_between_notes_median']:.3f}, first tokens all different); the content writes agree at {p['mean_write_cos_between_notes_median']:.2f}",
+        50,
+    )
+
+    # D: the dye, the two runs compared at every depth
+    ax = fig.add_subplot(gs[1, 0])
+    pa.style_axes(ax)
+    ax.plot(
+        depths, cos_last, color=pa.GOLD, lw=2.2, label="last position (the one the pooling reads)"
+    )
+    ax.plot(depths, cos_pos0, color=pa.CYAN, lw=2.2, ls="--", label="position 0")
+    ax.axvline(cl + 1, color=pa.MUTED, lw=0.8, ls=":")
+    ax.set_xlim(0, depths[-1])
+    ax.set_ylim(-0.05, 1.05)
+    ax.set_xlabel("depth")
+    ax.set_ylabel("cosine, as shipped vs head zeroed")
+    ax.legend(loc="upper right", **legend)
+    pa.panel_title(
+        ax,
+        f"D. The dye downstream: cosine between the two runs' residual at every depth; the last position parts at depth {rec['dye']['first_depth_last_below_0_95']} and ends at {cos_last[-1]:.2f}",
+        50,
+    )
+
+    # E: the cone deposited late
+    ax = fig.add_subplot(gs[1, 1])
+    pa.style_axes(ax)
+    late = int(np.argmax(mu_A > 0.1))
+    ax.axvspan(late, depths[-1], color=pa.GOLD, alpha=0.08, lw=0)
+    ax.plot(depths, mu_A, color=pa.GOLD, lw=2.2, label="as shipped")
+    ax.plot(depths, mu_B, color=pa.CYAN, lw=2.2, ls="--", label=f"block {cl + 1} head {ch} zeroed")
+    ax.axhline(mu_A[-1], color=pa.MUTED, lw=0.8, ls=":")
+    ax.set_xlim(0, depths[-1])
+    ax.set_ylim(-0.1, 0.7)
+    ax.set_xlabel("depth")
+    ax.set_ylabel("last position's cosine to the cone's direction")
+    ax.legend(loc="upper left", **legend)
+    pa.panel_title(
+        ax,
+        f"E. Where the cone enters the note: the last position's cosine to the shared direction is under 0.1 through depth {late - 1}, then climbs to {mu_A[-1]:.2f}; without the head it ends at {mu_B[-1]:.2f}",
+        50,
+    )
+
+    # F: the sink on the specimen with and without the head
+    ax = fig.add_subplot(gs[1, 2])
+    pa.style_axes(ax)
+    blocks = np.arange(1, len(sink_A) + 1)
+    ax.plot(blocks, sink_A, color=pa.GOLD, lw=2.2, label="median head, as shipped")
+    ax.plot(
+        blocks,
+        sink_B,
+        color=pa.CYAN,
+        lw=2.2,
+        ls="--",
+        label=f"median head, block {cl + 1} head {ch} zeroed",
+    )
+    ax.axhline(0.5, color=pa.RED, lw=0.8, ls=":")
+    ax.set_xlim(1, blocks[-1])
+    ax.set_ylim(0, 1.25)
+    ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.set_xlabel("block")
+    ax.set_ylabel("last position's share on token 0")
+    ax.legend(loc="upper left", **legend)
+    pa.panel_title(
+        ax,
+        "F. The sink on the specimen, with and without the head: the later heads park on position 0 only when the massive activation is there",
+        50,
+    )
+    pa.verdict(
+        fig,
+        "A FIXED VECTOR AT POSITION 0 ON EVERY NOTE; without it no massive activation, no sink, and no cone in the last position",
+    )
+    pa.save(fig, "03-the-trace.png")
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "specimen"
     {
@@ -951,4 +1365,6 @@ if __name__ == "__main__":
         "population": population,
         "figures": figures,
         "population_figures": population_figures,
+        "trace": trace,
+        "trace_figure": trace_figure,
     }[cmd]()

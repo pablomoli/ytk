@@ -233,6 +233,8 @@ the record section.
 
 > **Later (2026-11-01, section 59.3):** the population ran with the full null, 20 notes one per tag, 885 min. Block 3 head 6 is the top head on 17 of 20 and the only head to pass the registered bar (3 of 10 neighbours moved on 16 of 20; runner-up block 1 head 3 on 14). Median displacement 0.655; median cosine to the cone 0.50 to 0.34. Both inherited questions answered: same head, and it writes the sink: with it zeroed the median head's share on token 0 over blocks 4 to 28 falls from 0.64 to 0.007, and the sink survives only on the notes where the head moves the note least (rho -0.66). The cone and the sink are one mechanism. The late blocks are inert on every note (blocks 21 to 28 median displacement 0.001) and the per-note rank correlation of displacement against sink share is -0.62 to -0.70. Open after this: whether the head writes at position 0 alone or everywhere, and whether the base Qwen3-0.6B already carries it.
 
+> **Later (2026-11-01, section 59.4):** traced, 23 s. At position 0 the head writes one fixed vector (norm 24.1 against a median 0.65 elsewhere; cosine 0.997 between any two of 21 notes whose first tokens differ), block 3's feed-forward turns it into the massive activation (position 0's residual norm 17 entering the block, 6,146 leaving it, 26 without the head), and every later head parks on it. The head's direct share of the shipped vector is nil (0.2% of the norm, cosine 0.028). The cone enters the last position at depths 22 to 28 only, through the heads reading position 0 (cosine to the shared direction under 0.06 through depth 21, 0.56 at 28, 0.15 without the head): the same window as rung B's climb. With the head zeroed the note ends at cosine 0.31 to itself, a different note rather than a de-coned one, so the gate run with the head zeroed would test the sink, not the cone. Next registration, if any: zero the head's write at position 0 only, and at content positions only.
+
 ## Order, cost, and gos
 
 | Step | Model calls | Wall time | Go needed |
@@ -271,10 +273,13 @@ sink every later head parks on. The late blocks' heads are inert one at a
 time. Centring the cone after the fact buys nothing on the gate; what
 stopping it at the source would do is not measured.
 
-Open after the program: whether block 3 head 6 writes a constant vector
-(a register) or one that depends on the words; whether it writes at
-position 0 alone; whether the base Qwen3-0.6B already carries it; and the
-gate with that head zeroed, about 11,000 passes.
+Open after the program, as of 59.4: whether the base Qwen3-0.6B already
+carries the register (the head writes a fixed vector at position 0, which
+59.4 measured), and the position-split ablation: the head's write zeroed
+at position 0 only, then at content positions only, which separates the
+sink from the content and is the cut that bears on the cone. The gate run
+with the whole head zeroed is withdrawn: the dye shows it would test an
+encoder with no sink, a different note at cosine 0.31 to itself.
 
 ## Literature (checked 2026-10-31)
 
