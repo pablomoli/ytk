@@ -1,0 +1,159 @@
+{
+ "specimen": {
+  "id": "UZDiGooFs54",
+  "title": "The moment we stopped understanding AI [AlexNet]",
+  "chars": 2086,
+  "tokens": 477,
+  "first_token": "Wel",
+  "last_token": "<|endoftext|>"
+ },
+ "calibration_cos": 0.9999959030646498,
+ "L": 28,
+ "H": 16,
+ "head_dim": 128,
+ "sink_median_by_block": [
+  1.4901161193847656e-07,
+  0.0007119178771972656,
+  0.0036783218383789062,
+  0.88525390625,
+  0.86376953125,
+  0.95556640625,
+  0.94873046875,
+  0.583740234375,
+  0.776611328125,
+  0.4822998046875,
+  0.72265625,
+  0.64013671875,
+  0.49560546875,
+  0.53466796875,
+  0.4112548828125,
+  0.4259033203125,
+  0.403076171875,
+  0.17340087890625,
+  0.819580078125,
+  0.61572265625,
+  0.582275390625,
+  0.609619140625,
+  0.697021484375,
+  0.6845703125,
+  0.570068359375,
+  0.541259765625,
+  0.364990234375,
+  0.92578125
+ ],
+ "sink_uniform_null": 0.0020964360587002098,
+ "prediction_1": {
+  "blocks_20_to_28_median_over_half": 8,
+  "of": 9,
+  "medians": [
+   0.61572265625,
+   0.582275390625,
+   0.609619140625,
+   0.697021484375,
+   0.6845703125,
+   0.570068359375,
+   0.541259765625,
+   0.364990234375,
+   0.92578125
+  ],
+  "holds": false
+ },
+ "prediction_2": {
+  "movers_below_0_95": 4,
+  "bar": 45,
+  "top5": [
+   [
+    2,
+    6
+   ],
+   [
+    0,
+    3
+   ],
+   [
+    17,
+    12
+   ],
+   [
+    13,
+    7
+   ],
+   [
+    13,
+    6
+   ]
+  ],
+  "top5_in_last_8": false,
+  "holds": false
+ },
+ "prediction_3": {
+  "spearman_disp_vs_sink": -0.6730903543978654,
+  "bar": -0.3,
+  "holds": true
+ },
+ "summarising_heads": [
+  [
+   0,
+   2
+  ],
+  [
+   0,
+   3
+  ],
+  [
+   2,
+   6
+  ],
+  [
+   17,
+   12
+  ]
+ ],
+ "n_summarising": 4,
+ "top_head": {
+  "block": 2,
+  "head": 6,
+  "displacement": 0.7815500196709048,
+  "cos_after": 0.21844998032909524,
+  "sink_share": 4.351139068603516e-06,
+  "neighbours_changed": 10,
+  "words": [
+   "\u0120how",
+   "\u0120walked",
+   "\u0120is",
+   ".",
+   ","
+  ],
+  "null99_at_block": 0.0015569126605987555
+ },
+ "neighbours_before": [
+  "mem::note_sources_web_interpreting-gpt-the-logit-lens",
+  "vid::HPLIl9ZOpUQ",
+  "mem::note_sources_instagram_stephen_blum_code-2026-07-04-DaYvHPcFwrk",
+  "vid::wjZofJX0v4M",
+  "vid::2mrGMMmrVNE",
+  "vid::kCc8FmEb1nY",
+  "mem::note_sources_web_the-scaling-hypothesis",
+  "vid::m6ucYXJyjAk",
+  "vid::Bbt8cEyzsTk",
+  "vid::UGO_Ehywuxc"
+ ],
+ "neighbours_after_top_head": [
+  "mem::note_second-brain_projects_ytk_session-066-brief",
+  "mem::note_second-brain_projects_ytk_session-085-brief",
+  "mem::note_projects_ytk_session-085-brief",
+  "mem::memory_2026-07-22_ytk-visual-hubness-fix-gate-results-2026-07-22_79d3ff",
+  "mem::note_inbox_memories_users-melocoton-developer-niloc-fork_questions",
+  "mem::memory_2026-07-17_prefix-a-b-experiment-on-ytk-memories-v2-qwen3-em_e7f581",
+  "mem::memory_2026-07-05_ytk-taste-modeling-research-2026-07-05-deep-rese_794a77",
+  "mem::note_me_profile",
+  "mem::memory_2026-07-05_ytk-session-016-2026-07-05-shipped-the-brain-ar_67aa99",
+  "mem::note_sources_web_scaling-laws-for-neural-language-models"
+ ],
+ "null_draws_per_block": 100,
+ "seconds": {
+  "ablation": 438,
+  "null": 2605,
+  "total": 3048
+ }
+}

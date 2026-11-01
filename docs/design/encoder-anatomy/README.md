@@ -224,6 +224,9 @@ minutes, its own go.
 **Ships if it passes.** Nothing. This one is the frog, and the material of
 the record section.
 
+
+> **Later (2026-10-31, section 59):** ran on the specimen. One of three predictions held: the sink is there from block 4 (8 of 9 late blocks' median above 0.5, block 27 at 0.36); only 4 heads move the vector below cosine 0.95, but the five largest movers sit in blocks 3, 1, 18, 14, 14, not the last eight; Spearman of displacement against sink share is -0.67. Block 3 head 6 carries the cone: zeroed, the note falls to cosine 0.22 to itself and 0.15 to the shared direction, outside the population. The population run inherits two questions: is it the same head on every note, and does it write the sink. Cost: 51 min, not 5; a batch of 16 costs 16 single passes on Metal, so the population run must budget 20 x 51 min or drop the per-block null to 10 draws. Record: `docs/assets/59-encoder-anatomy-d3/README.md`.
+
 ## Order, cost, and gos
 
 | Step | Model calls | Wall time | Go needed |
@@ -231,7 +234,7 @@ the record section.
 | D1 coordinates | none | minutes | ran 2026-10-31, section 58: spread |
 | D1 centred exam | 156 query embeddings | under 5 min | ran 2026-10-31, section 58: not earned |
 | D2 rung A, 811 notes | one pass with hidden states | about 15 min | yes |
-| D3 specimen | 1 + 448 passes, one note | about 5 min | no |
+| D3 specimen | 1 + 448 passes, one note | about 5 min (ran 51: batching scales linearly on Metal) | ran 2026-10-31, section 59 |
 | D3 population, 20 notes | 20 x 449 passes | about 80 min | yes |
 | D2 rung B, the exam per layer | 11,005 docs with hidden states | about 3 h | yes, overnight |
 
