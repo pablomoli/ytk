@@ -213,7 +213,7 @@ function OrbPage() {
         </div>
       ) : null}
       {data && chrome && anchor !== null && knn && !open ? (
-        <aside className="absolute right-4 top-4 bottom-4 w-80 overflow-y-auto rounded-md bg-black/55 p-3 text-sm backdrop-blur-sm">
+        <aside className="absolute bottom-4 left-4 w-80 max-h-[27rem] overflow-y-auto rounded-md bg-black/55 p-3 text-sm backdrop-blur-sm">
           <div className="mb-3">
             <div className="text-[11px] uppercase tracking-wider opacity-50">nearest by embedding</div>
             <div className="mt-1 leading-snug">{captionTitle(data.points[anchor].t)}</div>

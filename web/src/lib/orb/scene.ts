@@ -338,46 +338,54 @@ export function mountOrb(
   );
 
   // spike: neighbor arcs. One LineSegments, rebuilt on hover, faded with gsap.
-  const K_MAX = 8, SEG = 48;
+  const K_MAX = 12, SEG = 48;
   const arcPos = new Float32Array(K_MAX * SEG * 2 * 3);
   const arcT = new Float32Array(K_MAX * SEG * 2); // 0 at the hovered tile, 1 at the neighbor
-  const arcK = new Float32Array(K_MAX * SEG * 2); // which neighbor, so pulses desynchronize
+  const arcK = new Float32Array(K_MAX * SEG * 2); // which neighbor
+  const arcL = new Float32Array(K_MAX * SEG * 2); // the arc's length in radians: pulses move in world units
   const arcGeo = new BufferGeometry();
   // BufferAttribute wraps the arrays; Float32BufferAttribute would copy them and swallow every later write
   const arcAttr = new BufferAttribute(arcPos, 3);
   const arcTAttr = new BufferAttribute(arcT, 1);
   const arcKAttr = new BufferAttribute(arcK, 1);
+  const arcLAttr = new BufferAttribute(arcL, 1);
   arcGeo.setAttribute("position", arcAttr);
   arcGeo.setAttribute("aT", arcTAttr);
   arcGeo.setAttribute("aK", arcKAttr);
+  arcGeo.setAttribute("aL", arcLAttr);
   arcGeo.setDrawRange(0, 0);
   const arcMat = new RawShaderMaterial({
     glslVersion: GLSL3,
     vertexShader: /* glsl */ `
 precision highp float;
-in vec3 position; in float aT; in float aK;
+in vec3 position; in float aT; in float aK; in float aL;
 uniform mat4 modelViewMatrix, projectionMatrix;
-out float vT; out float vK;
-void main() { vT = aT; vK = aK; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+out float vT; out float vK; out float vL;
+void main() { vT = aT; vK = aK; vL = aL; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: /* glsl */ `
 precision highp float;
 uniform float uProgress; // how far along each arc has grown, 0..1
 uniform float uOpacity;
 uniform float uTime;
-in float vT; in float vK;
+uniform float uSpeed;   // radians per second along the shell, the same on every arc
+uniform float uSpacing; // radians between pulses, so long arcs carry more of them
+in float vT; in float vK; in float vL;
 out vec4 outColor;
 void main() {
   if (vT > uProgress) discard;
-  // a pulse leaves the hovered tile every ~2.2 s per arc, staggered by neighbor, with a tail behind it
-  float ph = fract(uTime * 1.0 + vK * 0.37);
-  float d = vT - ph;
-  float head = exp(-d * d / 0.0012);
-  float tail = d < 0.0 ? exp(d * 9.0) * 0.55 : 0.0;
-  float glow = 0.28 + head + tail;
+  // a continuous stream: pulses leave the hovered tile and travel outward at one speed,
+  // each a slow swell (65% of the period rising) and a quicker fall
+  float s = vT * vL;
+  float ph = fract((s - uTime * uSpeed) / uSpacing);
+  float swell = smoothstep(0.0, 0.65, ph) * (1.0 - smoothstep(0.65, 1.0, ph));
+  float glow = 0.22 + 0.7 * swell;
   vec3 brass = vec3(0.886, 0.690, 0.290);
-  outColor = vec4(mix(brass, vec3(1.0, 0.95, 0.8), head) * glow, glow * uOpacity);
+  outColor = vec4(mix(brass, vec3(1.0, 0.95, 0.8), swell * 0.6) * glow, glow * uOpacity);
 }`,
-    uniforms: { uProgress: { value: 0 }, uOpacity: { value: 0 }, uTime: { value: 0 } },
+    uniforms: {
+      uProgress: { value: 0 }, uOpacity: { value: 0 }, uTime: { value: 0 },
+      uSpeed: { value: 0.35 }, uSpacing: { value: 0.45 },
+    },
     transparent: true, depthWrite: false, depthTest: true, blending: AdditiveBlending,
   });
   const arcs = new LineSegments(arcGeo, arcMat);
@@ -405,13 +413,14 @@ void main() {
           const lift = 1 + out * 0.18 * Math.sin(f * Math.PI) * (omega / Math.PI);
           _m.multiplyScalar(r * lift);
           arcPos[w++] = _m.x; arcPos[w++] = _m.y; arcPos[w++] = _m.z;
-          arcT[v] = f; arcK[v] = k; v++;
+          arcT[v] = f; arcK[v] = k; arcL[v] = omega; v++;
         }
       }
     }
     arcAttr.needsUpdate = true;
     arcTAttr.needsUpdate = true;
     arcKAttr.needsUpdate = true;
+    arcLAttr.needsUpdate = true;
     arcGeo.setDrawRange(0, w / 3);
     return nb.length;
   }
@@ -426,7 +435,7 @@ void main() {
       return;
     }
     const nb = knn[i];
-    for (let k = 0; k < K_MAX; k++) neigh[k] = k < nb.length ? nb[k] : -1;
+    for (let k = 0; k < 8; k++) neigh[k] = k < nb.length ? nb[k] : -1;
     buildArcs(i);
     // arcs grow out from the tile, then the neighbors swell as the arcs arrive
     u.uProgress.value = 0;
