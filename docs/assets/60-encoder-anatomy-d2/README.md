@@ -154,6 +154,8 @@ One of three holds. The two that failed both imagined the encoder as a
 gradual builder; it is a late one, and nothing before block 25 could
 replace what ships.
 
+> **Later (2026-11-08, section 61):** two readings on this harvest and its frozen sibling. The output cone's direction is absent from the last position through depth 20 for every bucket and for the queries alike (median cosine under 0.07) and enters in the last seven blocks for all of them together, the population form of 59.4's panel E. The cross-note effective rank of these 811 vectors is 17 after block 1 and 501 at the top (centred, 189 and 527), rising steepest in the last seven blocks; the within-sequence rank, measured in 61.2 with fresh passes, has a valley from block 3 that is entirely position 0's norm. Record: `docs/assets/61-encoder-anatomy-d4/README.md`.
+
 > **Later (2026-11-01):** the literature says the opposite about depth, and the disagreement is the readout. Skean et al. (arXiv:2502.02013) and Tang and Yang (arXiv:2409.02727) find intermediate layers beat the final one for downstream representations, but they read the layers by mean pooling or by a trained probe. Rung A's mean-pooling side line agrees with them: it leads the last token until block 20 and peaks before the top. Last-token pooling, which is what ships, is the late reader; the two results are the same encoder read two ways.
 
 ## Files

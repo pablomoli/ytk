@@ -260,6 +260,8 @@ zero it at content positions only, which does the reverse. Two passes on
 the specimen each, then the neighbours. That is the next registration,
 not this record.
 
+> **Later (2026-11-08, section 61.3):** the split ran on the specimen and the 20 population notes. The position-0 cut is the whole-head cut: the same residual norm at position 0 (35), the same sink (0.001), the same cosine to the cone (0.34), displacements within 0.05 on 20 of 21 notes, one dye curve. The content cut moves the note 0.0010, inside its matched null (99th 0.0015), moves no neighbour on 12 of 20 notes and never more than 2, and leaves sink, activation and cone untouched. The mean register swapped in at position 0 reproduces the shipped vector to displacement 0.000006 on every note. Keystone confirmed, and the keystone is the one position. Record: `docs/assets/61-encoder-anatomy-d4/README.md`.
+
 | question from 59.3 | measured |
 |---|---|
 | does the head write a constant vector | at position 0, yes: cosine 0.997 across 21 notes, 37x its usual norm; at content positions, no: 0.75 across notes |

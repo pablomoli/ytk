@@ -1,8 +1,8 @@
 # Encoder anatomy — the frog and its organs
 
 Status: registered 2026-10-31; all three dissections ran 2026-10-31 to
-2026-11-01 as sections 58, 59 and 60. A fourth, D4, was registered
-2026-11-08 from the literature pass that followed 59.4. This document holds the verified
+2026-11-01 as sections 58, 59 and 60. A fourth, D4, was registered and
+run 2026-11-08 as section 61. This document holds the verified
 ground the program stands on, the map of the organism, and the predictions,
 nulls and bars for each dissection, written before the first call; the
 Later notes under each dissection and the ledger at the end say what was
@@ -323,6 +323,9 @@ pass. Everything reads the store and the two harvests and writes only to
 coordinate the map can colour and the memory-bucket lag rung B found has
 a candidate cause worth its own registration.
 
+
+> **Later (2026-11-08, section 61):** all three readings ran the same day, 16 s, 126 s and 6 min. The register is a bias. Reading 1: the cone's weight is the same for every bucket (length-matched pairwise differences 0.000 to 0.035 over 11,029 frozen documents) and the buckets' mean vectors differ entirely across the cone (0.21 to 0.38) and not along it (under 0.03); tags differ along it at the strength of an ordinary content direction (0.66 against 0.44 random, 0.82 for the first principal direction). Prediction 1 holds by the letter on both clauses and fails in substance: the second clause measured content and the first passed by 0.001 in the one bin all three buckets share. Reading 2: the valley is there (rank 246 to 12 at block 3, 238 at the top, no valley with the head zeroed, 17 of 17 depths) and it is position 0's norm alone; drop the token or normalise every token and the rank is flat at 240 to 260. Reading 3: the position-0 cut is the whole-head cut (sink 0.001, norm 35, cone 0.34, displacement 0.63 against 0.66, one dye curve); the content cut sits inside its matched null (0.0010 against 0.0015); the mean register swapped in reproduces the shipped vector to 0.000006. 3c holds on 21 of 21; 3a and 3b fail by the letter on clauses written against the wrong reference (absolute sink and norm bars where the whole-head cut itself leaves the sink on 8 notes; the position-0 null, which is empty at 0.00002, applied to the content cut) and hold against the right one. The memory-bucket lag has no cause here. Record: `docs/assets/61-encoder-anatomy-d4/README.md`.
+
 ## Order, cost, and gos
 
 | Step | Model calls | Wall time | Go needed |
@@ -333,9 +336,9 @@ a candidate cause worth its own registration.
 | D3 specimen | 1 + 448 passes, one note | about 5 min (ran 51: batching scales linearly on Metal) | ran 2026-10-31, section 59 |
 | D3 population, 20 notes | 20 x 3,250 passes with the full null | about 80 min (ran 885: the specimen's lesson, times 20) | ran 2026-11-01, section 59.3 |
 | D2 rung B, the exam per layer | 11,005 docs with hidden states | about 3 h (ran 2 h) | ran 2026-11-01, section 60.2 |
-| D4 reading 1, the tag by bucket | none | minutes | go given 2026-11-08 |
-| D4 reading 2, the valley | 42 passes | about a minute | go given 2026-11-08 |
-| D4 reading 3, the position split | 84 + 500 null passes | about 10 min | go given 2026-11-08 |
+| D4 reading 1, the tag by bucket | none | minutes (ran 16 s) | ran 2026-11-08, section 61.1 |
+| D4 reading 2, the valley | 42 passes | about a minute (ran 126 s) | ran 2026-11-08, section 61.2 |
+| D4 reading 3, the position split | 84 + 500 null passes (ran 84 + 1,000: a content null was added) | about 10 min (ran 6) | ran 2026-11-08, section 61.3 |
 
 Everything above reads the store and never writes to it. Nothing in
 `docs/assets/` is rewritten; each run gets its own numbered section.
@@ -356,6 +359,11 @@ population bar was met.
 | D3 | fewer than 45 heads move the note; the five largest movers in the last eight blocks | no | 4 heads do, but the movers sit in blocks 3, 1, 18, 14, 14 (section 59.1) |
 | D3 | displacement and sink share rank-correlated below -0.3 | yes | -0.67 on the specimen, -0.62 to -0.70 on every population note (sections 59.1, 59.3) |
 | D3 bar | a head moves 3 of 10 neighbours on 15 of 20 notes | met | block 3 head 6, on 16 of 20, the only one; it also builds the sink (section 59.3) |
+| D4 | the buckets' cosine to the cone differs beyond the null after length matching; bucket means under cosine 0.95 | by the letter; not in substance | spread 0.024 against a null 99th of 0.023 in the one shared bin; bucket means at 0.74 to 0.92, but the difference lies across the cone, not along it (section 61.1) |
+| D4 | a compression valley from block 3, gone with the head zeroed | yes | rank 246 to 12 at block 3, no valley without the head, 17 of 17 depths; the valley is position 0's norm alone (section 61.2) |
+| D4 | 3a: the position-0 cut reproduces the whole head | by substance; two absolute clauses fail by the letter | sink, norm and cone identical to the whole-head cut on all 21; displacement within 0.05 on 20 of 21; the absolute sink and norm bars fail on the 8 notes where the whole-head cut itself leaves a sink (section 61.3) |
+| D4 | 3b: the content cut leaves sink and activation, moves the note under the null, keeps the cone within 0.03 | three clauses yes; the null clause fails by the letter | sink, activation and cone untouched on 21 of 21; displacement 0.0010 against the registered position-0 null (empty, 0.00002) on 0 of 21 and against the matched content null (0.0015) on 17 of 21 (section 61.3) |
+| D4 | 3c: the mean register swapped in is indistinguishable from baseline | yes | displacement 0.000006, no neighbour moved, on 21 of 21 (section 61.3) |
 
 The frog, as found. The note is written in the last third of the encoder
 and sharpened for search in the last seven blocks, but what every note has
@@ -371,6 +379,14 @@ at position 0 only, then at content positions only, which separates the
 sink from the content and is the cut that bears on the cone. The gate run
 with the whole head zeroed is withdrawn: the dye shows it would test an
 encoder with no sink, a different note at cosine 0.31 to itself.
+
+As of 61 (2026-11-08): the position split ran and the register is a bias,
+whole at position 0, constant across notes to the point that its mean can
+stand in for it, the same weight for every bucket, and the maker of a
+compression valley that is its own norm. What varies along the cone is
+content, by tag, at the strength of an ordinary content direction. Still
+open: the base Qwen3-0.6B register check, and nothing else this program
+registered.
 
 ## Literature (checked 2026-10-31)
 

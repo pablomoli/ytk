@@ -121,6 +121,8 @@ subtraction, and removing it does not help the one task the search path is
 scored on. Production stays raw cosine. The centring thread, open since
 section 12, closes here.
 
+> **Later (2026-11-08, section 61.1):** the cone's weight is the same for every bucket. Over rung B's 11,029 frozen documents the median cosine to this mean is 0.475 for videos, 0.484 for memories, 0.456 for segments, and the length-matched pairwise differences are 0.000 to 0.035; the buckets' mean vectors differ (pairwise cosine 0.74 to 0.92) but the difference lies across the cone (0.21 to 0.38) and not along it (under 0.03). Tags do differ along it (84 tags, spread z 11), at the strength of an ordinary content direction: 0.66 against 0.44 for a random direction and 0.82 for the first principal direction. Record: `docs/assets/61-encoder-anatomy-d4/README.md`.
+
 ## What D2 inherits
 
 The cone's direction is spread, so the growth film (D2) should expect the
