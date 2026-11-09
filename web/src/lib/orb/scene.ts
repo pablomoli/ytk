@@ -336,6 +336,7 @@ export function mountOrb(
     if (!arr) return;
     lens = name;
     showRings(name === "time");
+    showThemeLabels(name === "lattice");
     morphFrom.set(centers);
     scaleFrom.set(scales);
     for (let i = 0; i < n; i++) morphTo.set(arr[i], i * 3);
@@ -733,6 +734,58 @@ void main() {
     return tileScreenRect(camera, dir.clone(), TILE_HALF, canvas.clientWidth, canvas.clientHeight, facing());
   };
 
+  // selection glow: a brass radial falloff drawn additively just behind the
+  // tile, 2.4 tile widths across; the opaque tile hides the core and the
+  // halo shows around its edge. Breathes slowly so the selection reads as alive.
+  const glowTex = (() => {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const g = c.getContext("2d")!;
+    const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grad.addColorStop(0, "rgba(240,238,231,0.5)");
+    grad.addColorStop(0.45, "rgba(240,238,231,0.32)");
+    grad.addColorStop(0.7, "rgba(240,238,231,0.09)");
+    grad.addColorStop(1, "rgba(240,238,231,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 256, 256);
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    return t;
+  })();
+  const glowMat = new MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending });
+  const glow = new Mesh(new PlaneGeometry(1, 1), glowMat);
+  glow.matrixAutoUpdate = false;
+  glow.renderOrder = 5;
+  glow.visible = false;
+  scene.add(glow);
+  const glowLevel = { v: 0 }; // tweened 0..1; the breath rides on top
+  const GLOW_SPAN = 1.7;
+  let glowTime = 0;
+  const placeGlow = (dt: number) => {
+    glowTime += dt;
+    if (glowLevel.v <= 0.001 || focused < 0) { glow.visible = false; return; }
+    glow.visible = true;
+    const i = focused, f = facing();
+    const u = material.uniforms;
+    _nc.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
+    _nn.copy(_nc).negate().normalize().multiplyScalar(f);
+    _nref.set(Math.abs(_nn.y) > 0.9 ? 1 : 0, Math.abs(_nn.y) > 0.9 ? 0 : 1, 0);
+    _ne1.crossVectors(_nref, _nn).normalize();
+    _ne2.crossVectors(_nn, _ne1);
+    const sc = scales[i] * (u.uHoverScale.value as number);
+    const sx = Math.sqrt(aspects[i]);
+    // square halo sized to the tile's longer side so a portrait reel gets the same margin as a landscape thumb
+    const side = TILE_HALF * 2 * sc * Math.max(sx, 1 / sx) * GLOW_SPAN;
+    _ne1.multiplyScalar(side);
+    _ne2.multiplyScalar(side);
+    _m4.makeBasis(_ne1, _ne2, _nn);
+    _nc.multiplyScalar(1 + f * 0.004); // behind the tile, in front of the arcs
+    _m4.setPosition(_nc);
+    glow.matrix.copy(_m4);
+    const breath = reducedMotion() ? 1 : 0.85 + 0.15 * Math.sin(glowTime * 1.6);
+    glowMat.opacity = glowLevel.v * breath;
+  };
+
   // returns the camera depth and the lens shift to rest, for whichever mode is
   // current; setView calls this before flipping facing so a mode switch
   // mid-selection can't strand uFocused or leave the wrong depth tweening.
@@ -740,13 +793,15 @@ void main() {
     focusCall?.kill();
     focusCall = undefined;
     const done = () => { focused = -1; material.uniforms.uFocused.value = -1; };
-    gsap.killTweensOf([focusDolly, orbitR, dock]);
+    gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel]);
     if (reducedMotion()) {
       if (mode === "globe") orbitR.r = restGlobeR(liveZoom); else focusDolly.dolly = 0;
       dock.px = 0;
+      glowLevel.v = 0;
       done();
       return;
     }
+    gsap.to(glowLevel, { v: 0, duration: DUR.morph });
     // blur resumes at the live wheel-zoom radius, not a frozen constant, since
     // the user may have scrolled while selected
     if (mode === "globe") gsap.to(orbitR, { r: restGlobeR(liveZoom), duration: DUR.reveal, onComplete: done });
@@ -766,12 +821,15 @@ void main() {
     const { yaw, pitch } = anglesFor(i);
     controls.setTarget(yaw, pitch);
     cb.onOpen(i, apexRect(i));
-    gsap.killTweensOf([focusDolly, orbitR, dock]);
+    gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel]);
     if (reducedMotion()) {
       if (mode === "globe") orbitR.r = GLOBE_APEX; else focusDolly.dolly = 1;
       dock.px = dockPx;
+      glowLevel.v = 0.8;
       return;
     }
+    // the glow lands as the camera arrives, not before
+    gsap.fromTo(glowLevel, { v: walking ? glowLevel.v * 0.3 : 0 }, { v: 0.8, duration: DUR.reveal, delay: walking ? DUR.reveal * 0.5 : DUR.reveal * 0.4 });
     gsap.to(dock, { px: dockPx, duration: DUR.reveal });
     if (mode === "globe") {
       if (!walking) orbitR.r = restGlobeR(liveZoom); // seed at the live wheel-zoom radius, not a stale one
@@ -786,6 +844,113 @@ void main() {
       gsap.to(focusDolly, { dolly: 1, duration: DUR.reveal });
     }
   }
+
+  // theme labels. The lattice runs each theme along the Fibonacci spiral, so
+  // a theme is a band of z around the spiral axis: a ring around the view when
+  // you look along the axis, a vertical band from the side. Each band gets a
+  // faint boundary ring behind the shell and a serif label riding its
+  // camera-facing side, like the time lens, shown only on the themes lens.
+  type Band = { z: number; r: number; row: number; w: number; sprite: Sprite; mat: SpriteMaterial };
+  const bands: Band[] = [];
+  const labelGroup = new Group();
+  const bandRings = new Group();
+  labelGroup.visible = false;
+  bandRings.visible = false;
+  scene.add(labelGroup, bandRings);
+  const bandMat = new LineBasicMaterial({ color: 0xb7b5aa, transparent: true, opacity: 0, depthWrite: false });
+  let labelsOn = false;
+  const buildThemeLabels = () => {
+    if (bands.length) return;
+    const arr = data.sphere.lattice;
+    if (!arr) return;
+    const lo = data.themes.map(() => 2), hi = data.themes.map(() => -2), cnt = data.themes.map(() => 0);
+    for (let i = 0; i < n; i++) {
+      const th = points[i].th;
+      if (th < 0 || th >= lo.length) continue;
+      lo[th] = Math.min(lo[th], arr[i][2]); hi[th] = Math.max(hi[th], arr[i][2]); cnt[th]++;
+    }
+    const order = data.themes.map((_, th) => th).filter((th) => cnt[th] > 0).sort((a, b) => lo[a] - lo[b]);
+    order.forEach((th, k) => {
+      const z = (lo[th] + hi[th]) / 2;
+      const c = document.createElement("canvas");
+      const g = c.getContext("2d")!;
+      const font = "500 34px Newsreader, Georgia, serif";
+      const text = data.themes[th].toLowerCase();
+      const count = String(cnt[th]);
+      g.font = font;
+      const tw = Math.ceil(g.measureText(text).width);
+      g.font = "500 24px Newsreader, Georgia, serif";
+      const cw = Math.ceil(g.measureText(count).width);
+      const w = tw + cw + 60;
+      c.width = w; c.height = 72;
+      g.fillStyle = "rgba(6,6,8,0.6)";
+      g.beginPath(); g.roundRect(0, 8, w, 56, 10); g.fill();
+      g.textBaseline = "middle";
+      g.font = font; g.fillStyle = "#f0eee7"; g.fillText(text, 22, 37);
+      g.font = "500 24px Newsreader, Georgia, serif"; g.fillStyle = "#e2b04a"; g.fillText(count, 22 + tw + 16, 38);
+      const tex = new CanvasTexture(c);
+      tex.colorSpace = SRGBColorSpace;
+      const mat = new SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false });
+      const sprite = new Sprite(mat);
+      sprite.center.set(0.5, 0.5);
+      labelGroup.add(sprite);
+      // bands are ~10 deg wide along the axis and a label is ~3x that, so
+      // labels take turns in three rows around the band, a ladder, never a pile
+      bands.push({ z, r: Math.sqrt(Math.max(0, 1 - z * z)), row: (k % 3) - 1, w: w / 72, sprite, mat });
+      // boundary ring between this band and the next
+      if (k + 1 < order.length) {
+        const zb = (hi[th] + lo[order[k + 1]]) / 2;
+        const rb = Math.sqrt(Math.max(0, 1 - zb * zb));
+        const pts = new Float32Array(129 * 3);
+        for (let q = 0; q <= 128; q++) {
+          const a = (q / 128) * Math.PI * 2;
+          pts.set([rb * Math.cos(a), rb * Math.sin(a), zb], q * 3);
+        }
+        const geo = new BufferGeometry();
+        geo.setAttribute("position", new BufferAttribute(pts, 3));
+        bandRings.add(new LineLoop(geo, bandMat));
+      }
+    });
+  };
+  const labelLevel = { v: 0 };
+  const _lv = new Vector3(), _lp = new Vector3();
+  const updateThemeLabels = () => {
+    if (!labelGroup.visible) return;
+    const f = facing();
+    bandRings.scale.setScalar(1 + f * 0.035); // behind the shell, like the time rings
+    if (mode === "globe") _lv.copy(camera.position).normalize(); else camera.getWorldDirection(_lv);
+    // the label sits where the band faces the camera, a little past that point so it reads beside the tiles there
+    const az0 = Math.atan2(_lv.y, _lv.x);
+    const rr = 1 - f * 0.07;
+    const h = mode === "globe" ? 0.06 : 0.034; // sprites shrink with distance; the globe sits ~2.5 away
+    const step = mode === "globe" ? 0.42 : 0.46;
+    // from outside, bands near the axis poles converge on the limb; fade them earlier
+    const lo = mode === "globe" ? 0.4 : 0.25, span = mode === "globe" ? 0.4 : 0.45;
+    for (const b of bands) {
+      const az = az0 + b.row * step;
+      _lp.set(b.r * Math.cos(az), b.r * Math.sin(az), b.z);
+      b.sprite.position.copy(_lp).multiplyScalar(rr);
+      b.sprite.scale.set(h * b.w, h, 1);
+      const d = _lp.dot(_lv);
+      const t = Math.min(1, Math.max(0, (d - lo) / span));
+      b.mat.opacity = labelLevel.v * t * t * (3 - 2 * t);
+    }
+  };
+  const showThemeLabels = (on: boolean) => {
+    if (on === labelsOn) return;
+    labelsOn = on;
+    gsap.killTweensOf([labelLevel, bandMat]);
+    if (on) {
+      buildThemeLabels();
+      labelGroup.visible = true;
+      bandRings.visible = true;
+      gsap.to(labelLevel, { v: 0.92, duration: 0.9, delay: 0.5 });
+      gsap.to(bandMat, { opacity: 0.2, duration: 0.9, delay: 0.3 });
+    } else {
+      gsap.to(bandMat, { opacity: 0, duration: 0.4 });
+      gsap.to(labelLevel, { v: 0, duration: 0.4, onComplete: () => { labelGroup.visible = false; bandRings.visible = false; } });
+    }
+  };
 
   let raf = 0;
   let last = performance.now();
@@ -838,6 +1003,8 @@ void main() {
     if (morphing) { stepMorph(); if (hovered !== null) buildArcs(hovered); }
     updateNear();
     updateRings();
+    placeGlow(dt);
+    updateThemeLabels();
     if (!controls.dragging && pointerNdc) {
       const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects, scales);
       if (hit !== hovered) {
@@ -904,7 +1071,9 @@ void main() {
       canvas.removeEventListener("wheel", onWheel);
       gsap.killTweensOf(focusDolly);
       gsap.killTweensOf(orbitR);
-      gsap.killTweensOf([focusDolly, orbitR, dock]);
+      gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel, labelLevel]);
+      glowTex.dispose();
+      for (const b of bands) { b.mat.map?.dispose(); b.mat.dispose(); }
       gsap.killTweensOf([material.uniforms.uNeighDim, material.uniforms.uNeighScale, material.uniforms.uBirth]);
       gsap.killTweensOf([arcMat.uniforms.uOpacity, arcMat.uniforms.uProgress]);
       gsap.killTweensOf(morph);
