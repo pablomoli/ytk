@@ -234,6 +234,7 @@ export function mountOrb(
   const ringMat = new LineBasicMaterial({ color: 0xb7b5aa, transparent: true, opacity: 0, depthWrite: false });
   const ringLabels: { sprite: Sprite; lat: number }[] = [];
   let ringsBuilt = false;
+  const ringLabelLevel = { v: 0 };
   const buildRings = () => {
     if (ringsBuilt) return;
     ringsBuilt = true;
@@ -275,19 +276,19 @@ export function mountOrb(
     const lon = Math.atan2(_rc.x, _rc.z) + (mode === "globe" ? 0.22 : -0.22);
     for (const { sprite, lat } of ringLabels) {
       sprite.position.set(Math.cos(lat) * Math.sin(lon), Math.sin(lat) + 0.012, Math.cos(lat) * Math.cos(lon));
+      sprite.material.opacity = ringLabelLevel.v * (1 - selFade.v);
     }
   };
   const showRings = (on: boolean) => {
-    const mats = ringLabels.map((l) => l.sprite.material);
-    gsap.killTweensOf([ringMat, ...mats]);
+    gsap.killTweensOf([ringMat, ringLabelLevel]);
     if (on) {
       buildRings();
       rings.visible = true;
       gsap.to(ringMat, { opacity: 0.28, duration: 0.9, delay: 0.3 });
-      gsap.to(ringLabels.map((l) => l.sprite.material), { opacity: 0.85, duration: 0.9, delay: 0.3 });
+      gsap.to(ringLabelLevel, { v: 0.85, duration: 0.9, delay: 0.3 });
     } else {
       gsap.to(ringMat, { opacity: 0, duration: 0.4 });
-      gsap.to(mats, { opacity: 0, duration: 0.4, onComplete: () => { rings.visible = false; } });
+      gsap.to(ringLabelLevel, { v: 0, duration: 0.4, onComplete: () => { rings.visible = false; } });
     }
   };
   const layoutArray = (name: LayoutName): number[][] | null => {
@@ -759,6 +760,9 @@ void main() {
   glow.visible = false;
   scene.add(glow);
   const glowLevel = { v: 0 }; // tweened 0..1; the breath rides on top
+  // 1 while a tile is selected: the camera is close to the shell then, and
+  // captions riding the shell would land huge over the selected tile
+  const selFade = { v: 0 };
   const GLOW_SPAN = 1.7;
   let glowTime = 0;
   const placeGlow = (dt: number) => {
@@ -798,10 +802,12 @@ void main() {
       if (mode === "globe") orbitR.r = restGlobeR(liveZoom); else focusDolly.dolly = 0;
       dock.px = 0;
       glowLevel.v = 0;
+      selFade.v = 0;
       done();
       return;
     }
     gsap.to(glowLevel, { v: 0, duration: DUR.morph });
+    gsap.to(selFade, { v: 0, duration: DUR.reveal, delay: DUR.morph });
     // blur resumes at the live wheel-zoom radius, not a frozen constant, since
     // the user may have scrolled while selected
     if (mode === "globe") gsap.to(orbitR, { r: restGlobeR(liveZoom), duration: DUR.reveal, onComplete: done });
@@ -826,11 +832,13 @@ void main() {
       if (mode === "globe") orbitR.r = GLOBE_APEX; else focusDolly.dolly = 1;
       dock.px = dockPx;
       glowLevel.v = 0.8;
+      selFade.v = 1;
       return;
     }
     // the glow lands as the camera arrives, not before
     gsap.fromTo(glowLevel, { v: walking ? glowLevel.v * 0.3 : 0 }, { v: 0.8, duration: DUR.reveal, delay: walking ? DUR.reveal * 0.5 : DUR.reveal * 0.4 });
     gsap.to(dock, { px: dockPx, duration: DUR.reveal });
+    gsap.to(selFade, { v: 1, duration: DUR.morph });
     if (mode === "globe") {
       if (!walking) orbitR.r = restGlobeR(liveZoom); // seed at the live wheel-zoom radius, not a stale one
       else gsap.to(orbitR, { r: GLOBE_APEX + 0.5, duration: DUR.reveal * 0.5, ease: "power2.out" });
@@ -933,7 +941,7 @@ void main() {
       b.sprite.scale.set(h * b.w, h, 1);
       const d = _lp.dot(_lv);
       const t = Math.min(1, Math.max(0, (d - lo) / span));
-      b.mat.opacity = labelLevel.v * t * t * (3 - 2 * t);
+      b.mat.opacity = labelLevel.v * (1 - selFade.v) * t * t * (3 - 2 * t);
     }
   };
   const showThemeLabels = (on: boolean) => {
