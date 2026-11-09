@@ -11,7 +11,10 @@ import {
   InstancedBufferGeometry,
   LinearFilter,
   Matrix3,
+  Matrix4,
   Mesh,
+  MeshBasicMaterial,
+  SRGBColorSpace,
   NoColorSpace,
   PerspectiveCamera,
   PlaneGeometry,
@@ -74,6 +77,7 @@ in vec2 uv;
 in vec3 iPos;   // tile center on the unit sphere
 in vec4 iUv;    // atlas u, v, span u, span v
 in float iAspect; // width/height; the quad keeps its area, so sqrt scales each axis
+in float iScale;  // density scale: tiles shrink where a layout bunches them
 in float iIdx;
 in float iTheme; // per-instance theme id
 uniform mat4 modelViewMatrix, projectionMatrix;
@@ -93,7 +97,7 @@ void main() {
   float s = (abs(iIdx - uHovered) < 0.5) ? uHoverScale : 1.0;
   for (int k = 0; k < 8; k++) if (abs(iIdx - uNeigh[k]) < 0.5) s *= uNeighScale;
   float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iIdx / uCount) / 0.35);
-  s *= born;
+  s *= born * iScale;
   float sx = sqrt(iAspect);
   vec3 world = iPos + (e1 * position.x * sx + e2 * position.y / sx) * s;
   vUv = vec2(iUv.x + uv.x * iUv.z, iUv.y + uv.y * iUv.w);
@@ -142,6 +146,7 @@ export type OrbHandle = {
   setView(mode: OrbViewMode): void;
   setTerrain(on: boolean): void;
   aimAt(dir: [number, number, number]): void;
+  centerOf(i: number): [number, number, number];
   focus(i: number): void;
   blur(): void;
   dispose(): void;
@@ -164,15 +169,39 @@ export function mountOrb(
   const scene = new Scene();
 
   const centers = new Float32Array(n * 3);
-  const writeLayout = (name: LayoutName) => {
+  const scales = new Float32Array(n).fill(1);
+  // where a layout bunches tiles, each shrinks to its nearest neighbor's distance so none overlap
+  const densityScales = (pos: Float32Array, asp: Float32Array, out: Float32Array) => {
+    for (let i = 0; i < n; i++) {
+      let best = -1;
+      const ax = pos[i * 3], ay = pos[i * 3 + 1], az = pos[i * 3 + 2];
+      for (let j = 0; j < n; j++) {
+        if (j === i) continue;
+        const d = ax * pos[j * 3] + ay * pos[j * 3 + 1] + az * pos[j * 3 + 2];
+        if (d > best) best = d;
+      }
+      const dist = Math.acos(Math.min(1, best)); // radians to the nearest tile center
+      const sx = Math.sqrt(asp[i]);
+      const long = TILE_HALF * Math.max(sx, 1 / sx) * 2 * 1.1;
+      out[i] = Math.min(1, Math.max(0.4, dist / long));
+    }
+  };
+  const layoutArray = (name: LayoutName): number[][] | null => {
     const arr = data.sphere[name] ?? data.sphere[data.sphere.chosen];
     if (!arr || arr.length < n) {
       console.warn(`orb: layout "${name}" missing or short (${arr?.length ?? 0} < ${n}); keeping current centers`);
-      return;
+      return null;
     }
-    for (let i = 0; i < n; i++) centers.set(arr[i], i * 3);
+    return arr;
   };
-  writeLayout(data.sphere.chosen);
+  {
+    const arr = layoutArray(data.sphere.chosen)!;
+    for (let i = 0; i < n; i++) centers.set(arr[i], i * 3);
+  }
+  const morph = { t: 1 };
+  const morphFrom = new Float32Array(n * 3), morphTo = new Float32Array(n * 3);
+  const scaleFrom = new Float32Array(n), scaleTo = new Float32Array(n);
+  let morphing = false;
 
   const plane = new PlaneGeometry(TILE_HALF * 2, TILE_HALF * 2);
   const geo = new InstancedBufferGeometry();
@@ -193,6 +222,38 @@ export function mountOrb(
   });
   geo.setAttribute("iUv", new InstancedBufferAttribute(uvs, 4));
   geo.setAttribute("iAspect", new InstancedBufferAttribute(aspects, 1));
+  densityScales(centers, aspects, scales);
+  const iScale = new InstancedBufferAttribute(scales, 1);
+  geo.setAttribute("iScale", iScale);
+  // tiles slide along the sphere from one layout to the next instead of jumping
+  const writeLayout = (name: LayoutName) => {
+    const arr = layoutArray(name);
+    if (!arr) return;
+    morphFrom.set(centers);
+    scaleFrom.set(scales);
+    for (let i = 0; i < n; i++) morphTo.set(arr[i], i * 3);
+    densityScales(morphTo, aspects, scaleTo);
+    if (reducedMotion()) {
+      centers.set(morphTo); scales.set(scaleTo);
+      iPos.needsUpdate = true; iScale.needsUpdate = true;
+      return;
+    }
+    gsap.killTweensOf(morph);
+    morph.t = 0; morphing = true;
+    gsap.to(morph, { t: 1, duration: 0.9, ease: "power2.inOut", onComplete: () => { morphing = false; } });
+  };
+  const stepMorph = () => {
+    const t = morph.t;
+    for (let i = 0; i < n; i++) {
+      const x = morphFrom[i * 3] + (morphTo[i * 3] - morphFrom[i * 3]) * t;
+      const y = morphFrom[i * 3 + 1] + (morphTo[i * 3 + 1] - morphFrom[i * 3 + 1]) * t;
+      const z = morphFrom[i * 3 + 2] + (morphTo[i * 3 + 2] - morphFrom[i * 3 + 2]) * t;
+      const l = Math.hypot(x, y, z) || 1; // back onto the unit sphere; antipodal pairs are not in the data
+      centers[i * 3] = x / l; centers[i * 3 + 1] = y / l; centers[i * 3 + 2] = z / l;
+      scales[i] = scaleFrom[i] + (scaleTo[i] - scaleFrom[i]) * t;
+    }
+    iPos.needsUpdate = true; iScale.needsUpdate = true;
+  };
   geo.setAttribute("iIdx", new InstancedBufferAttribute(Float32Array.from({ length: n }, (_, i) => i), 1));
   const themes = new Float32Array(n);
   points.forEach((p, i) => { themes[i] = p.th; });
@@ -308,7 +369,7 @@ out vec4 outColor;
 void main() {
   if (vT > uProgress) discard;
   // a pulse leaves the hovered tile every ~2.2 s per arc, staggered by neighbor, with a tail behind it
-  float ph = fract(uTime * 0.45 + vK * 0.19);
+  float ph = fract(uTime * 1.0 + vK * 0.37);
   float d = vT - ph;
   float head = exp(-d * d / 0.0012);
   float tail = d < 0.0 ? exp(d * 9.0) * 0.55 : 0.0;
@@ -375,6 +436,115 @@ void main() {
     gsap.to(material.uniforms.uNeighScale, { value: 1.14, duration: DUR.morph, delay: DUR.reveal * 0.4 });
   }
 
+  // near field: the NEAR tiles closest to the view center get a 512px texture of
+  // their own, drawn as a quad a hair in front of the atlas tile. Everything
+  // else stays on the 192px atlas. Textures are cached and the cache is capped.
+  const NEAR = 28, NEAR_LONG = 512, NEAR_CACHE = 72;
+  const nearCache = new Map<string, Texture | null>(); // null = loading
+  const nearInUse = new Set<string>();
+  const nearGeo = new PlaneGeometry(1, 1);
+  const nearPool = Array.from({ length: NEAR }, () => {
+    const m = new Mesh(nearGeo, new MeshBasicMaterial({ color: 0xffffff }));
+    m.matrixAutoUpdate = false;
+    m.visible = false;
+    m.frustumCulled = false;
+    scene.add(m);
+    return m;
+  });
+  const loadNear = (i: number): Texture | null => {
+    const path = points[i].thumb;
+    if (!path) return null;
+    if (nearCache.has(path)) return nearCache.get(path) ?? null;
+    nearCache.set(path, null);
+    const img = new Image();
+    img.onload = () => {
+      if (disposed) return;
+      const k = NEAR_LONG / Math.max(img.naturalWidth, img.naturalHeight);
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * k));
+      c.height = Math.max(1, Math.round(img.naturalHeight * k));
+      c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+      const tex = new Texture(c);
+      tex.colorSpace = SRGBColorSpace; // decoded then re-encoded: lands on the same bytes as the raw atlas tiles
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      tex.needsUpdate = true;
+      nearCache.set(path, tex);
+      if (nearCache.size > NEAR_CACHE) {
+        for (const [k2, t2] of nearCache) {
+          if (nearCache.size <= NEAR_CACHE) break;
+          if (t2 && !nearInUse.has(k2)) { t2.dispose(); nearCache.delete(k2); }
+        }
+      }
+    };
+    img.src = `/vault-media/${path}`;
+    return null;
+  };
+  const _nn = new Vector3(), _ne1 = new Vector3(), _ne2 = new Vector3(), _nc = new Vector3(), _nref = new Vector3();
+  const _m4 = new Matrix4();
+  const nearScore = new Float32Array(n);
+  const nearIdx = Array.from({ length: n }, (_, i) => i);
+  let nearTick = 0;
+  const updateNear = () => {
+    const f = facing();
+    const u = material.uniforms;
+    // rank every 4th frame; place every frame (cheap)
+    if (nearTick++ % 4 === 0) {
+      if (mode === "globe") _nc.copy(camera.position).normalize();
+      else camera.getWorldDirection(_nc);
+      for (let i = 0; i < n; i++) {
+        nearScore[i] = points[i].thumb
+          ? _nc.x * centers[i * 3] + _nc.y * centers[i * 3 + 1] + _nc.z * centers[i * 3 + 2]
+          : -2;
+      }
+      nearIdx.sort((a, b) => nearScore[b] - nearScore[a]);
+      nearInUse.clear();
+      for (let k = 0; k < NEAR; k++) {
+        const i = nearIdx[k];
+        const tex = nearScore[i] > -2 ? loadNear(i) : null;
+        const mesh = nearPool[k];
+        mesh.userData.i = i;
+        if (tex) {
+          nearInUse.add(points[i].thumb!);
+          const mat = mesh.material as MeshBasicMaterial;
+          if (mat.map !== tex) { mat.map = tex; mat.needsUpdate = true; }
+          mesh.visible = true;
+        } else mesh.visible = false;
+      }
+    }
+    const birth = u.uBirth.value as number;
+    for (let k = 0; k < NEAR; k++) {
+      const mesh = nearPool[k];
+      if (!mesh.visible) continue;
+      const i = mesh.userData.i as number;
+      _nc.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
+      _nn.copy(_nc).negate().normalize().multiplyScalar(f);
+      _nref.set(Math.abs(_nn.y) > 0.9 ? 1 : 0, Math.abs(_nn.y) > 0.9 ? 0 : 1, 0);
+      _ne1.crossVectors(_nref, _nn).normalize();
+      _ne2.crossVectors(_nn, _ne1);
+      // mirror the vertex shader's scale chain exactly
+      let sc = scales[i] * (i === hovered ? (u.uHoverScale.value as number) : 1);
+      if (neigh.includes(i)) sc *= u.uNeighScale.value as number;
+      const bornT = (birth * 1.35 - i / n) / 0.35;
+      const born = bornT <= 0 ? 0 : bornT >= 1 ? 1 : bornT * bornT * (3 - 2 * bornT);
+      sc *= born;
+      const sx = Math.sqrt(aspects[i]);
+      _ne1.multiplyScalar(TILE_HALF * 2 * sx * sc);
+      _ne2.multiplyScalar(((TILE_HALF * 2) / sx) * sc);
+      _m4.makeBasis(_ne1, _ne2, _nn);
+      _nc.multiplyScalar(1 - f * 0.0015); // a hair toward the camera, in front of the atlas tile
+      _m4.setPosition(_nc);
+      mesh.matrix.copy(_m4);
+      // mirror the fragment shader's dimming chain
+      let dim = 1;
+      if (focused >= 0 && i !== focused) dim *= u.uDim.value as number;
+      const th = u.uTheme.value as number;
+      if (th >= 0 && points[i].th !== th) dim *= u.uThemeDim.value as number;
+      const nd = u.uNeighDim.value as number;
+      if (nd < 1 && i !== hovered && !neigh.includes(i)) dim *= nd;
+      (mesh.material as MeshBasicMaterial).color.setScalar(dim);
+    }
+  };
+
   const controls = createControls();
   const focusDolly = { dolly: 0 }; // inside mode: 0 at rest, 1 at apex
   const orbitR = { r: restGlobeR(0.5) }; // globe mode: current camera radius, rest -> apex
@@ -417,7 +587,7 @@ void main() {
   const onUp = (e: PointerEvent) => {
     const { tap } = controls.up();
     if (tap && focused < 0 && pointerNdc) {
-      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects);
+      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects, scales);
       if (hit !== null) focusTile(hit);
     }
     canvas.releasePointerCapture(e.pointerId);
@@ -537,8 +707,10 @@ void main() {
       }
     }
     camera.updateMatrixWorld();
+    if (morphing) { stepMorph(); if (hovered !== null) buildArcs(hovered); }
+    updateNear();
     if (!controls.dragging && focused < 0 && pointerNdc) {
-      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects);
+      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects, scales);
       if (hit !== hovered) { hovered = hit; material.uniforms.uHovered.value = hit ?? -1; showNeighbors(hit); cb.onHover(hit); }
     }
     renderer.render(scene, camera);
@@ -558,8 +730,10 @@ void main() {
   return {
     setLayout(name) {
       writeLayout(name);
-      iPos.needsUpdate = true;
       if (hovered !== null) buildArcs(hovered);
+    },
+    centerOf(i) {
+      return [centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]];
     },
     setThemeFilter(th) { material.uniforms.uTheme.value = th ?? -1; },
     setView(next) {
@@ -597,6 +771,11 @@ void main() {
       gsap.killTweensOf(material.uniforms.uDim);
       gsap.killTweensOf([material.uniforms.uNeighDim, material.uniforms.uNeighScale, material.uniforms.uBirth]);
       gsap.killTweensOf([arcMat.uniforms.uOpacity, arcMat.uniforms.uProgress]);
+      gsap.killTweensOf(morph);
+      for (const m of nearPool) (m.material as MeshBasicMaterial).dispose();
+      nearGeo.dispose();
+      for (const t of nearCache.values()) t?.dispose();
+      nearCache.clear();
       arcGeo.dispose();
       arcMat.dispose();
       plane.dispose();

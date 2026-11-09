@@ -77,6 +77,9 @@ function OrbPage() {
   const [theme, setTheme] = useState<number | null>(null);
   const [terrain, setTerrain] = useState(false);
   const [hovered, setHovered] = useState<number | null>(null);
+  // the neighbors panel anchors on the last hovered tile and stays put, so the
+  // pointer can leave the sphere to read or click the list
+  const [anchor, setAnchor] = useState<number | null>(null);
   const [open, setOpen] = useState<{ i: number; rect: DOMRect } | null>(null);
   const data = orb.data;
 
@@ -86,7 +89,10 @@ function OrbPage() {
     const handle = mountOrb(canvas, data, {
       onHover: (i) => {
         setHovered(i);
-        if (i !== null) prefetchNote(data.points[i].p);
+        if (i !== null) {
+          setAnchor(i);
+          prefetchNote(data.points[i].p);
+        }
       },
       onOpen: (i, rect) => setOpen({ i, rect }),
     });
@@ -117,6 +123,13 @@ function OrbPage() {
     return <ErrorState error={orb.error} onRetry={() => void orb.refetch()} />;
 
   const scores = data?.sphere.scores;
+  const knn = data?.sphere.knn;
+  const knnSim = data?.sphere.knn_sim;
+  const walkTo = (j: number) => {
+    setAnchor(j);
+    const h = handleRef.current;
+    if (h) h.aimAt(h.centerOf(j));
+  };
   return (
     <div className="relative flex-1 min-h-0 overflow-hidden">
       {!data ? (
@@ -198,6 +211,47 @@ function OrbPage() {
             ))}
           </select>
         </div>
+      ) : null}
+      {data && chrome && anchor !== null && knn && !open ? (
+        <aside className="absolute right-4 top-4 bottom-4 w-80 overflow-y-auto rounded-md bg-black/55 p-3 text-sm backdrop-blur-sm">
+          <div className="mb-3">
+            <div className="text-[11px] uppercase tracking-wider opacity-50">nearest by embedding</div>
+            <div className="mt-1 leading-snug">{captionTitle(data.points[anchor].t)}</div>
+          </div>
+          <ol className="flex flex-col gap-2">
+            {(knn[anchor] ?? []).map((j, k) => {
+              const q = data.points[j];
+              const sim = knnSim?.[anchor]?.[k];
+              return (
+                <li key={j}>
+                  <button
+                    type="button"
+                    onClick={() => walkTo(j)}
+                    className="flex w-full items-start gap-2 rounded px-1 py-1 text-left hover:bg-white/10"
+                  >
+                    {q.thumb ? (
+                      <img
+                        src={`/vault-media/${q.thumb}`}
+                        alt=""
+                        className="h-12 w-12 flex-none rounded-sm object-cover"
+                      />
+                    ) : (
+                      <span className="h-12 w-12 flex-none rounded-sm bg-white/10" />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="line-clamp-2 leading-snug">{captionTitle(q.t)}</span>
+                      <span className="mt-0.5 block text-xs opacity-55">
+                        {sim !== undefined ? `${Math.round(sim * 100)}% ` : ""}
+                        {q.c}
+                        {q.d ? ` · ${q.d}` : ""}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </aside>
       ) : null}
       {data && hovered !== null && !open ? (
         <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm">

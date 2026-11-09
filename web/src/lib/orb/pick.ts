@@ -40,6 +40,7 @@ export function pickTile(
   half: number,
   facing: 1 | -1 = 1,
   aspects?: Float32Array, // per-tile width/height; quads are area-preserving
+  scales?: Float32Array, // per-tile density scale
 ): number | null {
   _origin.copy(camera.position);
   _dir.set(ndcX, ndcY, 0.5).unproject(camera).sub(_origin).normalize();
@@ -57,7 +58,8 @@ export function pickTile(
     if (t <= 0 || t >= bestT) continue;
     _hit.copy(_origin).addScaledVector(_dir, t).sub(_c);
     const sx = aspects ? Math.sqrt(aspects[i]) : 1;
-    if (Math.abs(_hit.dot(_e1)) <= half * sx && Math.abs(_hit.dot(_e2)) <= half / sx) {
+    const h = half * (scales ? scales[i] : 1);
+    if (Math.abs(_hit.dot(_e1)) <= h * sx && Math.abs(_hit.dot(_e2)) <= h / sx) {
       best = i;
       bestT = t;
     }
