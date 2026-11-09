@@ -37,7 +37,12 @@ export const Route = createFileRoute("/orb")({
   validateSearch: validateOrbSearch,
 });
 
-const LAYOUTS: LayoutName[] = ["radial", "haversine", "lattice"];
+// lenses: the same tiles, three arrangements, named for what you see
+const LENSES: { name: LayoutName; label: string; hint: string }[] = [
+  { name: "radial", label: "neighbors", hint: "tiles sit by embedding neighborhood" },
+  { name: "lattice", label: "themes", hint: "tiles grouped in theme blocks" },
+  { name: "time", label: "time", hint: "newest at the top of the sphere, oldest at the bottom" },
+];
 
 // build_map sometimes emits raw Obsidian embed syntax in titles; strip for display only
 const captionTitle = (t: string) =>
@@ -145,26 +150,20 @@ function OrbPage() {
       {data && chrome ? (
         <div className="absolute left-4 top-4 flex flex-col gap-2 text-xs">
           <div className="flex gap-1">
-            {LAYOUTS.map((name) => {
-              const missing = name === "haversine" && !data.sphere.haversine;
+            {LENSES.map(({ name, label, hint }) => {
               const s = scores?.[name];
               return (
                 <button
                   key={name}
                   type="button"
-                  disabled={missing}
-                  title={
-                    s
-                      ? `trust ${s.trustworthiness.toFixed(3)} overlap ${(100 * s.overlap_frac).toFixed(1)}%`
-                      : "unavailable"
-                  }
+                  title={s ? `${hint} · trust ${s.trustworthiness.toFixed(3)}` : hint}
                   className={`rounded px-2 py-1 ${layout === name ? "bg-white/20" : "bg-white/5 hover:bg-white/10"} disabled:opacity-30`}
                   onClick={() => {
                     setLayout(name);
                     handleRef.current?.setLayout(name);
                   }}
                 >
-                  {name}
+                  {label}
                 </button>
               );
             })}

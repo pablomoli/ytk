@@ -12,7 +12,8 @@ export type OrbPoint = {
   ar?: number | null; // thumbnail width/height; null when unknown
 };
 
-export type LayoutName = "radial" | "haversine" | "lattice";
+// radial = neighbors, lattice = themes, time = date by latitude (computed on the client)
+export type LayoutName = "radial" | "haversine" | "lattice" | "time";
 
 export type OrbScores = Partial<
   Record<LayoutName, { trustworthiness: number; mean_nn_deg: number; overlap: number; overlap_frac: number }>

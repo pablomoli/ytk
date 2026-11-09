@@ -4,6 +4,12 @@ import {
   ClampToEdgeWrapping,
   DataTexture,
   BufferAttribute,
+  CanvasTexture,
+  Group,
+  LineBasicMaterial,
+  LineLoop,
+  Sprite,
+  SpriteMaterial,
   LineSegments,
   DoubleSide,
   GLSL3,
@@ -186,7 +192,106 @@ export function mountOrb(
       out[i] = Math.min(1, Math.max(0.4, dist / long));
     }
   };
+  // time lens: latitude by date rank (equal-area bands, newest at the north pole,
+  // undated at the south), longitude from the neighbors layout so a theme stays
+  // in its band of the sky while its members spread along it by age
+  let timeLayout: number[][] | null = null;
+  // ring per boundary: every month of the newest year, every year before it. Rank
+  // latitude means a busy month is a fat band and a quiet year a thin one.
+  const timeBounds: { lat: number; label: string }[] = [];
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const timeArray = (): number[][] => {
+    if (timeLayout) return timeLayout;
+    const radial = data.sphere.radial;
+    const order = points.map((_, i) => i).sort((a, b) => {
+      const da = points[a].d ?? "", db = points[b].d ?? "";
+      return da < db ? -1 : da > db ? 1 : a - b; // oldest first; undated ("") sort first = south pole
+    });
+    const out: number[][] = new Array(n);
+    const latOf = (rank: number) => Math.asin((2 * rank) / n - 1); // -pi/2 oldest .. +pi/2 newest
+    const newestYear = (points[order[n - 1]].d ?? "").slice(0, 4);
+    let prevKey = "";
+    order.forEach((i, rank) => {
+      const lat = latOf(rank + 0.5);
+      const lon = Math.atan2(radial[i][0], radial[i][2]);
+      out[i] = [Math.cos(lat) * Math.sin(lon), Math.sin(lat), Math.cos(lat) * Math.cos(lon)];
+      const d = points[i].d ?? "";
+      if (!d) return;
+      const key = d.slice(0, 4) === newestYear ? d.slice(0, 7) : d.slice(0, 4);
+      if (key !== prevKey) {
+        const label = key.length === 7 ? `${MONTHS[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}` : key;
+        timeBounds.push({ lat: latOf(rank), label });
+        prevKey = key;
+      }
+    });
+    timeLayout = out;
+    return out;
+  };
+  // the rings and their labels live in one group, shown only on the time lens
+  const rings = new Group();
+  rings.visible = false;
+  scene.add(rings);
+  const ringMat = new LineBasicMaterial({ color: 0xb7b5aa, transparent: true, opacity: 0, depthWrite: false });
+  const ringLabels: { sprite: Sprite; lat: number }[] = [];
+  let ringsBuilt = false;
+  const buildRings = () => {
+    if (ringsBuilt) return;
+    ringsBuilt = true;
+    timeArray();
+    for (const b of timeBounds) {
+      const pts = new Float32Array(129 * 3);
+      for (let k = 0; k <= 128; k++) {
+        const a = (k / 128) * Math.PI * 2;
+        pts.set([Math.cos(b.lat) * Math.sin(a), Math.sin(b.lat), Math.cos(b.lat) * Math.cos(a)], k * 3);
+      }
+      const g = new BufferGeometry();
+      g.setAttribute("position", new BufferAttribute(pts, 3));
+      rings.add(new LineLoop(g, ringMat));
+      const c = document.createElement("canvas");
+      c.width = 256; c.height = 64;
+      const ctx = c.getContext("2d")!;
+      ctx.font = "500 30px Newsreader, Georgia, serif";
+      ctx.fillStyle = "#f0eee7";
+      ctx.textBaseline = "middle";
+      ctx.fillText(b.label, 8, 32);
+      const tex = new CanvasTexture(c);
+      tex.colorSpace = SRGBColorSpace;
+      const sprite = new Sprite(new SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false }));
+      sprite.scale.set(0.22, 0.055, 1);
+      sprite.center.set(0, 0.5); // anchored at the ring, text runs to the right
+      rings.add(sprite);
+      ringLabels.push({ sprite, lat: b.lat });
+    }
+  };
+  let lens: LayoutName = data.sphere.chosen;
+  const _rc = new Vector3();
+  const updateRings = () => {
+    if (!rings.visible) return;
+    const f = facing();
+    const r = 1 + f * 0.035; // behind the shell, like the arcs
+    rings.scale.setScalar(r);
+    // labels sit at the longitude that faces the camera, a little past the ring's front edge
+    if (mode === "globe") _rc.copy(camera.position); else camera.getWorldDirection(_rc);
+    const lon = Math.atan2(_rc.x, _rc.z) + (mode === "globe" ? 0.22 : -0.22);
+    for (const { sprite, lat } of ringLabels) {
+      sprite.position.set(Math.cos(lat) * Math.sin(lon), Math.sin(lat) + 0.012, Math.cos(lat) * Math.cos(lon));
+    }
+  };
+  const showRings = (on: boolean) => {
+    const mats = ringLabels.map((l) => l.sprite.material);
+    gsap.killTweensOf([ringMat, ...mats]);
+    if (on) {
+      buildRings();
+      rings.visible = true;
+      gsap.to(ringMat, { opacity: 0.28, duration: 0.9, delay: 0.3 });
+      gsap.to(ringLabels.map((l) => l.sprite.material), { opacity: 0.85, duration: 0.9, delay: 0.3 });
+    } else {
+      gsap.to(ringMat, { opacity: 0, duration: 0.4 });
+      gsap.to(mats, { opacity: 0, duration: 0.4, onComplete: () => { rings.visible = false; } });
+    }
+  };
   const layoutArray = (name: LayoutName): number[][] | null => {
+    if (name === "time") return timeArray();
     const arr = data.sphere[name] ?? data.sphere[data.sphere.chosen];
     if (!arr || arr.length < n) {
       console.warn(`orb: layout "${name}" missing or short (${arr?.length ?? 0} < ${n}); keeping current centers`);
@@ -229,6 +334,8 @@ export function mountOrb(
   const writeLayout = (name: LayoutName) => {
     const arr = layoutArray(name);
     if (!arr) return;
+    lens = name;
+    showRings(name === "time");
     morphFrom.set(centers);
     scaleFrom.set(scales);
     for (let i = 0; i < n; i++) morphTo.set(arr[i], i * 3);
@@ -718,6 +825,7 @@ void main() {
     camera.updateMatrixWorld();
     if (morphing) { stepMorph(); if (hovered !== null) buildArcs(hovered); }
     updateNear();
+    updateRings();
     if (!controls.dragging && focused < 0 && pointerNdc) {
       const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects, scales);
       if (hit !== hovered) { hovered = hit; material.uniforms.uHovered.value = hit ?? -1; showNeighbors(hit); cb.onHover(hit); }
@@ -781,6 +889,11 @@ void main() {
       gsap.killTweensOf([material.uniforms.uNeighDim, material.uniforms.uNeighScale, material.uniforms.uBirth]);
       gsap.killTweensOf([arcMat.uniforms.uOpacity, arcMat.uniforms.uProgress]);
       gsap.killTweensOf(morph);
+      gsap.killTweensOf([ringMat, ...ringLabels.map((l) => l.sprite.material)]);
+      for (const l of ringLabels) { l.sprite.material.map?.dispose(); l.sprite.material.dispose(); }
+      for (const o of rings.children) if (o instanceof LineLoop) o.geometry.dispose();
+      ringMat.dispose();
+      void lens;
       for (const m of nearPool) (m.material as MeshBasicMaterial).dispose();
       nearGeo.dispose();
       for (const t of nearCache.values()) t?.dispose();
