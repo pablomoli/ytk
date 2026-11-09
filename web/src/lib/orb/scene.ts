@@ -45,7 +45,6 @@ export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-se
 // Apex40 previz verdict (user-reviewed, Apex Manim render): DOLLY = 1 -
 // 0.055/(0.40 * tan 30deg) = 0.76. Final; do not derive from a different apex.
 const DOLLY = 0.76;
-const DIM_FOCUS = 0.25;
 const DIM_FILTER = 0.15;
 
 // mirrors DOLLY's stand-off distance-from-tile, kept outside the unit sphere:
@@ -87,7 +86,7 @@ in float iScale;  // density scale: tiles shrink where a layout bunches them
 in float iIdx;
 in float iTheme; // per-instance theme id
 uniform mat4 modelViewMatrix, projectionMatrix;
-uniform float uHovered, uHoverScale;
+uniform float uHovered, uHoverScale, uFocused;
 uniform float uFacing; // 1 inside (tiles face the origin), -1 globe (tiles face outward)
 uniform float uNeigh[8];
 uniform float uNeighScale; // 1 at rest; the hovered tile's neighbors swell to it
@@ -100,7 +99,7 @@ void main() {
   vec3 ref = abs(n.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
   vec3 e1 = normalize(cross(ref, n));
   vec3 e2 = cross(n, e1);
-  float s = (abs(iIdx - uHovered) < 0.5) ? uHoverScale : 1.0;
+  float s = (abs(iIdx - uHovered) < 0.5 || abs(iIdx - uFocused) < 0.5) ? uHoverScale : 1.0;
   for (int k = 0; k < 8; k++) if (abs(iIdx - uNeigh[k]) < 0.5) s *= uNeighScale;
   float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iIdx / uCount) / 0.35);
   s *= born * iScale;
@@ -130,7 +129,7 @@ void main() {
   if (uFocused >= 0.0 && abs(vIdx - uFocused) >= 0.5) dim *= uDim;
   if (uTheme >= 0.0 && abs(vTheme - uTheme) >= 0.5) dim *= uThemeDim;
   if (uNeighDim < 1.0) {
-    bool keep = abs(vIdx - uHovered) < 0.5;
+    bool keep = abs(vIdx - uHovered) < 0.5 || abs(vIdx - uFocused) < 0.5;
     for (int k = 0; k < 8; k++) if (abs(vIdx - uNeigh[k]) < 0.5) keep = true;
     if (!keep) dim *= uNeighDim;
   }
@@ -155,13 +154,14 @@ export type OrbHandle = {
   centerOf(i: number): [number, number, number];
   focus(i: number): void;
   blur(): void;
+  setDock(px: number): void;
   dispose(): void;
 };
 
 export function mountOrb(
   canvas: HTMLCanvasElement,
   data: OrbData,
-  cb: { onHover(i: number | null): void; onOpen(i: number, rect: DOMRect): void },
+  cb: { onHover(i: number | null): void; onOpen(i: number, rect: DOMRect): void; onBlur(): void },
 ): OrbHandle {
   const cap = COLS * COLS; // atlas has exactly this many slots; beyond it uvRect wraps
   const n = Math.min(data.points.length, cap);
@@ -638,7 +638,7 @@ void main() {
       _ne1.crossVectors(_nref, _nn).normalize();
       _ne2.crossVectors(_nn, _ne1);
       // mirror the vertex shader's scale chain exactly
-      let sc = scales[i] * (i === hovered ? (u.uHoverScale.value as number) : 1);
+      let sc = scales[i] * (i === hovered || i === focused ? (u.uHoverScale.value as number) : 1);
       if (neigh.includes(i)) sc *= u.uNeighScale.value as number;
       const bornT = (birth * 1.35 - i / n) / 0.35;
       const born = bornT <= 0 ? 0 : bornT >= 1 ? 1 : bornT * bornT * (3 - 2 * bornT);
@@ -652,11 +652,10 @@ void main() {
       mesh.matrix.copy(_m4);
       // mirror the fragment shader's dimming chain
       let dim = 1;
-      if (focused >= 0 && i !== focused) dim *= u.uDim.value as number;
       const th = u.uTheme.value as number;
       if (th >= 0 && points[i].th !== th) dim *= u.uThemeDim.value as number;
       const nd = u.uNeighDim.value as number;
-      if (nd < 1 && i !== hovered && !neigh.includes(i)) dim *= nd;
+      if (nd < 1 && i !== hovered && i !== focused && !neigh.includes(i)) dim *= nd;
       (mesh.material as MeshBasicMaterial).color.setScalar(dim);
     }
   };
@@ -670,7 +669,11 @@ void main() {
   let pointerNdc: [number, number] | null = null;
   let liveZoom = 0.5; // controls' wheel-zoom channel, latched each frame for focusTile/doBlur to read outside the loop
   let focusRaf1 = 0, focusRaf2 = 0; // reduced-motion focus's double-rAF; cancelled on dispose
-  let focusCall: ReturnType<typeof gsap.delayedCall> | undefined; // pending onOpen handoff at 75% dolly
+  let focusCall: ReturnType<typeof gsap.delayedCall> | undefined; // pending onOpen handoff
+  // reading pane width in css px; while a tile is selected the picture shifts
+  // left by half of it (lens shift, no rotation) so the tile centers in the sky that remains
+  let dockPx = 0;
+  const dock = { px: 0 };
   const dir = new Vector3();
   const facing = (): 1 | -1 => (mode === "globe" ? -1 : 1);
 
@@ -702,17 +705,27 @@ void main() {
   };
   const onUp = (e: PointerEvent) => {
     const { tap } = controls.up();
-    if (tap && focused < 0 && pointerNdc) {
+    if (tap && pointerNdc) {
       const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects, scales);
-      if (hit !== null) focusTile(hit);
+      if (hit !== null) { if (hit !== focused) focusTile(hit); }
+      else if (focused >= 0) { doBlur(); cb.onBlur(); }
     }
     canvas.releasePointerCapture(e.pointerId);
+  };
+  const onLeave = () => {
+    pointerNdc = null;
+    if (hovered === null) return;
+    hovered = null;
+    material.uniforms.uHovered.value = -1;
+    if (focused < 0) showNeighbors(null);
+    cb.onHover(null);
   };
   const onWheel = (e: WheelEvent) =>
     controls.wheel(normalizeWheelDelta(e.deltaY, e.deltaMode, canvas.clientHeight));
   canvas.addEventListener("pointerdown", onDown);
   canvas.addEventListener("pointermove", onMove);
   canvas.addEventListener("pointerup", onUp);
+  canvas.addEventListener("pointerleave", onLeave);
   canvas.addEventListener("wheel", onWheel, { passive: true });
 
   const apexRect = (i: number) => {
@@ -720,64 +733,58 @@ void main() {
     return tileScreenRect(camera, dir.clone(), TILE_HALF, canvas.clientWidth, canvas.clientHeight, facing());
   };
 
-  // kills focus tweens/dims and returns the depth param to rest, for whichever
-  // mode is current; setView calls this before flipping facing so a mode
-  // switch mid-focus can't strand uFocused or leave the wrong depth tweening.
+  // returns the camera depth and the lens shift to rest, for whichever mode is
+  // current; setView calls this before flipping facing so a mode switch
+  // mid-selection can't strand uFocused or leave the wrong depth tweening.
   function doBlur() {
     focusCall?.kill();
     focusCall = undefined;
     const done = () => { focused = -1; material.uniforms.uFocused.value = -1; };
+    gsap.killTweensOf([focusDolly, orbitR, dock]);
     if (reducedMotion()) {
       if (mode === "globe") orbitR.r = restGlobeR(liveZoom); else focusDolly.dolly = 0;
-      material.uniforms.uDim.value = 1;
+      dock.px = 0;
       done();
       return;
     }
     // blur resumes at the live wheel-zoom radius, not a frozen constant, since
-    // the user may have scrolled while focused
-    if (mode === "globe") gsap.to(orbitR, { r: restGlobeR(liveZoom), duration: DUR.morph, onComplete: done });
-    else gsap.to(focusDolly, { dolly: 0, duration: DUR.morph, onComplete: done });
-    gsap.to(material.uniforms.uDim, { value: 1, duration: DUR.morph });
+    // the user may have scrolled while selected
+    if (mode === "globe") gsap.to(orbitR, { r: restGlobeR(liveZoom), duration: DUR.reveal, onComplete: done });
+    else gsap.to(focusDolly, { dolly: 0, duration: DUR.reveal, onComplete: done });
+    gsap.to(dock, { px: 0, duration: DUR.reveal });
   }
 
+  // select a tile: the camera flies to it, its arcs and neighbors stay lit,
+  // and the picture shifts to make room for the reading pane. Selecting
+  // another tile while one is selected is a walk: step back, then approach.
   function focusTile(i: number) {
+    const walking = focused >= 0;
     focused = i;
     material.uniforms.uFocused.value = i;
-    // the NoteViewer is about to cover the tile; a caption left over from
-    // hover must not stay live behind it
-    hovered = null;
-    material.uniforms.uHovered.value = -1;
-    showNeighbors(null);
-    cb.onHover(null);
+    if (hovered !== i) { hovered = i; material.uniforms.uHovered.value = i; cb.onHover(i); }
+    showNeighbors(i);
     const { yaw, pitch } = anglesFor(i);
+    controls.setTarget(yaw, pitch);
+    cb.onOpen(i, apexRect(i));
+    gsap.killTweensOf([focusDolly, orbitR, dock]);
     if (reducedMotion()) {
-      controls.setTarget(yaw, pitch);
       if (mode === "globe") orbitR.r = GLOBE_APEX; else focusDolly.dolly = 1;
-      material.uniforms.uDim.value = DIM_FOCUS;
-      // one frame so the camera pose lands before projecting; handles tracked
-      // so dispose() can cancel them if focus() fires just before unmount
-      focusRaf1 = requestAnimationFrame(() => {
-        focusRaf2 = requestAnimationFrame(() => {
-          const rect = apexRect(i);
-          cb.onOpen(i, rect);
-        });
-      });
+      dock.px = dockPx;
       return;
     }
-    controls.setTarget(yaw, pitch);
+    gsap.to(dock, { px: dockPx, duration: DUR.reveal });
     if (mode === "globe") {
-      orbitR.r = restGlobeR(liveZoom); // seed the tween's start at the live wheel-zoom radius, not a stale one
-      gsap.to(orbitR, { r: GLOBE_APEX, duration: DUR.reveal });
+      if (!walking) orbitR.r = restGlobeR(liveZoom); // seed at the live wheel-zoom radius, not a stale one
+      else gsap.to(orbitR, { r: GLOBE_APEX + 0.5, duration: DUR.reveal * 0.5, ease: "power2.out" });
+      gsap.to(orbitR, { r: GLOBE_APEX, duration: walking ? DUR.reveal * 0.7 : DUR.reveal, delay: walking ? DUR.reveal * 0.5 : 0 });
+    } else if (walking) {
+      // a straight swap would snap the camera between two points inside the
+      // sphere; stepping back to the center first reads as one movement
+      gsap.to(focusDolly, { dolly: 0.15, duration: DUR.reveal * 0.5, ease: "power2.out" });
+      gsap.to(focusDolly, { dolly: 1, duration: DUR.reveal * 0.7, delay: DUR.reveal * 0.5 });
     } else {
       gsap.to(focusDolly, { dolly: 1, duration: DUR.reveal });
     }
-    gsap.to(material.uniforms.uDim, { value: DIM_FOCUS, duration: DUR.reveal });
-    // let the FLIP panel start growing before the dolly finishes arriving,
-    // so camera and panel motion overlap instead of running end-to-end
-    focusCall = gsap.delayedCall(DUR.reveal * 0.75, () => {
-      const rect = apexRect(i);
-      cb.onOpen(i, rect);
-    });
   }
 
   let raf = 0;
@@ -822,13 +829,23 @@ void main() {
         camera.position.addScaledVector(dir, wheelDollyOffset(zoom));
       }
     }
+    // lens shift: three scales filmOffset by near/filmWidth against a frustum
+    // 2*tan(fov/2)*aspect wide, so a fraction f of the viewport is f times that
+    const frac = dock.px / (2 * Math.max(1, canvas.clientWidth));
+    const shift = frac * camera.getFilmWidth() * 2 * Math.tan((camera.fov * Math.PI) / 360) * camera.aspect;
+    if (shift !== camera.filmOffset) { camera.filmOffset = shift; camera.updateProjectionMatrix(); }
     camera.updateMatrixWorld();
     if (morphing) { stepMorph(); if (hovered !== null) buildArcs(hovered); }
     updateNear();
     updateRings();
-    if (!controls.dragging && focused < 0 && pointerNdc) {
+    if (!controls.dragging && pointerNdc) {
       const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects, scales);
-      if (hit !== hovered) { hovered = hit; material.uniforms.uHovered.value = hit ?? -1; showNeighbors(hit); cb.onHover(hit); }
+      if (hit !== hovered) {
+        hovered = hit;
+        material.uniforms.uHovered.value = hit ?? -1;
+        if (focused < 0) showNeighbors(hit); // while selected the arcs belong to the selection
+        cb.onHover(hit);
+      }
     }
     renderer.render(scene, camera);
   };
@@ -855,7 +872,7 @@ void main() {
     setThemeFilter(th) { material.uniforms.uTheme.value = th ?? -1; },
     setView(next) {
       if (next === mode) return;
-      if (focused >= 0) doBlur(); // mode switches mid-focus must not strand uFocused
+      if (focused >= 0) { doBlur(); cb.onBlur(); } // mode switches mid-selection must not strand uFocused
       mode = next;
       material.uniforms.uFacing.value = mode === "globe" ? -1 : 1;
       coast.visible = coastVisible(mode, coastLoaded, terrain);
@@ -872,6 +889,7 @@ void main() {
     },
     focus: focusTile,
     blur: doBlur,
+    setDock(px) { dockPx = px; if (focused >= 0) gsap.to(dock, { px, duration: DUR.morph }); },
     dispose() {
       disposed = true;
       cancelAnimationFrame(raf);
@@ -882,10 +900,11 @@ void main() {
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerup", onUp);
+      canvas.removeEventListener("pointerleave", onLeave);
       canvas.removeEventListener("wheel", onWheel);
       gsap.killTweensOf(focusDolly);
       gsap.killTweensOf(orbitR);
-      gsap.killTweensOf(material.uniforms.uDim);
+      gsap.killTweensOf([focusDolly, orbitR, dock]);
       gsap.killTweensOf([material.uniforms.uNeighDim, material.uniforms.uNeighScale, material.uniforms.uBirth]);
       gsap.killTweensOf([arcMat.uniforms.uOpacity, arcMat.uniforms.uProgress]);
       gsap.killTweensOf(morph);

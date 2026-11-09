@@ -171,7 +171,7 @@ function renderSection(section: NoteSection, frontmatter: NoteFrontmatter, key: 
 /* Structured render of a parsed note: header, tags, callouts, sections, and a
    collapsed transcript so a long one doesn't make the panel infinitely tall.
    Falls back to the raw markdown if parsing finds nothing usable. */
-function NoteBody({ raw, note }: { raw: string; note: FreshNote }) {
+export function NoteBody({ raw, note }: { raw: string; note: FreshNote }) {
   const parsed = parseNote(raw);
   const hasContent = parsed.sections.length > 0 || Boolean(parsed.lead);
   if (!hasContent) return <pre>{raw}</pre>;

@@ -1,14 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import type { LayoutName } from "../api/orb";
 import { useOrb } from "../api/orb";
 import { apiGet, queryClient } from "../api/client";
 import type { SimilarItem } from "../api/fresh";
-import { NoteViewer } from "../components/NoteViewer";
+import { OrbReader, READER_WIDTH } from "../components/OrbReader";
 import { ErrorState } from "../components/StateViews";
 import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import { mountOrb } from "../lib/orb/scene";
-import { orbPointToFreshNote } from "../lib/orb/note";
 import { useChromeVisible } from "../lib/chrome";
 import { validateOrbSearch } from "../lib/orbSearch";
 import "../styles.css";
@@ -85,8 +84,28 @@ function OrbPage() {
   // the neighbors panel anchors on the last hovered tile and stays put, so the
   // pointer can leave the sphere to read or click the list
   const [anchor, setAnchor] = useState<number | null>(null);
-  const [open, setOpen] = useState<{ i: number; rect: DOMRect } | null>(null);
+  // selected: the tile the sphere is parked on. reader: the pane's note, which
+  // outlives the selection by one slide-out so closing has somewhere to go
+  const [selected, setSelected] = useState<number | null>(null);
+  const [reader, setReader] = useState<number | null>(null);
+  const selectedRef = useRef<number | null>(null); // read inside the scene callbacks, which close over the first render
+  selectedRef.current = selected;
   const data = orb.data;
+  const pathIndex = useMemo(() => new Map((data?.points ?? []).map((p, i) => [p.p, i] as const)), [data]);
+  const urlIndex = useMemo(
+    () => new Map((data?.points ?? []).flatMap((p, i) => (p.u ? [[p.u, i] as const] : []))),
+    [data],
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      handleRef.current?.blur();
+      setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -95,13 +114,15 @@ function OrbPage() {
       onHover: (i) => {
         setHovered(i);
         if (i !== null) {
-          setAnchor(i);
+          if (selectedRef.current === null) setAnchor(i); // while selected the panel belongs to the selection
           prefetchNote(data.points[i].p);
         }
       },
-      onOpen: (i, rect) => setOpen({ i, rect }),
+      onOpen: (i) => { setSelected(i); setReader(i); setAnchor(i); },
+      onBlur: () => setSelected(null),
     });
     handleRef.current = handle;
+    handle.setDock(READER_WIDTH);
     // spike defaults: lattice on, terrain off, inside
     handle.setLayout("lattice");
     setLayout("lattice");
@@ -130,10 +151,17 @@ function OrbPage() {
   const scores = data?.sphere.scores;
   const knn = data?.sphere.knn;
   const knnSim = data?.sphere.knn_sim;
+  // from the panel or the pane: while a tile is selected a step selects the
+  // next one (camera walks, pane swaps); otherwise it only turns the sphere
   const walkTo = (j: number) => {
-    setAnchor(j);
     const h = handleRef.current;
-    if (h) h.aimAt(h.centerOf(j));
+    if (!h) return;
+    if (selected !== null) h.focus(j);
+    else { setAnchor(j); h.aimAt(h.centerOf(j)); }
+  };
+  const closeReader = () => {
+    handleRef.current?.blur();
+    setSelected(null);
   };
   return (
     <div className="relative flex-1 min-h-0 overflow-hidden">
@@ -144,7 +172,7 @@ function OrbPage() {
       ) : (
         <canvas
           ref={canvasRef}
-          className={`h-full w-full ${hovered !== null && !open ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
+          className={`h-full w-full ${hovered !== null ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
         />
       )}
       {data && chrome ? (
@@ -211,7 +239,7 @@ function OrbPage() {
           </select>
         </div>
       ) : null}
-      {data && chrome && anchor !== null && knn && !open ? (
+      {data && chrome && anchor !== null && knn ? (
         <aside className="absolute bottom-4 left-4 w-80 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md">
           <div className="border-b border-white/10 px-4 pt-3 pb-2.5">
             <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink2)]">nearest by embedding</div>
@@ -258,22 +286,27 @@ function OrbPage() {
           </div>
         </aside>
       ) : null}
-      {data && hovered !== null && !open ? (
-        <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm">
+      {data && hovered !== null && hovered !== selected ? (
+        <div
+          data-caption
+          className="pointer-events-none absolute bottom-4 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm"
+          style={{ left: selected !== null ? `calc(50% - ${READER_WIDTH / 2}px)` : "50%" }}
+        >
           {captionTitle(data.points[hovered].t)}
           {data.points[hovered].d ? (
             <span className="ml-2 opacity-60">{data.points[hovered].d}</span>
           ) : null}
         </div>
       ) : null}
-      {data && open ? (
-        <NoteViewer
-          note={orbPointToFreshNote(data.points[open.i])}
-          originRect={open.rect}
-          onClose={() => {
-            setOpen(null);
-            handleRef.current?.blur();
-          }}
+      {data && reader !== null ? (
+        <OrbReader
+          point={data.points[reader]}
+          open={selected !== null}
+          pathIndex={pathIndex}
+          urlIndex={urlIndex}
+          onWalk={walkTo}
+          onClose={closeReader}
+          onGone={() => setReader(null)}
         />
       ) : null}
     </div>
