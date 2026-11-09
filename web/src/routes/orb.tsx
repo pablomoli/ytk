@@ -75,7 +75,7 @@ function OrbPage() {
   const [layout, setLayout] = useState<LayoutName | null>(null);
   const [viewMode, setViewMode] = useState<OrbViewMode>("inside");
   const [theme, setTheme] = useState<number | null>(null);
-  const [terrain, setTerrain] = useState(true);
+  const [terrain, setTerrain] = useState(false);
   const [hovered, setHovered] = useState<number | null>(null);
   const [open, setOpen] = useState<{ i: number; rect: DOMRect } | null>(null);
   const data = orb.data;
@@ -91,9 +91,11 @@ function OrbPage() {
       onOpen: (i, rect) => setOpen({ i, rect }),
     });
     handleRef.current = handle;
-    setLayout(data.sphere.chosen);
+    // spike defaults: lattice on, terrain off, inside
+    handle.setLayout("lattice");
+    setLayout("lattice");
     setViewMode("inside"); // matches the freshly mounted handle's initial mode
-    setTerrain(true); // ... and its initial terrain flag
+    setTerrain(false); // ... and its initial terrain flag
     // ?theme= deep-link from /galaxy's "land" button: apply to the freshly
     // mounted handle, not just state, so a fresh navigation lands filtered
     if (searchTheme !== undefined) {

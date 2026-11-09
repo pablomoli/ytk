@@ -5,12 +5,34 @@ export const ATLAS_SIZE = 4096;
 export const TILE = 128;
 export const COLS = ATLAS_SIZE / TILE; // 32 -> 1024 slots; design breaks at ~1024 notes
 
-export function uvRect(i: number): { u: number; v: number; s: number } {
+export type UvRect = { u: number; v: number; su: number; sv: number };
+
+// the whole square slot: the placeholder fill and any image that is square
+export function uvRect(i: number): UvRect {
   const col = i % COLS;
   const row = Math.floor(i / COLS);
   const s = TILE / ATLAS_SIZE;
   // canvas rows grow downward; UV v grows upward — flip to the tile's bottom edge
-  return { u: col * s, v: 1 - (row + 1) * s, s };
+  return { u: col * s, v: 1 - (row + 1) * s, su: s, sv: s };
+}
+
+// contain-fit: the image keeps its aspect inside the square slot, and the
+// uv rect shrinks to the drawn region so the quad shows no placeholder bars
+export function fitRect(i: number, aspect: number): { rect: UvRect; w: number; h: number } {
+  const w = aspect >= 1 ? TILE : Math.round(TILE * aspect);
+  const h = aspect >= 1 ? Math.round(TILE / aspect) : TILE;
+  const col = (i % COLS) * TILE + Math.floor((TILE - w) / 2);
+  const row = Math.floor(i / COLS) * TILE + Math.floor((TILE - h) / 2);
+  return {
+    rect: {
+      u: col / ATLAS_SIZE,
+      v: 1 - (row + h) / ATLAS_SIZE,
+      su: w / ATLAS_SIZE,
+      sv: h / ATLAS_SIZE,
+    },
+    w,
+    h,
+  };
 }
 
 export function themeColor(th: number, n: number): string {
@@ -24,6 +46,7 @@ export function buildAtlas(
   points: OrbPoint[],
   nThemes: number,
   onUpdate: () => void,
+  onTile?: (i: number, aspect: number, rect: UvRect) => void,
 ): AtlasHandle {
   const canvas = document.createElement("canvas");
   canvas.width = ATLAS_SIZE;
@@ -45,14 +68,13 @@ export function buildAtlas(
       const img = new Image();
       img.onload = () => {
         if (disposed) return resolve();
-        // cover-crop into the square slot
-        const side = Math.min(img.naturalWidth, img.naturalHeight);
-        const sx = (img.naturalWidth - side) / 2;
-        const sy = (img.naturalHeight - side) / 2;
-        const col = (i % COLS) * TILE;
-        const row = Math.floor(i / COLS) * TILE;
-        ctx.drawImage(img, sx, sy, side, side, col, row, TILE, TILE);
+        const aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
+        const { rect, w, h } = fitRect(i, aspect);
+        const col = (i % COLS) * TILE + Math.floor((TILE - w) / 2);
+        const row = Math.floor(i / COLS) * TILE + Math.floor((TILE - h) / 2);
+        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, col, row, w, h);
         texture.needsUpdate = true;
+        onTile?.(i, aspect, rect);
         onUpdate();
         resolve();
       };

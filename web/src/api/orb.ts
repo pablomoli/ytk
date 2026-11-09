@@ -23,6 +23,8 @@ export type OrbSphere = {
   lattice: number[][];
   scores: OrbScores;
   chosen: LayoutName;
+  knn?: number[][]; // spike: k nearest content points by embedding cosine
+  knn_sim?: number[][];
 };
 
 export type OrbData = { points: OrbPoint[]; themes: string[]; sphere: OrbSphere };

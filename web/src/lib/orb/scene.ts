@@ -1,6 +1,11 @@
 import {
+  AdditiveBlending,
+  BufferGeometry,
   ClampToEdgeWrapping,
   DataTexture,
+  BufferAttribute,
+  LineBasicMaterial,
+  LineSegments,
   DoubleSide,
   GLSL3,
   InstancedBufferAttribute,
@@ -68,7 +73,8 @@ precision highp float;
 in vec3 position;
 in vec2 uv;
 in vec3 iPos;   // tile center on the unit sphere
-in vec3 iUv;    // atlas u, v, span
+in vec4 iUv;    // atlas u, v, span u, span v
+in float iAspect; // width/height; the quad keeps its area, so sqrt scales each axis
 in float iIdx;
 in float iTheme; // per-instance theme id
 uniform mat4 modelViewMatrix, projectionMatrix;
@@ -83,8 +89,9 @@ void main() {
   vec3 e1 = normalize(cross(ref, n));
   vec3 e2 = cross(n, e1);
   float s = (abs(iIdx - uHovered) < 0.5) ? uHoverScale : 1.0;
-  vec3 world = iPos + (e1 * position.x + e2 * position.y) * s;
-  vUv = vec2(iUv.x + uv.x * iUv.z, iUv.y + uv.y * iUv.z);
+  float sx = sqrt(iAspect);
+  vec3 world = iPos + (e1 * position.x * sx + e2 * position.y / sx) * s;
+  vUv = vec2(iUv.x + uv.x * iUv.z, iUv.y + uv.y * iUv.w);
   vIdx = iIdx;
   vTheme = iTheme; // constant across the quad; interpolation is a no-op
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
@@ -95,6 +102,9 @@ precision highp float;
 uniform sampler2D uAtlas;
 uniform float uFocused, uDim;      // focus dimming: everyone but uFocused
 uniform float uTheme, uThemeDim;   // theme filter dim factor
+uniform float uHovered;
+uniform float uNeigh[8];           // hovered tile's embedding neighbors (-1 = none)
+uniform float uNeighDim;           // 1 = off; below 1 dims everyone outside hovered + neighbors
 in vec2 vUv;
 in float vIdx;
 in float vTheme;
@@ -104,6 +114,11 @@ void main() {
   float dim = 1.0;
   if (uFocused >= 0.0 && abs(vIdx - uFocused) >= 0.5) dim *= uDim;
   if (uTheme >= 0.0 && abs(vTheme - uTheme) >= 0.5) dim *= uThemeDim;
+  if (uNeighDim < 1.0) {
+    bool keep = abs(vIdx - uHovered) < 0.5;
+    for (int k = 0; k < 8; k++) if (abs(vIdx - uNeigh[k]) < 0.5) keep = true;
+    if (!keep) dim *= uNeighDim;
+  }
   outColor = vec4(c * dim, 1.0);
 }`;
 
@@ -142,7 +157,6 @@ export function mountOrb(
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   const camera = new PerspectiveCamera(60, canvas.clientWidth / Math.max(1, canvas.clientHeight), 0.01, 10);
   const scene = new Scene();
-  const atlas = buildAtlas(points, data.themes.length, () => {});
 
   const centers = new Float32Array(n * 3);
   const writeLayout = (name: LayoutName) => {
@@ -162,12 +176,23 @@ export function mountOrb(
   geo.setAttribute("uv", plane.getAttribute("uv"));
   const iPos = new InstancedBufferAttribute(centers, 3);
   geo.setAttribute("iPos", iPos);
-  const uvs = new Float32Array(n * 3);
+  const uvs = new Float32Array(n * 4);
   points.forEach((_, i) => {
     const r = uvRect(i);
-    uvs.set([r.u, r.v, r.s], i * 3);
+    uvs.set([r.u, r.v, r.su, r.sv], i * 4);
   });
-  geo.setAttribute("iUv", new InstancedBufferAttribute(uvs, 3));
+  const iUv = new InstancedBufferAttribute(uvs, 4);
+  geo.setAttribute("iUv", iUv);
+  const aspects = new Float32Array(n).fill(1);
+  const iAspect = new InstancedBufferAttribute(aspects, 1);
+  geo.setAttribute("iAspect", iAspect);
+  // each thumbnail reports its aspect as it lands; the quad and its uv rect follow
+  const atlas = buildAtlas(points, data.themes.length, () => {}, (i, aspect, r) => {
+    aspects[i] = Math.min(2.2, Math.max(1 / 2.2, aspect));
+    uvs.set([r.u, r.v, r.su, r.sv], i * 4);
+    iUv.needsUpdate = true;
+    iAspect.needsUpdate = true;
+  });
   geo.setAttribute("iIdx", new InstancedBufferAttribute(Float32Array.from({ length: n }, (_, i) => i), 1));
   const themes = new Float32Array(n);
   points.forEach((p, i) => { themes[i] = p.th; });
@@ -185,6 +210,7 @@ export function mountOrb(
       uFocused: { value: -1 }, uDim: { value: 1 },
       uTheme: { value: -1 }, uThemeDim: { value: DIM_FILTER },
       uFacing: { value: 1 },
+      uNeigh: { value: new Float32Array(8).fill(-1) }, uNeighDim: { value: 1 },
     },
   });
   const mesh = new Mesh(geo, material);
@@ -200,7 +226,7 @@ export function mountOrb(
   // bake has loaded (Task 12). Same shader as galaxy's planets, uSpin pinned.
   let disposed = false;
   let coastLoaded = false;
-  let terrain = true; // the coast sphere ships on; the /orb toggle turns it off
+  let terrain = false; // spike: the coast sphere ships off; the /orb toggle turns it on
   const coastFallback = new DataTexture(new Uint8Array([128]), 1, 1, RedFormat);
   coastFallback.needsUpdate = true;
   const coastRamp = loadRamp();
@@ -249,6 +275,63 @@ export function mountOrb(
     () => {}, // 404 leaves the coast hidden; not fatal
   );
 
+  // spike: neighbor arcs. One LineSegments, rebuilt on hover, faded with gsap.
+  const K_MAX = 8, SEG = 32;
+  const arcPos = new Float32Array(K_MAX * SEG * 2 * 3);
+  const arcGeo = new BufferGeometry();
+  // BufferAttribute wraps arcPos; Float32BufferAttribute would copy it and swallow every later write
+  const arcAttr = new BufferAttribute(arcPos, 3);
+  arcGeo.setAttribute("position", arcAttr);
+  arcGeo.setDrawRange(0, 0);
+  const arcMat = new LineBasicMaterial({
+    color: 0xf0c660, transparent: true, opacity: 0, depthWrite: false, depthTest: false, blending: AdditiveBlending,
+  });
+  const arcs = new LineSegments(arcGeo, arcMat);
+  arcs.frustumCulled = false;
+  scene.add(arcs);
+  const knn = data.sphere.knn ?? null;
+  const _a = new Vector3(), _b = new Vector3(), _m = new Vector3();
+  function buildArcs(i: number): number {
+    const nb = knn?.[i] ?? [];
+    const r = mode === "globe" ? 1.03 : 0.965; // just off the tile shell, on the camera's side
+    _a.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
+    let w = 0;
+    for (let k = 0; k < Math.min(K_MAX, nb.length); k++) {
+      const j = nb[k];
+      _b.set(centers[j * 3], centers[j * 3 + 1], centers[j * 3 + 2]);
+      const omega = Math.acos(Math.max(-1, Math.min(1, _a.dot(_b))));
+      const so = Math.sin(omega) || 1e-6;
+      for (let t = 0; t < SEG; t++) {
+        for (const f of [t / SEG, (t + 1) / SEG]) {
+          const wa = Math.sin((1 - f) * omega) / so, wb = Math.sin(f * omega) / so;
+          _m.set(0, 0, 0).addScaledVector(_a, wa).addScaledVector(_b, wb).normalize();
+          // lift the arc's middle a little so long arcs read as cords, not as paint on the shell
+          const lift = 1 + (mode === "globe" ? 1 : -1) * 0.12 * Math.sin(f * Math.PI) * (omega / Math.PI);
+          _m.multiplyScalar(r * lift);
+          arcPos[w++] = _m.x; arcPos[w++] = _m.y; arcPos[w++] = _m.z;
+        }
+      }
+    }
+    arcAttr.needsUpdate = true;
+    arcGeo.setDrawRange(0, w / 3);
+    return nb.length;
+  }
+  const neigh = material.uniforms.uNeigh.value as Float32Array;
+  function showNeighbors(i: number | null) {
+    gsap.killTweensOf(arcMat);
+    gsap.killTweensOf(material.uniforms.uNeighDim);
+    if (i === null || !knn || knn[i].length === 0) {
+      gsap.to(arcMat, { opacity: 0, duration: DUR.morph });
+      gsap.to(material.uniforms.uNeighDim, { value: 1, duration: DUR.morph });
+      return;
+    }
+    const nb = knn[i];
+    for (let k = 0; k < K_MAX; k++) neigh[k] = k < nb.length ? nb[k] : -1;
+    buildArcs(i);
+    gsap.to(arcMat, { opacity: 0.85, duration: DUR.morph });
+    gsap.to(material.uniforms.uNeighDim, { value: 0.3, duration: DUR.morph });
+  }
+
   const controls = createControls();
   const focusDolly = { dolly: 0 }; // inside mode: 0 at rest, 1 at apex
   const orbitR = { r: restGlobeR(0.5) }; // globe mode: current camera radius, rest -> apex
@@ -291,7 +374,7 @@ export function mountOrb(
   const onUp = (e: PointerEvent) => {
     const { tap } = controls.up();
     if (tap && focused < 0 && pointerNdc) {
-      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing());
+      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects);
       if (hit !== null) focusTile(hit);
     }
     canvas.releasePointerCapture(e.pointerId);
@@ -335,6 +418,7 @@ export function mountOrb(
     // hover must not stay live behind it
     hovered = null;
     material.uniforms.uHovered.value = -1;
+    showNeighbors(null);
     cb.onHover(null);
     const { yaw, pitch } = anglesFor(i);
     if (reducedMotion()) {
@@ -405,8 +489,8 @@ export function mountOrb(
     }
     camera.updateMatrixWorld();
     if (!controls.dragging && focused < 0 && pointerNdc) {
-      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing());
-      if (hit !== hovered) { hovered = hit; material.uniforms.uHovered.value = hit ?? -1; cb.onHover(hit); }
+      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects);
+      if (hit !== hovered) { hovered = hit; material.uniforms.uHovered.value = hit ?? -1; showNeighbors(hit); cb.onHover(hit); }
     }
     renderer.render(scene, camera);
   };
@@ -424,6 +508,7 @@ export function mountOrb(
     setLayout(name) {
       writeLayout(name);
       iPos.needsUpdate = true;
+      if (hovered !== null) buildArcs(hovered);
     },
     setThemeFilter(th) { material.uniforms.uTheme.value = th ?? -1; },
     setView(next) {
@@ -459,6 +544,10 @@ export function mountOrb(
       gsap.killTweensOf(focusDolly);
       gsap.killTweensOf(orbitR);
       gsap.killTweensOf(material.uniforms.uDim);
+      gsap.killTweensOf(material.uniforms.uNeighDim);
+      gsap.killTweensOf(arcMat);
+      arcGeo.dispose();
+      arcMat.dispose();
       plane.dispose();
       geo.dispose();
       material.dispose();
