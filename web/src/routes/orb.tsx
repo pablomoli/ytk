@@ -234,9 +234,12 @@ function OrbPage() {
                       className="flex h-[60px] cursor-pointer items-center gap-3 px-4 transition-colors hover:bg-white/[0.06] focus:outline-none focus-visible:bg-white/[0.06]"
                     >
                       {q.thumb ? (
-                        <img src={`/vault-media/${q.thumb}`} alt="" className="h-10 w-10 flex-none rounded-[3px] object-cover" />
+                        <span className="flex h-11 w-11 flex-none items-center justify-center">
+                          {/* whole cover inside the box, shape kept: a reel is tall here, a video is wide */}
+                          <img src={`/vault-media/${q.thumb}`} alt="" className="max-h-11 max-w-11 rounded-[3px] object-contain" />
+                        </span>
                       ) : (
-                        <span className="h-10 w-10 flex-none rounded-[3px] bg-white/[0.06]" />
+                        <span className="h-11 w-11 flex-none rounded-[3px] bg-white/[0.06]" />
                       )}
                       <span className="min-w-0 flex-1">
                         <span className="line-clamp-2 text-[13px] leading-[1.25] text-[var(--ink)]">{captionTitle(q.t)}</span>
