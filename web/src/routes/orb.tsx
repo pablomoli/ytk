@@ -213,44 +213,47 @@ function OrbPage() {
         </div>
       ) : null}
       {data && chrome && anchor !== null && knn && !open ? (
-        <aside className="absolute bottom-4 left-4 w-80 max-h-[27rem] overflow-y-auto rounded-md bg-black/55 p-3 text-sm backdrop-blur-sm">
-          <div className="mb-3">
-            <div className="text-[11px] uppercase tracking-wider opacity-50">nearest by embedding</div>
-            <div className="mt-1 leading-snug">{captionTitle(data.points[anchor].t)}</div>
-          </div>
-          <ol className="flex flex-col gap-2">
-            {(knn[anchor] ?? []).map((j, k) => {
-              const q = data.points[j];
-              const sim = knnSim?.[anchor]?.[k];
-              return (
-                <li key={j}>
-                  <button
-                    type="button"
-                    onClick={() => walkTo(j)}
-                    className="flex w-full items-start gap-2 rounded px-1 py-1 text-left hover:bg-white/10"
-                  >
-                    {q.thumb ? (
-                      <img
-                        src={`/vault-media/${q.thumb}`}
-                        alt=""
-                        className="h-12 w-12 flex-none rounded-sm object-cover"
-                      />
-                    ) : (
-                      <span className="h-12 w-12 flex-none rounded-sm bg-white/10" />
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="line-clamp-2 leading-snug">{captionTitle(q.t)}</span>
-                      <span className="mt-0.5 block text-xs opacity-55">
-                        {sim !== undefined ? `${Math.round(sim * 100)}% ` : ""}
-                        {q.c}
-                        {q.d ? ` · ${q.d}` : ""}
+        <aside className="absolute bottom-4 left-4 w-80 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md">
+          <header className="border-b border-white/10 px-4 pt-3 pb-2.5">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink2)]">nearest by embedding</div>
+            <div className="mt-1 truncate text-[15px] leading-tight text-[var(--ink)]">{captionTitle(data.points[anchor].t)}</div>
+          </header>
+          <div className="relative">
+            {/* exactly five rows tall; the rest scrolls */}
+            <ul className="h-[300px] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
+              {(knn[anchor] ?? []).map((j, k) => {
+                const q = data.points[j];
+                const sim = knnSim?.[anchor]?.[k];
+                return (
+                  <li key={j} className="border-b border-white/[0.06] last:border-b-0">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => walkTo(j)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); walkTo(j); } }}
+                      className="flex h-[60px] cursor-pointer items-center gap-3 px-4 transition-colors hover:bg-white/[0.06] focus:outline-none focus-visible:bg-white/[0.06]"
+                    >
+                      {q.thumb ? (
+                        <img src={`/vault-media/${q.thumb}`} alt="" className="h-10 w-10 flex-none rounded-[3px] object-cover" />
+                      ) : (
+                        <span className="h-10 w-10 flex-none rounded-[3px] bg-white/[0.06]" />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 text-[13px] leading-[1.25] text-[var(--ink)]">{captionTitle(q.t)}</span>
+                        <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink2)]">
+                          {q.c}{q.d ? ` · ${q.d}` : ""}
+                        </span>
                       </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+                      {sim !== undefined ? (
+                        <span className="flex-none text-[12px] tabular-nums text-[var(--accent)]">{Math.round(sim * 100)}</span>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent" />
+          </div>
         </aside>
       ) : null}
       {data && hovered !== null && !open ? (
