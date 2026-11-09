@@ -9,6 +9,7 @@ export type OrbPoint = {
   d?: string | null;
   th: number;
   thumb?: string | null; // vault-relative, served at /vault-media/<thumb>
+  ar?: number | null; // thumbnail width/height; null when unknown
 };
 
 export type LayoutName = "radial" | "haversine" | "lattice";

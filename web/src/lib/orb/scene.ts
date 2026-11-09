@@ -4,7 +4,6 @@ import {
   ClampToEdgeWrapping,
   DataTexture,
   BufferAttribute,
-  LineBasicMaterial,
   LineSegments,
   DoubleSide,
   GLSL3,
@@ -29,7 +28,7 @@ import {
 import { DUR, gsap, reducedMotion } from "../motion";
 import type { LayoutName, OrbData } from "../../api/orb";
 import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
-import { buildAtlas, COLS, uvRect } from "./atlas";
+import { buildAtlas, COLS, slotUv } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
 
@@ -80,6 +79,9 @@ in float iTheme; // per-instance theme id
 uniform mat4 modelViewMatrix, projectionMatrix;
 uniform float uHovered, uHoverScale;
 uniform float uFacing; // 1 inside (tiles face the origin), -1 globe (tiles face outward)
+uniform float uNeigh[8];
+uniform float uNeighScale; // 1 at rest; the hovered tile's neighbors swell to it
+uniform float uBirth, uCount; // mount pop-in: uBirth runs 0..1, tiles pop in index order
 out vec2 vUv;
 out float vIdx;
 out float vTheme;
@@ -89,6 +91,9 @@ void main() {
   vec3 e1 = normalize(cross(ref, n));
   vec3 e2 = cross(n, e1);
   float s = (abs(iIdx - uHovered) < 0.5) ? uHoverScale : 1.0;
+  for (int k = 0; k < 8; k++) if (abs(iIdx - uNeigh[k]) < 0.5) s *= uNeighScale;
+  float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iIdx / uCount) / 0.35);
+  s *= born;
   float sx = sqrt(iAspect);
   vec3 world = iPos + (e1 * position.x * sx + e2 * position.y / sx) * s;
   vUv = vec2(iUv.x + uv.x * iUv.z, iUv.y + uv.y * iUv.w);
@@ -176,23 +181,18 @@ export function mountOrb(
   geo.setAttribute("uv", plane.getAttribute("uv"));
   const iPos = new InstancedBufferAttribute(centers, 3);
   geo.setAttribute("iPos", iPos);
+  const atlas = buildAtlas(points, data.themes.length, () => {});
+  // tiles are seen at a slant from inside; without anisotropy every oblique tile smears
+  atlas.texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const uvs = new Float32Array(n * 4);
-  points.forEach((_, i) => {
-    const r = uvRect(i);
+  const aspects = new Float32Array(n);
+  atlas.slots.forEach((sl, i) => {
+    const r = slotUv(sl);
     uvs.set([r.u, r.v, r.su, r.sv], i * 4);
+    aspects[i] = sl.w / sl.h;
   });
-  const iUv = new InstancedBufferAttribute(uvs, 4);
-  geo.setAttribute("iUv", iUv);
-  const aspects = new Float32Array(n).fill(1);
-  const iAspect = new InstancedBufferAttribute(aspects, 1);
-  geo.setAttribute("iAspect", iAspect);
-  // each thumbnail reports its aspect as it lands; the quad and its uv rect follow
-  const atlas = buildAtlas(points, data.themes.length, () => {}, (i, aspect, r) => {
-    aspects[i] = Math.min(2.2, Math.max(1 / 2.2, aspect));
-    uvs.set([r.u, r.v, r.su, r.sv], i * 4);
-    iUv.needsUpdate = true;
-    iAspect.needsUpdate = true;
-  });
+  geo.setAttribute("iUv", new InstancedBufferAttribute(uvs, 4));
+  geo.setAttribute("iAspect", new InstancedBufferAttribute(aspects, 1));
   geo.setAttribute("iIdx", new InstancedBufferAttribute(Float32Array.from({ length: n }, (_, i) => i), 1));
   const themes = new Float32Array(n);
   points.forEach((p, i) => { themes[i] = p.th; });
@@ -210,7 +210,8 @@ export function mountOrb(
       uFocused: { value: -1 }, uDim: { value: 1 },
       uTheme: { value: -1 }, uThemeDim: { value: DIM_FILTER },
       uFacing: { value: 1 },
-      uNeigh: { value: new Float32Array(8).fill(-1) }, uNeighDim: { value: 1 },
+      uNeigh: { value: new Float32Array(8).fill(-1) }, uNeighDim: { value: 1 }, uNeighScale: { value: 1 },
+      uBirth: { value: 0 }, uCount: { value: n },
     },
   });
   const mesh = new Mesh(geo, material);
@@ -276,15 +277,47 @@ export function mountOrb(
   );
 
   // spike: neighbor arcs. One LineSegments, rebuilt on hover, faded with gsap.
-  const K_MAX = 8, SEG = 32;
+  const K_MAX = 8, SEG = 48;
   const arcPos = new Float32Array(K_MAX * SEG * 2 * 3);
+  const arcT = new Float32Array(K_MAX * SEG * 2); // 0 at the hovered tile, 1 at the neighbor
+  const arcK = new Float32Array(K_MAX * SEG * 2); // which neighbor, so pulses desynchronize
   const arcGeo = new BufferGeometry();
-  // BufferAttribute wraps arcPos; Float32BufferAttribute would copy it and swallow every later write
+  // BufferAttribute wraps the arrays; Float32BufferAttribute would copy them and swallow every later write
   const arcAttr = new BufferAttribute(arcPos, 3);
+  const arcTAttr = new BufferAttribute(arcT, 1);
+  const arcKAttr = new BufferAttribute(arcK, 1);
   arcGeo.setAttribute("position", arcAttr);
+  arcGeo.setAttribute("aT", arcTAttr);
+  arcGeo.setAttribute("aK", arcKAttr);
   arcGeo.setDrawRange(0, 0);
-  const arcMat = new LineBasicMaterial({
-    color: 0xf0c660, transparent: true, opacity: 0, depthWrite: false, depthTest: false, blending: AdditiveBlending,
+  const arcMat = new RawShaderMaterial({
+    glslVersion: GLSL3,
+    vertexShader: /* glsl */ `
+precision highp float;
+in vec3 position; in float aT; in float aK;
+uniform mat4 modelViewMatrix, projectionMatrix;
+out float vT; out float vK;
+void main() { vT = aT; vK = aK; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `
+precision highp float;
+uniform float uProgress; // how far along each arc has grown, 0..1
+uniform float uOpacity;
+uniform float uTime;
+in float vT; in float vK;
+out vec4 outColor;
+void main() {
+  if (vT > uProgress) discard;
+  // a pulse leaves the hovered tile every ~2.2 s per arc, staggered by neighbor, with a tail behind it
+  float ph = fract(uTime * 0.45 + vK * 0.19);
+  float d = vT - ph;
+  float head = exp(-d * d / 0.0012);
+  float tail = d < 0.0 ? exp(d * 9.0) * 0.55 : 0.0;
+  float glow = 0.28 + head + tail;
+  vec3 brass = vec3(0.886, 0.690, 0.290);
+  outColor = vec4(mix(brass, vec3(1.0, 0.95, 0.8), head) * glow, glow * uOpacity);
+}`,
+    uniforms: { uProgress: { value: 0 }, uOpacity: { value: 0 }, uTime: { value: 0 } },
+    transparent: true, depthWrite: false, depthTest: true, blending: AdditiveBlending,
   });
   const arcs = new LineSegments(arcGeo, arcMat);
   arcs.frustumCulled = false;
@@ -293,9 +326,11 @@ export function mountOrb(
   const _a = new Vector3(), _b = new Vector3(), _m = new Vector3();
   function buildArcs(i: number): number {
     const nb = knn?.[i] ?? [];
-    const r = mode === "globe" ? 1.03 : 0.965; // just off the tile shell, on the camera's side
+    // behind the shell: outside it when seen from the origin, inside it when orbiting; tiles occlude the arcs
+    const out = mode === "globe" ? -1 : 1;
+    const r = 1 + out * 0.04;
     _a.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
-    let w = 0;
+    let w = 0, v = 0;
     for (let k = 0; k < Math.min(K_MAX, nb.length); k++) {
       const j = nb[k];
       _b.set(centers[j * 3], centers[j * 3 + 1], centers[j * 3 + 2]);
@@ -306,30 +341,38 @@ export function mountOrb(
           const wa = Math.sin((1 - f) * omega) / so, wb = Math.sin(f * omega) / so;
           _m.set(0, 0, 0).addScaledVector(_a, wa).addScaledVector(_b, wb).normalize();
           // lift the arc's middle a little so long arcs read as cords, not as paint on the shell
-          const lift = 1 + (mode === "globe" ? 1 : -1) * 0.12 * Math.sin(f * Math.PI) * (omega / Math.PI);
+          const lift = 1 + out * 0.18 * Math.sin(f * Math.PI) * (omega / Math.PI);
           _m.multiplyScalar(r * lift);
           arcPos[w++] = _m.x; arcPos[w++] = _m.y; arcPos[w++] = _m.z;
+          arcT[v] = f; arcK[v] = k; v++;
         }
       }
     }
     arcAttr.needsUpdate = true;
+    arcTAttr.needsUpdate = true;
+    arcKAttr.needsUpdate = true;
     arcGeo.setDrawRange(0, w / 3);
     return nb.length;
   }
   const neigh = material.uniforms.uNeigh.value as Float32Array;
   function showNeighbors(i: number | null) {
-    gsap.killTweensOf(arcMat);
-    gsap.killTweensOf(material.uniforms.uNeighDim);
+    const u = arcMat.uniforms;
+    gsap.killTweensOf([u.uOpacity, u.uProgress, material.uniforms.uNeighDim, material.uniforms.uNeighScale]);
     if (i === null || !knn || knn[i].length === 0) {
-      gsap.to(arcMat, { opacity: 0, duration: DUR.morph });
+      gsap.to(u.uOpacity, { value: 0, duration: DUR.morph });
       gsap.to(material.uniforms.uNeighDim, { value: 1, duration: DUR.morph });
+      gsap.to(material.uniforms.uNeighScale, { value: 1, duration: DUR.morph, onComplete: () => neigh.fill(-1) });
       return;
     }
     const nb = knn[i];
     for (let k = 0; k < K_MAX; k++) neigh[k] = k < nb.length ? nb[k] : -1;
     buildArcs(i);
-    gsap.to(arcMat, { opacity: 0.85, duration: DUR.morph });
+    // arcs grow out from the tile, then the neighbors swell as the arcs arrive
+    u.uProgress.value = 0;
+    gsap.to(u.uOpacity, { value: 1, duration: DUR.base });
+    gsap.to(u.uProgress, { value: 1, duration: DUR.reveal * 0.75, ease: "power2.out" });
     gsap.to(material.uniforms.uNeighDim, { value: 0.3, duration: DUR.morph });
+    gsap.to(material.uniforms.uNeighScale, { value: 1.14, duration: DUR.morph, delay: DUR.reveal * 0.4 });
   }
 
   const controls = createControls();
@@ -453,10 +496,16 @@ export function mountOrb(
 
   let raf = 0;
   let last = performance.now();
+  let idle = 0; // seconds since the last drag, hover or focus; past IDLE_AFTER the sphere drifts
+  const IDLE_AFTER = 2.5, DRIFT = 0.03; // rad/s once fully drifting
   const loop = (now: number) => {
     raf = requestAnimationFrame(loop);
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+    arcMat.uniforms.uTime.value += dt;
+    const busy = controls.dragging || hovered !== null || focused >= 0;
+    idle = busy ? 0 : idle + dt;
+    if (idle > IDLE_AFTER && !reducedMotion()) controls.nudge(DRIFT * dt * Math.min(1, (idle - IDLE_AFTER) / 2));
     const { yaw, pitch, zoom } = controls.step(dt);
     liveZoom = zoom;
     if (mode === "globe") {
@@ -495,6 +544,8 @@ export function mountOrb(
     renderer.render(scene, camera);
   };
   raf = requestAnimationFrame(loop);
+  if (reducedMotion()) material.uniforms.uBirth.value = 1;
+  else gsap.to(material.uniforms.uBirth, { value: 1, duration: 1.8, ease: "power1.out" });
 
   const resize = new ResizeObserver(() => {
     const w = canvas.clientWidth, h = Math.max(1, canvas.clientHeight);
@@ -544,8 +595,8 @@ export function mountOrb(
       gsap.killTweensOf(focusDolly);
       gsap.killTweensOf(orbitR);
       gsap.killTweensOf(material.uniforms.uDim);
-      gsap.killTweensOf(material.uniforms.uNeighDim);
-      gsap.killTweensOf(arcMat);
+      gsap.killTweensOf([material.uniforms.uNeighDim, material.uniforms.uNeighScale, material.uniforms.uBirth]);
+      gsap.killTweensOf([arcMat.uniforms.uOpacity, arcMat.uniforms.uProgress]);
       arcGeo.dispose();
       arcMat.dispose();
       plane.dispose();

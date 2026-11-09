@@ -1338,6 +1338,7 @@ async def orb_api():
             "d": p.get("d") or None,
             "th": p.get("th", -1),
             "thumb": p.get("thumb") or None,
+            "ar": p.get("ar"),  # spike: thumbnail width/height when known
         }
         for p in data["points"]
         if "c3" in p

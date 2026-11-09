@@ -16,6 +16,7 @@ export type OrbControls = {
   wheel(dy: number): void;
   step(dt: number): { yaw: number; pitch: number; zoom: number };
   setTarget(yaw: number, pitch: number): void;
+  nudge(dyaw: number): void; // idle drift: moves the yaw target without touching velocity
   readonly dragging: boolean;
 };
 
@@ -68,6 +69,7 @@ export function createControls(): OrbControls {
     },
     wheel(dy) { tzoom += dy * ZOOM_SENS; clampZoom(); }, // dy>0 zooms out (toward 1)
     setTarget(y, p) { tyaw = y; tpitch = p; vyaw = vpitch = 0; clamp(); },
+    nudge(dyaw) { tyaw += dyaw; },
     step(dt) {
       if (dragging) dtSinceMove += dt;
       if (!dragging) {
