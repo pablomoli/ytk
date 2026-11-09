@@ -1,7 +1,8 @@
 # Encoder anatomy — the frog and its organs
 
 Status: registered 2026-10-31; all three dissections ran 2026-10-31 to
-2026-11-01 as sections 58, 59 and 60. This document holds the verified
+2026-11-01 as sections 58, 59 and 60. A fourth, D4, was registered
+2026-11-08 from the literature pass that followed 59.4. This document holds the verified
 ground the program stands on, the map of the organism, and the predictions,
 nulls and bars for each dissection, written before the first call; the
 Later notes under each dissection and the ledger at the end say what was
@@ -235,6 +236,93 @@ the record section.
 
 > **Later (2026-11-01, section 59.4):** traced, 23 s. At position 0 the head writes one fixed vector (norm 24.1 against a median 0.65 elsewhere; cosine 0.997 between any two of 21 notes whose first tokens differ), block 3's feed-forward turns it into the massive activation (position 0's residual norm 17 entering the block, 6,146 leaving it, 26 without the head), and every later head parks on it. The head's direct share of the shipped vector is nil (0.2% of the norm, cosine 0.028). The cone enters the last position at depths 22 to 28 only, through the heads reading position 0 (cosine to the shared direction under 0.06 through depth 21, 0.56 at 28, 0.15 without the head): the same window as rung B's climb. With the head zeroed the note ends at cosine 0.31 to itself, a different note rather than a de-coned one, so the gate run with the head zeroed would test the sink, not the cone. Next registration, if any: zero the head's write at position 0 only, and at content positions only.
 
+### D4. The register: label or bias
+
+Registered 2026-11-08, after the literature pass that followed 59.4 (the
+four papers added to the list below). Three readings on one question:
+block 3 head 6 writes one fixed vector at position 0 on every note, the
+feed-forward turns it into the massive activation, every later head parks
+on it, and the cone enters the last position through the heads that read
+it. Is that vector a label the late heads retrieve, which would make the
+cone carry meaning, or a bias the model needs for nothing but the sink?
+
+**Why it is open.** Zhang, Khan and Papyan (NeurIPS 2025) describe sinks
+as "catch, tag, release": the sink catches a run of tokens, tags them with
+a shared direction, and later tokens retrieve the tag. Panel E of 59.4 is
+that shape measured end to end, and under their account the tag carries
+content, so the cone should differ between kinds of note. Queipo-de-Llano
+et al. (2025) tie the massive activation to a compression valley in the
+middle layers and show that ablating it removes the valley. Sun et al.
+(COLM 2024) replaced massive activations with their mean and saw nothing
+change, which is the bias account. The position split is the cut 59.4
+named and did not run.
+
+**Reading 1, the tag by bucket.** Zero passes. For every stored vector,
+cosine to section 58's cone, split by bucket (videos, memories, segments),
+by token-count bin, and by tag over the 811 rung A notes; the buckets' own
+mean directions compared pairwise; the same by depth from rung B's frozen
+harvest, which carries bucket and token count for 11,029 documents. Length
+is the confound (segments are short, videos long, and Sun, Canziani, LeCun
+and Zhu tie sink strength to the context-length distribution), so the
+bucket comparison runs inside matched token-count bins and the null shuffles
+the bucket labels within bins. The production store and the frozen harvest
+must agree at the output depth before either is drawn.
+
+*Prediction 1.* The buckets' median cosine to the cone differs beyond the
+shuffled null's 99th percentile after length matching, and the bucket means
+sit at pairwise cosine under 0.95: the tag varies with the kind of note.
+*Bar.* If the between-bucket difference sits inside the null, the cone is a
+bias as far as search can tell and the tag account has no purchase here.
+
+**Reading 2, the valley.** 22 passes, under a minute. On the specimen with
+and without the head, then the 20 population notes with and without, the
+full token matrix at every depth; effective rank per depth from the
+singular-value entropy, on the raw residual and again with every token
+unit-normalised (the second says whether the valley is only the giant token
+at position 0). The cross-note version from rung A's 811 notes is the side
+panel: it is a different quantity (one vector per note, after the final
+norm) and is drawn as such.
+
+*Prediction 2.* With the head present, within-sequence effective rank dips
+after block 3 and recovers in the last seven blocks; with the head zeroed
+the dip is gone, the raw curve within the between-note spread of the
+normalised one. *Bar.* The dip is real when the raw rank at depths 4 to 20
+sits below the head-zeroed rank by more than the 20 notes' interquartile
+range at those depths.
+
+**Reading 3, the position split.** Four conditions on the specimen and the
+20 population notes: the head's write zeroed at position 0 only; zeroed at
+positions 1 onward only; the whole head (59.3's number, rerun for the same
+pass); and the constant swap, the position-0 write replaced by the mean of
+the 21 position-0 writes 59.4 kept. Per note: displacement of the shipped
+vector, neighbours moved of 10, cosine to the cone, the sink (median head's
+share on token 0, blocks 4 to 28), position 0's residual norm by depth, and
+the dye (cosine between the condition's last position and the baseline's at
+every depth).
+
+*Prediction 3a.* Position 0 alone reproduces the whole head: sink under
+0.05, position 0's norm after block 3 under 100, displacement within 0.05
+of the whole-head value. *Prediction 3b.* Content positions alone leave the
+sink above 0.5 and the massive activation in place, move the note less than
+the null's 99th percentile, and leave the cosine to the cone within 0.03 of
+baseline; if this fails the head is a writer after all and 59.4 gets a Later
+note. *Prediction 3c.* The constant swap is indistinguishable from baseline:
+displacement under the null's 99th percentile, neighbours unchanged.
+
+**Null for reading 3.** 128 random coordinates of the block's concatenated
+head outputs zeroed at position 0 only, the same statistic; 100 draws on
+the specimen, 20 per population note.
+
+**Cost.** Reading 1: minutes in numpy, nothing on the model. Reading 2: 42
+passes (21 notes, with and without), about a minute. Reading 3: 84 passes
+plus 500 null passes, about 10 minutes on MPS at the measured 0.85 s per
+pass. Everything reads the store and the two harvests and writes only to
+`docs/assets/61-encoder-anatomy-d4/`.
+
+**Ships if it passes.** Nothing. If prediction 1 holds, the tag is a
+coordinate the map can colour and the memory-bucket lag rung B found has
+a candidate cause worth its own registration.
+
 ## Order, cost, and gos
 
 | Step | Model calls | Wall time | Go needed |
@@ -245,6 +333,9 @@ the record section.
 | D3 specimen | 1 + 448 passes, one note | about 5 min (ran 51: batching scales linearly on Metal) | ran 2026-10-31, section 59 |
 | D3 population, 20 notes | 20 x 3,250 passes with the full null | about 80 min (ran 885: the specimen's lesson, times 20) | ran 2026-11-01, section 59.3 |
 | D2 rung B, the exam per layer | 11,005 docs with hidden states | about 3 h (ran 2 h) | ran 2026-11-01, section 60.2 |
+| D4 reading 1, the tag by bucket | none | minutes | go given 2026-11-08 |
+| D4 reading 2, the valley | 42 passes | about a minute | go given 2026-11-08 |
+| D4 reading 3, the position split | 84 + 500 null passes | about 10 min | go given 2026-11-08 |
 
 Everything above reads the store and never writes to it. Nothing in
 `docs/assets/` is rewritten; each run gets its own numbered section.
@@ -297,3 +388,23 @@ encoder with no sink, a different note at cosine 0.31 to itself.
 - Xiao et al., "Efficient Streaming Language Models with Attention Sinks",
   ICLR 2024, arXiv:2309.17453. Strong attention to initial tokens regardless
   of their meaning.
+
+Added 2026-11-08, after 59.4, for D4:
+
+- Zhang, Khan, Papyan, "Attention Sinks: A 'Catch, Tag, Release' Mechanism
+  for Embeddings", NeurIPS 2025, arXiv:2502.00919. Sinks catch a run of
+  tokens, tag them with a shared direction, release them into the residual;
+  later tokens retrieve by the tag.
+- Queipo-de-Llano et al., "Attention Sinks and Compression Valleys in LLMs
+  are Two Sides of the Same Coin", arXiv:2510.06477. Massive activations
+  cause both the sink and a mid-depth compression of the representation;
+  ablating them removes the compression and most of the sink.
+- Sun, Canziani, LeCun, Zhu, "The Spike, the Sparse and the Sink: Anatomy
+  of Massive Activations and Attention Sinks", ICML 2026, arXiv:2603.05498.
+  Normalisation placement decides whether massive activations appear; sink
+  strength follows attention dimensionality and the context-length
+  distribution. Read in summary only.
+- Jiang, Dravid, Efros, Gandelsman, "Vision Transformers Don't Need Trained
+  Registers", NeurIPS 2025, arXiv:2506.08010. A test-time register token
+  takes the high-norm outlier off the content positions; not run here, since
+  the pooling never reads position 0.
