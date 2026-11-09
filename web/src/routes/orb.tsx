@@ -214,18 +214,18 @@ function OrbPage() {
       ) : null}
       {data && chrome && anchor !== null && knn && !open ? (
         <aside className="absolute bottom-4 left-4 w-80 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md">
-          <header className="border-b border-white/10 px-4 pt-3 pb-2.5">
+          <div className="border-b border-white/10 px-4 pt-3 pb-2.5">
             <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink2)]">nearest by embedding</div>
             <div className="mt-1 truncate text-[15px] leading-tight text-[var(--ink)]">{captionTitle(data.points[anchor].t)}</div>
-          </header>
+          </div>
           <div className="relative">
             {/* exactly five rows tall; the rest scrolls */}
-            <ul className="h-[300px] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
+            <ul className="!m-0 h-[300px] !list-none overflow-y-auto !p-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
               {(knn[anchor] ?? []).map((j, k) => {
                 const q = data.points[j];
                 const sim = knnSim?.[anchor]?.[k];
                 return (
-                  <li key={j} className="border-b border-white/[0.06] last:border-b-0">
+                  <li key={j} className="!m-0 !list-none border-b border-white/[0.06] !p-0 last:border-b-0">
                     <div
                       role="button"
                       tabIndex={0}
