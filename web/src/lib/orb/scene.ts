@@ -49,11 +49,9 @@ export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-se
 const MATCH_MAX = 28, GATHER_COLS = 4, GATHER_ROWS = 3, GATHER_FILL = 0.62, GATHER_TILE = 0.93;
 // library sheet: four rows of as many columns as the free width holds; a full page is MATCH_MAX tiles
 export const SHELF_ROWS = 4, SHELF_FILL = 0.8, SHELF_COLS_MAX = 7;
-// label: the share of each slot's height kept clear under the cover, for the page's title
-// align: where the cover stands in the room above it; bottom puts a row's covers on one line
-export type SheetShape = { cols: number; rows: number; fill: number; label: number; align: "center" | "bottom" };
-// a landed sheet tile on screen, css px from the canvas corner; slot is its column's width
-export type SheetTile = { i: number; cx: number; top: number; bottom: number; w: number; slot: number };
+export type SheetShape = { cols: number; rows: number; fill: number };
+// a landed sheet tile on screen, css px from the canvas corner
+export type SheetTile = { i: number; cx: number; top: number; bottom: number; w: number };
 // inside, no corner of the sheet may pass this radius, or the shell's tiles cover it
 const SHEET_REACH = 0.94;
 const GATHER_LIFT_IN = 0.1, GATHER_LIFT_OUT = 0.4, GATHER_HOP = 0.1;
@@ -275,6 +273,7 @@ export function mountOrb(
     onBlur(): void;
     onRingHover?(item: RingItem | null): void; onSheet?(tiles: SheetTile[]): void;
   },
+  face = "Newsreader, Georgia, serif", // the labels drawn into the scene; the page loads it before mounting
 ): OrbHandle {
   const cap = COLS * COLS; // atlas has exactly this many slots; beyond it uvRect wraps
   const n = Math.min(data.points.length, cap);
@@ -376,7 +375,7 @@ export function mountOrb(
       const c = document.createElement("canvas");
       c.width = 256; c.height = 64;
       const ctx = c.getContext("2d")!;
-      ctx.font = "500 30px Newsreader, Georgia, serif";
+      ctx.font = `500 30px ${face}`;
       ctx.fillStyle = "#f0eee7";
       ctx.textBaseline = "middle";
       ctx.fillText(b.label, 8, 32);
@@ -593,7 +592,7 @@ export function mountOrb(
     sheet.up.set(e[4], e[5], e[6]);
     camera.getWorldDirection(_gc);
     const camR = camera.position.length();
-    const { cols: COLS_N, rows: ROWS_N, fill, label, align } = sheetShape;
+    const { cols: COLS_N, rows: ROWS_N, fill } = sheetShape;
     const p5 = camera.projectionMatrix.elements[5];
     // one slot and half the covered strip, both per unit of the sheet's distance
     const stepK = (2 * fill) / (p5 * ROWS_N);
@@ -615,10 +614,8 @@ export function mountOrb(
     const step = stepK * dist;
     let widest = 1, tallest = 1;
     for (const i of searchHits) { const sx = Math.sqrt(aspects[i]); widest = Math.max(widest, sx); tallest = Math.max(tallest, 1 / sx); }
-    // one size for every cover: the widest fits its slot across, the tallest fits the room above the label
-    const h0 = TILE_HALF * sizeK();
-    const size = (GATHER_TILE * step * Math.min(1 / widest, (1 - label) / tallest)) / (2 * h0);
-    sheetStep = step;
+    // one size for every cover: the widest fits its slot across, the tallest fits it down
+    const size = (GATHER_TILE * step) / (Math.max(widest, tallest) * 2 * TILE_HALF * sizeK());
     const count = searchHits.length, rows = Math.ceil(count / COLS_N);
     // a full page lands in the time twelve matches take
     const stagger = Math.min(GATHER_STAGGER, (GATHER_STAGGER * 12) / Math.max(1, count));
@@ -628,8 +625,7 @@ export function mountOrb(
       const cols = Math.min(COLS_N, count - row * COLS_N); // a short last row centers itself
       const to = new Vector3().copy(_gp)
         .addScaledVector(sheet.right, ((rank % COLS_N) - (cols - 1) / 2) * step)
-        .addScaledVector(sheet.up, ((rows - 1) / 2 - row) * step
-          + (align === "bottom" ? (label - 0.5) * step + (h0 * size) / Math.sqrt(aspects[i]) : (label * step) / 2));
+        .addScaledVector(sheet.up, ((rows - 1) / 2 - row) * step);
       const r1 = to.length(); // each slot's own distance from the center keeps the sheet flat
       launch(i, to.normalize(), r1, 1, size, rank * stagger);
     });
@@ -637,8 +633,8 @@ export function mountOrb(
   };
   // the sheet is measured from the camera, so the loop lays it out right after
   // placing the camera with nothing selected; a timer here would read a stale standpoint
-  let gatherDue = false, searchInset = 0, sheetStep = 1;
-  const SHEET: SheetShape = { cols: GATHER_COLS, rows: GATHER_ROWS, fill: GATHER_FILL, label: 0, align: "center" };
+  let gatherDue = false, searchInset = 0;
+  const SHEET: SheetShape = { cols: GATHER_COLS, rows: GATHER_ROWS, fill: GATHER_FILL };
   let sheetShape = SHEET;
   // the page draws the sheet's titles, so it is told where each landed cover is, and only when one moved
   let sheetKey = "";
@@ -658,7 +654,7 @@ export function mountOrb(
       const hw = Math.abs(((_sp.x + 1) / 2) * vw - cx);
       _sp.fromArray(centers, i * 3).addScaledVector(sheet.up, h / sx).project(camera);
       const hh = Math.abs(((1 - _sp.y) / 2) * vh - cy);
-      out.push({ i, cx, top: cy - hh, bottom: cy + hh, w: 2 * hw, slot: (hw * sheetStep) / (h * sx) });
+      out.push({ i, cx, top: cy - hh, bottom: cy + hh, w: 2 * hw });
     }
     const key = out.map((o) => `${o.i}:${Math.round(o.cx * 2)}:${Math.round(o.bottom * 2)}:${Math.round(o.w)}`).join(" ");
     if (key !== sheetKey) { sheetKey = key; cb.onSheet(out); }
@@ -1335,12 +1331,12 @@ void main() {
       const z = (lo[th] + hi[th]) / 2;
       const c = document.createElement("canvas");
       const g = c.getContext("2d")!;
-      const font = "500 34px Newsreader, Georgia, serif";
+      const font = `500 34px ${face}`;
       const text = data.themes[th].toLowerCase();
       const count = String(cnt[th]);
       g.font = font;
       const tw = Math.ceil(g.measureText(text).width);
-      g.font = "500 24px Newsreader, Georgia, serif";
+      g.font = `500 24px ${face}`;
       const cw = Math.ceil(g.measureText(count).width);
       const w = tw + cw + 60;
       c.width = w; c.height = 72;
@@ -1348,7 +1344,7 @@ void main() {
       g.beginPath(); g.roundRect(0, 8, w, 56, 10); g.fill();
       g.textBaseline = "middle";
       g.font = font; g.fillStyle = "#f0eee7"; g.fillText(text, 22, 37);
-      g.font = "500 24px Newsreader, Georgia, serif"; g.fillStyle = "#e2b04a"; g.fillText(count, 22 + tw + 16, 38);
+      g.font = `500 24px ${face}`; g.fillStyle = "#e2b04a"; g.fillText(count, 22 + tw + 16, 38);
       const tex = new CanvasTexture(c);
       tex.colorSpace = SRGBColorSpace;
       const mat = new SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false });

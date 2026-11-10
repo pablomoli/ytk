@@ -95,7 +95,7 @@ export function OrbReader({ point, open, pathIndex, urlIndex, onWalk, onClose, o
           close
         </div>
       </div>
-      <div ref={bodyRef} className="orb-reader min-h-0 flex-1 overflow-y-auto px-5 pb-6 text-[14px] leading-relaxed text-[var(--ink)] [scrollbar-width:thin] [&_.note-title]:!mt-4 [&_.note-title]:!text-[20px] [&_.note-title]:!leading-snug [&_.note-title]:!text-[var(--ink)] [&_.note-images_img]:!max-h-[11rem] [&_.note-images.strip_img]:!h-[11rem] [&_h3]:!text-[var(--ink2)] [&_h3]:!text-[11px] [&_h3]:!uppercase [&_h3]:!tracking-[0.14em]">
+      <div ref={bodyRef} className="orb-reader min-h-0 flex-1 overflow-y-auto px-5 pb-6 text-[14px] leading-relaxed text-[var(--ink)] [scrollbar-width:thin] [&_.note-title]:!mt-4 [&_.note-title]:![font-family:var(--face)] [&_.note-title]:![font-variation-settings:var(--face-vary)] [&_.note-title]:![font-weight:var(--face-w)] [&_.note-title]:![letter-spacing:var(--face-track)] [&_.note-title]:!text-[calc(24px*var(--face-k))] [&_.note-title]:!leading-[1.12] [&_.note-title]:!text-[var(--ink)] [&_.note-images_img]:!max-h-[11rem] [&_.note-images.strip_img]:!h-[11rem] [&_h3]:!text-[var(--ink2)] [&_h3]:!text-[11px] [&_h3]:!uppercase [&_h3]:!tracking-[0.14em]">
         {content.isLoading ? <p className="pt-4 text-[13px] text-[var(--ink2)]">loading note</p> : null}
         {content.isError ? <p className="pt-4 text-[13px] text-[var(--ink2)]">failed to load note</p> : null}
         {content.data ? <NoteBody raw={content.data.content} note={note} /> : null}

@@ -6,13 +6,15 @@ import { useOrb } from "../api/orb";
 import { apiGet, queryClient } from "../api/client";
 import type { SimilarItem } from "../api/fresh";
 import type { LibraryPage } from "../api/library";
+import { OrbControls } from "../components/OrbControls";
 import { OrbReader, READER_WIDTH } from "../components/OrbReader";
 import { ErrorState } from "../components/StateViews";
 import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import type { RingItem } from "../lib/orb/ring";
 import { mountOrb, RADIUS_MAX, RADIUS_MIN, SHELF_COLS_MAX, SHELF_FILL, SHELF_ROWS } from "../lib/orb/scene";
-import type { SheetShape, SheetTile } from "../lib/orb/scene";
-import type { SheetTitles } from "../lib/orbSearch";
+import type { SheetTile } from "../lib/orb/scene";
+import { faceStack, faceVars, loadFace } from "../lib/orb/faces";
+import type { FaceName } from "../lib/orbSearch";
 import { useChromeVisible } from "../lib/chrome";
 import { validateOrbSearch } from "../lib/orbSearch";
 import "../styles.css";
@@ -52,15 +54,6 @@ const LENSES: { name: LayoutName; label: string; hint: string }[] = [
 const captionTitle = (t: string) =>
   t.replace(/!\[\[([^\]]+)\]\]/g, "$1").trim();
 
-// how the sheet's titles are set: the room each takes from its cover's slot, and where the cover stands
-const TITLES: Record<SheetTitles, Pick<SheetShape, "label" | "align">> = {
-  shelf: { label: 0.2, align: "bottom" }, // covers on one line per row, the title centered under each
-  meta: { label: 0.2, align: "bottom" }, // one line of title, then source and day
-  under: { label: 0.2, align: "center" }, // the title under each cover's own edge
-  scrim: { label: 0, align: "center" }, // the title on the cover's darkened foot
-  off: { label: 0, align: "center" },
-};
-
 // mean direction of a theme's tiles under the chosen sphere layout; null when
 // the theme has no tiles or they cancel out
 function themeCentroid(
@@ -94,6 +87,8 @@ const SORTS = [
   { name: "title", label: "title" },
 ] as const;
 type SortName = (typeof SORTS)[number]["name"];
+// set in the orb's display face, which the page root carries as custom properties
+const FACE = "[font-family:var(--face)] [font-variation-settings:var(--face-vary)] [font-weight:var(--face-w)] [letter-spacing:var(--face-track)]";
 const PANEL_RIGHT = 344; // css px the bottom-left panel reaches to; the sheet starts past it at least
 const CHIP = "cursor-pointer rounded px-2 py-1";
 const chip = (on: boolean) => `${CHIP} ${on ? "bg-white/20 text-[var(--ink)]" : "bg-white/5 hover:bg-white/10"}`;
@@ -118,7 +113,7 @@ function TileRow({ point, score, when, active, onPick }: { point: OrbPoint; scor
           <span className="h-11 w-11 flex-none rounded-[3px] bg-white/[0.06]" />
         )}
         <span className="min-w-0 flex-1">
-          <span className="line-clamp-2 text-[13px] leading-[1.25] text-[var(--ink)]">{captionTitle(point.t)}</span>
+          <span className={`${FACE} line-clamp-2 text-[calc(12.5px*var(--face-k))] leading-[1.15] text-[var(--ink)]`}>{captionTitle(point.t)}</span>
           <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink2)]">
             {point.c}{when ?? point.d ? ` · ${when ?? point.d}` : ""}
           </span>
@@ -144,7 +139,7 @@ function PanelHead({ label, title, folded, onToggle }: { label: string; title: s
       {folded ? (
         <>
           <span className={`${kicker} flex-none`}>{label}</span>
-          <span className="min-w-0 flex-1 truncate text-[13px] leading-tight text-[var(--ink)]">{title}</span>
+          <span className={`${FACE} min-w-0 flex-1 truncate text-[calc(13.5px*var(--face-k))] leading-tight text-[var(--ink)]`}>{title}</span>
           <span className={`${kicker} flex-none`}>show</span>
         </>
       ) : (
@@ -153,43 +148,37 @@ function PanelHead({ label, title, folded, onToggle }: { label: string; title: s
             <span className="flex-1">{label}</span>
             {onToggle ? <span>hide</span> : null}
           </div>
-          <div className="mt-1 truncate text-[15px] leading-tight text-[var(--ink)]">{title}</div>
+          <div className={`${FACE} mt-1 truncate text-[calc(16px*var(--face-k))] leading-tight text-[var(--ink)]`}>{title}</div>
         </>
       )}
     </div>
   );
 }
 
-const SHEET_TITLE = "pointer-events-none absolute left-0 top-0 transition-opacity duration-300 starting:opacity-0 [text-shadow:0_0_3px_#000,0_0_8px_#000,0_0_16px_rgb(0_0_0/0.85)]";
-
-/* One cover's title on the sheet. The scene owns where the cover is; this
-   only sets words against the rectangle it reports. */
-function SheetTitle({ at, point, kind, lit }: { at: SheetTile; point: OrbPoint; kind: SheetTitles; lit: boolean }) {
-  const title = captionTitle(point.t);
-  const ink = lit ? "text-[var(--ink)]" : "text-[var(--ink)]/75";
-  if (kind === "scrim")
-    return (
+/* One cover's title, set on the cover's darkened foot. The scene owns where
+   the cover is; this only sets words against the rectangle it reports. The
+   shade is as tall as the words, so under the pointer both open together. */
+function SheetTitle({ at, point, lit }: { at: SheetTile; point: OrbPoint; lit: boolean }) {
+  // a reel's narrow cover and a video's wide one both hold about four words a line
+  const px = Math.max(11.5, Math.min(16, at.w * 0.085));
+  const pad = `${(at.w * 0.06).toFixed(1)}px`;
+  return (
+    <div
+      data-sheet-title
+      className="pointer-events-none absolute left-0 top-0 flex items-end overflow-hidden transition-opacity duration-300 starting:opacity-0"
+      style={{ transform: `translate(${at.cx - at.w / 2}px, ${at.top}px)`, width: at.w, height: at.bottom - at.top }}
+    >
       <div
-        data-sheet-title
-        className={`${SHEET_TITLE} flex items-end bg-gradient-to-t from-black/90 via-black/40 via-30% to-transparent to-55% px-1.5 pb-1`}
-        style={{ transform: `translate(${at.cx - at.w / 2}px, ${at.top}px)`, width: at.w, height: at.bottom - at.top }}
+        className="box-border w-full bg-gradient-to-t from-black/90 via-black/80 via-65% to-transparent [text-shadow:0_0_2px_#000,0_0_8px_rgb(0_0_0/0.8)]"
+        style={{ padding: `${(px * 2.2).toFixed(1)}px ${pad} ${(at.w * 0.045).toFixed(1)}px` }}
       >
-        <span className={`line-clamp-2 text-[11px] leading-[1.2] ${ink}`}>{title}</span>
-      </div>
-    );
-  const w = at.slot * 0.92;
-  if (kind === "meta")
-    return (
-      <div data-sheet-title className={SHEET_TITLE} style={{ transform: `translate(${at.cx - at.w / 2}px, ${at.bottom + 5}px)`, width: at.w / 2 + w / 2 }}>
-        <span className={`block truncate text-[12px] leading-[1.25] ${ink}`}>{title}</span>
-        <span className="block truncate text-[9.5px] uppercase tracking-[0.1em] text-[var(--ink2)]">
-          {[point.c, point.a ?? point.d].filter(Boolean).join(" · ")}
+        <span
+          className={`${FACE} leading-[1.12] text-[var(--ink)] ${lit ? "line-clamp-5" : "line-clamp-2"}`}
+          style={{ fontSize: `calc(${px.toFixed(1)}px * var(--face-k))` }}
+        >
+          {captionTitle(point.t)}
         </span>
       </div>
-    );
-  return (
-    <div data-sheet-title className={`${SHEET_TITLE} text-center`} style={{ transform: `translate(${at.cx - w / 2}px, ${at.bottom + 5}px)`, width: w }}>
-      <span className={`line-clamp-2 text-[11.5px] leading-[1.22] ${ink}`}>{title}</span>
     </div>
   );
 }
@@ -197,7 +186,14 @@ function SheetTitle({ at, point, kind, lit }: { at: SheetTile; point: OrbPoint; 
 function OrbPage() {
   const chrome = useChromeVisible();
   const orb = useOrb();
-  const { theme: searchTheme, titles = "shelf" } = Route.useSearch();
+  const { theme: searchTheme, face = "instrument" } = Route.useSearch();
+  // the scene draws its labels into canvases, so it mounts once the face can be drawn
+  const [drawn, setDrawn] = useState<FaceName | null>(null);
+  useEffect(() => {
+    let live = true;
+    void loadFace(face).then(() => { if (live) setDrawn(face); });
+    return () => { live = false; };
+  }, [face]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<OrbHandle | null>(null);
   const [layout, setLayout] = useState<LayoutName | null>(null);
@@ -277,8 +273,9 @@ function OrbPage() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return; // an open theme list takes its own Escape
       const el = e.target as HTMLElement | null;
-      const typing = el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && el.type !== "range");
+      const typing = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement;
       if (e.key === "/" && !typing) {
         e.preventDefault();
         searchRef.current?.focus();
@@ -340,7 +337,7 @@ function OrbPage() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !data) return;
+    if (!canvas || !data || drawn !== face) return;
     const handle = mountOrb(canvas, data, {
       onHover: (i) => {
         setHovered(i);
@@ -353,7 +350,7 @@ function OrbPage() {
       onBlur: () => setSelected(null),
       onRingHover: setGrain,
       onSheet: setSheetTiles,
-    });
+    }, faceStack(face));
     handleRef.current = handle;
     handle.setDock(READER_WIDTH);
     // spike defaults: lattice on, terrain off, inside
@@ -377,7 +374,7 @@ function OrbPage() {
       handle.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  }, [data, drawn]);
 
   // css px from the canvas's left edge to the right edge of the top-left controls
   const fieldRight = () =>
@@ -390,10 +387,10 @@ function OrbPage() {
     if (!h) return;
     if (searching) {
       // the sheet keeps clear of the left column of panels, which the field shares an edge with
-      if (hits) h.setSearch(hits.map((x) => x.i), fieldRight(), TITLES[titles]); // a pending search leaves the sheet as it is
-    } else if (library) h.setSearch(pageItems, Math.max(PANEL_RIGHT, fieldRight() + 12), { cols, rows: SHELF_ROWS, fill: SHELF_FILL, ...TITLES[titles] });
+      if (hits) h.setSearch(hits.map((x) => x.i), fieldRight()); // a pending search leaves the sheet as it is
+    } else if (library) h.setSearch(pageItems, Math.max(PANEL_RIGHT, fieldRight() + 12), { cols, rows: SHELF_ROWS, fill: SHELF_FILL });
     else h.setSearch(null);
-  }, [data, searching, hits, library, pageItems, cols, titles]);
+  }, [data, drawn, searching, hits, library, pageItems, cols]);
 
   // as many columns as the sky beside the panel holds at the sheet's slot size
   useEffect(() => {
@@ -439,12 +436,14 @@ function OrbPage() {
   };
   // library notes with no tile: the sphere is a snapshot and the library is live
   const unplaced = shelf.data ? shelf.data.items.filter((it) => !pathIndex.has(it.path)).length : 0;
+  const themeCounts = (data?.themes ?? []).map((label) => ({ label, count: 0 }));
+  for (const p of data?.points ?? []) if (themeCounts[p.th]) themeCounts[p.th].count++;
   const closeReader = () => {
     handleRef.current?.blur();
     setSelected(null);
   };
   return (
-    <div className="relative flex-1 min-h-0 overflow-hidden">
+    <div className="relative flex-1 min-h-0 overflow-hidden" style={faceVars(face)}>
       {!data ? (
         <div className="flex-1 grid place-items-center text-sm opacity-60">
           loading the sphere
@@ -456,107 +455,32 @@ function OrbPage() {
         />
       )}
       {data && chrome ? (
-        <div className="absolute left-4 top-4 flex flex-col gap-2 text-xs">
-          <input
-            ref={searchRef}
-            type="search"
-            data-orb-search
-            value={query}
-            placeholder="search the sphere   /"
-            spellCheck={false}
-            autoComplete="off"
-            className="rounded border border-white/10 bg-white/5 px-2.5 py-1.5 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink2)]/60 focus:border-white/25 focus:bg-white/10 focus-visible:!outline-none [&::-webkit-search-cancel-button]:hidden"
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter takes the best match
-              if (e.key === "Enter" && hits?.length) handleRef.current?.focus(hits[0].i);
-            }}
-          />
-          <div className="flex gap-1">
-            {LENSES.map(({ name, label, hint }) => {
-              const s = scores?.[name];
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  title={s ? `${hint} · trust ${s.trustworthiness.toFixed(3)}` : hint}
-                  className={`rounded px-2 py-1 ${layout === name ? "bg-white/20" : "bg-white/5 hover:bg-white/10"} disabled:opacity-30`}
-                  onClick={() => {
-                    setLayout(name);
-                    handleRef.current?.setLayout(name);
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              className="ml-2 rounded px-2 py-1 bg-white/5 hover:bg-white/10"
-              onClick={() => {
-                const next: OrbViewMode =
-                  viewMode === "inside" ? "globe" : "inside";
-                setViewMode(next);
-                handleRef.current?.setView(next);
-              }}
-            >
-              {viewMode === "inside" ? "globe" : "inside"}
-            </button>
-            <button
-              type="button"
-              disabled={viewMode !== "globe"}
-              title="show the superplanet coastline under the tiles"
-              className={`rounded px-2 py-1 ${terrain ? "bg-white/20" : "bg-white/5 hover:bg-white/10"} disabled:opacity-30`}
-              onClick={() => {
-                const next = !terrain;
-                setTerrain(next);
-                handleRef.current?.setTerrain(next);
-              }}
-            >
-              terrain
-            </button>
-            <button
-              type="button"
-              data-orb-library-toggle
-              title="page through everything, in order"
-              className={`ml-2 rounded px-2 py-1 ${library ? "bg-white/20" : "bg-white/5 hover:bg-white/10"}`}
-              onClick={() => { setLibrary((v) => !v); setPage(0); }}
-            >
-              library
-            </button>
-          </div>
-          <label className="flex items-center gap-2 text-[11px] text-[var(--ink2)]" title="double-click to reset">
-            <span>contract</span>
-            <input
-              type="range"
-              min={-1}
-              max={1}
-              step={0.005}
-              value={spread}
-              className="h-1 min-w-0 flex-1 cursor-pointer accent-[var(--ink2)]"
-              onChange={(e) => applySpread(Number(e.target.value))}
-              onDoubleClick={() => applySpread(0)}
-            />
-            <span>explode</span>
-          </label>
-          <select
-            className="rounded bg-white/5 px-2 py-1"
-            value={theme ?? ""}
-            onChange={(e) => {
-              const v = e.target.value === "" ? null : Number(e.target.value);
-              setTheme(v);
-              setPage(0);
-              handleRef.current?.setThemeFilter(v);
-            }}
-          >
-            <option value="">all themes</option>
-            {data.themes.map((label, i) => (
-              <option key={label} value={i}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <OrbControls
+          searchRef={searchRef}
+          face={faceVars(face)}
+          settled={drawn}
+          query={query}
+          onQuery={setQuery}
+          onEnter={() => { if (hits?.length) handleRef.current?.focus(hits[0].i); }} // Enter takes the best match
+          lenses={LENSES.map(({ name, label, hint }) => {
+            const s = scores?.[name];
+            return { name, label, title: s ? `${hint} · trust ${s.trustworthiness.toFixed(3)}` : hint };
+          })}
+          layout={layout}
+          onLayout={(name) => { setLayout(name); handleRef.current?.setLayout(name); }}
+          view={viewMode}
+          onView={(next) => { setViewMode(next); handleRef.current?.setView(next); }}
+          terrain={terrain}
+          onTerrain={(next) => { setTerrain(next); handleRef.current?.setTerrain(next); }}
+          library={library}
+          count={data.points.length}
+          onLibrary={() => { setLibrary((v) => !v); setPage(0); }}
+          spread={spread}
+          onSpread={applySpread}
+          themes={themeCounts}
+          theme={theme}
+          onTheme={(v) => { setTheme(v); setPage(0); handleRef.current?.setThemeFilter(v); }}
+        />
       ) : null}
       {data && chrome && query.trim() ? (
         <aside data-orb-results className={`absolute bottom-4 left-4 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md ${folded ? "max-w-80" : "w-80"}`}>
@@ -662,13 +586,11 @@ function OrbPage() {
           </div>
         </aside>
       ) : null}
-      {data && titles !== "off"
-        ? sheetTiles.map((at) => <SheetTitle key={at.i} at={at} point={data.points[at.i]} kind={titles} lit={at.i === hovered} />)
-        : null}
-      {data && hovered !== null && hovered !== selected && !(titles !== "off" && sheetTiles.some((at) => at.i === hovered)) ? (
+      {data ? sheetTiles.map((at) => <SheetTitle key={at.i} at={at} point={data.points[at.i]} lit={at.i === hovered} />) : null}
+      {data && hovered !== null && hovered !== selected && !sheetTiles.some((at) => at.i === hovered) ? (
         <div
           data-caption
-          className="pointer-events-none absolute bottom-4 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm"
+          className={`${FACE} pointer-events-none absolute bottom-4 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-[calc(15px*var(--face-k))]`}
           style={{ left: selected !== null ? `calc(50% - ${READER_WIDTH / 2}px)` : "50%" }}
         >
           {captionTitle(data.points[hovered].t)}
@@ -693,7 +615,7 @@ function OrbPage() {
               pending
               {grain.q ? <span className="ml-2 text-[var(--accent)]">open question</span> : null}
             </span>
-            <span className="mt-0.5 line-clamp-2 text-[13px] leading-[1.25] text-[var(--ink)]">{grain.t || grain.u}</span>
+            <span className={`${FACE} mt-0.5 line-clamp-2 text-[calc(13.5px*var(--face-k))] leading-[1.22] text-[var(--ink)]`}>{grain.t || grain.u}</span>
             <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink2)]">
               {[grain.a, grain.s, grain.d].filter(Boolean).join(" · ")}
             </span>

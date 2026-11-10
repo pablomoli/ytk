@@ -10,4 +10,8 @@ describe("orb search param", () => {
     expect(validateOrbSearch({ theme: -1 })).toEqual({});
     expect(validateOrbSearch({})).toEqual({});
   });
+  it("keeps a known face and drops an unknown one", () => {
+    expect(validateOrbSearch({ face: "fraunces" })).toEqual({ face: "fraunces" });
+    expect(validateOrbSearch({ face: "comic" })).toEqual({});
+  });
 });
