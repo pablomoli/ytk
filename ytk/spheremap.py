@@ -58,6 +58,19 @@ def spread(
     return p
 
 
+# Share of the even spacing for n tiles that the shipped neighbors layout is
+# pushed toward. Above 1 the push never settles, so EVEN_ITERS bounds it.
+EVEN_SHARE = 1.1
+EVEN_ITERS = 600
+
+
+def evened(rad: NDArray[Any]) -> NDArray[Any]:
+    """The neighbors layout as drawn: bearings relaxed toward even spacing, so
+    clumps open and empty sky closes while local order survives."""
+    even = float(np.sqrt(4.0 * np.pi / max(1, len(rad))))
+    return spread(rad, iters=EVEN_ITERS, target=max(1.15 * OCCL, EVEN_SHARE * even))
+
+
 def fibonacci(n: int) -> NDArray[Any]:
     i = np.arange(n, dtype=float)
     z = 1.0 - 2.0 * (i + 0.5) / n
@@ -175,13 +188,14 @@ def sphere_block(
 ) -> dict[str, Any]:
     rad = radial(c3)
     # lattice orders members by the true bearings; the shipped radial layout
-    # is those bearings spread to visibility (E29: anchor 1.000, trust -0.002)
+    # is those bearings evened out, and the same array is scored and returned
     lat = lattice(themes, rad)
-    layouts: dict[str, NDArray[Any] | None] = {"radial": spread(rad), "lattice": lat}
+    shipped = evened(rad)
+    layouts: dict[str, NDArray[Any] | None] = {"radial": shipped, "lattice": lat}
     layouts["haversine"] = haversine(vecs, n_neighbors, min_dist) if run_haversine else None
     scores = {k: score(vecs, v) for k, v in layouts.items() if v is not None}
     return {
-        "radial": _round(rad),
+        "radial": _round(shipped),
         "haversine": _round(layouts["haversine"]) if layouts["haversine"] is not None else None,
         "lattice": _round(lat),
         "scores": scores,

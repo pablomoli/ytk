@@ -125,3 +125,15 @@ def test_sphere_block_schema_without_umap():
     assert "haversine" not in block["scores"]
     # JSON-safe: plain lists of floats, rounded
     assert isinstance(block["radial"][0][0], float)
+
+
+def test_sphere_block_ships_the_layout_it_scores():
+    rng = np.random.default_rng(4)
+    # every point crowded into one cap: the raw bearings bury each other
+    c3 = np.array([0.0, 0.0, 5.0]) + rng.normal(scale=0.05, size=(60, 3))
+    c3 = np.vstack([c3, -c3[:1] * 60])  # one far point keeps the centroid off the cap
+    vecs = rng.normal(size=(61, 8))
+    block = sphere_block(vecs, c3, [0] * 61, run_haversine=False)
+    shipped = np.array(block["radial"])
+    assert score(vecs, shipped)["overlap"] == block["scores"]["radial"]["overlap"] == 0
+    assert score(vecs, radial(c3))["overlap"] > 0
