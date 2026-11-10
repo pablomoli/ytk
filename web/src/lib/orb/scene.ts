@@ -46,7 +46,12 @@ export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-se
 // search gather: three rows of four span GATHER_FILL of the view height, and the
 // widest cover takes GATHER_TILE of its slot. The grid is a flat sheet facing the
 // camera, held just inside the shell or floated well clear of it from outside.
-const MATCH_MAX = 12, GATHER_COLS = 4, GATHER_ROWS = 3, GATHER_FILL = 0.62, GATHER_TILE = 0.93;
+const MATCH_MAX = 28, GATHER_COLS = 4, GATHER_ROWS = 3, GATHER_FILL = 0.62, GATHER_TILE = 0.93;
+// library sheet: four rows of as many columns as the free width holds; a full page is MATCH_MAX tiles
+export const SHELF_ROWS = 4, SHELF_FILL = 0.8, SHELF_COLS_MAX = 7;
+export type SheetShape = { cols: number; rows: number; fill: number };
+// inside, no corner of the sheet may pass this radius, or the shell's tiles cover it
+const SHEET_REACH = 0.94;
 const GATHER_LIFT_IN = 0.1, GATHER_LIFT_OUT = 0.4, GATHER_HOP = 0.1;
 const GATHER_DUR = 0.85, GATHER_STAGGER = 0.035;
 const SEARCH_DIM = 0.16;
@@ -142,7 +147,7 @@ uniform float uTheme, uThemeDim;   // theme filter dim factor
 uniform float uHovered;
 uniform float uNeigh[8];           // hovered tile's embedding neighbors (-1 = none)
 uniform float uNeighDim;           // 1 = off; below 1 dims everyone outside hovered + neighbors
-uniform float uMatch[12];          // tiles a search has gathered (-1 = none)
+uniform float uMatch[28];          // tiles on the sheet (-1 = none); the size is MATCH_MAX
 uniform float uSearchDim;          // 1 = off; below 1 dims every tile the search did not match
 in vec2 vUv;
 in float vIdx;
@@ -160,7 +165,7 @@ void main() {
   }
   if (uSearchDim < 1.0) {
     bool hit = abs(vIdx - uFocused) < 0.5 || abs(vIdx - uHovered) < 0.5;
-    for (int k = 0; k < 12; k++) if (abs(vIdx - uMatch[k]) < 0.5) hit = true;
+    for (int k = 0; k < 28; k++) if (abs(vIdx - uMatch[k]) < 0.5) hit = true;
     if (!hit) dim *= uSearchDim;
   }
   outColor = vec4(c * dim, 1.0);
@@ -242,7 +247,8 @@ export type OrbHandle = {
   setRadius(r: number): void;
   // tile indices, best first: they gather in front of the camera. null sends them home.
   // inset: css px the page's panels cover on the left; the sheet centers in what is left
-  setSearch(hits: number[] | null, inset?: number): void;
+  // shape: the sheet's grid; left out, it is the search's three rows of four
+  setSearch(hits: number[] | null, inset?: number, shape?: SheetShape): void;
   dispose(): void;
 };
 
@@ -547,35 +553,48 @@ export function mountOrb(
     sheet.up.set(e[4], e[5], e[6]);
     camera.getWorldDirection(_gc);
     const f = facing(), camR = camera.position.length();
-    // from outside the sheet never passes the midpoint between shell and camera, however far in the zoom is
-    const dist = mode === "globe"
-      ? camR - (1 + Math.min(GATHER_LIFT_OUT, (camR - 1) * 0.45))
-      : 1 - GATHER_LIFT_IN - camera.position.dot(_gc);
-    _gp.copy(camera.position).addScaledVector(_gc, dist);
+    const { cols: COLS_N, rows: ROWS_N, fill } = sheetShape;
     const p5 = camera.projectionMatrix.elements[5];
-    // half the covered strip, in world units at the sheet's distance
-    _gp.addScaledVector(sheet.right, (searchInset * dist) / (p5 * Math.max(1, canvas.clientHeight)));
+    // one slot and half the covered strip, both per unit of the sheet's distance
+    const stepK = (2 * fill) / (p5 * ROWS_N);
+    const insetK = searchInset / (p5 * Math.max(1, canvas.clientHeight));
+    let dist: number;
+    if (mode === "globe") {
+      // from outside the sheet never passes the midpoint between shell and camera, however far in the zoom is
+      dist = camR - (1 + Math.min(GATHER_LIFT_OUT, (camR - 1) * 0.45));
+    } else {
+      // a wide sheet stands nearer the camera, so its far corner stays inside the shell
+      const c = camera.position.dot(_gc);
+      const l2 = ((COLS_N / 2) * stepK + insetK) ** 2 + ((ROWS_N / 2) * stepK) ** 2;
+      const depth = (l2 * c + Math.sqrt(Math.max(0, SHEET_REACH * SHEET_REACH * (1 + l2) - l2 * c * c))) / (1 + l2);
+      dist = Math.min(1 - GATHER_LIFT_IN, depth) - c;
+    }
+    _gp.copy(camera.position).addScaledVector(_gc, dist);
+    _gp.addScaledVector(sheet.right, insetK * dist);
     // sized on screen, not on the sphere: the same grid whatever the zoom, the view or the slider
-    const step = (2 * GATHER_FILL * dist) / (p5 * GATHER_ROWS);
+    const step = stepK * dist;
     let widest = 1;
     for (const i of searchHits) { const sx = Math.sqrt(aspects[i]); widest = Math.max(widest, sx, 1 / sx); }
     const size = (GATHER_TILE * step) / (2 * widest * TILE_HALF * sizeK());
-    const count = searchHits.length, rows = Math.ceil(count / GATHER_COLS);
+    const count = searchHits.length, rows = Math.ceil(count / COLS_N);
+    // a full page lands in the time twelve matches take
+    const stagger = Math.min(GATHER_STAGGER, (GATHER_STAGGER * 12) / Math.max(1, count));
     for (const i of [...flights.keys()]) if (!matchSet.has(i)) launch(i, null, 0, 1, 0, 0);
     searchHits.forEach((i, rank) => {
-      const row = Math.floor(rank / GATHER_COLS);
-      const cols = Math.min(GATHER_COLS, count - row * GATHER_COLS); // a short last row centers itself
+      const row = Math.floor(rank / COLS_N);
+      const cols = Math.min(COLS_N, count - row * COLS_N); // a short last row centers itself
       const to = new Vector3().copy(_gp)
-        .addScaledVector(sheet.right, ((rank % GATHER_COLS) - (cols - 1) / 2) * step)
+        .addScaledVector(sheet.right, ((rank % COLS_N) - (cols - 1) / 2) * step)
         .addScaledVector(sheet.up, ((rows - 1) / 2 - row) * step);
       const lift = f * (1 - to.length()); // each slot's own distance off the shell keeps the sheet flat
-      launch(i, to.normalize(), 1, size, lift, rank * GATHER_STAGGER);
+      launch(i, to.normalize(), 1, size, lift, rank * stagger);
     });
     dimSearch(true);
   };
   // the sheet is measured from the camera, so the loop lays it out right after
   // placing the camera with nothing selected; a timer here would read a stale standpoint
   let gatherDue = false, searchInset = 0;
+  let sheetShape: SheetShape = { cols: GATHER_COLS, rows: GATHER_ROWS, fill: GATHER_FILL };
   const gatherSoon = (delay: number) => {
     gatherCall?.kill();
     gatherCall = undefined;
@@ -872,8 +891,9 @@ void main() {
       if (mode === "globe") _nc.copy(camera.position).normalize();
       else camera.getWorldDirection(_nc);
       for (let i = 0; i < n; i++) {
+        // tiles on the sheet claim the sharp quads first: the shell behind them is dimmed
         nearScore[i] = points[i].thumb
-          ? _nc.x * centers[i * 3] + _nc.y * centers[i * 3 + 1] + _nc.z * centers[i * 3 + 2]
+          ? _nc.x * centers[i * 3] + _nc.y * centers[i * 3 + 1] + _nc.z * centers[i * 3 + 2] + (matchSet.has(i) ? 4 : 0)
           : -2;
       }
       nearIdx.sort((a, b) => nearScore[b] - nearScore[a]);
@@ -1451,9 +1471,10 @@ void main() {
     focus: focusTile,
     blur: doBlur,
     setRadius(r) { radius.target = Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, r)); },
-    setSearch(hits, inset = 0) {
+    setSearch(hits, inset = 0, shape) {
       searchInset = inset;
-      searchHits = (hits ?? []).filter((i) => i >= 0 && i < n).slice(0, MATCH_MAX);
+      sheetShape = shape ?? { cols: GATHER_COLS, rows: GATHER_ROWS, fill: GATHER_FILL };
+      searchHits = (hits ?? []).filter((i) => i >= 0 && i < n).slice(0, Math.min(MATCH_MAX, sheetShape.cols * sheetShape.rows));
       matchSet = new Set(searchHits);
       const match = material.uniforms.uMatch.value as Float32Array;
       match.fill(-1);

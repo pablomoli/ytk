@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { LayoutName, OrbPoint } from "../api/orb";
 import { useOrb } from "../api/orb";
 import { apiGet, queryClient } from "../api/client";
 import type { SimilarItem } from "../api/fresh";
+import type { LibraryPage } from "../api/library";
 import { OrbReader, READER_WIDTH } from "../components/OrbReader";
 import { ErrorState } from "../components/StateViews";
 import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import type { RingItem } from "../lib/orb/ring";
-import { mountOrb, RADIUS_MAX, RADIUS_MIN } from "../lib/orb/scene";
+import { mountOrb, RADIUS_MAX, RADIUS_MIN, SHELF_COLS_MAX, SHELF_FILL, SHELF_ROWS } from "../lib/orb/scene";
 import { useChromeVisible } from "../lib/chrome";
 import { validateOrbSearch } from "../lib/orbSearch";
 import "../styles.css";
@@ -73,8 +75,20 @@ function themeCentroid(
 
 type SearchHit = { i: number; s: number };
 
+// library orders: the first two follow the library's own list, newest added first
+const SORTS = [
+  { name: "newest", label: "newest" },
+  { name: "oldest", label: "oldest" },
+  { name: "published", label: "published" },
+  { name: "title", label: "title" },
+] as const;
+type SortName = (typeof SORTS)[number]["name"];
+const PANEL_RIGHT = 344; // css px the bottom-left panel reaches to; the sheet starts past it at least
+const CHIP = "cursor-pointer rounded px-2 py-1";
+const chip = (on: boolean) => `${CHIP} ${on ? "bg-white/20 text-[var(--ink)]" : "bg-white/5 hover:bg-white/10"}`;
+
 // one row of the bottom-left panel: a tile's cover, title, creator and date, and a brass score
-function TileRow({ point, score, active, onPick }: { point: OrbPoint; score?: number | undefined; active?: boolean; onPick: () => void }) {
+function TileRow({ point, score, when, active, onPick }: { point: OrbPoint; score?: number | undefined; when?: string | undefined; active?: boolean; onPick: () => void }) {
   return (
     <li className="!m-0 !list-none border-b border-white/[0.06] !p-0 last:border-b-0">
       <div
@@ -95,7 +109,7 @@ function TileRow({ point, score, active, onPick }: { point: OrbPoint; score?: nu
         <span className="min-w-0 flex-1">
           <span className="line-clamp-2 text-[13px] leading-[1.25] text-[var(--ink)]">{captionTitle(point.t)}</span>
           <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink2)]">
-            {point.c}{point.d ? ` · ${point.d}` : ""}
+            {point.c}{when ?? point.d ? ` · ${when ?? point.d}` : ""}
           </span>
         </span>
         {score !== undefined ? (
@@ -171,12 +185,50 @@ function OrbPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const queryRef = useRef("");
   queryRef.current = query;
+  // library: the whole collection in a chosen order, a page at a time on the sheet search uses
+  const [library, setLibrary] = useState(false);
+  const [source, setSource] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortName>("newest");
+  const [page, setPage] = useState(0);
+  const [cols, setCols] = useState(6);
+  // tiles carry no date added; the library's own list does, and its order is that date
+  const shelf = useQuery({
+    queryKey: ["library", "all"],
+    queryFn: () => apiGet<LibraryPage>("/api/library?n=5000"),
+    enabled: library,
+    staleTime: 60_000,
+  });
   const data = orb.data;
   const pathIndex = useMemo(() => new Map((data?.points ?? []).map((p, i) => [p.p, i] as const)), [data]);
   const urlIndex = useMemo(
     () => new Map((data?.points ?? []).flatMap((p, i) => (p.u ? [[p.u, i] as const] : []))),
     [data],
   );
+
+  // each library note's place in the library's list, and the day it was added
+  const shelfIndex = useMemo(
+    () => new Map((shelf.data?.items ?? []).map((it, k) => [it.path, { k, added: it.added }] as const)),
+    [shelf.data],
+  );
+  // the library's order over the tiles the filters keep
+  const order = useMemo(() => {
+    if (!data) return [];
+    const pts = data.points;
+    const keep = pts.map((_, i) => i).filter((i) => (source === null || pts[i].c === source) && (theme === null || pts[i].th === theme));
+    const byDate = (a: number, b: number) => (pts[b].d ?? "").localeCompare(pts[a].d ?? "");
+    // until the library's list arrives, its two orders fall back to the publish date
+    const byAdded = (a: number, b: number) => (shelfIndex.get(pts[a].p)?.k ?? 1e9) - (shelfIndex.get(pts[b].p)?.k ?? 1e9) || byDate(a, b);
+    if (sort === "title") return keep.sort((a, b) => captionTitle(pts[a].t).localeCompare(captionTitle(pts[b].t)));
+    if (sort === "published") return keep.sort(byDate);
+    return sort === "newest" ? keep.sort(byAdded) : keep.sort((a, b) => byAdded(b, a));
+  }, [data, shelfIndex, source, theme, sort]);
+  const pageSize = cols * SHELF_ROWS;
+  const pages = Math.max(1, Math.ceil(order.length / pageSize));
+  const at = Math.min(page, pages - 1);
+  const pageItems = useMemo(() => order.slice(at * pageSize, (at + 1) * pageSize), [order, at, pageSize]);
+  const turn = (by: number) => setPage(Math.max(0, Math.min(pages - 1, at + by)));
+  const live = useRef({ library, turn });
+  live.current = { library, turn };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -188,15 +240,25 @@ function OrbPage() {
         searchRef.current?.select();
         return;
       }
+      // the arrows turn the library's page while nothing is read or searched
+      if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && !typing && live.current.library && selectedRef.current === null && !queryRef.current) {
+        e.preventDefault();
+        live.current.turn(e.key === "ArrowRight" ? 1 : -1);
+        return;
+      }
       if (e.key !== "Escape") return;
-      // one layer per press: the reader closes first, then the search clears
-      if (selectedRef.current !== null || !queryRef.current) {
+      // one layer per press: the reader closes first, then the search clears, then the library
+      if (selectedRef.current !== null) {
         handleRef.current?.blur();
         setSelected(null);
         return;
       }
-      setQuery("");
-      searchRef.current?.blur();
+      if (queryRef.current) {
+        setQuery("");
+        searchRef.current?.blur();
+        return;
+      }
+      setLibrary(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -207,7 +269,6 @@ function OrbPage() {
     if (!q) {
       setHits(null);
       setSearchState("idle");
-      handleRef.current?.setSearch(null);
       return;
     }
     setSearchState("busy");
@@ -219,16 +280,11 @@ function OrbPage() {
         .then((d) => {
           setHits(d.hits);
           setSearchState("idle");
-          // the sheet keeps clear of the left column of panels, which the field shares an edge with
-          const field = searchRef.current?.getBoundingClientRect().right ?? 0;
-          const left = canvasRef.current?.getBoundingClientRect().left ?? 0;
-          handleRef.current?.setSearch(d.hits.map((h) => h.i), Math.max(0, field - left));
         })
         .catch(() => {
           if (ctl.signal.aborted) return;
           setHits([]);
           setSearchState("failed");
-          handleRef.current?.setSearch(null);
         });
     }, 250);
     return () => {
@@ -277,6 +333,36 @@ function OrbPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
+  // css px from the canvas's left edge to the right edge of the top-left controls
+  const fieldRight = () =>
+    Math.max(0, (searchRef.current?.getBoundingClientRect().right ?? 0) - (canvasRef.current?.getBoundingClientRect().left ?? 0));
+  // the sheet has one owner: a search's matches, else the library's page, else nothing.
+  // Declared after the mount so a fresh handle gets the current set
+  const searching = query.trim() !== "";
+  useEffect(() => {
+    const h = handleRef.current;
+    if (!h) return;
+    if (searching) {
+      // the sheet keeps clear of the left column of panels, which the field shares an edge with
+      if (hits) h.setSearch(hits.map((x) => x.i), fieldRight()); // a pending search leaves the sheet as it is
+    } else if (library) h.setSearch(pageItems, Math.max(PANEL_RIGHT, fieldRight() + 12), { cols, rows: SHELF_ROWS, fill: SHELF_FILL });
+    else h.setSearch(null);
+  }, [data, searching, hits, library, pageItems, cols]);
+
+  // as many columns as the sky beside the panel holds at the sheet's slot size
+  useEffect(() => {
+    if (!library) return;
+    const fit = () => {
+      const c = canvasRef.current;
+      if (!c) return;
+      const slot = (SHELF_FILL * c.clientHeight) / SHELF_ROWS;
+      setCols(Math.max(3, Math.min(SHELF_COLS_MAX, Math.floor((c.clientWidth - Math.max(PANEL_RIGHT, fieldRight() + 12)) / slot))));
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [library]);
+
   if (orb.isError)
     return <ErrorState error={orb.error} onRetry={() => void orb.refetch()} />;
 
@@ -292,6 +378,21 @@ function OrbPage() {
     else { setAnchor(j); h.aimAt(h.centerOf(j)); }
   };
   const folded = selected !== null && !listOpen;
+  // source chips count the tiles the theme filter keeps
+  const sourceCounts = new Map<string, number>();
+  let themed = 0;
+  for (const p of data?.points ?? []) {
+    if (theme !== null && p.th !== theme) continue;
+    themed++;
+    sourceCounts.set(p.c, (sourceCounts.get(p.c) ?? 0) + 1);
+  }
+  // under the library's own orders a row shows the day its note was added, which is what placed it
+  const added = (i: number) => {
+    const day = data ? shelfIndex.get(data.points[i].p)?.added : undefined;
+    return day ? `added ${day}` : undefined;
+  };
+  // library notes with no tile: the sphere is a snapshot and the library is live
+  const unplaced = shelf.data ? shelf.data.items.filter((it) => !pathIndex.has(it.path)).length : 0;
   const closeReader = () => {
     handleRef.current?.blur();
     setSelected(null);
@@ -368,6 +469,15 @@ function OrbPage() {
             >
               terrain
             </button>
+            <button
+              type="button"
+              data-orb-library-toggle
+              title="page through everything, in order"
+              className={`ml-2 rounded px-2 py-1 ${library ? "bg-white/20" : "bg-white/5 hover:bg-white/10"}`}
+              onClick={() => { setLibrary((v) => !v); setPage(0); }}
+            >
+              library
+            </button>
           </div>
           <label className="flex items-center gap-2 text-[11px] text-[var(--ink2)]" title="double-click to reset">
             <span>contract</span>
@@ -389,6 +499,7 @@ function OrbPage() {
             onChange={(e) => {
               const v = e.target.value === "" ? null : Number(e.target.value);
               setTheme(v);
+              setPage(0);
               handleRef.current?.setThemeFilter(v);
             }}
           >
@@ -424,6 +535,66 @@ function OrbPage() {
               </ul>
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent" />
             </div>
+          ) : null}
+        </aside>
+      ) : data && chrome && library ? (
+        <aside data-orb-library className={`absolute bottom-4 left-4 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md ${folded ? "max-w-80" : "w-80"}`}>
+          <PanelHead
+            label={`library · page ${at + 1} of ${pages}`}
+            title={`${order.length} ${source ?? "notes"}${theme !== null ? ` in ${data.themes[theme]}` : ""}, ${sort === "title" ? "by title" : sort === "published" ? "by publish date" : `${sort} first`}`}
+            folded={folded}
+            onToggle={selected !== null ? () => setListOpen((v) => !v) : undefined}
+          />
+          {!folded ? (
+            <>
+              <div className="flex flex-wrap gap-1 border-b border-white/10 px-3 py-2 text-[11px] text-[var(--ink2)]">
+                <span role="button" tabIndex={0} className={chip(source === null)} onClick={() => { setSource(null); setPage(0); }}>
+                  all {themed}
+                </span>
+                {[...sourceCounts].sort((a, b) => b[1] - a[1]).map(([name, count]) => (
+                  <span key={name} role="button" tabIndex={0} className={chip(source === name)} onClick={() => { setSource(name); setPage(0); }}>
+                    {name} {count}
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-1 border-b border-white/10 px-3 py-2 text-[11px] text-[var(--ink2)]">
+                {SORTS.map(({ name, label }) => (
+                  <span key={name} role="button" tabIndex={0} className={chip(sort === name)} onClick={() => { setSort(name); setPage(0); }}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+              <div className="flex items-center border-b border-white/10 px-3 py-1.5 text-[11px] text-[var(--ink2)]">
+                <span role="button" tabIndex={0} data-orb-page="-1" className={`${CHIP} hover:bg-white/10 ${at === 0 ? "pointer-events-none opacity-30" : ""}`} onClick={() => turn(-1)}>
+                  previous
+                </span>
+                <span className="flex-1 text-center tabular-nums">
+                  {order.length ? `${at * pageSize + 1} to ${Math.min(order.length, (at + 1) * pageSize)} of ${order.length}` : "nothing here"}
+                </span>
+                <span role="button" tabIndex={0} data-orb-page="1" className={`${CHIP} hover:bg-white/10 ${at >= pages - 1 ? "pointer-events-none opacity-30" : ""}`} onClick={() => turn(1)}>
+                  next
+                </span>
+              </div>
+              <div className="relative">
+                <ul className="!m-0 h-[240px] !list-none overflow-y-auto !p-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
+                  {pageItems.map((i) => (
+                    <TileRow
+                      key={i}
+                      point={data.points[i]}
+                      when={sort === "newest" || sort === "oldest" ? added(i) : undefined}
+                      active={i === selected || i === hovered}
+                      onPick={() => handleRef.current?.focus(i)}
+                    />
+                  ))}
+                </ul>
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent" />
+              </div>
+              {shelf.isError ? (
+                <div className="border-t border-white/10 px-4 py-2 text-[10.5px] text-[var(--ink2)]">the library's list did not load: newest and oldest follow the publish date</div>
+              ) : unplaced ? (
+                <div data-orb-unplaced className="border-t border-white/10 px-4 py-2 text-[10.5px] text-[var(--ink2)]">{unplaced} library notes have no tile on the sphere yet</div>
+              ) : null}
+            </>
           ) : null}
         </aside>
       ) : data && chrome && anchor !== null && knn ? (
