@@ -2,7 +2,7 @@ import { createElement, useEffect, useRef } from "react";
 import { DUR, SplitText, gsap, reducedMotion } from "../lib/motion";
 
 /* Word-level baseline-rise stagger for display headings. Word-level (not
-   chars) dodges the italic-Newsreader kerning shift; splitting waits for
+   chars) dodges the italic kerning shift; splitting waits for
    fonts.ready so metrics are final. SplitText reverts on cleanup, so the
    DOM returns to the plain string React owns. */
 export function SplitHeading({

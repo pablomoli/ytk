@@ -1,21 +1,21 @@
 /* ytk design system — "observatory": editorial serif, one family.
-   Everything is Newsreader — no sans, no mono. Data (counts, chips, stats,
+   Everything is Besley — no sans, no mono. Data (counts, chips, stats,
    tags, metadata) is differentiated by size, tracked small caps, and tabular
    numerals instead of a second typeface. Route CSS loads after this file, so
    identity holds by not being contradicted — never restate these properties
    elsewhere (#136). */
 
 @font-face {
-  font-family: "Newsreader";
-  src: url("./fonts/Newsreader-normal-400.woff2") format("woff2");
-  font-weight: 400 700;
+  font-family: "Besley";
+  src: url("./fonts/Besley-normal.woff2") format("woff2");
+  font-weight: 400 900;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Newsreader";
-  src: url("./fonts/Newsreader-italic-400.woff2") format("woff2");
-  font-weight: 400 700;
+  font-family: "Besley";
+  src: url("./fonts/Besley-italic.woff2") format("woff2");
+  font-weight: 400 900;
   font-style: italic;
   font-display: swap;
 }
@@ -32,8 +32,8 @@
   --line: rgba(255, 255, 255, 0.08);
   --accent: #e2b04a; /* action / links — warm brass */
   --live: #4ade80; /* active / here / take */
-  --serif: "Newsreader", Georgia, serif;
-  --data: "Newsreader", Georgia, serif;
+  --serif: "Besley", Georgia, serif;
+  --data: "Besley", Georgia, serif;
   --r: 10px;
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 }

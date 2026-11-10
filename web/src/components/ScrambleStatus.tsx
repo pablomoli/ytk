@@ -6,7 +6,7 @@ const CHARSET = ".: abcdefghijklmnopqrstuvwxyz0123456789";
 /* Instrument-readout text: on each discrete change the span decodes into
    the new reading. React renders the final text; the tween only perturbs
    the DOM in between, so a mid-tween re-render is self-correcting. The
-   min-width lock keeps proportional Newsreader from jittering the rail. */
+   min-width lock keeps the proportional face from jittering the rail. */
 export function ScrambleStatus({ text, className }: { text: string; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const prev = useRef<string>(undefined);

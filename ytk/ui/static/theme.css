@@ -1,18 +1,18 @@
 /* ytk design system — "observatory": editorial serif, one family.
-   Everything is Newsreader — no sans, no mono. Data (counts, chips, stats,
+   Everything is Besley — no sans, no mono. Data (counts, chips, stats,
    tags, metadata) is differentiated by size, tracked small caps, and tabular
    numerals instead of a second typeface. Load this AFTER page styles so the
    shared identity wins on equal specificity. */
 
 @font-face {
-  font-family: "Newsreader";
-  src: url("/static/fonts/Newsreader-normal-400.woff2") format("woff2");
-  font-weight: 400 700; font-style: normal; font-display: swap;
+  font-family: "Besley";
+  src: url("/static/fonts/Besley-normal.woff2") format("woff2");
+  font-weight: 400 900; font-style: normal; font-display: swap;
 }
 @font-face {
-  font-family: "Newsreader";
-  src: url("/static/fonts/Newsreader-italic-400.woff2") format("woff2");
-  font-weight: 400 700; font-style: italic; font-display: swap;
+  font-family: "Besley";
+  src: url("/static/fonts/Besley-italic.woff2") format("woff2");
+  font-weight: 400 900; font-style: italic; font-display: swap;
 }
 :root {
   color-scheme: dark;
@@ -27,8 +27,8 @@
   --line: rgba(255, 255, 255, 0.08);
   --accent: #e2b04a;     /* action / links — warm brass */
   --live: #4ade80;       /* active / here / take */
-  --serif: "Newsreader", Georgia, serif;
-  --data: "Newsreader", Georgia, serif;
+  --serif: "Besley", Georgia, serif;
+  --data: "Besley", Georgia, serif;
   --r: 10px;
   --ease: cubic-bezier(.25, .1, .25, 1);
 }

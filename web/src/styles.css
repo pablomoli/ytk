@@ -1283,7 +1283,7 @@ body {
   display: none;
 }
 /* Caret drawn in CSS rather than set as a glyph: a character here inherits
-   Newsreader's serif forms and reads as punctuation beside the label instead
+   the face's serif forms and reads as punctuation beside the label instead
    of as a control. */
 .rail-widget > summary::before {
   content: "";

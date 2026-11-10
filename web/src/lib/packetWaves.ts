@@ -225,11 +225,11 @@ export function mountPacketWaves(host: HTMLElement, canvas: HTMLCanvasElement): 
       cx.stroke();
       cx.globalAlpha = 1;
       cx.textAlign = "right";
-      cx.font = "9.5px Newsreader, Georgia, serif";
+      cx.font = "9.5px Besley, Georgia, serif";
       cx.fillStyle = "#83817a";
       cx.globalAlpha = c ? 0.9 : 0.5;
       cx.fillText(`ch ${String(i + 1).padStart(2, "0")}`, left - 36, cy - 4);
-      cx.font = "11.5px Newsreader, Georgia, serif";
+      cx.font = "11.5px Besley, Georgia, serif";
       cx.fillStyle = c ? "#f0eee7" : "#83817a";
       cx.globalAlpha = c ? 1 : 0.6;
       cx.fillText(STATIONS[i]!, left - 36, cy + 8);

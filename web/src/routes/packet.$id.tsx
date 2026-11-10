@@ -185,7 +185,7 @@ function Strip({ v, round }: { v: PacketView | null; round: Round | undefined })
           fontSize="10"
           fill="#83817a"
           textAnchor={sec === dur ? "end" : sec === 0 ? "start" : "middle"}
-          fontFamily="Newsreader, Georgia, serif"
+          fontFamily="Besley, Georgia, serif"
         >
           {lab}
         </text>
