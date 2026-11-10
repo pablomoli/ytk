@@ -1,12 +1,11 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import type { CSSProperties, PointerEvent, RefObject } from "react";
+import type { PointerEvent, RefObject } from "react";
 import type { LayoutName } from "../api/orb";
 import type { OrbViewMode } from "../lib/orb/scene";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 type Props = {
   searchRef: RefObject<HTMLInputElement | null>;
-  face: CSSProperties; // the display face's custom properties; the theme list is portaled out of the page's own
   settled: unknown; // changes once the face has loaded, so the lens rule measures the final letters
   query: string;
   onQuery: (q: string) => void;
@@ -33,7 +32,7 @@ const WORD = "cursor-pointer appearance-none border-0 bg-transparent p-0 [font:i
 const word = (on: boolean) => `${WORD} ${on ? "text-ink" : "text-ink2/60 hover:text-ink"}`;
 // a switch that is on wears the brass rule the lens row slides
 const sw = (on: boolean) => `${word(on)} border-b pb-px ${on ? "!border-accent" : "!border-transparent"}`;
-const SMALL = "text-[calc(13.5px*var(--face-k))]";
+const SMALL = "text-[13px]";
 
 const TICKS = 41, MID = (TICKS - 1) / 2;
 
@@ -100,8 +99,7 @@ export function OrbControls(p: Props) {
     `${WORD} flex w-full items-baseline gap-3 rounded-[3px] px-2 py-[5px] text-left hover:bg-white/[0.06] ${on ? "text-ink" : "text-ink2 hover:text-ink"}`;
   return (
     <div
-      className="absolute left-5 top-4 isolate flex w-[19rem] flex-col text-ink [font-family:var(--face)] [font-variation-settings:var(--face-vary)] [font-weight:var(--face-w)] [letter-spacing:var(--face-track)]"
-      style={p.face}
+      className="absolute left-5 top-4 isolate flex w-[19rem] flex-col text-ink font-[540] tracking-[-0.015em]"
     >
       {/* the corner behind the words: darkened and out of focus, fading into the sky with no edge */}
       <div className="pointer-events-none absolute -left-5 -top-4 -z-10 h-[165%] w-[185%] bg-black/75 backdrop-blur-md [mask-image:radial-gradient(ellipse_at_0%_0%,#000_52%,transparent_74%)]" />
@@ -114,13 +112,13 @@ export function OrbControls(p: Props) {
           placeholder="search the sphere"
           spellCheck={false}
           autoComplete="off"
-          className="min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-[calc(17px*var(--face-k))] text-ink [font-variation-settings:inherit] [font-weight:inherit] [letter-spacing:inherit] placeholder:italic placeholder:text-ink2/60 focus-visible:!outline-none [&::-webkit-search-cancel-button]:hidden"
+          className="min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-[16px] text-ink [font-weight:inherit] [letter-spacing:inherit] placeholder:italic placeholder:text-ink2/60 focus-visible:!outline-none [&::-webkit-search-cancel-button]:hidden"
           onChange={(e) => p.onQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") p.onEnter(); }}
         />
         {p.query ? null : <span className={`${SMALL} flex-none text-ink2/50`} title="press / to search">/</span>}
       </label>
-      <div ref={rowRef} className="relative mt-3 flex items-baseline gap-5 pb-1.5 text-[calc(23px*var(--face-k))] leading-none">
+      <div ref={rowRef} className="relative mt-3 flex items-baseline gap-5 pb-1.5 text-[22px] leading-none">
         {p.lenses.map(({ name, label, title }) => (
           <button key={name} type="button" data-orb-lens={name} title={title} className={word(p.layout === name)} onClick={() => p.onLayout(name)}>
             {label}
@@ -166,8 +164,7 @@ export function OrbControls(p: Props) {
         <PopoverContent
           align="start"
           sideOffset={8}
-          style={p.face}
-          className="w-[19rem] border-white/10 bg-black/85 p-1.5 backdrop-blur-md [font-family:var(--face)] [font-variation-settings:var(--face-vary)] [font-weight:var(--face-w)] [letter-spacing:var(--face-track)] text-[calc(14px*var(--face-k))] leading-tight"
+          className="w-[19rem] border-white/10 bg-black/85 p-1.5 backdrop-blur-md font-[540] tracking-[-0.015em] text-[13px] leading-tight"
         >
           <button type="button" className={item(p.theme === null)} onClick={() => pick(null)}>
             <span className="flex-1">all themes</span>

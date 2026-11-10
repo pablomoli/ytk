@@ -13,8 +13,7 @@ import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import type { RingItem } from "../lib/orb/ring";
 import { mountOrb, RADIUS_MAX, RADIUS_MIN, SHELF_COLS_MAX, SHELF_FILL, SHELF_ROWS } from "../lib/orb/scene";
 import type { SheetTile } from "../lib/orb/scene";
-import { faceStack, faceVars, loadFace } from "../lib/orb/faces";
-import type { FaceName } from "../lib/orbSearch";
+import { displayReady } from "../lib/orb/face";
 import { useChromeVisible } from "../lib/chrome";
 import { validateOrbSearch } from "../lib/orbSearch";
 import "../styles.css";
@@ -87,8 +86,8 @@ const SORTS = [
   { name: "title", label: "title" },
 ] as const;
 type SortName = (typeof SORTS)[number]["name"];
-// set in the orb's display face, which the page root carries as custom properties
-const FACE = "[font-family:var(--face)] [font-variation-settings:var(--face-vary)] [font-weight:var(--face-w)] [letter-spacing:var(--face-track)]";
+// whatever names a note on the orb is set a little heavier and tighter than running text
+const FACE = "font-[540] tracking-[-0.015em]";
 const PANEL_RIGHT = 344; // css px the bottom-left panel reaches to; the sheet starts past it at least
 const CHIP = "cursor-pointer rounded px-2 py-1";
 const chip = (on: boolean) => `${CHIP} ${on ? "bg-white/20 text-[var(--ink)]" : "bg-white/5 hover:bg-white/10"}`;
@@ -113,7 +112,7 @@ function TileRow({ point, score, when, active, onPick }: { point: OrbPoint; scor
           <span className="h-11 w-11 flex-none rounded-[3px] bg-white/[0.06]" />
         )}
         <span className="min-w-0 flex-1">
-          <span className={`${FACE} line-clamp-2 text-[calc(12.5px*var(--face-k))] leading-[1.15] text-[var(--ink)]`}>{captionTitle(point.t)}</span>
+          <span className={`${FACE} line-clamp-2 text-[12px] leading-[1.15] text-[var(--ink)]`}>{captionTitle(point.t)}</span>
           <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink2)]">
             {point.c}{when ?? point.d ? ` · ${when ?? point.d}` : ""}
           </span>
@@ -139,7 +138,7 @@ function PanelHead({ label, title, folded, onToggle }: { label: string; title: s
       {folded ? (
         <>
           <span className={`${kicker} flex-none`}>{label}</span>
-          <span className={`${FACE} min-w-0 flex-1 truncate text-[calc(13.5px*var(--face-k))] leading-tight text-[var(--ink)]`}>{title}</span>
+          <span className={`${FACE} min-w-0 flex-1 truncate text-[13px] leading-tight text-[var(--ink)]`}>{title}</span>
           <span className={`${kicker} flex-none`}>show</span>
         </>
       ) : (
@@ -148,7 +147,7 @@ function PanelHead({ label, title, folded, onToggle }: { label: string; title: s
             <span className="flex-1">{label}</span>
             {onToggle ? <span>hide</span> : null}
           </div>
-          <div className={`${FACE} mt-1 truncate text-[calc(16px*var(--face-k))] leading-tight text-[var(--ink)]`}>{title}</div>
+          <div className={`${FACE} mt-1 truncate text-[15px] leading-tight text-[var(--ink)]`}>{title}</div>
         </>
       )}
     </div>
@@ -160,7 +159,7 @@ function PanelHead({ label, title, folded, onToggle }: { label: string; title: s
    shade is as tall as the words, so under the pointer both open together. */
 function SheetTitle({ at, point, lit }: { at: SheetTile; point: OrbPoint; lit: boolean }) {
   // a reel's narrow cover and a video's wide one both hold about four words a line
-  const px = Math.max(11.5, Math.min(16, at.w * 0.085));
+  const px = Math.max(11, Math.min(15, at.w * 0.08));
   const pad = `${(at.w * 0.06).toFixed(1)}px`;
   return (
     <div
@@ -174,7 +173,7 @@ function SheetTitle({ at, point, lit }: { at: SheetTile; point: OrbPoint; lit: b
       >
         <span
           className={`${FACE} leading-[1.12] text-[var(--ink)] ${lit ? "line-clamp-5" : "line-clamp-2"}`}
-          style={{ fontSize: `calc(${px.toFixed(1)}px * var(--face-k))` }}
+          style={{ fontSize: `${px.toFixed(1)}px` }}
         >
           {captionTitle(point.t)}
         </span>
@@ -186,14 +185,14 @@ function SheetTitle({ at, point, lit }: { at: SheetTile; point: OrbPoint; lit: b
 function OrbPage() {
   const chrome = useChromeVisible();
   const orb = useOrb();
-  const { theme: searchTheme, face = "instrument" } = Route.useSearch();
+  const { theme: searchTheme } = Route.useSearch();
   // the scene draws its labels into canvases, so it mounts once the face can be drawn
-  const [drawn, setDrawn] = useState<FaceName | null>(null);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
     let live = true;
-    void loadFace(face).then(() => { if (live) setDrawn(face); });
+    void displayReady().then(() => { if (live) setReady(true); });
     return () => { live = false; };
-  }, [face]);
+  }, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<OrbHandle | null>(null);
   const [layout, setLayout] = useState<LayoutName | null>(null);
@@ -337,7 +336,7 @@ function OrbPage() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !data || drawn !== face) return;
+    if (!canvas || !data || !ready) return;
     const handle = mountOrb(canvas, data, {
       onHover: (i) => {
         setHovered(i);
@@ -350,7 +349,7 @@ function OrbPage() {
       onBlur: () => setSelected(null),
       onRingHover: setGrain,
       onSheet: setSheetTiles,
-    }, faceStack(face));
+    });
     handleRef.current = handle;
     handle.setDock(READER_WIDTH);
     // spike defaults: lattice on, terrain off, inside
@@ -374,7 +373,7 @@ function OrbPage() {
       handle.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, drawn]);
+  }, [data, ready]);
 
   // css px from the canvas's left edge to the right edge of the top-left controls
   const fieldRight = () =>
@@ -390,7 +389,7 @@ function OrbPage() {
       if (hits) h.setSearch(hits.map((x) => x.i), fieldRight()); // a pending search leaves the sheet as it is
     } else if (library) h.setSearch(pageItems, Math.max(PANEL_RIGHT, fieldRight() + 12), { cols, rows: SHELF_ROWS, fill: SHELF_FILL });
     else h.setSearch(null);
-  }, [data, drawn, searching, hits, library, pageItems, cols]);
+  }, [data, ready, searching, hits, library, pageItems, cols]);
 
   // as many columns as the sky beside the panel holds at the sheet's slot size
   useEffect(() => {
@@ -443,7 +442,7 @@ function OrbPage() {
     setSelected(null);
   };
   return (
-    <div className="relative flex-1 min-h-0 overflow-hidden" style={faceVars(face)}>
+    <div className="relative flex-1 min-h-0 overflow-hidden">
       {!data ? (
         <div className="flex-1 grid place-items-center text-sm opacity-60">
           loading the sphere
@@ -457,8 +456,7 @@ function OrbPage() {
       {data && chrome ? (
         <OrbControls
           searchRef={searchRef}
-          face={faceVars(face)}
-          settled={drawn}
+          settled={ready}
           query={query}
           onQuery={setQuery}
           onEnter={() => { if (hits?.length) handleRef.current?.focus(hits[0].i); }} // Enter takes the best match
@@ -590,7 +588,7 @@ function OrbPage() {
       {data && hovered !== null && hovered !== selected && !sheetTiles.some((at) => at.i === hovered) ? (
         <div
           data-caption
-          className={`${FACE} pointer-events-none absolute bottom-4 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-[calc(15px*var(--face-k))]`}
+          className={`${FACE} pointer-events-none absolute bottom-4 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-[14px]`}
           style={{ left: selected !== null ? `calc(50% - ${READER_WIDTH / 2}px)` : "50%" }}
         >
           {captionTitle(data.points[hovered].t)}
@@ -615,7 +613,7 @@ function OrbPage() {
               pending
               {grain.q ? <span className="ml-2 text-[var(--accent)]">open question</span> : null}
             </span>
-            <span className={`${FACE} mt-0.5 line-clamp-2 text-[calc(13.5px*var(--face-k))] leading-[1.22] text-[var(--ink)]`}>{grain.t || grain.u}</span>
+            <span className={`${FACE} mt-0.5 line-clamp-2 text-[13px] leading-[1.22] text-[var(--ink)]`}>{grain.t || grain.u}</span>
             <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink2)]">
               {[grain.a, grain.s, grain.d].filter(Boolean).join(" · ")}
             </span>

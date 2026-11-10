@@ -41,6 +41,7 @@ import { buildAtlas, COLS, slotUv } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
 import { createRing, type RingData, type RingHandle, type RingItem } from "./ring";
+import { DISPLAY } from "./face";
 
 export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-set scale (~500 tiles)
 // search gather: three rows of four span GATHER_FILL of the view height, and the
@@ -273,7 +274,6 @@ export function mountOrb(
     onBlur(): void;
     onRingHover?(item: RingItem | null): void; onSheet?(tiles: SheetTile[]): void;
   },
-  face = "Newsreader, Georgia, serif", // the labels drawn into the scene; the page loads it before mounting
 ): OrbHandle {
   const cap = COLS * COLS; // atlas has exactly this many slots; beyond it uvRect wraps
   const n = Math.min(data.points.length, cap);
@@ -375,7 +375,7 @@ export function mountOrb(
       const c = document.createElement("canvas");
       c.width = 256; c.height = 64;
       const ctx = c.getContext("2d")!;
-      ctx.font = `500 30px ${face}`;
+      ctx.font = `500 30px ${DISPLAY}`;
       ctx.fillStyle = "#f0eee7";
       ctx.textBaseline = "middle";
       ctx.fillText(b.label, 8, 32);
@@ -1331,12 +1331,12 @@ void main() {
       const z = (lo[th] + hi[th]) / 2;
       const c = document.createElement("canvas");
       const g = c.getContext("2d")!;
-      const font = `500 34px ${face}`;
+      const font = `500 34px ${DISPLAY}`;
       const text = data.themes[th].toLowerCase();
       const count = String(cnt[th]);
       g.font = font;
       const tw = Math.ceil(g.measureText(text).width);
-      g.font = `500 24px ${face}`;
+      g.font = `500 24px ${DISPLAY}`;
       const cw = Math.ceil(g.measureText(count).width);
       const w = tw + cw + 60;
       c.width = w; c.height = 72;
@@ -1344,7 +1344,7 @@ void main() {
       g.beginPath(); g.roundRect(0, 8, w, 56, 10); g.fill();
       g.textBaseline = "middle";
       g.font = font; g.fillStyle = "#f0eee7"; g.fillText(text, 22, 37);
-      g.font = `500 24px ${face}`; g.fillStyle = "#e2b04a"; g.fillText(count, 22 + tw + 16, 38);
+      g.font = `500 24px ${DISPLAY}`; g.fillStyle = "#e2b04a"; g.fillText(count, 22 + tw + 16, 38);
       const tex = new CanvasTexture(c);
       tex.colorSpace = SRGBColorSpace;
       const mat = new SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false });
