@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import type { LayoutName } from "../api/orb";
+import type { LayoutName, OrbPoint } from "../api/orb";
 import { useOrb } from "../api/orb";
 import { apiGet, queryClient } from "../api/client";
 import type { SimilarItem } from "../api/fresh";
@@ -71,6 +71,41 @@ function themeCentroid(
   return l < 1e-9 ? null : [acc[0] / l, acc[1] / l, acc[2] / l];
 }
 
+type SearchHit = { i: number; s: number };
+
+// one row of the bottom-left panel: a tile's cover, title, creator and date, and a brass score
+function TileRow({ point, score, active, onPick }: { point: OrbPoint; score?: number | undefined; active?: boolean; onPick: () => void }) {
+  return (
+    <li className="!m-0 !list-none border-b border-white/[0.06] !p-0 last:border-b-0">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onPick}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPick(); } }}
+        className={`flex h-[60px] cursor-pointer items-center gap-3 px-4 transition-colors hover:bg-white/[0.06] focus:outline-none focus-visible:bg-white/[0.06] ${active ? "bg-white/[0.08]" : ""}`}
+      >
+        {point.thumb ? (
+          <span className="flex h-11 w-11 flex-none items-center justify-center">
+            {/* whole cover inside the box, shape kept: a reel is tall here, a video is wide */}
+            <img src={`/vault-media/${point.thumb}`} alt="" className="max-h-11 max-w-11 rounded-[3px] object-contain" />
+          </span>
+        ) : (
+          <span className="h-11 w-11 flex-none rounded-[3px] bg-white/[0.06]" />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="line-clamp-2 text-[13px] leading-[1.25] text-[var(--ink)]">{captionTitle(point.t)}</span>
+          <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink2)]">
+            {point.c}{point.d ? ` · ${point.d}` : ""}
+          </span>
+        </span>
+        {score !== undefined ? (
+          <span className="flex-none text-[12px] tabular-nums text-[var(--accent)]">{Math.round(score * 100)}</span>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
 function OrbPage() {
   const chrome = useChromeVisible();
   const orb = useOrb();
@@ -98,6 +133,13 @@ function OrbPage() {
   const [reader, setReader] = useState<number | null>(null);
   const selectedRef = useRef<number | null>(null); // read inside the scene callbacks, which close over the first render
   selectedRef.current = selected;
+  // search: the matches gather in front of the camera and replace the neighbors in the panel
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<SearchHit[] | null>(null);
+  const [searchState, setSearchState] = useState<"idle" | "busy" | "failed">("idle");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const queryRef = useRef("");
+  queryRef.current = query;
   const data = orb.data;
   const pathIndex = useMemo(() => new Map((data?.points ?? []).map((p, i) => [p.p, i] as const)), [data]);
   const urlIndex = useMemo(
@@ -107,13 +149,62 @@ function OrbPage() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      const typing = el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && el.type !== "range");
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
       if (e.key !== "Escape") return;
-      handleRef.current?.blur();
-      setSelected(null);
+      // one layer per press: the reader closes first, then the search clears
+      if (selectedRef.current !== null || !queryRef.current) {
+        handleRef.current?.blur();
+        setSelected(null);
+        return;
+      }
+      setQuery("");
+      searchRef.current?.blur();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setHits(null);
+      setSearchState("idle");
+      handleRef.current?.setSearch(null);
+      return;
+    }
+    setSearchState("busy");
+    const ctl = new AbortController();
+    // one request per pause in typing; the next keystroke cancels this one
+    const timer = window.setTimeout(() => {
+      fetch(`/api/orb-search?q=${encodeURIComponent(q)}&n=12`, { signal: ctl.signal })
+        .then((r) => (r.ok ? (r.json() as Promise<{ hits: SearchHit[] }>) : Promise.reject(new Error(String(r.status)))))
+        .then((d) => {
+          setHits(d.hits);
+          setSearchState("idle");
+          // the sheet keeps clear of the left column of panels, which the field shares an edge with
+          const field = searchRef.current?.getBoundingClientRect().right ?? 0;
+          const left = canvasRef.current?.getBoundingClientRect().left ?? 0;
+          handleRef.current?.setSearch(d.hits.map((h) => h.i), Math.max(0, field - left));
+        })
+        .catch(() => {
+          if (ctl.signal.aborted) return;
+          setHits([]);
+          setSearchState("failed");
+          handleRef.current?.setSearch(null);
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      ctl.abort();
+    };
+  }, [query]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -187,6 +278,21 @@ function OrbPage() {
       )}
       {data && chrome ? (
         <div className="absolute left-4 top-4 flex flex-col gap-2 text-xs">
+          <input
+            ref={searchRef}
+            type="search"
+            data-orb-search
+            value={query}
+            placeholder="search the sphere   /"
+            spellCheck={false}
+            autoComplete="off"
+            className="rounded border border-white/10 bg-white/5 px-2.5 py-1.5 text-[13px] text-[var(--ink)] placeholder:text-[var(--ink2)]/60 focus:border-white/25 focus:bg-white/10 focus-visible:!outline-none [&::-webkit-search-cancel-button]:hidden"
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter takes the best match
+              if (e.key === "Enter" && hits?.length) handleRef.current?.focus(hits[0].i);
+            }}
+          />
           <div className="flex gap-1">
             {LENSES.map(({ name, label, hint }) => {
               const s = scores?.[name];
@@ -263,7 +369,32 @@ function OrbPage() {
           </select>
         </div>
       ) : null}
-      {data && chrome && anchor !== null && knn ? (
+      {data && chrome && query.trim() ? (
+        <aside data-orb-results className="absolute bottom-4 left-4 w-80 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md">
+          <div className="border-b border-white/10 px-4 pt-3 pb-2.5">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink2)]">
+              {searchState === "busy" ? "searching" : searchState === "failed" ? "search did not answer" : `${hits?.length ?? 0} closest by meaning`}
+            </div>
+            <div className="mt-1 truncate text-[15px] leading-tight text-[var(--ink)]">{query.trim()}</div>
+          </div>
+          {hits?.length ? (
+            <div className="relative">
+              <ul className="!m-0 max-h-[420px] !list-none overflow-y-auto !p-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
+                {hits.map((h) => (
+                  <TileRow
+                    key={h.i}
+                    point={data.points[h.i]}
+                    score={h.s}
+                    active={h.i === selected || h.i === hovered}
+                    onPick={() => handleRef.current?.focus(h.i)}
+                  />
+                ))}
+              </ul>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent" />
+            </div>
+          ) : null}
+        </aside>
+      ) : data && chrome && anchor !== null && knn ? (
         <aside className="absolute bottom-4 left-4 w-80 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md">
           <div className="border-b border-white/10 px-4 pt-3 pb-2.5">
             <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink2)]">nearest by embedding</div>
@@ -272,39 +403,9 @@ function OrbPage() {
           <div className="relative">
             {/* exactly five rows tall; the rest scrolls */}
             <ul className="!m-0 h-[300px] !list-none overflow-y-auto !p-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
-              {(knn[anchor] ?? []).map((j, k) => {
-                const q = data.points[j];
-                const sim = knnSim?.[anchor]?.[k];
-                return (
-                  <li key={j} className="!m-0 !list-none border-b border-white/[0.06] !p-0 last:border-b-0">
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => walkTo(j)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); walkTo(j); } }}
-                      className="flex h-[60px] cursor-pointer items-center gap-3 px-4 transition-colors hover:bg-white/[0.06] focus:outline-none focus-visible:bg-white/[0.06]"
-                    >
-                      {q.thumb ? (
-                        <span className="flex h-11 w-11 flex-none items-center justify-center">
-                          {/* whole cover inside the box, shape kept: a reel is tall here, a video is wide */}
-                          <img src={`/vault-media/${q.thumb}`} alt="" className="max-h-11 max-w-11 rounded-[3px] object-contain" />
-                        </span>
-                      ) : (
-                        <span className="h-11 w-11 flex-none rounded-[3px] bg-white/[0.06]" />
-                      )}
-                      <span className="min-w-0 flex-1">
-                        <span className="line-clamp-2 text-[13px] leading-[1.25] text-[var(--ink)]">{captionTitle(q.t)}</span>
-                        <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink2)]">
-                          {q.c}{q.d ? ` · ${q.d}` : ""}
-                        </span>
-                      </span>
-                      {sim !== undefined ? (
-                        <span className="flex-none text-[12px] tabular-nums text-[var(--accent)]">{Math.round(sim * 100)}</span>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
+              {(knn[anchor] ?? []).map((j, k) => (
+                <TileRow key={j} point={data.points[j]} score={knnSim?.[anchor]?.[k]} onPick={() => walkTo(j)} />
+              ))}
             </ul>
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent" />
           </div>

@@ -43,6 +43,13 @@ import { pickTile, tileScreenRect } from "./pick";
 import { createRing, type RingData, type RingHandle, type RingItem } from "./ring";
 
 export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-set scale (~500 tiles)
+// search gather: three rows of four span GATHER_FILL of the view height, and the
+// widest cover takes GATHER_TILE of its slot. The grid is a flat sheet facing the
+// camera, held just inside the shell or floated well clear of it from outside.
+const MATCH_MAX = 12, GATHER_COLS = 4, GATHER_ROWS = 3, GATHER_FILL = 0.62, GATHER_TILE = 0.93;
+const GATHER_LIFT_IN = 0.1, GATHER_LIFT_OUT = 0.4, GATHER_HOP = 0.1;
+const GATHER_DUR = 0.85, GATHER_STAGGER = 0.035;
+const SEARCH_DIM = 0.16;
 // Apex40 previz verdict (user-reviewed, Apex Manim render): DOLLY = 1 -
 // 0.055/(0.40 * tan 30deg) = 0.76. Final; do not derive from a different apex.
 const DOLLY = 0.76;
@@ -95,7 +102,9 @@ in float iAspect; // width/height; the quad keeps its area, so sqrt scales each 
 in float iScale;  // density scale: tiles shrink where a layout bunches them
 in float iIdx;
 in float iTheme; // per-instance theme id
+in float iFlat;  // 0 on the sphere, 1 on the search sheet
 uniform mat4 modelViewMatrix, projectionMatrix;
+uniform vec3 uFlatR, uFlatU; // the sheet's right and up
 uniform float uHovered, uHoverScale, uFocused;
 uniform float uSize; // tile size against the unit sphere: falls as the sphere radius grows
 uniform float uFacing; // 1 inside (tiles face the origin), -1 globe (tiles face outward)
@@ -110,6 +119,7 @@ void main() {
   vec3 ref = abs(n.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
   vec3 e1 = normalize(cross(ref, n));
   vec3 e2 = cross(n, e1);
+  if (iFlat > 0.0) { e1 = normalize(mix(e1, uFlatR, iFlat)); e2 = normalize(mix(e2, uFlatU, iFlat)); }
   float s = (abs(iIdx - uHovered) < 0.5 || abs(iIdx - uFocused) < 0.5) ? uHoverScale : 1.0;
   for (int k = 0; k < 8; k++) if (abs(iIdx - uNeigh[k]) < 0.5) s *= uNeighScale;
   float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iIdx / uCount) / 0.35);
@@ -130,6 +140,8 @@ uniform float uTheme, uThemeDim;   // theme filter dim factor
 uniform float uHovered;
 uniform float uNeigh[8];           // hovered tile's embedding neighbors (-1 = none)
 uniform float uNeighDim;           // 1 = off; below 1 dims everyone outside hovered + neighbors
+uniform float uMatch[12];          // tiles a search has gathered (-1 = none)
+uniform float uSearchDim;          // 1 = off; below 1 dims every tile the search did not match
 in vec2 vUv;
 in float vIdx;
 in float vTheme;
@@ -144,6 +156,11 @@ void main() {
     for (int k = 0; k < 8; k++) if (abs(vIdx - uNeigh[k]) < 0.5) keep = true;
     if (!keep) dim *= uNeighDim;
   }
+  if (uSearchDim < 1.0) {
+    bool hit = abs(vIdx - uFocused) < 0.5 || abs(vIdx - uHovered) < 0.5;
+    for (int k = 0; k < 12; k++) if (abs(vIdx - uMatch[k]) < 0.5) hit = true;
+    if (!hit) dim *= uSearchDim;
+  }
   outColor = vec4(c * dim, 1.0);
 }`;
 
@@ -157,6 +174,7 @@ in vec3 iTint;
 in float iScale;
 in float iIdx;
 in float iTheme;
+in float iFlat;
 uniform mat4 modelViewMatrix, projectionMatrix;
 uniform float uFacing, uSpan, uBirth, uCount, uSize;
 uniform float uLift; // radial offset: positive is behind the shell, negative in front
@@ -171,7 +189,7 @@ void main() {
   vec3 e1 = normalize(cross(ref, n));
   vec3 e2 = cross(n, e1);
   float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iIdx / uCount) / 0.35);
-  vec3 world = iPos * (1.0 + uFacing * uLift) + (e1 * position.x + e2 * position.y) * uSpan * iScale * uSize * born;
+  vec3 world = iPos * (1.0 + uFacing * uLift) + (e1 * position.x + e2 * position.y) * uSpan * iScale * uSize * born * (1.0 - iFlat);
   vP = uv * 2.0 - 1.0;
   vTint = iTint;
   vTheme = iTheme;
@@ -220,6 +238,9 @@ export type OrbHandle = {
   blur(): void;
   setDock(px: number): void;
   setRadius(r: number): void;
+  // tile indices, best first: they gather in front of the camera. null sends them home.
+  // inset: css px the page's panels cover on the left; the sheet centers in what is left
+  setSearch(hits: number[] | null, inset?: number): void;
   dispose(): void;
 };
 
@@ -409,7 +430,13 @@ export function mountOrb(
   geo.setAttribute("iAspect", new InstancedBufferAttribute(aspects, 1));
   densityScales(centers, aspects, scales);
   const iScale = new InstancedBufferAttribute(scales, 1);
+  const flat = new Float32Array(n);
+  const iFlat = new InstancedBufferAttribute(flat, 1);
+  const sheet = { amt: flat, right: new Vector3(1, 0, 0), up: new Vector3(0, 1, 0) };
   geo.setAttribute("iScale", iScale);
+  // home is where the lens puts each tile; centers and scales are what is drawn.
+  // They differ only for tiles a search has in flight or gathered.
+  const home = centers.slice(), homeScales = scales.slice();
   // tiles slide along the sphere from one layout to the next instead of jumping
   const writeLayout = (name: LayoutName) => {
     const arr = layoutArray(name);
@@ -417,18 +444,18 @@ export function mountOrb(
     lens = name;
     showRings(name === "time");
     showThemeLabels(name === "lattice");
-    morphFrom.set(centers);
-    scaleFrom.set(scales);
+    morphFrom.set(home);
+    scaleFrom.set(homeScales);
     for (let i = 0; i < n; i++) morphTo.set(arr[i], i * 3);
     densityScales(morphTo, aspects, scaleTo);
     if (reducedMotion()) {
-      centers.set(morphTo); scales.set(scaleTo);
-      iPos.needsUpdate = true; iScale.needsUpdate = true;
+      home.set(morphTo); homeScales.set(scaleTo);
+      compose(0);
       return;
     }
     gsap.killTweensOf(morph);
     morph.t = 0; morphing = true;
-    gsap.to(morph, { t: 1, duration: 0.9, ease: "power2.inOut", onComplete: () => { morphing = false; } });
+    gsap.to(morph, { t: 1, duration: 0.9, ease: "power2.inOut", onComplete: () => { stepMorph(); compose(0); morphing = false; } });
   };
   const stepMorph = () => {
     const t = morph.t;
@@ -437,15 +464,125 @@ export function mountOrb(
       const y = morphFrom[i * 3 + 1] + (morphTo[i * 3 + 1] - morphFrom[i * 3 + 1]) * t;
       const z = morphFrom[i * 3 + 2] + (morphTo[i * 3 + 2] - morphFrom[i * 3 + 2]) * t;
       const l = Math.hypot(x, y, z) || 1; // back onto the unit sphere; antipodal pairs are not in the data
-      centers[i * 3] = x / l; centers[i * 3 + 1] = y / l; centers[i * 3 + 2] = z / l;
-      scales[i] = scaleFrom[i] + (scaleTo[i] - scaleFrom[i]) * t;
+      home[i * 3] = x / l; home[i * 3 + 1] = y / l; home[i * 3 + 2] = z / l;
+      homeScales[i] = scaleFrom[i] + (scaleTo[i] - scaleFrom[i]) * t;
     }
-    iPos.needsUpdate = true; iScale.needsUpdate = true;
+  };
+
+  // search gather: matched tiles leave their place on the sphere for a grid in
+  // front of the camera, best match first in reading order, and fly home on release
+  type Flight = {
+    from: Vector3; to: Vector3 | null; cur: Vector3; // unit directions; to = null means home
+    m0: number; m1: number; m: number; // how gathered: 0 at home, 1 in the grid
+    size: number; lift: number; hop: number; t: number; delay: number;
+  };
+  const flights = new Map<number, Flight>();
+  let searchHits: number[] = [];
+  let matchSet = new Set<number>();
+  let gatherCall: ReturnType<typeof gsap.delayedCall> | undefined;
+  const _fh = new Vector3(), _gc = new Vector3(), _gp = new Vector3();
+  // 1 with no search, 0 once the matches are gathered
+  const searchOff = () => ((material.uniforms.uSearchDim.value as number) - SEARCH_DIM) / (1 - SEARCH_DIM);
+  const homeDir = (i: number, out: Vector3) => out.set(home[i * 3], home[i * 3 + 1], home[i * 3 + 2]);
+  const slerpDir = (a: Vector3, b: Vector3, t: number, out: Vector3) => {
+    const om = Math.acos(Math.max(-1, Math.min(1, a.dot(b))));
+    const so = Math.sin(om);
+    if (so < 1e-4) return out.copy(t < 0.5 ? a : b); // same point, or exact opposites with no single path
+    return out.copy(a).multiplyScalar(Math.sin((1 - t) * om) / so).addScaledVector(b, Math.sin(t * om) / so).normalize();
+  };
+  const launch = (i: number, to: Vector3 | null, m1: number, size: number, lift: number, delay: number) => {
+    const old = flights.get(i);
+    const from = old ? old.cur.clone() : homeDir(i, new Vector3());
+    const m0 = old ? old.m : 0;
+    const om = Math.acos(Math.max(-1, Math.min(1, from.dot(to ?? homeDir(i, _fh)))));
+    // a long trip arcs off the shell toward the camera so it passes over the tiles between, not through them
+    const hop = GATHER_HOP * Math.min(1, om / 0.8);
+    // a trip home keeps the size and lift it left the grid with, and m carries both back to zero
+    const keep = old && !to;
+    flights.set(i, { from, to, cur: from.clone(), m0, m1, m: m0, size: keep ? old.size : size, lift: keep ? old.lift : lift, hop, t: 0, delay });
+  };
+  const stepFlights = (dt: number) => {
+    const f = facing();
+    for (const [i, fl] of flights) {
+      fl.t += dt;
+      const raw = reducedMotion() ? 1 : Math.max(0, Math.min(1, (fl.t - fl.delay) / GATHER_DUR));
+      const e = raw * raw * (3 - 2 * raw);
+      slerpDir(fl.from, fl.to ?? homeDir(i, _fh), e, fl.cur);
+      fl.m = fl.m0 + (fl.m1 - fl.m0) * e;
+      const rad = 1 - f * (fl.lift * fl.m + fl.hop * Math.sin(Math.PI * e));
+      centers[i * 3] = fl.cur.x * rad; centers[i * 3 + 1] = fl.cur.y * rad; centers[i * 3 + 2] = fl.cur.z * rad;
+      scales[i] = homeScales[i] + (fl.size - homeScales[i]) * fl.m;
+      flat[i] = fl.m;
+      if (raw >= 1 && fl.to === null) flights.delete(i);
+    }
+  };
+  // the drawn buffers: every tile at home, then the flights on top
+  const compose = (dt: number) => {
+    centers.set(home);
+    scales.set(homeScales);
+    flat.fill(0);
+    stepFlights(dt);
+    iPos.needsUpdate = true; iScale.needsUpdate = true; iFlat.needsUpdate = true;
+  };
+  const dimSearch = (on: boolean) => {
+    const u = material.uniforms.uSearchDim;
+    gsap.killTweensOf(u);
+    gsap.to(u, { value: on ? SEARCH_DIM : 1, duration: reducedMotion() ? 0 : DUR.morph });
+  };
+  const release = () => {
+    gatherCall?.kill();
+    gatherCall = undefined;
+    gatherDue = false;
+    for (const i of [...flights.keys()]) launch(i, null, 0, 1, 0, 0);
+  };
+  // anchored once per call: a flat sheet square to the camera as it looks now; it does not follow a drag
+  const gather = () => {
+    showNeighbors(null); // a tile just read leaves its arcs up, and their dim would fall on the sheet
+    const e = camera.matrixWorld.elements;
+    sheet.right.set(e[0], e[1], e[2]);
+    sheet.up.set(e[4], e[5], e[6]);
+    camera.getWorldDirection(_gc);
+    const f = facing(), camR = camera.position.length();
+    // from outside the sheet never passes the midpoint between shell and camera, however far in the zoom is
+    const dist = mode === "globe"
+      ? camR - (1 + Math.min(GATHER_LIFT_OUT, (camR - 1) * 0.45))
+      : 1 - GATHER_LIFT_IN - camera.position.dot(_gc);
+    _gp.copy(camera.position).addScaledVector(_gc, dist);
+    const p5 = camera.projectionMatrix.elements[5];
+    // half the covered strip, in world units at the sheet's distance
+    _gp.addScaledVector(sheet.right, (searchInset * dist) / (p5 * Math.max(1, canvas.clientHeight)));
+    // sized on screen, not on the sphere: the same grid whatever the zoom, the view or the slider
+    const step = (2 * GATHER_FILL * dist) / (p5 * GATHER_ROWS);
+    let widest = 1;
+    for (const i of searchHits) { const sx = Math.sqrt(aspects[i]); widest = Math.max(widest, sx, 1 / sx); }
+    const size = (GATHER_TILE * step) / (2 * widest * TILE_HALF * sizeK());
+    const count = searchHits.length, rows = Math.ceil(count / GATHER_COLS);
+    for (const i of [...flights.keys()]) if (!matchSet.has(i)) launch(i, null, 0, 1, 0, 0);
+    searchHits.forEach((i, rank) => {
+      const row = Math.floor(rank / GATHER_COLS);
+      const cols = Math.min(GATHER_COLS, count - row * GATHER_COLS); // a short last row centers itself
+      const to = new Vector3().copy(_gp)
+        .addScaledVector(sheet.right, ((rank % GATHER_COLS) - (cols - 1) / 2) * step)
+        .addScaledVector(sheet.up, ((rows - 1) / 2 - row) * step);
+      const lift = f * (1 - to.length()); // each slot's own distance off the shell keeps the sheet flat
+      launch(i, to.normalize(), 1, size, lift, rank * GATHER_STAGGER);
+    });
+    dimSearch(true);
+  };
+  // the sheet is measured from the camera, so the loop lays it out right after
+  // placing the camera with nothing selected; a timer here would read a stale standpoint
+  let gatherDue = false, searchInset = 0;
+  const gatherSoon = (delay: number) => {
+    gatherCall?.kill();
+    gatherCall = undefined;
+    if (delay <= 0 || reducedMotion()) gatherDue = true;
+    else gatherCall = gsap.delayedCall(delay, () => { gatherDue = true; });
   };
   geo.setAttribute("iIdx", new InstancedBufferAttribute(Float32Array.from({ length: n }, (_, i) => i), 1));
   const themes = new Float32Array(n);
   points.forEach((p, i) => { themes[i] = p.th; });
   geo.setAttribute("iTheme", new InstancedBufferAttribute(themes, 1));
+  geo.setAttribute("iFlat", iFlat);
   geo.instanceCount = n;
 
   const material = new RawShaderMaterial({
@@ -461,6 +598,8 @@ export function mountOrb(
       uFacing: { value: 1 },
       uNeigh: { value: new Float32Array(8).fill(-1) }, uNeighDim: { value: 1 }, uNeighScale: { value: 1 },
       uBirth: { value: 0 }, uCount: { value: n },
+      uMatch: { value: new Float32Array(MATCH_MAX).fill(-1) }, uSearchDim: { value: 1 },
+      uFlatR: { value: sheet.right }, uFlatU: { value: sheet.up },
     },
   });
   const mesh = new Mesh(geo, material);
@@ -677,6 +816,18 @@ void main() {
     return null;
   };
   const _nn = new Vector3(), _ne1 = new Vector3(), _ne2 = new Vector3(), _nc = new Vector3(), _nref = new Vector3();
+  // mirrors the vertex shader: tile i's basis from _nc, turned toward the sheet by its flat amount
+  const tileBasis = (i: number, f: number) => {
+    _nn.copy(_nc).negate().normalize().multiplyScalar(f);
+    _nref.set(Math.abs(_nn.y) > 0.9 ? 1 : 0, Math.abs(_nn.y) > 0.9 ? 0 : 1, 0);
+    _ne1.crossVectors(_nref, _nn).normalize();
+    _ne2.crossVectors(_nn, _ne1);
+    if (flat[i] > 0) {
+      _ne1.lerp(sheet.right, flat[i]).normalize();
+      _ne2.lerp(sheet.up, flat[i]).normalize();
+      _nn.crossVectors(_ne1, _ne2).normalize();
+    }
+  };
   const _m4 = new Matrix4();
   const nearScore = new Float32Array(n);
   const nearIdx = Array.from({ length: n }, (_, i) => i);
@@ -714,10 +865,7 @@ void main() {
       if (!mesh.visible) continue;
       const i = mesh.userData.i as number;
       _nc.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
-      _nn.copy(_nc).negate().normalize().multiplyScalar(f);
-      _nref.set(Math.abs(_nn.y) > 0.9 ? 1 : 0, Math.abs(_nn.y) > 0.9 ? 0 : 1, 0);
-      _ne1.crossVectors(_nref, _nn).normalize();
-      _ne2.crossVectors(_nn, _ne1);
+      tileBasis(i, f);
       // mirror the vertex shader's scale chain exactly
       let sc = scales[i] * (i === hovered || i === focused ? (u.uHoverScale.value as number) : 1);
       if (neigh.includes(i)) sc *= u.uNeighScale.value as number;
@@ -737,6 +885,8 @@ void main() {
       if (th >= 0 && points[i].th !== th) dim *= u.uThemeDim.value as number;
       const nd = u.uNeighDim.value as number;
       if (nd < 1 && i !== hovered && i !== focused && !neigh.includes(i)) dim *= nd;
+      const sd = u.uSearchDim.value as number;
+      if (sd < 1 && i !== hovered && i !== focused && !matchSet.has(i)) dim *= sd;
       (mesh.material as MeshBasicMaterial).color.setScalar(dim);
     }
   };
@@ -769,7 +919,7 @@ void main() {
   };
 
   const anglesFor = (i: number): { yaw: number; pitch: number } =>
-    anglesForDir(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
+    anglesForDir(home[i * 3], home[i * 3 + 1], home[i * 3 + 2]);
 
   const ndcOf = (e: PointerEvent): [number, number] => {
     const r = canvas.getBoundingClientRect();
@@ -787,7 +937,7 @@ void main() {
   const onUp = (e: PointerEvent) => {
     const { tap } = controls.up();
     if (tap && pointerNdc && ringHover === null) {
-      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales);
+      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales, sheet);
       if (hit !== null) { if (hit !== focused) focusTile(hit); }
       else if (focused >= 0) { doBlur(); cb.onBlur(); }
     }
@@ -811,7 +961,7 @@ void main() {
   canvas.addEventListener("wheel", onWheel, { passive: true });
 
   const apexRect = (i: number) => {
-    dir.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
+    dir.set(home[i * 3], home[i * 3 + 1], home[i * 3 + 2]);
     return tileScreenRect(camera, dir.clone(), half(), canvas.clientWidth, canvas.clientHeight, facing());
   };
 
@@ -852,10 +1002,7 @@ void main() {
     const i = focused, f = facing();
     const u = material.uniforms;
     _nc.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
-    _nn.copy(_nc).negate().normalize().multiplyScalar(f);
-    _nref.set(Math.abs(_nn.y) > 0.9 ? 1 : 0, Math.abs(_nn.y) > 0.9 ? 0 : 1, 0);
-    _ne1.crossVectors(_nref, _nn).normalize();
-    _ne2.crossVectors(_nn, _ne1);
+    tileBasis(i, f);
     const sc = scales[i] * (u.uHoverScale.value as number);
     const sx = Math.sqrt(aspects[i]);
     // square halo sized to the tile's longer side so a portrait reel gets the same margin as a landscape thumb
@@ -876,6 +1023,8 @@ void main() {
   function doBlur() {
     focusCall?.kill();
     focusCall = undefined;
+    // back from a result: the matches gather again where the camera now looks
+    if (focused >= 0 && searchHits.length) gatherSoon(DUR.reveal);
     const done = () => { focused = -1; material.uniforms.uFocused.value = -1; };
     gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel]);
     if (reducedMotion()) {
@@ -900,6 +1049,9 @@ void main() {
   // another tile while one is selected is a walk: step back, then approach.
   function focusTile(i: number) {
     const walking = focused >= 0;
+    // the tile is read in its real place: the gather lets go and everyone flies home
+    release();
+    dimSearch(false);
     focused = i;
     material.uniforms.uFocused.value = i;
     if (hovered !== i) { hovered = i; material.uniforms.uHovered.value = i; cb.onHover(i); }
@@ -963,7 +1115,7 @@ void main() {
   tintGeo.index = plane.index;
   tintGeo.setAttribute("position", plane.getAttribute("position"));
   tintGeo.setAttribute("uv", plane.getAttribute("uv"));
-  for (const name of ["iPos", "iScale", "iIdx", "iTheme"]) tintGeo.setAttribute(name, geo.getAttribute(name));
+  for (const name of ["iPos", "iScale", "iIdx", "iTheme", "iFlat"]) tintGeo.setAttribute(name, geo.getAttribute(name));
   tintGeo.setAttribute("iTint", new InstancedBufferAttribute(tintColors, 3));
   tintGeo.instanceCount = n;
   const tintTime = { value: 0 };
@@ -1065,7 +1217,7 @@ void main() {
       b.sprite.scale.set(h * b.w, h, 1);
       const d = _lp.dot(_lv);
       const t = Math.min(1, Math.max(0, (d - lo) / span));
-      b.mat.opacity = labelLevel.v * (1 - selFade.v) * t * t * (3 - 2 * t);
+      b.mat.opacity = labelLevel.v * (1 - selFade.v) * searchOff() * t * t * (3 - 2 * t);
     }
   };
   const showThemeLabels = (on: boolean) => {
@@ -1116,7 +1268,7 @@ void main() {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     arcMat.uniforms.uTime.value += dt;
-    const busy = controls.dragging || hovered !== null || focused >= 0 || ringHover !== null;
+    const busy = controls.dragging || hovered !== null || focused >= 0 || ringHover !== null || searchHits.length > 0;
     idle = busy ? 0 : idle + dt;
     if (idle > IDLE_AFTER && !reducedMotion()) controls.nudge(DRIFT * dt * Math.min(1, (idle - IDLE_AFTER) / 2));
     const { yaw, pitch, zoom } = controls.step(dt);
@@ -1137,7 +1289,7 @@ void main() {
       // orbit-from-origin: camera rotates in place, dollies toward the focused tile
       camera.position.set(0, 0, 0);
       if (focused >= 0 && focusDolly.dolly > 0) {
-        dir.set(centers[focused * 3], centers[focused * 3 + 1], centers[focused * 3 + 2]);
+        dir.set(home[focused * 3], home[focused * 3 + 1], home[focused * 3 + 2]);
         camera.position.addScaledVector(dir, focusDolly.dolly * dollyK());
       }
       camera.rotation.set(0, 0, 0);
@@ -1157,27 +1309,30 @@ void main() {
     const shift = frac * camera.getFilmWidth() * 2 * Math.tan((camera.fov * Math.PI) / 360) * camera.aspect;
     if (shift !== camera.filmOffset) { camera.filmOffset = shift; camera.updateProjectionMatrix(); }
     camera.updateMatrixWorld();
-    if (morphing) { stepMorph(); if (hovered !== null) buildArcs(hovered); }
+    if (gatherDue && focused < 0) { gatherDue = false; gather(); }
+    if (morphing) stepMorph();
+    if (morphing || flights.size) { compose(dt); if (hovered !== null) buildArcs(hovered); }
     updateNear();
     updateRings();
     placeGlow(dt);
     // the tint steps back with the crowd when a hover dims it, and while reading
     if (tint.visible) {
       if (!reducedMotion()) tintTime.value += dt;
-      const lv = tintLevel.v * (0.35 + 0.65 * (material.uniforms.uNeighDim.value as number)) * (1 - 0.4 * selFade.v);
+      const lv = tintLevel.v * (0.35 + 0.65 * (material.uniforms.uNeighDim.value as number)) * (1 - 0.4 * selFade.v)
+        * (0.3 + 0.7 * (material.uniforms.uSearchDim.value as number));
       tintMat.uniforms.uLevel.value = lv;
       veilMat.uniforms.uLevel.value = lv * (mode === "globe" ? VEIL_GLOBE : VEIL_INSIDE);
     }
     updateThemeLabels();
     ring?.update(dt, {
-      level: ringIn.v * (1 - selFade.v),
+      level: ringIn.v * (1 - selFade.v) * (0.35 + 0.65 * searchOff()),
       size: sizeK(),
       inside: mode !== "globe",
       paused: ringHover !== null,
       still: reducedMotion(),
     });
     if (!controls.dragging && pointerNdc) {
-      let hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales);
+      let hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales, sheet);
       const grain = ring?.pick(pointerNdc[0], pointerNdc[1], camera) ?? null;
       let over: number | null = null;
       if (grain) {
@@ -1193,7 +1348,8 @@ void main() {
       if (hit !== hovered) {
         hovered = hit;
         material.uniforms.uHovered.value = hit ?? -1;
-        if (focused < 0) showNeighbors(hit); // while selected the arcs belong to the selection
+        // while selected the arcs belong to the selection; while a search is gathered they would tie the grid to the shell
+        if (focused < 0) showNeighbors(searchHits.length ? null : hit);
         cb.onHover(hit);
       }
     }
@@ -1217,7 +1373,7 @@ void main() {
       if (hovered !== null) buildArcs(hovered);
     },
     centerOf(i) {
-      return [centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]];
+      return [home[i * 3], home[i * 3 + 1], home[i * 3 + 2]];
     },
     setThemeFilter(th) { material.uniforms.uTheme.value = th ?? -1; },
     setView(next) {
@@ -1226,6 +1382,8 @@ void main() {
       mode = next;
       material.uniforms.uFacing.value = mode === "globe" ? -1 : 1;
       coast.visible = coastVisible(mode, coastLoaded, terrain);
+      // the grid was anchored for the other view; the camera takes a frame to move
+      if (searchHits.length && focused < 0) gatherSoon(0.1);
     },
     setTerrain(on) {
       terrain = on;
@@ -1240,6 +1398,18 @@ void main() {
     focus: focusTile,
     blur: doBlur,
     setRadius(r) { radius.target = Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, r)); },
+    setSearch(hits, inset = 0) {
+      searchInset = inset;
+      searchHits = (hits ?? []).filter((i) => i >= 0 && i < n).slice(0, MATCH_MAX);
+      matchSet = new Set(searchHits);
+      const match = material.uniforms.uMatch.value as Float32Array;
+      match.fill(-1);
+      searchHits.forEach((i, k) => { match[k] = i; });
+      if (!searchHits.length) { release(); dimSearch(false); return; }
+      if (focused >= 0) return; // gathers when the reader closes
+      showNeighbors(null);
+      gatherSoon(0);
+    },
     setDock(px) { dockPx = px; if (focused >= 0) gsap.to(dock, { px, duration: DUR.morph }); },
     dispose() {
       disposed = true;
@@ -1247,6 +1417,7 @@ void main() {
       cancelAnimationFrame(focusRaf1);
       cancelAnimationFrame(focusRaf2);
       focusCall?.kill();
+      gatherCall?.kill();
       resize.disconnect();
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);

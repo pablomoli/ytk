@@ -41,6 +41,7 @@ export function pickTile(
   facing: 1 | -1 = 1,
   aspects?: Float32Array, // per-tile width/height; quads are area-preserving
   scales?: Float32Array, // per-tile density scale
+  sheet?: { amt: Float32Array; right: Vector3; up: Vector3 }, // tiles turned off their radial basis, by amount
 ): number | null {
   _origin.copy(camera.position);
   _dir.set(ndcX, ndcY, 0.5).unproject(camera).sub(_origin).normalize();
@@ -49,6 +50,12 @@ export function pickTile(
   for (let i = 0; i * 3 < centers.length; i++) {
     _c.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
     computeBasis(_c, _n, _e1, _e2, facing);
+    const flat = sheet ? sheet.amt[i] : 0;
+    if (flat > 0) {
+      _e1.lerp(sheet!.right, flat).normalize();
+      _e2.lerp(sheet!.up, flat).normalize();
+      _n.crossVectors(_e1, _e2).normalize();
+    }
     const denom = _dir.dot(_n);
     // denom >= 0: ray and normal don't oppose, so the ray meets the tile's
     // back face (or is parallel) — reject; this is what makes the same tile
