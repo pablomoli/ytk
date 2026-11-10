@@ -10,6 +10,7 @@ export type OrbPoint = {
   th: number;
   thumb?: string | null; // vault-relative, served at /vault-media/<thumb>
   ar?: number | null; // thumbnail width/height; null when unknown
+  a?: string | null; // day the note was added; tiles arrive in this order
 };
 
 // radial = neighbors, lattice = themes, time = date by latitude (computed on the client)

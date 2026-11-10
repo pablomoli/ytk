@@ -1339,6 +1339,7 @@ async def orb_api():
             "th": p.get("th", -1),
             "thumb": p.get("thumb") or None,
             "ar": p.get("ar"),  # spike: thumbnail width/height when known
+            "a": p.get("a") or None,  # spike: day the note was added, the order tiles arrive in
         }
         for p in data["points"]
         if "c3" in p

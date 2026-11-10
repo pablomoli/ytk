@@ -71,6 +71,45 @@ def evened(rad: NDArray[Any]) -> NDArray[Any]:
     return spread(rad, iters=EVEN_ITERS, target=max(1.15 * OCCL, EVEN_SHARE * even))
 
 
+# A newcomer is seated from this many nearest notes already on the sphere,
+# then the layout relaxes for GROW_ITERS: room opens, nobody changes neighborhood.
+GROW_K = 5
+GROW_ITERS = 100
+
+
+def seat(
+    pos: NDArray[Any], vecs: NDArray[Any], new_vec: NDArray[Any], k: int = GROW_K
+) -> NDArray[Any]:
+    """Where one new note lands: the bearings of its k nearest placed notes,
+    weighted by how much nearer each is than the first one left out."""
+    sim: NDArray[Any] = np.asarray(vecs @ new_vec, dtype=float)
+    top = np.argsort(-sim)[: k + 1]
+    w = sim[top[:k]] - (sim[top[k]] if len(top) > k else 0.0)
+    d = (np.maximum(w, 1e-6)[:, None] * pos[top[:k]]).sum(axis=0)
+    n = float(np.linalg.norm(d))
+    # neighbors on opposite sides of the sphere cancel; sit by the nearest one
+    return d / n if n > 1e-6 else pos[top[0]]
+
+
+def grow(
+    pos: NDArray[Any],
+    vecs: NDArray[Any],
+    new_vecs: NDArray[Any],
+    k: int = GROW_K,
+    iters: int = GROW_ITERS,
+) -> NDArray[Any]:
+    """The neighbors layout after new notes arrive: old rows first and in
+    order, newcomers appended in arrival order. Each newcomer may sit beside an
+    earlier one, so a burst on one subject lands together. vecs are unit rows."""
+    p = np.asarray(pos, dtype=float)
+    v = np.asarray(vecs, dtype=float)
+    for nv in np.asarray(new_vecs, dtype=float):
+        p = np.vstack([p, seat(p, v, nv, k)])
+        v = np.vstack([v, nv])
+    even = float(np.sqrt(4.0 * np.pi / max(1, len(p))))
+    return spread(p, iters=iters, target=max(1.15 * OCCL, EVEN_SHARE * even))
+
+
 def fibonacci(n: int) -> NDArray[Any]:
     i = np.arange(n, dtype=float)
     z = 1.0 - 2.0 * (i + 0.5) / n

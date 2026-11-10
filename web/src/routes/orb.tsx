@@ -11,6 +11,8 @@ import { ErrorState } from "../components/StateViews";
 import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import type { RingItem } from "../lib/orb/ring";
 import { mountOrb, RADIUS_MAX, RADIUS_MIN, SHELF_COLS_MAX, SHELF_FILL, SHELF_ROWS } from "../lib/orb/scene";
+import type { SheetShape, SheetTile } from "../lib/orb/scene";
+import type { SheetTitles } from "../lib/orbSearch";
 import { useChromeVisible } from "../lib/chrome";
 import { validateOrbSearch } from "../lib/orbSearch";
 import "../styles.css";
@@ -49,6 +51,15 @@ const LENSES: { name: LayoutName; label: string; hint: string }[] = [
 // build_map sometimes emits raw Obsidian embed syntax in titles; strip for display only
 const captionTitle = (t: string) =>
   t.replace(/!\[\[([^\]]+)\]\]/g, "$1").trim();
+
+// how the sheet's titles are set: the room each takes from its cover's slot, and where the cover stands
+const TITLES: Record<SheetTitles, Pick<SheetShape, "label" | "align">> = {
+  shelf: { label: 0.2, align: "bottom" }, // covers on one line per row, the title centered under each
+  meta: { label: 0.2, align: "bottom" }, // one line of title, then source and day
+  under: { label: 0.2, align: "center" }, // the title under each cover's own edge
+  scrim: { label: 0, align: "center" }, // the title on the cover's darkened foot
+  off: { label: 0, align: "center" },
+};
 
 // mean direction of a theme's tiles under the chosen sphere layout; null when
 // the theme has no tiles or they cancel out
@@ -149,17 +160,51 @@ function PanelHead({ label, title, folded, onToggle }: { label: string; title: s
   );
 }
 
+const SHEET_TITLE = "pointer-events-none absolute left-0 top-0 transition-opacity duration-300 starting:opacity-0 [text-shadow:0_0_3px_#000,0_0_8px_#000,0_0_16px_rgb(0_0_0/0.85)]";
+
+/* One cover's title on the sheet. The scene owns where the cover is; this
+   only sets words against the rectangle it reports. */
+function SheetTitle({ at, point, kind, lit }: { at: SheetTile; point: OrbPoint; kind: SheetTitles; lit: boolean }) {
+  const title = captionTitle(point.t);
+  const ink = lit ? "text-[var(--ink)]" : "text-[var(--ink)]/75";
+  if (kind === "scrim")
+    return (
+      <div
+        data-sheet-title
+        className={`${SHEET_TITLE} flex items-end bg-gradient-to-t from-black/90 via-black/40 via-30% to-transparent to-55% px-1.5 pb-1`}
+        style={{ transform: `translate(${at.cx - at.w / 2}px, ${at.top}px)`, width: at.w, height: at.bottom - at.top }}
+      >
+        <span className={`line-clamp-2 text-[11px] leading-[1.2] ${ink}`}>{title}</span>
+      </div>
+    );
+  const w = at.slot * 0.92;
+  if (kind === "meta")
+    return (
+      <div data-sheet-title className={SHEET_TITLE} style={{ transform: `translate(${at.cx - at.w / 2}px, ${at.bottom + 5}px)`, width: at.w / 2 + w / 2 }}>
+        <span className={`block truncate text-[12px] leading-[1.25] ${ink}`}>{title}</span>
+        <span className="block truncate text-[9.5px] uppercase tracking-[0.1em] text-[var(--ink2)]">
+          {[point.c, point.a ?? point.d].filter(Boolean).join(" · ")}
+        </span>
+      </div>
+    );
+  return (
+    <div data-sheet-title className={`${SHEET_TITLE} text-center`} style={{ transform: `translate(${at.cx - w / 2}px, ${at.bottom + 5}px)`, width: w }}>
+      <span className={`line-clamp-2 text-[11.5px] leading-[1.22] ${ink}`}>{title}</span>
+    </div>
+  );
+}
+
 function OrbPage() {
   const chrome = useChromeVisible();
   const orb = useOrb();
-  const searchTheme = Route.useSearch().theme;
+  const { theme: searchTheme, titles = "shelf" } = Route.useSearch();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<OrbHandle | null>(null);
   const [layout, setLayout] = useState<LayoutName | null>(null);
   const [viewMode, setViewMode] = useState<OrbViewMode>("inside");
   const [theme, setTheme] = useState<number | null>(null);
   const [terrain, setTerrain] = useState(false);
-  // slider position: 0 is the unit sphere, the ends are the radius limits, log-spaced
+  // slider position: 0 is the sphere at the size its tile count gives it, the ends are the radius limits, log-spaced
   const [spread, setSpread] = useState(0);
   const applySpread = (x: number) => {
     setSpread(x);
@@ -167,6 +212,7 @@ function OrbPage() {
   };
   const [hovered, setHovered] = useState<number | null>(null);
   const [grain, setGrain] = useState<RingItem | null>(null); // the pending item under the pointer
+  const [sheetTiles, setSheetTiles] = useState<SheetTile[]>([]); // the sheet's landed covers, from the scene
   // the neighbors panel anchors on the last hovered tile and stays put, so the
   // pointer can leave the sphere to read or click the list
   const [anchor, setAnchor] = useState<number | null>(null);
@@ -195,7 +241,6 @@ function OrbPage() {
   const shelf = useQuery({
     queryKey: ["library", "all"],
     queryFn: () => apiGet<LibraryPage>("/api/library?n=5000"),
-    enabled: library,
     staleTime: 60_000,
   });
   const data = orb.data;
@@ -307,6 +352,7 @@ function OrbPage() {
       onOpen: (i) => { setSelected(i); setReader(i); setAnchor(i); setListOpen(false); },
       onBlur: () => setSelected(null),
       onRingHover: setGrain,
+      onSheet: setSheetTiles,
     });
     handleRef.current = handle;
     handle.setDock(READER_WIDTH);
@@ -344,10 +390,10 @@ function OrbPage() {
     if (!h) return;
     if (searching) {
       // the sheet keeps clear of the left column of panels, which the field shares an edge with
-      if (hits) h.setSearch(hits.map((x) => x.i), fieldRight()); // a pending search leaves the sheet as it is
-    } else if (library) h.setSearch(pageItems, Math.max(PANEL_RIGHT, fieldRight() + 12), { cols, rows: SHELF_ROWS, fill: SHELF_FILL });
+      if (hits) h.setSearch(hits.map((x) => x.i), fieldRight(), TITLES[titles]); // a pending search leaves the sheet as it is
+    } else if (library) h.setSearch(pageItems, Math.max(PANEL_RIGHT, fieldRight() + 12), { cols, rows: SHELF_ROWS, fill: SHELF_FILL, ...TITLES[titles] });
     else h.setSearch(null);
-  }, [data, searching, hits, library, pageItems, cols]);
+  }, [data, searching, hits, library, pageItems, cols, titles]);
 
   // as many columns as the sky beside the panel holds at the sheet's slot size
   useEffect(() => {
@@ -616,7 +662,10 @@ function OrbPage() {
           </div>
         </aside>
       ) : null}
-      {data && hovered !== null && hovered !== selected ? (
+      {data && titles !== "off"
+        ? sheetTiles.map((at) => <SheetTitle key={at.i} at={at} point={data.points[at.i]} kind={titles} lit={at.i === hovered} />)
+        : null}
+      {data && hovered !== null && hovered !== selected && !(titles !== "off" && sheetTiles.some((at) => at.i === hovered)) ? (
         <div
           data-caption
           className="pointer-events-none absolute bottom-4 -translate-x-1/2 rounded bg-black/60 px-3 py-1 text-sm"

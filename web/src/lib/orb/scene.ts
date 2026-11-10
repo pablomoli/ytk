@@ -34,7 +34,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
-import { DUR, gsap, reducedMotion } from "../motion";
+import { DUR, FLIGHT_EASE, gsap, reducedMotion } from "../motion";
 import type { LayoutName, OrbData } from "../../api/orb";
 import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
 import { buildAtlas, COLS, slotUv } from "./atlas";
@@ -49,11 +49,23 @@ export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-se
 const MATCH_MAX = 28, GATHER_COLS = 4, GATHER_ROWS = 3, GATHER_FILL = 0.62, GATHER_TILE = 0.93;
 // library sheet: four rows of as many columns as the free width holds; a full page is MATCH_MAX tiles
 export const SHELF_ROWS = 4, SHELF_FILL = 0.8, SHELF_COLS_MAX = 7;
-export type SheetShape = { cols: number; rows: number; fill: number };
+// label: the share of each slot's height kept clear under the cover, for the page's title
+// align: where the cover stands in the room above it; bottom puts a row's covers on one line
+export type SheetShape = { cols: number; rows: number; fill: number; label: number; align: "center" | "bottom" };
+// a landed sheet tile on screen, css px from the canvas corner; slot is its column's width
+export type SheetTile = { i: number; cx: number; top: number; bottom: number; w: number; slot: number };
 // inside, no corner of the sheet may pass this radius, or the shell's tiles cover it
 const SHEET_REACH = 0.94;
 const GATHER_LIFT_IN = 0.1, GATHER_LIFT_OUT = 0.4, GATHER_HOP = 0.1;
-const GATHER_DUR = 0.85, GATHER_STAGGER = 0.035;
+const GATHER_DUR = 0.6, GATHER_STAGGER = 0.02;
+// a lens change: each tile's own trip is MORPH_DUR / (1 + MORPH_WAVE), and the far side starts that much later
+const MORPH_DUR = 0.9, MORPH_WAVE = 0.4;
+// how far a path's control point leans to the left of travel, per radian of trip
+const BOW = 0.35;
+// tiles the unit sphere is sized for; past it the radius grows with the count, so tiles keep their spacing
+const UNIT_COUNT = 656;
+// the sphere's size before its first tile has arrived, as a share of its full radius
+const BIRTH_R = 0.62;
 const SEARCH_DIM = 0.16;
 // reading: the selected tile fills this share of the sky beside the reader, or of
 // the height when the tile is tall; the camera's stand-off follows from it
@@ -105,6 +117,7 @@ in vec4 iUv;    // atlas u, v, span u, span v
 in float iAspect; // width/height; the quad keeps its area, so sqrt scales each axis
 in float iScale;  // density scale: tiles shrink where a layout bunches them
 in float iIdx;
+in float iBorn; // 0..1, the tile's place in the order of arrival
 in float iTheme; // per-instance theme id
 in float iFlat;  // 0 on the sphere, 1 on the search sheet
 uniform mat4 modelViewMatrix, projectionMatrix;
@@ -114,7 +127,7 @@ uniform float uSize; // tile size against the unit sphere: falls as the sphere r
 uniform float uFacing; // 1 inside (tiles face the origin), -1 globe (tiles face outward)
 uniform float uNeigh[8];
 uniform float uNeighScale; // 1 at rest; the hovered tile's neighbors swell to it
-uniform float uBirth, uCount; // mount pop-in: uBirth runs 0..1, tiles pop in index order
+uniform float uBirth; // pop-in: runs 0..1, tiles appear in the order they were added
 out vec2 vUv;
 out float vIdx;
 out float vTheme;
@@ -126,7 +139,7 @@ void main() {
   if (iFlat > 0.0) { e1 = normalize(mix(e1, uFlatR, iFlat)); e2 = normalize(mix(e2, uFlatU, iFlat)); }
   float s = (abs(iIdx - uHovered) < 0.5 || abs(iIdx - uFocused) < 0.5) ? uHoverScale : 1.0;
   for (int k = 0; k < 8; k++) if (abs(iIdx - uNeigh[k]) < 0.5) s *= uNeighScale;
-  float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iIdx / uCount) / 0.35);
+  float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iBorn) / 0.35);
   s *= born * iScale * uSize;
   float sx = sqrt(iAspect);
   vec3 world = iPos + (e1 * position.x * sx + e2 * position.y / sx) * s;
@@ -180,10 +193,11 @@ in vec3 iPos;
 in vec3 iTint;
 in float iScale;
 in float iIdx;
+in float iBorn; // 0..1, the tile's place in the order of arrival
 in float iTheme;
 in float iFlat;
 uniform mat4 modelViewMatrix, projectionMatrix;
-uniform float uFacing, uSpan, uBirth, uCount, uSize;
+uniform float uFacing, uSpan, uBirth, uSize;
 uniform float uLift; // radial offset: positive is behind the shell, negative in front
 uniform float uTime;
 out vec2 vP;
@@ -195,7 +209,7 @@ void main() {
   vec3 ref = abs(n.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
   vec3 e1 = normalize(cross(ref, n));
   vec3 e2 = cross(n, e1);
-  float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iIdx / uCount) / 0.35);
+  float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iBorn) / 0.35);
   vec3 world = iPos * (1.0 + uFacing * uLift) + (e1 * position.x + e2 * position.y) * uSpan * iScale * uSize * born * (1.0 - iFlat);
   vP = uv * 2.0 - 1.0;
   vTint = iTint;
@@ -248,7 +262,7 @@ export type OrbHandle = {
   // tile indices, best first: they gather in front of the camera. null sends them home.
   // inset: css px the page's panels cover on the left; the sheet centers in what is left
   // shape: the sheet's grid; left out, it is the search's three rows of four
-  setSearch(hits: number[] | null, inset?: number, shape?: SheetShape): void;
+  setSearch(hits: number[] | null, inset?: number, shape?: Partial<SheetShape>): void;
   dispose(): void;
 };
 
@@ -259,7 +273,7 @@ export function mountOrb(
     onHover(i: number | null): void;
     onOpen(i: number, rect: DOMRect): void;
     onBlur(): void;
-    onRingHover?(item: RingItem | null): void;
+    onRingHover?(item: RingItem | null): void; onSheet?(tiles: SheetTile[]): void;
   },
 ): OrbHandle {
   const cap = COLS * COLS; // atlas has exactly this many slots; beyond it uvRect wraps
@@ -273,7 +287,8 @@ export function mountOrb(
   const camera = new PerspectiveCamera(60, canvas.clientWidth / Math.max(1, canvas.clientHeight), 0.01, 16);
   const scene = new Scene();
   // the scene stays a unit sphere: a radius R is drawn by shrinking tiles and camera distances instead
-  const radius = { v: 1, target: 1 };
+  const baseR = Math.max(1, Math.sqrt(n / UNIT_COUNT));
+  const radius = { v: baseR * BIRTH_R, target: baseR };
   // tiles give back a little of the shrink, so an exploded sphere is not a field of specks
   const sizeK = () => Math.pow(radius.v, -0.75);
   const half = () => TILE_HALF * sizeK();
@@ -417,6 +432,29 @@ export function mountOrb(
   const morph = { t: 1 };
   const morphFrom = new Float32Array(n * 3), morphTo = new Float32Array(n * 3);
   const scaleFrom = new Float32Array(n), scaleTo = new Float32Array(n);
+  const morphCtrl = new Float32Array(n * 3), wave = new Float32Array(n);
+  const _ma = new Vector3(), _mb = new Vector3(), _mc = new Vector3(), _mv = new Vector3();
+  const _b0 = new Vector3(), _b1 = new Vector3(), _bm = new Vector3();
+  const slerpDir = (a: Vector3, b: Vector3, t: number, out: Vector3) => {
+    const om = Math.acos(Math.max(-1, Math.min(1, a.dot(b))));
+    const so = Math.sin(om);
+    if (so < 1e-4) return out.copy(t < 0.5 ? a : b); // same point, or exact opposites with no single path
+    return out.copy(a).multiplyScalar(Math.sin((1 - t) * om) / so).addScaledVector(b, Math.sin(t * om) / so).normalize();
+  };
+  // a quadratic Bezier drawn on the sphere: the same blend of blends, with arcs in place of chords
+  const bezDir = (a: Vector3, c: Vector3, b: Vector3, t: number, out: Vector3) => {
+    slerpDir(a, c, t, _b0);
+    slerpDir(c, b, t, _b1);
+    return slerpDir(_b0, _b1, t, out);
+  };
+  // its control point: the trip's midpoint leaned to the left of travel, so paths
+  // bow, a crowd of them swirls one way, and the way back is not the way out
+  const bowDir = (a: Vector3, b: Vector3, out: Vector3) => {
+    const om = Math.acos(Math.max(-1, Math.min(1, a.dot(b))));
+    _bm.copy(a).add(b);
+    if (_bm.lengthSq() < 1e-6) _bm.copy(sheet.up); // exact opposites: any way round
+    return out.crossVectors(a, b).normalize().multiplyScalar(BOW * om).add(_bm.normalize()).normalize();
+  };
   let morphing = false;
 
   const plane = new PlaneGeometry(TILE_HALF * 2, TILE_HALF * 2);
@@ -458,6 +496,13 @@ export function mountOrb(
     scaleFrom.set(homeScales);
     for (let i = 0; i < n; i++) morphTo.set(arr[i], i * 3);
     densityScales(morphTo, aspects, scaleTo);
+    // what the camera looks at moves first, and the far side follows
+    camera.getWorldDirection(_mv).multiplyScalar(facing());
+    for (let i = 0; i < n; i++) {
+      _ma.fromArray(morphFrom, i * 3);
+      bowDir(_ma, _mb.fromArray(morphTo, i * 3), _mc).toArray(morphCtrl, i * 3);
+      wave[i] = Math.acos(Math.max(-1, Math.min(1, _ma.dot(_mv)))) / Math.PI;
+    }
     if (reducedMotion()) {
       home.set(morphTo); homeScales.set(scaleTo);
       compose(0);
@@ -465,17 +510,15 @@ export function mountOrb(
     }
     gsap.killTweensOf(morph);
     morph.t = 0; morphing = true;
-    gsap.to(morph, { t: 1, duration: 0.9, ease: "power2.inOut", onComplete: () => { stepMorph(); compose(0); morphing = false; } });
+    gsap.to(morph, { t: 1, duration: MORPH_DUR, ease: "none", onComplete: () => { stepMorph(); compose(0); morphing = false; } });
   };
   const stepMorph = () => {
-    const t = morph.t;
+    const t = morph.t * (1 + MORPH_WAVE);
     for (let i = 0; i < n; i++) {
-      const x = morphFrom[i * 3] + (morphTo[i * 3] - morphFrom[i * 3]) * t;
-      const y = morphFrom[i * 3 + 1] + (morphTo[i * 3 + 1] - morphFrom[i * 3 + 1]) * t;
-      const z = morphFrom[i * 3 + 2] + (morphTo[i * 3 + 2] - morphFrom[i * 3 + 2]) * t;
-      const l = Math.hypot(x, y, z) || 1; // back onto the unit sphere; antipodal pairs are not in the data
-      home[i * 3] = x / l; home[i * 3 + 1] = y / l; home[i * 3 + 2] = z / l;
-      homeScales[i] = scaleFrom[i] + (scaleTo[i] - scaleFrom[i]) * t;
+      const e = FLIGHT_EASE(Math.max(0, Math.min(1, t - MORPH_WAVE * wave[i])));
+      _ma.fromArray(morphFrom, i * 3); _mb.fromArray(morphTo, i * 3); _mc.fromArray(morphCtrl, i * 3);
+      bezDir(_ma, _mc, _mb, e, _mv).toArray(home, i * 3);
+      homeScales[i] = scaleFrom[i] + (scaleTo[i] - scaleFrom[i]) * e;
     }
   };
 
@@ -483,44 +526,41 @@ export function mountOrb(
   // front of the camera, best match first in reading order, and fly home on release
   type Flight = {
     from: Vector3; to: Vector3 | null; cur: Vector3; // unit directions; to = null means home
+    r0: number; r1: number; r: number; // distance from the center: at launch, at rest, now
     m0: number; m1: number; m: number; // how gathered: 0 at home, 1 in the grid
-    size: number; lift: number; hop: number; t: number; delay: number;
+    size: number; hop: number; t: number; delay: number;
   };
   const flights = new Map<number, Flight>();
   let searchHits: number[] = [];
   let matchSet = new Set<number>();
   let gatherCall: ReturnType<typeof gsap.delayedCall> | undefined;
-  const _fh = new Vector3(), _gc = new Vector3(), _gp = new Vector3();
+  const _fh = new Vector3(), _fb = new Vector3(), _gc = new Vector3(), _gp = new Vector3();
   // 1 with no search, 0 once the matches are gathered
   const searchOff = () => ((material.uniforms.uSearchDim.value as number) - SEARCH_DIM) / (1 - SEARCH_DIM);
   const homeDir = (i: number, out: Vector3) => out.set(home[i * 3], home[i * 3 + 1], home[i * 3 + 2]);
-  const slerpDir = (a: Vector3, b: Vector3, t: number, out: Vector3) => {
-    const om = Math.acos(Math.max(-1, Math.min(1, a.dot(b))));
-    const so = Math.sin(om);
-    if (so < 1e-4) return out.copy(t < 0.5 ? a : b); // same point, or exact opposites with no single path
-    return out.copy(a).multiplyScalar(Math.sin((1 - t) * om) / so).addScaledVector(b, Math.sin(t * om) / so).normalize();
-  };
-  const launch = (i: number, to: Vector3 | null, m1: number, size: number, lift: number, delay: number) => {
+  const launch = (i: number, to: Vector3 | null, r1: number, m1: number, size: number, delay: number) => {
     const old = flights.get(i);
     const from = old ? old.cur.clone() : homeDir(i, new Vector3());
-    const m0 = old ? old.m : 0;
+    const m0 = old ? old.m : 0, r0 = old ? old.r : 1;
     const om = Math.acos(Math.max(-1, Math.min(1, from.dot(to ?? homeDir(i, _fh)))));
     // a long trip arcs off the shell toward the camera so it passes over the tiles between, not through them
     const hop = GATHER_HOP * Math.min(1, om / 0.8);
-    // a trip home keeps the size and lift it left the grid with, and m carries both back to zero
+    // a trip home keeps the size it left the grid with, and m carries it back to the tile's own
     const keep = old && !to;
-    flights.set(i, { from, to, cur: from.clone(), m0, m1, m: m0, size: keep ? old.size : size, lift: keep ? old.lift : lift, hop, t: 0, delay });
+    flights.set(i, { from, to, cur: from.clone(), r0, r1, r: r0, m0, m1, m: m0, size: keep ? old.size : size, hop, t: 0, delay });
   };
   const stepFlights = (dt: number) => {
     const f = facing();
     for (const [i, fl] of flights) {
       fl.t += dt;
       const raw = reducedMotion() ? 1 : Math.max(0, Math.min(1, (fl.t - fl.delay) / GATHER_DUR));
-      const e = raw * raw * (3 - 2 * raw);
-      slerpDir(fl.from, fl.to ?? homeDir(i, _fh), e, fl.cur);
+      const e = FLIGHT_EASE(raw), k = 1 - e;
+      const to = fl.to ?? homeDir(i, _fh);
+      bezDir(fl.from, bowDir(fl.from, to, _fb), to, e, fl.cur);
       fl.m = fl.m0 + (fl.m1 - fl.m0) * e;
-      const rad = 1 - f * (fl.lift * fl.m + fl.hop * Math.sin(Math.PI * e));
-      centers[i * 3] = fl.cur.x * rad; centers[i * 3 + 1] = fl.cur.y * rad; centers[i * 3 + 2] = fl.cur.z * rad;
+      // the distance from the center is a Bezier too; its middle control pulls the path a hop toward the camera
+      fl.r = k * k * fl.r0 + 2 * k * e * ((fl.r0 + fl.r1) / 2 - 2 * f * fl.hop) + e * e * fl.r1;
+      centers[i * 3] = fl.cur.x * fl.r; centers[i * 3 + 1] = fl.cur.y * fl.r; centers[i * 3 + 2] = fl.cur.z * fl.r;
       scales[i] = homeScales[i] + (fl.size - homeScales[i]) * fl.m;
       flat[i] = fl.m;
       if (raw >= 1 && fl.to === null) flights.delete(i);
@@ -543,7 +583,7 @@ export function mountOrb(
     gatherCall?.kill();
     gatherCall = undefined;
     gatherDue = false;
-    for (const i of [...flights.keys()]) launch(i, null, 0, 1, 0, 0);
+    for (const i of [...flights.keys()]) launch(i, null, 1, 0, 1, 0);
   };
   // anchored once per call: a flat sheet square to the camera as it looks now; it does not follow a drag
   const gather = () => {
@@ -552,8 +592,8 @@ export function mountOrb(
     sheet.right.set(e[0], e[1], e[2]);
     sheet.up.set(e[4], e[5], e[6]);
     camera.getWorldDirection(_gc);
-    const f = facing(), camR = camera.position.length();
-    const { cols: COLS_N, rows: ROWS_N, fill } = sheetShape;
+    const camR = camera.position.length();
+    const { cols: COLS_N, rows: ROWS_N, fill, label, align } = sheetShape;
     const p5 = camera.projectionMatrix.elements[5];
     // one slot and half the covered strip, both per unit of the sheet's distance
     const stepK = (2 * fill) / (p5 * ROWS_N);
@@ -573,28 +613,56 @@ export function mountOrb(
     _gp.addScaledVector(sheet.right, insetK * dist);
     // sized on screen, not on the sphere: the same grid whatever the zoom, the view or the slider
     const step = stepK * dist;
-    let widest = 1;
-    for (const i of searchHits) { const sx = Math.sqrt(aspects[i]); widest = Math.max(widest, sx, 1 / sx); }
-    const size = (GATHER_TILE * step) / (2 * widest * TILE_HALF * sizeK());
+    let widest = 1, tallest = 1;
+    for (const i of searchHits) { const sx = Math.sqrt(aspects[i]); widest = Math.max(widest, sx); tallest = Math.max(tallest, 1 / sx); }
+    // one size for every cover: the widest fits its slot across, the tallest fits the room above the label
+    const h0 = TILE_HALF * sizeK();
+    const size = (GATHER_TILE * step * Math.min(1 / widest, (1 - label) / tallest)) / (2 * h0);
+    sheetStep = step;
     const count = searchHits.length, rows = Math.ceil(count / COLS_N);
     // a full page lands in the time twelve matches take
     const stagger = Math.min(GATHER_STAGGER, (GATHER_STAGGER * 12) / Math.max(1, count));
-    for (const i of [...flights.keys()]) if (!matchSet.has(i)) launch(i, null, 0, 1, 0, 0);
+    for (const i of [...flights.keys()]) if (!matchSet.has(i)) launch(i, null, 1, 0, 1, 0);
     searchHits.forEach((i, rank) => {
       const row = Math.floor(rank / COLS_N);
       const cols = Math.min(COLS_N, count - row * COLS_N); // a short last row centers itself
       const to = new Vector3().copy(_gp)
         .addScaledVector(sheet.right, ((rank % COLS_N) - (cols - 1) / 2) * step)
-        .addScaledVector(sheet.up, ((rows - 1) / 2 - row) * step);
-      const lift = f * (1 - to.length()); // each slot's own distance off the shell keeps the sheet flat
-      launch(i, to.normalize(), 1, size, lift, rank * stagger);
+        .addScaledVector(sheet.up, ((rows - 1) / 2 - row) * step
+          + (align === "bottom" ? (label - 0.5) * step + (h0 * size) / Math.sqrt(aspects[i]) : (label * step) / 2));
+      const r1 = to.length(); // each slot's own distance from the center keeps the sheet flat
+      launch(i, to.normalize(), r1, 1, size, rank * stagger);
     });
     dimSearch(true);
   };
   // the sheet is measured from the camera, so the loop lays it out right after
   // placing the camera with nothing selected; a timer here would read a stale standpoint
-  let gatherDue = false, searchInset = 0;
-  let sheetShape: SheetShape = { cols: GATHER_COLS, rows: GATHER_ROWS, fill: GATHER_FILL };
+  let gatherDue = false, searchInset = 0, sheetStep = 1;
+  const SHEET: SheetShape = { cols: GATHER_COLS, rows: GATHER_ROWS, fill: GATHER_FILL, label: 0, align: "center" };
+  let sheetShape = SHEET;
+  // the page draws the sheet's titles, so it is told where each landed cover is, and only when one moved
+  let sheetKey = "";
+  const _sp = new Vector3();
+  const reportSheet = () => {
+    if (!cb.onSheet) return;
+    const out: SheetTile[] = [];
+    const vw = canvas.clientWidth, vh = canvas.clientHeight, h0 = TILE_HALF * sizeK();
+    if (focused < 0) for (const i of searchHits) {
+      const fl = flights.get(i);
+      if (!fl || !fl.to || fl.m < 0.99) continue;
+      if (_sp.fromArray(centers, i * 3).applyMatrix4(camera.matrixWorldInverse).z > -1e-3) continue; // behind the camera
+      const sx = Math.sqrt(aspects[i]), h = h0 * fl.size;
+      _sp.fromArray(centers, i * 3).project(camera);
+      const cx = ((_sp.x + 1) / 2) * vw, cy = ((1 - _sp.y) / 2) * vh;
+      _sp.fromArray(centers, i * 3).addScaledVector(sheet.right, h * sx).project(camera);
+      const hw = Math.abs(((_sp.x + 1) / 2) * vw - cx);
+      _sp.fromArray(centers, i * 3).addScaledVector(sheet.up, h / sx).project(camera);
+      const hh = Math.abs(((1 - _sp.y) / 2) * vh - cy);
+      out.push({ i, cx, top: cy - hh, bottom: cy + hh, w: 2 * hw, slot: (hw * sheetStep) / (h * sx) });
+    }
+    const key = out.map((o) => `${o.i}:${Math.round(o.cx * 2)}:${Math.round(o.bottom * 2)}:${Math.round(o.w)}`).join(" ");
+    if (key !== sheetKey) { sheetKey = key; cb.onSheet(out); }
+  };
   const gatherSoon = (delay: number) => {
     gatherCall?.kill();
     gatherCall = undefined;
@@ -602,6 +670,12 @@ export function mountOrb(
     else gatherCall = gsap.delayedCall(delay, () => { gatherDue = true; });
   };
   geo.setAttribute("iIdx", new InstancedBufferAttribute(Float32Array.from({ length: n }, (_, i) => i), 1));
+  // the order notes were added in; without dates it is the map's own order
+  const arrival = new Float32Array(n);
+  points.map((p, i) => [p.a ?? "", i] as const)
+    .sort((x, y) => x[0].localeCompare(y[0]) || x[1] - y[1])
+    .forEach(([, i], k) => { arrival[i] = k / n; });
+  geo.setAttribute("iBorn", new InstancedBufferAttribute(arrival, 1));
   const themes = new Float32Array(n);
   points.forEach((p, i) => { themes[i] = p.th; });
   geo.setAttribute("iTheme", new InstancedBufferAttribute(themes, 1));
@@ -620,7 +694,7 @@ export function mountOrb(
       uTheme: { value: -1 }, uThemeDim: { value: DIM_FILTER },
       uFacing: { value: 1 },
       uNeigh: { value: new Float32Array(8).fill(-1) }, uNeighDim: { value: 1 }, uNeighScale: { value: 1 },
-      uBirth: { value: 0 }, uCount: { value: n },
+      uBirth: { value: 0 },
       uMatch: { value: new Float32Array(MATCH_MAX).fill(-1) }, uSearchDim: { value: 1 },
       uFlatR: { value: sheet.right }, uFlatU: { value: sheet.up },
     },
@@ -822,25 +896,40 @@ void main() {
     tex.needsUpdate = true;
     return tex;
   };
+  // Decoded off the frame, then handed over one per frame: a page of the sheet asks for two
+  // dozen at once, and decoding them where they landed held that frame for 90 ms.
+  const nearReady: [string, ImageBitmap][] = [];
   const loadNear = (i: number): Texture | null => {
     const path = points[i].thumb;
     if (!path) return null;
     if (nearCache.has(path)) return nearCache.get(path) ?? null;
     nearCache.set(path, null);
-    const img = new Image();
-    img.onload = () => {
-      if (disposed) return;
-      const tex = thumbTexture(img, NEAR_LONG);
-      nearCache.set(path, tex);
-      if (nearCache.size > NEAR_CACHE) {
-        for (const [k2, t2] of nearCache) {
-          if (nearCache.size <= NEAR_CACHE) break;
-          if (t2 && !nearInUse.has(k2)) { t2.dispose(); nearCache.delete(k2); }
-        }
-      }
-    };
-    img.src = `/vault-media/${path}`;
+    fetch(`/vault-media/${path}`)
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+      .then((blob) => createImageBitmap(blob, {
+        ...(aspects[i] >= 1 ? { resizeWidth: NEAR_LONG } : { resizeHeight: NEAR_LONG }),
+        resizeQuality: "high", imageOrientation: "flipY", premultiplyAlpha: "none",
+      }))
+      .then((bmp) => { if (disposed) bmp.close(); else nearReady.push([path, bmp]); })
+      .catch(() => {}); // the atlas tile stays
     return null;
+  };
+  const takeNear = () => {
+    const next = nearReady.shift();
+    if (!next) return;
+    const tex = new Texture(next[1]);
+    tex.flipY = false; // uploads ignore the flag for bitmaps, so the bitmap is made flipped
+    tex.colorSpace = SRGBColorSpace;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    tex.needsUpdate = true;
+    renderer.initTexture(tex);
+    nearCache.set(next[0], tex);
+    if (nearCache.size > NEAR_CACHE) {
+      for (const [k2, t2] of nearCache) {
+        if (nearCache.size <= NEAR_CACHE) break;
+        if (t2 && !nearInUse.has(k2)) { t2.dispose(); (t2.image as ImageBitmap).close(); nearCache.delete(k2); }
+      }
+    }
   };
   // the tile being read is drawn several times the size of its neighbors: one sharper texture, one slot
   let read: { path: string; tex: Texture | null } | null = null;
@@ -884,6 +973,7 @@ void main() {
   const nearIdx = Array.from({ length: n }, (_, i) => i);
   let nearTick = 0;
   const updateNear = () => {
+    takeNear();
     const f = facing();
     const u = material.uniforms;
     // rank every 4th frame; place every frame (cheap)
@@ -922,7 +1012,7 @@ void main() {
       // mirror the vertex shader's scale chain exactly
       let sc = scales[i] * (i === hovered || i === focused ? (u.uHoverScale.value as number) : 1);
       if (neigh.includes(i)) sc *= u.uNeighScale.value as number;
-      const bornT = (birth * 1.35 - i / n) / 0.35;
+      const bornT = (birth * 1.35 - arrival[i]) / 0.35;
       const born = bornT <= 0 ? 0 : bornT >= 1 ? 1 : bornT * bornT * (3 - 2 * bornT);
       sc *= born;
       const sx = Math.sqrt(aspects[i]);
@@ -1165,7 +1255,7 @@ void main() {
     const nT = data.themes.length;
     const lat = data.sphere.lattice;
     const first = new Array<number>(nT).fill(2);
-    if (lat) for (let i = 0; i < n; i++) {
+    if (lat) for (let i = 0; i < Math.min(n, lat.length); i++) {
       const th = points[i].th;
       if (th >= 0 && th < nT) first[th] = Math.min(first[th], lat[i][2]);
     }
@@ -1188,7 +1278,7 @@ void main() {
   tintGeo.index = plane.index;
   tintGeo.setAttribute("position", plane.getAttribute("position"));
   tintGeo.setAttribute("uv", plane.getAttribute("uv"));
-  for (const name of ["iPos", "iScale", "iIdx", "iTheme", "iFlat"]) tintGeo.setAttribute(name, geo.getAttribute(name));
+  for (const name of ["iPos", "iScale", "iIdx", "iBorn", "iTheme", "iFlat"]) tintGeo.setAttribute(name, geo.getAttribute(name));
   tintGeo.setAttribute("iTint", new InstancedBufferAttribute(tintColors, 3));
   tintGeo.instanceCount = n;
   const tintTime = { value: 0 };
@@ -1203,7 +1293,7 @@ void main() {
       blending: AdditiveBlending,
       uniforms: {
         uFacing: material.uniforms.uFacing, uBirth: material.uniforms.uBirth, uTheme: material.uniforms.uTheme, uSize: material.uniforms.uSize,
-        uCount: { value: n }, uSpan: { value: TINT_SPAN }, uLevel: { value: 0 }, uLift: { value: lift }, uTime: tintTime,
+        uSpan: { value: TINT_SPAN }, uLevel: { value: 0 }, uLift: { value: lift }, uTime: tintTime,
       },
     });
     const m = new Mesh(tintGeo, mat);
@@ -1346,7 +1436,9 @@ void main() {
     if (idle > IDLE_AFTER && !reducedMotion()) controls.nudge(DRIFT * dt * Math.min(1, (idle - IDLE_AFTER) / 2));
     const { yaw, pitch, zoom } = controls.step(dt);
     liveZoom = zoom;
-    radius.v = reducedMotion() ? radius.target : radius.v + (radius.target - radius.v) * (1 - Math.exp(-dt * 9));
+    // while tiles arrive the sphere swells with them
+    const goalR = radius.target * (BIRTH_R + (1 - BIRTH_R) * Math.sqrt(material.uniforms.uBirth.value as number));
+    radius.v = reducedMotion() ? goalR : radius.v + (goalR - radius.v) * (1 - Math.exp(-dt * 9));
     material.uniforms.uSize.value = sizeK();
     if (mode === "globe") {
       // orbit-from-outside: camera circles the sphere at radius orbitR.r while
@@ -1386,6 +1478,7 @@ void main() {
     if (morphing) stepMorph();
     if (morphing || flights.size) { compose(dt); if (hovered !== null) buildArcs(hovered); }
     updateNear();
+    reportSheet();
     updateRings();
     placeGlow(dt);
     // the tint steps back with the crowd when a hover dims it, and while reading
@@ -1430,7 +1523,7 @@ void main() {
   };
   raf = requestAnimationFrame(loop);
   if (reducedMotion()) material.uniforms.uBirth.value = 1;
-  else gsap.to(material.uniforms.uBirth, { value: 1, duration: 1.8, ease: "power1.out" });
+  else gsap.to(material.uniforms.uBirth, { value: 1, duration: 2.6, ease: "power1.out" });
 
   const resize = new ResizeObserver(() => {
     const w = canvas.clientWidth, h = Math.max(1, canvas.clientHeight);
@@ -1470,10 +1563,10 @@ void main() {
     },
     focus: focusTile,
     blur: doBlur,
-    setRadius(r) { radius.target = Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, r)); },
+    setRadius(r) { radius.target = baseR * Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, r)); },
     setSearch(hits, inset = 0, shape) {
       searchInset = inset;
-      sheetShape = shape ?? { cols: GATHER_COLS, rows: GATHER_ROWS, fill: GATHER_FILL };
+      sheetShape = { ...SHEET, ...shape };
       searchHits = (hits ?? []).filter((i) => i >= 0 && i < n).slice(0, Math.min(MATCH_MAX, sheetShape.cols * sheetShape.rows));
       matchSet = new Set(searchHits);
       const match = material.uniforms.uMatch.value as Float32Array;
@@ -1518,7 +1611,8 @@ void main() {
       void lens;
       for (const m of nearPool) (m.material as MeshBasicMaterial).dispose();
       nearGeo.dispose();
-      for (const t of nearCache.values()) t?.dispose();
+      for (const t of nearCache.values()) if (t) { t.dispose(); (t.image as ImageBitmap).close(); }
+      for (const [, bmp] of nearReady) bmp.close();
       read?.tex?.dispose();
       nearCache.clear();
       arcGeo.dispose();
