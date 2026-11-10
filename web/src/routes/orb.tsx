@@ -106,6 +106,35 @@ function TileRow({ point, score, active, onPick }: { point: OrbPoint; score?: nu
   );
 }
 
+// the bottom-left panel's header; while a tile is read it is the handle the folded list opens from
+function PanelHead({ label, title, folded, onToggle }: { label: string; title: string; folded: boolean; onToggle: (() => void) | undefined }) {
+  const kicker = "text-[10px] uppercase tracking-[0.18em] text-[var(--ink2)]";
+  return (
+    <div
+      role={onToggle ? "button" : undefined}
+      tabIndex={onToggle ? 0 : undefined}
+      onClick={onToggle}
+      className={`${folded ? "flex items-baseline gap-3 px-3 py-2" : "border-b border-white/10 px-4 pt-3 pb-2.5"} ${onToggle ? "cursor-pointer hover:bg-white/[0.06]" : ""}`}
+    >
+      {folded ? (
+        <>
+          <span className={`${kicker} flex-none`}>{label}</span>
+          <span className="min-w-0 flex-1 truncate text-[13px] leading-tight text-[var(--ink)]">{title}</span>
+          <span className={`${kicker} flex-none`}>show</span>
+        </>
+      ) : (
+        <>
+          <div className={`${kicker} flex items-baseline`}>
+            <span className="flex-1">{label}</span>
+            {onToggle ? <span>hide</span> : null}
+          </div>
+          <div className="mt-1 truncate text-[15px] leading-tight text-[var(--ink)]">{title}</div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function OrbPage() {
   const chrome = useChromeVisible();
   const orb = useOrb();
@@ -132,6 +161,8 @@ function OrbPage() {
   const [selected, setSelected] = useState<number | null>(null);
   const [reader, setReader] = useState<number | null>(null);
   const selectedRef = useRef<number | null>(null); // read inside the scene callbacks, which close over the first render
+  // while a tile is read the bottom-left list folds under its header, so the tile has the sky to itself
+  const [listOpen, setListOpen] = useState(false);
   selectedRef.current = selected;
   // search: the matches gather in front of the camera and replace the neighbors in the panel
   const [query, setQuery] = useState("");
@@ -217,7 +248,7 @@ function OrbPage() {
           prefetchNote(data.points[i].p);
         }
       },
-      onOpen: (i) => { setSelected(i); setReader(i); setAnchor(i); },
+      onOpen: (i) => { setSelected(i); setReader(i); setAnchor(i); setListOpen(false); },
       onBlur: () => setSelected(null),
       onRingHover: setGrain,
     });
@@ -260,6 +291,7 @@ function OrbPage() {
     if (selected !== null) h.focus(j);
     else { setAnchor(j); h.aimAt(h.centerOf(j)); }
   };
+  const folded = selected !== null && !listOpen;
   const closeReader = () => {
     handleRef.current?.blur();
     setSelected(null);
@@ -370,14 +402,14 @@ function OrbPage() {
         </div>
       ) : null}
       {data && chrome && query.trim() ? (
-        <aside data-orb-results className="absolute bottom-4 left-4 w-80 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md">
-          <div className="border-b border-white/10 px-4 pt-3 pb-2.5">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink2)]">
-              {searchState === "busy" ? "searching" : searchState === "failed" ? "search did not answer" : `${hits?.length ?? 0} closest by meaning`}
-            </div>
-            <div className="mt-1 truncate text-[15px] leading-tight text-[var(--ink)]">{query.trim()}</div>
-          </div>
-          {hits?.length ? (
+        <aside data-orb-results className={`absolute bottom-4 left-4 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md ${folded ? "max-w-80" : "w-80"}`}>
+          <PanelHead
+            label={searchState === "busy" ? "searching" : searchState === "failed" ? "search did not answer" : `${hits?.length ?? 0} closest by meaning`}
+            title={query.trim()}
+            folded={folded}
+            onToggle={selected !== null ? () => setListOpen((v) => !v) : undefined}
+          />
+          {!folded && hits?.length ? (
             <div className="relative">
               <ul className="!m-0 max-h-[420px] !list-none overflow-y-auto !p-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
                 {hits.map((h) => (
@@ -395,12 +427,14 @@ function OrbPage() {
           ) : null}
         </aside>
       ) : data && chrome && anchor !== null && knn ? (
-        <aside className="absolute bottom-4 left-4 w-80 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md">
-          <div className="border-b border-white/10 px-4 pt-3 pb-2.5">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--ink2)]">nearest by embedding</div>
-            <div className="mt-1 truncate text-[15px] leading-tight text-[var(--ink)]">{captionTitle(data.points[anchor].t)}</div>
-          </div>
-          <div className="relative">
+        <aside data-orb-neighbors className={`absolute bottom-4 left-4 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md ${folded ? "max-w-80" : "w-80"}`}>
+          <PanelHead
+            label="nearest by embedding"
+            title={captionTitle(data.points[anchor].t)}
+            folded={folded}
+            onToggle={selected !== null ? () => setListOpen((v) => !v) : undefined}
+          />
+          <div className={`relative ${folded ? "hidden" : ""}`}>
             {/* exactly five rows tall; the rest scrolls */}
             <ul className="!m-0 h-[300px] !list-none overflow-y-auto !p-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
               {(knn[anchor] ?? []).map((j, k) => (

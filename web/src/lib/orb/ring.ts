@@ -39,7 +39,9 @@ const GRAIN = 0.02;
 const NO_COVER = 0.55; // size of a grain without a cover, against one with
 const HOVER = 2.4;
 const OMEGA = (Math.PI * 2) / 480; // inner edge: one turn in eight minutes
-const THICK_INSIDE = 0.07, THICK_GLOBE = 0.006;
+const THICK_INSIDE = 0.07, THICK_GLOBE = 0.034;
+// seen from outside most grains hug the ring plane and a few stray off it, so the lanes and the month gaps survive
+const LOFT = 2.6;
 const FAR_INSIDE = 0.5; // behind the tiles the belt is backdrop, not content
 
 const hash = (x: number) => { const v = Math.sin(x * 12.9898) * 43758.5453; return v - Math.floor(v); };
@@ -92,6 +94,7 @@ uniform float uTime, uOmega, uInner;
 uniform float uGrain, uSize, uNoCover, uHover, uHoverScale;
 uniform float uBill;  // 0 = grains lie in the ring plane, 1 = they face the camera
 uniform float uThick; // half thickness of the belt
+uniform float uLoft;  // 1 = heights spread evenly through the belt, higher = most grains near the plane
 uniform float uCols, uCell;
 out vec2 vUv;
 out float vHas, vHov, vFlag, vNear, vSeed;
@@ -101,7 +104,7 @@ void main() {
   float a = iGrain.y + uTime * uOmega * pow(uInner / r, 1.5);
   vec3 radial = vec3(cos(a), 0.0, sin(a));
   vec3 tang = vec3(-radial.z, 0.0, radial.x);
-  vec3 c = radial * r + vec3(0.0, iGrain.z * uThick, 0.0);
+  vec3 c = radial * r + vec3(0.0, sign(iGrain.z) * pow(abs(iGrain.z), uLoft) * uThick, 0.0);
   float has = step(0.0, iGrain.w);
   float hov = abs(iIdx - uHover) < 0.5 ? 1.0 : 0.0;
   vec4 cv = modelViewMatrix * vec4(c, 1.0);
@@ -190,7 +193,7 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
       uTime: { value: 0 }, uOmega: { value: OMEGA }, uInner: { value: RING_IN },
       uGrain: { value: GRAIN }, uSize: { value: 1 }, uNoCover: { value: NO_COVER },
       uHover: { value: -1 }, uHoverScale: { value: HOVER },
-      uBill: { value: 1 }, uThick: { value: THICK_INSIDE },
+      uBill: { value: 1 }, uThick: { value: THICK_INSIDE }, uLoft: { value: 1 },
       uCols: { value: data.cols }, uCell: { value: data.cell / data.size },
       uLevel: { value: 0 }, uFar: { value: 1 },
     },
@@ -230,6 +233,7 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
       const k = still ? 1 : 1 - Math.exp(-dt * 5);
       u.uBill.value += ((inside ? 1 : billGlobe) - u.uBill.value) * k;
       u.uThick.value += ((inside ? THICK_INSIDE : THICK_GLOBE) - u.uThick.value) * k;
+      u.uLoft.value += ((inside ? 1 : LOFT) - u.uLoft.value) * k;
       u.uFar.value += ((inside ? FAR_INSIDE : 1) - u.uFar.value) * k;
     },
     pick(ndcX, ndcY, camera) {
@@ -237,14 +241,16 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
       group.updateMatrixWorld();
       _mvp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).multiply(group.matrixWorld);
       const e = _mvp.elements;
-      const time = u.uTime.value as number, thick = u.uThick.value as number;
+      const time = u.uTime.value as number, thick = u.uThick.value as number, loft = u.uLoft.value as number;
       const px = camera.projectionMatrix.elements[0], py = camera.projectionMatrix.elements[5];
       const side = GRAIN * (u.uSize.value as number);
       let best = -1, bestW = Infinity;
       for (let k = 0; k < n; k++) {
         const r = grain[k * 4];
         const a = grain[k * 4 + 1] + time * OMEGA * rate[k];
-        const x = r * Math.cos(a), y = grain[k * 4 + 2] * thick, z = r * Math.sin(a);
+        const gz = grain[k * 4 + 2];
+        // the shader's height, term for term
+        const x = r * Math.cos(a), y = Math.sign(gz) * Math.pow(Math.abs(gz), loft) * thick, z = r * Math.sin(a);
         const w = e[3] * x + e[7] * y + e[11] * z + e[15];
         if (w < 0.3 || w >= bestW) continue; // nearer than this the shader has shrunk the grain away
         // small grains get a hit area a little larger than they are drawn

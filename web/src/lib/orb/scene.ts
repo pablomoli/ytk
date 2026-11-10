@@ -50,14 +50,13 @@ const MATCH_MAX = 12, GATHER_COLS = 4, GATHER_ROWS = 3, GATHER_FILL = 0.62, GATH
 const GATHER_LIFT_IN = 0.1, GATHER_LIFT_OUT = 0.4, GATHER_HOP = 0.1;
 const GATHER_DUR = 0.85, GATHER_STAGGER = 0.035;
 const SEARCH_DIM = 0.16;
-// Apex40 previz verdict (user-reviewed, Apex Manim render): DOLLY = 1 -
-// 0.055/(0.40 * tan 30deg) = 0.76. Final; do not derive from a different apex.
-const DOLLY = 0.76;
+// reading: the selected tile fills this share of the sky beside the reader, or of
+// the height when the tile is tall; the camera's stand-off follows from it
+const READ_FILL_W = 0.64, READ_FILL_H = 0.7;
+const READ_MIN = 0.06, READ_MAX = 0.6; // stand-off bounds, in sphere radii
+const READ_LONG = 1280; // long side of the read tile's own texture; most thumbnails are this large
 const DIM_FILTER = 0.15;
 
-// mirrors DOLLY's stand-off distance-from-tile, kept outside the unit sphere:
-// same ~40% viewport-height apex fraction, viewed from the outside instead of the origin.
-const GLOBE_APEX = 1 + 0.238;
 export const GLOBE_R_CLOSE = 1.30; // wheel zoom=0: globe orbit radius (camera 1.30, tiles at 1.0, near 0.01 — no clip)
 export const GLOBE_R_FAR = 4.0; // wheel zoom=1: globe orbit radius
 export const restGlobeR = (z: number) => GLOBE_R_CLOSE + z * (GLOBE_R_FAR - GLOBE_R_CLOSE);
@@ -129,7 +128,10 @@ void main() {
   vUv = vec2(iUv.x + uv.x * iUv.z, iUv.y + uv.y * iUv.w);
   vIdx = iIdx;
   vTheme = iTheme; // constant across the quad; interpolation is a no-op
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
+  vec4 mv = modelViewMatrix * vec4(world, 1.0);
+  // the tile being read wins depth over a neighbor that overlaps it; scaled along the eye ray, so no pixel moves
+  if (abs(iIdx - uFocused) < 0.5) mv.xyz *= 0.85;
+  gl_Position = projectionMatrix * mv;
 }`;
 
 const FRAG = /* glsl */ `
@@ -271,8 +273,10 @@ export function mountOrb(
   const half = () => TILE_HALF * sizeK();
   // the camera backs off slower than the sphere grows, so it swells in frame, and never ends up inside it
   const globeR = (z: number) => Math.max(restGlobeR(z) * Math.pow(Math.max(1, radius.v), 0.6), radius.v + 0.3) / radius.v;
-  const apexR = () => 1 + (GLOBE_APEX - 1) * sizeK();
-  const dollyK = () => 1 - (1 - DOLLY) * sizeK();
+  // stand-off from the selected tile at unit radius; focusTile sets it per tile
+  const reach = { d: 0.24 };
+  const apexR = () => 1 + reach.d * sizeK();
+  const dollyK = () => 1 - reach.d * sizeK();
 
   const centers = new Float32Array(n * 3);
   const scales = new Float32Array(n).fill(1);
@@ -787,6 +791,18 @@ void main() {
     scene.add(m);
     return m;
   });
+  const thumbTexture = (img: HTMLImageElement, long: number) => {
+    const k = long / Math.max(img.naturalWidth, img.naturalHeight);
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(img.naturalWidth * k));
+    c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+    const tex = new Texture(c);
+    tex.colorSpace = SRGBColorSpace; // decoded then re-encoded: lands on the same bytes as the raw atlas tiles
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    tex.needsUpdate = true;
+    return tex;
+  };
   const loadNear = (i: number): Texture | null => {
     const path = points[i].thumb;
     if (!path) return null;
@@ -795,15 +811,7 @@ void main() {
     const img = new Image();
     img.onload = () => {
       if (disposed) return;
-      const k = NEAR_LONG / Math.max(img.naturalWidth, img.naturalHeight);
-      const c = document.createElement("canvas");
-      c.width = Math.max(1, Math.round(img.naturalWidth * k));
-      c.height = Math.max(1, Math.round(img.naturalHeight * k));
-      c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-      const tex = new Texture(c);
-      tex.colorSpace = SRGBColorSpace; // decoded then re-encoded: lands on the same bytes as the raw atlas tiles
-      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-      tex.needsUpdate = true;
+      const tex = thumbTexture(img, NEAR_LONG);
       nearCache.set(path, tex);
       if (nearCache.size > NEAR_CACHE) {
         for (const [k2, t2] of nearCache) {
@@ -811,6 +819,30 @@ void main() {
           if (t2 && !nearInUse.has(k2)) { t2.dispose(); nearCache.delete(k2); }
         }
       }
+    };
+    img.src = `/vault-media/${path}`;
+    return null;
+  };
+  // the tile being read is drawn several times the size of its neighbors: one sharper texture, one slot
+  let read: { path: string; tex: Texture | null } | null = null;
+  const loadRead = (i: number): Texture | null => {
+    const path = points[i].thumb;
+    if (!path) return null;
+    if (read?.path === path) return read.tex;
+    if (read?.tex) {
+      // a quad still holding the old texture would upload it again after the dispose
+      for (const m of nearPool) {
+        const mat = m.material as MeshBasicMaterial;
+        if (mat.map === read.tex) { mat.map = null; m.visible = false; }
+      }
+      read.tex.dispose();
+    }
+    const slot: { path: string; tex: Texture | null } = { path, tex: null };
+    read = slot;
+    const img = new Image();
+    img.onload = () => {
+      if (disposed || read !== slot) return;
+      slot.tex = thumbTexture(img, Math.min(READ_LONG, Math.max(img.naturalWidth, img.naturalHeight)));
     };
     img.src = `/vault-media/${path}`;
     return null;
@@ -848,7 +880,8 @@ void main() {
       nearInUse.clear();
       for (let k = 0; k < NEAR; k++) {
         const i = nearIdx[k];
-        const tex = nearScore[i] > -2 ? loadNear(i) : null;
+        const near = nearScore[i] > -2 ? loadNear(i) : null;
+        const tex = (near && i === focused ? loadRead(i) : null) ?? near;
         const mesh = nearPool[k];
         mesh.userData.i = i;
         if (tex) {
@@ -879,6 +912,10 @@ void main() {
       _nc.multiplyScalar(1 - f * 0.0015); // a hair toward the camera, in front of the atlas tile
       _m4.setPosition(_nc);
       mesh.matrix.copy(_m4);
+      // the tile being read draws last and untested, over a neighbor that overlaps it
+      const top = i === focused;
+      mesh.renderOrder = top ? 1 : 0;
+      (mesh.material as MeshBasicMaterial).depthTest = !top;
       // mirror the fragment shader's dimming chain
       let dim = 1;
       const th = u.uTheme.value as number;
@@ -1044,6 +1081,17 @@ void main() {
     gsap.to(dock, { px: 0, duration: DUR.reveal });
   }
 
+  // how far from tile i the camera stops, at unit radius, for the tile to fill the sky the reader leaves
+  const standoff = (i: number) => {
+    const sx = Math.sqrt(aspects[i]);
+    const side = TILE_HALF * 2 * homeScales[i] * (material.uniforms.uHoverScale.value as number);
+    const h = Math.max(1, canvas.clientHeight);
+    const px = (h * camera.projectionMatrix.elements[5]) / 2; // screen px per unit, one unit away
+    const w = Math.max(1, canvas.clientWidth - dockPx);
+    const d = Math.max((side * sx * px) / (READ_FILL_W * w), ((side / sx) * px) / (READ_FILL_H * h));
+    return Math.min(READ_MAX, Math.max(READ_MIN, d));
+  };
+
   // select a tile: the camera flies to it, its arcs and neighbors stay lit,
   // and the picture shifts to make room for the reading pane. Selecting
   // another tile while one is selected is a walk: step back, then approach.
@@ -1058,6 +1106,11 @@ void main() {
     showNeighbors(i);
     const { yaw, pitch } = anglesFor(i);
     controls.setTarget(yaw, pitch);
+    const d = standoff(i);
+    gsap.killTweensOf(reach);
+    // inside, a walk changes the stand-off under a camera parked on it, so it eases with the step back
+    if (walking && mode !== "globe" && !reducedMotion()) gsap.to(reach, { d, duration: DUR.reveal * 0.5 });
+    else reach.d = d;
     cb.onOpen(i, apexRect(i));
     gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel]);
     if (reducedMotion()) {
@@ -1445,6 +1498,7 @@ void main() {
       for (const m of nearPool) (m.material as MeshBasicMaterial).dispose();
       nearGeo.dispose();
       for (const t of nearCache.values()) t?.dispose();
+      read?.tex?.dispose();
       nearCache.clear();
       arcGeo.dispose();
       arcMat.dispose();
