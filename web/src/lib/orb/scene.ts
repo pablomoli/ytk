@@ -40,6 +40,7 @@ import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/
 import { buildAtlas, COLS, slotUv } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
+import { createRing, type RingData, type RingHandle, type RingItem } from "./ring";
 
 export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-set scale (~500 tiles)
 // Apex40 previz verdict (user-reviewed, Apex Manim render): DOLLY = 1 -
@@ -225,7 +226,12 @@ export type OrbHandle = {
 export function mountOrb(
   canvas: HTMLCanvasElement,
   data: OrbData,
-  cb: { onHover(i: number | null): void; onOpen(i: number, rect: DOMRect): void; onBlur(): void },
+  cb: {
+    onHover(i: number | null): void;
+    onOpen(i: number, rect: DOMRect): void;
+    onBlur(): void;
+    onRingHover?(item: RingItem | null): void;
+  },
 ): OrbHandle {
   const cap = COLS * COLS; // atlas has exactly this many slots; beyond it uvRect wraps
   const n = Math.min(data.points.length, cap);
@@ -780,7 +786,7 @@ void main() {
   };
   const onUp = (e: PointerEvent) => {
     const { tap } = controls.up();
-    if (tap && pointerNdc) {
+    if (tap && pointerNdc && ringHover === null) {
       const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales);
       if (hit !== null) { if (hit !== focused) focusTile(hit); }
       else if (focused >= 0) { doBlur(); cb.onBlur(); }
@@ -789,6 +795,7 @@ void main() {
   };
   const onLeave = () => {
     pointerNdc = null;
+    setRingHover(null);
     if (hovered === null) return;
     hovered = null;
     material.uniforms.uHovered.value = -1;
@@ -991,16 +998,12 @@ void main() {
   // theme labels. The lattice runs each theme along the Fibonacci spiral, so
   // a theme is a band of z around the spiral axis: a ring around the view when
   // you look along the axis, a vertical band from the side. Each band gets a
-  // faint boundary ring behind the shell and a serif label riding its
-  // camera-facing side, like the time lens, shown only on the themes lens.
+  // serif label riding its camera-facing side, shown only on the themes lens.
   type Band = { z: number; r: number; row: number; w: number; sprite: Sprite; mat: SpriteMaterial };
   const bands: Band[] = [];
   const labelGroup = new Group();
-  const bandRings = new Group();
   labelGroup.visible = false;
-  bandRings.visible = false;
-  scene.add(labelGroup, bandRings);
-  const bandMat = new LineBasicMaterial({ color: 0xb7b5aa, transparent: true, opacity: 0, depthWrite: false });
+  scene.add(labelGroup);
   let labelsOn = false;
   const buildThemeLabels = () => {
     if (bands.length) return;
@@ -1040,19 +1043,6 @@ void main() {
       // bands are ~10 deg wide along the axis and a label is ~3x that, so
       // labels take turns in three rows around the band, a ladder, never a pile
       bands.push({ z, r: Math.sqrt(Math.max(0, 1 - z * z)), row: (k % 3) - 1, w: w / 72, sprite, mat });
-      // boundary ring between this band and the next
-      if (k + 1 < order.length) {
-        const zb = (hi[th] + lo[order[k + 1]]) / 2;
-        const rb = Math.sqrt(Math.max(0, 1 - zb * zb));
-        const pts = new Float32Array(129 * 3);
-        for (let q = 0; q <= 128; q++) {
-          const a = (q / 128) * Math.PI * 2;
-          pts.set([rb * Math.cos(a), rb * Math.sin(a), zb], q * 3);
-        }
-        const geo = new BufferGeometry();
-        geo.setAttribute("position", new BufferAttribute(pts, 3));
-        bandRings.add(new LineLoop(geo, bandMat));
-      }
     });
   };
   const labelLevel = { v: 0 };
@@ -1060,7 +1050,6 @@ void main() {
   const updateThemeLabels = () => {
     if (!labelGroup.visible) return;
     const f = facing();
-    bandRings.scale.setScalar(1 + f * 0.035); // behind the shell, like the time rings
     if (mode === "globe") _lv.copy(camera.position).normalize(); else camera.getWorldDirection(_lv);
     // the label sits where the band faces the camera, a little past that point so it reads beside the tiles there
     const az0 = Math.atan2(_lv.y, _lv.x);
@@ -1082,21 +1071,41 @@ void main() {
   const showThemeLabels = (on: boolean) => {
     if (on === labelsOn) return;
     labelsOn = on;
-    gsap.killTweensOf([labelLevel, bandMat, tintLevel]);
+    gsap.killTweensOf([labelLevel, tintLevel]);
     if (on) {
       buildThemeLabels();
       labelGroup.visible = true;
-      bandRings.visible = true;
       tint.visible = veil.visible = true;
       gsap.to(labelLevel, { v: 0.92, duration: 0.9, delay: 0.5 });
-      gsap.to(bandMat, { opacity: 0.2, duration: 0.9, delay: 0.3 });
       gsap.to(tintLevel, { v: TINT_LEVEL, duration: 1.2, delay: 0.3 });
     } else {
-      gsap.to(bandMat, { opacity: 0, duration: 0.4 });
       gsap.to(tintLevel, { v: 0, duration: 0.4, onComplete: () => { tint.visible = veil.visible = false; } });
-      gsap.to(labelLevel, { v: 0, duration: 0.4, onComplete: () => { labelGroup.visible = false; bandRings.visible = false; } });
+      gsap.to(labelLevel, { v: 0, duration: 0.4, onComplete: () => { labelGroup.visible = false; } });
     }
   };
+
+  // the pending ring: absent when the hub has no ring route, so the orb works without it
+  let ring: RingHandle | null = null;
+  let ringItems: RingItem[] = [];
+  let ringHover: number | null = null;
+  const ringIn = { v: 0 };
+  const _rv = new Vector3();
+  const setRingHover = (k: number | null) => {
+    if (k === ringHover) return;
+    ringHover = k;
+    ring?.setHover(k);
+    cb.onRingHover?.(k === null ? null : ringItems[k]);
+  };
+  fetch("/api/orb-ring")
+    .then((r) => (r.ok ? (r.json() as Promise<RingData>) : null))
+    .then((d) => {
+      if (!d || disposed) return;
+      ring = createRing(d, "/api/orb-ring.jpg", renderer.capabilities.getMaxAnisotropy());
+      ringItems = d.items;
+      scene.add(ring.group);
+      gsap.to(ringIn, { v: 1, duration: reducedMotion() ? 0 : 1.4 });
+    })
+    .catch(() => {});
 
   let raf = 0;
   let last = performance.now();
@@ -1107,7 +1116,7 @@ void main() {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     arcMat.uniforms.uTime.value += dt;
-    const busy = controls.dragging || hovered !== null || focused >= 0;
+    const busy = controls.dragging || hovered !== null || focused >= 0 || ringHover !== null;
     idle = busy ? 0 : idle + dt;
     if (idle > IDLE_AFTER && !reducedMotion()) controls.nudge(DRIFT * dt * Math.min(1, (idle - IDLE_AFTER) / 2));
     const { yaw, pitch, zoom } = controls.step(dt);
@@ -1160,8 +1169,27 @@ void main() {
       veilMat.uniforms.uLevel.value = lv * (mode === "globe" ? VEIL_GLOBE : VEIL_INSIDE);
     }
     updateThemeLabels();
+    ring?.update(dt, {
+      level: ringIn.v * (1 - selFade.v),
+      size: sizeK(),
+      inside: mode !== "globe",
+      paused: ringHover !== null,
+      still: reducedMotion(),
+    });
     if (!controls.dragging && pointerNdc) {
-      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales);
+      let hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales);
+      const grain = ring?.pick(pointerNdc[0], pointerNdc[1], camera) ?? null;
+      let over: number | null = null;
+      if (grain) {
+        // a grain wins only when it is nearer than the tile under the pointer
+        if (hit === null) over = grain.k;
+        else {
+          _rv.set(centers[hit * 3], centers[hit * 3 + 1], centers[hit * 3 + 2]).applyMatrix4(camera.matrixWorldInverse);
+          if (grain.depth < -_rv.z) over = grain.k;
+        }
+        if (over !== null) hit = null;
+      }
+      setRingHover(over);
       if (hit !== hovered) {
         hovered = hit;
         material.uniforms.uHovered.value = hit ?? -1;
@@ -1229,6 +1257,7 @@ void main() {
       gsap.killTweensOf(orbitR);
       gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel, labelLevel]);
       glowTex.dispose();
+      ring?.dispose();
       gsap.killTweensOf(tintLevel);
       tintGeo.dispose();
       tintMat.dispose();

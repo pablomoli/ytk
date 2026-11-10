@@ -7,6 +7,7 @@ import type { SimilarItem } from "../api/fresh";
 import { OrbReader, READER_WIDTH } from "../components/OrbReader";
 import { ErrorState } from "../components/StateViews";
 import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
+import type { RingItem } from "../lib/orb/ring";
 import { mountOrb, RADIUS_MAX, RADIUS_MIN } from "../lib/orb/scene";
 import { useChromeVisible } from "../lib/chrome";
 import { validateOrbSearch } from "../lib/orbSearch";
@@ -87,6 +88,7 @@ function OrbPage() {
     handleRef.current?.setRadius(x < 0 ? Math.pow(RADIUS_MIN, -x) : Math.pow(RADIUS_MAX, x));
   };
   const [hovered, setHovered] = useState<number | null>(null);
+  const [grain, setGrain] = useState<RingItem | null>(null); // the pending item under the pointer
   // the neighbors panel anchors on the last hovered tile and stays put, so the
   // pointer can leave the sphere to read or click the list
   const [anchor, setAnchor] = useState<number | null>(null);
@@ -126,6 +128,7 @@ function OrbPage() {
       },
       onOpen: (i) => { setSelected(i); setReader(i); setAnchor(i); },
       onBlur: () => setSelected(null),
+      onRingHover: setGrain,
     });
     handleRef.current = handle;
     handle.setDock(READER_WIDTH);
@@ -317,6 +320,29 @@ function OrbPage() {
           {data.points[hovered].d ? (
             <span className="ml-2 opacity-60">{data.points[hovered].d}</span>
           ) : null}
+        </div>
+      ) : null}
+      {data && grain ? (
+        <div
+          data-ring-caption
+          className="pointer-events-none absolute bottom-4 left-1/2 flex w-[26rem] -translate-x-1/2 items-center gap-3 rounded-lg border border-white/10 bg-black/70 px-3 py-2.5 shadow-2xl backdrop-blur-md"
+        >
+          {/* only cached covers: asking for an uncached one makes the hub download it */}
+          {grain.k >= 0 ? (
+            <span className="flex h-14 w-14 flex-none items-center justify-center">
+              <img src={`/api/cover?u=${encodeURIComponent(grain.u)}`} alt="" className="max-h-14 max-w-14 rounded-[3px] object-contain" />
+            </span>
+          ) : null}
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] uppercase tracking-[0.18em] text-[var(--ink2)]">
+              pending
+              {grain.q ? <span className="ml-2 text-[var(--accent)]">open question</span> : null}
+            </span>
+            <span className="mt-0.5 line-clamp-2 text-[13px] leading-[1.25] text-[var(--ink)]">{grain.t || grain.u}</span>
+            <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink2)]">
+              {[grain.a, grain.s, grain.d].filter(Boolean).join(" · ")}
+            </span>
+          </span>
         </div>
       ) : null}
       {data && reader !== null ? (
