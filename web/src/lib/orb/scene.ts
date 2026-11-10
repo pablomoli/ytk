@@ -59,6 +59,15 @@ export const restGlobeR = (z: number) => GLOBE_R_CLOSE + z * (GLOBE_R_FAR - GLOB
 // near plane 0.01 -> at zoom=1 (offset=MAX_FWD) distance to the tile plane is
 // 1 - 0.72 = 0.28, comfortably above the 0.2 invariant and the near plane.
 export const MAX_FWD = 0.72;
+// sphere radius range; below 0.45 the far globe orbit leaves the far plane
+export const RADIUS_MIN = 0.45;
+export const RADIUS_MAX = 2.5;
+// theme tint: blob width in tile widths, and the alpha of one blob; ~8 overlap at lattice spacing
+const TINT_SPAN = 3.4;
+const TINT_LEVEL = 0.25;
+// the veil over the tiles, as a share of the field: more from the globe, where tiles leave few gaps
+const VEIL_GLOBE = 0.22;
+const VEIL_INSIDE = 0.0;
 // pure so it's unit-testable without a camera/canvas: offset for the inside
 // dolly at a given wheel-zoom value.
 export function wheelDollyOffset(zoom: number): number {
@@ -87,6 +96,7 @@ in float iIdx;
 in float iTheme; // per-instance theme id
 uniform mat4 modelViewMatrix, projectionMatrix;
 uniform float uHovered, uHoverScale, uFocused;
+uniform float uSize; // tile size against the unit sphere: falls as the sphere radius grows
 uniform float uFacing; // 1 inside (tiles face the origin), -1 globe (tiles face outward)
 uniform float uNeigh[8];
 uniform float uNeighScale; // 1 at rest; the hovered tile's neighbors swell to it
@@ -102,7 +112,7 @@ void main() {
   float s = (abs(iIdx - uHovered) < 0.5 || abs(iIdx - uFocused) < 0.5) ? uHoverScale : 1.0;
   for (int k = 0; k < 8; k++) if (abs(iIdx - uNeigh[k]) < 0.5) s *= uNeighScale;
   float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iIdx / uCount) / 0.35);
-  s *= born * iScale;
+  s *= born * iScale * uSize;
   float sx = sqrt(iAspect);
   vec3 world = iPos + (e1 * position.x * sx + e2 * position.y / sx) * s;
   vUv = vec2(iUv.x + uv.x * iUv.z, iUv.y + uv.y * iUv.w);
@@ -136,6 +146,59 @@ void main() {
   outColor = vec4(c * dim, 1.0);
 }`;
 
+// theme tint: one soft blob per tagged tile, pushed behind the shell
+const TINT_VERT = /* glsl */ `
+precision highp float;
+in vec3 position;
+in vec2 uv;
+in vec3 iPos;
+in vec3 iTint;
+in float iScale;
+in float iIdx;
+in float iTheme;
+uniform mat4 modelViewMatrix, projectionMatrix;
+uniform float uFacing, uSpan, uBirth, uCount, uSize;
+uniform float uLift; // radial offset: positive is behind the shell, negative in front
+uniform float uTime;
+out vec2 vP;
+out float vBreath;
+out vec3 vTint;
+out float vTheme;
+void main() {
+  vec3 n = normalize(-iPos) * uFacing;
+  vec3 ref = abs(n.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+  vec3 e1 = normalize(cross(ref, n));
+  vec3 e2 = cross(n, e1);
+  float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iIdx / uCount) / 0.35);
+  vec3 world = iPos * (1.0 + uFacing * uLift) + (e1 * position.x + e2 * position.y) * uSpan * iScale * uSize * born;
+  vP = uv * 2.0 - 1.0;
+  vTint = iTint;
+  vTheme = iTheme;
+  // two slow waves keyed to position: nearby blobs breathe together, so light drifts across a theme like mist
+  vBreath = 0.56 + 0.3 * sin(uTime * 0.31 + dot(iPos, vec3(5.1, 3.7, 4.3))) + 0.14 * sin(uTime * 0.19 + dot(iPos, vec3(-3.3, 6.1, 2.2)));
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
+}`;
+
+const TINT_FRAG = /* glsl */ `
+precision highp float;
+uniform float uLevel, uTheme;
+in vec2 vP;
+in vec3 vTint;
+in float vTheme;
+in float vBreath;
+out vec4 outColor;
+void main() {
+  if (vTheme < 0.0) discard;
+  // gaussian that reaches exactly zero at the quad edge, so no square shows
+  float r2 = dot(vP, vP);
+  float a = exp(-r2 * 2.2) - 0.1108;
+  if (a <= 0.0) discard;
+  // a tight core hugs the tile; the wide tail is only a whisper, so the sky between stays black
+  a = a * 0.15 + exp(-r2 * 10.0);
+  if (uTheme >= 0.0 && abs(vTheme - uTheme) >= 0.5) a *= 0.12;
+  outColor = vec4(vTint, a * uLevel * vBreath);
+}`;
+
 export type OrbViewMode = "inside" | "globe";
 
 // pure so it's unit-testable: the coast sphere shows only once the bake has
@@ -155,6 +218,7 @@ export type OrbHandle = {
   focus(i: number): void;
   blur(): void;
   setDock(px: number): void;
+  setRadius(r: number): void;
   dispose(): void;
 };
 
@@ -171,8 +235,17 @@ export function mountOrb(
   const points = data.points.slice(0, n);
   const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  const camera = new PerspectiveCamera(60, canvas.clientWidth / Math.max(1, canvas.clientHeight), 0.01, 10);
+  const camera = new PerspectiveCamera(60, canvas.clientWidth / Math.max(1, canvas.clientHeight), 0.01, 16);
   const scene = new Scene();
+  // the scene stays a unit sphere: a radius R is drawn by shrinking tiles and camera distances instead
+  const radius = { v: 1, target: 1 };
+  // tiles give back a little of the shrink, so an exploded sphere is not a field of specks
+  const sizeK = () => Math.pow(radius.v, -0.75);
+  const half = () => TILE_HALF * sizeK();
+  // the camera backs off slower than the sphere grows, so it swells in frame, and never ends up inside it
+  const globeR = (z: number) => Math.max(restGlobeR(z) * Math.pow(Math.max(1, radius.v), 0.6), radius.v + 0.3) / radius.v;
+  const apexR = () => 1 + (GLOBE_APEX - 1) * sizeK();
+  const dollyK = () => 1 - (1 - DOLLY) * sizeK();
 
   const centers = new Float32Array(n * 3);
   const scales = new Float32Array(n).fill(1);
@@ -376,7 +449,7 @@ export function mountOrb(
     side: DoubleSide,
     uniforms: {
       uAtlas: { value: atlas.texture },
-      uHovered: { value: -1 }, uHoverScale: { value: 1.06 },
+      uHovered: { value: -1 }, uHoverScale: { value: 1.06 }, uSize: { value: 1 },
       uFocused: { value: -1 }, uDim: { value: 1 },
       uTheme: { value: -1 }, uThemeDim: { value: DIM_FILTER },
       uFacing: { value: 1 },
@@ -646,8 +719,8 @@ void main() {
       const born = bornT <= 0 ? 0 : bornT >= 1 ? 1 : bornT * bornT * (3 - 2 * bornT);
       sc *= born;
       const sx = Math.sqrt(aspects[i]);
-      _ne1.multiplyScalar(TILE_HALF * 2 * sx * sc);
-      _ne2.multiplyScalar(((TILE_HALF * 2) / sx) * sc);
+      _ne1.multiplyScalar(half() * 2 * sx * sc);
+      _ne2.multiplyScalar(((half() * 2) / sx) * sc);
       _m4.makeBasis(_ne1, _ne2, _nn);
       _nc.multiplyScalar(1 - f * 0.0015); // a hair toward the camera, in front of the atlas tile
       _m4.setPosition(_nc);
@@ -708,7 +781,7 @@ void main() {
   const onUp = (e: PointerEvent) => {
     const { tap } = controls.up();
     if (tap && pointerNdc) {
-      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects, scales);
+      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales);
       if (hit !== null) { if (hit !== focused) focusTile(hit); }
       else if (focused >= 0) { doBlur(); cb.onBlur(); }
     }
@@ -732,7 +805,7 @@ void main() {
 
   const apexRect = (i: number) => {
     dir.set(centers[i * 3], centers[i * 3 + 1], centers[i * 3 + 2]);
-    return tileScreenRect(camera, dir.clone(), TILE_HALF, canvas.clientWidth, canvas.clientHeight, facing());
+    return tileScreenRect(camera, dir.clone(), half(), canvas.clientWidth, canvas.clientHeight, facing());
   };
 
   // selection glow: a brass radial falloff drawn additively just behind the
@@ -779,7 +852,7 @@ void main() {
     const sc = scales[i] * (u.uHoverScale.value as number);
     const sx = Math.sqrt(aspects[i]);
     // square halo sized to the tile's longer side so a portrait reel gets the same margin as a landscape thumb
-    const side = TILE_HALF * 2 * sc * Math.max(sx, 1 / sx) * GLOW_SPAN;
+    const side = half() * 2 * sc * Math.max(sx, 1 / sx) * GLOW_SPAN;
     _ne1.multiplyScalar(side);
     _ne2.multiplyScalar(side);
     _m4.makeBasis(_ne1, _ne2, _nn);
@@ -799,7 +872,7 @@ void main() {
     const done = () => { focused = -1; material.uniforms.uFocused.value = -1; };
     gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel]);
     if (reducedMotion()) {
-      if (mode === "globe") orbitR.r = restGlobeR(liveZoom); else focusDolly.dolly = 0;
+      if (mode === "globe") orbitR.r = globeR(liveZoom); else focusDolly.dolly = 0;
       dock.px = 0;
       glowLevel.v = 0;
       selFade.v = 0;
@@ -810,7 +883,7 @@ void main() {
     gsap.to(selFade, { v: 0, duration: DUR.reveal, delay: DUR.morph });
     // blur resumes at the live wheel-zoom radius, not a frozen constant, since
     // the user may have scrolled while selected
-    if (mode === "globe") gsap.to(orbitR, { r: restGlobeR(liveZoom), duration: DUR.reveal, onComplete: done });
+    if (mode === "globe") gsap.to(orbitR, { r: globeR(liveZoom), duration: DUR.reveal, onComplete: done });
     else gsap.to(focusDolly, { dolly: 0, duration: DUR.reveal, onComplete: done });
     gsap.to(dock, { px: 0, duration: DUR.reveal });
   }
@@ -829,7 +902,7 @@ void main() {
     cb.onOpen(i, apexRect(i));
     gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel]);
     if (reducedMotion()) {
-      if (mode === "globe") orbitR.r = GLOBE_APEX; else focusDolly.dolly = 1;
+      if (mode === "globe") orbitR.r = apexR(); else focusDolly.dolly = 1;
       dock.px = dockPx;
       glowLevel.v = 0.8;
       selFade.v = 1;
@@ -840,9 +913,9 @@ void main() {
     gsap.to(dock, { px: dockPx, duration: DUR.reveal });
     gsap.to(selFade, { v: 1, duration: DUR.morph });
     if (mode === "globe") {
-      if (!walking) orbitR.r = restGlobeR(liveZoom); // seed at the live wheel-zoom radius, not a stale one
-      else gsap.to(orbitR, { r: GLOBE_APEX + 0.5, duration: DUR.reveal * 0.5, ease: "power2.out" });
-      gsap.to(orbitR, { r: GLOBE_APEX, duration: walking ? DUR.reveal * 0.7 : DUR.reveal, delay: walking ? DUR.reveal * 0.5 : 0 });
+      if (!walking) orbitR.r = globeR(liveZoom); // seed at the live wheel-zoom radius, not a stale one
+      else gsap.to(orbitR, { r: apexR() + 0.5, duration: DUR.reveal * 0.5, ease: "power2.out" });
+      gsap.to(orbitR, { r: apexR(), duration: walking ? DUR.reveal * 0.7 : DUR.reveal, delay: walking ? DUR.reveal * 0.5 : 0 });
     } else if (walking) {
       // a straight swap would snap the camera between two points inside the
       // sphere; stepping back to the center first reads as one movement
@@ -852,6 +925,68 @@ void main() {
       gsap.to(focusDolly, { dolly: 1, duration: DUR.reveal });
     }
   }
+
+  // theme tint: the blobs of one theme sum into a soft field that spans its
+  // members and rides the same instance buffers, so it follows every lens morph
+  const tintColors = new Float32Array(n * 3);
+  {
+    const nT = data.themes.length;
+    const lat = data.sphere.lattice;
+    const first = new Array<number>(nT).fill(2);
+    if (lat) for (let i = 0; i < n; i++) {
+      const th = points[i].th;
+      if (th >= 0 && th < nT) first[th] = Math.min(first[th], lat[i][2]);
+    }
+    const rank = new Array<number>(nT);
+    first.map((_, th) => th).sort((a, b) => first[a] - first[b]).forEach((th, k) => { rank[th] = k; });
+    const hsl = (h: number, sat: number, l: number) => {
+      const a = sat * Math.min(l, 1 - l);
+      const ch = (k: number) => { const q = (k + h / 30) % 12; return l - a * Math.max(-1, Math.min(q - 3, 9 - q, 1)); };
+      return [ch(0), ch(8), ch(4)];
+    };
+    for (let i = 0; i < n; i++) {
+      const th = points[i].th;
+      if (th < 0 || th >= nT) continue;
+      // magenta through brass to teal, never blue; golden-ratio steps keep bands next to each other ~95 degrees apart
+      const hue = (290 + ((rank[th] * 0.618034) % 1) * 245) % 360;
+      tintColors.set(hsl(hue, 0.5, 0.56), i * 3);
+    }
+  }
+  const tintGeo = new InstancedBufferGeometry();
+  tintGeo.index = plane.index;
+  tintGeo.setAttribute("position", plane.getAttribute("position"));
+  tintGeo.setAttribute("uv", plane.getAttribute("uv"));
+  for (const name of ["iPos", "iScale", "iIdx", "iTheme"]) tintGeo.setAttribute(name, geo.getAttribute(name));
+  tintGeo.setAttribute("iTint", new InstancedBufferAttribute(tintColors, 3));
+  tintGeo.instanceCount = n;
+  const tintTime = { value: 0 };
+  const tintLayer = (lift: number, order: number) => {
+    const mat = new RawShaderMaterial({
+      glslVersion: GLSL3,
+      vertexShader: TINT_VERT,
+      fragmentShader: TINT_FRAG,
+      side: DoubleSide,
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      uniforms: {
+        uFacing: material.uniforms.uFacing, uBirth: material.uniforms.uBirth, uTheme: material.uniforms.uTheme, uSize: material.uniforms.uSize,
+        uCount: { value: n }, uSpan: { value: TINT_SPAN }, uLevel: { value: 0 }, uLift: { value: lift }, uTime: tintTime,
+      },
+    });
+    const m = new Mesh(tintGeo, mat);
+    m.frustumCulled = false; // same reason as the tile mesh
+    m.renderOrder = order;
+    m.visible = false;
+    scene.add(m);
+    return m;
+  };
+  // the field behind the shell fills the gaps; a fainter veil in front lays the
+  // same hue over the tiles, so a theme reads from the globe where gaps are few
+  const tint = tintLayer(0.05, -1);
+  const veil = tintLayer(-0.03, 4);
+  const tintMat = tint.material as RawShaderMaterial, veilMat = veil.material as RawShaderMaterial;
+  const tintLevel = { v: 0 };
 
   // theme labels. The lattice runs each theme along the Fibonacci spiral, so
   // a theme is a band of z around the spiral axis: a ring around the view when
@@ -947,15 +1082,18 @@ void main() {
   const showThemeLabels = (on: boolean) => {
     if (on === labelsOn) return;
     labelsOn = on;
-    gsap.killTweensOf([labelLevel, bandMat]);
+    gsap.killTweensOf([labelLevel, bandMat, tintLevel]);
     if (on) {
       buildThemeLabels();
       labelGroup.visible = true;
       bandRings.visible = true;
+      tint.visible = veil.visible = true;
       gsap.to(labelLevel, { v: 0.92, duration: 0.9, delay: 0.5 });
       gsap.to(bandMat, { opacity: 0.2, duration: 0.9, delay: 0.3 });
+      gsap.to(tintLevel, { v: TINT_LEVEL, duration: 1.2, delay: 0.3 });
     } else {
       gsap.to(bandMat, { opacity: 0, duration: 0.4 });
+      gsap.to(tintLevel, { v: 0, duration: 0.4, onComplete: () => { tint.visible = veil.visible = false; } });
       gsap.to(labelLevel, { v: 0, duration: 0.4, onComplete: () => { labelGroup.visible = false; bandRings.visible = false; } });
     }
   };
@@ -974,6 +1112,8 @@ void main() {
     if (idle > IDLE_AFTER && !reducedMotion()) controls.nudge(DRIFT * dt * Math.min(1, (idle - IDLE_AFTER) / 2));
     const { yaw, pitch, zoom } = controls.step(dt);
     liveZoom = zoom;
+    radius.v = reducedMotion() ? radius.target : radius.v + (radius.target - radius.v) * (1 - Math.exp(-dt * 9));
+    material.uniforms.uSize.value = sizeK();
     if (mode === "globe") {
       // orbit-from-outside: camera circles the sphere at radius orbitR.r while
       // focused, otherwise at the live wheel-zoom radius; always looking at
@@ -981,7 +1121,7 @@ void main() {
       // semantics, set empirically 2026-08-01.
       const gyaw = -yaw, gpitch = -pitch;
       const cosP = Math.cos(gpitch);
-      const r = focused >= 0 ? orbitR.r : restGlobeR(zoom);
+      const r = focused >= 0 ? orbitR.r : globeR(zoom);
       camera.position.set(Math.sin(gyaw) * cosP * r, -Math.sin(gpitch) * r, Math.cos(gyaw) * cosP * r);
       camera.lookAt(0, 0, 0);
     } else {
@@ -989,7 +1129,7 @@ void main() {
       camera.position.set(0, 0, 0);
       if (focused >= 0 && focusDolly.dolly > 0) {
         dir.set(centers[focused * 3], centers[focused * 3 + 1], centers[focused * 3 + 2]);
-        camera.position.addScaledVector(dir, focusDolly.dolly * DOLLY);
+        camera.position.addScaledVector(dir, focusDolly.dolly * dollyK());
       }
       camera.rotation.set(0, 0, 0);
       camera.rotateY(-yaw);
@@ -1012,9 +1152,16 @@ void main() {
     updateNear();
     updateRings();
     placeGlow(dt);
+    // the tint steps back with the crowd when a hover dims it, and while reading
+    if (tint.visible) {
+      if (!reducedMotion()) tintTime.value += dt;
+      const lv = tintLevel.v * (0.35 + 0.65 * (material.uniforms.uNeighDim.value as number)) * (1 - 0.4 * selFade.v);
+      tintMat.uniforms.uLevel.value = lv;
+      veilMat.uniforms.uLevel.value = lv * (mode === "globe" ? VEIL_GLOBE : VEIL_INSIDE);
+    }
     updateThemeLabels();
     if (!controls.dragging && pointerNdc) {
-      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, TILE_HALF, facing(), aspects, scales);
+      const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales);
       if (hit !== hovered) {
         hovered = hit;
         material.uniforms.uHovered.value = hit ?? -1;
@@ -1064,6 +1211,7 @@ void main() {
     },
     focus: focusTile,
     blur: doBlur,
+    setRadius(r) { radius.target = Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, r)); },
     setDock(px) { dockPx = px; if (focused >= 0) gsap.to(dock, { px, duration: DUR.morph }); },
     dispose() {
       disposed = true;
@@ -1081,6 +1229,10 @@ void main() {
       gsap.killTweensOf(orbitR);
       gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel, labelLevel]);
       glowTex.dispose();
+      gsap.killTweensOf(tintLevel);
+      tintGeo.dispose();
+      tintMat.dispose();
+      veilMat.dispose();
       for (const b of bands) { b.mat.map?.dispose(); b.mat.dispose(); }
       gsap.killTweensOf([material.uniforms.uNeighDim, material.uniforms.uNeighScale, material.uniforms.uBirth]);
       gsap.killTweensOf([arcMat.uniforms.uOpacity, arcMat.uniforms.uProgress]);

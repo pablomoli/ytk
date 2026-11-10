@@ -7,7 +7,7 @@ import type { SimilarItem } from "../api/fresh";
 import { OrbReader, READER_WIDTH } from "../components/OrbReader";
 import { ErrorState } from "../components/StateViews";
 import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
-import { mountOrb } from "../lib/orb/scene";
+import { mountOrb, RADIUS_MAX, RADIUS_MIN } from "../lib/orb/scene";
 import { useChromeVisible } from "../lib/chrome";
 import { validateOrbSearch } from "../lib/orbSearch";
 import "../styles.css";
@@ -80,6 +80,12 @@ function OrbPage() {
   const [viewMode, setViewMode] = useState<OrbViewMode>("inside");
   const [theme, setTheme] = useState<number | null>(null);
   const [terrain, setTerrain] = useState(false);
+  // slider position: 0 is the unit sphere, the ends are the radius limits, log-spaced
+  const [spread, setSpread] = useState(0);
+  const applySpread = (x: number) => {
+    setSpread(x);
+    handleRef.current?.setRadius(x < 0 ? Math.pow(RADIUS_MIN, -x) : Math.pow(RADIUS_MAX, x));
+  };
   const [hovered, setHovered] = useState<number | null>(null);
   // the neighbors panel anchors on the last hovered tile and stays put, so the
   // pointer can leave the sphere to read or click the list
@@ -128,6 +134,7 @@ function OrbPage() {
     setLayout("lattice");
     setViewMode("inside"); // matches the freshly mounted handle's initial mode
     setTerrain(false); // ... and its initial terrain flag
+    setSpread(0); // ... and its unit radius
     // ?theme= deep-link from /galaxy's "land" button: apply to the freshly
     // mounted handle, not just state, so a fresh navigation lands filtered
     if (searchTheme !== undefined) {
@@ -221,6 +228,20 @@ function OrbPage() {
               terrain
             </button>
           </div>
+          <label className="flex items-center gap-2 text-[11px] text-[var(--ink2)]" title="double-click to reset">
+            <span>contract</span>
+            <input
+              type="range"
+              min={-1}
+              max={1}
+              step={0.005}
+              value={spread}
+              className="h-1 min-w-0 flex-1 cursor-pointer accent-[var(--ink2)]"
+              onChange={(e) => applySpread(Number(e.target.value))}
+              onDoubleClick={() => applySpread(0)}
+            />
+            <span>explode</span>
+          </label>
           <select
             className="rounded bg-white/5 px-2 py-1"
             value={theme ?? ""}
