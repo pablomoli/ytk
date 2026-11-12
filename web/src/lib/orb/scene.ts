@@ -40,7 +40,7 @@ import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/
 import { buildAtlas, COLS, slotUv } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
-import { ORBIT_OUT, createRing, type RingData, type RingHandle, type RingItem } from "./ring";
+import { ORBIT_OUT, createRing, ringPhase, type RingData, type RingHandle, type RingItem } from "./ring";
 import { DISPLAY } from "./face";
 
 export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-set scale (~500 tiles)
@@ -233,11 +233,13 @@ export function mountOrb(
   const sizeK = () => Math.pow(radius.v, -0.75);
   const half = () => TILE_HALF * sizeK();
   // the camera backs off slower than the sphere grows, so it swells in frame, and never ends up inside it
-  // the slider's explode half, read off the eased radius: 0 at rest and below, 1 at the limit
-  const atomOpen = () => {
-    const a = Math.min(1, Math.max(0, Math.log(radius.v / baseR) / Math.log(RADIUS_MAX)));
-    return a * a * (3 - 2 * a);
+  // where the eased radius sits on the slider: -1 full contract, 0 rest, 1 full explode
+  const scaleAt = () => {
+    const l = Math.log(radius.v / baseR);
+    return Math.max(-1, Math.min(1, l < 0 ? -l / Math.log(RADIUS_MIN) : l / Math.log(RADIUS_MAX)));
   };
+  // how far the pending ring has left its plane to circle the sphere: 0 at rest and when contracting
+  const atomOpen = () => Math.min(1, Math.max(0, ringPhase(scaleAt())));
   // the camera distance that holds the outermost orbit in the frame's height, at the resting wheel zoom
   const atomFit = (ORBIT_OUT * ATOM_MARGIN) / Math.sin((camera.fov * Math.PI) / 360);
   const globeR = (z: number) => {
@@ -1284,7 +1286,7 @@ void main() {
       inside: mode !== "globe",
       paused: ringHover !== null,
       still: reducedMotion(),
-      open: atomOpen(),
+      phase: ringPhase(scaleAt()),
     });
     if (!controls.dragging && pointerNdc) {
       let hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales, sheet);

@@ -35,6 +35,13 @@ const sw = (on: boolean) => `${word(on)} border-b pb-px ${on ? "!border-accent" 
 const SMALL = "text-[13px]";
 
 const TICKS = 41, MID = (TICKS - 1) / 2;
+// the shapes the pending items take along the scale, each named where it holds
+const STOPS = [
+  { at: -1, label: "dust", title: "the sphere drawn in, the pending items adrift around it" },
+  { at: 0, label: "ring", title: "the sphere at rest, the pending items in a ring" },
+  { at: 0.5, label: "atom", title: "the ring parted into three orbits" },
+  { at: 1, label: "coil", title: "the queue wound into one thread around the sphere, newest at the top" },
+];
 
 /* The sphere's size as a ruled scale: rest at the center mark, contract to the
    left, explode to the right. Hand-built because a native range is drawn
@@ -54,7 +61,7 @@ function Scale({ value, onChange }: { value: number; onChange: (x: number) => vo
       aria-valuemax={1}
       aria-valuenow={Number(value.toFixed(2))}
       title="drag to contract or explode the sphere; double-click to reset"
-      className="relative flex h-[18px] min-w-0 flex-1 cursor-ew-resize touch-none items-end justify-between"
+      className="relative flex h-[18px] w-full cursor-ew-resize touch-none items-end justify-between"
       onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); set(e); }}
       onPointerMove={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) set(e); }}
       onDoubleClick={() => onChange(0)}
@@ -95,6 +102,7 @@ export function OrbControls(p: Props) {
   }, [p.layout, p.settled]);
   const byCount = p.themes.map((t, th) => ({ ...t, th })).sort((a, b) => b.count - a.count);
   const pick = (th: number | null) => { p.onTheme(th); setPicking(false); };
+  const stop = STOPS.reduce((b, s) => (Math.abs(s.at - p.spread) < Math.abs(b.at - p.spread) ? s : b));
   const item = (on: boolean) =>
     `${WORD} flex w-full items-baseline gap-3 rounded-[3px] px-2 py-[5px] text-left hover:bg-white/[0.06] ${on ? "text-ink" : "text-ink2 hover:text-ink"}`;
   return (
@@ -148,10 +156,23 @@ export function OrbControls(p: Props) {
           library <span className="text-[0.82em] tabular-nums text-accent">{p.count}</span>
         </button>
       </div>
-      <div className={`${SMALL} mt-3.5 flex items-end gap-3 italic leading-none text-ink2/70`}>
-        <span>contract</span>
+      <div className={`${SMALL} mt-3.5 italic leading-none`}>
         <Scale value={p.spread} onChange={p.onSpread} />
-        <span>explode</span>
+        <div className="relative mt-1.5 h-[1.1em]">
+          {STOPS.map((s) => (
+            <button
+              key={s.label}
+              type="button"
+              data-orb-stop={s.label}
+              title={s.title}
+              className={`${word(s === stop)} absolute top-0 ${s.at === -1 ? "" : s.at === 1 ? "-translate-x-full" : "-translate-x-1/2"}`}
+              style={{ left: `${(s.at + 1) * 50}%` }}
+              onClick={() => p.onSpread(s.at)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
       <Popover open={picking} onOpenChange={setPicking}>
         <PopoverTrigger asChild>
