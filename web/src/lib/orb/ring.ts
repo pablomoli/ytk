@@ -14,8 +14,10 @@ import {
 } from "three";
 
 /* The pending ring: every item still in the queue is one grain in a flat ring
-   around the sphere, newest at the inner edge, a gap at each month. Read-only:
-   grains can be hovered, nothing here ingests or drops. */
+   around the sphere, newest at the inner edge, a gap at each month. As the
+   sphere explodes the ring parts into bands of radius and each swings into a
+   plane of its own, orbits around a nucleus. Read-only: grains can be hovered,
+   nothing here ingests or drops. */
 
 export type RingItem = {
   u: string; // url
@@ -43,12 +45,22 @@ const THICK_INSIDE = 0.07, THICK_GLOBE = 0.034;
 // seen from outside most grains hug the ring plane and a few stray off it, so the lanes and the month gaps survive
 const LOFT = 2.6;
 const FAR_INSIDE = 0.5; // behind the tiles the belt is backdrop, not content
+// exploded, the ring parts into this many bands of radius, each swung about its own line through the center.
+// Three, a third of a turn apart: from above, three ellipses crossed at 60 degrees.
+export const SHELLS = 3;
+const TILT = 1.15; // ~66 degrees: steep enough that the orbits cross over the globe
+const SPIN = 5; // exploded, grains run their orbits this many times faster on top of the ring's drift
+// swung out, a band draws in to a ribbon near one radius: a wide band tilted reads as haze, not an orbit
+const ORBIT_IN = 1.3;
+export const ORBIT_OUT = 1.5;
+const SQUEEZE = 0.35; // share of a band's width its ribbon keeps
 
 const hash = (x: number) => { const v = Math.sin(x * 12.9898) * 43758.5453; return v - Math.floor(v); };
 
-// pure so it's unit-testable: r, theta per item, in input order (newest first).
+// pure so it's unit-testable: r, theta, shell per item, in input order (newest first).
 // Equal area per item, so a busy month is a wide band. Grains snap to concentric
 // lanes: evenly scattered they read as sunflower spirals, in lanes as a ring.
+// A shell is a run of whole lanes, so no lane is split between two orbits.
 export function ringLayout(days: string[]): Float32Array {
   const n = days.length;
   const slot = new Float32Array(n);
@@ -71,13 +83,15 @@ export function ringLayout(days: string[]): Float32Array {
     count[lane[k]] = (count[lane[k]] ?? 0) + 1;
   }
   const seen: number[] = [];
-  const out = new Float32Array(n * 2);
+  const lanes = Math.max(1, count.length);
+  const out = new Float32Array(n * 3);
   for (let k = 0; k < n; k++) {
     const l = lane[k];
     const j = (seen[l] = (seen[l] ?? -1) + 1);
     // a little disorder inside the lane, never enough to cross into the next
-    out[k * 2] = RING_IN + (l + 0.5 + (hash(k + 0.5) - 0.5) * 0.45) * pitch;
-    out[k * 2 + 1] = l * GOLDEN + ((j + (hash(k + 7.3) - 0.5) * 0.5) / count[l]) * Math.PI * 2;
+    out[k * 3] = RING_IN + (l + 0.5 + (hash(k + 0.5) - 0.5) * 0.45) * pitch;
+    out[k * 3 + 1] = l * GOLDEN + ((j + (hash(k + 7.3) - 0.5) * 0.5) / count[l]) * Math.PI * 2;
+    out[k * 3 + 2] = Math.min(SHELLS - 1, Math.floor((l / lanes) * SHELLS));
   }
   return out;
 }
@@ -89,6 +103,9 @@ in vec2 uv;
 in vec4 iGrain; // r, theta at rest, height in the belt (-1..1), atlas slot (-1 = no cover)
 in float iIdx;
 in float iFlag; // 1 = open question
+in vec2 iOrbit; // azimuth, in the ring plane, of the line this grain's shell swings about; its radius once swung
+uniform float uOpen; // 0 = one flat ring, 1 = the shells fully swung into their own orbits
+uniform float uTilt; // the swing at full open, radians
 uniform mat4 modelViewMatrix, projectionMatrix;
 uniform float uTime, uOmega, uInner;
 uniform float uGrain, uSize, uNoCover, uHover, uHoverScale;
@@ -98,13 +115,19 @@ uniform float uLoft;  // 1 = heights spread evenly through the belt, higher = mo
 uniform float uCols, uCell;
 out vec2 vUv;
 out float vHas, vHov, vFlag, vNear, vSeed;
+vec3 swing(vec3 v, vec3 k, float c, float s) { return v * c + cross(k, v) * s + k * dot(k, v) * (1.0 - c); }
 void main() {
-  float r = iGrain.x;
+  float r = mix(iGrain.x, iOrbit.y, uOpen);
   // inner grains lap outer ones, as in a real ring
-  float a = iGrain.y + uTime * uOmega * pow(uInner / r, 1.5);
+  float a = iGrain.y + uTime * uOmega * pow(uInner / iGrain.x, 1.5);
   vec3 radial = vec3(cos(a), 0.0, sin(a));
   vec3 tang = vec3(-radial.z, 0.0, radial.x);
   vec3 c = radial * r + vec3(0.0, sign(iGrain.z) * pow(abs(iGrain.z), uLoft) * uThick, 0.0);
+  vec3 axis = vec3(cos(iOrbit.x), 0.0, sin(iOrbit.x));
+  float ct = cos(uTilt * uOpen), st = sin(uTilt * uOpen);
+  c = swing(c, axis, ct, st);
+  radial = swing(radial, axis, ct, st);
+  tang = swing(tang, axis, ct, st);
   float has = step(0.0, iGrain.w);
   float hov = abs(iIdx - uHover) < 0.5 ? 1.0 : 0.0;
   vec4 cv = modelViewMatrix * vec4(c, 1.0);
@@ -152,7 +175,8 @@ void main() {
 export type RingHandle = {
   group: Group;
   // level: 0..1 opacity. size: the tiles' size factor, so grains shrink with them. paused: hold the rotation.
-  update(dt: number, opts: { level: number; size: number; inside: boolean; paused: boolean; still: boolean }): void;
+  // open: 0 = one flat ring, 1 = the shells fully swung into their own orbits.
+  update(dt: number, opts: { level: number; size: number; inside: boolean; paused: boolean; still: boolean; open: number }): void;
   // grain under the pointer and its view depth, nearest first; null when none
   pick(ndcX: number, ndcY: number, camera: PerspectiveCamera): { k: number; depth: number } | null;
   setHover(k: number | null): void;
@@ -166,11 +190,23 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
   const grain = new Float32Array(n * 4);
   const flag = new Float32Array(n);
   const rate = new Float32Array(n); // each grain's share of the inner edge's angular speed
+  const orbit = new Float32Array(n * 2);
+  // each shell's own middle radius, so its ribbon keeps the band's order across its width
+  const lo = new Array<number>(SHELLS).fill(Infinity), hi = new Array<number>(SHELLS).fill(-Infinity);
+  for (let k = 0; k < n; k++) {
+    const sh = layout[k * 3 + 2];
+    lo[sh] = Math.min(lo[sh], layout[k * 3]);
+    hi[sh] = Math.max(hi[sh], layout[k * 3]);
+  }
   data.items.forEach((it, k) => {
-    const r = layout[k * 2];
+    const r = layout[k * 3];
     // height from a hash, so the belt's thickness needs no stored field
     const h = (Math.sin(k * 12.9898) * 43758.5453) % 1;
-    grain.set([r, layout[k * 2 + 1], Math.max(-1, Math.min(1, h)), it.k], k * 4);
+    grain.set([r, layout[k * 3 + 1], Math.max(-1, Math.min(1, h)), it.k], k * 4);
+    // the lines sit evenly around the ring, so the orbits' poles ring the globe's own
+    const sh = layout[k * 3 + 2];
+    orbit[k * 2] = (sh / SHELLS) * Math.PI * 2;
+    orbit[k * 2 + 1] = ORBIT_IN + ((sh + 0.5) / SHELLS) * (ORBIT_OUT - ORBIT_IN) + (r - (lo[sh] + hi[sh]) / 2) * SQUEEZE;
     flag[k] = it.q ? 1 : 0;
     rate[k] = Math.pow(RING_IN / r, 1.5);
   });
@@ -182,6 +218,7 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
   geo.setAttribute("iGrain", new InstancedBufferAttribute(grain, 4));
   geo.setAttribute("iIdx", new InstancedBufferAttribute(Float32Array.from({ length: n }, (_, i) => i), 1));
   geo.setAttribute("iFlag", new InstancedBufferAttribute(flag, 1));
+  geo.setAttribute("iOrbit", new InstancedBufferAttribute(orbit, 2));
   geo.instanceCount = n;
   const material = new RawShaderMaterial({
     glslVersion: GLSL3,
@@ -195,12 +232,12 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
       uHover: { value: -1 }, uHoverScale: { value: HOVER },
       uBill: { value: 1 }, uThick: { value: THICK_INSIDE }, uLoft: { value: 1 },
       uCols: { value: data.cols }, uCell: { value: data.cell / data.size },
-      uLevel: { value: 0 }, uFar: { value: 1 },
+      uLevel: { value: 0 }, uFar: { value: 1 }, uTilt: { value: TILT }, uOpen: { value: 0 },
     },
   });
   const mesh = new Mesh(geo, material);
   mesh.frustumCulled = false; // instances are placed in the shader; the base quad's bound says nothing
-  mesh.renderOrder = -0.5; // after the theme tint, before labels and the selection glow
+  mesh.renderOrder = -0.5; // before the labels and the selection glow
   mesh.visible = false;
   const group = new Group();
   // tilted like Saturn seen from Earth: a narrow ellipse at rest, a full face when the camera climbs
@@ -225,8 +262,9 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
   const _mvp = new Matrix4();
   return {
     group,
-    update(dt, { level, size, inside, paused, still }) {
-      if (!paused && !still) u.uTime.value += dt;
+    update(dt, { level, size, inside, paused, still, open }) {
+      if (!paused && !still) u.uTime.value += dt * (1 + SPIN * open);
+      u.uOpen.value = open;
       u.uSize.value = size;
       u.uLevel.value = level;
       // from inside the camera sits in the ring plane: flat grains would be edge-on, so they stand and spread into a belt
@@ -242,15 +280,19 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
       _mvp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).multiply(group.matrixWorld);
       const e = _mvp.elements;
       const time = u.uTime.value as number, thick = u.uThick.value as number, loft = u.uLoft.value as number;
+      const open = u.uOpen.value as number;
+      const ct = Math.cos(TILT * open), st = Math.sin(TILT * open);
       const px = camera.projectionMatrix.elements[0], py = camera.projectionMatrix.elements[5];
       const side = GRAIN * (u.uSize.value as number);
       let best = -1, bestW = Infinity;
       for (let k = 0; k < n; k++) {
-        const r = grain[k * 4];
+        const r = grain[k * 4] + (orbit[k * 2 + 1] - grain[k * 4]) * open;
         const a = grain[k * 4 + 1] + time * OMEGA * rate[k];
         const gz = grain[k * 4 + 2];
-        // the shader's height, term for term
-        const x = r * Math.cos(a), y = Math.sign(gz) * Math.pow(Math.abs(gz), loft) * thick, z = r * Math.sin(a);
+        // the shader's height and swing, term for term
+        const fx = r * Math.cos(a), fy = Math.sign(gz) * Math.pow(Math.abs(gz), loft) * thick, fz = r * Math.sin(a);
+        const kx = Math.cos(orbit[k * 2]), kz = Math.sin(orbit[k * 2]), along = (kx * fx + kz * fz) * (1 - ct);
+        const x = fx * ct - kz * fy * st + kx * along, y = fy * ct + (kz * fx - kx * fz) * st, z = fz * ct + kx * fy * st + kz * along;
         const w = e[3] * x + e[7] * y + e[11] * z + e[15];
         if (w < 0.3 || w >= bestW) continue; // nearer than this the shader has shrunk the grain away
         // small grains get a hit area a little larger than they are drawn

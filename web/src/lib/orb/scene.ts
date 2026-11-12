@@ -40,7 +40,7 @@ import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/
 import { buildAtlas, COLS, slotUv } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
-import { createRing, type RingData, type RingHandle, type RingItem } from "./ring";
+import { ORBIT_OUT, createRing, type RingData, type RingHandle, type RingItem } from "./ring";
 import { DISPLAY } from "./face";
 
 export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-set scale (~500 tiles)
@@ -85,12 +85,8 @@ export const MAX_FWD = 0.72;
 // sphere radius range; below 0.45 the far globe orbit leaves the far plane
 export const RADIUS_MIN = 0.45;
 export const RADIUS_MAX = 2.5;
-// theme tint: blob width in tile widths, and the alpha of one blob; ~8 overlap at lattice spacing
-const TINT_SPAN = 3.4;
-const TINT_LEVEL = 0.25;
-// the veil over the tiles, as a share of the field: more from the globe, where tiles leave few gaps
-const VEIL_GLOBE = 0.22;
-const VEIL_INSIDE = 0.0;
+const ATOM_MARGIN = 1.04; // room around the outermost orbit when the camera backs off to hold it
+const ATOM_GRAIN = 0.7; // share of the size lost to the explode that orbiting grains get back
 // pure so it's unit-testable without a camera/canvas: offset for the inside
 // dolly at a given wheel-zoom value.
 export function wheelDollyOffset(zoom: number): number {
@@ -183,61 +179,6 @@ void main() {
   outColor = vec4(c * dim, 1.0);
 }`;
 
-// theme tint: one soft blob per tagged tile, pushed behind the shell
-const TINT_VERT = /* glsl */ `
-precision highp float;
-in vec3 position;
-in vec2 uv;
-in vec3 iPos;
-in vec3 iTint;
-in float iScale;
-in float iIdx;
-in float iBorn; // 0..1, the tile's place in the order of arrival
-in float iTheme;
-in float iFlat;
-uniform mat4 modelViewMatrix, projectionMatrix;
-uniform float uFacing, uSpan, uBirth, uSize;
-uniform float uLift; // radial offset: positive is behind the shell, negative in front
-uniform float uTime;
-out vec2 vP;
-out float vBreath;
-out vec3 vTint;
-out float vTheme;
-void main() {
-  vec3 n = normalize(-iPos) * uFacing;
-  vec3 ref = abs(n.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
-  vec3 e1 = normalize(cross(ref, n));
-  vec3 e2 = cross(n, e1);
-  float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iBorn) / 0.35);
-  vec3 world = iPos * (1.0 + uFacing * uLift) + (e1 * position.x + e2 * position.y) * uSpan * iScale * uSize * born * (1.0 - iFlat);
-  vP = uv * 2.0 - 1.0;
-  vTint = iTint;
-  vTheme = iTheme;
-  // two slow waves keyed to position: nearby blobs breathe together, so light drifts across a theme like mist
-  vBreath = 0.56 + 0.3 * sin(uTime * 0.31 + dot(iPos, vec3(5.1, 3.7, 4.3))) + 0.14 * sin(uTime * 0.19 + dot(iPos, vec3(-3.3, 6.1, 2.2)));
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
-}`;
-
-const TINT_FRAG = /* glsl */ `
-precision highp float;
-uniform float uLevel, uTheme;
-in vec2 vP;
-in vec3 vTint;
-in float vTheme;
-in float vBreath;
-out vec4 outColor;
-void main() {
-  if (vTheme < 0.0) discard;
-  // gaussian that reaches exactly zero at the quad edge, so no square shows
-  float r2 = dot(vP, vP);
-  float a = exp(-r2 * 2.2) - 0.1108;
-  if (a <= 0.0) discard;
-  // a tight core hugs the tile; the wide tail is only a whisper, so the sky between stays black
-  a = a * 0.15 + exp(-r2 * 10.0);
-  if (uTheme >= 0.0 && abs(vTheme - uTheme) >= 0.5) a *= 0.12;
-  outColor = vec4(vTint, a * uLevel * vBreath);
-}`;
-
 export type OrbViewMode = "inside" | "globe";
 
 // pure so it's unit-testable: the coast sphere shows only once the bake has
@@ -292,7 +233,18 @@ export function mountOrb(
   const sizeK = () => Math.pow(radius.v, -0.75);
   const half = () => TILE_HALF * sizeK();
   // the camera backs off slower than the sphere grows, so it swells in frame, and never ends up inside it
-  const globeR = (z: number) => Math.max(restGlobeR(z) * Math.pow(Math.max(1, radius.v), 0.6), radius.v + 0.3) / radius.v;
+  // the slider's explode half, read off the eased radius: 0 at rest and below, 1 at the limit
+  const atomOpen = () => {
+    const a = Math.min(1, Math.max(0, Math.log(radius.v / baseR) / Math.log(RADIUS_MAX)));
+    return a * a * (3 - 2 * a);
+  };
+  // the camera distance that holds the outermost orbit in the frame's height, at the resting wheel zoom
+  const atomFit = (ORBIT_OUT * ATOM_MARGIN) / Math.sin((camera.fov * Math.PI) / 360);
+  const globeR = (z: number) => {
+    const r = Math.max(restGlobeR(z) * Math.pow(Math.max(1, radius.v), 0.6), radius.v + 0.3) / radius.v;
+    // exploded the sphere alone would overfill the frame and the orbits around it would be cut off
+    return r + (Math.max(r, (atomFit * restGlobeR(z)) / restGlobeR(0.5)) - r) * atomOpen() * ringIn.v;
+  };
   // stand-off from the selected tile at unit radius; focusTile sets it per tile
   const reach = { d: 0.24 };
   const apexR = () => 1 + reach.d * sizeK();
@@ -490,7 +442,6 @@ export function mountOrb(
     if (!arr) return;
     lens = name;
     showRings(name === "time");
-    showThemeLabels(name === "lattice");
     morphFrom.set(home);
     scaleFrom.set(homeScales);
     for (let i = 0; i < n; i++) morphTo.set(arr[i], i * 3);
@@ -1244,157 +1195,6 @@ void main() {
     }
   }
 
-  // theme tint: the blobs of one theme sum into a soft field that spans its
-  // members and rides the same instance buffers, so it follows every lens morph
-  const tintColors = new Float32Array(n * 3);
-  {
-    const nT = data.themes.length;
-    const lat = data.sphere.lattice;
-    const first = new Array<number>(nT).fill(2);
-    if (lat) for (let i = 0; i < Math.min(n, lat.length); i++) {
-      const th = points[i].th;
-      if (th >= 0 && th < nT) first[th] = Math.min(first[th], lat[i][2]);
-    }
-    const rank = new Array<number>(nT);
-    first.map((_, th) => th).sort((a, b) => first[a] - first[b]).forEach((th, k) => { rank[th] = k; });
-    const hsl = (h: number, sat: number, l: number) => {
-      const a = sat * Math.min(l, 1 - l);
-      const ch = (k: number) => { const q = (k + h / 30) % 12; return l - a * Math.max(-1, Math.min(q - 3, 9 - q, 1)); };
-      return [ch(0), ch(8), ch(4)];
-    };
-    for (let i = 0; i < n; i++) {
-      const th = points[i].th;
-      if (th < 0 || th >= nT) continue;
-      // magenta through brass to teal, never blue; golden-ratio steps keep bands next to each other ~95 degrees apart
-      const hue = (290 + ((rank[th] * 0.618034) % 1) * 245) % 360;
-      tintColors.set(hsl(hue, 0.5, 0.56), i * 3);
-    }
-  }
-  const tintGeo = new InstancedBufferGeometry();
-  tintGeo.index = plane.index;
-  tintGeo.setAttribute("position", plane.getAttribute("position"));
-  tintGeo.setAttribute("uv", plane.getAttribute("uv"));
-  for (const name of ["iPos", "iScale", "iIdx", "iBorn", "iTheme", "iFlat"]) tintGeo.setAttribute(name, geo.getAttribute(name));
-  tintGeo.setAttribute("iTint", new InstancedBufferAttribute(tintColors, 3));
-  tintGeo.instanceCount = n;
-  const tintTime = { value: 0 };
-  const tintLayer = (lift: number, order: number) => {
-    const mat = new RawShaderMaterial({
-      glslVersion: GLSL3,
-      vertexShader: TINT_VERT,
-      fragmentShader: TINT_FRAG,
-      side: DoubleSide,
-      transparent: true,
-      depthWrite: false,
-      blending: AdditiveBlending,
-      uniforms: {
-        uFacing: material.uniforms.uFacing, uBirth: material.uniforms.uBirth, uTheme: material.uniforms.uTheme, uSize: material.uniforms.uSize,
-        uSpan: { value: TINT_SPAN }, uLevel: { value: 0 }, uLift: { value: lift }, uTime: tintTime,
-      },
-    });
-    const m = new Mesh(tintGeo, mat);
-    m.frustumCulled = false; // same reason as the tile mesh
-    m.renderOrder = order;
-    m.visible = false;
-    scene.add(m);
-    return m;
-  };
-  // the field behind the shell fills the gaps; a fainter veil in front lays the
-  // same hue over the tiles, so a theme reads from the globe where gaps are few
-  const tint = tintLayer(0.05, -1);
-  const veil = tintLayer(-0.03, 4);
-  const tintMat = tint.material as RawShaderMaterial, veilMat = veil.material as RawShaderMaterial;
-  const tintLevel = { v: 0 };
-
-  // theme labels. The lattice runs each theme along the Fibonacci spiral, so
-  // a theme is a band of z around the spiral axis: a ring around the view when
-  // you look along the axis, a vertical band from the side. Each band gets a
-  // serif label riding its camera-facing side, shown only on the themes lens.
-  type Band = { z: number; r: number; row: number; w: number; sprite: Sprite; mat: SpriteMaterial };
-  const bands: Band[] = [];
-  const labelGroup = new Group();
-  labelGroup.visible = false;
-  scene.add(labelGroup);
-  let labelsOn = false;
-  const buildThemeLabels = () => {
-    if (bands.length) return;
-    const arr = data.sphere.lattice;
-    if (!arr) return;
-    const lo = data.themes.map(() => 2), hi = data.themes.map(() => -2), cnt = data.themes.map(() => 0);
-    for (let i = 0; i < n; i++) {
-      const th = points[i].th;
-      if (th < 0 || th >= lo.length) continue;
-      lo[th] = Math.min(lo[th], arr[i][2]); hi[th] = Math.max(hi[th], arr[i][2]); cnt[th]++;
-    }
-    const order = data.themes.map((_, th) => th).filter((th) => cnt[th] > 0).sort((a, b) => lo[a] - lo[b]);
-    order.forEach((th, k) => {
-      const z = (lo[th] + hi[th]) / 2;
-      const c = document.createElement("canvas");
-      const g = c.getContext("2d")!;
-      const font = `500 34px ${DISPLAY}`;
-      const text = data.themes[th].toLowerCase();
-      const count = String(cnt[th]);
-      g.font = font;
-      const tw = Math.ceil(g.measureText(text).width);
-      g.font = `500 24px ${DISPLAY}`;
-      const cw = Math.ceil(g.measureText(count).width);
-      const w = tw + cw + 60;
-      c.width = w; c.height = 72;
-      g.fillStyle = "rgba(6,6,8,0.6)";
-      g.beginPath(); g.roundRect(0, 8, w, 56, 10); g.fill();
-      g.textBaseline = "middle";
-      g.font = font; g.fillStyle = "#f0eee7"; g.fillText(text, 22, 37);
-      g.font = `500 24px ${DISPLAY}`; g.fillStyle = "#e2b04a"; g.fillText(count, 22 + tw + 16, 38);
-      const tex = new CanvasTexture(c);
-      tex.colorSpace = SRGBColorSpace;
-      const mat = new SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false });
-      const sprite = new Sprite(mat);
-      sprite.center.set(0.5, 0.5);
-      labelGroup.add(sprite);
-      // bands are ~10 deg wide along the axis and a label is ~3x that, so
-      // labels take turns in three rows around the band, a ladder, never a pile
-      bands.push({ z, r: Math.sqrt(Math.max(0, 1 - z * z)), row: (k % 3) - 1, w: w / 72, sprite, mat });
-    });
-  };
-  const labelLevel = { v: 0 };
-  const _lv = new Vector3(), _lp = new Vector3();
-  const updateThemeLabels = () => {
-    if (!labelGroup.visible) return;
-    const f = facing();
-    if (mode === "globe") _lv.copy(camera.position).normalize(); else camera.getWorldDirection(_lv);
-    // the label sits where the band faces the camera, a little past that point so it reads beside the tiles there
-    const az0 = Math.atan2(_lv.y, _lv.x);
-    const rr = 1 - f * 0.07;
-    const h = mode === "globe" ? 0.06 : 0.034; // sprites shrink with distance; the globe sits ~2.5 away
-    const step = mode === "globe" ? 0.42 : 0.46;
-    // from outside, bands near the axis poles converge on the limb; fade them earlier
-    const lo = mode === "globe" ? 0.4 : 0.25, span = mode === "globe" ? 0.4 : 0.45;
-    for (const b of bands) {
-      const az = az0 + b.row * step;
-      _lp.set(b.r * Math.cos(az), b.r * Math.sin(az), b.z);
-      b.sprite.position.copy(_lp).multiplyScalar(rr);
-      b.sprite.scale.set(h * b.w, h, 1);
-      const d = _lp.dot(_lv);
-      const t = Math.min(1, Math.max(0, (d - lo) / span));
-      b.mat.opacity = labelLevel.v * (1 - selFade.v) * searchOff() * t * t * (3 - 2 * t);
-    }
-  };
-  const showThemeLabels = (on: boolean) => {
-    if (on === labelsOn) return;
-    labelsOn = on;
-    gsap.killTweensOf([labelLevel, tintLevel]);
-    if (on) {
-      buildThemeLabels();
-      labelGroup.visible = true;
-      tint.visible = veil.visible = true;
-      gsap.to(labelLevel, { v: 0.92, duration: 0.9, delay: 0.5 });
-      gsap.to(tintLevel, { v: TINT_LEVEL, duration: 1.2, delay: 0.3 });
-    } else {
-      gsap.to(tintLevel, { v: 0, duration: 0.4, onComplete: () => { tint.visible = veil.visible = false; } });
-      gsap.to(labelLevel, { v: 0, duration: 0.4, onComplete: () => { labelGroup.visible = false; } });
-    }
-  };
-
   // the pending ring: absent when the hub has no ring route, so the orb works without it
   let ring: RingHandle | null = null;
   let ringItems: RingItem[] = [];
@@ -1477,21 +1277,14 @@ void main() {
     reportSheet();
     updateRings();
     placeGlow(dt);
-    // the tint steps back with the crowd when a hover dims it, and while reading
-    if (tint.visible) {
-      if (!reducedMotion()) tintTime.value += dt;
-      const lv = tintLevel.v * (0.35 + 0.65 * (material.uniforms.uNeighDim.value as number)) * (1 - 0.4 * selFade.v)
-        * (0.3 + 0.7 * (material.uniforms.uSearchDim.value as number));
-      tintMat.uniforms.uLevel.value = lv;
-      veilMat.uniforms.uLevel.value = lv * (mode === "globe" ? VEIL_GLOBE : VEIL_INSIDE);
-    }
-    updateThemeLabels();
     ring?.update(dt, {
       level: ringIn.v * (1 - selFade.v) * (0.35 + 0.65 * searchOff()),
-      size: sizeK(),
+      // as orbits the grains keep most of their size: at the tiles' exploded size a ribbon thins to dust
+      size: sizeK() + (Math.pow(baseR, -0.75) - sizeK()) * ATOM_GRAIN * atomOpen(),
       inside: mode !== "globe",
       paused: ringHover !== null,
       still: reducedMotion(),
+      open: atomOpen(),
     });
     if (!controls.dragging && pointerNdc) {
       let hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales, sheet);
@@ -1589,14 +1382,9 @@ void main() {
       canvas.removeEventListener("wheel", onWheel);
       gsap.killTweensOf(focusDolly);
       gsap.killTweensOf(orbitR);
-      gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel, labelLevel]);
+      gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel]);
       glowTex.dispose();
       ring?.dispose();
-      gsap.killTweensOf(tintLevel);
-      tintGeo.dispose();
-      tintMat.dispose();
-      veilMat.dispose();
-      for (const b of bands) { b.mat.map?.dispose(); b.mat.dispose(); }
       gsap.killTweensOf([material.uniforms.uNeighDim, material.uniforms.uNeighScale, material.uniforms.uBirth]);
       gsap.killTweensOf([arcMat.uniforms.uOpacity, arcMat.uniforms.uProgress]);
       gsap.killTweensOf(morph);
