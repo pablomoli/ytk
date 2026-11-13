@@ -168,6 +168,20 @@ async def queue_add_api(req: QueueAddRequest):
     return {"added": added, "pending": len(hub.queue_items())}
 
 
+class QueueDropRequest(BaseModel):
+    url: str
+
+
+@app.post("/api/queue/drop")
+async def queue_drop_api(req: QueueDropRequest):
+    from ytk.ui import hub
+
+    try:
+        return {"pending": hub.queue_drop(req.url)}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @app.post("/api/queue/refresh")
 def queue_refresh_api(force: bool = False, only: str | None = None):
     # sync def on purpose: FastAPI runs it in a threadpool, and the source

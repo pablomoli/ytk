@@ -32,6 +32,7 @@ type IMessageFetcher = Callable[[], Iterable[Session]]
 class RefreshState(Protocol):
     pending: list[reels.ReelItem]
     imessage_seen: list[str]
+    dropped: list[str]
 
 
 def _state(state: reels.ReelsState) -> RefreshState:
@@ -56,7 +57,7 @@ def pull_youtube(
     is_processed: ProcessedVideoCheck,
 ) -> int:
     pending = _pending(state)
-    known = {item.url for item in pending}
+    known = {item.url for item in pending} | set(_state(state).dropped)
     inserted = 0
     for video in fetch():
         video_id = video["video_id"]
@@ -79,7 +80,7 @@ def pull_youtube(
 
 def pull_pinterest(state: reels.ReelsState, fetch: PinterestFetcher) -> int:
     pending = _pending(state)
-    known = {item.url for item in pending}
+    known = {item.url for item in pending} | set(_state(state).dropped)
     inserted = 0
     for pin in fetch():
         url = pin["url"]

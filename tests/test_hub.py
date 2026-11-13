@@ -608,6 +608,43 @@ def test_api_ingest_bad_urls_400(client, hub):
     assert r.status_code == 400
 
 
+def test_drop_removes_the_item_and_remembers_it(hub):
+    a, b = "https://www.youtube.com/watch?v=aaa", "https://www.youtube.com/watch?v=bbb"
+    hub.queue_add([a, b])
+
+    assert hub.queue_drop(a) == 1
+    state = reels.load_state(hub.STATE_PATH)
+    assert [i.url for i in state.pending] == [b]
+    assert state.dropped == [a]
+    with pytest.raises(ValueError):
+        hub.queue_drop(a)
+
+
+def test_drop_refuses_an_item_the_job_is_holding(hub):
+    url = "https://www.youtube.com/watch?v=aaa"
+    hub.queue_add([url])
+    gate = threading.Event()
+    hub.INGEST = lambda u, note="": gate.wait(5)
+    hub.start_ingest([url], [], "")
+    try:
+        with pytest.raises(ValueError):
+            hub.queue_drop(url)
+    finally:
+        gate.set()
+    _wait_done(hub)
+    assert reels.load_state(hub.STATE_PATH).dropped == []
+
+
+def test_api_queue_drop(client, hub):
+    url = "https://www.instagram.com/reel/abc/"
+    hub.queue_add([url])
+
+    r = client.post("/api/queue/drop", json={"url": url})
+    assert r.status_code == 200 and r.json() == {"pending": 0}
+    assert client.get("/api/queue").json()["items"] == []
+    assert client.post("/api/queue/drop", json={"url": url}).status_code == 400
+
+
 def test_api_fresh_is_retired(client, hub):
     # P3 (#197): the fresh feed merged into /api/library; the endpoint is gone.
     (hub.brain / "sources" / "instagram" / "someone-abc.md").write_text(

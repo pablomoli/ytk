@@ -179,6 +179,26 @@ def _remove_from_queue(url: str) -> None:
         reels.save_state(state, STATE_PATH)
 
 
+def queue_drop(url: str) -> int:
+    """Let a pending item go without ingesting it; returns how many still wait.
+
+    The url is remembered: the playlist and board pulls re-read their whole
+    list, and nothing else would stop them from queueing it again. Raises
+    ValueError for a url that is not pending or is already being ingested.
+    """
+    with _LOCK:
+        state = reels.load_state(STATE_PATH)
+        if not any(i.url == url for i in state.pending):
+            raise ValueError(f"Not in the pending queue: {url}")
+        if url == _JOB["current"] or any(e[0].url == url for e in _QUEUE):
+            raise ValueError(f"Already being ingested: {url}")
+        state.pending = [i for i in state.pending if i.url != url]
+        if url not in state.dropped:
+            state.dropped.append(url)
+        reels.save_state(state, STATE_PATH)
+        return len(state.pending)
+
+
 def delete_note(rel_path: str) -> dict:
     """Delete a vault note and every vector it left behind in the index.
 

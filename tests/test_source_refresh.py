@@ -126,3 +126,22 @@ def test_state_pull_adapters_return_provider_counts(adapter) -> None:
     state = reels.ReelsState()
 
     assert adapter(state, lambda current: 3 if current is state else 0) == 3
+
+
+def test_whole_list_pulls_do_not_requeue_what_was_dropped() -> None:
+    video = "https://www.youtube.com/watch?v=gone"
+    pin = "https://www.pinterest.com/pin/gone/"
+    state = reels.ReelsState(dropped=[video, pin])
+
+    assert (
+        pull_youtube(state, lambda: [{"video_id": "gone"}, {"video_id": "new"}], lambda _: False)
+        == 1
+    )
+    assert (
+        pull_pinterest(state, lambda: [{"url": pin}, {"url": "https://www.pinterest.com/pin/new/"}])
+        == 1
+    )
+    assert [item.url for item in state.pending] == [
+        "https://www.youtube.com/watch?v=new",
+        "https://www.pinterest.com/pin/new/",
+    ]
