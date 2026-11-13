@@ -24,6 +24,8 @@ import {
   NoColorSpace,
   PerspectiveCamera,
   PlaneGeometry,
+  Points,
+  PointsMaterial,
   RawShaderMaterial,
   RedFormat,
   RepeatWrapping,
@@ -40,7 +42,7 @@ import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/
 import { buildAtlas, COLS, slotUv } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
-import { ORBIT_OUT, createRing, ringPhase, type RingData, type RingHandle, type RingItem } from "./ring";
+import { GRAIN, NO_COVER, ORBIT_OUT, SELECT, createRing, ringPhase, type RingData, type RingHandle, type RingItem } from "./ring";
 import { DISPLAY } from "./face";
 
 export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-set scale (~500 tiles)
@@ -203,6 +205,12 @@ export type OrbHandle = {
   // inset: css px the page's panels cover on the left; the sheet centers in what is left
   // shape: the sheet's grid; left out, it is the search's three rows of four
   setSearch(hits: number[] | null, inset?: number, shape?: Partial<SheetShape>): void;
+  // a pending item, by its place in the ring's list: the camera turns to its grain, which holds lit
+  // while it is read. null lets it go.
+  readPending(k: number | null): void;
+  // the read grain flies to a bearing on the sphere and lands there; onRingSettled follows
+  keepPending(seat: [number, number, number]): void;
+  dropPending(): void;
   dispose(): void;
 };
 
@@ -214,6 +222,10 @@ export function mountOrb(
     onOpen(i: number, rect: DOMRect): void;
     onBlur(): void;
     onRingHover?(item: RingItem | null): void; onSheet?(tiles: SheetTile[]): void;
+    onRingReady?(items: RingItem[]): void;
+    // a grain was clicked, or the scene let the read one go (null)
+    onRingOpen?(k: number | null): void;
+    onRingSettled?(k: number, kept: boolean): void;
   },
 ): OrbHandle {
   const cap = COLS * COLS; // atlas has exactly this many slots; beyond it uvRect wraps
@@ -833,12 +845,14 @@ void main() {
     scene.add(m);
     return m;
   });
-  const thumbTexture = (img: HTMLImageElement, long: number) => {
-    const k = long / Math.max(img.naturalWidth, img.naturalHeight);
+  // trim: the share of the height cut from the top and again from the bottom
+  const thumbTexture = (img: HTMLImageElement, long: number, trim = 0) => {
+    const sy = img.naturalHeight * trim, sh = img.naturalHeight - 2 * sy;
+    const k = long / Math.max(img.naturalWidth, sh);
     const c = document.createElement("canvas");
     c.width = Math.max(1, Math.round(img.naturalWidth * k));
-    c.height = Math.max(1, Math.round(img.naturalHeight * k));
-    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+    c.height = Math.max(1, Math.round(sh * k));
+    c.getContext("2d")!.drawImage(img, 0, sy, img.naturalWidth, sh, 0, 0, c.width, c.height);
     const tex = new Texture(c);
     tex.colorSpace = SRGBColorSpace; // decoded then re-encoded: lands on the same bytes as the raw atlas tiles
     tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -906,11 +920,14 @@ void main() {
   };
   const _nn = new Vector3(), _ne1 = new Vector3(), _ne2 = new Vector3(), _nc = new Vector3(), _nref = new Vector3();
   // mirrors the vertex shader: tile i's basis from _nc, turned toward the sheet by its flat amount
-  const tileBasis = (i: number, f: number) => {
-    _nn.copy(_nc).negate().normalize().multiplyScalar(f);
+  const dirBasis = (d: Vector3, f: number) => {
+    _nn.copy(d).negate().normalize().multiplyScalar(f);
     _nref.set(Math.abs(_nn.y) > 0.9 ? 1 : 0, Math.abs(_nn.y) > 0.9 ? 0 : 1, 0);
     _ne1.crossVectors(_nref, _nn).normalize();
     _ne2.crossVectors(_nn, _ne1);
+  };
+  const tileBasis = (i: number, f: number) => {
+    dirBasis(_nc, f);
     if (flat[i] > 0) {
       _ne1.lerp(sheet.right, flat[i]).normalize();
       _ne2.lerp(sheet.up, flat[i]).normalize();
@@ -1032,10 +1049,19 @@ void main() {
   };
   const onUp = (e: PointerEvent) => {
     const { tap } = controls.up();
-    if (tap && pointerNdc && ringHover === null) {
+    if (tap && pointerNdc && carried) {
+      // a grain in the air finishes its trip first
+    } else if (tap && pointerNdc && ringHover !== null) {
+      if (ringHover !== ringSel) {
+        if (focused >= 0) { doBlur(); cb.onBlur(); }
+        readGrain(ringHover, true);
+        cb.onRingOpen?.(ringHover);
+      }
+    } else if (tap && pointerNdc) {
       const hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales, sheet);
       if (hit !== null) { if (hit !== focused) focusTile(hit); }
       else if (focused >= 0) { doBlur(); cb.onBlur(); }
+      else if (ringSel !== null) { readGrain(null); cb.onRingOpen?.(null); }
     }
     canvas.releasePointerCapture(e.pointerId);
   };
@@ -1156,6 +1182,8 @@ void main() {
   // another tile while one is selected is a walk: step back, then approach.
   function focusTile(i: number) {
     const walking = focused >= 0;
+    // one thing is read at a time; the dock stays out for the tile
+    if (ringSel !== null && !carried) { readGrain(null, false, true); cb.onRingOpen?.(null); }
     // the tile is read in its real place: the gather lets go and everyone flies home
     release();
     dimSearch(false);
@@ -1215,10 +1243,349 @@ void main() {
       if (!d || disposed) return;
       ring = createRing(d, "/api/orb-ring.jpg", renderer.capabilities.getMaxAnisotropy());
       ringItems = d.items;
+      cb.onRingReady?.(d.items);
       scene.add(ring.group);
       gsap.to(ringIn, { v: 1, duration: reducedMotion() ? 0 : 1.4 });
     })
     .catch(() => {});
+  // the grains' size factor: as orbits they keep most of their size, since at the tiles' exploded size a ribbon thins to dust
+  const grainK = () => sizeK() + (Math.pow(baseR, -0.75) - sizeK()) * ATOM_GRAIN * atomOpen();
+
+  // reading a pending item: its grain grows into its own picture, held facing the camera in a small eclipse, a dark
+  // disc and a corona of fine rays. Keeping flies it to a bearing on the sphere, where the same picture lies down as
+  // a tile; dropping lets it fall. Nothing here reaches the queue.
+  const KEEP_DUR = 1.3, DROP_DUR = 0.9, DROP_FALL = 0.6, LINGER = 0.9;
+  const LAND_LIFT = 0.014, LAND_SCALE = 0.9, COVER_LONG = 512;
+  // the read item's short side in tile sizes; a coverless one stays a mote, in grain sizes
+  const READ_SCALE = 1.7, MOTE_SELECT = 3;
+  const HALO = 0.6, HALO_SPAN = 2.6, MOTE_SPAN = 1.5, RAY_SPAN = 5;
+  const SHADE = 0.88, SHADE_SPAN = 5.4, CORONA = 0.62, CORONA_SPAN = 6.6, CORONA_TURN = 0.035;
+  const TRAIL = 40, TRAIL_LAG = 0.34, TRAIL_LIGHT = 0.16;
+  // a, c, b: the trip's bearings, start, control and seat. A dropped grain has no seat: b is the way it falls.
+  type Carry = { k: number; keep: boolean; t: number; e: number; s0: number; from: Vector3; a: Vector3; c: Vector3; b: Vector3; r0: number; rc: number; r1: number; land: Cover | null };
+  // an item's own picture: held facing the camera while read, laid on its bearing once kept
+  type Cover = { k: number; dir: Vector3 | null; mesh: Mesh | null; aspect: number; level: { v: number }; down: boolean; dead: boolean };
+  let ringSel: number | null = null;
+  let carried: Carry | null = null;
+  let wake: Carry | null = null; // the trip the tail is still drawn along, a moment past the landing
+  let settleCall: gsap.core.Tween | null = null;
+  let held: Cover | null = null;
+  const landed: Cover[] = [];
+  const selScale = { v: SELECT }, haloLevel = { v: 0 }, eclipse = { v: 0 }, burst = { t: 1 };
+  const haloAt = new Vector3(), burstAt = new Vector3(), _pp = new Vector3(), _pv = new Vector3();
+  const _cr = new Vector3(), _cu = new Vector3(), _cn = new Vector3();
+  let haloSide = 0;
+  // the eclipse draws over whatever is in front of it: seen from inside, the ring lies behind the shell
+  const shadeTex = (() => {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const g = c.getContext("2d")!;
+    const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grad.addColorStop(0, "rgba(0,0,0,1)");
+    grad.addColorStop(0.42, "rgba(0,0,0,0.92)");
+    grad.addColorStop(0.72, "rgba(0,0,0,0.4)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 256, 256);
+    return new CanvasTexture(c);
+  })();
+  const shadeMat = new MeshBasicMaterial({ map: shadeTex, transparent: true, opacity: 0, depthWrite: false, depthTest: false });
+  const shade = new Mesh(nearGeo, shadeMat);
+  shade.renderOrder = 4.4;
+  shade.visible = false;
+  scene.add(shade);
+  const haloMat = new MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, depthWrite: false, depthTest: false, blending: AdditiveBlending });
+  const halo = new Mesh(nearGeo, haloMat);
+  halo.renderOrder = 5;
+  halo.visible = false;
+  scene.add(halo);
+  // the landing: fine rays out of the seat, there for a breath
+  const rayTex = (() => {
+    const S = 512, N = 84, c = document.createElement("canvas");
+    c.width = c.height = S;
+    const g = c.getContext("2d")!;
+    g.translate(S / 2, S / 2);
+    const rnd = (i: number) => Math.abs((Math.sin(i * 12.9898) * 43758.5453) % 1);
+    for (let i = 0; i < N; i++) {
+      const a = ((i + rnd(i + 0.5) * 0.6) / N) * Math.PI * 2;
+      const len = (S / 2) * (i % 7 === 0 ? 1 : 0.4 + 0.45 * rnd(i));
+      const x = Math.cos(a), y = Math.sin(a);
+      const grad = g.createLinearGradient(x * S * 0.05, y * S * 0.05, x * len, y * len);
+      grad.addColorStop(0, "rgba(240,238,231,0)");
+      grad.addColorStop(0.2, `rgba(240,238,231,${i % 7 === 0 ? 0.7 : 0.4})`);
+      grad.addColorStop(1, "rgba(240,238,231,0)");
+      g.strokeStyle = grad;
+      g.lineWidth = i % 7 === 0 ? 1.4 : 0.8;
+      g.beginPath();
+      g.moveTo(x * S * 0.05, y * S * 0.05);
+      g.lineTo(x * len, y * len);
+      g.stroke();
+    }
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    return t;
+  })();
+  const rayMat = new MeshBasicMaterial({ map: rayTex, transparent: true, opacity: 0, depthWrite: false, depthTest: false, blending: AdditiveBlending });
+  const rays = new Mesh(nearGeo, rayMat);
+  rays.renderOrder = 6;
+  rays.visible = false;
+  scene.add(rays);
+  const coronaMat = rayMat.clone();
+  const corona = new Mesh(nearGeo, coronaMat);
+  corona.renderOrder = 5.2;
+  corona.visible = false;
+  scene.add(corona);
+  // the tail: the trip's own curve a moment earlier, so it reads the same at any frame rate
+  const trailPos = new Float32Array(TRAIL * 3), trailCol = new Float32Array(TRAIL * 3);
+  for (let j = 0; j < TRAIL; j++) trailCol.fill(TRAIL_LIGHT * (j / (TRAIL - 1)) ** 2, j * 3, j * 3 + 3);
+  const trailGeo = new BufferGeometry();
+  trailGeo.setAttribute("position", new BufferAttribute(trailPos, 3));
+  trailGeo.setAttribute("color", new BufferAttribute(trailCol, 3));
+  const trailMat = new PointsMaterial({ map: glowTex, size: 0.09, vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending });
+  const trail = new Points(trailGeo, trailMat);
+  trail.frustumCulled = false;
+  trail.renderOrder = 4.5;
+  trail.visible = false;
+  scene.add(trail);
+
+  const aimDir = (v: Vector3) => {
+    const l = v.length();
+    if (l < 1e-9) return;
+    const { yaw, pitch } = anglesForDir(v.x / l, v.y / l, v.z / l);
+    controls.setTarget(yaw, pitch);
+  };
+  // a tile's side in grain sizes: what the read picture and the landed one are measured in
+  const tileIn = () => (TILE_HALF * 2 * sizeK()) / (GRAIN * grainK());
+  const readScale = (k: number) => (ringItems[k].k >= 0 ? tileIn() * READ_SCALE : MOTE_SELECT);
+  const landScale = (k: number) => (ringItems[k].k >= 0 ? tileIn() * LAND_SCALE : 1.4);
+  // a video's still often arrives with black bands baked in above and below; the share of the height one band takes
+  const bandOf = (img: HTMLImageElement) => {
+    const c = document.createElement("canvas");
+    c.width = 16;
+    c.height = 48;
+    const g = c.getContext("2d", { willReadFrequently: true })!;
+    g.drawImage(img, 0, 0, 16, 48);
+    const px = g.getImageData(0, 0, 16, 48).data;
+    const dark = (y: number) => { for (let i = y * 64; i < y * 64 + 64; i += 4) if (px[i] > 22 || px[i + 1] > 22 || px[i + 2] > 22) return false; return true; };
+    let n = 0;
+    while (n < 12 && dark(n) && dark(47 - n)) n++;
+    return n / 48;
+  };
+  const loadCover = (k: number) => {
+    const l: Cover = { k, dir: null, mesh: null, aspect: 1, level: { v: 0 }, down: false, dead: false };
+    const img = new Image();
+    img.onload = () => {
+      if (disposed || l.dead) return;
+      const trim = bandOf(img);
+      l.aspect = Math.min(2, Math.max(0.5, img.naturalWidth / Math.max(1, img.naturalHeight * (1 - 2 * trim))));
+      const m = new Mesh(nearGeo, new MeshBasicMaterial({ map: thumbTexture(img, COVER_LONG, trim), transparent: true, opacity: 0, side: DoubleSide }));
+      m.matrixAutoUpdate = false;
+      m.frustumCulled = false;
+      m.visible = false;
+      scene.add(m);
+      l.mesh = m;
+      // landed before its picture arrived: the grain waited at the seat
+      gsap.to(l.level, { v: 1, duration: reducedMotion() ? 0 : DUR.morph, onComplete: () => { if (l.down) ring?.hide(k); } });
+    };
+    img.src = `/api/cover?u=${encodeURIComponent(ringItems[k].u)}`;
+    return l;
+  };
+  const freeCover = (l: Cover) => {
+    l.dead = true;
+    gsap.killTweensOf(l.level);
+    if (!l.mesh) return;
+    scene.remove(l.mesh);
+    const m = l.mesh.material as MeshBasicMaterial;
+    m.map?.dispose();
+    m.dispose();
+    l.mesh = null;
+  };
+  const readGrain = (k: number | null, aim = false, keepDock = false) => {
+    if (!ring || carried) return;
+    if (held && held.k !== k) { freeCover(held); held = null; }
+    ringSel = k;
+    gsap.killTweensOf([haloLevel, eclipse, selScale]);
+    if (!keepDock) gsap.killTweensOf(dock);
+    const quick = reducedMotion(), d = quick ? 0 : DUR.morph;
+    selScale.v = SELECT;
+    ring.select(k, SELECT);
+    if (k !== null) {
+      // only cached covers: asking for an uncached one makes the hub download it
+      if (!held && ringItems[k].k >= 0) held = loadCover(k);
+      gsap.to(selScale, { v: readScale(k), duration: d });
+    }
+    gsap.to(haloLevel, { v: k === null ? 0 : HALO, duration: d });
+    gsap.to(eclipse, { v: k === null ? 0 : 1, duration: quick ? 0 : DUR.wipe });
+    if (!keepDock) gsap.to(dock, { px: k === null ? 0 : dockPx, duration: quick ? 0 : DUR.reveal });
+    if (k !== null && aim) aimDir(ring.worldOf(k, _pv));
+  };
+  const pathAt = (c: Carry, e: number, out: Vector3) =>
+    bezDir(c.a, c.c, c.b, e, out).multiplyScalar((1 - e) * (1 - e) * c.r0 + 2 * e * (1 - e) * c.rc + e * e * c.r1);
+  const keepGrain = (seat: [number, number, number]) => {
+    if (ringSel === null || carried || !ring) return;
+    const k = ringSel;
+    gsap.killTweensOf(selScale);
+    const from = ring.worldOf(k, new Vector3());
+    const a = from.clone().normalize(), b = new Vector3(seat[0], seat[1], seat[2]).normalize();
+    const f = facing(), r0 = from.length();
+    // from inside the ring lies behind the shell, so the grain comes in through it early and crosses the room; from outside it arcs over
+    const c: Carry = { k, keep: true, t: 0, e: 0, s0: selScale.v, from, a, c: bowDir(a, b, new Vector3()), b, r0, rc: f > 0 ? 0.55 : Math.max(1.4, r0), r1: 1 - f * (LAND_LIFT - 0.004), land: held };
+    if (held) { held.dir = b; landed.push(held); held = null; }
+    carried = c;
+    wake = reducedMotion() ? null : c;
+    if (reducedMotion()) { c.t = KEEP_DUR; aimDir(b); }
+  };
+  const dropGrain = () => {
+    if (ringSel === null || carried || !ring) return;
+    const k = ringSel;
+    gsap.killTweensOf(selScale);
+    const from = ring.worldOf(k, new Vector3());
+    // down the frame and away from the sphere
+    const fall = new Vector3(0, -1, 0).applyQuaternion(camera.quaternion).addScaledVector(_pv.copy(from).normalize(), 0.5).normalize();
+    carried = { k, keep: false, t: reducedMotion() ? DROP_DUR : 0, e: 0, s0: selScale.v, from, a: fall, c: fall, b: fall, r0: 0, rc: 0, r1: 0, land: held };
+    held = null;
+  };
+  const settle = (c: Carry) => {
+    carried = null;
+    ringSel = null;
+    ring?.select(null);
+    gsap.killTweensOf([haloLevel, eclipse]);
+    eclipse.v = 0;
+    const quick = reducedMotion();
+    if (c.keep) {
+      const l = c.land;
+      if (l) {
+        l.down = true;
+        if (l.mesh) ring?.hide(c.k);
+      }
+      burstAt.copy(c.b).multiplyScalar(1 - facing() * LAND_LIFT * 1.5);
+      if (!quick) gsap.fromTo(burst, { t: 0 }, { t: 1, duration: 1.5, ease: "none" });
+      gsap.to(haloLevel, { v: 0, duration: quick ? 0 : 1.2 });
+    } else {
+      ring?.hide(c.k);
+      if (c.land) freeCover(c.land);
+      haloLevel.v = 0;
+    }
+    settleCall = gsap.delayedCall(c.keep && !quick ? LINGER : 0, () => cb.onRingSettled?.(c.k, c.keep));
+  };
+  const stepPending = (dt: number) => {
+    const c = carried;
+    if (c && ring) {
+      c.t += dt;
+      const raw = Math.min(1, c.t / (c.keep ? KEEP_DUR : DROP_DUR));
+      if (c.keep) {
+        const e = FLIGHT_EASE(raw);
+        c.e = e;
+        ring.carry(c.k, pathAt(c, e, _pp));
+        // the camera follows the picture, so it holds the middle while the sphere turns its seat up under it
+        aimDir(_pp);
+        // it keeps its read size through the turn and gives it up on the way down
+        const d = Math.min(1, Math.max(0, (e - 0.3) / 0.7));
+        selScale.v = c.s0 + (landScale(c.k) - c.s0) * d * d * (3 - 2 * d);
+        // the eclipse belongs to the reading: it thins out along the trip and is gone at the seat
+        eclipse.v = 1 - e;
+      } else {
+        ring.carry(c.k, _pp.copy(c.from).addScaledVector(c.b, raw * raw * DROP_FALL));
+        selScale.v = c.s0 * (1 - raw * raw);
+        haloLevel.v = HALO * (1 - raw);
+        eclipse.v = 1 - raw;
+      }
+      ring.select(c.k, selScale.v);
+      if (raw >= 1) settle(c);
+    } else if (ringSel !== null && ring) ring.select(ringSel, selScale.v);
+    const w = wake;
+    if (!w) return;
+    if (w !== carried) w.t += dt;
+    const head = FLIGHT_EASE(Math.min(1, w.t / KEEP_DUR));
+    const tail = FLIGHT_EASE(Math.min(1, Math.max(0, (w.t - TRAIL_LAG) / KEEP_DUR)));
+    for (let j = 0; j < TRAIL; j++) {
+      pathAt(w, tail + (head - tail) * (j / (TRAIL - 1)), _pp);
+      trailPos[j * 3] = _pp.x;
+      trailPos[j * 3 + 1] = _pp.y;
+      trailPos[j * 3 + 2] = _pp.z;
+    }
+    trailGeo.attributes.position.needsUpdate = true;
+    // a short tail is the same lights bunched up: dim it as it closes, or the seat flares
+    trailMat.opacity = Math.min(1, (head - tail) / 0.2);
+    trail.visible = head - tail > 1e-4;
+    if (w.t > KEEP_DUR + TRAIL_LAG) { wake = null; trail.visible = false; }
+  };
+  // w: 0 held facing the camera with its short side given, 1 laid on its bearing at a tile's area
+  const placeCover = (l: Cover, at: Vector3, side: number, w: number) => {
+    const m = l.mesh;
+    if (!m) return;
+    const mat = m.material as MeshBasicMaterial;
+    m.visible = l.level.v > 0.001;
+    mat.opacity = l.level.v;
+    // held, it draws over the eclipse and everything else; laid down, it is one more tile
+    mat.depthTest = l.down;
+    m.renderOrder = l.down ? 4 : 7;
+    _cr.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    _cu.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    if (w > 0 && l.dir) {
+      dirBasis(l.dir, facing());
+      _cr.lerp(_ne1, w).normalize();
+      _cu.lerp(_ne2, w).normalize();
+    }
+    _cn.crossVectors(_cr, _cu).normalize();
+    const a = l.aspect, sx = Math.sqrt(a);
+    const wide = side * (Math.max(a, 1) * (1 - w) + sx * w), tall = side * (Math.max(1 / a, 1) * (1 - w) + w / sx);
+    _m4.makeBasis(_cr.multiplyScalar(wide), _cu.multiplyScalar(tall), _cn);
+    _m4.setPosition(at);
+    m.matrix.copy(_m4);
+  };
+  // after the ring has placed its grains: the eclipse and the picture ride the read one, the kept ones sit on their bearings
+  const placePending = () => {
+    const f = facing();
+    const breath = reducedMotion() ? 1 : 0.85 + 0.15 * Math.sin(glowTime * 1.6);
+    _pv.copy(camera.position).normalize();
+    for (const l of landed) {
+      if (!l.down || !l.dir) continue;
+      placeCover(l, _pp.copy(l.dir).multiplyScalar(1 - f * LAND_LIFT), half() * 2 * LAND_SCALE, 1);
+      // from outside, the far side of the sphere is not drawn
+      if (l.mesh && f < 0 && l.dir.dot(_pv) < 0.2) l.mesh.visible = false;
+    }
+    const k = carried?.k ?? ringSel;
+    let mote = false;
+    if (k !== null && ring) {
+      ring.worldOf(k, haloAt);
+      const side = GRAIN * grainK() * selScale.v;
+      mote = ringItems[k].k < 0;
+      haloSide = mote ? Math.max(side * NO_COVER, half() * 1.6) : side;
+      const l = carried ? carried.land : held;
+      // the picture turns from the camera to its bearing over the last stretch of the trip
+      const lay = carried?.keep ? Math.min(1, Math.max(0, (carried.e - 0.5) / 0.5)) : 0;
+      if (l && !l.down) placeCover(l, haloAt, side, lay * lay * (3 - 2 * lay));
+    }
+    halo.visible = haloLevel.v > 0.001;
+    if (halo.visible) {
+      halo.position.copy(haloAt);
+      halo.quaternion.copy(camera.quaternion);
+      // with no picture to show, the light is the subject: a tight bright core where the picture would be
+      halo.scale.setScalar(haloSide * (mote ? MOTE_SPAN : HALO_SPAN));
+      haloMat.opacity = Math.min(1, haloLevel.v * (mote ? 1.7 : 1)) * breath;
+    }
+    shade.visible = corona.visible = eclipse.v > 0.001;
+    if (shade.visible) {
+      shade.position.copy(haloAt);
+      shade.quaternion.copy(camera.quaternion);
+      shade.scale.setScalar(haloSide * SHADE_SPAN);
+      shadeMat.opacity = eclipse.v * SHADE;
+      corona.position.copy(haloAt);
+      corona.quaternion.copy(camera.quaternion);
+      if (!reducedMotion()) corona.rotateZ(glowTime * CORONA_TURN);
+      corona.scale.setScalar(haloSide * CORONA_SPAN);
+      coronaMat.opacity = eclipse.v * CORONA * breath;
+    }
+    rays.visible = burst.t < 1;
+    if (rays.visible) {
+      const t = burst.t;
+      rays.position.copy(burstAt);
+      rays.quaternion.copy(camera.quaternion);
+      rays.scale.setScalar(half() * 2 * RAY_SPAN * (0.55 + 0.75 * (1 - (1 - t) ** 3)));
+      rayMat.opacity = Math.min(1, t / 0.08) * (1 - t) ** 2 * 0.9;
+    }
+  };
 
   let raf = 0;
   let last = performance.now();
@@ -1229,7 +1596,7 @@ void main() {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     arcMat.uniforms.uTime.value += dt;
-    const busy = controls.dragging || hovered !== null || focused >= 0 || ringHover !== null || searchHits.length > 0;
+    const busy = controls.dragging || hovered !== null || focused >= 0 || ringHover !== null || ringSel !== null || carried !== null || searchHits.length > 0;
     idle = busy ? 0 : idle + dt;
     if (idle > IDLE_AFTER && !reducedMotion()) controls.nudge(DRIFT * dt * Math.min(1, (idle - IDLE_AFTER) / 2));
     const { yaw, pitch, zoom } = controls.step(dt);
@@ -1279,15 +1646,16 @@ void main() {
     reportSheet();
     updateRings();
     placeGlow(dt);
+    stepPending(dt);
     ring?.update(dt, {
       level: ringIn.v * (1 - selFade.v) * (0.35 + 0.65 * searchOff()),
-      // as orbits the grains keep most of their size: at the tiles' exploded size a ribbon thins to dust
-      size: sizeK() + (Math.pow(baseR, -0.75) - sizeK()) * ATOM_GRAIN * atomOpen(),
+      size: grainK(),
       inside: mode !== "globe",
-      paused: ringHover !== null,
+      paused: ringHover !== null || ringSel !== null || carried !== null,
       still: reducedMotion(),
       phase: ringPhase(scaleAt()),
     });
+    placePending();
     if (!controls.dragging && pointerNdc) {
       let hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales, sheet);
       const grain = ring?.pick(pointerNdc[0], pointerNdc[1], camera) ?? null;
@@ -1368,7 +1736,14 @@ void main() {
       showNeighbors(null);
       gatherSoon(0);
     },
-    setDock(px) { dockPx = px; if (focused >= 0) gsap.to(dock, { px, duration: DUR.morph }); },
+    setDock(px) { dockPx = px; if (focused >= 0 || ringSel !== null) gsap.to(dock, { px, duration: DUR.morph }); },
+    readPending(k) {
+      if (k !== null && focused >= 0) { doBlur(); cb.onBlur(); }
+      // letting go under a tile being read leaves the dock to the tile
+      readGrain(k, true, k === null && focused >= 0);
+    },
+    keepPending: keepGrain,
+    dropPending: dropGrain,
     dispose() {
       disposed = true;
       cancelAnimationFrame(raf);
@@ -1386,6 +1761,17 @@ void main() {
       gsap.killTweensOf(orbitR);
       gsap.killTweensOf([focusDolly, orbitR, dock, glowLevel]);
       glowTex.dispose();
+      settleCall?.kill();
+      gsap.killTweensOf([haloLevel, eclipse, selScale, burst]);
+      for (const l of held ? [...landed, held] : landed) freeCover(l);
+      shadeTex.dispose();
+      shadeMat.dispose();
+      coronaMat.dispose();
+      haloMat.dispose();
+      rayTex.dispose();
+      rayMat.dispose();
+      trailGeo.dispose();
+      trailMat.dispose();
       ring?.dispose();
       gsap.killTweensOf([material.uniforms.uNeighDim, material.uniforms.uNeighScale, material.uniforms.uBirth]);
       gsap.killTweensOf([arcMat.uniforms.uOpacity, arcMat.uniforms.uProgress]);

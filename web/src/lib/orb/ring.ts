@@ -21,7 +21,8 @@ import {
    loose as dust, at rest they are the ring, exploded the ring parts into three
    orbits and then winds into one thread from pole to pole, newest at the top.
    Grains are placed here every frame and the pointer reads the same array.
-   Read-only: grains can be hovered, nothing here ingests or drops. */
+   One grain can be read: it holds lit, and the scene may carry it off the
+   ring or hide it. Nothing here ingests or drops; a reload puts every grain back. */
 
 export type RingItem = {
   u: string; // url
@@ -41,9 +42,10 @@ const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 const GAP = 600;
 // months with fewer items than this merge into the next band instead of getting a gap of their own
 const MIN_BAND = 40;
-const GRAIN = 0.02;
-const NO_COVER = 0.55; // size of a grain without a cover, against one with
+export const GRAIN = 0.02;
+export const NO_COVER = 0.55; // size of a grain without a cover, against one with
 const HOVER = 2.4;
+export const SELECT = 3.2; // a grain being read, in grain sizes
 const OMEGA = (Math.PI * 2) / 480; // inner edge: one turn in eight minutes
 const THICK_INSIDE = 0.07, THICK_GLOBE = 0.034;
 // seen from outside most grains hug the ring plane and a few stray off it, so the lanes and the month gaps survive
@@ -128,21 +130,22 @@ in float iSlot; // atlas slot, -1 = no cover
 in float iIdx;
 in float iFlag; // 1 = open question
 uniform mat4 modelViewMatrix, projectionMatrix;
-uniform float uGrain, uSize, uNoCover, uHover, uHoverScale, uClear;
+uniform float uGrain, uSize, uNoCover, uHover, uHoverScale, uSel, uSelScale, uClear;
 uniform float uCols, uCell;
 out vec2 vUv;
-out float vHas, vHov, vFlag, vNear, vSeed;
+out float vHas, vHov, vSel, vFlag, vNear, vSeed;
 void main() {
   float has = step(0.0, iSlot);
   float hov = abs(iIdx - uHover) < 0.5 ? 1.0 : 0.0;
+  float sel = abs(iIdx - uSel) < 0.5 ? 1.0 : 0.0;
   vec4 cv = modelViewMatrix * vec4(iPos, 1.0);
   float dist = length(cv.xyz);
   // a grain about to pass through the camera shrinks away instead of filling the view
-  float s = uGrain * uSize * mix(uNoCover, 1.0, has) * mix(1.0, uHoverScale, hov) * smoothstep(0.06, 0.3, dist);
+  float s = uGrain * uSize * mix(uNoCover, 1.0, has) * mix(mix(1.0, uHoverScale, hov), uSelScale, sel) * smoothstep(0.06, 0.3, dist);
   // loose dust never sits on the sphere's face: a grain between the eye and the sphere shrinks away
   vec3 c = modelViewMatrix[3].xyz;
   float t = dot(c, cv.xyz) / dot(cv.xyz, cv.xyz);
-  s *= 1.0 - uClear * step(1.0, t) * (1.0 - smoothstep(1.0, 1.15, dot(c, c) - t * t * dot(cv.xyz, cv.xyz)));
+  s *= 1.0 - (1.0 - sel) * uClear * step(1.0, t) * (1.0 - smoothstep(1.0, 1.15, dot(c, c) - t * t * dot(cv.xyz, cv.xyz)));
   gl_Position = projectionMatrix * (cv + vec4(position.xy * s, 0.0, 0.0));
   float k = max(iSlot, 0.0);
   // inset: at the small mip levels a cell's edge carries its neighbor's color
@@ -150,7 +153,8 @@ void main() {
   vec2 q = 0.05 + uv * 0.9;
   vUv = vec2((cell.x + q.x) * uCell, 1.0 - (cell.y + 1.0 - q.y) * uCell);
   vHas = has;
-  vHov = hov;
+  vHov = max(hov, sel);
+  vSel = sel;
   vFlag = iFlag;
   vNear = 1.0 - smoothstep(0.5, 2.0, dist);
   vSeed = fract(iIdx * 0.618034);
@@ -162,7 +166,7 @@ uniform sampler2D uAtlas;
 uniform float uLevel;
 uniform float uFar; // brightness away from the pointer: the ring steps back when seen from inside
 in vec2 vUv;
-in float vHas, vHov, vFlag, vNear, vSeed;
+in float vHas, vHov, vSel, vFlag, vNear, vSeed;
 out vec4 outColor;
 void main() {
   if (uLevel < 0.01) discard;
@@ -173,7 +177,8 @@ void main() {
   float near = max(vNear, vHov);
   vec3 c = mix(pale, cover, near);
   vec3 speck = vec3(0.27, 0.26, 0.245) * (0.55 + 0.6 * vSeed);
-  c = mix(speck, c, vHas);
+  // a coverless grain being read is a pale mote, not a dark one
+  c = mix(mix(speck, vec3(0.80, 0.78, 0.72), vSel), c, vHas);
   vec3 brass = vec3(0.886, 0.690, 0.290) * (0.3 + 0.7 * dot(c, vec3(0.333)) * 1.6);
   c = mix(c, brass, 0.45 * vFlag * (1.0 - near));
   outColor = vec4(c * mix(uFar, 1.0, vHov), uLevel);
@@ -187,6 +192,12 @@ export type RingHandle = {
   // grain under the pointer and its view depth, nearest first; null when none
   pick(ndcX: number, ndcY: number, camera: PerspectiveCamera): { k: number; depth: number } | null;
   setHover(k: number | null): void;
+  // the grain being read: lit, held at scale times a grain's size. null lets it go.
+  select(k: number | null, scale?: number): void;
+  // a grain taken off the ring to a place in the world; null hands it back
+  carry(k: number, to: Vector3 | null): void;
+  hide(k: number): void;
+  worldOf(k: number, out: Vector3): Vector3;
   dispose(): void;
 };
 
@@ -255,6 +266,7 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
       uAtlas: { value: null as Texture | null },
       uGrain: { value: GRAIN }, uSize: { value: 1 }, uNoCover: { value: NO_COVER },
       uHover: { value: -1 }, uHoverScale: { value: HOVER },
+      uSel: { value: -1 }, uSelScale: { value: SELECT },
       uCols: { value: data.cols }, uCell: { value: data.cell / data.size },
       uLevel: { value: 0 }, uFar: { value: 1 }, uClear: { value: 0 },
     },
@@ -280,8 +292,11 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
     mesh.visible = true;
   });
 
-  let hover = -1;
+  let hover = -1, sel = -1;
   let time = 0;
+  const held = new Map<number, Vector3>(); // carried grains, in the ring's own frame
+  const off = new Uint8Array(n); // 1 hidden, 2 carried: neither answers the pointer
+  const AWAY = 1e5; // past the far plane
   // from inside the camera sits in the ring plane, so the ring spreads into a belt; from outside most grains hug the plane
   let thick = THICK_INSIDE, loft = 1, lofted = NaN;
   const u = material.uniforms;
@@ -331,6 +346,8 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
       pos[k * 3 + 1] = y;
       pos[k * 3 + 2] = z;
     }
+    for (let k = 0; k < n; k++) if (off[k] === 1) pos[k * 3 + 1] = AWAY;
+    for (const [k, v] of held) pos.set([v.x, v.y, v.z], k * 3);
     where.needsUpdate = true;
   };
   return {
@@ -360,7 +377,7 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
       for (let k = 0; k < n; k++) {
         const x = pos[k * 3], y = pos[k * 3 + 1], z = pos[k * 3 + 2];
         const w = e[3] * x + e[7] * y + e[11] * z + e[15];
-        if (w < 0.3 || w >= bestW) continue; // nearer than this the shader has shrunk the grain away
+        if (off[k] || w < 0.3 || w >= bestW) continue; // nearer than this the shader has shrunk the grain away
         if (clear) {
           // the shader's test: dust over the sphere's face is not drawn, so it cannot be hovered
           const dx = x - eye.x, dy = y - eye.y, dz = z - eye.z, d2 = dx * dx + dy * dy + dz * dz;
@@ -368,7 +385,7 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
           if (t >= 1 && far2 - t * t * d2 < 1) continue;
         }
         // small grains get a hit area a little larger than they are drawn
-        const h = (side * (slot[k] >= 0 ? 1 : NO_COVER) * (k === hover ? HOVER : 1.5)) / 2;
+        const h = (side * (slot[k] >= 0 ? 1 : NO_COVER) * (k === sel ? (u.uSelScale.value as number) : k === hover ? HOVER : 1.5)) / 2;
         const nx = (e[0] * x + e[4] * y + e[8] * z + e[12]) / w;
         if (Math.abs(nx - ndcX) > (h * px) / w) continue;
         const ny = (e[1] * x + e[5] * y + e[9] * z + e[13]) / w;
@@ -381,6 +398,26 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
     setHover(k) {
       hover = k ?? -1;
       u.uHover.value = hover;
+    },
+    select(k, scale = SELECT) {
+      sel = k ?? -1;
+      u.uSel.value = sel;
+      u.uSelScale.value = scale;
+    },
+    carry(k, to) {
+      if (!to) { held.delete(k); if (off[k] === 2) off[k] = 0; return; }
+      group.updateMatrixWorld();
+      const v = held.get(k) ?? new Vector3();
+      held.set(k, group.worldToLocal(v.copy(to)));
+      if (off[k] !== 1) off[k] = 2;
+    },
+    hide(k) {
+      held.delete(k);
+      off[k] = 1;
+    },
+    worldOf(k, out) {
+      group.updateMatrixWorld();
+      return out.set(pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2]).applyMatrix4(group.matrixWorld);
     },
     dispose() {
       disposed = true;

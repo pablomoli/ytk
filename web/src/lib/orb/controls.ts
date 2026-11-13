@@ -68,7 +68,11 @@ export function createControls(): OrbControls {
       return { tap };
     },
     wheel(dy) { tzoom += dy * ZOOM_SENS; clampZoom(); }, // dy>0 zooms out (toward 1)
-    setTarget(y, p) { tyaw = y; tpitch = p; vyaw = vpitch = 0; clamp(); },
+    setTarget(y, p) {
+      // the short way round: the target is the same bearing nearest the angle already shown
+      tyaw = yaw + Math.atan2(Math.sin(y - yaw), Math.cos(y - yaw));
+      tpitch = p; vyaw = vpitch = 0; clamp();
+    },
     nudge(dyaw) { tyaw += dyaw; },
     step(dt) {
       if (dragging) dtSinceMove += dt;

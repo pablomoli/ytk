@@ -20,6 +20,9 @@ type Props = {
   library: boolean;
   count: number;
   onLibrary: () => void;
+  waiting: number; // pending items not yet kept or dropped
+  reading: boolean; // one of them is open
+  onPending: () => void;
   spread: number;
   onSpread: (x: number) => void;
   themes: { label: string; count: number }[];
@@ -28,8 +31,8 @@ type Props = {
 };
 
 // no preflight in the hub: a button keeps the browser's box unless each property is given back
-const WORD = "cursor-pointer appearance-none border-0 bg-transparent p-0 [font:inherit] [letter-spacing:inherit] transition-colors duration-200 ease-hub";
-const word = (on: boolean) => `${WORD} ${on ? "text-ink" : "text-ink2/60 hover:text-ink"}`;
+export const WORD = "cursor-pointer appearance-none border-0 bg-transparent p-0 [font:inherit] [letter-spacing:inherit] transition-colors duration-200 ease-hub";
+export const word = (on: boolean) => `${WORD} ${on ? "text-ink" : "text-ink2/60 hover:text-ink"}`;
 // a switch that is on wears the brass rule the lens row slides
 const sw = (on: boolean) => `${word(on)} border-b pb-px ${on ? "!border-accent" : "!border-transparent"}`;
 const SMALL = "text-[13px]";
@@ -175,13 +178,20 @@ export function OrbControls(p: Props) {
         </div>
       </div>
       <Popover open={picking} onOpenChange={setPicking}>
+        <div className={`${SMALL} mt-3.5 flex items-baseline gap-4 leading-tight`}>
         <PopoverTrigger asChild>
-          <button type="button" data-orb-theme className={`${WORD} ${SMALL} mt-3.5 flex max-w-full items-baseline gap-2 self-start leading-tight ${p.theme === null ? "text-ink2/70 hover:text-ink" : "text-ink"}`}>
+          <button type="button" data-orb-theme className={`${WORD} flex min-w-0 items-baseline gap-2 ${p.theme === null ? "text-ink2/70 hover:text-ink" : "text-ink"}`}>
             <span className="truncate">{p.theme === null ? "all themes" : p.themes[p.theme]?.label.toLowerCase()}</span>
             <span className="flex-none text-[0.82em] tabular-nums text-accent">{p.theme === null ? p.count : p.themes[p.theme]?.count}</span>
             <span aria-hidden className={`flex-none text-[0.7em] text-ink2/60 transition-transform duration-200 ease-hub ${picking ? "rotate-180" : ""}`}>&#9662;</span>
           </button>
         </PopoverTrigger>
+        {p.waiting > 0 ? (
+          <button type="button" data-orb-inbox title="read the pending items, newest first" className={`${sw(p.reading)} ml-auto flex-none`} onClick={(e) => { e.currentTarget.blur(); p.onPending(); }}>
+            pending <span className="text-[0.82em] tabular-nums text-accent">{p.waiting}</span>
+          </button>
+        ) : null}
+        </div>
         <PopoverContent
           align="start"
           sideOffset={8}

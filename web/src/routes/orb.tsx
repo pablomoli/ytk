@@ -7,6 +7,7 @@ import { apiGet, queryClient } from "../api/client";
 import type { SimilarItem } from "../api/fresh";
 import type { LibraryPage } from "../api/library";
 import { OrbControls } from "../components/OrbControls";
+import { OrbPending, type PendingDetail } from "../components/OrbPending";
 import { OrbReader, READER_WIDTH } from "../components/OrbReader";
 import { ErrorState } from "../components/StateViews";
 import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
@@ -208,6 +209,14 @@ function OrbPage() {
   const [hovered, setHovered] = useState<number | null>(null);
   const [grain, setGrain] = useState<RingItem | null>(null); // the pending item under the pointer
   const [sheetTiles, setSheetTiles] = useState<SheetTile[]>([]); // the sheet's landed covers, from the scene
+  // pending: the ring item being read, by its place in the ring's list. pendingPane: the pane's item, which
+  // outlives it by one slide-out. gone: kept or dropped in this rehearsal; a reload puts them back
+  const [ringItems, setRingItems] = useState<RingItem[]>([]);
+  const [pending, setPending] = useState<number | null>(null);
+  const [pendingPane, setPendingPane] = useState<number | null>(null);
+  const [gone, setGone] = useState<ReadonlySet<number>>(new Set());
+  const [flying, setFlying] = useState(false);
+  const inbox = useRef({ pending, gone, flying, n: 0, keep: () => {}, drop: () => {}, step: (_by: 1 | -1) => {} });
   // the neighbors panel anchors on the last hovered tile and stays put, so the
   // pointer can leave the sphere to read or click the list
   const [anchor, setAnchor] = useState<number | null>(null);
@@ -270,6 +279,67 @@ function OrbPage() {
   const live = useRef({ library, turn });
   live.current = { library, turn };
 
+  // the next item along the queue that is still waiting, or null at its end
+  const nextPending = (from: number, by: 1 | -1, skip: ReadonlySet<number>) => {
+    for (let k = from + by; k >= 0 && k < inbox.current.n; k += by) if (!skip.has(k)) return k;
+    return null;
+  };
+  const readPending = (k: number | null) => {
+    handleRef.current?.readPending(k);
+    setPending(k);
+    if (k !== null) setPendingPane(k);
+  };
+  const pendingItem = pendingPane !== null ? ringItems[pendingPane] : undefined;
+  // a walk along the queue asks only about the item it stops on: every ask embeds the item's words
+  const [asked, setAsked] = useState<string>();
+  const readUrl = pendingItem?.u;
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAsked(readUrl), 160);
+    return () => window.clearTimeout(timer);
+  }, [readUrl]);
+  // the queue's row for the read item and the tiles its words sit nearest; read-only
+  const detailQuery = useQuery({
+    queryKey: ["orb-pending", asked],
+    queryFn: () => apiGet<PendingDetail>(`/api/orb-pending?u=${encodeURIComponent(asked!)}`),
+    enabled: asked !== undefined,
+    staleTime: Infinity,
+  });
+  const detail = asked === readUrl ? detailQuery.data : undefined;
+  // the bake's seating rule on the tiles as they sit now: the five nearest, each weighted by how much
+  // nearer it is than the sixth. Scattered neighbors cancel; then it sits by the nearest one
+  const seatOf = (hits: { i: number; s: number }[]): [number, number, number] | null => {
+    const h = handleRef.current;
+    if (!h || !hits.length) return null;
+    const floor = hits.length > 5 ? hits[5].s : 0;
+    const d: [number, number, number] = [0, 0, 0];
+    for (const { i, s } of hits.slice(0, 5)) {
+      const c = h.centerOf(i), w = Math.max(s - floor, 1e-6);
+      d[0] += w * c[0]; d[1] += w * c[1]; d[2] += w * c[2];
+    }
+    const top = hits.slice(0, 5).reduce((a, x) => a + Math.max(x.s - floor, 1e-6), 0);
+    return Math.hypot(d[0], d[1], d[2]) > 0.6 * top ? d : h.centerOf(hits[0].i);
+  };
+  const hitsNow = pending !== null && pending === pendingPane ? (detail?.hits ?? []) : [];
+  inbox.current = {
+    pending, gone, flying, n: ringItems.length,
+    keep: () => {
+      const seat = seatOf(hitsNow);
+      if (!seat || flying || pending === null) return;
+      setFlying(true);
+      handleRef.current?.keepPending(seat);
+    },
+    drop: () => {
+      if (flying || pending === null) return;
+      setFlying(true);
+      handleRef.current?.dropPending();
+    },
+    step: (by) => {
+      if (flying || pending === null) return;
+      const k = nextPending(pending, by, gone);
+      if (k !== null) readPending(k);
+    },
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return; // an open theme list takes its own Escape
@@ -280,6 +350,12 @@ function OrbPage() {
         searchRef.current?.focus();
         searchRef.current?.select();
         return;
+      }
+      // while a pending item is read the keys are the inbox's: step, keep, drop, close
+      if (inbox.current.pending !== null && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const act = e.key === "ArrowRight" ? () => inbox.current.step(1) : e.key === "ArrowLeft" ? () => inbox.current.step(-1)
+          : e.key === "k" ? inbox.current.keep : e.key === "d" ? inbox.current.drop : e.key === "Escape" ? () => readPending(null) : null;
+        if (act) { e.preventDefault(); act(); return; }
       }
       // the arrows turn the library's page while nothing is read or searched
       if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && !typing && live.current.library && selectedRef.current === null && !queryRef.current) {
@@ -348,6 +424,16 @@ function OrbPage() {
       onOpen: (i) => { setSelected(i); setReader(i); setAnchor(i); setListOpen(false); },
       onBlur: () => setSelected(null),
       onRingHover: setGrain,
+      onRingReady: setRingItems,
+      onRingOpen: (k) => { setPending(k); if (k !== null) setPendingPane(k); },
+      onRingSettled: (k) => {
+        const left = new Set(inbox.current.gone).add(k);
+        setGone(left);
+        setFlying(false);
+        // on to the next one still waiting, unless a tile was opened while the grain flew
+        const next = selectedRef.current === null ? nextPending(k, 1, left) : null;
+        readPending(next);
+      },
       onSheet: setSheetTiles,
     });
     handleRef.current = handle;
@@ -473,6 +559,9 @@ function OrbPage() {
           library={library}
           count={data.points.length}
           onLibrary={() => { setLibrary((v) => !v); setPage(0); }}
+          waiting={ringItems.length - gone.size}
+          reading={pending !== null}
+          onPending={() => readPending(pending === null ? nextPending(-1, 1, gone) : null)}
           spread={spread}
           onSpread={applySpread}
           themes={themeCounts}
@@ -565,7 +654,7 @@ function OrbPage() {
             </>
           ) : null}
         </aside>
-      ) : data && chrome && anchor !== null && knn ? (
+      ) : data && chrome && anchor !== null && knn && pendingPane === null ? (
         <aside data-orb-neighbors className={`absolute bottom-4 left-4 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md ${folded ? "max-w-80" : "w-80"}`}>
           <PanelHead
             label="nearest by embedding"
@@ -597,10 +686,11 @@ function OrbPage() {
           ) : null}
         </div>
       ) : null}
-      {data && grain ? (
+      {data && grain && grain !== (pending !== null ? ringItems[pending] : undefined) ? (
         <div
           data-ring-caption
-          className="pointer-events-none absolute bottom-4 left-1/2 flex w-[26rem] -translate-x-1/2 items-center gap-3 rounded-lg border border-white/10 bg-black/70 px-3 py-2.5 shadow-2xl backdrop-blur-md"
+          className="pointer-events-none absolute bottom-4 flex w-[26rem] -translate-x-1/2 items-center gap-3 rounded-lg border border-white/10 bg-black/70 px-3 py-2.5 shadow-2xl backdrop-blur-md"
+          style={{ left: selected !== null || pending !== null ? `calc(50% - ${READER_WIDTH / 2}px)` : "50%" }}
         >
           {/* only cached covers: asking for an uncached one makes the hub download it */}
           {grain.k >= 0 ? (
@@ -629,6 +719,22 @@ function OrbPage() {
           onWalk={walkTo}
           onClose={closeReader}
           onGone={() => setReader(null)}
+        />
+      ) : null}
+      {data && pendingItem ? (
+        <OrbPending
+          item={pendingItem}
+          detail={detail}
+          beside={(detail?.hits ?? []).slice(0, 3).map((h) => ({ title: captionTitle(data.points[h.i]?.t ?? ""), score: h.s }))}
+          left={ringItems.length - gone.size}
+          open={pending !== null}
+          busy={flying}
+          canKeep={hitsNow.length > 0}
+          onKeep={inbox.current.keep}
+          onDrop={inbox.current.drop}
+          onStep={inbox.current.step}
+          onClose={() => readPending(null)}
+          onGone={() => setPendingPane(null)}
         />
       ) : null}
     </div>
