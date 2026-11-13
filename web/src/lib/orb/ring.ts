@@ -17,9 +17,9 @@ import {
 
 /* The pending ring: every item still in the queue is one grain around the
    sphere. At rest a flat ring, newest at the inner edge, a gap at each month.
-   The size scale moves it through four shapes: contracted the grains drift
-   loose as dust, at rest they are the ring, exploded the ring parts into three
-   orbits and then winds into one thread from pole to pole, newest at the top.
+   The dial turns it through four shapes in a loop: the ring parts into three
+   orbits, the orbits wind into one thread from pole to pole, newest at the
+   top, the thread comes loose as dust, and the dust settles into the ring.
    Grains are placed here every frame and the pointer reads the same array.
    One grain can be read: it holds lit, and the scene may carry it off the
    ring or hide it. Nothing here ingests or drops; a reload puts every grain back. */
@@ -75,9 +75,14 @@ const COIL_RATE = 2; // the thread turns about its axis this many times faster t
 const hash = (x: number) => { const v = Math.sin(x * 12.9898) * 43758.5453; return v - Math.floor(v); };
 const ramp = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-// the scale's position (-1 contract .. 1 explode) as a shape: -1 dust, 0 ring, 1 orbits, 2 thread.
-// Each shape holds for a stretch of the scale, so a stop is a place to rest and not a single tick.
-export const ringPhase = (x: number) => (x < 0 ? -ramp(0.1, 0.9, -x) : ramp(0.04, 0.44, x) + ramp(0.56, 0.96, x));
+// the dial's position, in turns from the ring, as a shape: 0 ring, 1 orbits, 2 thread, 3 dust, 4 the ring again.
+// Each shape holds for a stretch around its stop, so a stop is a place to rest and not a single tick.
+export const ringPhase = (c: number) => {
+  const q = (c - Math.floor(c)) * 4, i = Math.min(3, Math.floor(q));
+  return i + ramp(0.1, 0.9, q - i);
+};
+// how far the grains have left the ring's plane to circle the sphere: all the way as orbits and thread, not at all as ring and dust
+export const ringOpen = (q: number) => (q < 1 ? q : q < 2 ? 1 : q < 3 ? 3 - q : 0);
 
 // pure so it's unit-testable: r, theta, shell, month band per item, in input order (newest first).
 // Equal area per item, so a busy month is a wide band. Grains snap to concentric
@@ -187,7 +192,7 @@ void main() {
 export type RingHandle = {
   group: Group;
   // level: 0..1 opacity. size: the tiles' size factor, so grains shrink with them. paused: hold the motion.
-  // phase: the shape, as ringPhase gives it: -1 dust, 0 ring, 1 orbits, 2 thread.
+  // phase: the shape, as ringPhase gives it: 0 ring, 1 orbits, 2 thread, 3 dust, 4 the ring again.
   update(dt: number, opts: { level: number; size: number; inside: boolean; paused: boolean; still: boolean; phase: number }): void;
   // grain under the pointer and its view depth, nearest first; null when none
   pick(ndcX: number, ndcY: number, camera: PerspectiveCamera): { k: number; depth: number } | null;
@@ -302,8 +307,11 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
   const u = material.uniforms;
   const _mvp = new Matrix4();
   const _eye = new Vector3();
-  // wd, wa, wc: how far toward dust, orbits and thread. Dust is the scale's other side, so it never mixes with the two after the ring.
-  const place = (wd: number, wa: number, wc: number) => {
+  // q: the shape. Each quarter blends two neighbors: ring to orbits, orbits to thread, thread to dust, dust to ring.
+  const place = (q: number) => {
+    const loose = q >= 2; // past the thread a grain starts from its place in the dust
+    const wa = Math.min(1, q), wd = q < 3 ? 1 : 4 - q;
+    const wc = q < 1 ? 0 : q < 2 ? q - 1 : q < 3 ? 3 - q : 0;
     if (loft !== lofted) {
       for (let k = 0; k < n; k++) lift[k] = Math.sign(height[k]) * Math.pow(Math.abs(height[k]), loft);
       lofted = loft;
@@ -315,7 +323,7 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
       const a = theta[k] + time * OMEGA * rate[k];
       const hy = lift[k] * thick;
       let x: number, y: number, z: number;
-      if (wd > 0) {
+      if (loose) {
         // out along its own meridian: distance and latitude blend, so no grain cuts through the sphere on the way
         const rho = Math.hypot(r0[k], hy) * (1 - wd) + dust[k * 3] * wd;
         const lat = Math.atan2(hy, r0[k]) * (1 - wd) + dust[k * 3 + 1] * wd;
@@ -331,16 +339,16 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
         x = fx * ct - kz * hy * st + kx * along;
         y = hy * ct + (kz * fx - kx * fz) * st;
         z = fz * ct + kx * hy * st + kz * along;
-        if (wc > 0) {
-          const lon = coil[k * 3 + 2] + turn;
-          const tx = coil[k * 3] * Math.cos(lon), ty = coil[k * 3 + 1], tz = coil[k * 3] * Math.sin(lon);
-          const mx = x + (tx - x) * wc, my = y + (ty - y) * wc, mz = z + (tz - z) * wc;
-          // a straight line between two points around the sphere dips toward it; hold the distance and blend only the bearing
-          const keep = (Math.hypot(x, y, z) * (1 - wc) + Math.hypot(tx, ty, tz) * wc) / Math.max(1e-4, Math.hypot(mx, my, mz));
-          x = mx * keep;
-          y = my * keep;
-          z = mz * keep;
-        }
+      }
+      if (wc > 0) {
+        const lon = coil[k * 3 + 2] + turn;
+        const tx = coil[k * 3] * Math.cos(lon), ty = coil[k * 3 + 1], tz = coil[k * 3] * Math.sin(lon);
+        const mx = x + (tx - x) * wc, my = y + (ty - y) * wc, mz = z + (tz - z) * wc;
+        // a straight line between two points around the sphere dips toward it; hold the distance and blend only the bearing
+        const keep = (Math.hypot(x, y, z) * (1 - wc) + Math.hypot(tx, ty, tz) * wc) / Math.max(1e-4, Math.hypot(mx, my, mz));
+        x = mx * keep;
+        y = my * keep;
+        z = mz * keep;
       }
       pos[k * 3] = x;
       pos[k * 3 + 1] = y;
@@ -353,16 +361,16 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
   return {
     group,
     update(dt, { level, size, inside, paused, still, phase }) {
-      const wd = Math.max(0, -phase), wa = Math.min(1, Math.max(0, phase)), wc = Math.min(1, Math.max(0, phase - 1));
-      if (!paused && !still) time += dt * (1 + SPIN * wa);
+      const q = Math.min(4, Math.max(0, phase));
+      if (!paused && !still) time += dt * (1 + SPIN * ringOpen(q));
       u.uSize.value = size;
       u.uLevel.value = level;
-      u.uClear.value = wd;
+      u.uClear.value = q < 2 ? 0 : q < 3 ? q - 2 : 4 - q;
       const ease = still ? 1 : 1 - Math.exp(-dt * 5);
       thick += ((inside ? THICK_INSIDE : THICK_GLOBE) - thick) * ease;
       loft += ((inside ? 1 : LOFT) - loft) * ease;
       u.uFar.value += ((inside ? FAR_INSIDE : 1) - u.uFar.value) * ease;
-      place(wd, wa, wc);
+      place(q);
     },
     pick(ndcX, ndcY, camera) {
       if (!mesh.visible || (u.uLevel.value as number) < 0.5) return null;

@@ -23,8 +23,8 @@ type Props = {
   waiting: number; // pending items not yet kept or dropped
   reading: boolean; // one of them is open
   onPending: () => void;
-  spread: number;
-  onSpread: (x: number) => void;
+  dial: number; // the dial's position, in turns clockwise from the ring
+  onDial: (c: number) => void;
   themes: { label: string; count: number }[];
   theme: number | null;
   onTheme: (th: number | null) => void;
@@ -37,58 +37,71 @@ export const word = (on: boolean) => `${WORD} ${on ? "text-ink" : "text-ink2/60 
 const sw = (on: boolean) => `${word(on)} border-b pb-px ${on ? "!border-accent" : "!border-transparent"}`;
 const SMALL = "text-[13px]";
 
-const TICKS = 41, MID = (TICKS - 1) / 2;
-// the shapes the pending items take along the scale, each named where it holds
+const TICKS = 40, DIAL = 92; // DIAL: css px across
+// the shapes the pending items take around the dial, clockwise from the top; the last meets the first
 const STOPS = [
-  { at: -1, label: "dust", title: "the sphere drawn in, the pending items adrift around it" },
-  { at: 0, label: "ring", title: "the sphere at rest, the pending items in a ring" },
-  { at: 0.5, label: "atom", title: "the ring parted into three orbits" },
-  { at: 1, label: "coil", title: "the queue wound into one thread around the sphere, newest at the top" },
+  { at: 0, label: "ring", title: "the sphere at rest, the pending items in a ring", place: "bottom-full left-1/2 mb-2 -translate-x-1/2" },
+  { at: 0.25, label: "atom", title: "the ring parted into three orbits", place: "left-full top-1/2 ml-2.5 -translate-y-1/2" },
+  { at: 0.5, label: "coil", title: "the queue wound into one thread around the sphere, newest at the top", place: "top-full left-1/2 mt-2 -translate-x-1/2" },
+  { at: 0.75, label: "dust", title: "the sphere drawn in, the pending items adrift around it", place: "right-full top-1/2 mr-2.5 -translate-y-1/2" },
 ];
+// how far apart two places on the dial are, the short way around
+const apart = (a: number, b: number) => { const d = Math.abs(a - b) % 1; return Math.min(d, 1 - d); };
 
-/* The sphere's size as a ruled scale: rest at the center mark, contract to the
-   left, explode to the right. Hand-built because a native range is drawn
-   differently by every engine. */
-function Scale({ value, onChange }: { value: number; onChange: (x: number) => void }) {
+/* The orb's states as a ruled dial: the ring at the top, then the orbits, the
+   thread and the dust going clockwise, and the dust meets the ring again.
+   Hand-built because a native range is a line and is drawn differently by
+   every engine. */
+function Dial({ value, onChange }: { value: number; onChange: (c: number) => void }) {
   const set = (e: PointerEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    const x = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width) * 2 - 1));
-    onChange(Math.abs(x) < 0.035 ? 0 : x); // the center mark catches
+    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    if (Math.hypot(dx, dy) < 6) return; // at the hub a bearing means nothing
+    const c = (Math.atan2(dx, -dy) / (Math.PI * 2) + 1) % 1;
+    onChange(apart(c, 0) < 0.015 ? 0 : c); // the ring's mark catches
   };
+  const stop = STOPS.reduce((b, s) => (apart(s.at, value) < apart(b.at, value) ? s : b));
   return (
     <div
       role="slider"
       tabIndex={0}
-      aria-label="sphere size"
-      aria-valuemin={-1}
+      aria-label="orb state"
+      aria-valuemin={0}
       aria-valuemax={1}
-      aria-valuenow={Number(value.toFixed(2))}
-      title="drag to contract or explode the sphere; double-click to reset"
-      className="relative flex h-[18px] w-full cursor-ew-resize touch-none items-end justify-between"
+      aria-valuenow={Number(value.toFixed(3))}
+      aria-valuetext={stop.label}
+      title="turn to take the pending items through their shapes; double-click to rest"
+      className="size-full cursor-pointer touch-none rounded-full"
       onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); set(e); }}
       onPointerMove={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) set(e); }}
       onDoubleClick={() => onChange(0)}
       onKeyDown={(e) => {
-        const to = e.key === "ArrowLeft" ? value - 0.05 : e.key === "ArrowRight" ? value + 0.05 : e.key === "Home" ? 0 : null;
+        const to = e.key === "ArrowLeft" ? value - 1 / TICKS : e.key === "ArrowRight" ? value + 1 / TICKS : e.key === "Home" ? 0 : null;
         if (to === null) return;
         e.preventDefault();
         e.stopPropagation(); // the arrows also turn the library's page
-        onChange(Math.max(-1, Math.min(1, Math.abs(to) < 0.02 ? 0 : to)));
+        onChange(apart(to, 0) < 0.005 ? 0 : to);
       }}
     >
-      {Array.from({ length: TICKS }, (_, k) => {
-        const x = k / MID - 1;
-        const lit = k !== MID && (value > 0 ? x > 0 && x <= value + 1e-6 : x < 0 && x >= value - 1e-6);
-        return (
-          <span
+      <svg viewBox="-50 -50 100 100" className="block size-full overflow-visible" aria-hidden>
+        {Array.from({ length: TICKS }, (_, k) => (
+          <line
             key={k}
-            className={`w-px flex-none transition-colors duration-200 ${k === MID ? "h-[13px]" : k % 5 === 0 ? "h-[9px]" : "h-[5px]"} ${lit ? "bg-accent" : k === MID ? "bg-ink/80" : k % 5 === 0 ? "bg-ink/40" : "bg-ink/20"}`}
+            x1={0}
+            x2={0}
+            y1={-45}
+            y2={k % 10 === 0 ? -31 : k % 5 === 0 ? -36 : -40}
+            transform={`rotate(${(k / TICKS) * 360})`}
+            vectorEffect="non-scaling-stroke"
+            strokeWidth={1}
+            className={k % 10 === 0 ? "stroke-ink/80" : k % 5 === 0 ? "stroke-ink/40" : "stroke-ink/20"}
           />
-        );
-      })}
-      <span className="pointer-events-none absolute bottom-0 h-full w-[1.5px] -translate-x-1/2 bg-accent" style={{ left: `${(value + 1) * 50}%` }}>
-        <span className="absolute -top-[3px] left-1/2 size-[5px] -translate-x-1/2 rounded-full bg-accent" />
-      </span>
+        ))}
+        <g transform={`rotate(${value * 360})`} className="fill-accent stroke-accent">
+          <line x1={0} x2={0} y1={-27} y2={-49} vectorEffect="non-scaling-stroke" strokeWidth={1.5} />
+          <circle cx={0} cy={-49} r={2.7} stroke="none" />
+        </g>
+      </svg>
     </div>
   );
 }
@@ -105,7 +118,7 @@ export function OrbControls(p: Props) {
   }, [p.layout, p.settled]);
   const byCount = p.themes.map((t, th) => ({ ...t, th })).sort((a, b) => b.count - a.count);
   const pick = (th: number | null) => { p.onTheme(th); setPicking(false); };
-  const stop = STOPS.reduce((b, s) => (Math.abs(s.at - p.spread) < Math.abs(b.at - p.spread) ? s : b));
+  const stop = STOPS.reduce((b, s) => (apart(s.at, p.dial) < apart(b.at, p.dial) ? s : b));
   const item = (on: boolean) =>
     `${WORD} flex w-full items-baseline gap-3 rounded-[3px] px-2 py-[5px] text-left hover:bg-white/[0.06] ${on ? "text-ink" : "text-ink2 hover:text-ink"}`;
   return (
@@ -159,26 +172,17 @@ export function OrbControls(p: Props) {
           library <span className="text-[0.82em] tabular-nums text-accent">{p.count}</span>
         </button>
       </div>
-      <div className={`${SMALL} mt-3.5 italic leading-none`}>
-        <Scale value={p.spread} onChange={p.onSpread} />
-        <div className="relative mt-1.5 h-[1.1em]">
-          {STOPS.map((s) => (
-            <button
-              key={s.label}
-              type="button"
-              data-orb-stop={s.label}
-              title={s.title}
-              className={`${word(s === stop)} absolute top-0 ${s.at === -1 ? "" : s.at === 1 ? "-translate-x-full" : "-translate-x-1/2"}`}
-              style={{ left: `${(s.at + 1) * 50}%` }}
-              onClick={() => p.onSpread(s.at)}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+      {/* the margins leave room for the two stop words above and below the dial */}
+      <div className={`${SMALL} relative mx-auto mt-10 mb-7 italic leading-none`} style={{ width: DIAL, height: DIAL }}>
+        <Dial value={p.dial} onChange={p.onDial} />
+        {STOPS.map((s) => (
+          <button key={s.label} type="button" data-orb-stop={s.label} title={s.title} className={`${word(s === stop)} absolute ${s.place}`} onClick={() => p.onDial(s.at)}>
+            {s.label}
+          </button>
+        ))}
       </div>
       <Popover open={picking} onOpenChange={setPicking}>
-        <div className={`${SMALL} mt-3.5 flex items-baseline gap-4 leading-tight`}>
+        <div className={`${SMALL} flex items-baseline gap-4 leading-tight`}>
         <PopoverTrigger asChild>
           <button type="button" data-orb-theme className={`${WORD} flex min-w-0 items-baseline gap-2 ${p.theme === null ? "text-ink2/70 hover:text-ink" : "text-ink"}`}>
             <span className="truncate">{p.theme === null ? "all themes" : p.themes[p.theme]?.label.toLowerCase()}</span>

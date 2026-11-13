@@ -42,7 +42,7 @@ import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/
 import { buildAtlas, COLS, slotUv } from "./atlas";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
-import { GRAIN, NO_COVER, ORBIT_OUT, SELECT, createRing, ringPhase, type RingData, type RingHandle, type RingItem } from "./ring";
+import { GRAIN, NO_COVER, ORBIT_OUT, SELECT, createRing, ringOpen, ringPhase, type RingData, type RingHandle, type RingItem } from "./ring";
 import { DISPLAY } from "./face";
 
 export const TILE_HALF = 0.055; // ~4.5deg cell radius, sized for the content-set scale (~500 tiles)
@@ -87,6 +87,19 @@ export const MAX_FWD = 0.72;
 // sphere radius range; below 0.45 the far globe orbit leaves the far plane
 export const RADIUS_MIN = 0.45;
 export const RADIUS_MAX = 2.5;
+// the sphere's size around the dial, against its size at rest: it swells from the ring through the orbits to the
+// thread, then draws in to the dust and comes back out to the ring. Log-spaced on every arc.
+export const turnRadius = (c: number) => {
+  const t = c - Math.floor(c);
+  if (t <= 0.5) return Math.pow(RADIUS_MAX, t * 2);
+  if (t >= 0.75) return Math.pow(RADIUS_MIN, (1 - t) * 4);
+  return Math.pow(RADIUS_MAX, 3 - t * 4) * Math.pow(RADIUS_MIN, t * 4 - 2);
+};
+// the turn equal to c that lies nearest from, so the dial is followed the short way around
+export const nearTurn = (from: number, c: number) => {
+  const d = c - from - Math.floor(c - from);
+  return from + (d > 0.5 ? d - 1 : d);
+};
 const ATOM_MARGIN = 1.04; // room around the outermost orbit when the camera backs off to hold it
 const ATOM_GRAIN = 0.7; // share of the size lost to the explode that orbiting grains get back
 // pure so it's unit-testable without a camera/canvas: offset for the inside
@@ -200,7 +213,8 @@ export type OrbHandle = {
   focus(i: number): void;
   blur(): void;
   setDock(px: number): void;
-  setRadius(r: number): void;
+  // the dial's position, in turns from the ring: a quarter the orbits, a half the thread, three quarters the dust
+  setTurn(c: number): void;
   // tile indices, best first: they gather in front of the camera. null sends them home.
   // inset: css px the page's panels cover on the left; the sheet centers in what is left
   // shape: the sheet's grid; left out, it is the search's three rows of four
@@ -240,18 +254,15 @@ export function mountOrb(
   const scene = new Scene();
   // the scene stays a unit sphere: a radius R is drawn by shrinking tiles and camera distances instead
   const baseR = Math.max(1, Math.sqrt(n / UNIT_COUNT));
-  const radius = { v: baseR * BIRTH_R, target: baseR };
+  const radius = { v: baseR * BIRTH_R };
+  // where the dial sits. It runs on past a whole turn, so the way it came around is never lost.
+  const turn = { v: 0, target: 0 };
   // tiles give back a little of the shrink, so an exploded sphere is not a field of specks
   const sizeK = () => Math.pow(radius.v, -0.75);
   const half = () => TILE_HALF * sizeK();
   // the camera backs off slower than the sphere grows, so it swells in frame, and never ends up inside it
-  // where the eased radius sits on the slider: -1 full contract, 0 rest, 1 full explode
-  const scaleAt = () => {
-    const l = Math.log(radius.v / baseR);
-    return Math.max(-1, Math.min(1, l < 0 ? -l / Math.log(RADIUS_MIN) : l / Math.log(RADIUS_MAX)));
-  };
-  // how far the pending ring has left its plane to circle the sphere: 0 at rest and when contracting
-  const atomOpen = () => Math.min(1, Math.max(0, ringPhase(scaleAt())));
+  // how far the pending ring has left its plane to circle the sphere: 0 as ring and dust
+  const atomOpen = () => ringOpen(ringPhase(turn.v));
   // the camera distance that holds the outermost orbit in the frame's height, at the resting wheel zoom
   const atomFit = (ORBIT_OUT * ATOM_MARGIN) / Math.sin((camera.fov * Math.PI) / 360);
   const globeR = (z: number) => {
@@ -1602,7 +1613,8 @@ void main() {
     const { yaw, pitch, zoom } = controls.step(dt);
     liveZoom = zoom;
     // while tiles arrive the sphere swells with them
-    const goalR = radius.target * (BIRTH_R + (1 - BIRTH_R) * Math.sqrt(material.uniforms.uBirth.value as number));
+    turn.v = reducedMotion() ? turn.target : turn.v + (turn.target - turn.v) * (1 - Math.exp(-dt * 9));
+    const goalR = baseR * turnRadius(turn.v) * (BIRTH_R + (1 - BIRTH_R) * Math.sqrt(material.uniforms.uBirth.value as number));
     radius.v = reducedMotion() ? goalR : radius.v + (goalR - radius.v) * (1 - Math.exp(-dt * 9));
     material.uniforms.uSize.value = sizeK();
     if (mode === "globe") {
@@ -1653,7 +1665,7 @@ void main() {
       inside: mode !== "globe",
       paused: ringHover !== null || ringSel !== null || carried !== null,
       still: reducedMotion(),
-      phase: ringPhase(scaleAt()),
+      phase: ringPhase(turn.v),
     });
     placePending();
     if (!controls.dragging && pointerNdc) {
@@ -1722,7 +1734,7 @@ void main() {
     },
     focus: focusTile,
     blur: doBlur,
-    setRadius(r) { radius.target = baseR * Math.min(RADIUS_MAX, Math.max(RADIUS_MIN, r)); },
+    setTurn(c) { turn.target = nearTurn(turn.target, c); },
     setSearch(hits, inset = 0, shape) {
       searchInset = inset;
       sheetShape = { ...SHEET, ...shape };

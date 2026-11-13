@@ -7,10 +7,15 @@ import {
   GLOBE_R_FAR,
   MAX_FWD,
   mountOrb,
+  nearTurn,
   normalizeWheelDelta,
+  RADIUS_MAX,
+  RADIUS_MIN,
   restGlobeR,
+  turnRadius,
   wheelDollyOffset,
 } from "./scene";
+import { ringOpen, ringPhase } from "./ring";
 
 function data(): OrbData {
   return {
@@ -221,4 +226,33 @@ test("focus fires onOpen with a positive-width rect in globe view (reduced motio
   expect(rect.width).toBeGreaterThan(0);
   handle.dispose();
   canvas.remove();
+});
+
+test("the dial is a loop: size and shape meet themselves across the seam and across every stop", () => {
+  const near = 1e-6;
+  for (const c of [0, 0.25, 0.5, 0.75, 1]) {
+    expect(turnRadius(c - near)).toBeCloseTo(turnRadius(c + near), 4);
+    // a shape one whole loop on is the same shape
+    const d = Math.abs(ringPhase(c - near) - ringPhase(c + near));
+    expect(Math.min(d, 4 - d)).toBeLessThan(1e-4);
+  }
+  expect(turnRadius(0)).toBe(1);
+  expect(turnRadius(0.5)).toBeCloseTo(RADIUS_MAX);
+  expect(turnRadius(0.75)).toBeCloseTo(RADIUS_MIN);
+  // the sphere only draws in between the thread and the dust: that arc never replays the orbits' sizes going up
+  for (let c = 0.5; c < 0.75; c += 0.01) expect(turnRadius(c + 0.01)).toBeLessThan(turnRadius(c));
+  expect([0, 0.25, 0.5, 0.75].map(ringPhase)).toEqual([0, 1, 2, 3]);
+  // a shape holds either side of its stop
+  expect(ringPhase(0.26)).toBe(1);
+  expect(ringPhase(0.24)).toBe(1);
+  expect(ringPhase(0.74)).toBe(3);
+  expect([0, 1, 1.5, 2, 2.5, 3, 4].map(ringOpen)).toEqual([0, 1, 1, 1, 0.5, 0, 0]);
+});
+
+test("the dial is followed the short way around, forward on a tie", () => {
+  expect(nearTurn(0, 0.75)).toBeCloseTo(-0.25); // ring to dust goes back a quarter, not on through the thread
+  expect(nearTurn(0.5, 0.75)).toBeCloseTo(0.75); // thread to dust is one quarter on
+  expect(nearTurn(-0.25, 0)).toBeCloseTo(0);
+  expect(nearTurn(2.9, 0.1)).toBeCloseTo(3.1);
+  expect(nearTurn(0, 0.5)).toBeCloseTo(0.5);
 });

@@ -12,7 +12,7 @@ import { OrbReader, READER_WIDTH } from "../components/OrbReader";
 import { ErrorState } from "../components/StateViews";
 import type { OrbHandle, OrbViewMode } from "../lib/orb/scene";
 import type { RingItem } from "../lib/orb/ring";
-import { mountOrb, RADIUS_MAX, RADIUS_MIN, SHELF_COLS_MAX, SHELF_FILL, SHELF_ROWS } from "../lib/orb/scene";
+import { mountOrb, SHELF_COLS_MAX, SHELF_FILL, SHELF_ROWS } from "../lib/orb/scene";
 import type { SheetTile } from "../lib/orb/scene";
 import { displayReady } from "../lib/orb/face";
 import { useChromeVisible } from "../lib/chrome";
@@ -200,11 +200,12 @@ function OrbPage() {
   const [viewMode, setViewMode] = useState<OrbViewMode>("inside");
   const [theme, setTheme] = useState<number | null>(null);
   const [terrain, setTerrain] = useState(false);
-  // slider position: 0 is the sphere at the size its tile count gives it, the ends are the radius limits, log-spaced
-  const [spread, setSpread] = useState(0);
-  const applySpread = (x: number) => {
-    setSpread(x);
-    handleRef.current?.setRadius(x < 0 ? Math.pow(RADIUS_MIN, -x) : Math.pow(RADIUS_MAX, x));
+  // the dial's position, in turns clockwise from the ring: 0 is the sphere at the size its tile count gives it
+  const [dial, setDial] = useState(0);
+  const applyDial = (c: number) => {
+    const t = c - Math.floor(c);
+    setDial(t);
+    handleRef.current?.setTurn(t);
   };
   const [hovered, setHovered] = useState<number | null>(null);
   const [grain, setGrain] = useState<RingItem | null>(null); // the pending item under the pointer
@@ -443,7 +444,7 @@ function OrbPage() {
     setLayout("lattice");
     setViewMode("inside"); // matches the freshly mounted handle's initial mode
     setTerrain(false); // ... and its initial terrain flag
-    setSpread(0); // ... and its unit radius
+    setDial(0); // ... and its dial at the ring
     // ?theme= deep-link from /galaxy's "land" button: apply to the freshly
     // mounted handle, not just state, so a fresh navigation lands filtered
     if (searchTheme !== undefined) {
@@ -562,8 +563,8 @@ function OrbPage() {
           waiting={ringItems.length - gone.size}
           reading={pending !== null}
           onPending={() => readPending(pending === null ? nextPending(-1, 1, gone) : null)}
-          spread={spread}
-          onSpread={applySpread}
+          dial={dial}
+          onDial={applyDial}
           themes={themeCounts}
           theme={theme}
           onTheme={(v) => { setTheme(v); setPage(0); handleRef.current?.setThemeFilter(v); }}
