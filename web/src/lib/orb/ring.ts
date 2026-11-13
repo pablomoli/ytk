@@ -22,7 +22,7 @@ import {
    top, the thread comes loose as dust, and the dust settles into the ring.
    Grains are placed here every frame and the pointer reads the same array.
    One grain can be read: it holds lit, and the scene may carry it off the
-   ring or hide it. Nothing here ingests or drops; a reload puts every grain back. */
+   ring, hide it or show it again. Nothing here reaches the queue: the page asks the hub. */
 
 export type RingItem = {
   u: string; // url
@@ -202,6 +202,7 @@ export type RingHandle = {
   // a grain taken off the ring to a place in the world; null hands it back
   carry(k: number, to: Vector3 | null): void;
   hide(k: number): void;
+  show(k: number): void;
   worldOf(k: number, out: Vector3): Vector3;
   dispose(): void;
 };
@@ -422,6 +423,10 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
     hide(k) {
       held.delete(k);
       off[k] = 1;
+    },
+    show(k) {
+      held.delete(k);
+      off[k] = 0;
     },
     worldOf(k, out) {
       group.updateMatrixWorld();

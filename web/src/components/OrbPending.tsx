@@ -12,6 +12,10 @@ type Props = {
   detail: PendingDetail | undefined; // undefined while the row is on its way
   beside: { title: string; score: number }[]; // the tiles its words sit nearest, the seat's evidence
   left: number; // pending items not yet kept or dropped
+  waiting: number; // kept, and the hub has not handed them on yet
+  sandbox: boolean; // the server works on a copy of the queue
+  note: { text: string; link: boolean } | null; // what the hub refused or could not take; link offers to read that item
+  onNote: () => void;
   open: boolean; // false plays the slide-out, then onGone
   busy: boolean; // a grain is in the air
   canKeep: boolean;
@@ -34,8 +38,8 @@ const host = (u: string) => {
 
 /* A pending item read beside the sphere, in the place a note is read: what the
    queue holds for it, where it would sit, and the two things to do with it.
-   A rehearsal: keep and drop move the grain and write nothing. */
-export function OrbPending({ item, detail, beside, left, open, busy, canKeep, onKeep, onDrop, onStep, onClose, onGone }: Props) {
+   Keep and drop are the page's: it asks the hub, and this says what came back. */
+export function OrbPending({ item, detail, beside, left, waiting, sandbox, note, onNote, open, busy, canKeep, onKeep, onDrop, onStep, onClose, onGone }: Props) {
   const paneRef = useRef<HTMLElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -124,7 +128,7 @@ export function OrbPending({ item, detail, beside, left, open, busy, canKeep, on
           </section>
         ) : detail && !canKeep ? (
           <p className={`${SMALL} !m-0 !mt-7 border-t border-white/10 pt-3.5 italic leading-snug text-ink2`}>
-            Nothing to seat it by yet. Keeping it for real would fetch it first, and its seat would follow from what it says.
+            Nothing to seat it by, so the sphere cannot take it yet. The inbox page still can.
           </p>
         ) : null}
       </div>
@@ -149,7 +153,24 @@ export function OrbPending({ item, detail, beside, left, open, busy, canKeep, on
             </a>
           ) : null}
         </div>
-        <p className="!m-0 !mt-3 text-[12px] italic leading-snug text-ink2/60">A rehearsal: nothing is written, and a reload puts every item back.</p>
+        {note ? (
+          <p data-orb-pending-note className={`${SMALL} !m-0 !mt-3 break-words leading-snug text-ink`}>
+            {note.text}
+            {note.link ? (
+              <button type="button" className={`${word(false)} ml-2`} onClick={onNote}>
+                read it
+              </button>
+            ) : null}
+          </p>
+        ) : null}
+        {waiting || sandbox ? (
+          <p data-orb-pending-state className="!m-0 !mt-3 text-[12px] italic leading-snug text-ink2/60">
+            {[
+              waiting ? `${waiting} kept and still being handed on.` : "",
+              sandbox ? "A copy of your queue: keep and drop are written to the copy, and nothing reaches the curator or the vault." : "",
+            ].filter(Boolean).join(" ")}
+          </p>
+        ) : null}
       </div>
     </aside>
   );

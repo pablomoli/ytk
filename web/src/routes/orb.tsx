@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { LayoutName, OrbPoint } from "../api/orb";
 import { useOrb } from "../api/orb";
-import { apiGet, queryClient } from "../api/client";
+import { ApiError, apiGet, apiSend, queryClient } from "../api/client";
 import type { SimilarItem } from "../api/fresh";
 import type { LibraryPage } from "../api/library";
 import { OrbControls } from "../components/OrbControls";
@@ -37,6 +37,15 @@ function prefetchNote(path: string): void {
       ),
   });
 }
+
+// the spike server's view of the queue, by place in the ring's list
+type QueueNow = { sandbox: boolean; gone: number[]; waiting: number[] };
+type JobNow = { current: string | null; queued: string[]; failures: { url: string; error: string }[] };
+// the hub's reason ends in the item's url, which can carry a token
+const refusal = (e: unknown) => {
+  const d = e instanceof ApiError ? (e.body as { detail?: unknown } | null)?.detail : null;
+  return typeof d === "string" ? d.split(": ")[0].toLowerCase() : "the hub did not answer";
+};
 
 export const Route = createFileRoute("/orb")({
   component: OrbPage,
@@ -217,7 +226,11 @@ function OrbPage() {
   const [pendingPane, setPendingPane] = useState<number | null>(null);
   const [gone, setGone] = useState<ReadonlySet<number>>(new Set());
   const [flying, setFlying] = useState(false);
-  const inbox = useRef({ pending, gone, flying, n: 0, keep: () => {}, drop: () => {}, step: (_by: 1 | -1) => {} });
+  // kept, and the hub has not handed them on yet; every one is also in gone
+  const [waiting, setWaiting] = useState<ReadonlySet<number>>(new Set());
+  const [sandbox, setSandbox] = useState(false); // the server works on a copy of the queue
+  const [note, setNote] = useState<{ text: string; k: number | null } | null>(null);
+  const inbox = useRef({ pending, gone, waiting, items: ringItems, n: 0, keep: () => {}, drop: () => {}, step: (_by: 1 | -1) => {} });
   // the neighbors panel anchors on the last hovered tile and stays put, so the
   // pointer can leave the sphere to read or click the list
   const [anchor, setAnchor] = useState<number | null>(null);
@@ -321,18 +334,31 @@ function OrbPage() {
     return Math.hypot(d[0], d[1], d[2]) > 0.6 * top ? d : h.centerOf(hits[0].i);
   };
   const hitsNow = pending !== null && pending === pendingPane ? (detail?.hits ?? []) : [];
+  // the hub is asked first; the grain moves only once it has said yes
+  const decide = (k: number, ask: Promise<unknown>, verb: string, kept: boolean, fly: () => void) => {
+    setFlying(true);
+    setNote(null);
+    ask.then(
+      () => {
+        setGone((g) => new Set(g).add(k));
+        if (kept) setWaiting((w) => new Set(w).add(k));
+        // closed or moved on while the hub was answering: it is decided all the same, without the flight
+        if (inbox.current.pending === k) fly();
+        else { handleRef.current?.hidePending([k]); setFlying(false); }
+      },
+      (e) => { setFlying(false); setNote({ text: `Not ${verb}: ${refusal(e)}.`, k: null }); },
+    );
+  };
   inbox.current = {
-    pending, gone, flying, n: ringItems.length,
+    pending, gone, waiting, items: ringItems, n: ringItems.length,
     keep: () => {
       const seat = seatOf(hitsNow);
       if (!seat || flying || pending === null) return;
-      setFlying(true);
-      handleRef.current?.keepPending(seat);
+      decide(pending, apiSend("/api/ingest", "POST", { urls: [ringItems[pending].u], tags: [], thought: "" }), "kept", true, () => handleRef.current?.keepPending(seat));
     },
     drop: () => {
       if (flying || pending === null) return;
-      setFlying(true);
-      handleRef.current?.dropPending();
+      decide(pending, apiSend("/api/queue/drop", "POST", { url: ringItems[pending].u }), "dropped", false, () => handleRef.current?.dropPending());
     },
     step: (by) => {
       if (flying || pending === null) return;
@@ -340,6 +366,43 @@ function OrbPage() {
       if (k !== null) readPending(k);
     },
   };
+
+  // while kept items are with the hub, ask the job whether it still holds them
+  const holding = waiting.size > 0;
+  useEffect(() => {
+    if (!holding) return;
+    let busy = false;
+    const tick = async () => {
+      if (busy) return;
+      busy = true;
+      // only what was waiting before the ask: a keep answered meanwhile is not in this answer
+      const asked = new Set(inbox.current.waiting);
+      try {
+        const job = await apiGet<JobNow>("/api/ingest/status");
+        const held = new Set([...job.queued, job.current]);
+        const out = [...asked].filter((k) => inbox.current.waiting.has(k) && !held.has(inbox.current.items[k]?.u ?? null));
+        if (!out.length) return;
+        // the queue is the judge: what the hub took is no longer in it. The job's list only says why not
+        const left = new Set((await apiGet<QueueNow>("/api/orb-queue")).gone);
+        const back = out.filter((k) => !left.has(k));
+        for (const k of out) {
+          if (left.has(k)) handleRef.current?.seatPending(k);
+          else handleRef.current?.returnPending(k);
+        }
+        setWaiting((w) => new Set([...w].filter((k) => !out.includes(k))));
+        if (!back.length) return;
+        setGone((g) => new Set([...g].filter((k) => !back.includes(k))));
+        const why = job.failures.find((f) => f.url === inbox.current.items[back[0]]?.u)?.error ?? "the hub gave no reason";
+        setNote({ text: `${back.length > 1 ? `${back.length} could not be kept` : "One could not be kept"}: ${why.slice(0, 160)}. Back in the ring.`, k: back[0] });
+      } catch {
+        // the next tick asks again
+      } finally {
+        busy = false;
+      }
+    };
+    const timer = window.setInterval(tick, 1500);
+    return () => window.clearInterval(timer);
+  }, [holding]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -425,15 +488,21 @@ function OrbPage() {
       onOpen: (i) => { setSelected(i); setReader(i); setAnchor(i); setListOpen(false); },
       onBlur: () => setSelected(null),
       onRingHover: setGrain,
-      onRingReady: setRingItems,
+      onRingReady: (items) => {
+        setRingItems(items);
+        // what a reload must not bring back: items already out of the queue, and kept ones the hub still holds
+        apiGet<QueueNow>("/api/orb-queue").then((q) => {
+          setSandbox(q.sandbox);
+          setGone((g) => new Set([...g, ...q.gone, ...q.waiting]));
+          setWaiting((w) => new Set([...w, ...q.waiting]));
+          handleRef.current?.hidePending([...q.gone, ...q.waiting]);
+        }, () => {});
+      },
       onRingOpen: (k) => { setPending(k); if (k !== null) setPendingPane(k); },
       onRingSettled: (k) => {
-        const left = new Set(inbox.current.gone).add(k);
-        setGone(left);
         setFlying(false);
         // on to the next one still waiting, unless a tile was opened while the grain flew
-        const next = selectedRef.current === null ? nextPending(k, 1, left) : null;
-        readPending(next);
+        readPending(selectedRef.current === null ? nextPending(k, 1, inbox.current.gone) : null);
       },
       onSheet: setSheetTiles,
     });
@@ -728,6 +797,10 @@ function OrbPage() {
           detail={detail}
           beside={(detail?.hits ?? []).slice(0, 3).map((h) => ({ title: captionTitle(data.points[h.i]?.t ?? ""), score: h.s }))}
           left={ringItems.length - gone.size}
+          waiting={waiting.size}
+          sandbox={sandbox}
+          note={note ? { text: note.text, link: note.k !== null && note.k !== pending } : null}
+          onNote={() => { if (note?.k != null && !flying) readPending(note.k); }}
           open={pending !== null}
           busy={flying}
           canKeep={hitsNow.length > 0}

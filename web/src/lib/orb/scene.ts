@@ -222,9 +222,15 @@ export type OrbHandle = {
   // a pending item, by its place in the ring's list: the camera turns to its grain, which holds lit
   // while it is read. null lets it go.
   readPending(k: number | null): void;
-  // the read grain flies to a bearing on the sphere and lands there; onRingSettled follows
+  // the read grain flies to a bearing on the sphere and hovers over it, waiting; onRingSettled follows
   keepPending(seat: [number, number, number]): void;
   dropPending(): void;
+  // a kept item the hub has handed on: its picture lies down as one more tile
+  seatPending(k: number): void;
+  // a kept item the hub could not take: its picture goes, its grain is back in the ring
+  returnPending(k: number): void;
+  // items that have already left the queue: their grains are not drawn
+  hidePending(ks: number[]): void;
   dispose(): void;
 };
 
@@ -1264,9 +1270,11 @@ void main() {
 
   // reading a pending item: its grain grows into its own picture, held facing the camera in a small eclipse, a dark
   // disc and a corona of fine rays. Keeping flies it to a bearing on the sphere, where the same picture lies down as
-  // a tile; dropping lets it fall. Nothing here reaches the queue.
+  // a tile; dropping lets it fall. The scene only moves them: the page asks the hub.
   const KEEP_DUR = 1.3, DROP_DUR = 0.9, DROP_FALL = 0.6, LINGER = 0.9;
   const LAND_LIFT = 0.014, LAND_SCALE = 0.9, COVER_LONG = 512;
+  // a kept picture waiting on the hub: how far off the sphere it hovers, how much larger, and its light
+  const WAIT_LIFT = 0.1, WAIT_GROW = 0.35, WAIT_SPAN = 4.6, WAIT_GLOW = 0.8, SEAT_DUR = 1.1;
   // the read item's short side in tile sizes; a coverless one stays a mote, in grain sizes
   const READ_SCALE = 1.7, MOTE_SELECT = 3;
   const HALO = 0.6, HALO_SPAN = 2.6, MOTE_SPAN = 1.5, RAY_SPAN = 5;
@@ -1275,7 +1283,8 @@ void main() {
   // a, c, b: the trip's bearings, start, control and seat. A dropped grain has no seat: b is the way it falls.
   type Carry = { k: number; keep: boolean; t: number; e: number; s0: number; from: Vector3; a: Vector3; c: Vector3; b: Vector3; r0: number; rc: number; r1: number; land: Cover | null };
   // an item's own picture: held facing the camera while read, laid on its bearing once kept
-  type Cover = { k: number; dir: Vector3 | null; mesh: Mesh | null; aspect: number; level: { v: number }; down: boolean; dead: boolean };
+  // wait: 1 hovering until the hub has handed it on, 0 seated. seat: handed on while still in the air
+  type Cover = { k: number; dir: Vector3 | null; mesh: Mesh | null; aspect: number; level: { v: number }; down: boolean; dead: boolean; wait: { v: number }; glow: Mesh | null; seat: boolean };
   let ringSel: number | null = null;
   let carried: Carry | null = null;
   let wake: Carry | null = null; // the trip the tail is still drawn along, a moment past the landing
@@ -1383,7 +1392,7 @@ void main() {
     return n / 48;
   };
   const loadCover = (k: number) => {
-    const l: Cover = { k, dir: null, mesh: null, aspect: 1, level: { v: 0 }, down: false, dead: false };
+    const l: Cover = { k, dir: null, mesh: null, aspect: 1, level: { v: 0 }, down: false, dead: false, wait: { v: 0 }, glow: null, seat: false };
     const img = new Image();
     img.onload = () => {
       if (disposed || l.dead) return;
@@ -1403,7 +1412,12 @@ void main() {
   };
   const freeCover = (l: Cover) => {
     l.dead = true;
-    gsap.killTweensOf(l.level);
+    gsap.killTweensOf([l.level, l.wait]);
+    if (l.glow) {
+      scene.remove(l.glow);
+      (l.glow.material as MeshBasicMaterial).dispose();
+      l.glow = null;
+    }
     if (!l.mesh) return;
     scene.remove(l.mesh);
     const m = l.mesh.material as MeshBasicMaterial;
@@ -1439,9 +1453,18 @@ void main() {
     const from = ring.worldOf(k, new Vector3());
     const a = from.clone().normalize(), b = new Vector3(seat[0], seat[1], seat[2]).normalize();
     const f = facing(), r0 = from.length();
+    // an item with no picture waits all the same: its record carries the light and the bearing
+    const l: Cover = held ?? { k, dir: null, mesh: null, aspect: 1, level: { v: 1 }, down: false, dead: false, wait: { v: 0 }, glow: null, seat: false };
     // from inside the ring lies behind the shell, so the grain comes in through it early and crosses the room; from outside it arcs over
-    const c: Carry = { k, keep: true, t: 0, e: 0, s0: selScale.v, from, a, c: bowDir(a, b, new Vector3()), b, r0, rc: f > 0 ? 0.55 : Math.max(1.4, r0), r1: 1 - f * (LAND_LIFT - 0.004), land: held };
-    if (held) { held.dir = b; landed.push(held); held = null; }
+    const c: Carry = { k, keep: true, t: 0, e: 0, s0: selScale.v, from, a, c: bowDir(a, b, new Vector3()), b, r0, rc: f > 0 ? 0.55 : Math.max(1.4, r0), r1: 1 - f * (LAND_LIFT - 0.004), land: l };
+    l.dir = b;
+    l.wait.v = 1;
+    l.glow = new Mesh(nearGeo, new MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, depthWrite: false, depthTest: false, blending: AdditiveBlending }));
+    l.glow.renderOrder = 3.9; // under its own picture, over the tiles around it
+    l.glow.visible = false;
+    scene.add(l.glow);
+    landed.push(l);
+    held = null;
     carried = c;
     wake = reducedMotion() ? null : c;
     if (reducedMotion()) { c.t = KEEP_DUR; aimDir(b); }
@@ -1467,10 +1490,9 @@ void main() {
       const l = c.land;
       if (l) {
         l.down = true;
-        if (l.mesh) ring?.hide(c.k);
-      }
-      burstAt.copy(c.b).multiplyScalar(1 - facing() * LAND_LIFT * 1.5);
-      if (!quick) gsap.fromTo(burst, { t: 0 }, { t: 1, duration: 1.5, ease: "none" });
+        if (l.mesh || ringItems[c.k].k < 0) ring?.hide(c.k);
+        if (l.seat) seatCover(l);
+      } else ring?.show(c.k); // the hub could not take it while it was still in the air
       gsap.to(haloLevel, { v: 0, duration: quick ? 0 : 1.2 });
     } else {
       ring?.hide(c.k);
@@ -1478,6 +1500,31 @@ void main() {
       haloLevel.v = 0;
     }
     settleCall = gsap.delayedCall(c.keep && !quick ? LINGER : 0, () => cb.onRingSettled?.(c.k, c.keep));
+  };
+  const flare = (dir: Vector3) => {
+    burstAt.copy(dir).multiplyScalar(1 - facing() * LAND_LIFT * 1.5);
+    if (!reducedMotion()) gsap.fromTo(burst, { t: 0 }, { t: 1, duration: 1.5, ease: "none" });
+  };
+  const seatCover = (l: Cover) => {
+    gsap.to(l.wait, { v: 0, duration: reducedMotion() ? 0 : SEAT_DUR, ease: "power2.inOut" });
+    if (l.dir) flare(l.dir);
+  };
+  const seatGrain = (k: number) => {
+    const l = landed.find((x) => x.k === k && !x.dead);
+    if (!l) return;
+    if (l.down) seatCover(l);
+    else l.seat = true;
+  };
+  const returnGrain = (k: number) => {
+    const at = landed.findIndex((x) => x.k === k);
+    if (at >= 0) {
+      const l = landed.splice(at, 1)[0];
+      if (carried?.land === l) carried.land = null;
+      if (l.mesh && !reducedMotion()) gsap.to(l.level, { v: 0, duration: DUR.morph, onComplete: () => freeCover(l) });
+      else freeCover(l);
+    }
+    // one still in the air finishes its trip first
+    if (carried?.k !== k) ring?.show(k);
   };
   const stepPending = (dt: number) => {
     const c = carried;
@@ -1552,9 +1599,21 @@ void main() {
     _pv.copy(camera.position).normalize();
     for (const l of landed) {
       if (!l.down || !l.dir) continue;
-      placeCover(l, _pp.copy(l.dir).multiplyScalar(1 - f * LAND_LIFT), half() * 2 * LAND_SCALE, 1);
+      // waiting on the hub it hovers off the sphere, a little large, on a slow breath; handed on, it lies down
+      const w = l.wait.v, bob = reducedMotion() ? 0.5 : 0.5 + 0.5 * Math.sin(glowTime * 1.1 + l.k);
+      const lift = LAND_LIFT + WAIT_LIFT * w * (0.7 + 0.3 * bob), side = half() * 2 * LAND_SCALE;
+      placeCover(l, _pp.copy(l.dir).multiplyScalar(1 - f * lift), side * (1 + WAIT_GROW * w), 1);
       // from outside, the far side of the sphere is not drawn
-      if (l.mesh && f < 0 && l.dir.dot(_pv) < 0.2) l.mesh.visible = false;
+      const far = f < 0 && l.dir.dot(_pv) < 0.2;
+      if (l.mesh && far) l.mesh.visible = false;
+      const g = l.glow;
+      if (!g) continue;
+      g.visible = w > 0.001 && !far && l.level.v > 0.001;
+      if (!g.visible) continue;
+      g.position.copy(l.dir).multiplyScalar(1 - f * lift * 0.6);
+      g.quaternion.copy(camera.quaternion);
+      g.scale.setScalar(side * WAIT_SPAN * (ringItems[l.k].k >= 0 ? 1 : 0.6));
+      (g.material as MeshBasicMaterial).opacity = WAIT_GLOW * w * l.level.v * (0.55 + 0.45 * bob);
     }
     const k = carried?.k ?? ringSel;
     let mote = false;
@@ -1756,6 +1815,9 @@ void main() {
     },
     keepPending: keepGrain,
     dropPending: dropGrain,
+    seatPending: seatGrain,
+    returnPending: returnGrain,
+    hidePending(ks) { for (const k of ks) if (k !== ringSel && k !== carried?.k) ring?.hide(k); },
     dispose() {
       disposed = true;
       cancelAnimationFrame(raf);
