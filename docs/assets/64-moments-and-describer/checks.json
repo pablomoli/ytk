@@ -1,0 +1,101 @@
+{
+ "marks": {
+  "right": 19,
+  "generic": 8,
+  "wrong": 5
+ },
+ "frames_marked": 6,
+ "image_text": {
+  "auc_true_over_wrong": 0.8962962962962963,
+  "median_percentile": {
+   "right": 0.9215686274509803,
+   "generic": 0.6274509803921569,
+   "wrong": 0.47058823529411764
+  }
+ },
+ "pixels": {
+  "claims": [
+   {
+    "term": "palette:arena-violet-blue",
+    "verdict": "generic",
+    "share": 0.05298611111111111,
+    "median": 0.001875,
+    "q1": 0.0,
+    "q3": 0.04086805555555556,
+    "pct": 0.7864077669902912
+   },
+   {
+    "term": "palette:flat-venue-white",
+    "verdict": "generic",
+    "share": 0.007152777777777778,
+    "median": 0.008263888888888888,
+    "q1": 6.944444444444444e-05,
+    "q3": 0.051666666666666666,
+    "pct": 0.4854368932038835
+   },
+   {
+    "term": "palette:arena-violet-blue",
+    "verdict": "wrong",
+    "share": 0.006111111111111111,
+    "median": 0.001875,
+    "q1": 0.0,
+    "q3": 0.04086805555555556,
+    "pct": 0.5825242718446602
+   },
+   {
+    "term": "palette:flat-venue-white",
+    "verdict": "wrong",
+    "share": 0.01361111111111111,
+    "median": 0.008263888888888888,
+    "q1": 6.944444444444444e-05,
+    "q3": 0.051666666666666666,
+    "pct": 0.5728155339805825
+   },
+   {
+    "term": "palette:neon-chevron-magenta-blue",
+    "verdict": "right",
+    "share": 0.5561111111111111,
+    "median": 0.001875,
+    "q1": 0.0,
+    "q3": 0.03840277777777778,
+    "pct": 0.9805825242718447
+   },
+   {
+    "term": "palette:arena-violet-blue",
+    "verdict": "generic",
+    "share": 0.04840277777777778,
+    "median": 0.001875,
+    "q1": 0.0,
+    "q3": 0.04086805555555556,
+    "pct": 0.7766990291262136
+   },
+   {
+    "term": "palette:flat-venue-white",
+    "verdict": "generic",
+    "share": 0.021666666666666667,
+    "median": 0.008263888888888888,
+    "q1": 6.944444444444444e-05,
+    "q3": 0.051666666666666666,
+    "pct": 0.6310679611650486
+   },
+   {
+    "term": "palette:thermal-purple-orange-glow",
+    "verdict": "right",
+    "share": 0.22006944444444446,
+    "median": 0.020972222222222222,
+    "q1": 0.0015625,
+    "q3": 0.059305555555555556,
+    "pct": 0.9320388349514563
+   }
+  ],
+  "auc_true_over_wrong": 0.8333333333333334
+ },
+ "frequency": {
+  "auc_generic_over_right": 0.6842105263157895,
+  "median_frames": {
+   "right": 4.0,
+   "generic": 6.5,
+   "wrong": 7.0
+  }
+ }
+}

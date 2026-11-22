@@ -93,6 +93,49 @@ both show the same thing and look the same.
   arms ran in sequence on the same frames; no repeat to size run-to-run
   variation.
 
+## 64.3 — The owner's first marks, and three checks scored against them
+
+![03](03-grounding-checks.png)
+
+```bash
+uv run --with matplotlib python scripts/grounding_checks.py   # under a minute, no model calls
+```
+
+**The marks.** The owner judged 12 of the 104 frames on a review page. On 6
+of them he marked individual terms: 32 terms, 19 right, 8 true but too
+generic, 5 wrong.
+
+**One false description, verified.** A UFC broadcast frame carried "arena
+violet blue", "flat venue white" and a ring-spotlight term, in the prose as
+well as the terms, worded as on the neighboring fight frames from another
+promotion. Opened, the frame has a dark crowd, a gray canvas and a green
+sponsor logo, and no violet. The aware describer had been shown how its
+nearest described frames were worded, and nearest was by tile vector, which
+section 63 showed is what is depicted. A look was copied across frames that
+share a subject.
+
+**Three checks that never ask the describer**, each scored as the share of
+pairs it orders correctly:
+
+| check | against the marks |
+|---|---|
+| image-text model: the term's definition as SigLIP-2 text, and where the marked frame ranks among all 103 frames for it | true above wrong in 90% of pairs (27 true, 5 wrong); median rank 0.92 for right, 0.63 for too generic, 0.47 for wrong |
+| pixels: share of the frame in the claimed color family, 8 marked color claims | 83% of pairs; violet-blue is 5.3% and 4.8% of the frame where marked true and 0.6% where marked wrong (0.2% in the median frame); "white" does not separate (0.7% and 2.2% true, 1.4% wrong) |
+| commonness: how many frames carry the term | too generic above right in 68% of pairs (medians 6.5 and 4 frames); the wrong terms are the most common of all (median 7) |
+
+**What it shows.** A second model that only compares the term with the
+frame already disagrees with most of what was marked wrong. Pixels settle a
+chromatic claim and not a claim about white. "Too generic" is not the same
+as "common": counting does little, and the terms marked wrong are the ones
+reused most, which fits copying.
+
+**Limits.** Six frames carry term marks and the five wrong terms come from
+two frames, so every number here is a lead. The color families are hand-set
+hue ranges. The page's taste question was read by the owner as something
+else, and that field is not used anywhere.
+
+`checks.json` holds the scores; the marks themselves stay outside the repo.
+
 `results.json` holds the counts and the agreement scores. The frames, the
 descriptions and the vocabulary live under `~/.ytk/describer`; the sheet of
 frames beside their descriptions is written outside the repo.
