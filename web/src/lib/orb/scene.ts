@@ -21,7 +21,6 @@ import {
   Mesh,
   MeshBasicMaterial,
   SRGBColorSpace,
-  NoColorSpace,
   PerspectiveCamera,
   PlaneGeometry,
   Points,
@@ -32,7 +31,6 @@ import {
   Scene,
   SphereGeometry,
   Texture,
-  TextureLoader,
   Vector3,
   WebGLRenderer,
 } from "three";
@@ -40,6 +38,7 @@ import { DUR, FLIGHT_EASE, gsap, reducedMotion } from "../motion";
 import type { LayoutName, OrbData } from "../../api/orb";
 import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
 import { buildAtlas, COLS, slotUv } from "./atlas";
+import { coastField } from "./coast";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
 import { GRAIN, NO_COVER, ORBIT_OUT, SELECT, createRing, ringOpen, ringPhase, type RingData, type RingHandle, type RingItem } from "./ring";
@@ -689,10 +688,18 @@ export function mountOrb(
   // superplanet coastline, under the tiles: hidden until globe mode AND the
   // bake has loaded (Task 12). Same shader as galaxy's planets, uSpin pinned.
   let disposed = false;
-  let coastLoaded = false;
   let terrain = false; // spike: the coast sphere ships off; the /orb toggle turns it on
-  const coastFallback = new DataTexture(new Uint8Array([128]), 1, 1, RedFormat);
-  coastFallback.needsUpdate = true;
+  // the field is drawn from the tiles of the lens in force, so the land always sits under them
+  const FIELD_W = 256, FIELD_H = 128;
+  const coastData = new Uint8Array(FIELD_W * FIELD_H);
+  const coastFrom = new Uint8Array(FIELD_W * FIELD_H), coastTo = new Uint8Array(FIELD_W * FIELD_H);
+  const coastTex = new DataTexture(coastData, FIELD_W, FIELD_H, RedFormat);
+  coastTex.wrapS = RepeatWrapping; // the seam meridian samples across the edge
+  coastTex.wrapT = ClampToEdgeWrapping;
+  coastTex.minFilter = LinearFilter;
+  coastTex.magFilter = LinearFilter;
+  let coastLens: LayoutName | null = null;
+  const coastMix = { t: 1 };
   const coastRamp = loadRamp();
   const coastGeo = new SphereGeometry(0.985, 64, 32);
   const coastMat = new RawShaderMaterial({
@@ -700,16 +707,13 @@ export function mountOrb(
     vertexShader: PLANET_VERT,
     fragmentShader: PLANET_FRAG,
     uniforms: {
-      uField: { value: coastFallback },
+      uField: { value: coastTex },
       uRamp: { value: null },
       uSpin: { value: 0 },
       uSeed: { value: 0 },
       uCoastAmp: { value: PLANET_COAST_AMP },
-      // 0 = the bake's own z-lat frame: this sphere's geography must land under
-      // tile directions from the same frame, so it cannot take the y-up swizzle
+      // 0 = z-lat, the frame the tile directions are in; the y-up swizzle would move the land off the tiles
       uYUp: { value: 0 },
-      // identity: the superplanet keeps the record's canonical magma, arm 0's
-      // per-planet rotation is a galaxy-only identity signal
       uHueRot: { value: new Matrix3() },
     },
   });
@@ -717,27 +721,28 @@ export function mountOrb(
   const coast = new Mesh(coastGeo, coastMat);
   coast.visible = false;
   scene.add(coast);
-  let coastTex: Texture | null = null;
-  new TextureLoader().load(
-    "/galaxy-tex/superplanet.png",
-    (tex) => {
-      if (disposed) { tex.dispose(); return; }
-      tex.flipY = false;
-      tex.colorSpace = NoColorSpace; // distance field, not color
-      tex.wrapS = RepeatWrapping; // uSpin scrolls u past the seam (unused here, spin pinned)
-      tex.wrapT = ClampToEdgeWrapping;
-      tex.minFilter = LinearFilter;
-      tex.magFilter = LinearFilter;
-      tex.generateMipmaps = false;
-      tex.needsUpdate = true;
-      coastTex = tex;
-      coastMat.uniforms.uField.value = tex;
-      coastLoaded = true;
-      coast.visible = coastVisible(mode, coastLoaded, terrain);
-    },
-    undefined,
-    () => {}, // 404 leaves the coast hidden; not fatal
-  );
+  // only while terrain is on: the bake is tens of milliseconds and nobody sees it otherwise
+  const bakeCoast = () => {
+    if (!terrain || coastLens === lens) return;
+    const arr = layoutArray(lens);
+    if (!arr) return;
+    const first = coastLens === null;
+    coastLens = lens;
+    const dirs = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) dirs.set(arr[i], i * 3);
+    coastFrom.set(coastData);
+    coastField(dirs, FIELD_W, FIELD_H, coastTo);
+    gsap.killTweensOf(coastMix);
+    const blend = () => {
+      const t = coastMix.t;
+      for (let k = 0; k < coastData.length; k++) coastData[k] = coastFrom[k] + (coastTo[k] - coastFrom[k]) * t;
+      coastTex.needsUpdate = true;
+    };
+    if (first || reducedMotion()) { coastMix.t = 1; blend(); return; }
+    coastMix.t = 0;
+    // the land follows the tiles across, over the same span as their flight
+    gsap.to(coastMix, { t: 1, duration: MORPH_DUR * (1 + MORPH_WAVE), ease: "power1.inOut", onUpdate: blend });
+  };
 
   // spike: neighbor arcs. One LineSegments, rebuilt on hover, faded with gsap.
   const K_MAX = 12, SEG = 48;
@@ -1766,6 +1771,7 @@ void main() {
   return {
     setLayout(name) {
       writeLayout(name);
+      bakeCoast();
       if (hovered !== null) buildArcs(hovered);
     },
     centerOf(i) {
@@ -1777,13 +1783,14 @@ void main() {
       if (focused >= 0) { doBlur(); cb.onBlur(); } // mode switches mid-selection must not strand uFocused
       mode = next;
       material.uniforms.uFacing.value = mode === "globe" ? -1 : 1;
-      coast.visible = coastVisible(mode, coastLoaded, terrain);
+      coast.visible = coastVisible(mode, coastLens !== null, terrain);
       // the grid was anchored for the other view; the camera takes a frame to move
       if (searchHits.length && focused < 0) gatherSoon(0.1);
     },
     setTerrain(on) {
       terrain = on;
-      coast.visible = coastVisible(mode, coastLoaded, terrain);
+      bakeCoast();
+      coast.visible = coastVisible(mode, coastLens !== null, terrain);
     },
     aimAt(dir) {
       const l = Math.hypot(dir[0], dir[1], dir[2]);
@@ -1870,8 +1877,8 @@ void main() {
       coastGeo.dispose();
       coastMat.dispose();
       coastRamp.dispose();
-      coastFallback.dispose();
-      if (coastTex) coastTex.dispose();
+      gsap.killTweensOf(coastMix);
+      coastTex.dispose();
       renderer.dispose();
     },
   };

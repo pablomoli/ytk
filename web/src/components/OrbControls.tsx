@@ -142,6 +142,8 @@ export function OrbControls(p: Props) {
         />
         {p.query ? null : <span className={`${SMALL} flex-none text-ink2/50`} title="press / to search">/</span>}
       </label>
+      {/* while a search is typed the eye is on its results: everything that reshapes the orb steps aside */}
+      <div data-orb-shaping className={p.query.trim() ? "hidden" : "contents"}>
       <div ref={rowRef} className="relative mt-3 flex items-baseline gap-5 pb-1.5 text-[22px] leading-none">
         {p.lenses.map(({ name, label, title }) => (
           <button key={name} type="button" data-orb-lens={name} title={title} className={word(p.layout === name)} onClick={() => p.onLayout(name)}>
@@ -213,6 +215,7 @@ export function OrbControls(p: Props) {
           ))}
         </PopoverContent>
       </Popover>
+      </div>
     </div>
   );
 }
