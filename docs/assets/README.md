@@ -126,9 +126,12 @@ import; `axes.unicode_minus` is off so minus signs render in the serif face.
   matplotlib shrinks the axes to satisfy it, which mattes the sides and
   reintroduces the gap; proportion the figure so square cells fit, and let
   `zoom` eat the default 3D margin.
-- **Legends earn their place.** If a legend is the only way to tell two series
-  apart, the encoding is too weak — separate them by position or by panel
-  first. A legend names what the geometry already distinguishes.
+- **Every figure carries a legend.** Owner's rule, 2026-11-22. Series get a
+  legend, a ramp gets `ramp_legend()` (a labeled swatch saying what dark and
+  bright mean), dashed reference lines get an entry, and a frame sheet gets a
+  key for its color bars. The geometry should still separate the series by
+  position or panel first; the legend names what the geometry shows and is
+  never left out because the encoding seems obvious.
 - **The meta line is part of the design.** It carries the measured quantities
   (counts, bandwidths, scores). A figure whose title claims something its meta
   line does not quantify is incomplete.

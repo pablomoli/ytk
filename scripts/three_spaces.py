@@ -29,6 +29,7 @@ from plot_assets import (
     frame_panels,
     panel_title,
     punch,
+    ramp_legend,
     saturated_magma,
     style_axes,
     verdict,
@@ -191,6 +192,7 @@ for j, k in enumerate(names):
     ax.set_xticks([])
     ax.set_yticks([])
     ax.margins(0.04)
+    ramp_legend(ax, cmap, "position in the subject map", "left edge", "right edge")
     panel_title(ax, names[k], width=30)
 ax = fig.add_subplot(bars[0])
 style_axes(ax)

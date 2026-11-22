@@ -74,7 +74,23 @@ for ax, (k, kind, color) in zip(axes, rows, strict=True):
         pad=2,
     )
     ax.plot([0, 0], [0, 180], color=color, lw=6, solid_capstyle="butt")
-fig.subplots_adjust(left=0.01, right=0.99, top=0.985, bottom=0.005, hspace=0.42)
+from matplotlib.lines import Line2D
+
+keys = [
+    ("seed video", GOLD),
+    (f"its {NEAR} nearest by measured look (pixel statistics)", CYAN),
+    (f"its {NEAR} nearest by what is shown (image model)", MUTED),
+]
+fig.legend(
+    handles=[Line2D([0], [0], color=c, lw=7, label=t) for t, c in keys],
+    loc="upper left",
+    bbox_to_anchor=(0.01, 0.999),
+    ncol=3,
+    frameon=False,
+    labelcolor=TEXT,
+    fontsize=10,
+)
+fig.subplots_adjust(left=0.01, right=0.99, top=0.972, bottom=0.005, hspace=0.42)
 OUT.mkdir(parents=True, exist_ok=True)
 fig.savefig(OUT / "look_neighbors.png", dpi=200, facecolor=BG)
 print("saved", OUT / "look_neighbors.png", [title[ids[s]][:50] for s in seeds])

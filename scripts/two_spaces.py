@@ -24,6 +24,7 @@ from plot_assets import (
     frame_panels,
     panel_title,
     punch,
+    ramp_legend,
     saturated_magma,
     style_axes,
     verdict,
@@ -94,7 +95,7 @@ obs = overlap(nm, nl)
 # Null: re-pair looks with meanings inside each source, so thumbnail-vs-reel style cannot fake agreement.
 def shuffled_within():
     p = np.arange(n)
-    for k in set(kind):
+    for k in sorted(set(kind)):
         idx = np.where(kind == k)[0]
         p[idx] = rng.permutation(idx)
     return p
@@ -231,6 +232,9 @@ for j, (E, name) in enumerate(
     ax.set_xticks([])
     ax.set_yticks([])
     ax.margins(0.03)
+    ramp_legend(
+        ax, cmap, "subject neighbors that are also cover neighbors", "none", f"{obs.max():.0%}"
+    )
     panel_title(ax, name)
 ax = fig.add_subplot(gs[2])
 style_axes(ax)
@@ -241,8 +245,8 @@ inv[perm] = np.arange(n)
 one_null = overlap(nm, inv[nl[perm]])
 ax.hist(one_null, bins=bins, color=DIM, label="covers re-dealt within each source (one shuffle)")
 ax.hist(obs, bins=bins, color=GOLD, histtype="step", linewidth=2.2, label="your saves")
-ax.axvline(obs.mean(), color=GOLD, lw=1.2, ls="--")
-ax.axvline(null_w.mean(), color=MUTED, lw=1.2, ls="--")
+ax.axvline(obs.mean(), color=GOLD, lw=1.2, ls="--", label="mean, your saves")
+ax.axvline(null_w.mean(), color=MUTED, lw=1.2, ls="--", label="mean, covers re-dealt")
 ax.set_yscale("log")
 ax.set_xlabel("share of subject neighbors that are also cover neighbors")
 ax.set_ylabel("saves (log)")

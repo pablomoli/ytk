@@ -226,6 +226,45 @@ def style_axes(ax) -> None:
     ax.yaxis.label.set_color(MUTED)
 
 
+def ramp_legend(ax, cmap, title: str, low: str, high: str, *, room: float = 0.16, at=(0.03, 0.045)):
+    """Legend for a panel colored by a ramp: a labeled swatch of the ramp
+    inside the panel. `room` grows the y-range downward first so the key sits
+    under the data, not on it; pass 0 when the panel already has empty space
+    at `at` (axes fraction)."""
+    if room:
+        lo, hi = ax.get_ylim()
+        ax.set_ylim(lo - room * (hi - lo), hi)
+    key = ax.inset_axes((at[0], at[1], 0.36, 0.024))
+    key.imshow(np.linspace(0, 1, 256)[None, :], cmap=cmap, aspect="auto", vmin=0, vmax=1)
+    key.set_xticks([])
+    key.set_yticks([])
+    for spine in key.spines.values():
+        spine.set_color(FRAME)
+    key._is_colorbar = True
+    key.set_title(title, color=TEXT, fontsize=TICK_SIZE, loc="left", pad=4)
+    key.text(
+        0,
+        -0.9,
+        low,
+        transform=key.transAxes,
+        color=MUTED,
+        fontsize=TICK_SIZE - 1,
+        ha="left",
+        va="top",
+    )
+    key.text(
+        1,
+        -0.9,
+        high,
+        transform=key.transAxes,
+        color=MUTED,
+        fontsize=TICK_SIZE - 1,
+        ha="right",
+        va="top",
+    )
+    return key
+
+
 def frame_panels(fig, pad: float = PANEL_PAD) -> None:
     """Border every panel and the figure itself. 3D axes report a bbox much
     larger than the drawn cube, so the frame is drawn on the subplot cell —
