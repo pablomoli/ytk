@@ -56,6 +56,11 @@ be a fighter on a blank ground. Two consequences:
 Also in the figure and not a finding: the cover space sorts by source (0.80
 same-source neighbors), which is the medium's framing, not taste.
 
+> **Later:** section 63 rebuilt the look from sprite tiles of the footage. Cover and
+> footage agree on 0.198 of neighbors, so the objection above holds as a measurement, and
+> pixel statistics of the footage are the one look space close to independent of subject
+> (0.085 against 0.035 by chance).
+
 **Standing.** The shape of the comparison stands (two spaces, the same
 items, a shuffled null inside each source). The look half has to be rebuilt
 from frames of the content itself before the picture says anything about
