@@ -1,0 +1,47 @@
+{
+ "film essay (kept for its editing rhythm and writing)": {
+  "minutes": 17.083333333333332,
+  "cuts": 166,
+  "cuts_per_minute": 9.717073170731709,
+  "median_shot_s": 1.751749999999987,
+  "words_per_minute": 168.81951219512197,
+  "sentences": 209,
+  "median_sentence_s": 4.0,
+  "cuts_within_half_second_of_a_sentence_end": 0.3493975903614458,
+  "same_if_cuts_fell_anywhere": [
+   0.20412048192771085,
+   0.2831927710843373
+  ],
+  "median_distance_cut_to_sentence_end_s": 1.2901250000000033,
+  "median_distance_if_cuts_fell_anywhere_s": 1.4173505910636663
+ },
+ "voxel rendering explainer": {
+  "minutes": 15.833333333333334,
+  "cuts": 0,
+  "cuts_per_minute": 0.0,
+  "median_shot_s": 950.0,
+  "words_per_minute": 155.93684210526314,
+  "sentences": 133,
+  "median_sentence_s": 6.52000000000001,
+  "cuts_within_half_second_of_a_sentence_end": NaN,
+  "same_if_cuts_fell_anywhere": null,
+  "median_distance_cut_to_sentence_end_s": null,
+  "median_distance_if_cuts_fell_anywhere_s": null
+ },
+ "math animation": {
+  "minutes": 16.45,
+  "cuts": 5,
+  "cuts_per_minute": 0.303951367781155,
+  "median_shot_s": 145.552052,
+  "words_per_minute": 134.58966565349544,
+  "sentences": 158,
+  "median_sentence_s": 5.640000000000001,
+  "cuts_within_half_second_of_a_sentence_end": 0.6,
+  "same_if_cuts_fell_anywhere": [
+   0.16,
+   0.6
+  ],
+  "median_distance_cut_to_sentence_end_s": 0.25570899999996755,
+  "median_distance_if_cuts_fell_anywhere_s": 1.6734464346293336
+ }
+}
