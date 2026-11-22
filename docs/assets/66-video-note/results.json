@@ -1,0 +1,175 @@
+{
+ "notes": {
+  "LQoFN1K1dZ8": {
+   "content": 3,
+   "execution": 1,
+   "look": 1,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  },
+  "urKKrMlhgwI": {
+   "content": 3,
+   "execution": 0,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  },
+  "vSczTbgc8Rc": {
+   "content": 3,
+   "execution": 1,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  },
+  "VcvhiDV_t3c": {
+   "content": 3,
+   "execution": 1,
+   "look": 1,
+   "vibe": 0,
+   "come_back_for": [
+    "info",
+    "cool"
+   ]
+  },
+  "ztkh1r1ioZo": {
+   "content": 3,
+   "execution": 1,
+   "look": 1,
+   "vibe": 0,
+   "come_back_for": [
+    "info",
+    "cool"
+   ]
+  },
+  "0iEfNt5vYWQ": {
+   "content": 2,
+   "execution": 0,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  }
+ },
+ "structure": {
+  "LQoFN1K1dZ8": {
+   "content": 3,
+   "execution": 1,
+   "look": 1,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  },
+  "urKKrMlhgwI": {
+   "content": 3,
+   "execution": 0,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  },
+  "vSczTbgc8Rc": {
+   "content": 3,
+   "execution": 1,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  },
+  "VcvhiDV_t3c": {
+   "content": 3,
+   "execution": 1,
+   "look": 1,
+   "vibe": 0,
+   "come_back_for": [
+    "info",
+    "look"
+   ]
+  },
+  "ztkh1r1ioZo": {
+   "content": 3,
+   "execution": 1,
+   "look": 0,
+   "vibe": 1,
+   "come_back_for": [
+    "info",
+    "cool"
+   ]
+  },
+  "0iEfNt5vYWQ": {
+   "content": 3,
+   "execution": 0,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  }
+ },
+ "frames": {
+  "LQoFN1K1dZ8": {
+   "content": 2,
+   "execution": 1,
+   "look": 1,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  },
+  "urKKrMlhgwI": {
+   "content": 3,
+   "execution": 0,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  },
+  "vSczTbgc8Rc": {
+   "content": 3,
+   "execution": 1,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  },
+  "VcvhiDV_t3c": {
+   "content": 3,
+   "execution": 0,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  },
+  "ztkh1r1ioZo": {
+   "content": 3,
+   "execution": 1,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info",
+    "cool"
+   ]
+  },
+  "0iEfNt5vYWQ": {
+   "content": 3,
+   "execution": 0,
+   "look": 0,
+   "vibe": 0,
+   "come_back_for": [
+    "info"
+   ]
+  }
+ }
+}
