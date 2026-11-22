@@ -7,6 +7,7 @@ import { ApiError, apiGet, apiSend, queryClient } from "../api/client";
 import type { SimilarItem } from "../api/fresh";
 import type { LibraryPage } from "../api/library";
 import { OrbControls } from "../components/OrbControls";
+import { sourceIcon } from "../components/icons";
 import { OrbPending, type PendingDetail } from "../components/OrbPending";
 import { OrbReader, READER_WIDTH } from "../components/OrbReader";
 import { ErrorState } from "../components/StateViews";
@@ -102,6 +103,9 @@ const PANEL_RIGHT = 344; // css px the bottom-left panel reaches to; the sheet s
 const CHIP = "cursor-pointer rounded px-2 py-1";
 const chip = (on: boolean) => `${CHIP} ${on ? "bg-white/20 text-[var(--ink)]" : "bg-white/5 hover:bg-white/10"}`;
 
+// 2026-07-17 anywhere in the text becomes 07/17/26
+const shortDate = (text: string) => text.replace(/(\d{4})-(\d{2})-(\d{2})/g, (_, y: string, m: string, d: string) => `${m}/${d}/${y.slice(2)}`);
+
 // one row of the bottom-left panel: a tile's cover, title, creator and date, and a brass score
 function TileRow({ point, score, when, active, onPick }: { point: OrbPoint; score?: number | undefined; when?: string | undefined; active?: boolean; onPick: () => void }) {
   return (
@@ -123,8 +127,10 @@ function TileRow({ point, score, when, active, onPick }: { point: OrbPoint; scor
         )}
         <span className="min-w-0 flex-1">
           <span className={`${FACE} line-clamp-2 text-[12px] leading-[1.15] text-[var(--ink)]`}>{captionTitle(point.t)}</span>
-          <span className="mt-0.5 block truncate text-[10.5px] uppercase tracking-[0.08em] text-[var(--ink2)]">
-            {point.c}{when ?? point.d ? ` · ${when ?? point.d}` : ""}
+          <span className="mt-1 flex items-center gap-1.5 text-[10.5px] tabular-nums text-[var(--ink2)]" title={point.c}>
+            {sourceIcon(point.c, 11, "currentColor")}
+            <span className="sr-only">{point.c}</span>
+            <span className="truncate">{shortDate(when ?? point.d ?? "")}</span>
           </span>
         </span>
         {score !== undefined ? (
@@ -752,7 +758,7 @@ function OrbPage() {
         >
           {captionTitle(data.points[hovered].t)}
           {data.points[hovered].d ? (
-            <span className="ml-2 opacity-60">{data.points[hovered].d}</span>
+            <span className="ml-2 opacity-60">{shortDate(data.points[hovered].d ?? "")}</span>
           ) : null}
         </div>
       ) : null}

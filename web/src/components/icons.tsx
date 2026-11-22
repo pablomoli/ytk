@@ -84,12 +84,12 @@ export function sourceIconKey(source: string): string {
   return key in ICON_PATHS ? key : "web";
 }
 
-export function sourceIcon(source: string, size = 16) {
+export function sourceIcon(source: string, size = 16, fill?: string) {
   const icon = ICON_PATHS[sourceIconKey(source)]!;
   return (
     <svg
       viewBox={icon.viewBox ?? "0 0 24 24"}
-      fill={icon.fill}
+      fill={fill ?? icon.fill}
       width={size}
       height={size}
       aria-hidden="true"
