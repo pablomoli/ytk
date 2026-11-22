@@ -140,7 +140,9 @@ uniform float uBirth; // pop-in: runs 0..1, tiles appear in the order they were 
 out vec2 vUv;
 out float vIdx;
 out float vTheme;
+out float vFlat;
 void main() {
+  vFlat = iFlat;
   vec3 n = normalize(-iPos) * uFacing;
   vec3 ref = abs(n.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
   vec3 e1 = normalize(cross(ref, n));
@@ -172,10 +174,13 @@ uniform float uNeighDim;           // 1 = off; below 1 dims everyone outside hov
 uniform float uMatch[28];          // tiles on the sheet (-1 = none); the size is MATCH_MAX
 uniform float uSearchDim;          // 1 = off; below 1 dims every tile the search did not match
 in vec2 vUv;
+uniform float uCull;               // 1 = tiles seen from behind are not drawn
 in float vIdx;
 in float vTheme;
+in float vFlat;
 out vec4 outColor;
 void main() {
+  if (uCull > 0.5 && vFlat < 0.5 && !gl_FrontFacing) discard;
   vec3 c = texture(uAtlas, vUv).rgb;
   float dim = 1.0;
   if (uFocused >= 0.0 && abs(vIdx - uFocused) >= 0.5) dim *= uDim;
@@ -283,19 +288,21 @@ export function mountOrb(
   const centers = new Float32Array(n * 3);
   const scales = new Float32Array(n).fill(1);
   // where a layout bunches tiles, each shrinks to its nearest neighbor's distance so none overlap
-  const densityScales = (pos: Float32Array, asp: Float32Array, out: Float32Array) => {
+  // only: the tiles on show (the rest go to nothing); cap: how far a tile may grow into empty room
+  const densityScales = (pos: Float32Array, asp: Float32Array, out: Float32Array, only?: Uint8Array, cap = 1) => {
     for (let i = 0; i < n; i++) {
+      if (only && !only[i]) { out[i] = 0; continue; }
       let best = -1;
       const ax = pos[i * 3], ay = pos[i * 3 + 1], az = pos[i * 3 + 2];
       for (let j = 0; j < n; j++) {
-        if (j === i) continue;
+        if (j === i || (only && !only[j])) continue;
         const d = ax * pos[j * 3] + ay * pos[j * 3 + 1] + az * pos[j * 3 + 2];
         if (d > best) best = d;
       }
       const dist = Math.acos(Math.min(1, best)); // radians to the nearest tile center
       const sx = Math.sqrt(asp[i]);
       const long = TILE_HALF * Math.max(sx, 1 / sx) * 2 * 1.1;
-      out[i] = Math.min(1, Math.max(0.4, dist / long));
+      out[i] = Math.min(cap, Math.max(0.4, dist / long));
     }
   };
   // time lens: latitude by date rank (equal-area bands, newest at the north pole,
@@ -412,6 +419,7 @@ export function mountOrb(
   }
   const morph = { t: 1 };
   const morphFrom = new Float32Array(n * 3), morphTo = new Float32Array(n * 3);
+  morphTo.set(centers); // the terrain reads where tiles are headed, before any lens change too
   const scaleFrom = new Float32Array(n), scaleTo = new Float32Array(n);
   const morphCtrl = new Float32Array(n * 3), wave = new Float32Array(n);
   const _ma = new Vector3(), _mb = new Vector3(), _mc = new Vector3(), _mv = new Vector3();
@@ -466,6 +474,28 @@ export function mountOrb(
   // home is where the lens puts each tile; centers and scales are what is drawn.
   // They differ only for tiles a search has in flight or gathered.
   const home = centers.slice(), homeScales = scales.slice();
+  // a theme shown alone: its tiles are the only ones drawn, spread over the sphere
+  let alone: number | null = null;
+  const onShow = new Uint8Array(n).fill(1);
+  const ALONE_CAP = 3;
+  // an even spread of as many seats as members; each member takes the free seat nearest where it stands
+  const spreadOver = (members: number[], pos: Float32Array) => {
+    const m = members.length, seats = new Float32Array(m * 3), taken = new Uint8Array(m);
+    for (let k = 0; k < m; k++) {
+      const z = 1 - (2 * k + 1) / m, r = Math.sqrt(1 - z * z), a = k * 2.399963229728653;
+      seats.set([r * Math.cos(a), r * Math.sin(a), z], k * 3);
+    }
+    for (const i of members) {
+      let best = -2, at = 0;
+      for (let k = 0; k < m; k++) {
+        if (taken[k]) continue;
+        const d = pos[i * 3] * seats[k * 3] + pos[i * 3 + 1] * seats[k * 3 + 1] + pos[i * 3 + 2] * seats[k * 3 + 2];
+        if (d > best) { best = d; at = k; }
+      }
+      taken[at] = 1;
+      pos.set(seats.subarray(at * 3, at * 3 + 3), i * 3);
+    }
+  };
   // tiles slide along the sphere from one layout to the next instead of jumping
   const writeLayout = (name: LayoutName) => {
     const arr = layoutArray(name);
@@ -475,7 +505,16 @@ export function mountOrb(
     morphFrom.set(home);
     scaleFrom.set(homeScales);
     for (let i = 0; i < n; i++) morphTo.set(arr[i], i * 3);
-    densityScales(morphTo, aspects, scaleTo);
+    if (alone === null) {
+      onShow.fill(1);
+      densityScales(morphTo, aspects, scaleTo);
+    } else {
+      const members: number[] = [];
+      for (let i = 0; i < n; i++) { onShow[i] = points[i].th === alone ? 1 : 0; if (onShow[i]) members.push(i); }
+      // time keeps its places, a date is a place there; elsewhere the theme takes the whole sphere
+      if (name !== "time") spreadOver(members, morphTo);
+      densityScales(morphTo, aspects, scaleTo, onShow, ALONE_CAP);
+    }
     // what the camera looks at moves first, and the far side follows
     camera.getWorldDirection(_mv).multiplyScalar(facing());
     for (let i = 0; i < n; i++) {
@@ -670,6 +709,7 @@ export function mountOrb(
       uFocused: { value: -1 }, uDim: { value: 1 },
       uTheme: { value: -1 }, uThemeDim: { value: DIM_FILTER },
       uFacing: { value: 1 },
+      uCull: { value: 0 },
       uNeigh: { value: new Float32Array(8).fill(-1) }, uNeighDim: { value: 1 }, uNeighScale: { value: 1 },
       uBirth: { value: 0 },
       uMatch: { value: new Float32Array(MATCH_MAX).fill(-1) }, uSearchDim: { value: 1 },
@@ -698,7 +738,7 @@ export function mountOrb(
   coastTex.wrapT = ClampToEdgeWrapping;
   coastTex.minFilter = LinearFilter;
   coastTex.magFilter = LinearFilter;
-  let coastLens: LayoutName | null = null;
+  let coastLens: string | null = null; // the lens and theme the field was drawn for
   const coastMix = { t: 1 };
   const coastRamp = loadRamp();
   const coastGeo = new SphereGeometry(0.985, 64, 32);
@@ -723,15 +763,21 @@ export function mountOrb(
   scene.add(coast);
   // only while terrain is on: the bake is tens of milliseconds and nobody sees it otherwise
   const bakeCoast = () => {
-    if (!terrain || coastLens === lens) return;
-    const arr = layoutArray(lens);
-    if (!arr) return;
+    const key = `${lens}:${alone}`;
+    if (!terrain || coastLens === key) return;
     const first = coastLens === null;
-    coastLens = lens;
-    const dirs = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) dirs.set(arr[i], i * 3);
+    coastLens = key;
+    let m = 0;
+    for (let i = 0; i < n; i++) m += onShow[i];
+    const dirs = new Float32Array(m * 3), themes = new Int16Array(m);
+    for (let i = 0, k = 0; i < n; i++) {
+      if (!onShow[i]) continue;
+      dirs.set(morphTo.subarray(i * 3, i * 3 + 3), k * 3);
+      themes[k++] = points[i].th ?? -1;
+    }
     coastFrom.set(coastData);
-    coastField(dirs, FIELD_W, FIELD_H, coastTo);
+    // under time a theme is scattered by date, so only the gaps make sea there
+    coastField(dirs, FIELD_W, FIELD_H, coastTo, lens === "time" || alone !== null ? undefined : themes);
     gsap.killTweensOf(coastMix);
     const blend = () => {
       const t = coastMix.t;
@@ -1060,14 +1106,16 @@ void main() {
     const r = canvas.getBoundingClientRect();
     return [((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1)];
   };
+  // from outside the camera circles the sphere, so the same yaw carries the surface the other way: mirror the drag
+  const dragX = (e: PointerEvent) => (mode === "globe" ? -e.clientX : e.clientX);
   const onDown = (e: PointerEvent) => {
     canvas.setPointerCapture(e.pointerId);
     pointerNdc = ndcOf(e); // seed so a tap-without-move still has a pick target
-    controls.down(e.clientX, e.clientY);
+    controls.down(dragX(e), e.clientY);
   };
   const onMove = (e: PointerEvent) => {
     pointerNdc = ndcOf(e);
-    controls.move(e.clientX, e.clientY);
+    controls.move(dragX(e), e.clientY);
   };
   const onUp = (e: PointerEvent) => {
     const { tap } = controls.up();
@@ -1777,12 +1825,22 @@ void main() {
     centerOf(i) {
       return [home[i * 3], home[i * 3 + 1], home[i * 3 + 2]];
     },
-    setThemeFilter(th) { material.uniforms.uTheme.value = th ?? -1; },
+    setThemeFilter(th) {
+      material.uniforms.uTheme.value = th ?? -1;
+      if (th === alone) return;
+      alone = th;
+      // a theme alone leaves the far side in plain view, mirrored: from outside, only tiles facing out are drawn
+      material.uniforms.uCull.value = mode === "globe" && alone !== null ? 1 : 0;
+      writeLayout(lens);
+      bakeCoast();
+      if (hovered !== null) buildArcs(hovered);
+    },
     setView(next) {
       if (next === mode) return;
       if (focused >= 0) { doBlur(); cb.onBlur(); } // mode switches mid-selection must not strand uFocused
       mode = next;
       material.uniforms.uFacing.value = mode === "globe" ? -1 : 1;
+      material.uniforms.uCull.value = mode === "globe" && alone !== null ? 1 : 0;
       coast.visible = coastVisible(mode, coastLens !== null, terrain);
       // the grid was anchored for the other view; the camera takes a frame to move
       if (searchHits.length && focused < 0) gatherSoon(0.1);

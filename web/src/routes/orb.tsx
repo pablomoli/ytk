@@ -106,8 +106,8 @@ const chip = (on: boolean) => `${CHIP} ${on ? "bg-white/20 text-[var(--ink)]" : 
 // 2026-07-17 anywhere in the text becomes 07/17/26
 const shortDate = (text: string) => text.replace(/(\d{4})-(\d{2})-(\d{2})/g, (_, y: string, m: string, d: string) => `${m}/${d}/${y.slice(2)}`);
 
-// one row of the bottom-left panel: a tile's cover, title, creator and date, and a brass score
-function TileRow({ point, score, when, active, onPick }: { point: OrbPoint; score?: number | undefined; when?: string | undefined; active?: boolean; onPick: () => void }) {
+// one row of the bottom-left panel: a tile's cover, title, source and date; the order of the rows is the ranking
+function TileRow({ point, when, active, onPick }: { point: OrbPoint; when?: string | undefined; active?: boolean; onPick: () => void }) {
   return (
     <li className="!m-0 !list-none border-b border-white/[0.06] !p-0 last:border-b-0">
       <div
@@ -133,9 +133,6 @@ function TileRow({ point, score, when, active, onPick }: { point: OrbPoint; scor
             <span className="truncate">{shortDate(when ?? point.d ?? "")}</span>
           </span>
         </span>
-        {score !== undefined ? (
-          <span className="flex-none text-[12px] tabular-nums text-[var(--accent)]">{Math.round(score * 100)}</span>
-        ) : null}
       </div>
     </li>
   );
@@ -660,7 +657,6 @@ function OrbPage() {
                   <TileRow
                     key={h.i}
                     point={data.points[h.i]}
-                    score={h.s}
                     active={h.i === selected || h.i === hovered}
                     onPick={() => handleRef.current?.focus(h.i)}
                   />
@@ -733,7 +729,7 @@ function OrbPage() {
       ) : data && chrome && anchor !== null && knn && pendingPane === null ? (
         <aside data-orb-neighbors className={`absolute bottom-4 left-4 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md ${folded ? "max-w-80" : "w-80"}`}>
           <PanelHead
-            label="nearest by embedding"
+            label="nearest by meaning"
             title={captionTitle(data.points[anchor].t)}
             folded={folded}
             onToggle={selected !== null ? () => setListOpen((v) => !v) : undefined}
@@ -742,7 +738,7 @@ function OrbPage() {
             {/* exactly five rows tall; the rest scrolls */}
             <ul className="!m-0 h-[300px] !list-none overflow-y-auto !p-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
               {(knn[anchor] ?? []).map((j, k) => (
-                <TileRow key={j} point={data.points[j]} score={knnSim?.[anchor]?.[k]} onPick={() => walkTo(j)} />
+                <TileRow key={j} point={data.points[j]} onPick={() => walkTo(j)} />
               ))}
             </ul>
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/60 to-transparent" />

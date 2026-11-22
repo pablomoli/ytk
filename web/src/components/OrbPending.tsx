@@ -121,7 +121,6 @@ export function OrbPending({ item, detail, beside, left, waiting, sandbox, note,
               {beside.map((b) => (
                 <li key={b.title} className="!m-0 flex !list-none items-baseline gap-3 !p-0 py-[5px]">
                   <span className="min-w-0 flex-1 truncate text-[14px] leading-snug">{b.title}</span>
-                  <span className="flex-none text-[11px] tabular-nums text-accent">{Math.round(b.score * 100)}</span>
                 </li>
               ))}
             </ul>
