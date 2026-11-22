@@ -1,0 +1,127 @@
+{
+ "control": {
+  "frames": 32,
+  "light_or_palette_share_of_terms": 0.4236607142857143,
+  "look_words_where_he_wants_info_median": 62.0,
+  "look_words_on_look_frames_median": 66.0,
+  "lineage_named_on_look_frames": 2,
+  "closeness_to_his_words_mean": 0.5603096549646599,
+  "image_text_rank_of_terms_mean": 0.7286612758310872,
+  "names_per_fight_frame": 0.0,
+  "names_from_text_found_in_evidence": [
+   0,
+   0
+  ],
+  "names_read_on_screen": 0,
+  "come_back_for_agreement": null,
+  "terms_per_frame": 5.59375,
+  "share_of_frames_with_look_text": {
+   "he wants the info": 1.0,
+   "look he marked right": 1.0,
+   "video saved for looks too": NaN,
+   "Instagram reels": NaN,
+   "everything else": 1.0
+  },
+  "look_weight_mean": {}
+ },
+ "kind-first": {
+  "frames": 54,
+  "light_or_palette_share_of_terms": 0.024911816578483247,
+  "look_words_where_he_wants_info_median": 0.0,
+  "look_words_on_look_frames_median": 46.0,
+  "lineage_named_on_look_frames": 2,
+  "closeness_to_his_words_mean": 0.559284426232772,
+  "image_text_rank_of_terms_mean": 0.8758395449957296,
+  "names_per_fight_frame": 3.8461538461538463,
+  "names_from_text_found_in_evidence": [
+   19,
+   20
+  ],
+  "names_read_on_screen": 30,
+  "come_back_for_agreement": 0.9090909090909091,
+  "terms_per_frame": 4.592592592592593,
+  "share_of_frames_with_look_text": {
+   "he wants the info": 0.0,
+   "look he marked right": 1.0,
+   "video saved for looks too": 0.16666666666666666,
+   "Instagram reels": 0.25,
+   "everything else": 0.15789473684210525
+  },
+  "look_weight_mean": {
+   "he wants the info": 0.0,
+   "look he marked right": 2.0,
+   "video saved for looks too": 0.3333333333333333,
+   "Instagram reels": 0.5,
+   "everything else": 0.3157894736842105
+  }
+ },
+ "evidence-ledger": {
+  "frames": 54,
+  "light_or_palette_share_of_terms": 0.042394179894179894,
+  "look_words_where_he_wants_info_median": 0.0,
+  "look_words_on_look_frames_median": 37.5,
+  "lineage_named_on_look_frames": 2,
+  "closeness_to_his_words_mean": 0.5409607017043275,
+  "image_text_rank_of_terms_mean": 0.8720146584140296,
+  "names_per_fight_frame": 2.923076923076923,
+  "names_from_text_found_in_evidence": [
+   15,
+   17
+  ],
+  "names_read_on_screen": 21,
+  "come_back_for_agreement": 0.9545454545454546,
+  "terms_per_frame": 4.2407407407407405,
+  "share_of_frames_with_look_text": {
+   "he wants the info": 0.18181818181818182,
+   "look he marked right": 1.0,
+   "video saved for looks too": 0.16666666666666666,
+   "Instagram reels": 0.25,
+   "everything else": 0.2631578947368421
+  },
+  "look_weight_mean": {
+   "he wants the info": 0.18181818181818182,
+   "look he marked right": 2.0,
+   "video saved for looks too": 0.16666666666666666,
+   "Instagram reels": 0.4375,
+   "everything else": 0.47368421052631576
+  }
+ },
+ "owner-s-own-notes": {
+  "frames": 54,
+  "light_or_palette_share_of_terms": 0.023113207547169813,
+  "look_words_where_he_wants_info_median": 0.0,
+  "look_words_on_look_frames_median": 37.5,
+  "lineage_named_on_look_frames": 2,
+  "closeness_to_his_words_mean": 0.5563607774537954,
+  "image_text_rank_of_terms_mean": 0.9105316245401687,
+  "names_per_fight_frame": 3.0,
+  "names_from_text_found_in_evidence": [
+   11,
+   11
+  ],
+  "names_read_on_screen": 28,
+  "come_back_for_agreement": 1.0,
+  "terms_per_frame": 3.574074074074074,
+  "share_of_frames_with_look_text": {
+   "he wants the info": 0.09090909090909091,
+   "look he marked right": 1.0,
+   "video saved for looks too": 0.0,
+   "Instagram reels": 0.1875,
+   "everything else": 0.3157894736842105
+  },
+  "look_weight_mean": {
+   "he wants the info": 0.09090909090909091,
+   "look he marked right": 2.5,
+   "video saved for looks too": 0.0,
+   "Instagram reels": 0.3125,
+   "everything else": 0.5263157894736842
+  }
+ },
+ "n": {
+  "frames": 54,
+  "info_frames": 11,
+  "look_frames": 2,
+  "frames_with_his_words": 6,
+  "fight_frames": 13
+ }
+}
