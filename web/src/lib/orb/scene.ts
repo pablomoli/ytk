@@ -144,6 +144,7 @@ uniform float uFacing; // 1 inside (tiles face the origin), -1 globe (tiles face
 uniform float uNeigh[8];
 uniform float uNeighScale; // 1 at rest; the hovered tile's neighbors swell to it
 uniform float uBirth; // pop-in: runs 0..1, tiles appear in the order they were added
+uniform float uLavaHide; // 1 = not drawn: under lava a change of arrangement swaps places unseen
 out vec2 vUv;
 out float vIdx;
 out float vTheme;
@@ -159,13 +160,13 @@ void main() {
   float s = (abs(iIdx - uHovered) < 0.5 || abs(iIdx - uFocused) < 0.5) ? uHoverScale : 1.0;
   for (int k = 0; k < 8; k++) if (abs(iIdx - uNeigh[k]) < 0.5) s *= uNeighScale;
   float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iBorn) / 0.35);
-  s *= born * iScale * uSize;
+  s *= born * iScale * uSize * (1.0 - uLavaHide);
   float sx = sqrt(iAspect);
   vec3 at = iPos;
   if (uLavaPull > 0.0 && iFlat < 1.0 && abs(iIdx - uFocused) >= 0.5) {
     vec2 ride;
     vec3 from = normalize(iPos);
-    vec3 to = lavaCarry(from, 1.0 - iFlat, ride);
+    vec3 to = lavaCarry(from, 1.0 - iFlat, 0.3, ride);
     at = to * length(iPos) * (1.0 + ride.x);
     // the tile keeps its own basis, turned along with it: recomputing one at the new place would roll it
     e1 = lavaTurn(e1, from, to);
@@ -731,6 +732,8 @@ export function mountOrb(
       uFacing: { value: 1 },
       uCull: { value: 0 },
       uLavaPull: { value: 0 },
+      uLavaStep: { value: 0 },
+      uLavaHide: { value: 0 },
       uNeigh: { value: new Float32Array(8).fill(-1) }, uNeighDim: { value: 1 }, uNeighScale: { value: 1 },
       uBirth: { value: 0 },
       uMatch: { value: new Float32Array(MATCH_MAX).fill(-1) }, uSearchDim: { value: 1 },
@@ -891,7 +894,7 @@ void main() { outColor = vec4(mix(texture(uA, vUv).r, texture(uB, vUv).r, uBack)
   let lava = false;
   const LAVA_HOLD = 12; // seconds per crossfade
   const LAVA_FLOW = 0.1; // noise units per second: a coast visibly crawls, nothing darts
-  const LAVA_SURGE = 9; // flow multiplier at the start of a change of arrangement, falling back to 1
+  const LAVA_SURGE = 5; // flow multiplier at the start of a change of arrangement, falling back to 1
   const lavaMix = { t: 0 }, lavaCut = { t: 1 }, lavaRate = { v: 1 };
   const lavaU = coastMat.uniforms;
   const lavaState = (off: Vector3, shape: Vector2) => {
@@ -902,13 +905,14 @@ void main() { outColor = vec4(mix(texture(uA, vUv).r, texture(uB, vUv).r, uBack)
   };
   lavaState(lavaU.uLavaB.value, lavaU.uLavaShapeB.value);
   // the tiles read the same lava as the land: one set of uniform objects, two shaders
-  for (const name of LAVA_SHARED) if (name !== "uLavaPull") material.uniforms[name] = lavaU[name];
+  for (const name of LAVA_SHARED) if (name !== "uLavaPull" && name !== "uLavaStep") material.uniforms[name] = lavaU[name];
   const lavaPull = { t: 0 };
   // the tiles ride the lava only where it shows: lava on, terrain on, seen from outside
   // lava showing is a thing to watch: nothing under the pointer answers
   const lavaShow = () => lava && terrain && mode === "globe";
   const pullTiles = () => {
     const to = lavaShow() ? 1 : 0;
+    if (!to) gsap.to(material.uniforms.uLavaHide, { value: 0, duration: 0.3, overwrite: true });
     if (to) {
       if (focused >= 0) { doBlur(); cb.onBlur(); }
       if (ringSel !== null && !carried) { readGrain(null); cb.onRingOpen?.(null); }
@@ -942,6 +946,12 @@ void main() { outColor = vec4(mix(texture(uA, vUv).r, texture(uB, vUv).r, uBack)
     const span = first || reducedMotion() ? 0 : MORPH_DUR * (1 + MORPH_WAVE);
     // under lava a change of arrangement or theme makes the land churn while the tiles fly
     if (lava && span > 0) gsap.fromTo(lavaRate, { v: LAVA_SURGE }, { v: 1, duration: span, ease: "none", overwrite: true });
+    // and the tiles do not fly to their new places in view: they shrink away, change places unseen, and grow back
+    if (lavaShow() && span > 0) {
+      const hide = material.uniforms.uLavaHide;
+      gsap.killTweensOf(hide);
+      gsap.timeline().to(hide, { value: 1, duration: 0.25, ease: "power2.in" }).to(hide, { value: 0, duration: 0.6, ease: "power2.out" }, Math.max(0.25, span - 0.4));
+    }
     let m = 0;
     for (let i = 0; i < n && m < TILE_CAP; i++) {
       if (!onShow[i]) continue;
@@ -1099,7 +1109,7 @@ void main() {
 if (uLavaPull > 0.0 && uRide > 0.0) {
   vec2 ride;
   vec3 from = normalize(uCenter);
-  vec3 to = lavaCarry(from, uRide, ride);
+  vec3 to = lavaCarry(from, uRide, 0.3, ride);
   lavaWorld.xyz = to * length(uCenter) * (1.0 + ride.x) + lavaTurn(lavaWorld.xyz - uCenter, from, to) * ride.y;
 }
 vec4 mvPosition = viewMatrix * lavaWorld;
@@ -1249,7 +1259,7 @@ gl_Position = projectionMatrix * mvPosition;`);
       if (neigh.includes(i)) sc *= u.uNeighScale.value as number;
       const bornT = (birth * 1.35 - arrival[i]) / 0.35;
       const born = bornT <= 0 ? 0 : bornT >= 1 ? 1 : bornT * bornT * (3 - 2 * bornT);
-      sc *= born;
+      sc *= born * (1 - (u.uLavaHide.value as number));
       const sx = Math.sqrt(aspects[i]);
       _ne1.multiplyScalar(half() * 2 * sx * sc);
       _ne2.multiplyScalar(((half() * 2) / sx) * sc);
@@ -1925,6 +1935,7 @@ gl_Position = projectionMatrix * mvPosition;`);
     last = now;
     arcMat.uniforms.uTime.value += dt;
     if (lava && terrain && !reducedMotion()) lavaU.uLavaTime.value += dt * LAVA_FLOW * lavaRate.v;
+    material.uniforms.uLavaStep.value = 0.1 * LAVA_FLOW * lavaRate.v;
     const busy = controls.dragging || hovered !== null || focused >= 0 || ringHover !== null || ringSel !== null || carried !== null || searchHits.length > 0;
     idle = busy ? 0 : idle + dt;
     if (idle > IDLE_AFTER && !reducedMotion()) controls.nudge(DRIFT * dt * Math.min(1, (idle - IDLE_AFTER) / 2));

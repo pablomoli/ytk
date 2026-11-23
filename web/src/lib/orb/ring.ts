@@ -154,7 +154,7 @@ void main() {
     float z = 1.0 - 2.0 * (iIdx + 0.5) / uCount, r = sqrt(max(0.0, 1.0 - z * z)), lon = iIdx * 2.39996323;
     vec3 seat = vec3(r * cos(lon), r * sin(lon), z);
     vec2 ride;
-    vec3 to = lavaCarry(seat, 1.0, ride);
+    vec3 to = lavaCarry(seat, 1.0, 0.12, ride);
     down = clamp(uLavaPull * 1.5 - 0.25 * (seat.z + 1.0), 0.0, 1.0);
     // no flight between ring and seat: the grain shrinks away where it is and grows back where it is going
     float there = step(0.5, down), shown = smoothstep(0.0, 1.0, abs(2.0 * down - 1.0));

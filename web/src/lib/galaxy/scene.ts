@@ -103,18 +103,20 @@ float fbm3(vec3 p) {
   return sum / norm;
 }
 
-// 0.5 at the shore, like the baked field; dir is a unit direction in the tiles' frame
-float lavaField(vec3 dir, vec3 off, vec2 shape) {
+// 0.5 at the shore, like the baked field; dir is a unit direction in the tiles' frame, t the lava's clock
+float lavaField(vec3 dir, vec3 off, vec2 shape, float t) {
   vec3 p = dir * shape.y + off;
   vec3 q = p * 0.7;
-  vec3 warp = vec3(vnoise(q + vec3(uLavaTime, 0.0, 0.0)), vnoise(q + vec3(11.0, uLavaTime, 0.0)), vnoise(q + vec3(0.0, 23.0, uLavaTime))) - 0.5;
-  float n = fbm3(p + 1.6 * warp + vec3(0.0, 0.0, 0.35 * uLavaTime));
+  vec3 warp = vec3(vnoise(q + vec3(t, 0.0, 0.0)), vnoise(q + vec3(11.0, t, 0.0)), vnoise(q + vec3(0.0, 23.0, t))) - 0.5;
+  float n = fbm3(p + 1.6 * warp + vec3(0.0, 0.0, 0.35 * t));
   return 0.5 + 4.0 * (n - shape.x);
 }
 
-float lavaNow(vec3 dir) {
-  return mix(lavaField(dir, uLavaA, uLavaShapeA), lavaField(dir, uLavaB, uLavaShapeB), uLavaCut);
-}`;
+float lavaAt(vec3 dir, float t) {
+  return mix(lavaField(dir, uLavaA, uLavaShapeA, t), lavaField(dir, uLavaB, uLavaShapeB, t), uLavaCut);
+}
+
+float lavaNow(vec3 dir) { return lavaAt(dir, uLavaTime); }`;
 
 const coastLine = planetColor(CYAN, 1).map((c) => c.toFixed(3)).join(", ");
 // Two non-overlapping bands of the one ramp, so the shoreline is still a step
