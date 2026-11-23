@@ -69,32 +69,13 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
 
-const coastLine = planetColor(CYAN, 1).map((c) => c.toFixed(3)).join(", ");
-// Two non-overlapping bands of the one ramp, so the shoreline is still a step
-// in ramp space, but each band is now wide enough to read as a gradient
-// rather than a flat zone. SEA_FLOOR is above 0 because a sphere against the
-// starfield loses its silhouette to a black sea; the SEA_CEIL..LAND_FLOOR gap
-// is the boundary itself, narrowed from round 5 to bring the magenta/orange
-// richness back on each side of the coast.
-const SEA_FLOOR = 0.05;
-const SEA_CEIL = 0.38;
-const LAND_FLOOR = 0.52;
-
-const FRAG = /* glsl */ `
-precision highp float;
-uniform sampler2D uField;
-uniform sampler2D uRamp;
-uniform float uSpin, uSeed, uCoastAmp, uYUp;
-uniform mat3 uHueRot;
-// lava (orb only; unset elsewhere, so 0): a field made of moving noise instead of the baked one
-uniform float uLava, uLavaTime, uLavaCut;
+// Lava: a field made of moving noise, shared by the planet shader (land and sea) and the orb's tiles
+// (which ride it). Uniforms unset outside the orb read 0. A state is a place in the noise (A, B) plus
+// a sea level and a grain; uLavaCut fades from A to B.
+export const LAVA_GLSL = /* glsl */ `
+uniform float uLavaTime, uLavaCut;
 uniform vec3 uLavaA, uLavaB;
 uniform vec2 uLavaShapeA, uLavaShapeB; // (sea level, grain)
-// orb only: the field being left, and how much of it still shows (0 elsewhere)
-uniform sampler2D uFieldPrev;
-uniform float uFieldBack;
-in vec3 vN;
-out vec4 outColor;
 
 float hash13(vec3 p) {
   return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
@@ -122,14 +103,44 @@ float fbm3(vec3 p) {
   return sum / norm;
 }
 
-float lavaField(vec3 off, vec2 shape) {
-  vec3 p = vN * shape.y + off;
+// 0.5 at the shore, like the baked field; dir is a unit direction in the tiles' frame
+float lavaField(vec3 dir, vec3 off, vec2 shape) {
+  vec3 p = dir * shape.y + off;
   vec3 q = p * 0.7;
   vec3 warp = vec3(vnoise(q + vec3(uLavaTime, 0.0, 0.0)), vnoise(q + vec3(11.0, uLavaTime, 0.0)), vnoise(q + vec3(0.0, 23.0, uLavaTime))) - 0.5;
   float n = fbm3(p + 1.6 * warp + vec3(0.0, 0.0, 0.35 * uLavaTime));
   return 0.5 + 4.0 * (n - shape.x);
 }
 
+float lavaNow(vec3 dir) {
+  return mix(lavaField(dir, uLavaA, uLavaShapeA), lavaField(dir, uLavaB, uLavaShapeB), uLavaCut);
+}`;
+
+const coastLine = planetColor(CYAN, 1).map((c) => c.toFixed(3)).join(", ");
+// Two non-overlapping bands of the one ramp, so the shoreline is still a step
+// in ramp space, but each band is now wide enough to read as a gradient
+// rather than a flat zone. SEA_FLOOR is above 0 because a sphere against the
+// starfield loses its silhouette to a black sea; the SEA_CEIL..LAND_FLOOR gap
+// is the boundary itself, narrowed from round 5 to bring the magenta/orange
+// richness back on each side of the coast.
+const SEA_FLOOR = 0.05;
+const SEA_CEIL = 0.38;
+const LAND_FLOOR = 0.52;
+
+const FRAG = /* glsl */ `
+precision highp float;
+uniform sampler2D uField;
+uniform sampler2D uRamp;
+uniform float uSpin, uSeed, uCoastAmp, uYUp;
+uniform mat3 uHueRot;
+uniform float uLava;
+// orb only: the field being left, and how much of it still shows (0 elsewhere)
+uniform sampler2D uFieldPrev;
+uniform float uFieldBack;
+in vec3 vN;
+out vec4 outColor;
+
+${LAVA_GLSL}
 void main() {
   // equirect sample of the baked field; 0.5 = shoreline (ytk/coast.py contract).
   // uYUp=1 (galaxy planets, sun): latitude from world y, so uSpin turns the
@@ -142,7 +153,7 @@ void main() {
   float base = texture(uField, uv).r;
   if (uFieldBack > 0.0) base = mix(base, texture(uFieldPrev, uv).r, uFieldBack);
   // floor 0.2: an island state is mostly sea, and sea at 0 is black
-  if (uLava > 0.0) base = mix(base, clamp(mix(lavaField(uLavaA, uLavaShapeA), lavaField(uLavaB, uLavaShapeB), uLavaCut), 0.2, 1.0), uLava);
+  if (uLava > 0.0) base = mix(base, clamp(lavaNow(vN), 0.2, 1.0), uLava);
   float d = base + uCoastAmp * (fbm3(vN * 9.0 + uSeed) - 0.5);
   // E30 fig_field's palette, but split at the shoreline: sea rides the ramp's
   // low band, land the high one, and the gap between them is the coast.

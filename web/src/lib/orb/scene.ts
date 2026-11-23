@@ -42,7 +42,7 @@ import {
 } from "three";
 import { DUR, FLIGHT_EASE, gsap, reducedMotion } from "../motion";
 import type { LayoutName, OrbData } from "../../api/orb";
-import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
+import { LAVA_GLSL, PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
 import { buildAtlas, COLS, slotUv } from "./atlas";
 import { coastLevels, coastRadius } from "./coast";
 import { createControls } from "./controls";
@@ -143,10 +143,12 @@ uniform float uFacing; // 1 inside (tiles face the origin), -1 globe (tiles face
 uniform float uNeigh[8];
 uniform float uNeighScale; // 1 at rest; the hovered tile's neighbors swell to it
 uniform float uBirth; // pop-in: runs 0..1, tiles appear in the order they were added
+uniform float uLavaPull; // 0..1: how far the tiles have given in to the lava under them
 out vec2 vUv;
 out float vIdx;
 out float vTheme;
 out float vFlat;
+${LAVA_GLSL}
 void main() {
   vFlat = iFlat;
   vec3 n = normalize(-iPos) * uFacing;
@@ -159,7 +161,20 @@ void main() {
   float born = smoothstep(0.0, 1.0, (uBirth * 1.35 - iBorn) / 0.35);
   s *= born * iScale * uSize;
   float sx = sqrt(iAspect);
-  vec3 world = iPos + (e1 * position.x * sx + e2 * position.y / sx) * s;
+  vec3 at = iPos;
+  if (uLavaPull > 0.0 && iFlat < 1.0 && abs(iIdx - uFocused) >= 0.5) {
+    vec3 dir = normalize(iPos);
+    // the pull sweeps from one pole to the other, and each tile overshoots as it gives in
+    float k = clamp(uLavaPull * 1.5 - 0.25 * (dir.z + 1.0), 0.0, 1.0) - 1.0;
+    k = (1.0 + 2.70158 * k * k * k + 1.70158 * k * k) * (1.0 - iFlat);
+    float h = clamp(lavaNow(dir), 0.2, 1.0);
+    float land = smoothstep(0.44, 0.62, h);            // 0 at sea, 1 inland
+    float crest = exp(-pow((h - 0.5) / 0.045, 2.0));   // 1 on the shoreline: a tile hops as a coast crosses it
+    // land lifts off the sphere, sea stays put (lower would sink under the terrain) and shrinks
+    at *= 1.0 + k * (0.05 * land + 0.035 * crest);
+    s *= mix(1.0, 0.6 + 0.52 * land + 0.22 * crest, k);
+  }
+  vec3 world = at + (e1 * position.x * sx + e2 * position.y / sx) * s;
   vUv = vec2(iUv.x + uv.x * iUv.z, iUv.y + uv.y * iUv.w);
   vIdx = iIdx;
   vTheme = iTheme; // constant across the quad; interpolation is a no-op
@@ -717,6 +732,7 @@ export function mountOrb(
       uTheme: { value: -1 }, uThemeDim: { value: DIM_FILTER },
       uFacing: { value: 1 },
       uCull: { value: 0 },
+      uLavaPull: { value: 0 },
       uNeigh: { value: new Float32Array(8).fill(-1) }, uNeighDim: { value: 1 }, uNeighScale: { value: 1 },
       uBirth: { value: 0 },
       uMatch: { value: new Float32Array(MATCH_MAX).fill(-1) }, uSearchDim: { value: 1 },
@@ -887,6 +903,15 @@ void main() { outColor = vec4(mix(texture(uA, vUv).r, texture(uB, vUv).r, uBack)
     else shape.set(0.46 + Math.random() * 0.07, 1.5 + Math.random() * 1.2);
   };
   lavaState(lavaU.uLavaB.value, lavaU.uLavaShapeB.value);
+  // the tiles read the same lava as the land: one set of uniform objects, two shaders
+  for (const name of ["uLavaTime", "uLavaCut", "uLavaA", "uLavaB", "uLavaShapeA", "uLavaShapeB"]) material.uniforms[name] = lavaU[name];
+  const lavaPull = { t: 0 };
+  // the tiles ride the lava only where it shows: lava on, terrain on, seen from outside
+  const pullTiles = () => {
+    const to = lava && terrain && mode === "globe" ? 1 : 0;
+    const set = () => { material.uniforms.uLavaPull.value = lavaPull.t; };
+    gsap.to(lavaPull, { t: to, duration: reducedMotion() ? 0 : to ? 1.8 : 0.9, ease: to ? "none" : "power2.in", overwrite: true, onUpdate: set, onComplete: set });
+  };
   const lavaLoop = () => {
     gsap.killTweensOf(lavaCut);
     if (!lava || !terrain || reducedMotion()) return;
@@ -1987,6 +2012,7 @@ void main() {
       material.uniforms.uFacing.value = mode === "globe" ? -1 : 1;
       material.uniforms.uCull.value = mode === "globe" && alone !== null ? 1 : 0;
       coast.visible = coastVisible(mode, coastLens !== null, terrain);
+      pullTiles();
       // the grid was anchored for the other view; the camera takes a frame to move
       if (searchHits.length && focused < 0) gatherSoon(0.1);
     },
@@ -1995,6 +2021,7 @@ void main() {
       // off stops the loop mid-shape, so coming back on always redraws
       if (on) bakeCoast(true);
       lavaLoop();
+      pullTiles();
       coast.visible = coastVisible(mode, coastLens !== null, terrain);
     },
     setLava(on) {
@@ -2002,6 +2029,7 @@ void main() {
       lava = on;
       gsap.to(lavaMix, { t: on ? 1 : 0, duration: reducedMotion() ? 0 : 1.6, ease: "none", overwrite: true, onUpdate: () => { lavaU.uLava.value = lavaMix.t; } });
       lavaLoop();
+      pullTiles();
     },
     aimAt(dir) {
       const l = Math.hypot(dir[0], dir[1], dir[2]);
@@ -2090,6 +2118,7 @@ void main() {
       coastRamp.dispose();
       gsap.killTweensOf(coastBack);
       gsap.killTweensOf(lavaMix);
+      gsap.killTweensOf(lavaPull);
       gsap.killTweensOf(lavaCut);
       gsap.killTweensOf(lavaRate);
       fieldNow.dispose(); fieldPrev.dispose(); fieldSpare.dispose(); fieldHold.dispose();
