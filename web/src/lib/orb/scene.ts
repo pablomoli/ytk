@@ -123,6 +123,22 @@ export function normalizeWheelDelta(deltaY: number, deltaMode: number, clientHei
   return deltaY;
 }
 
+// How a tile gives in to the lava under it: (lift as a share of the radius, size factor).
+// Shared by the atlas tiles and the sharp quads drawn over the nearest ones, so the two never part.
+const LAVA_RIDE = /* glsl */ `
+uniform float uLavaPull; // 0..1: how far the tiles have given in to the lava under them
+${LAVA_GLSL}
+vec2 lavaRide(vec3 dir, float amount) {
+  // the pull sweeps from one pole to the other, and each tile overshoots as it gives in
+  float k = clamp(uLavaPull * 1.5 - 0.25 * (dir.z + 1.0), 0.0, 1.0) - 1.0;
+  k = (1.0 + 2.70158 * k * k * k + 1.70158 * k * k) * amount;
+  float h = clamp(lavaNow(dir), 0.2, 1.0);
+  float land = smoothstep(0.44, 0.62, h);            // 0 at sea, 1 inland
+  float crest = exp(-pow((h - 0.5) / 0.045, 2.0));   // 1 on the shoreline: a tile hops as a coast crosses it
+  // land lifts off the sphere, sea stays put (lower would sink under the terrain) and shrinks
+  return vec2(k * (0.05 * land + 0.035 * crest), mix(1.0, 0.6 + 0.52 * land + 0.22 * crest, k));
+}`;
+
 const VERT = /* glsl */ `
 precision highp float;
 in vec3 position;
@@ -143,12 +159,11 @@ uniform float uFacing; // 1 inside (tiles face the origin), -1 globe (tiles face
 uniform float uNeigh[8];
 uniform float uNeighScale; // 1 at rest; the hovered tile's neighbors swell to it
 uniform float uBirth; // pop-in: runs 0..1, tiles appear in the order they were added
-uniform float uLavaPull; // 0..1: how far the tiles have given in to the lava under them
 out vec2 vUv;
 out float vIdx;
 out float vTheme;
 out float vFlat;
-${LAVA_GLSL}
+${LAVA_RIDE}
 void main() {
   vFlat = iFlat;
   vec3 n = normalize(-iPos) * uFacing;
@@ -163,16 +178,9 @@ void main() {
   float sx = sqrt(iAspect);
   vec3 at = iPos;
   if (uLavaPull > 0.0 && iFlat < 1.0 && abs(iIdx - uFocused) >= 0.5) {
-    vec3 dir = normalize(iPos);
-    // the pull sweeps from one pole to the other, and each tile overshoots as it gives in
-    float k = clamp(uLavaPull * 1.5 - 0.25 * (dir.z + 1.0), 0.0, 1.0) - 1.0;
-    k = (1.0 + 2.70158 * k * k * k + 1.70158 * k * k) * (1.0 - iFlat);
-    float h = clamp(lavaNow(dir), 0.2, 1.0);
-    float land = smoothstep(0.44, 0.62, h);            // 0 at sea, 1 inland
-    float crest = exp(-pow((h - 0.5) / 0.045, 2.0));   // 1 on the shoreline: a tile hops as a coast crosses it
-    // land lifts off the sphere, sea stays put (lower would sink under the terrain) and shrinks
-    at *= 1.0 + k * (0.05 * land + 0.035 * crest);
-    s *= mix(1.0, 0.6 + 0.52 * land + 0.22 * crest, k);
+    vec2 ride = lavaRide(normalize(iPos), 1.0 - iFlat);
+    at *= 1.0 + ride.x;
+    s *= ride.y;
   }
   vec3 world = at + (e1 * position.x * sx + e2 * position.y / sx) * s;
   vUv = vec2(iUv.x + uv.x * iUv.z, iUv.y + uv.y * iUv.w);
@@ -1075,7 +1083,27 @@ void main() {
   const nearInUse = new Set<string>();
   const nearGeo = new PlaneGeometry(1, 1);
   const nearPool = Array.from({ length: NEAR }, () => {
-    const m = new Mesh(nearGeo, new MeshBasicMaterial({ color: 0xffffff }));
+    const mat = new MeshBasicMaterial({ color: 0xffffff });
+    // the sharp quad rides the lava exactly as the atlas tile under it does, about the tile's own center
+    const ride = { value: 0 }, center = { value: new Vector3() };
+    mat.onBeforeCompile = (sh) => {
+      for (const name of ["uLavaTime", "uLavaCut", "uLavaA", "uLavaB", "uLavaShapeA", "uLavaShapeB"]) sh.uniforms[name] = lavaU[name];
+      sh.uniforms.uLavaPull = material.uniforms.uLavaPull;
+      sh.uniforms.uRide = ride;
+      sh.uniforms.uCenter = center;
+      sh.vertexShader = sh.vertexShader
+        .replace("#include <common>", `#include <common>\nuniform float uRide;\nuniform vec3 uCenter;\n${LAVA_RIDE}`)
+        .replace("#include <project_vertex>", `vec4 lavaWorld = modelMatrix * vec4(transformed, 1.0);
+if (uLavaPull > 0.0 && uRide > 0.0) {
+  vec2 ride = lavaRide(normalize(uCenter), uRide);
+  lavaWorld.xyz = uCenter * (1.0 + ride.x) + (lavaWorld.xyz - uCenter) * ride.y;
+}
+vec4 mvPosition = viewMatrix * lavaWorld;
+gl_Position = projectionMatrix * mvPosition;`);
+    };
+    const m = new Mesh(nearGeo, mat);
+    m.userData.ride = ride;
+    m.userData.center = center;
     m.matrixAutoUpdate = false;
     m.visible = false;
     m.frustumCulled = false;
@@ -1225,6 +1253,8 @@ void main() {
       _nc.multiplyScalar(1 - f * 0.0015); // a hair toward the camera, in front of the atlas tile
       _m4.setPosition(_nc);
       mesh.matrix.copy(_m4);
+      (mesh.userData.center as { value: Vector3 }).value.copy(_nc);
+      (mesh.userData.ride as { value: number }).value = i === focused ? 0 : 1 - flat[i];
       // the tile being read draws last and untested, over a neighbor that overlaps it
       const top = i === focused;
       mesh.renderOrder = top ? 1 : 0;
