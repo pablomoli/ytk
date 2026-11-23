@@ -42,9 +42,10 @@ import {
 } from "three";
 import { DUR, FLIGHT_EASE, gsap, reducedMotion } from "../motion";
 import type { LayoutName, OrbData } from "../../api/orb";
-import { LAVA_GLSL, PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
+import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
 import { buildAtlas, COLS, slotUv } from "./atlas";
 import { coastLevels, coastRadius } from "./coast";
+import { LAVA_RIDE, LAVA_SHARED } from "./lava";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
 import { GRAIN, NO_COVER, ORBIT_OUT, SELECT, createRing, ringOpen, ringPhase, type RingData, type RingHandle, type RingItem } from "./ring";
@@ -123,22 +124,6 @@ export function normalizeWheelDelta(deltaY: number, deltaMode: number, clientHei
   return deltaY;
 }
 
-// How a tile gives in to the lava under it: (lift as a share of the radius, size factor).
-// Shared by the atlas tiles and the sharp quads drawn over the nearest ones, so the two never part.
-const LAVA_RIDE = /* glsl */ `
-uniform float uLavaPull; // 0..1: how far the tiles have given in to the lava under them
-${LAVA_GLSL}
-vec2 lavaRide(vec3 dir, float amount) {
-  // the pull sweeps from one pole to the other, and each tile overshoots as it gives in
-  float k = clamp(uLavaPull * 1.5 - 0.25 * (dir.z + 1.0), 0.0, 1.0) - 1.0;
-  k = (1.0 + 2.70158 * k * k * k + 1.70158 * k * k) * amount;
-  float h = clamp(lavaNow(dir), 0.2, 1.0);
-  float land = smoothstep(0.44, 0.62, h);            // 0 at sea, 1 inland
-  float crest = exp(-pow((h - 0.5) / 0.045, 2.0));   // 1 on the shoreline: a tile hops as a coast crosses it
-  // land lifts off the sphere, sea stays put (lower would sink under the terrain) and shrinks
-  return vec2(k * (0.05 * land + 0.035 * crest), mix(1.0, 0.6 + 0.52 * land + 0.22 * crest, k));
-}`;
-
 const VERT = /* glsl */ `
 precision highp float;
 in vec3 position;
@@ -178,8 +163,13 @@ void main() {
   float sx = sqrt(iAspect);
   vec3 at = iPos;
   if (uLavaPull > 0.0 && iFlat < 1.0 && abs(iIdx - uFocused) >= 0.5) {
-    vec2 ride = lavaRide(normalize(iPos), 1.0 - iFlat);
-    at *= 1.0 + ride.x;
+    vec2 ride;
+    vec3 from = normalize(iPos);
+    vec3 to = lavaCarry(from, 1.0 - iFlat, ride);
+    at = to * length(iPos) * (1.0 + ride.x);
+    // the tile keeps its own basis, turned along with it: recomputing one at the new place would roll it
+    e1 = lavaTurn(e1, from, to);
+    e2 = lavaTurn(e2, from, to);
     s *= ride.y;
   }
   vec3 world = at + (e1 * position.x * sx + e2 * position.y / sx) * s;
@@ -912,7 +902,7 @@ void main() { outColor = vec4(mix(texture(uA, vUv).r, texture(uB, vUv).r, uBack)
   };
   lavaState(lavaU.uLavaB.value, lavaU.uLavaShapeB.value);
   // the tiles read the same lava as the land: one set of uniform objects, two shaders
-  for (const name of ["uLavaTime", "uLavaCut", "uLavaA", "uLavaB", "uLavaShapeA", "uLavaShapeB"]) material.uniforms[name] = lavaU[name];
+  for (const name of LAVA_SHARED) if (name !== "uLavaPull") material.uniforms[name] = lavaU[name];
   const lavaPull = { t: 0 };
   // the tiles ride the lava only where it shows: lava on, terrain on, seen from outside
   const pullTiles = () => {
@@ -1087,16 +1077,17 @@ void main() {
     // the sharp quad rides the lava exactly as the atlas tile under it does, about the tile's own center
     const ride = { value: 0 }, center = { value: new Vector3() };
     mat.onBeforeCompile = (sh) => {
-      for (const name of ["uLavaTime", "uLavaCut", "uLavaA", "uLavaB", "uLavaShapeA", "uLavaShapeB"]) sh.uniforms[name] = lavaU[name];
-      sh.uniforms.uLavaPull = material.uniforms.uLavaPull;
+      for (const name of LAVA_SHARED) sh.uniforms[name] = material.uniforms[name];
       sh.uniforms.uRide = ride;
       sh.uniforms.uCenter = center;
       sh.vertexShader = sh.vertexShader
         .replace("#include <common>", `#include <common>\nuniform float uRide;\nuniform vec3 uCenter;\n${LAVA_RIDE}`)
         .replace("#include <project_vertex>", `vec4 lavaWorld = modelMatrix * vec4(transformed, 1.0);
 if (uLavaPull > 0.0 && uRide > 0.0) {
-  vec2 ride = lavaRide(normalize(uCenter), uRide);
-  lavaWorld.xyz = uCenter * (1.0 + ride.x) + (lavaWorld.xyz - uCenter) * ride.y;
+  vec2 ride;
+  vec3 from = normalize(uCenter);
+  vec3 to = lavaCarry(from, uRide, ride);
+  lavaWorld.xyz = to * length(uCenter) * (1.0 + ride.x) + lavaTurn(lavaWorld.xyz - uCenter, from, to) * ride.y;
 }
 vec4 mvPosition = viewMatrix * lavaWorld;
 gl_Position = projectionMatrix * mvPosition;`);
@@ -1510,7 +1501,7 @@ gl_Position = projectionMatrix * mvPosition;`);
     .then((r) => (r.ok ? (r.json() as Promise<RingData>) : null))
     .then((d) => {
       if (!d || disposed) return;
-      ring = createRing(d, "/api/orb-ring.jpg", renderer.capabilities.getMaxAnisotropy());
+      ring = createRing(d, "/api/orb-ring.jpg", renderer.capabilities.getMaxAnisotropy(), Object.fromEntries(LAVA_SHARED.map((name) => [name, material.uniforms[name]])));
       ringItems = d.items;
       cb.onRingReady?.(d.items);
       scene.add(ring.group);

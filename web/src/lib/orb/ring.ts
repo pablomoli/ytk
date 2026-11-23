@@ -14,6 +14,7 @@ import {
   TextureLoader,
   Vector3,
 } from "three";
+import { LAVA_RIDE } from "./lava";
 
 /* The pending ring: every item still in the queue is one grain around the
    sphere. At rest a flat ring, newest at the inner edge, a gap at each month.
@@ -137,19 +138,37 @@ in float iFlag; // 1 = open question
 uniform mat4 modelViewMatrix, projectionMatrix;
 uniform float uGrain, uSize, uNoCover, uHover, uHoverScale, uSel, uSelScale, uClear;
 uniform float uCols, uCell;
+uniform mat4 viewMatrix;
+uniform float uCount;
 out vec2 vUv;
 out float vHas, vHov, vSel, vFlag, vNear, vSeed;
+${LAVA_RIDE}
 void main() {
   float has = step(0.0, iSlot);
   float hov = abs(iIdx - uHover) < 0.5 ? 1.0 : 0.0;
   float sel = abs(iIdx - uSel) < 0.5 ? 1.0 : 0.0;
   vec4 cv = modelViewMatrix * vec4(iPos, 1.0);
+  // lava: every grain has a seat on the sphere, evenly spread, and comes down to ride the lava there
+  float down = 0.0, grow = 1.0;
+  if (uLavaPull > 0.0 && sel < 0.5) {
+    float z = 1.0 - 2.0 * (iIdx + 0.5) / uCount, r = sqrt(max(0.0, 1.0 - z * z)), lon = iIdx * 2.39996323;
+    vec3 seat = vec3(r * cos(lon), r * sin(lon), z);
+    vec2 ride;
+    vec3 to = lavaCarry(seat, 1.0, ride);
+    down = clamp(uLavaPull * 1.5 - 0.25 * (seat.z + 1.0), 0.0, 1.0);
+    down = down * down * (3.0 - 2.0 * down);
+    // 0.993: over the terrain sphere, under the tiles
+    cv = mix(cv, viewMatrix * vec4(to * (0.993 + 0.8 * ride.x), 1.0), down);
+    // a grain with no picture is a gray square up close: on the sphere it stays a speck
+    grow = mix(1.0, mix(0.5, 1.4, has) * ride.y, down);
+  }
   float dist = length(cv.xyz);
   // a grain about to pass through the camera shrinks away instead of filling the view
   float s = uGrain * uSize * mix(uNoCover, 1.0, has) * mix(mix(1.0, uHoverScale, hov), uSelScale, sel) * smoothstep(0.06, 0.3, dist);
   // loose dust never sits on the sphere's face: a grain between the eye and the sphere shrinks away
   vec3 c = modelViewMatrix[3].xyz;
   float t = dot(c, cv.xyz) / dot(cv.xyz, cv.xyz);
+  s *= grow;
   s *= 1.0 - (1.0 - sel) * uClear * step(1.0, t) * (1.0 - smoothstep(1.0, 1.15, dot(c, c) - t * t * dot(cv.xyz, cv.xyz)));
   gl_Position = projectionMatrix * (cv + vec4(position.xy * s, 0.0, 0.0));
   float k = max(iSlot, 0.0);
@@ -161,7 +180,7 @@ void main() {
   vHov = max(hov, sel);
   vSel = sel;
   vFlag = iFlag;
-  vNear = 1.0 - smoothstep(0.5, 2.0, dist);
+  vNear = max(down, 1.0 - smoothstep(0.5, 2.0, dist)); // on the sphere a grain shows its picture
   vSeed = fract(iIdx * 0.618034);
 }`;
 
@@ -207,7 +226,8 @@ export type RingHandle = {
   dispose(): void;
 };
 
-export function createRing(data: RingData, atlasUrl: string, anisotropy: number): RingHandle {
+// lava: the scene's shared lava uniforms, so the grains ride the same lava as the tiles
+export function createRing(data: RingData, atlasUrl: string, anisotropy: number, lava: Record<string, { value: unknown }> = {}): RingHandle {
   const n = data.items.length;
   const layout = ringLayout(data.items.map((it) => it.d));
   const r0 = new Float32Array(n), theta = new Float32Array(n);
@@ -275,6 +295,8 @@ export function createRing(data: RingData, atlasUrl: string, anisotropy: number)
       uSel: { value: -1 }, uSelScale: { value: SELECT },
       uCols: { value: data.cols }, uCell: { value: data.cell / data.size },
       uLevel: { value: 0 }, uFar: { value: 1 }, uClear: { value: 0 },
+      uCount: { value: Math.max(1, n) },
+      ...lava,
     },
   });
   const mesh = new Mesh(geo, material);
