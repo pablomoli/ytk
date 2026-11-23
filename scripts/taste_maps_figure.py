@@ -27,34 +27,42 @@ OUT = Path(__file__).resolve().parents[1] / "docs" / "assets" / "71-maps-moving-
 order = json.loads((T / "order.json").read_text())
 bank = np.load(T / "bank.npz")
 score = bank["dark_ground"][:, 2]
-# Two frames far apart on the owner's own sentence: the most "colors over black", and a middling one.
-a = int(np.argmax(score))
-b = int(np.argsort(score)[len(score) // 2])
+# Three frames chosen by eye, for what they show about the reading:
+#   a luminous render on black, the look the owner means by "colors over black";
+#   colored type on black, which the dark x color number cannot tell from it;
+#   live footage, where neither holds.
+PICKS = [
+    ("carousel-38_00.jpg", "a render on black"),
+    ("youtube-04_05.jpg", "type on black"),
+    ("tiktok-47_04.jpg", "live footage"),
+]
+names = [o["name"] for o in order]
+rows = [(names.index(n), label) for n, label in PICKS]
 C = len(tm.NAMES)
 cmap = saturated_magma()
 plt.style.use("dark_background")
 fig, top = figure(
     21,
-    12.6,
+    18.4,
     71,
     "MAPS MOVING TOGETHER  ·  NOTHING AVERAGED AWAY",
     "What is kept when every measurement stays a map of the frame?",
-    f"two frames of the test set  ·  {C} maps per frame, one value per pixel at the frame's own size  ·  "
+    f"three frames of the test set, chosen by eye: a render on black, colored type on black, live footage  ·  {C} maps per frame, one value per pixel at the frame's own size  ·  "
     f"right: the correlation of every pair of maps across all pixels, {C * (C - 1) // 2} pairs, the part that does not care where things are",
 )
 gs = fig.add_gridspec(
-    2,
+    3,
     3,
     left=0.03,
     right=0.975,
-    bottom=0.07,
-    top=top - 0.05,
+    bottom=0.065,
+    top=top - 0.035,
     wspace=0.08,
     hspace=0.16,
     width_ratios=[1, 2.3, 1.25],
 )
 mats = []
-for r, i in enumerate((a, b)):
+for r, (i, label) in enumerate(rows):
     path = T / "flat" / order[i]["name"]
     with Image.open(path) as im:
         rgb_np = np.asarray(im.convert("RGB")).copy()
@@ -69,7 +77,7 @@ for r, i in enumerate((a, b)):
     ax.imshow(rgb_np)
     ax.set_axis_off()
     ax.set_title(
-        f"the frame, {rgb_np.shape[1]} x {rgb_np.shape[0]}  ·  dark x color = {score[i]:.2f}",
+        f"{label}, {rgb_np.shape[1]} x {rgb_np.shape[0]}  ·  dark x color = {score[i]:.2f}",
         color=TEXT,
         fontsize=10,
         pad=8,
@@ -97,7 +105,7 @@ for r, i in enumerate((a, b)):
     ax.set_yticks(range(C))
     ax.set_yticklabels(tm.NAMES, color=TEXT, fontsize=7)
     ax.set_title("how its maps move together", color=TEXT, fontsize=10, pad=8)
-key = fig.add_axes((0.72, 0.042, 0.18, 0.011))
+key = fig.add_axes((0.72, 0.036, 0.18, 0.008))
 key.imshow(np.linspace(0, 1, 256)[None, :], cmap=cmap, aspect="auto")
 key.set_xticks([])
 key.set_yticks([])
@@ -108,7 +116,7 @@ fig.text(0.81, 0.024, "0", color=MUTED, fontsize=8.5, ha="center")
 fig.text(0.90, 0.024, "+1, together", color=MUTED, fontsize=8.5, ha="right")
 fig.text(
     0.03,
-    0.02,
+    0.028,
     "map color: low to high within each map (1st to 99th percentile), same ramp as the key",
     color=MUTED,
     fontsize=9,
@@ -117,8 +125,15 @@ diff = np.abs(mats[0] - mats[1])
 i, j = np.unravel_index(np.argmax(diff), diff.shape)
 verdict(
     fig,
-    f"the pair that differs most between the two frames: {tm.NAMES[i]} with {tm.NAMES[j]}, {mats[0][i, j]:+.2f} against {mats[1][i, j]:+.2f}",
+    f"render against type, both dark x color above 0.25: {tm.NAMES[i]} with {tm.NAMES[j]} is {mats[0][i, j]:+.2f} on the render, {mats[1][i, j]:+.2f} on the type",
 )
 frame_panels(fig)
 fig.savefig(OUT / "01-what-it-is.png", dpi=250, facecolor=BG)
-print("saved", order[a]["name"], order[b]["name"], tm.NAMES[i], tm.NAMES[j])
+print(
+    "saved",
+    [(label, round(float(score[i_]), 2)) for i_, label in rows],
+    tm.NAMES[i],
+    tm.NAMES[j],
+    round(float(np.abs(mats[0] - mats[1]).mean()), 3),
+    round(float(np.abs(mats[0] - mats[2]).mean()), 3),
+)

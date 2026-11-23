@@ -26,11 +26,19 @@ uv run --with matplotlib python scripts/taste_families.py   # the comparison of 
 - The same correlations inside each cell of a 4 x 4 grid.
 - The maps themselves, on disk: 42 GB for the set, on the CUDA machine.
 
-The figure shows two frames, their maps and their matrices. On a card of
-colored type on black nearly every map moves with every other, because the
-color, the edges and the detail all sit on the same strokes. On a person
-talking in front of a wall the color maps move as one block, the detail
-maps as another, and the two blocks barely relate.
+The figure shows three frames chosen by eye, with their maps and matrices:
+a luminous render on black, colored type on black, and live footage. The
+"dark x color" number of section 68 puts the type (0.51) above the render
+(0.25). The matrices tell them apart: averaged over all 231 pairs, the
+render's matrix differs from the type's by 0.30, as much as it differs from
+the live footage's (0.27). On the type nearly every map moves with every
+other, because color, edges and detail all sit on the same strokes. On the
+render the color maps and the detail maps form separate blocks, as they do
+on live footage.
+
+The figure was redrawn the same day. Its first version took the frame with
+the highest "dark x color" score as its example, which is the type card: a
+frame picked by the number this section argues is not enough.
 
 ![02](02-against-the-families.png)
 
