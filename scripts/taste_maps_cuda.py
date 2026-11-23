@@ -114,6 +114,30 @@ def measure(path: Path) -> tuple[dict[str, np.ndarray], torch.Tensor]:
             )
             cells.append(torch.cat([c, mu]))
     out["together_by_region"] = torch.cat(cells).cpu().numpy()
+    # The same correlations inside a part of the frame only. On a frame that is mostly black,
+    # every map marks the same small lit region, so whole-frame correlations all rise together;
+    # these ask how the maps relate within that region. Too few pixels gives no answer (NaN).
+    lit = maps[NAMES.index("dark ground")] < 0.5
+    busy = maps[NAMES.index("flat ground")] < 0.5
+    iu = torch.triu_indices(len(NAMES), len(NAMES), 1)
+    for name, mask in (("lit", lit), ("busy", busy)):
+        share = mask.float().mean()
+        if share < 0.005:
+            out[f"together_{name}"] = np.full(iu.shape[1], np.nan, np.float32)
+        else:
+            # Masked moments in place: the selected pixels are never copied out, which a 4K frame cannot afford.
+            m = mask.float()
+            cnt = m.sum()
+            mu = (maps * m).flatten(1).sum(1) / cnt
+            v = ((maps - mu[:, None, None]) * m).flatten(1)
+            cov = (v @ v.T) / cnt
+            sd = cov.diagonal().clamp_min(0).sqrt()
+            c = cov / (sd[:, None] * sd[None, :]).clamp_min(1e-12)
+            pair_ok = (sd > 1e-6)[:, None] & (sd > 1e-6)[None, :]
+            c = torch.where(pair_ok, c, torch.full_like(c, float("nan")))
+            out[f"together_{name}"] = c[iu[0], iu[1]].cpu().numpy()
+            del v, cov
+        out[f"support_{name}"] = np.array([float(share)], np.float32)
     return out, maps
 
 
@@ -135,6 +159,8 @@ def main() -> None:
             np.save(target, maps.half().cpu().numpy())
             written += target.stat().st_size
         del maps
+        if DEV == "cuda":
+            torch.cuda.empty_cache()
         if i % 25 == 0 or i == len(order):
             print(
                 f"{i}/{len(order)}  {pixels / 1e6:.0f} megapixels read, {written / 1e9:.1f} GB of maps written",
@@ -145,7 +171,7 @@ def main() -> None:
         dst / "together.npz",
         families=np.array(fams),
         channels=np.array(NAMES),
-        **{f: np.nan_to_num(np.stack([r[f] for r in rows])) for f in fams},
+        **{f: np.stack([r[f] for r in rows]) for f in fams},
     )
     print(
         "DONE",

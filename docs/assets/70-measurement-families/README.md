@@ -61,6 +61,10 @@ statistics and patch Gram matrices at depths 9, 18 and 27), 26 families.
   layout measures together. They are a different reading from the image
   model, as section 63 found for pixel statistics, and now for 19 kinds.
 
+> **Later:** section 72 altered the files. No strong family is an encoder fingerprint, but the
+> claim above that every measure is relative to the frame is wrong for edges, frequency and
+> detail by scale: at half size they keep 0.44, 0.50 and 0.20 of their neighbors.
+
 **What it does not show.** That any of these is style. Frames of one item
 share a camera, an encoder, a creator and a format, so a family can hold
 together by recognizing the file rather than the look. Frame size and

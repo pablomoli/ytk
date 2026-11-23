@@ -1,0 +1,254 @@
+{
+ "family": "together_scale_1",
+ "frames": 417,
+ "pairs_used": 36,
+ "pca_variance_first_5": [
+  0.8040618186570652,
+  0.06689962616750161,
+  0.046675399653841224,
+  0.01950367970076787,
+  0.01725300642042326
+ ],
+ "directions": [
+  {
+   "pairs_used": 12,
+   "top_pairs": [
+    {
+     "pair": "light with detail 2",
+     "weight": 0.42899468309054034
+    },
+    {
+     "pair": "brightness with detail 2",
+     "weight": 0.4218843403634383
+    },
+    {
+     "pair": "brightness with detail 1",
+     "weight": 0.3430870134164725
+    },
+    {
+     "pair": "light with detail 1",
+     "weight": 0.3427841379825283
+    },
+    {
+     "pair": "light with edge strength",
+     "weight": 0.3169173751044522
+    },
+    {
+     "pair": "brightness with edge strength",
+     "weight": 0.312438248339497
+    }
+   ],
+   "low": [
+    "carousel-39_06.jpg",
+    "carousel-33_01.jpg",
+    "youtube-06_00.jpg",
+    "carousel-34_00.jpg"
+   ],
+   "high": [
+    "carousel-37_04.jpg",
+    "reel-14_04.jpg",
+    "youtube-04_05.jpg",
+    "youtube-05_05.jpg"
+   ],
+   "top_pair_raw_low_end": -0.6016030833125114,
+   "top_pair_raw_high_end": 0.7090786814689636,
+   "probes_percentile": {
+    "type card": 0.9952038369304557,
+    "wireframe": 0.9280575539568345,
+    "render": 0.9160671462829736
+   }
+  },
+  {
+   "pairs_used": 8,
+   "top_pairs": [
+    {
+     "pair": "dark ground with local contrast",
+     "weight": 0.41862042486011203
+    },
+    {
+     "pair": "dark ground with detail 4",
+     "weight": 0.40282933808116284
+    },
+    {
+     "pair": "dark ground with detail 3",
+     "weight": 0.39925213798010967
+    },
+    {
+     "pair": "dark ground with flat ground",
+     "weight": -0.3783646582109909
+    },
+    {
+     "pair": "dark ground with detail 5",
+     "weight": 0.3648877384864429
+    },
+    {
+     "pair": "dark ground with detail 2",
+     "weight": 0.34760913018346584
+    }
+   ],
+   "low": [
+    "youtube-08_05.jpg",
+    "youtube-04_05.jpg",
+    "youtube-05_05.jpg",
+    "carousel-34_01.jpg"
+   ],
+   "high": [
+    "youtube-01_00.jpg",
+    "youtube-03_00.jpg",
+    "youtube-10_09.jpg",
+    "youtube-06_07.jpg"
+   ],
+   "top_pair_raw_low_end": -0.6174876421689988,
+   "top_pair_raw_high_end": 0.46737373918294906,
+   "probes_percentile": {
+    "type card": 0.004796163069544364,
+    "wireframe": 0.02877697841726619,
+    "render": 0.03357314148681055
+   }
+  },
+  {
+   "pairs_used": 3,
+   "top_pairs": [
+    {
+     "pair": "light with edge alignment",
+     "weight": 0.6893791108318201
+    },
+    {
+     "pair": "brightness with edge alignment",
+     "weight": 0.657939224008722
+    },
+    {
+     "pair": "dark ground with edge alignment",
+     "weight": -0.3031046338470095
+    },
+    {
+     "pair": "light with edge strength",
+     "weight": 0.0
+    },
+    {
+     "pair": "brightness with local contrast",
+     "weight": 0.0
+    },
+    {
+     "pair": "brightness with thin stroke",
+     "weight": 0.0
+    }
+   ],
+   "low": [
+    "youtube-03_00.jpg",
+    "carousel-36_02.jpg",
+    "youtube-06_10.jpg",
+    "reel-22_08.jpg"
+   ],
+   "high": [
+    "youtube-01_01.jpg",
+    "reel-12_07.jpg",
+    "tiktok-43_03.jpg",
+    "youtube-08_01.jpg"
+   ],
+   "top_pair_raw_low_end": -0.42524709552526474,
+   "top_pair_raw_high_end": 0.5218899324536324,
+   "probes_percentile": {
+    "type card": 0.9136690647482014,
+    "wireframe": 0.4052757793764988,
+    "render": 0.947242206235012
+   }
+  },
+  {
+   "pairs_used": 8,
+   "top_pairs": [
+    {
+     "pair": "light with detail 5",
+     "weight": 0.45053863158862373
+    },
+    {
+     "pair": "light with detail 4",
+     "weight": 0.4475686190896299
+    },
+    {
+     "pair": "brightness with detail 4",
+     "weight": 0.42060075088897436
+    },
+    {
+     "pair": "brightness with detail 5",
+     "weight": 0.4150737141653818
+    },
+    {
+     "pair": "light with local contrast",
+     "weight": 0.3253903814973136
+    },
+    {
+     "pair": "brightness with local contrast",
+     "weight": 0.3099677420348552
+    }
+   ],
+   "low": [
+    "youtube-06_10.jpg",
+    "youtube-03_07.jpg",
+    "carousel-39_00.jpg",
+    "youtube-10_09.jpg"
+   ],
+   "high": [
+    "youtube-04_07.jpg",
+    "youtube-05_05.jpg",
+    "carousel-34_01.jpg",
+    "youtube-08_10.jpg"
+   ],
+   "top_pair_raw_low_end": -0.5384733632206917,
+   "top_pair_raw_high_end": 0.5916702792048454,
+   "probes_percentile": {
+    "type card": 0.973621103117506,
+    "wireframe": 0.920863309352518,
+    "render": 0.894484412470024
+   }
+  },
+  {
+   "pairs_used": 3,
+   "top_pairs": [
+    {
+     "pair": "light with flat ground",
+     "weight": 0.7153867596016088
+    },
+    {
+     "pair": "brightness with flat ground",
+     "weight": 0.6986527403731411
+    },
+    {
+     "pair": "dark ground with flat ground",
+     "weight": -0.010302065608909254
+    },
+    {
+     "pair": "brightness with local contrast",
+     "weight": 0.0
+    },
+    {
+     "pair": "brightness with edge alignment",
+     "weight": 0.0
+    },
+    {
+     "pair": "brightness with thin stroke",
+     "weight": 0.0
+    }
+   ],
+   "low": [
+    "reel-12_08.jpg",
+    "youtube-08_01.jpg",
+    "youtube-05_08.jpg",
+    "carousel-34_01.jpg"
+   ],
+   "high": [
+    "carousel-39_00.jpg",
+    "youtube-07_02.jpg",
+    "youtube-03_00.jpg",
+    "youtube-06_10.jpg"
+   ],
+   "top_pair_raw_low_end": -0.6727557063102723,
+   "top_pair_raw_high_end": 0.49678323417901993,
+   "probes_percentile": {
+    "type card": 0.06235011990407674,
+    "wireframe": 0.026378896882494004,
+    "render": 0.011990407673860911
+   }
+  }
+ ]
+}

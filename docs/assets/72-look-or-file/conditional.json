@@ -1,0 +1,49 @@
+{
+ "frames": [
+  "a render on black",
+  "type on black",
+  "live footage"
+ ],
+ "support_lit": [
+  0.46709200739860535,
+  0.026197435334324837,
+  0.9523264169692993
+ ],
+ "support_busy": [
+  0.4202575087547302,
+  0.0853428840637207,
+  0.8151953220367432
+ ],
+ "differences": {
+  "across the whole frame": {
+   "render_vs_type": 0.3162478725438498,
+   "render_vs_live": 0.2787539212885353,
+   "type_vs_live": 0.49380892052393793,
+   "mean_abs_correlation": [
+    0.33839041262928565,
+    0.5687938447692935,
+    0.17721178526163617
+   ]
+  },
+  "inside the lit part only": {
+   "render_vs_type": 0.37111139231649426,
+   "render_vs_live": 0.2097561825989812,
+   "type_vs_live": 0.338087766265227,
+   "mean_abs_correlation": [
+    0.2560625036438328,
+    0.30477468225504517,
+    0.1876841454694624
+   ]
+  },
+  "inside the busy part only": {
+   "render_vs_type": 0.4131323268462438,
+   "render_vs_live": 0.18488472668229536,
+   "type_vs_live": 0.39791409512496706,
+   "mean_abs_correlation": [
+    0.23719365501282957,
+    0.4317977139726281,
+    0.1781143950249922
+   ]
+  }
+ }
+}

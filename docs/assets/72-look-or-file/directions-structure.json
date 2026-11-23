@@ -1,0 +1,254 @@
+{
+ "family": "together_scale_1",
+ "frames": 417,
+ "pairs_used": 150,
+ "pca_variance_first_5": [
+  0.252041478898869,
+  0.18887370458483466,
+  0.08273413469400083,
+  0.06743242992665097,
+  0.05505708448984833
+ ],
+ "directions": [
+  {
+   "pairs_used": 22,
+   "top_pairs": [
+    {
+     "pair": "yellow-blue with flat ground",
+     "weight": 0.33703358540332296
+    },
+    {
+     "pair": "yellow-blue with local contrast",
+     "weight": -0.3353980881317074
+    },
+    {
+     "pair": "yellow-blue with detail 4",
+     "weight": -0.32783396404501775
+    },
+    {
+     "pair": "yellow-blue with detail 3",
+     "weight": -0.2956563576704566
+    },
+    {
+     "pair": "yellow-blue with detail 5",
+     "weight": -0.28951961597206544
+    },
+    {
+     "pair": "hue sin with flat ground",
+     "weight": 0.2717555815459631
+    }
+   ],
+   "low": [
+    "youtube-06_00.jpg",
+    "reel-26_00.jpg",
+    "reel-12_08.jpg",
+    "youtube-05_00.jpg"
+   ],
+   "high": [
+    "reel-28_04.jpg",
+    "reel-17_08.jpg",
+    "youtube-05_05.jpg",
+    "youtube-04_07.jpg"
+   ],
+   "top_pair_raw_low_end": -0.47780770882964135,
+   "top_pair_raw_high_end": 0.39237271770834925,
+   "probes_percentile": {
+    "type card": 0.947242206235012,
+    "wireframe": 0.06954436450839328,
+    "render": 0.8729016786570744
+   }
+  },
+  {
+   "pairs_used": 9,
+   "top_pairs": [
+    {
+     "pair": "saturation with local contrast",
+     "weight": 0.4559929523146307
+    },
+    {
+     "pair": "saturation with detail 4",
+     "weight": 0.4297929170309207
+    },
+    {
+     "pair": "saturation with flat ground",
+     "weight": -0.4138980396579503
+    },
+    {
+     "pair": "saturation with detail 5",
+     "weight": 0.3992178317329962
+    },
+    {
+     "pair": "saturation with detail 3",
+     "weight": 0.38493709607110205
+    },
+    {
+     "pair": "saturation with detail 2",
+     "weight": 0.28388632071449477
+    }
+   ],
+   "low": [
+    "youtube-05_05.jpg",
+    "reel-11_06.jpg",
+    "youtube-04_02.jpg",
+    "carousel-32_01.jpg"
+   ],
+   "high": [
+    "youtube-06_10.jpg",
+    "carousel-34_00.jpg",
+    "reel-12_08.jpg",
+    "youtube-04_05.jpg"
+   ],
+   "top_pair_raw_low_end": -0.4436027333140373,
+   "top_pair_raw_high_end": 0.5633861392736434,
+   "probes_percentile": {
+    "type card": 0.9976019184652278,
+    "wireframe": 0.8848920863309353,
+    "render": 0.9040767386091128
+   }
+  },
+  {
+   "pairs_used": 3,
+   "top_pairs": [
+    {
+     "pair": "hue cos with thin stroke",
+     "weight": 0.6722191926138174
+    },
+    {
+     "pair": "red-green with thin stroke",
+     "weight": 0.58278504643362
+    },
+    {
+     "pair": "yellow-blue with thin stroke",
+     "weight": 0.4565993284434296
+    },
+    {
+     "pair": "saturation with edge strength",
+     "weight": 0.0
+    },
+    {
+     "pair": "edge direction cos with detail 2",
+     "weight": 0.0
+    },
+    {
+     "pair": "edge direction cos with detail 3",
+     "weight": 0.0
+    }
+   ],
+   "low": [
+    "youtube-04_05.jpg",
+    "youtube-01_07.jpg",
+    "youtube-10_04.jpg",
+    "tiktok-42_03.jpg"
+   ],
+   "high": [
+    "carousel-37_03.jpg",
+    "carousel-39_07.jpg",
+    "youtube-06_10.jpg",
+    "reel-12_07.jpg"
+   ],
+   "top_pair_raw_low_end": -0.45479962825775144,
+   "top_pair_raw_high_end": 0.7729876101016998,
+   "probes_percentile": {
+    "type card": 0.0,
+    "wireframe": 0.0815347721822542,
+    "render": 0.2709832134292566
+   }
+  },
+  {
+   "pairs_used": 17,
+   "top_pairs": [
+    {
+     "pair": "chroma with local contrast",
+     "weight": 0.4188453846671141
+    },
+    {
+     "pair": "chroma with detail 4",
+     "weight": 0.3986372368026811
+    },
+    {
+     "pair": "chroma with detail 3",
+     "weight": 0.38609322924258016
+    },
+    {
+     "pair": "chroma with flat ground",
+     "weight": -0.3608554683223939
+    },
+    {
+     "pair": "chroma with detail 5",
+     "weight": 0.35073539158915784
+    },
+    {
+     "pair": "chroma with detail 2",
+     "weight": 0.2919507237511345
+    }
+   ],
+   "low": [
+    "youtube-06_00.jpg",
+    "carousel-32_01.jpg",
+    "reel-23_05.jpg",
+    "reel-11_04.jpg"
+   ],
+   "high": [
+    "carousel-39_00.jpg",
+    "youtube-05_05.jpg",
+    "reel-12_08.jpg",
+    "youtube-04_07.jpg"
+   ],
+   "top_pair_raw_low_end": -0.39450806081295015,
+   "top_pair_raw_high_end": 0.523602032661438,
+   "probes_percentile": {
+    "type card": 0.9952038369304557,
+    "wireframe": 0.9808153477218226,
+    "render": 0.9376498800959233
+   }
+  },
+  {
+   "pairs_used": 2,
+   "top_pairs": [
+    {
+     "pair": "hue sin with thin stroke",
+     "weight": 0.9739463609190911
+    },
+    {
+     "pair": "yellow-blue with thin stroke",
+     "weight": 0.226778495568825
+    },
+    {
+     "pair": "saturation with edge strength",
+     "weight": 0.0
+    },
+    {
+     "pair": "edge direction cos with detail 2",
+     "weight": 0.0
+    },
+    {
+     "pair": "edge direction cos with detail 3",
+     "weight": 0.0
+    },
+    {
+     "pair": "edge direction cos with detail 4",
+     "weight": 0.0
+    }
+   ],
+   "low": [
+    "youtube-04_07.jpg",
+    "tiktok-42_04.jpg",
+    "youtube-10_05.jpg",
+    "youtube-01_02.jpg"
+   ],
+   "high": [
+    "youtube-01_00.jpg",
+    "carousel-37_01.jpg",
+    "youtube-06_10.jpg",
+    "reel-12_07.jpg"
+   ],
+   "top_pair_raw_low_end": -0.5426721036434173,
+   "top_pair_raw_high_end": 0.6775674819946289,
+   "probes_percentile": {
+    "type card": 0.9520383693045563,
+    "wireframe": 0.7985611510791367,
+    "render": 0.3501199040767386
+   }
+  }
+ ]
+}

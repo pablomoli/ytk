@@ -51,6 +51,10 @@ six evenly spaced; a carousel gives every slide.
   features and a Gram matrix of the patches after a fixed projection to 64
   channels.
 
+> **Later:** sections 70 to 72 each compared families on these 50 items, so the set is
+> development data. A held-out set has to be drawn before any reading is tested on the
+> owner's judgments beyond a pilot.
+
 **Limits.** The set is drawn from the same saves as everything else, so it
 is unseen, not independent; one YouTube video in it was also in the
 describer pilot. Instagram served reels at 720p. Pixel readings are taken at
