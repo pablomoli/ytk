@@ -212,6 +212,7 @@ function OrbPage() {
   const [viewMode, setViewMode] = useState<OrbViewMode>("inside");
   const [theme, setTheme] = useState<number | null>(null);
   const [terrain, setTerrain] = useState(false);
+  const [lava, setLava] = useState(false);
   // the dial's position, in turns clockwise from the ring: 0 is the sphere at the size its tile count gives it
   const [dial, setDial] = useState(0);
   const applyDial = (c: number) => {
@@ -516,6 +517,7 @@ function OrbPage() {
     setLayout("lattice");
     setViewMode("inside"); // matches the freshly mounted handle's initial mode
     setTerrain(false); // ... and its initial terrain flag
+    setLava(false);
     setDial(0); // ... and its dial at the ring
     // ?theme= deep-link from /galaxy's "land" button: apply to the freshly
     // mounted handle, not just state, so a fresh navigation lands filtered
@@ -629,6 +631,8 @@ function OrbPage() {
           onView={(next) => { setViewMode(next); handleRef.current?.setView(next); }}
           terrain={terrain}
           onTerrain={(next) => { setTerrain(next); handleRef.current?.setTerrain(next); }}
+          lava={lava}
+          onLava={(next) => { setLava(next); handleRef.current?.setLava(next); }}
           library={library}
           count={data.points.length}
           onLibrary={() => { setLibrary((v) => !v); setPage(0); }}

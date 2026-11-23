@@ -38,7 +38,7 @@ import { DUR, FLIGHT_EASE, gsap, reducedMotion } from "../motion";
 import type { LayoutName, OrbData } from "../../api/orb";
 import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
 import { buildAtlas, COLS, slotUv } from "./atlas";
-import { coastField } from "./coast";
+import { coastField, driftField } from "./coast";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
 import { GRAIN, NO_COVER, ORBIT_OUT, SELECT, createRing, ringOpen, ringPhase, type RingData, type RingHandle, type RingItem } from "./ring";
@@ -212,6 +212,7 @@ export type OrbHandle = {
   setThemeFilter(th: number | null): void;
   setView(mode: OrbViewMode): void;
   setTerrain(on: boolean): void;
+  setLava(on: boolean): void;
   aimAt(dir: [number, number, number]): void;
   centerOf(i: number): [number, number, number];
   focus(i: number): void;
@@ -761,12 +762,37 @@ export function mountOrb(
   const coast = new Mesh(coastGeo, coastMat);
   coast.visible = false;
   scene.add(coast);
+  const blendCoast = () => {
+    const t = coastMix.t;
+    for (let k = 0; k < coastData.length; k++) coastData[k] = coastFrom[k] + (coastTo[k] - coastFrom[k]) * t;
+    coastTex.needsUpdate = true;
+  };
+  // carries whatever is on screen to coastTo; a span of 0 lands at once
+  const coastGo = (span: number, ease: string, then?: () => void) => {
+    coastFrom.set(coastData);
+    gsap.killTweensOf(coastMix);
+    if (span <= 0) { coastMix.t = 1; blendCoast(); then?.(); return; }
+    coastMix.t = 0;
+    gsap.to(coastMix, { t: 1, duration: span, ease, onUpdate: blendCoast, onComplete: then });
+  };
+  // lava: the land wanders through made-up shapes, one after another, for as long as it is on
+  let lava = false;
+  const LAVA_SPAN = 7; // seconds per shape: slow enough to watch a coast crawl, quick enough to see it loop
+  const lavaNext = (span = LAVA_SPAN) => {
+    driftField(Math.random, FIELD_W, FIELD_H, coastTo);
+    if (reducedMotion()) { coastGo(0, "none"); return; } // one still shape, no loop
+    coastGo(span, "sine.inOut", () => { if (lava && terrain) lavaNext(); });
+  };
   // only while terrain is on: the bake is tens of milliseconds and nobody sees it otherwise
-  const bakeCoast = () => {
+  const bakeCoast = (force = false) => {
     const key = `${lens}:${alone}`;
-    if (!terrain || coastLens === key) return;
+    if (!terrain || (coastLens === key && !force)) return;
     const first = coastLens === null;
     coastLens = key;
+    // the land follows the tiles across, over the same span as their flight
+    const span = first || reducedMotion() ? 0 : MORPH_DUR * (1 + MORPH_WAVE);
+    // under lava a change of arrangement or theme cuts to the next shape, in step with the tiles
+    if (lava) { lavaNext(span); return; }
     let m = 0;
     for (let i = 0; i < n; i++) m += onShow[i];
     const dirs = new Float32Array(m * 3), themes = new Int16Array(m);
@@ -775,19 +801,9 @@ export function mountOrb(
       dirs.set(morphTo.subarray(i * 3, i * 3 + 3), k * 3);
       themes[k++] = points[i].th ?? -1;
     }
-    coastFrom.set(coastData);
     // under time a theme is scattered by date, so only the gaps make sea there
     coastField(dirs, FIELD_W, FIELD_H, coastTo, lens === "time" || alone !== null ? undefined : themes);
-    gsap.killTweensOf(coastMix);
-    const blend = () => {
-      const t = coastMix.t;
-      for (let k = 0; k < coastData.length; k++) coastData[k] = coastFrom[k] + (coastTo[k] - coastFrom[k]) * t;
-      coastTex.needsUpdate = true;
-    };
-    if (first || reducedMotion()) { coastMix.t = 1; blend(); return; }
-    coastMix.t = 0;
-    // the land follows the tiles across, over the same span as their flight
-    gsap.to(coastMix, { t: 1, duration: MORPH_DUR * (1 + MORPH_WAVE), ease: "power1.inOut", onUpdate: blend });
+    coastGo(span, "power1.inOut");
   };
 
   // spike: neighbor arcs. One LineSegments, rebuilt on hover, faded with gsap.
@@ -1847,8 +1863,15 @@ void main() {
     },
     setTerrain(on) {
       terrain = on;
-      bakeCoast();
+      // off stops the loop mid-shape, so coming back on always redraws
+      if (on) bakeCoast(true);
+      else gsap.killTweensOf(coastMix);
       coast.visible = coastVisible(mode, coastLens !== null, terrain);
+    },
+    setLava(on) {
+      if (on === lava) return;
+      lava = on;
+      bakeCoast(true);
     },
     aimAt(dir) {
       const l = Math.hypot(dir[0], dir[1], dir[2]);

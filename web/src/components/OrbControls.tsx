@@ -17,6 +17,8 @@ type Props = {
   onView: (view: OrbViewMode) => void;
   terrain: boolean;
   onTerrain: (on: boolean) => void;
+  lava: boolean;
+  onLava: (on: boolean) => void;
   library: boolean;
   count: number;
   onLibrary: () => void;
@@ -166,8 +168,13 @@ export function OrbControls(p: Props) {
           ))}
         </span>
         {p.view === "globe" ? (
-          <button type="button" title="show the superplanet coastline under the tiles" className={`${sw(p.terrain)} starting:opacity-0 transition-opacity`} onClick={() => p.onTerrain(!p.terrain)}>
+          <button type="button" data-orb-terrain title="show land and sea under the tiles" className={`${sw(p.terrain)} starting:opacity-0 transition-opacity`} onClick={() => p.onTerrain(!p.terrain)}>
             terrain
+          </button>
+        ) : null}
+        {p.view === "globe" && p.terrain ? (
+          <button type="button" data-orb-lava title="let the land wander through made-up shapes" className={`${sw(p.lava)} starting:opacity-0 transition-opacity`} onClick={() => p.onLava(!p.lava)}>
+            lava
           </button>
         ) : null}
         <button type="button" data-orb-library-toggle title="page through everything, in order" className={`${sw(p.library)} ml-auto`} onClick={p.onLibrary}>

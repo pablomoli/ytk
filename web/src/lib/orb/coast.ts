@@ -30,6 +30,47 @@ export function cohesion(dirs: ArrayLike<number>, themes: ArrayLike<number>): Fl
   return out;
 }
 
+// the value `share` of the sphere's area sits above, and the value 97% sits below (rows weigh by their latitude's width)
+function seaLevel(field: Float32Array, w: number, h: number, share: number): { shore: number; high: number } {
+  const order = Array.from(field.keys()).sort((a, b) => field[a] - field[b]);
+  const rowW = Float32Array.from({ length: h }, (_, j) => Math.cos(((j + 0.5) / h - 0.5) * Math.PI));
+  let total = 0, acc = 0, shore = 0, high = 0, found = false;
+  for (let j = 0; j < h; j++) total += rowW[j] * w;
+  for (const c of order) {
+    acc += rowW[Math.floor(c / w)];
+    if (!found && acc >= total * (1 - share)) { shore = field[c]; found = true; }
+    if (acc >= total * 0.97) { high = field[c]; break; }
+  }
+  return { shore, high };
+}
+
+/** A made-up field in the same contract: a handful of soft swells and hollows at random places,
+    with a random 35-65% of the sphere left as land. Tied to no tile. */
+export function driftField(rand: () => number, w: number, h: number, out = new Uint8Array(w * h)): Uint8Array {
+  const count = 9 + Math.floor(rand() * 8), blobs = new Float32Array(count * 5);
+  for (let b = 0; b < count; b++) {
+    const z = rand() * 2 - 1, lon = rand() * 2 * Math.PI, r = Math.sqrt(1 - z * z);
+    // tightness 2 is a swell half the sphere wide, 14 one about a sixth of it
+    blobs.set([r * Math.cos(lon), r * Math.sin(lon), z, 2 + rand() * 12, (rand() < 0.5 ? -1 : 1) * (0.5 + rand())], b * 5);
+  }
+  const raw = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) {
+    const lat = ((j + 0.5) / h - 0.5) * Math.PI;
+    const cl = Math.cos(lat), z = Math.sin(lat);
+    for (let i = 0; i < w; i++) {
+      const lon = ((i + 0.5) / w - 0.5) * 2 * Math.PI;
+      const x = cl * Math.cos(lon), y = cl * Math.sin(lon);
+      let v = 0;
+      for (let b = 0; b < count * 5; b += 5) v += blobs[b + 4] * Math.exp(blobs[b + 3] * (x * blobs[b] + y * blobs[b + 1] + z * blobs[b + 2] - 1));
+      raw[j * w + i] = v;
+    }
+  }
+  const { shore, high } = seaLevel(raw, w, h, 0.35 + rand() * 0.3);
+  const span = Math.max(1e-6, high - shore);
+  for (let c = 0; c < out.length; c++) out[c] = Math.round(255 * Math.max(0, Math.min(1, 0.5 + (0.5 * (raw[c] - shore)) / span)));
+  return out;
+}
+
 /** Equirect field (w x h, row 0 at the south pole, z up). Land needs tiles nearby; given themes, it also
     needs them to belong together, so the coast runs where one theme gives way to another. */
 export function coastField(dirs: ArrayLike<number>, w: number, h: number, out = new Uint8Array(w * h), themes?: ArrayLike<number>): Uint8Array {
@@ -62,16 +103,7 @@ export function coastField(dirs: ArrayLike<number>, w: number, h: number, out = 
     }
   }
   if (!together || !gaps) return out;
-  // sea level: the value LAND_SHARE of the sphere's area sits above (rows weigh by their latitude's width)
-  const order = Array.from(together.keys()).sort((a, b) => together[a] - together[b]);
-  const rowW = Float32Array.from({ length: h }, (_, j) => Math.cos(((j + 0.5) / h - 0.5) * Math.PI));
-  let total = 0, acc = 0, shore = 0, high = 0;
-  for (let j = 0; j < h; j++) total += rowW[j] * w;
-  for (const c of order) {
-    acc += rowW[Math.floor(c / w)];
-    if (!shore && acc >= total * (1 - LAND_SHARE)) shore = together[c];
-    if (acc >= total * 0.97) { high = together[c]; break; }
-  }
+  const { shore, high } = seaLevel(together, w, h, LAND_SHARE);
   const span = Math.max(1e-3, high - shore);
   for (let c = 0; c < out.length; c++) {
     const v = Math.min(gaps[c], 0.5 + (0.5 * (together[c] - shore)) / span);
