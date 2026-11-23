@@ -10,7 +10,7 @@ uv run python scripts/sprite_sweep.py        # 17 min, network; sprites only, no
 uv run python scripts/sprite_looks.py        # 5 min, no model
 python sprite_embed_cuda.py sprites emb      # on the CUDA machine: 47 min at 34 tiles/s on an RTX 3070
 uv run --with matplotlib python scripts/three_spaces.py
-uv run --with matplotlib python scripts/look_neighbors_sheet.py <title words>...   # eye check, written outside the repo
+uv run --with matplotlib python scripts/look_neighbors_sheet.py <title words>...   # eye check, figure 02
 ```
 
 ![01](01-four-spaces.png)
@@ -55,8 +55,10 @@ survives in another panel is structure the two spaces share.
   another form.
 
 **The eye check.** Four seeds with their nearest saves by measured look and
-by what is shown, ten tiles each (the sheet holds saved videos' frames and
-titles and stays outside the repo). A fight study's nearest by what is shown
+by what is shown, ten tiles each:
+
+![02](02-look-neighbors.png)
+ A fight study's nearest by what is shown
 are three more fights; its nearest by measured look are one fight and two
 people talking in front of a crowded, brightly lit wall. A math animation
 on black finds other white-on-black diagram videos either way. A node-editor

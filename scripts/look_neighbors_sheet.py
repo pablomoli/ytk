@@ -1,7 +1,7 @@
 """Eye check for section 63: a seed video, its nearest by measured look, its nearest by what is shown.
 
 Reads ~/.ytk/sprites/spaces.npz (written by three_spaces.py). The sheet shows
-saved videos' frames and titles, so it is written outside the repo.
+saved videos' frames and titles; it is kept in the section folder on the owner's word.
 
     uv run --with matplotlib python scripts/look_neighbors_sheet.py "usman" "svd visualized" ...
 """
@@ -23,7 +23,7 @@ from plot_assets import BG, CYAN, GOLD, MUTED, TEXT
 from ytk import store
 
 SPRITES = Path.home() / ".ytk" / "sprites"
-OUT = Path.home() / ".ytk" / "taste-spike"
+OUT = Path(__file__).resolve().parents[1] / "docs" / "assets" / "63-subject-vs-footage"
 TILES, NEAR = 10, 3
 
 sp = np.load(SPRITES / "spaces.npz")
@@ -92,5 +92,5 @@ fig.legend(
 )
 fig.subplots_adjust(left=0.01, right=0.99, top=0.972, bottom=0.005, hspace=0.42)
 OUT.mkdir(parents=True, exist_ok=True)
-fig.savefig(OUT / "look_neighbors.png", dpi=200, facecolor=BG)
-print("saved", OUT / "look_neighbors.png", [title[ids[s]][:50] for s in seeds])
+fig.savefig(OUT / "02-look-neighbors.png", dpi=200, facecolor=BG)
+print("saved", OUT / "02-look-neighbors.png", [title[ids[s]][:50] for s in seeds])

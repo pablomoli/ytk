@@ -138,4 +138,6 @@ else, and that field is not used anywhere.
 
 `results.json` holds the counts and the agreement scores. The frames, the
 descriptions and the vocabulary live under `~/.ytk/describer`; the sheet of
-frames beside their descriptions is written outside the repo.
+frames beside their descriptions is figure 04:
+
+![04](04-described-frames.png)

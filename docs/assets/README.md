@@ -132,6 +132,9 @@ import; `axes.unicode_minus` is off so minus signs render in the serif face.
   key for its color bars. The geometry should still separate the series by
   position or panel first; the legend names what the geometry shows and is
   never left out because the encoding seems obvious.
+- **Every figure is kept in the record.** Owner's rule, 2026-11-22: a figure made while
+  testing goes into its section folder and is committed, frame sheets included. Only the
+  owner's own marks and notes stay outside the repo.
 - **The meta line is part of the design.** It carries the measured quantities
   (counts, bandwidths, scores). A figure whose title claims something its meta
   line does not quantify is incomplete.

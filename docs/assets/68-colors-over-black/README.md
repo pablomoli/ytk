@@ -49,5 +49,7 @@ a logo card is as informative as his yes on a render.
 **Limits.** One tile per look, at sprite size. Two labeled frames. The
 thresholds are chosen, not fitted.
 
-`results.json` holds the numbers. The sheet of frames the number picks is
-written outside the repo.
+`results.json` holds the numbers. What the number picks, the 18 highest-scoring looks, 6 from the middle and
+12 near misses:
+
+![02](02-what-it-picks.png)

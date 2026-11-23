@@ -272,7 +272,7 @@ verdict(
 frame_panels(fig)
 fig.savefig(OUT / "02-describer.png", dpi=300, facecolor=BG)
 
-# Figure 3, outside the repo: frames next to what was written about them.
+# Figure 04: frames next to what was written about them.
 pick = [r for r in aware if "sprite" not in r["file"]]
 step = max(len(pick) // 12, 1)
 pick = pick[::step][:12]
@@ -338,6 +338,6 @@ fig.legend(
     fontsize=10,
 )
 fig.subplots_adjust(left=0.01, right=0.99, top=0.975, bottom=0.01, hspace=0.12, wspace=0.03)
-sheet = Path.home() / ".ytk" / "taste-spike" / "describer_frames.png"
+sheet = OUT / "04-described-frames.png"
 fig.savefig(sheet, dpi=200, facecolor=BG)
 print("saved", OUT / "02-describer.png", sheet)

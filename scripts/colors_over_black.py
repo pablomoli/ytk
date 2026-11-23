@@ -221,7 +221,7 @@ fig.suptitle(
     y=0.995,
 )
 fig.subplots_adjust(left=0.005, right=0.995, top=0.94, bottom=0.005, wspace=0.03, hspace=0.3)
-fig.savefig(PRIVATE / "colors_over_black_sheet.png", dpi=200, facecolor=BG)
+fig.savefig(OUT / "02-what-it-picks.png", dpi=200, facecolor=BG)
 json.dump(
     {name: [int(keep[i]) for i in idx] for name, idx in groups},
     open(PRIVATE / "colors_over_black_picks.json", "w"),
