@@ -172,6 +172,7 @@ ax.axhline(
     ls="--",
     label="pooled image model, how well it holds together",
 )
+ax.set_xlim(0, max(v for k, v in subject.items() if k != "image model, pooled") * 1.25)
 ax.set_xlabel(
     "follows subject: agreement with the pooled image model on neighbors from other items"
 )
