@@ -39,7 +39,12 @@ from plot_assets import (
 )
 
 T = Path.home() / ".ytk" / "taste-test"
-OUT = Path(__file__).resolve().parents[1] / "docs" / "assets" / "70-measurement-families"
+OUT = (
+    Path(__file__).resolve().parents[1]
+    / "docs"
+    / "assets"
+    / ("71-maps-moving-together" if (T / "together.npz").exists() else "70-measurement-families")
+)
 K_IN, K_OUT = 5, 10
 order = json.loads((T / "order.json").read_text())
 item = np.array([o["item"] for o in order])
@@ -59,6 +64,19 @@ fam |= {
 fam |= {
     f"image model, patch Gram, depth {d}": (sig[f"gram_{d}"], "image model") for d in (9, 18, 27)
 }
+if (T / "together.npz").exists():
+    tg = np.load(T / "together.npz")
+    fam |= {
+        "maps together, whole frame": (tg["together_scale_1"], "maps moving together"),
+        "maps together, blurred 4x": (tg["together_scale_4"], "maps moving together"),
+        "maps together, blurred 16x": (tg["together_scale_16"], "maps moving together"),
+        "maps together, blurred 64x": (tg["together_scale_64"], "maps moving together"),
+        "maps together, all four scales": (
+            np.hstack([tg[f"together_scale_{s}"] for s in (1, 4, 16, 64)]),
+            "maps moving together",
+        ),
+        "maps together, by region": (tg["together_by_region"], "maps moving together"),
+    }
 rng = np.random.default_rng(0)
 fam["random numbers"] = (rng.normal(size=(n, 32)), "reference")
 names = list(fam)
@@ -96,7 +114,7 @@ res = {
     }
     for k in names
 }
-(OUT / "results.json").write_text(
+(OUT / ("families.json" if (T / "together.npz").exists() else "results.json")).write_text(
     json.dumps({"frames": n, "chance_holds_together": chance_in, "families": res}, indent=1)
 )
 for k in sorted(names, key=lambda k: -holds[k]):
@@ -110,7 +128,7 @@ best_new = max((k for k in real if fam[k][1] != "image model"), key=lambda k: ho
 fig, top = figure(
     20,
     9.6,
-    70,
+    71 if (T / "together.npz").exists() else 70,
     "MEASUREMENT FAMILIES  ·  WHAT EACH KIND OF READING CARRIES",
     "Which measurements say something about a frame, and which say something the image model does not?",
     f"{n} frames from 50 items, every measure taken on the whole frame at its own size  ·  {len(names) - 1} families, {sum(fam[k][0].shape[1] for k in names if k != 'random numbers'):,} numbers per frame  ·  "
@@ -140,6 +158,7 @@ col = {
     "color, light, texture": GOLD,
     "where things are": CYAN,
     "image model": PURPLE,
+    "maps moving together": TEXT,
     "reference": MUTED,
 }
 ax.axhline(chance_in, color=DIM, lw=6, label="holds together by chance")
@@ -194,6 +213,10 @@ verdict(
     f"{best_new.replace('_', ' ')} holds together {holds[best_new]:.0%} of the time and shares {subject[best_new]:.0%} of neighbors with the image model",
 )
 frame_panels(fig)
-fig.savefig(OUT / "01-families.png", dpi=300, facecolor=BG)
+fig.savefig(
+    OUT / ("02-against-the-families.png" if (T / "together.npz").exists() else "01-families.png"),
+    dpi=300,
+    facecolor=BG,
+)
 print("saved")
 _ = ramp_legend

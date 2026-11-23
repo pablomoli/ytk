@@ -1,0 +1,204 @@
+{
+ "frames": 417,
+ "chance_holds_together": 0.02009546209186497,
+ "families": {
+  "tone": {
+   "group": "color, light, texture",
+   "numbers": 13,
+   "holds_together": 0.4071942446043165,
+   "follows_subject": 0.0407673860911271
+  },
+  "light_histogram": {
+   "group": "color, light, texture",
+   "numbers": 16,
+   "holds_together": 0.3990407673860911,
+   "follows_subject": 0.06211031175059952
+  },
+  "color": {
+   "group": "color, light, texture",
+   "numbers": 9,
+   "holds_together": 0.4628297362110312,
+   "follows_subject": 0.06211031175059952
+  },
+  "hue": {
+   "group": "color, light, texture",
+   "numbers": 23,
+   "holds_together": 0.4460431654676259,
+   "follows_subject": 0.060191846522781776
+  },
+  "hue_by_saturation": {
+   "group": "color, light, texture",
+   "numbers": 24,
+   "holds_together": 0.47338129496402875,
+   "follows_subject": 0.07290167865707434
+  },
+  "palette": {
+   "group": "color, light, texture",
+   "numbers": 22,
+   "holds_together": 0.2354916067146283,
+   "follows_subject": 0.046762589928057555
+  },
+  "dark_ground": {
+   "group": "color, light, texture",
+   "numbers": 5,
+   "holds_together": 0.34292565947242204,
+   "follows_subject": 0.047961630695443645
+  },
+  "frequency": {
+   "group": "color, light, texture",
+   "numbers": 13,
+   "holds_together": 0.3366906474820144,
+   "follows_subject": 0.06642685851318944
+  },
+  "frequency_direction": {
+   "group": "color, light, texture",
+   "numbers": 10,
+   "holds_together": 0.20959232613908874,
+   "follows_subject": 0.05683453237410072
+  },
+  "detail_by_scale": {
+   "group": "color, light, texture",
+   "numbers": 12,
+   "holds_together": 0.381294964028777,
+   "follows_subject": 0.051318944844124706
+  },
+  "edges": {
+   "group": "color, light, texture",
+   "numbers": 16,
+   "holds_together": 0.43884892086330934,
+   "follows_subject": 0.08585131894484413
+  },
+  "layout": {
+   "group": "where things are",
+   "numbers": 64,
+   "holds_together": 0.505515587529976,
+   "follows_subject": 0.08321342925659472
+  },
+  "thumbnail": {
+   "group": "where things are",
+   "numbers": 64,
+   "holds_together": 0.4105515587529976,
+   "follows_subject": 0.08513189448441247
+  },
+  "balance": {
+   "group": "where things are",
+   "numbers": 28,
+   "holds_together": 0.4273381294964029,
+   "follows_subject": 0.06426858513189448
+  },
+  "symmetry": {
+   "group": "where things are",
+   "numbers": 6,
+   "holds_together": 0.21247002398081535,
+   "follows_subject": 0.04364508393285372
+  },
+  "spread": {
+   "group": "where things are",
+   "numbers": 8,
+   "holds_together": 0.22685851318944844,
+   "follows_subject": 0.043165467625899276
+  },
+  "regions": {
+   "group": "where things are",
+   "numbers": 5,
+   "holds_together": 0.22446043165467625,
+   "follows_subject": 0.04508393285371702
+  },
+  "stroke_width": {
+   "group": "where things are",
+   "numbers": 4,
+   "holds_together": 0.1539568345323741,
+   "follows_subject": 0.05227817745803357
+  },
+  "complexity": {
+   "group": "color, light, texture",
+   "numbers": 3,
+   "holds_together": 0.31654676258992803,
+   "follows_subject": 0.06402877697841727
+  },
+  "image model, pooled": {
+   "group": "image model",
+   "numbers": 1152,
+   "holds_together": 0.8302158273381295,
+   "follows_subject": 1.0
+  },
+  "image model, patch stats, depth 9": {
+   "group": "image model",
+   "numbers": 2304,
+   "holds_together": 0.7165467625899281,
+   "follows_subject": 0.2141486810551559
+  },
+  "image model, patch stats, depth 18": {
+   "group": "image model",
+   "numbers": 2304,
+   "holds_together": 0.7491606714628297,
+   "follows_subject": 0.318705035971223
+  },
+  "image model, patch stats, depth 27": {
+   "group": "image model",
+   "numbers": 2304,
+   "holds_together": 0.7832134292565948,
+   "follows_subject": 0.45275779376498804
+  },
+  "image model, patch Gram, depth 9": {
+   "group": "image model",
+   "numbers": 2080,
+   "holds_together": 0.7213429256594724,
+   "follows_subject": 0.1856115107913669
+  },
+  "image model, patch Gram, depth 18": {
+   "group": "image model",
+   "numbers": 2080,
+   "holds_together": 0.5069544364508394,
+   "follows_subject": 0.13069544364508395
+  },
+  "image model, patch Gram, depth 27": {
+   "group": "image model",
+   "numbers": 2080,
+   "holds_together": 0.6858513189448441,
+   "follows_subject": 0.2976019184652278
+  },
+  "maps together, whole frame": {
+   "group": "maps moving together",
+   "numbers": 253,
+   "holds_together": 0.6302158273381295,
+   "follows_subject": 0.09544364508393285
+  },
+  "maps together, blurred 4x": {
+   "group": "maps moving together",
+   "numbers": 253,
+   "holds_together": 0.6335731414868105,
+   "follows_subject": 0.09568345323741008
+  },
+  "maps together, blurred 16x": {
+   "group": "maps moving together",
+   "numbers": 253,
+   "holds_together": 0.6220623501199041,
+   "follows_subject": 0.0856115107913669
+  },
+  "maps together, blurred 64x": {
+   "group": "maps moving together",
+   "numbers": 253,
+   "holds_together": 0.5918465227817746,
+   "follows_subject": 0.06666666666666667
+  },
+  "maps together, all four scales": {
+   "group": "maps moving together",
+   "numbers": 1012,
+   "holds_together": 0.6306954436450839,
+   "follows_subject": 0.0853717026378897
+  },
+  "maps together, by region": {
+   "group": "maps moving together",
+   "numbers": 4048,
+   "holds_together": 0.6441247002398082,
+   "follows_subject": 0.10479616306954435
+  },
+  "random numbers": {
+   "group": "reference",
+   "numbers": 32,
+   "holds_together": 0.022062350119904078,
+   "follows_subject": 0.026139088729016786
+  }
+ }
+}
