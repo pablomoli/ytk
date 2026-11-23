@@ -113,3 +113,8 @@ author. Readable text is still unmeasured.
 
 `invariance.json`, `conditional.json` and `directions-*.json` hold the
 numbers.
+
+> **Later:** `run72.sh` is gone. The same four sets go through
+> `taste_pass_cuda.py` (see the note in section 71): 10 min 27 s from
+> nothing against 11 min 45 s here, and 29 s once cached. Its outputs match
+> the files this section was computed from.

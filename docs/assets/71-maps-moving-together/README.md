@@ -77,3 +77,14 @@ relationships that are not linear and it discards position by design. The
 `families.json` holds both scores for every family. The maps are under
 `~/ytk-sprites/taste/maps_out` on the CUDA machine; the statistics are in
 `~/.ytk/taste-test/together.npz`.
+
+> **Later:** the 42 GB of stored maps was removed. Nothing read them: every
+> result here and in section 72 comes from the statistics, and a frame plus
+> `taste_maps_cuda.py` gives its maps back exactly. The three per-frame
+> scripts are now run by one command that decodes each frame once and keeps
+> each frame's readings in a cache keyed by the frame's bytes and the code:
+> `python taste_pass_cuda.py <frames> order.json <out> [--one-per-item]`.
+> Checked against this section's numbers: the map statistics are identical,
+> the bank agrees to 0.0002 (its box average is now taken along rows then
+> columns). A first pass over the 417 frames takes 183 s on the 3070; a
+> repeat takes 2 s.

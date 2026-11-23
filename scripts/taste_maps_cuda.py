@@ -5,23 +5,18 @@ Nothing is averaged down to one number per frame. For each frame, at its own siz
             detail at five scales, local contrast, stroke, flat ground ...)
   together  the correlation of every pair of channels across all pixels: at four scales
             (the frame as is, and blurred 4x, 16x, 64x), and inside each cell of a 4x4 grid
-The full maps are written to disk beside the statistics.
-Standalone for a CUDA machine (runs on CPU too): torch, numpy, PIL.
-
-    python taste_maps_cuda.py <flat_dir> <order.json> <out_dir> [--no-maps]
+The maps are never written: a frame's 22 maps are 22 times its pixels, and the frame
+and this file reproduce them exactly. Only the statistics are returned.
+Standalone for a CUDA machine (runs on CPU too): torch, numpy, PIL. Run by taste_pass_cuda.py.
 """
 
 from __future__ import annotations
 
-import json
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from PIL import Image
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 SCALES = (1, 4, 16, 64)
@@ -94,9 +89,8 @@ def together(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     return mu.float(), sd.float(), c[iu[0], iu[1]].float()
 
 
-def measure(path: Path) -> tuple[dict[str, np.ndarray], torch.Tensor]:
-    with Image.open(path) as im:
-        rgb = torch.from_numpy(np.asarray(im.convert("RGB"))).to(DEV).permute(2, 0, 1).float() / 255
+def measure(rgb: torch.Tensor) -> dict[str, np.ndarray]:
+    """rgb is the decoded frame, (3, H, W) in 0..1 on DEV. The maps live only for this call."""
     maps = channels(rgb)
     out: dict[str, np.ndarray] = {}
     for s in SCALES:
@@ -138,52 +132,4 @@ def measure(path: Path) -> tuple[dict[str, np.ndarray], torch.Tensor]:
             out[f"together_{name}"] = c[iu[0], iu[1]].cpu().numpy()
             del v, cov
         out[f"support_{name}"] = np.array([float(share)], np.float32)
-    return out, maps
-
-
-def main() -> None:
-    flat, order, dst = (
-        Path(sys.argv[1]),
-        json.loads(Path(sys.argv[2]).read_text()),
-        Path(sys.argv[3]),
-    )
-    keep = "--no-maps" not in sys.argv
-    (dst / "maps").mkdir(parents=True, exist_ok=True)
-    rows, pixels, written = [], 0, 0
-    for i, o in enumerate(order, 1):
-        stats, maps = measure(flat / o["name"])
-        rows.append(stats)
-        pixels += maps.shape[1] * maps.shape[2]
-        if keep:
-            target = dst / "maps" / (Path(o["name"]).stem + ".npy")
-            np.save(target, maps.half().cpu().numpy())
-            written += target.stat().st_size
-        del maps
-        if DEV == "cuda":
-            torch.cuda.empty_cache()
-        if i % 25 == 0 or i == len(order):
-            print(
-                f"{i}/{len(order)}  {pixels / 1e6:.0f} megapixels read, {written / 1e9:.1f} GB of maps written",
-                flush=True,
-            )
-    fams = list(rows[0])
-    np.savez_compressed(
-        dst / "together.npz",
-        families=np.array(fams),
-        channels=np.array(NAMES),
-        **{f: np.stack([r[f] for r in rows]) for f in fams},
-    )
-    print(
-        "DONE",
-        len(rows),
-        "frames,",
-        len(NAMES),
-        "channels,",
-        sum(rows[0][f].size for f in fams),
-        "numbers per frame,",
-        f"{written / 1e9:.1f} GB of maps",
-    )
-
-
-if __name__ == "__main__":
-    main()
+    return out

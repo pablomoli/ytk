@@ -18,6 +18,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import taste_maps_cuda as tm
+import torch
 from PIL import Image
 from plot_assets import BG, MUTED, TEXT, figure, frame_panels, saturated_magma, verdict
 
@@ -48,9 +49,9 @@ def full(v: np.ndarray) -> np.ndarray:
 
 stats = []
 for name, _ in PICKS:
-    s, _maps = tm.measure(T / "flat" / name)
-    stats.append(s)
-    del _maps
+    with Image.open(T / "flat" / name) as im:
+        rgb = torch.from_numpy(np.asarray(im.convert("RGB")).copy())
+    stats.append(tm.measure(rgb.to(tm.DEV).permute(2, 0, 1).float() / 255))
 gap = {}
 for key, label in VERSIONS:
     m = [full(s[key]) for s in stats]

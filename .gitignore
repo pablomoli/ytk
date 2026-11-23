@@ -62,3 +62,6 @@ media/
 
 # E1 embedding cache, regenerable by scripts/e1_style_lens.py
 docs/assets/23-style-lens/style-chunks.npz
+
+# Per-frame readings cached by scripts/taste_pass_cuda.py, regenerable from the frames
+scripts/cache/

@@ -3,19 +3,14 @@
 Every measure is taken over the full frame as served and is expressed relative to the frame
 (cycles per image, fractions of the long side), so a 4K frame and a 720p frame are read on the
 same terms. Families are kept apart so a later step can ask which carry what.
-Standalone for a CUDA machine: torch, numpy, scipy, PIL.
-
-    python taste_bank_cuda.py <flat_dir> <order.json> <out.npz>
+Standalone for a CUDA machine: torch, numpy, scipy, PIL. Run by taste_pass_cuda.py.
 """
 
 from __future__ import annotations
 
 import io
-import json
 import math
-import sys
 from itertools import pairwise
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -45,8 +40,11 @@ def grid(x: torch.Tensor, n: int) -> torch.Tensor:
 
 
 def blur(x: torch.Tensor, k: int) -> torch.Tensor:
+    # A box average is the same taken along rows then columns: 2k taps per pixel, not k squared.
     k = max(3, k | 1)
-    return F.avg_pool2d(F.pad(x[None, None], (k // 2,) * 4, mode="reflect"), k, 1)[0, 0]
+    h = k // 2
+    x = F.avg_pool2d(F.pad(x[None, None], (h, h, 0, 0), mode="reflect"), (1, k), 1)
+    return F.avg_pool2d(F.pad(x, (0, 0, h, h), mode="reflect"), (k, 1), 1)[0, 0]
 
 
 def entropy(p: torch.Tensor) -> torch.Tensor:
@@ -73,13 +71,15 @@ def moments(w: torch.Tensor) -> list[torch.Tensor]:
     ]
 
 
-def measure(path: Path) -> dict[str, np.ndarray]:
-    with Image.open(path) as im:
-        im = im.convert("RGB")
-        buf = io.BytesIO()
-        im.save(buf, "JPEG", quality=75)
-        jpeg_bpp = buf.tell() * 8 / (im.width * im.height)
-        rgb = torch.from_numpy(np.asarray(im)).to(DEV).permute(2, 0, 1).float() / 255
+def jpeg_bits(im: Image.Image) -> float:
+    """Bits per pixel of the frame saved as JPEG at quality 75: a plain measure of how busy it is."""
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=75)
+    return buf.tell() * 8 / (im.width * im.height)
+
+
+def measure(rgb: torch.Tensor, jpeg_bpp: float) -> dict[str, np.ndarray]:
+    """rgb is the decoded frame, (3, H, W) in 0..1 on DEV."""
     H, W = rgb.shape[1:]
     long = max(H, W)
     lum = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
@@ -272,35 +272,3 @@ def measure(path: Path) -> dict[str, np.ndarray]:
         W / H,
     ]
     return {k: np.array([float(x) for x in v], np.float32) for k, v in out.items()}
-
-
-def main() -> None:
-    flat, order, dst = (
-        Path(sys.argv[1]),
-        json.loads(Path(sys.argv[2]).read_text()),
-        Path(sys.argv[3]),
-    )
-    rows = []
-    for i, o in enumerate(order, 1):
-        rows.append(measure(flat / o["name"]))
-        if i % 25 == 0 or i == len(order):
-            print(f"{i}/{len(order)}", flush=True)
-    fams = list(rows[0])
-    np.savez_compressed(
-        dst,
-        families=np.array(fams),
-        **{f: np.nan_to_num(np.stack([r[f] for r in rows])) for f in fams},
-    )
-    print(
-        "DONE",
-        len(rows),
-        "frames,",
-        len(fams),
-        "families,",
-        sum(rows[0][f].size for f in fams),
-        "numbers per frame",
-    )
-
-
-if __name__ == "__main__":
-    main()
