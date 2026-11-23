@@ -730,7 +730,7 @@ function OrbPage() {
             </>
           ) : null}
         </aside>
-      ) : data && chrome && anchor !== null && knn && pendingPane === null ? (
+      ) : data && chrome && anchor !== null && knn && pendingPane === null && !(lava && terrain && viewMode === "globe") ? (
         <aside data-orb-neighbors className={`absolute bottom-4 left-4 overflow-hidden rounded-lg border border-white/10 bg-black/70 shadow-2xl backdrop-blur-md ${folded ? "max-w-80" : "w-80"}`}>
           <PanelHead
             label="nearest by meaning"

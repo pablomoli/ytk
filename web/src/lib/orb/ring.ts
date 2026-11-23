@@ -156,11 +156,13 @@ void main() {
     vec2 ride;
     vec3 to = lavaCarry(seat, 1.0, ride);
     down = clamp(uLavaPull * 1.5 - 0.25 * (seat.z + 1.0), 0.0, 1.0);
-    down = down * down * (3.0 - 2.0 * down);
+    // no flight between ring and seat: the grain shrinks away where it is and grows back where it is going
+    float there = step(0.5, down), shown = smoothstep(0.0, 1.0, abs(2.0 * down - 1.0));
     // 0.993: over the terrain sphere, under the tiles
-    cv = mix(cv, viewMatrix * vec4(to * (0.993 + 0.8 * ride.x), 1.0), down);
+    if (there > 0.5) cv = viewMatrix * vec4(to * (0.993 + 0.8 * ride.x), 1.0);
+    down = there;
     // a grain with no picture is a gray square up close: on the sphere it stays a speck
-    grow = mix(1.0, mix(0.5, 1.4, has) * ride.y, down);
+    grow = shown * mix(1.0, mix(0.5, 1.4, has) * ride.y, there);
   }
   float dist = length(cv.xyz);
   // a grain about to pass through the camera shrinks away instead of filling the view

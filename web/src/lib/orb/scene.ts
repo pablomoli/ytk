@@ -905,8 +905,21 @@ void main() { outColor = vec4(mix(texture(uA, vUv).r, texture(uB, vUv).r, uBack)
   for (const name of LAVA_SHARED) if (name !== "uLavaPull") material.uniforms[name] = lavaU[name];
   const lavaPull = { t: 0 };
   // the tiles ride the lava only where it shows: lava on, terrain on, seen from outside
+  // lava showing is a thing to watch: nothing under the pointer answers
+  const lavaShow = () => lava && terrain && mode === "globe";
   const pullTiles = () => {
-    const to = lava && terrain && mode === "globe" ? 1 : 0;
+    const to = lavaShow() ? 1 : 0;
+    if (to) {
+      if (focused >= 0) { doBlur(); cb.onBlur(); }
+      if (ringSel !== null && !carried) { readGrain(null); cb.onRingOpen?.(null); }
+      setRingHover(null);
+      if (hovered !== null) {
+        hovered = null;
+        material.uniforms.uHovered.value = -1;
+        showNeighbors(null);
+        cb.onHover(null);
+      }
+    }
     const set = () => { material.uniforms.uLavaPull.value = lavaPull.t; };
     gsap.to(lavaPull, { t: to, duration: reducedMotion() ? 0 : to ? 1.8 : 0.9, ease: to ? "none" : "power2.in", overwrite: true, onUpdate: set, onComplete: set });
   };
@@ -1309,7 +1322,9 @@ gl_Position = projectionMatrix * mvPosition;`);
   };
   const onUp = (e: PointerEvent) => {
     const { tap } = controls.up();
-    if (tap && pointerNdc && carried) {
+    if (lavaShow()) {
+      // a tap picks nothing while the lava shows
+    } else if (tap && pointerNdc && carried) {
       // a grain in the air finishes its trip first
     } else if (tap && pointerNdc && ringHover !== null) {
       if (ringHover !== ringSel) {
@@ -1971,7 +1986,7 @@ gl_Position = projectionMatrix * mvPosition;`);
       phase: ringPhase(turn.v),
     });
     placePending();
-    if (!controls.dragging && pointerNdc) {
+    if (!controls.dragging && pointerNdc && !lavaShow()) {
       let hit = pickTile(pointerNdc[0], pointerNdc[1], camera, centers, half(), facing(), aspects, scales, sheet);
       const grain = ring?.pick(pointerNdc[0], pointerNdc[1], camera) ?? null;
       let over: number | null = null;
