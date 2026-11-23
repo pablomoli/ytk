@@ -31,6 +31,7 @@ import {
   Scene,
   SphereGeometry,
   Texture,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from "three";
@@ -38,7 +39,7 @@ import { DUR, FLIGHT_EASE, gsap, reducedMotion } from "../motion";
 import type { LayoutName, OrbData } from "../../api/orb";
 import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
 import { buildAtlas, COLS, slotUv } from "./atlas";
-import { coastField, driftField } from "./coast";
+import { coastField } from "./coast";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
 import { GRAIN, NO_COVER, ORBIT_OUT, SELECT, createRing, ringOpen, ringPhase, type RingData, type RingHandle, type RingItem } from "./ring";
@@ -756,6 +757,9 @@ export function mountOrb(
       // 0 = z-lat, the frame the tile directions are in; the y-up swizzle would move the land off the tiles
       uYUp: { value: 0 },
       uHueRot: { value: new Matrix3() },
+      uLava: { value: 0 }, uLavaTime: { value: 0 }, uLavaCut: { value: 1 },
+      uLavaA: { value: new Vector3() }, uLavaB: { value: new Vector3() },
+      uLavaShapeA: { value: new Vector2(0.5, 2) }, uLavaShapeB: { value: new Vector2(0.5, 2) },
     },
   });
   coastRamp.bind(coastMat.uniforms.uRamp);
@@ -768,20 +772,36 @@ export function mountOrb(
     coastTex.needsUpdate = true;
   };
   // carries whatever is on screen to coastTo; a span of 0 lands at once
-  const coastGo = (span: number, ease: string, then?: () => void) => {
+  const coastGo = (span: number) => {
     coastFrom.set(coastData);
     gsap.killTweensOf(coastMix);
-    if (span <= 0) { coastMix.t = 1; blendCoast(); then?.(); return; }
+    if (span <= 0) { coastMix.t = 1; blendCoast(); return; }
     coastMix.t = 0;
-    gsap.to(coastMix, { t: 1, duration: span, ease, onUpdate: blendCoast, onComplete: then });
+    gsap.to(coastMix, { t: 1, duration: span, ease: "none", onUpdate: blendCoast });
   };
-  // lava: the land wanders through made-up shapes, one after another, for as long as it is on
+  // lava: the shader swaps the baked field for moving noise. A state is a place in the noise plus a
+  // sea level and a grain; the loop crossfades to a fresh state, back to back, for as long as it is on.
   let lava = false;
-  const LAVA_SPAN = 7; // seconds per shape: slow enough to watch a coast crawl, quick enough to see it loop
-  const lavaNext = (span = LAVA_SPAN) => {
-    driftField(Math.random, FIELD_W, FIELD_H, coastTo);
-    if (reducedMotion()) { coastGo(0, "none"); return; } // one still shape, no loop
-    coastGo(span, "sine.inOut", () => { if (lava && terrain) lavaNext(); });
+  const LAVA_HOLD = 12; // seconds per crossfade
+  const LAVA_FLOW = 0.1; // noise units per second: a coast visibly crawls, nothing darts
+  const LAVA_SURGE = 9; // flow multiplier at the start of a change of arrangement, falling back to 1
+  const lavaMix = { t: 0 }, lavaCut = { t: 1 }, lavaRate = { v: 1 };
+  const lavaU = coastMat.uniforms;
+  const lavaState = (off: Vector3, shape: Vector2) => {
+    off.set(Math.random() * 100, Math.random() * 100, Math.random() * 100);
+    // two in five are island states: a high sea and a fine grain leave scattered small land
+    if (Math.random() < 0.4) shape.set(0.56 + Math.random() * 0.05, 3 + Math.random() * 2);
+    else shape.set(0.46 + Math.random() * 0.07, 1.5 + Math.random() * 1.2);
+  };
+  lavaState(lavaU.uLavaB.value, lavaU.uLavaShapeB.value);
+  const lavaLoop = () => {
+    gsap.killTweensOf(lavaCut);
+    if (!lava || !terrain || reducedMotion()) return;
+    lavaU.uLavaA.value.copy(lavaU.uLavaB.value);
+    lavaU.uLavaShapeA.value.copy(lavaU.uLavaShapeB.value);
+    lavaState(lavaU.uLavaB.value, lavaU.uLavaShapeB.value);
+    lavaCut.t = lavaU.uLavaCut.value = 0;
+    gsap.to(lavaCut, { t: 1, duration: LAVA_HOLD, ease: "none", onUpdate: () => { lavaU.uLavaCut.value = lavaCut.t; }, onComplete: lavaLoop });
   };
   // only while terrain is on: the bake is tens of milliseconds and nobody sees it otherwise
   const bakeCoast = (force = false) => {
@@ -791,8 +811,8 @@ export function mountOrb(
     coastLens = key;
     // the land follows the tiles across, over the same span as their flight
     const span = first || reducedMotion() ? 0 : MORPH_DUR * (1 + MORPH_WAVE);
-    // under lava a change of arrangement or theme cuts to the next shape, in step with the tiles
-    if (lava) { lavaNext(span); return; }
+    // under lava a change of arrangement or theme makes the land churn while the tiles fly
+    if (lava && span > 0) gsap.fromTo(lavaRate, { v: LAVA_SURGE }, { v: 1, duration: span, ease: "none", overwrite: true });
     let m = 0;
     for (let i = 0; i < n; i++) m += onShow[i];
     const dirs = new Float32Array(m * 3), themes = new Int16Array(m);
@@ -803,7 +823,7 @@ export function mountOrb(
     }
     // under time a theme is scattered by date, so only the gaps make sea there
     coastField(dirs, FIELD_W, FIELD_H, coastTo, lens === "time" || alone !== null ? undefined : themes);
-    coastGo(span, "power1.inOut");
+    coastGo(span);
   };
 
   // spike: neighbor arcs. One LineSegments, rebuilt on hover, faded with gsap.
@@ -1735,6 +1755,7 @@ void main() {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     arcMat.uniforms.uTime.value += dt;
+    if (lava && terrain && !reducedMotion()) lavaU.uLavaTime.value += dt * LAVA_FLOW * lavaRate.v;
     const busy = controls.dragging || hovered !== null || focused >= 0 || ringHover !== null || ringSel !== null || carried !== null || searchHits.length > 0;
     idle = busy ? 0 : idle + dt;
     if (idle > IDLE_AFTER && !reducedMotion()) controls.nudge(DRIFT * dt * Math.min(1, (idle - IDLE_AFTER) / 2));
@@ -1866,12 +1887,14 @@ void main() {
       // off stops the loop mid-shape, so coming back on always redraws
       if (on) bakeCoast(true);
       else gsap.killTweensOf(coastMix);
+      lavaLoop();
       coast.visible = coastVisible(mode, coastLens !== null, terrain);
     },
     setLava(on) {
       if (on === lava) return;
       lava = on;
-      bakeCoast(true);
+      gsap.to(lavaMix, { t: on ? 1 : 0, duration: reducedMotion() ? 0 : 1.6, ease: "none", overwrite: true, onUpdate: () => { lavaU.uLava.value = lavaMix.t; } });
+      lavaLoop();
     },
     aimAt(dir) {
       const l = Math.hypot(dir[0], dir[1], dir[2]);
@@ -1959,6 +1982,9 @@ void main() {
       coastMat.dispose();
       coastRamp.dispose();
       gsap.killTweensOf(coastMix);
+      gsap.killTweensOf(lavaMix);
+      gsap.killTweensOf(lavaCut);
+      gsap.killTweensOf(lavaRate);
       coastTex.dispose();
       renderer.dispose();
     },

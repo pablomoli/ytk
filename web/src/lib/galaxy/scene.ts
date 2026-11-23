@@ -86,6 +86,10 @@ uniform sampler2D uField;
 uniform sampler2D uRamp;
 uniform float uSpin, uSeed, uCoastAmp, uYUp;
 uniform mat3 uHueRot;
+// lava (orb only; unset elsewhere, so 0): a field made of moving noise instead of the baked one
+uniform float uLava, uLavaTime, uLavaCut;
+uniform vec3 uLavaA, uLavaB;
+uniform vec2 uLavaShapeA, uLavaShapeB; // (sea level, grain)
 in vec3 vN;
 out vec4 outColor;
 
@@ -115,6 +119,14 @@ float fbm3(vec3 p) {
   return sum / norm;
 }
 
+float lavaField(vec3 off, vec2 shape) {
+  vec3 p = vN * shape.y + off;
+  vec3 q = p * 0.7;
+  vec3 warp = vec3(vnoise(q + vec3(uLavaTime, 0.0, 0.0)), vnoise(q + vec3(11.0, uLavaTime, 0.0)), vnoise(q + vec3(0.0, 23.0, uLavaTime))) - 0.5;
+  float n = fbm3(p + 1.6 * warp + vec3(0.0, 0.0, 0.35 * uLavaTime));
+  return 0.5 + 4.0 * (n - shape.x);
+}
+
 void main() {
   // equirect sample of the baked field; 0.5 = shoreline (ytk/coast.py contract).
   // uYUp=1 (galaxy planets, sun): latitude from world y, so uSpin turns the
@@ -124,7 +136,10 @@ void main() {
   float lon = atan(mix(vN.y, vN.z, uYUp), vN.x);
   float lat = asin(clamp(mix(vN.z, vN.y, uYUp), -1.0, 1.0));
   vec2 uv = vec2(lon / 6.28318530718 + 0.5 + uSpin, 0.5 + lat / 3.14159265359);
-  float d = texture(uField, uv).r + uCoastAmp * (fbm3(vN * 9.0 + uSeed) - 0.5);
+  float base = texture(uField, uv).r;
+  // floor 0.2: an island state is mostly sea, and sea at 0 is black
+  if (uLava > 0.0) base = mix(base, clamp(mix(lavaField(uLavaA, uLavaShapeA), lavaField(uLavaB, uLavaShapeB), uLavaCut), 0.2, 1.0), uLava);
+  float d = base + uCoastAmp * (fbm3(vN * 9.0 + uSeed) - 0.5);
   // E30 fig_field's palette, but split at the shoreline: sea rides the ramp's
   // low band, land the high one, and the gap between them is the coast.
   float tSea = ${SEA_FLOOR.toFixed(2)} + ${(SEA_CEIL - SEA_FLOOR).toFixed(2)} * pow(clamp(d * 2.0, 0.0, 1.0), ${PUNCH_GAMMA.toFixed(2)});
