@@ -1,6 +1,7 @@
 import {
   AdditiveBlending,
   BufferGeometry,
+  Camera,
   ClampToEdgeWrapping,
   DataTexture,
   BufferAttribute,
@@ -12,13 +13,16 @@ import {
   SpriteMaterial,
   LineSegments,
   DoubleSide,
+  FloatType,
   GLSL3,
+  HalfFloatType,
   InstancedBufferAttribute,
   InstancedBufferGeometry,
   LinearFilter,
   Matrix3,
   Matrix4,
   Mesh,
+  NearestFilter,
   MeshBasicMaterial,
   SRGBColorSpace,
   PerspectiveCamera,
@@ -26,7 +30,7 @@ import {
   Points,
   PointsMaterial,
   RawShaderMaterial,
-  RedFormat,
+  RGBAFormat,
   RepeatWrapping,
   Scene,
   SphereGeometry,
@@ -34,12 +38,13 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
+  WebGLRenderTarget,
 } from "three";
 import { DUR, FLIGHT_EASE, gsap, reducedMotion } from "../motion";
 import type { LayoutName, OrbData } from "../../api/orb";
 import { PLANET_COAST_AMP, PLANET_FRAG, PLANET_VERT, loadRamp } from "../galaxy/scene";
 import { buildAtlas, COLS, slotUv } from "./atlas";
-import { coastField } from "./coast";
+import { coastLevels, coastRadius } from "./coast";
 import { createControls } from "./controls";
 import { pickTile, tileScreenRect } from "./pick";
 import { GRAIN, NO_COVER, ORBIT_OUT, SELECT, createRing, ringOpen, ringPhase, type RingData, type RingHandle, type RingItem } from "./ring";
@@ -731,17 +736,94 @@ export function mountOrb(
   // bake has loaded (Task 12). Same shader as galaxy's planets, uSpin pinned.
   let disposed = false;
   let terrain = false; // spike: the coast sphere ships off; the /orb toggle turns it on
-  // the field is drawn from the tiles of the lens in force, so the land always sits under them
-  const FIELD_W = 256, FIELD_H = 128;
-  const coastData = new Uint8Array(FIELD_W * FIELD_H);
-  const coastFrom = new Uint8Array(FIELD_W * FIELD_H), coastTo = new Uint8Array(FIELD_W * FIELD_H);
-  const coastTex = new DataTexture(coastData, FIELD_W, FIELD_H, RedFormat);
-  coastTex.wrapS = RepeatWrapping; // the seam meridian samples across the edge
-  coastTex.wrapT = ClampToEdgeWrapping;
-  coastTex.minFilter = LinearFilter;
-  coastTex.magFilter = LinearFilter;
+  // the field is drawn from the tiles of the lens in force, so the land always sits under them.
+  // The graphics card draws it into four images: the one shown, the one being left, a spare for the
+  // next, and one to hold a fade frozen mid-flight.
+  const FIELD_W = 1024, FIELD_H = 512;
+  const fieldTarget = () => {
+    // half floats: bytes turn a gentle slope into terraces, and the coast line traces their edges
+    const rt = new WebGLRenderTarget(FIELD_W, FIELD_H, { type: HalfFloatType, depthBuffer: false, minFilter: LinearFilter, magFilter: LinearFilter });
+    rt.texture.wrapS = RepeatWrapping; // the seam meridian samples across the edge
+    rt.texture.wrapT = ClampToEdgeWrapping;
+    return rt;
+  };
+  let fieldNow = fieldTarget(), fieldPrev = fieldTarget(), fieldSpare = fieldTarget(), fieldHold = fieldTarget();
+  const FIELD_VERT = /* glsl */ `
+precision highp float;
+in vec3 position;
+out vec2 vUv;
+void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+  // the same arithmetic as coast.ts coastField, one pixel at a time
+  const fieldMat = new RawShaderMaterial({
+    glslVersion: GLSL3,
+    depthTest: false,
+    depthWrite: false,
+    vertexShader: FIELD_VERT,
+    fragmentShader: /* glsl */ `
+precision highp float;
+precision highp sampler2D;
+uniform sampler2D uTiles; // one tile per texel: direction xyz, cohesion w
+uniform int uCount;
+uniform float uCoast, uThemed, uShore, uSpan;
+in vec2 vUv;
+out vec4 outColor;
+void main() {
+  float lon = (vUv.x - 0.5) * 6.28318530718, lat = (vUv.y - 0.5) * 3.14159265359;
+  float cl = cos(lat);
+  vec3 p = vec3(cl * cos(lon), cl * sin(lon), sin(lat));
+  float beta = 3.0 / uCoast, near = cos(min(3.14159265359, 4.0 * uCoast));
+  float sum = 0.0, best = -1.0, alike = 0.0;
+  for (int k = 0; k < ${4096}; k++) {
+    if (k >= uCount) break;
+    vec4 t = texelFetch(uTiles, ivec2(k, 0), 0);
+    float d = dot(p, t.xyz);
+    best = max(best, d);
+    if (d > near) {
+      float w = exp(-beta * acos(min(1.0, d)));
+      sum += w;
+      alike += w * t.w;
+    }
+  }
+  float dist = sum > 0.0 ? -log(sum) / beta : acos(clamp(best, -1.0, 1.0));
+  float v = 0.5 - (dist - uCoast) / (5.0 * uCoast);
+  if (uThemed > 0.5) v = min(v, 0.5 + 0.5 * ((sum > 0.0 ? alike / sum : 0.0) - uShore) / uSpan);
+  outColor = vec4(clamp(v, 0.0, 1.0), 0.0, 0.0, 1.0);
+}`,
+    uniforms: { uTiles: { value: null }, uCount: { value: 0 }, uCoast: { value: 1 }, uThemed: { value: 0 }, uShore: { value: 0 }, uSpan: { value: 1 } },
+  });
+  // freezes a fade in flight into one image, so a change made mid-fade starts from what is on screen
+  const fieldMixMat = new RawShaderMaterial({
+    glslVersion: GLSL3,
+    depthTest: false,
+    depthWrite: false,
+    vertexShader: FIELD_VERT,
+    fragmentShader: /* glsl */ `
+precision highp float;
+uniform sampler2D uA, uB;
+uniform float uBack;
+in vec2 vUv;
+out vec4 outColor;
+void main() { outColor = vec4(mix(texture(uA, vUv).r, texture(uB, vUv).r, uBack), 0.0, 0.0, 1.0); }`,
+    uniforms: { uA: { value: null }, uB: { value: null }, uBack: { value: 0 } },
+  });
+  const fieldQuad = new Mesh(new PlaneGeometry(2, 2), fieldMat);
+  fieldQuad.frustumCulled = false;
+  const fieldCam = new Camera();
+  const TILE_CAP = 4096; // the shader's loop bound, and under every card's texture width
+  const tileData = new Float32Array(TILE_CAP * 4);
+  const tileTex = new DataTexture(tileData, TILE_CAP, 1, RGBAFormat, FloatType);
+  tileTex.minFilter = NearestFilter;
+  tileTex.magFilter = NearestFilter;
+  fieldMat.uniforms.uTiles.value = tileTex;
+  const drawField = (mat: RawShaderMaterial, into: WebGLRenderTarget) => {
+    fieldQuad.material = mat;
+    const was = renderer.getRenderTarget();
+    renderer.setRenderTarget(into);
+    renderer.render(fieldQuad, fieldCam);
+    renderer.setRenderTarget(was);
+  };
   let coastLens: string | null = null; // the lens and theme the field was drawn for
-  const coastMix = { t: 1 };
+  const coastBack = { t: 0 }; // how much of the field being left still shows
   const coastRamp = loadRamp();
   const coastGeo = new SphereGeometry(0.985, 64, 32);
   const coastMat = new RawShaderMaterial({
@@ -749,7 +831,9 @@ export function mountOrb(
     vertexShader: PLANET_VERT,
     fragmentShader: PLANET_FRAG,
     uniforms: {
-      uField: { value: coastTex },
+      uField: { value: fieldNow.texture },
+      uFieldPrev: { value: fieldPrev.texture },
+      uFieldBack: { value: 0 },
       uRamp: { value: null },
       uSpin: { value: 0 },
       uSeed: { value: 0 },
@@ -766,18 +850,27 @@ export function mountOrb(
   const coast = new Mesh(coastGeo, coastMat);
   coast.visible = false;
   scene.add(coast);
-  const blendCoast = () => {
-    const t = coastMix.t;
-    for (let k = 0; k < coastData.length; k++) coastData[k] = coastFrom[k] + (coastTo[k] - coastFrom[k]) * t;
-    coastTex.needsUpdate = true;
-  };
-  // carries whatever is on screen to coastTo; a span of 0 lands at once
+  // fades from whatever is on screen to the field just drawn into the spare; a span of 0 lands at once
   const coastGo = (span: number) => {
-    coastFrom.set(coastData);
-    gsap.killTweensOf(coastMix);
-    if (span <= 0) { coastMix.t = 1; blendCoast(); return; }
-    coastMix.t = 0;
-    gsap.to(coastMix, { t: 1, duration: span, ease: "none", onUpdate: blendCoast });
+    gsap.killTweensOf(coastBack);
+    const u = coastMat.uniforms;
+    const wasNow = fieldNow, wasPrev = fieldPrev;
+    if (coastBack.t > 0) {
+      // caught mid-fade: what is on screen is a mix, so freeze that mix and leave from it
+      fieldMixMat.uniforms.uA.value = wasNow.texture;
+      fieldMixMat.uniforms.uB.value = wasPrev.texture;
+      fieldMixMat.uniforms.uBack.value = coastBack.t;
+      drawField(fieldMixMat, fieldHold);
+      fieldPrev = fieldHold; fieldNow = fieldSpare; fieldSpare = wasNow; fieldHold = wasPrev;
+    } else {
+      fieldPrev = wasNow; fieldNow = fieldSpare; fieldSpare = wasPrev;
+    }
+    u.uField.value = fieldNow.texture;
+    u.uFieldPrev.value = fieldPrev.texture;
+    const set = () => { u.uFieldBack.value = coastBack.t; };
+    if (span <= 0) { coastBack.t = 0; set(); return; }
+    coastBack.t = 1; set();
+    gsap.to(coastBack, { t: 0, duration: span, ease: "none", onUpdate: set });
   };
   // lava: the shader swaps the baked field for moving noise. A state is a place in the noise plus a
   // sea level and a grain; the loop crossfades to a fresh state, back to back, for as long as it is on.
@@ -814,15 +907,30 @@ export function mountOrb(
     // under lava a change of arrangement or theme makes the land churn while the tiles fly
     if (lava && span > 0) gsap.fromTo(lavaRate, { v: LAVA_SURGE }, { v: 1, duration: span, ease: "none", overwrite: true });
     let m = 0;
-    for (let i = 0; i < n; i++) m += onShow[i];
-    const dirs = new Float32Array(m * 3), themes = new Int16Array(m);
-    for (let i = 0, k = 0; i < n; i++) {
+    for (let i = 0; i < n && m < TILE_CAP; i++) {
       if (!onShow[i]) continue;
-      dirs.set(morphTo.subarray(i * 3, i * 3 + 3), k * 3);
-      themes[k++] = points[i].th ?? -1;
+      tileData.set(morphTo.subarray(i * 3, i * 3 + 3), m * 4);
+      m++;
     }
+    const u = fieldMat.uniforms;
+    u.uCount.value = m;
+    u.uCoast.value = coastRadius(m);
     // under time a theme is scattered by date, so only the gaps make sea there
-    coastField(dirs, FIELD_W, FIELD_H, coastTo, lens === "time" || alone !== null ? undefined : themes);
+    u.uThemed.value = lens === "time" || alone !== null ? 0 : 1;
+    if (u.uThemed.value) {
+      const dirs = new Float32Array(m * 3), themes = new Int16Array(m);
+      for (let i = 0, k = 0; i < n && k < m; i++) {
+        if (!onShow[i]) continue;
+        dirs.set(morphTo.subarray(i * 3, i * 3 + 3), k * 3);
+        themes[k++] = points[i].th ?? -1;
+      }
+      const lv = coastLevels(dirs, themes);
+      for (let k = 0; k < m; k++) tileData[k * 4 + 3] = lv.kin[k];
+      u.uShore.value = lv.shore;
+      u.uSpan.value = lv.span;
+    }
+    tileTex.needsUpdate = true;
+    drawField(fieldMat, fieldSpare);
     coastGo(span);
   };
 
@@ -1886,7 +1994,6 @@ void main() {
       terrain = on;
       // off stops the loop mid-shape, so coming back on always redraws
       if (on) bakeCoast(true);
-      else gsap.killTweensOf(coastMix);
       lavaLoop();
       coast.visible = coastVisible(mode, coastLens !== null, terrain);
     },
@@ -1981,11 +2088,12 @@ void main() {
       coastGeo.dispose();
       coastMat.dispose();
       coastRamp.dispose();
-      gsap.killTweensOf(coastMix);
+      gsap.killTweensOf(coastBack);
       gsap.killTweensOf(lavaMix);
       gsap.killTweensOf(lavaCut);
       gsap.killTweensOf(lavaRate);
-      coastTex.dispose();
+      fieldNow.dispose(); fieldPrev.dispose(); fieldSpare.dispose(); fieldHold.dispose();
+      tileTex.dispose(); fieldMat.dispose(); fieldMixMat.dispose(); fieldQuad.geometry.dispose();
       renderer.dispose();
     },
   };

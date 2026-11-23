@@ -90,6 +90,9 @@ uniform mat3 uHueRot;
 uniform float uLava, uLavaTime, uLavaCut;
 uniform vec3 uLavaA, uLavaB;
 uniform vec2 uLavaShapeA, uLavaShapeB; // (sea level, grain)
+// orb only: the field being left, and how much of it still shows (0 elsewhere)
+uniform sampler2D uFieldPrev;
+uniform float uFieldBack;
 in vec3 vN;
 out vec4 outColor;
 
@@ -137,6 +140,7 @@ void main() {
   float lat = asin(clamp(mix(vN.z, vN.y, uYUp), -1.0, 1.0));
   vec2 uv = vec2(lon / 6.28318530718 + 0.5 + uSpin, 0.5 + lat / 3.14159265359);
   float base = texture(uField, uv).r;
+  if (uFieldBack > 0.0) base = mix(base, texture(uFieldPrev, uv).r, uFieldBack);
   // floor 0.2: an island state is mostly sea, and sea at 0 is black
   if (uLava > 0.0) base = mix(base, clamp(mix(lavaField(uLavaA, uLavaShapeA), lavaField(uLavaB, uLavaShapeB), uLavaCut), 0.2, 1.0), uLava);
   float d = base + uCoastAmp * (fbm3(vN * 9.0 + uSeed) - 0.5);

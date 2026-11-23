@@ -44,12 +44,10 @@ function seaLevel(field: Float32Array, w: number, h: number, share: number): { s
   return { shore, high };
 }
 
-/** Equirect field (w x h, row 0 at the south pole, z up). Land needs tiles nearby; given themes, it also
-    needs them to belong together, so the coast runs where one theme gives way to another. */
-export function coastField(dirs: ArrayLike<number>, w: number, h: number, out = new Uint8Array(w * h), themes?: ArrayLike<number>): Uint8Array {
+// per cell: how far the nearest tiles are (as a field value) and, given kin, how well they belong together
+function scan(dirs: ArrayLike<number>, kin: Float32Array | null, w: number, h: number): { gaps: Float32Array; together: Float32Array | null } {
   const n = Math.floor(dirs.length / 3);
-  const kin = themes ? cohesion(dirs, themes) : null;
-  const together = kin ? new Float32Array(w * h) : null, gaps = kin ? new Float32Array(w * h) : null;
+  const gaps = new Float32Array(w * h), together = kin ? new Float32Array(w * h) : null;
   const coast = coastRadius(n), beta = 3 / coast;
   // tiles further than this add under e^-12 to the blend
   const near = Math.cos(Math.min(Math.PI, 4 * coast));
@@ -70,16 +68,33 @@ export function coastField(dirs: ArrayLike<number>, w: number, h: number, out = 
         }
       }
       const dist = sum > 0 ? -Math.log(sum) / beta : Math.acos(Math.max(-1, Math.min(1, best)));
-      const v = 0.5 - (dist - coast) / (5 * coast);
-      if (together && gaps) { together[j * w + i] = sum > 0 ? alike / sum : 0; gaps[j * w + i] = v; }
-      else out[j * w + i] = Math.round(255 * Math.max(0, Math.min(1, v)));
+      gaps[j * w + i] = 0.5 - (dist - coast) / (5 * coast);
+      if (together) together[j * w + i] = sum > 0 ? alike / sum : 0;
     }
   }
-  if (!together || !gaps) return out;
-  const { shore, high } = seaLevel(together, w, h, LAND_SHARE);
-  const span = Math.max(1e-3, high - shore);
+  return { gaps, together };
+}
+
+/** What the graphics card needs to draw the themed field itself: each tile's cohesion, and the sea level
+    and inland span, read off a coarse scan (they are two numbers; a fine grid would not change them much). */
+export function coastLevels(dirs: ArrayLike<number>, themes: ArrayLike<number>, w = 96, h = 48): { kin: Float32Array; shore: number; span: number } {
+  const kin = cohesion(dirs, themes);
+  const { shore, high } = seaLevel(scan(dirs, kin, w, h).together as Float32Array, w, h, LAND_SHARE);
+  return { kin, shore, span: Math.max(1e-3, high - shore) };
+}
+
+/** Equirect field (w x h, row 0 at the south pole, z up). Land needs tiles nearby; given themes, it also
+    needs them to belong together, so the coast runs where one theme gives way to another.
+    The reference for the shader in scene.ts, which draws the same field on the graphics card. */
+export function coastField(dirs: ArrayLike<number>, w: number, h: number, out = new Uint8Array(w * h), themes?: ArrayLike<number>): Uint8Array {
+  const { gaps, together } = scan(dirs, themes ? cohesion(dirs, themes) : null, w, h);
+  let shore = 0, span = 1;
+  if (together) {
+    const lv = seaLevel(together, w, h, LAND_SHARE);
+    shore = lv.shore; span = Math.max(1e-3, lv.high - lv.shore);
+  }
   for (let c = 0; c < out.length; c++) {
-    const v = Math.min(gaps[c], 0.5 + (0.5 * (together[c] - shore)) / span);
+    const v = together ? Math.min(gaps[c], 0.5 + (0.5 * (together[c] - shore)) / span) : gaps[c];
     out[c] = Math.round(255 * Math.max(0, Math.min(1, v)));
   }
   return out;
